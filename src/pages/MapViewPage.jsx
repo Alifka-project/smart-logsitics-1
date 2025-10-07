@@ -33,8 +33,8 @@ export default function MapViewPage() {
 
   if (deliveries.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-12 text-center">
-        <p className="text-gray-500 text-lg">
+      <div className="bg-white rounded-lg shadow-md p-6 sm:p-8 lg:p-12 text-center">
+        <p className="text-gray-500 text-base sm:text-lg">
           No deliveries loaded. Please upload data or load synthetic data first.
         </p>
       </div>
@@ -42,46 +42,48 @@ export default function MapViewPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Route Info */}
-      <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg shadow-lg p-6">
-        <h2 className="text-2xl font-bold mb-4">📍 Optimized Delivery Route</h2>
-        <div className="grid grid-cols-3 gap-4 text-center">
+      <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg shadow-lg p-4 sm:p-6">
+        <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">📍 Optimized Delivery Route</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-center">
           <div>
-            <div className="text-3xl font-bold">{deliveries.length}</div>
-            <div className="text-sm opacity-90">Total Stops</div>
+            <div className="text-2xl sm:text-3xl font-bold">{deliveries.length}</div>
+            <div className="text-xs sm:text-sm opacity-90">Total Stops</div>
           </div>
           <div>
-            <div className="text-3xl font-bold">
+            <div className="text-2xl sm:text-3xl font-bold">
               {route ? route.distance.toFixed(1) : '...'} km
             </div>
-            <div className="text-sm opacity-90">Total Distance</div>
+            <div className="text-xs sm:text-sm opacity-90">Total Distance</div>
           </div>
           <div>
-            <div className="text-3xl font-bold">
+            <div className="text-2xl sm:text-3xl font-bold">
               {route ? ((route.time + deliveries.length * 3600) / 3600).toFixed(1) : '...'} hrs
             </div>
-            <div className="text-sm opacity-90">Est. Time (with installation)</div>
+            <div className="text-xs sm:text-sm opacity-90">Est. Time (with installation)</div>
           </div>
         </div>
-        <p className="text-sm mt-4 opacity-90">
-          ✓ Starting Point: Jebel Ali Free Zone, Dubai
-        </p>
-        <p className="text-sm opacity-90">
-          ✓ Route optimized by distance - closest deliveries first
-        </p>
-        <p className="text-sm opacity-90">
-          ✓ Includes 1 hour installation time per stop
-        </p>
+        <div className="mt-3 sm:mt-4 space-y-1">
+          <p className="text-xs sm:text-sm opacity-90">
+            ✓ Starting Point: Jebel Ali Free Zone, Dubai
+          </p>
+          <p className="text-xs sm:text-sm opacity-90">
+            ✓ Route optimized by distance - closest deliveries first
+          </p>
+          <p className="text-xs sm:text-sm opacity-90">
+            ✓ Includes 1 hour installation time per stop
+          </p>
+        </div>
       </div>
 
       {/* Map */}
       <div className="bg-white rounded-lg shadow-lg overflow-hidden">
         {isLoading ? (
-          <div className="h-[600px] flex items-center justify-center">
+          <div className="h-[400px] sm:h-[500px] lg:h-[600px] flex items-center justify-center">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">Calculating route...</p>
+              <div className="animate-spin rounded-full h-12 w-12 sm:h-16 sm:w-16 border-b-2 border-purple-600 mx-auto mb-4"></div>
+              <p className="text-gray-600 text-sm sm:text-base">Calculating route...</p>
             </div>
           </div>
         ) : (

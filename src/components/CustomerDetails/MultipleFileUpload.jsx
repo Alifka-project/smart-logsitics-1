@@ -37,12 +37,12 @@ export default function MultipleFileUpload({ photos, setPhotos }) {
       
       {/* Upload Button */}
       <div className="space-y-4">
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white font-semibold rounded-lg hover:shadow-lg transition-all"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white font-semibold rounded-lg hover:shadow-lg transition-all text-sm sm:text-base"
           >
-            <Upload className="w-5 h-5" />
+            <Upload className="w-4 h-4 sm:w-5 sm:h-5" />
             Upload Photos
           </button>
           
@@ -51,9 +51,9 @@ export default function MultipleFileUpload({ photos, setPhotos }) {
               fileInputRef.current?.setAttribute('capture', 'camera');
               fileInputRef.current?.click();
             }}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-lg hover:shadow-lg transition-all"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-lg hover:shadow-lg transition-all text-sm sm:text-base"
           >
-            <Camera className="w-5 h-5" />
+            <Camera className="w-4 h-4 sm:w-5 sm:h-5" />
             Take Photo
           </button>
         </div>
@@ -88,7 +88,7 @@ export default function MultipleFileUpload({ photos, setPhotos }) {
             </button>
           </div>
           
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
             {photos.map((photo) => (
               <div
                 key={photo.id}

@@ -26,13 +26,13 @@ export default function FileUpload() {
   return (
     <div
       onClick={() => inputRef.current?.click()}
-      className="border-3 border-dashed border-purple-300 rounded-lg p-12 text-center cursor-pointer hover:border-purple-500 hover:bg-purple-50 transition-colors"
+      className="border-3 border-dashed border-purple-300 rounded-lg p-6 sm:p-8 lg:p-12 text-center cursor-pointer hover:border-purple-500 hover:bg-purple-50 transition-colors"
     >
-      <Upload className="w-16 h-16 text-purple-500 mx-auto mb-4" />
-      <h3 className="text-lg font-semibold text-gray-700 mb-2">
+      <Upload className="w-12 h-12 sm:w-16 sm:h-16 text-purple-500 mx-auto mb-3 sm:mb-4" />
+      <h3 className="text-base sm:text-lg font-semibold text-gray-700 mb-2">
         Click to Upload Excel or Delivery Note
       </h3>
-      <p className="text-gray-500">Supported formats: .xlsx, .xls, .csv</p>
+      <p className="text-sm sm:text-base text-gray-500">Supported formats: .xlsx, .xls, .csv</p>
       <input
         ref={inputRef}
         type="file"

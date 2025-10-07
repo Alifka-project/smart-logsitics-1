@@ -14,9 +14,9 @@ export default function SyntheticDataButton() {
   return (
     <button
       onClick={handleLoadData}
-      className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white font-semibold rounded-lg hover:shadow-lg transform hover:-translate-y-0.5 transition-all"
+      className="inline-flex items-center gap-2 px-4 sm:px-6 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white font-semibold rounded-lg hover:shadow-lg transform hover:-translate-y-0.5 transition-all text-sm sm:text-base"
     >
-      <Database className="w-5 h-5" />
+      <Database className="w-4 h-4 sm:w-5 sm:h-5" />
       Load Synthetic Data
     </button>
   );

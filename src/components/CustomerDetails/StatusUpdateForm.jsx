@@ -31,23 +31,23 @@ export default function StatusUpdateForm({ status, setStatus, notes, setNotes })
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-gray-800">Update Status</h3>
+      <h3 className="text-base sm:text-lg font-semibold text-gray-800">Update Status</h3>
       
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         {statuses.map((s) => {
           const Icon = s.icon;
           return (
             <button
               key={s.value}
               onClick={() => setStatus(s.value)}
-              className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${
+              className={`flex flex-col items-center gap-2 p-3 sm:p-4 rounded-lg border-2 transition-all ${
                 status === s.value
                   ? s.activeClass
                   : 'border-gray-300 hover:border-gray-400'
               }`}
             >
-              <Icon className={`w-8 h-8 ${status === s.value ? s.iconActiveClass : 'text-gray-400'}`} />
-              <span className="font-medium">{s.label}</span>
+              <Icon className={`w-6 h-6 sm:w-8 sm:h-8 ${status === s.value ? s.iconActiveClass : 'text-gray-400'}`} />
+              <span className="font-medium text-sm sm:text-base">{s.label}</span>
             </button>
           );
         })}
@@ -61,7 +61,7 @@ export default function StatusUpdateForm({ status, setStatus, notes, setNotes })
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={3}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+          className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm sm:text-base"
           placeholder="Add any additional notes..."
         />
       </div>

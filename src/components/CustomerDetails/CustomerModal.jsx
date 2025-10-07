@@ -36,34 +36,34 @@ export default function CustomerModal({ isOpen, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+      <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-purple-600 to-purple-700 text-white">
-          <h2 className="text-2xl font-bold">Delivery Confirmation</h2>
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b bg-gradient-to-r from-purple-600 to-purple-700 text-white">
+          <h2 className="text-lg sm:text-xl lg:text-2xl font-bold">Delivery Confirmation</h2>
           <button onClick={onClose} className="hover:bg-purple-800 p-2 rounded">
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
           {/* Customer Details */}
-          <div className="bg-purple-50 rounded-lg p-4 space-y-2">
-            <h3 className="text-xl font-bold text-purple-800 mb-4">
+          <div className="bg-purple-50 rounded-lg p-3 sm:p-4 space-y-2">
+            <h3 className="text-lg sm:text-xl font-bold text-purple-800 mb-3 sm:mb-4">
               Stop {selectedDelivery.id}: {selectedDelivery.customer}
             </h3>
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
               <div>
                 <span className="font-semibold text-gray-700">Address:</span>
-                <p className="text-gray-600">{selectedDelivery.address}</p>
+                <p className="text-gray-600 break-words">{selectedDelivery.address}</p>
               </div>
               <div>
                 <span className="font-semibold text-gray-700">Phone:</span>
-                <p className="text-gray-600">{selectedDelivery.phone}</p>
+                <p className="text-gray-600 break-all">{selectedDelivery.phone}</p>
               </div>
               <div>
                 <span className="font-semibold text-gray-700">Items:</span>
-                <p className="text-gray-600">{selectedDelivery.items}</p>
+                <p className="text-gray-600 break-words">{selectedDelivery.items}</p>
               </div>
               <div>
                 <span className="font-semibold text-gray-700">Distance:</span>

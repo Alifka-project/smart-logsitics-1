@@ -49,19 +49,19 @@ export default function StatsCards() {
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
       {stats.map((stat) => {
         const Icon = stat.icon;
         return (
           <div
             key={stat.label}
-            className={`${stat.className} text-white rounded-lg shadow-lg p-6`}
+            className={`${stat.className} text-white rounded-lg shadow-lg p-4 sm:p-6`}
           >
-            <div className="flex items-center justify-between mb-4">
-              <Icon className="w-8 h-8" />
-              <div className="text-3xl font-bold">{stat.value}</div>
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <Icon className="w-6 h-6 sm:w-8 sm:h-8" />
+              <div className="text-xl sm:text-2xl lg:text-3xl font-bold">{stat.value}</div>
             </div>
-            <div className="text-sm opacity-90">{stat.label}</div>
+            <div className="text-xs sm:text-sm opacity-90">{stat.label}</div>
           </div>
         );
       })}
