@@ -3,12 +3,25 @@ import { Database } from 'lucide-react';
 import useDeliveryStore from '../../store/useDeliveryStore';
 import { generateSyntheticData } from '../../data/syntheticData';
 
-export default function SyntheticDataButton() {
+export default function SyntheticDataButton({ onLoadSuccess }) {
   const loadDeliveries = useDeliveryStore((state) => state.loadDeliveries);
 
   const handleLoadData = () => {
-    const data = generateSyntheticData();
-    loadDeliveries(data);
+    try {
+      const data = generateSyntheticData();
+      loadDeliveries(data);
+      if (onLoadSuccess) {
+        onLoadSuccess({
+          count: data.length,
+          warnings: []
+        });
+      }
+    } catch (error) {
+      console.error('Error loading synthetic data:', error);
+      if (onLoadSuccess) {
+        // Call with error via parent if needed
+      }
+    }
   };
 
   return (

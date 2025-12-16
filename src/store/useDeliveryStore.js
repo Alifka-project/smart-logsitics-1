@@ -4,6 +4,7 @@ import { assignPriorities } from '../utils/priorityCalculator';
 
 const WAREHOUSE_LAT = 25.0053;
 const WAREHOUSE_LNG = 55.0760;
+const STORAGE_KEY = 'deliveries_data';
 
 const useDeliveryStore = create((set, get) => ({
   // State
@@ -13,26 +14,58 @@ const useDeliveryStore = create((set, get) => ({
   isLoading: false,
   currentPage: 'list',
   
+  // Initialize from localStorage
+  initializeFromStorage: () => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const deliveries = JSON.parse(stored);
+        set({ deliveries });
+        return deliveries;
+      }
+    } catch (error) {
+      console.error('Failed to load from localStorage:', error);
+    }
+    return [];
+  },
+
+  // Save to localStorage
+  saveToStorage: (deliveries) => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(deliveries));
+    } catch (error) {
+      console.error('Failed to save to localStorage:', error);
+    }
+  },
+
   // Actions
   loadDeliveries: (data) => {
-    // 1. Calculate distance from warehouse using Haversine
-    const deliveriesWithDistance = data.map((delivery, index) => ({
-      ...delivery,
-      id: `delivery-${index + 1}`,
-      distanceFromWarehouse: calculateDistance(
-        WAREHOUSE_LAT,
-        WAREHOUSE_LNG,
-        delivery.lat,
-        delivery.lng
-      ),
-      status: 'pending',
-      estimatedTime: new Date(Date.now() + (index + 1) * 75 * 60 * 1000), // 75 min per stop
-    }));
+    try {
+      // 1. Calculate distance from warehouse using Haversine
+      const deliveriesWithDistance = data.map((delivery, index) => ({
+        ...delivery,
+        id: `delivery-${index + 1}`,
+        distanceFromWarehouse: calculateDistance(
+          WAREHOUSE_LAT,
+          WAREHOUSE_LNG,
+          delivery.lat,
+          delivery.lng
+        ),
+        status: 'pending',
+        estimatedTime: new Date(Date.now() + (index + 1) * 75 * 60 * 1000), // 75 min per stop
+      }));
 
-    // 2. Sort by distance and assign priorities
-    const prioritized = assignPriorities(deliveriesWithDistance);
-    
-    set({ deliveries: prioritized });
+      // 2. Sort by distance and assign priorities
+      const prioritized = assignPriorities(deliveriesWithDistance);
+      
+      set({ deliveries: prioritized });
+      
+      // Save to localStorage
+      get().saveToStorage(prioritized);
+    } catch (error) {
+      console.error('Error loading deliveries:', error);
+      throw error;
+    }
   },
   
   updateDeliveryStatus: (id, status, updateData) => {
@@ -50,11 +83,25 @@ const useDeliveryStore = create((set, get) => ({
     });
     
     set({ deliveries: updated });
+    
+    // Save updated deliveries to localStorage
+    get().saveToStorage(updated);
   },
   
   selectDelivery: (id) => {
     const delivery = get().deliveries.find(d => d.id === id);
     set({ selectedDelivery: delivery });
+  },
+
+  updateDeliveryOrder: (reorderedDeliveries) => {
+    set({ deliveries: reorderedDeliveries });
+    // Save updated order to localStorage
+    get().saveToStorage(reorderedDeliveries);
+  },
+  
+  clearDeliveries: () => {
+    set({ deliveries: [], selectedDelivery: null });
+    localStorage.removeItem(STORAGE_KEY);
   },
   
   calculateRoute: async () => {

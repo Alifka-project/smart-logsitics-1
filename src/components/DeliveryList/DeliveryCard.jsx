@@ -1,22 +1,47 @@
 import React from 'react';
-import { MapPin, Package, Phone, Navigation } from 'lucide-react';
+import { MapPin, Package, Phone, Navigation, GripVertical } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 
-export default function DeliveryCard({ delivery, index, onClick }) {
+export default function DeliveryCard({ 
+  delivery, 
+  index, 
+  onClick,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  isDragging,
+  isDragOver
+}) {
   return (
     <div
+      draggable
+      onDragStart={() => onDragStart?.(index)}
+      onDragOver={() => onDragOver?.(index)}
+      onDragLeave={onDragLeave}
+      onDrop={() => onDrop?.(index)}
       onClick={onClick}
-      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border-l-4 border-purple-500 bg-gradient-to-r from-purple-50 to-white rounded-lg hover:shadow-lg cursor-pointer transition-all hover:translate-x-1"
+      className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border-l-4 rounded-lg transition-all cursor-move ${
+        isDragging
+          ? 'opacity-50 bg-purple-100 border-purple-400'
+          : isDragOver
+          ? 'bg-purple-50 border-purple-500 shadow-md scale-105'
+          : 'border-purple-500 bg-gradient-to-r from-purple-50 to-white hover:shadow-lg hover:translate-x-1'
+      }`}
     >
+      {/* Drag Handle - Mobile optimized */}
+      <div className="flex items-center gap-2 mb-2 sm:mb-0 sm:mr-3 flex-shrink-0">
+        <GripVertical className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 hover:text-gray-600 transition-colors" />
+        <span className="text-base sm:text-lg font-bold text-purple-600 w-6">
+          {index + 1}.
+        </span>
+      </div>
+
+      {/* Main Content */}
       <div className="flex-1 mb-3 sm:mb-0">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-base sm:text-lg font-bold text-purple-600">
-            {index + 1}.
-          </span>
-          <h3 className="text-base sm:text-lg font-semibold text-gray-800">
-            {delivery.customer}
-          </h3>
-        </div>
+        <h3 className="text-sm sm:text-lg font-semibold text-gray-800 mb-2">
+          {delivery.customer}
+        </h3>
         
         <div className="space-y-1 text-xs sm:text-sm text-gray-600">
           <div className="flex items-start gap-2">
@@ -27,30 +52,30 @@ export default function DeliveryCard({ delivery, index, onClick }) {
             <Package className="w-3 h-3 sm:w-4 sm:h-4 mt-0.5 flex-shrink-0" />
             <span className="break-words">{delivery.items}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <Phone className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-            <span className="break-all">{delivery.phone}</span>
-          </div>
+          {delivery.phone && (
+            <div className="flex items-center gap-2">
+              <Phone className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+              <span className="break-all">{delivery.phone}</span>
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <Navigation className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
             <span className="font-semibold text-purple-600">
-              {delivery.distanceFromWarehouse.toFixed(1)} km from warehouse
+              {delivery.distanceFromWarehouse.toFixed(1)} km
             </span>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-row sm:flex-col sm:text-right gap-2 sm:space-y-2">
+      {/* Status and Priority - Mobile optimized */}
+      <div className="flex flex-row gap-2 sm:flex-col sm:text-right sm:space-y-2 sm:ml-3 flex-shrink-0">
         <StatusBadge status={delivery.status} />
-        <div className={`inline-block px-2 sm:px-3 py-1 rounded-full text-xs font-semibold ${
+        <div className={`px-2 sm:px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
           delivery.priority === 1 ? 'bg-red-100 text-red-800' :
           delivery.priority === 2 ? 'bg-orange-100 text-orange-800' :
           'bg-blue-100 text-blue-800'
         }`}>
-          Priority {delivery.priority}
-        </div>
-        <div className="text-xs text-gray-500 hidden sm:block">
-          {delivery.priorityLabel}
+          P{delivery.priority}
         </div>
       </div>
     </div>

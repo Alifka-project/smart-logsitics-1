@@ -6,4 +6,78 @@
   body {
     @apply bg-gray-50;
   }
+  
+  /* Mobile optimization */
+  @media (max-width: 640px) {
+    body {
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      user-select: none;
+    }
+    
+    [draggable="true"] {
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      user-select: none;
+    }
+  }
+}
+
+@layer utilities {
+  @keyframes slide-in {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  .animate-slide-in {
+    animation: slide-in 0.3s ease-out;
+  }
+
+  @keyframes float-up {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-float-up {
+    animation: float-up 0.3s ease-out;
+  }
+
+  /* Draggable card styles */
+  [draggable="true"] {
+    @apply touch-none select-none;
+  }
+
+  /* Prevent text selection while dragging */
+  .drag-none {
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    user-select: none;
+  }
+
+  /* Mobile-friendly scrolling */
+  .overflow-y-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Improve touch targets on mobile */
+  @media (max-width: 640px) {
+    button,
+    input[type="button"],
+    input[type="submit"],
+    [role="button"] {
+      @apply min-h-[44px] min-w-[44px];
+    }
+  }
 }

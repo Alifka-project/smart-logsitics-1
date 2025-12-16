@@ -210,6 +210,106 @@ className: 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4'
 
 ---
 
+## 🎯 **Drag-to-Reorder Feature** (NEW!)
+
+### **Delivery Sequence Reordering**
+- ✅ **Drag delivery cards** to manually reorder sequence
+- ✅ **Visual drag feedback**: Opacity changes, color highlights, scale transforms
+- ✅ **Drop zone indication**: Highlighted drop target with shadow
+- ✅ **Touch-friendly**: Long-press on mobile, drag on desktop
+- ✅ **Persistent reordering**: Changes saved to localStorage automatically
+- ✅ **Grip handle**: Visual GripVertical icon shows card is draggable
+
+### **Drag Handle Design**
+```javascript
+// Visual feedback during drag operations
+isDragging: {
+  opacity: 50%,
+  backgroundColor: 'purple-100',
+  borderColor: 'purple-400'
+}
+
+isDragOver: {
+  backgroundColor: 'purple-50',
+  borderColor: 'purple-500',
+  boxShadow: 'medium',
+  scale: 105%
+}
+```
+
+### **Mobile Touch Optimization**
+- ✅ **44×44px minimum touch targets** on mobile
+- ✅ **Disabled text selection** during drag (CSS: `user-select: none`)
+- ✅ **Momentum scrolling**: `-webkit-overflow-scrolling: touch` for smooth iOS scrolling
+- ✅ **Touch-action**: Prevented default touch behaviors during drag
+
+### **Animation Performance**
+```css
+/* Smooth drag animations without janky UI */
+@keyframes float-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+```
+
+### **New Component Hook: useDragAndDrop**
+```javascript
+import { useDragAndDrop } from '../hooks/useDragAndDrop';
+
+const {
+  items,              // Current reordered items
+  draggedIndex,       // Index being dragged
+  dragOverIndex,      // Current drop target
+  handleDragStart,    // Start drag handler
+  handleDragOver,     // Drag over handler
+  handleDragLeave,    // Leave drop zone handler
+  handleDrop          // Drop handler with reorder logic
+} = useDragAndDrop(initialDeliveries);
+```
+
+### **Updated DeliveryCard Props**
+```jsx
+<DeliveryCard
+  delivery={delivery}
+  onDragStart={() => handleDragStart(index)}
+  onDragOver={() => handleDragOver(index)}
+  onDragLeave={handleDragLeave}
+  onDrop={() => handleDrop(index)}
+  isDragging={draggedIndex === index}
+  isDragOver={dragOverIndex === index}
+/>
+```
+
+### **Delivery Table Integration**
+- ✅ **Integrated useDragAndDrop hook** for state management
+- ✅ **Syncs local drag state with Zustand store** via useEffect
+- ✅ **Calls updateDeliveryOrder()** on successful drop
+- ✅ **Instructional text**: "Drag to reorder • Tap to edit • Sorted by distance"
+- ✅ **Order persisted** to localStorage automatically
+
+### **Data Persistence**
+```javascript
+// Zustand store action
+updateDeliveryOrder: (reorderedDeliveries) => {
+  set({ deliveries: reorderedDeliveries });
+  get().saveToStorage(reorderedDeliveries);  // Automatically saved
+}
+```
+
+### **Testing the Feature**
+1. **Desktop**: Click and drag delivery card
+2. **Mobile**: Long-press and drag card
+3. **Release**: Drop at new position
+4. **Auto-save**: Refresh page - order persists!
+
+---
+
 ## 🎉 **Success Summary**
 
 ```
@@ -221,6 +321,9 @@ className: 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4'
 ✅ Signature Capture: SMOOTH
 ✅ Photo Upload: MULTIPLE
 ✅ Responsive Design: COMPLETE
+✅ Drag-to-Reorder: NEW & WORKING
+✅ Order Persistence: localStorage INTEGRATED
+✅ Mobile Touch Targets: 44×44px OPTIMIZED
 ```
 
 ---
@@ -239,5 +342,5 @@ Your Dubai Logistics System is now **100% responsive** and ready for:
 
 **The application now works perfectly on ANY device!** 📱💻🖥️
 
-**Last Updated**: October 7, 2025  
-**Status**: ✅ **FULLY RESPONSIVE**
+**Last Updated**: December 9, 2025  
+**Status**: ✅ **FULLY RESPONSIVE + DRAG-TO-REORDER**

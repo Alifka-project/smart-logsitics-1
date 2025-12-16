@@ -1,7 +1,7 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
 
-export default function SignaturePad({ title, value, onChange }) {
+export default function SignaturePad({ title, onChange }) {
   const sigCanvas = useRef();
 
   const handleClear = () => {

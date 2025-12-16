@@ -4,14 +4,14 @@
 
 Your Excel file must contain the following columns (case-sensitive):
 
-| Column Name | Data Type | Example | Description |
-|-------------|-----------|---------|-------------|
-| `customer` | Text | "Al Futtaim Motors" | Customer or company name |
-| `address` | Text | "Sheikh Zayed Road, Dubai" | Full delivery address |
-| `lat` | Number | 25.1124 | Latitude coordinate (decimal) |
-| `lng` | Number | 55.1980 | Longitude coordinate (decimal) |
-| `phone` | Text | "+971 4 123 4567" | Customer contact number |
-| `items` | Text | "Auto Parts x 50" | Items to be delivered |
+| Column Name | Data Type | Example | Description | Required |
+|-------------|-----------|---------|-------------|----------|
+| `customer` | Text | "Al Futtaim Motors" | Customer or company name | ✅ Yes |
+| `address` | Text | "Sheikh Zayed Road, Dubai" | Full delivery address | ✅ Yes |
+| `lat` | Number | 25.1124 | Latitude coordinate (decimal) | ✅ Yes |
+| `lng` | Number | 55.1980 | Longitude coordinate (decimal) | ✅ Yes |
+| `items` | Text | "Auto Parts x 50" | Items to be delivered | ✅ Yes |
+| `phone` | Text | "+971 4 123 4567" | Customer contact number | ❌ Optional |
 
 ## Sample Data
 
@@ -22,6 +22,8 @@ Al Futtaim Motors   | Sheikh Zayed Road, Dubai | 25.1124  | 55.1980 | +971 4 123
 Dubai Mall Retail   | Downtown Dubai           | 25.1972  | 55.2744 | +971 4 234 5678  | Electronics x 30
 Marina Mall         | Dubai Marina             | 25.0785  | 55.1385 | +971 4 456 7890  | Retail Goods x 40
 ```
+
+**Note:** Phone column can be empty - it's optional. The system will work fine without phone numbers.
 
 ## How to Get Coordinates
 
@@ -77,16 +79,19 @@ The system will automatically:
 ## Error Prevention
 
 ❌ Common mistakes to avoid:
-- Missing or misspelled column names
-- Empty cells in required columns
+- Missing or misspelled column names (customer, address, lat, lng, items)
+- Empty cells in **required** columns (customer, address, lat, lng, items)
 - Coordinates outside Dubai area
-- Invalid phone number format
 - Non-numeric lat/lng values
+
+✅ Things that are OPTIONAL:
+- Phone numbers (can be empty or missing)
+- Additional columns (will be ignored)
 
 ✅ Best practices:
 - Use consistent data formatting
 - Double-check coordinates
-- Include country code in phone numbers
+- Include country code in phone numbers if available
 - Be specific with item descriptions
 - Test with a small file first
 

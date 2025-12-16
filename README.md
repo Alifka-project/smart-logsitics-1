@@ -7,10 +7,18 @@ A production-ready logistics management system for Dubai deliveries with real-ti
 ### 📋 Delivery List Management
 - Interactive delivery cards sorted by distance
 - Real-time analytics dashboard
-- Excel file upload support
+- Excel file upload support with format auto-detection
 - 15 Dubai locations synthetic data
 - Priority-based color coding (Red/Orange/Blue)
 - Status badges (Pending/Delivered/Cancelled/Returned)
+
+### 📱 Mobile Optimization & Drag-to-Reorder (NEW!)
+- **Fully responsive design** - Works on phones, tablets, and desktops
+- **Drag-and-drop reordering** - Manually adjust delivery sequence on any device
+- **Touch-friendly interface** - 44×44px minimum touch targets on mobile
+- **Visual feedback** - Color, opacity, and scale changes during drag
+- **Persistent ordering** - Reordered deliveries saved to localStorage
+- **Mobile-optimized** - Momentum scrolling, large buttons, responsive spacing
 
 ### 📸 Multiple Photo Upload
 - Upload multiple photos at once
@@ -94,10 +102,30 @@ The system includes 15 real Dubai locations:
 
 ## 📱 Mobile Support
 
-- Responsive design
-- Touch-friendly interface
-- Camera capture support
-- Mobile-optimized signatures
+- **Fully responsive design** - Optimized for all screen sizes (320px - 1920px)
+- **Touch-friendly interface** - 44×44px minimum touch targets per accessibility standards
+- **Drag-to-reorder deliveries** - Long-press and drag cards to manually adjust sequence
+- **Camera capture support** - Native camera integration for mobile photo upload
+- **Mobile-optimized signatures** - Smooth touch-based signature drawing
+- **Momentum scrolling** - iOS-style smooth scrolling experience
+- **Persistent data** - localStorage saves reordered sequences and form data
+
+### Device Support
+- ✅ iPhone (SE, 12, 13, 14, 15)
+- ✅ Android phones (all modern versions)
+- ✅ iPad (all models)
+- ✅ Android tablets
+- ✅ Desktop browsers (Chrome, Safari, Firefox, Edge)
+
+### How to Use Drag-to-Reorder
+1. **Desktop**: Click and drag a delivery card
+2. **Mobile**: Long-press a delivery card and drag
+3. **Visual Feedback**: Card changes color/opacity during drag
+4. **Drop Zone**: Target location highlights
+5. **Auto-Save**: Order persists to localStorage
+
+See [MOBILE_RESPONSIVE_GUIDE.md](./MOBILE_RESPONSIVE_GUIDE.md) for detailed mobile optimization info.
+See [DRAG_TO_REORDER_GUIDE.md](./DRAG_TO_REORDER_GUIDE.md) for drag-and-drop feature details.
 
 ## 🔧 Configuration
 
