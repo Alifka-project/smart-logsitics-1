@@ -9,6 +9,7 @@ import LoginPage from './pages/LoginPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import DriverPortal from './pages/DriverPortal';
 import AdminUsersPage from './pages/AdminUsersPage';
+import ProtectedRoute from './components/Auth/ProtectedRoute';
 import useDeliveryStore from './store/useDeliveryStore';
 
 function App() {
@@ -21,17 +22,20 @@ function App() {
     try { const payload = localStorage.getItem('auth_token'); return null; } catch(e){ return null; }
   })();
 
-  // Show `Navigation` for public users and admins; hide for driver role to reduce clutter
-  const showNavigation = (() => {
-    try {
-      const token = localStorage.getItem('auth_token');
-      if (!token) return true;
+  // Show Navigation only for authenticated admins (hide during signin and for drivers)
+  const token = (() => { try { return localStorage.getItem('auth_token'); } catch (e) { return null; } })();
+  let showNavigation = false;
+  try {
+    if (token) {
       const parts = token.split('.');
-      if (parts.length < 2) return true;
-      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-      return payload.role !== 'driver';
-    } catch (e) { return true; }
-  })();
+      if (parts.length > 1) {
+        const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+        showNavigation = payload.role === 'admin';
+      }
+    }
+  } catch (e) {
+    showNavigation = false;
+  }
 
   return (
     <BrowserRouter>
@@ -40,13 +44,15 @@ function App() {
         {showNavigation && <Navigation />}
         <main className="container mx-auto px-4 py-6">
           <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/deliveries" element={<DeliveryListPage />} />
-            <Route path="/map" element={<MapViewPage />} />
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/admin" element={<AdminDashboardPage />} />
-            <Route path="/admin/users" element={<AdminUsersPage />} />
-            <Route path="/driver" element={<DriverPortal />} />
+
+            {/* Protected routes - require authentication */}
+            <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
+            <Route path="/deliveries" element={<ProtectedRoute><DeliveryListPage /></ProtectedRoute>} />
+            <Route path="/map" element={<ProtectedRoute><MapViewPage /></ProtectedRoute>} />
+            <Route path="/admin" element={<ProtectedRoute><AdminDashboardPage /></ProtectedRoute>} />
+            <Route path="/admin/users" element={<ProtectedRoute><AdminUsersPage /></ProtectedRoute>} />
+            <Route path="/driver" element={<ProtectedRoute><DriverPortal /></ProtectedRoute>} />
           </Routes>
         </main>
       </div>
