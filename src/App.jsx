@@ -17,11 +17,27 @@ function App() {
     useDeliveryStore.getState().initializeFromStorage();
   }, []);
 
+  const authUser = (() => {
+    try { const payload = localStorage.getItem('auth_token'); return null; } catch(e){ return null; }
+  })();
+
+  // Show `Navigation` for public users and admins; hide for driver role to reduce clutter
+  const showNavigation = (() => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) return true;
+      const parts = token.split('.');
+      if (parts.length < 2) return true;
+      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+      return payload.role !== 'driver';
+    } catch (e) { return true; }
+  })();
+
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-gray-50">
         <Header />
-        <Navigation />
+        {showNavigation && <Navigation />}
         <main className="container mx-auto px-4 py-6">
           <Routes>
             <Route path="/" element={<HomePage />} />

@@ -1,27 +1,32 @@
 import React, { useEffect, useState } from 'react';
 import { Truck } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { isAuthenticated, getCurrentUser } from '../../frontend/auth';
 
-function isAuthenticated() {
-  try {
-    return !!localStorage.getItem('auth_token');
-  } catch (e) {
-    return false;
-  }
-}
 
 export default function Header() {
   const [loggedIn, setLoggedIn] = useState(isAuthenticated());
+  const [userRole, setUserRole] = useState(getCurrentUser()?.role || null);
 
   useEffect(() => {
-    const onStorage = () => setLoggedIn(isAuthenticated());
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
+    function refresh() {
+      setLoggedIn(isAuthenticated());
+      setUserRole(getCurrentUser()?.role || null);
+    }
+    // update on storage (other tabs) and focus (same tab after redirect)
+    window.addEventListener('storage', refresh);
+    window.addEventListener('focus', refresh);
+    refresh();
+    return () => {
+      window.removeEventListener('storage', refresh);
+      window.removeEventListener('focus', refresh);
+    };
   }, []);
 
   function handleLogout() {
     try { localStorage.removeItem('auth_token'); } catch (e) {}
     setLoggedIn(false);
+    setUserRole(null);
     window.location.href = '/';
   }
 
@@ -52,7 +57,7 @@ export default function Header() {
                 <Link to="/login" className="bg-white text-purple-700 px-3 py-1 rounded font-medium hover:opacity-90">Sign in</Link>
               ) : (
                 <div className="flex items-center gap-2">
-                  <Link to="/admin" className="text-white bg-purple-700 px-3 py-1 rounded font-medium">Dashboard</Link>
+                  <Link to={userRole === 'admin' ? '/admin' : '/driver'} className="text-white bg-purple-700 px-3 py-1 rounded font-medium">Dashboard</Link>
                   <button onClick={handleLogout} className="bg-white text-purple-700 px-2 py-1 rounded">Sign out</button>
                 </div>
               )}
