@@ -1,8 +1,30 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Truck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
+function isAuthenticated() {
+  try {
+    return !!localStorage.getItem('auth_token');
+  } catch (e) {
+    return false;
+  }
+}
+
 export default function Header() {
+  const [loggedIn, setLoggedIn] = useState(isAuthenticated());
+
+  useEffect(() => {
+    const onStorage = () => setLoggedIn(isAuthenticated());
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
+  function handleLogout() {
+    try { localStorage.removeItem('auth_token'); } catch (e) {}
+    setLoggedIn(false);
+    window.location.href = '/';
+  }
+
   return (
     <header className="bg-gradient-to-r from-purple-600 to-purple-800 text-white shadow-lg">
       <div className="container mx-auto px-4 py-3 sm:py-4">
@@ -14,14 +36,26 @@ export default function Header() {
               <p className="text-xs sm:text-sm text-purple-200">Warehouse: Jebel Ali Free Zone</p>
             </div>
           </Link>
-          <div className="text-right hidden sm:block">
-            <div className="text-sm text-purple-200">
-              {new Date().toLocaleDateString('en-GB', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              })}
+          <div className="flex items-center gap-4">
+            <div className="text-right hidden sm:block">
+              <div className="text-sm text-purple-200">
+                {new Date().toLocaleDateString('en-GB', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                })}
+              </div>
+            </div>
+            <div>
+              {!loggedIn ? (
+                <Link to="/login" className="bg-white text-purple-700 px-3 py-1 rounded font-medium hover:opacity-90">Sign in</Link>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Link to="/admin" className="text-white bg-purple-700 px-3 py-1 rounded font-medium">Dashboard</Link>
+                  <button onClick={handleLogout} className="bg-white text-purple-700 px-2 py-1 rounded">Sign out</button>
+                </div>
+              )}
             </div>
           </div>
           <div className="text-right sm:hidden">

@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const api = axios.create({ baseURL: '/api' });
+const baseURL = (import.meta.env && import.meta.env.VITE_API_BASE) || '/api';
+const api = axios.create({ baseURL });
 
 export function setAuthToken(token) {
   if (token) api.defaults.headers.common.Authorization = `Bearer ${token}`;
