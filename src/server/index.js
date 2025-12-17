@@ -15,6 +15,8 @@ app.use('/api/driver', require('./api/locations'));
 app.use('/api/sms', require('./api/smsWebhook'));
 app.use('/api/auth', require('./api/auth'));
 app.use('/api/admin/dashboard', require('./api/adminDashboard'));
+app.use('/api/ai', require('./api/ai'));
+app.use('/api/deliveries', require('./api/deliveries'));
 
 app.get('/api/health', (req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
 

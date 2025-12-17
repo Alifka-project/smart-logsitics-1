@@ -8,6 +8,7 @@ import MapViewPage from './pages/MapViewPage';
 import LoginPage from './pages/LoginPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import DriverPortal from './pages/DriverPortal';
+import AdminUsersPage from './pages/AdminUsersPage';
 import useDeliveryStore from './store/useDeliveryStore';
 
 function App() {
@@ -28,6 +29,7 @@ function App() {
             <Route path="/map" element={<MapViewPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/admin" element={<AdminDashboardPage />} />
+            <Route path="/admin/users" element={<AdminUsersPage />} />
             <Route path="/driver" element={<DriverPortal />} />
           </Routes>
         </main>

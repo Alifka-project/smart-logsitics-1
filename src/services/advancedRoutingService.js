@@ -2,7 +2,8 @@ import axios from 'axios';
 import { decodePolyline } from '../utils/polylineDecoder';
 import { isValidDubaiCoordinates } from './geocodingService';
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
+// In frontend, use Vite environment variables exposed as import.meta.env
+const OPENAI_API_KEY = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_OPENAI_API_KEY ? import.meta.env.VITE_OPENAI_API_KEY : '';
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 
 /**
