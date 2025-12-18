@@ -27,19 +27,6 @@ router.post('/:id/location', async (req, res) => {
   }
 });
 
-// GET /api/driver/:id/live - latest location
-router.get('/:id/live', async (req, res) => {
-  const driverId = req.params.id;
-  try {
-    const { rows } = await db.query('SELECT driver_id, latitude, longitude, recorded_at FROM live_locations WHERE driver_id = $1 ORDER BY recorded_at DESC LIMIT 1', [driverId]);
-    if (!rows.length) return res.status(404).json({ error: 'not_found' });
-    res.json(rows[0]);
-  } catch (err) {
-    console.error('GET /api/driver/:id/live', err);
-    res.status(500).json({ error: 'db_error' });
-  }
-});
-
 // POST /api/driver/me/location - authenticated driver posts own location
 router.post('/me/location', authenticate, async (req, res) => {
   const driverId = req.user.sub;
@@ -66,6 +53,19 @@ router.get('/me/live', authenticate, async (req, res) => {
     res.json(rows[0]);
   } catch (err) {
     console.error('GET /api/driver/me/live', err);
+    res.status(500).json({ error: 'db_error' });
+  }
+});
+
+// GET /api/driver/:id/live - latest location (public per-driver)
+router.get('/:id/live', async (req, res) => {
+  const driverId = req.params.id;
+  try {
+    const { rows } = await db.query('SELECT driver_id, latitude, longitude, recorded_at FROM live_locations WHERE driver_id = $1 ORDER BY recorded_at DESC LIMIT 1', [driverId]);
+    if (!rows.length) return res.status(404).json({ error: 'not_found' });
+    res.json(rows[0]);
+  } catch (err) {
+    console.error('GET /api/driver/:id/live', err);
     res.status(500).json({ error: 'db_error' });
   }
 });
