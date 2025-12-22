@@ -31,9 +31,9 @@ router.post('/login', async (req, res) => {
     const ok = await comparePassword(password, r.password_hash);
     if (!ok) return res.status(401).json({ error: 'invalid_credentials' });
     const payload = { sub: r.driver_id, role: r.role, username: r.username };
-    // create server-side session and set cookie
-    createLoginSession(req, res, payload);
-    res.json({ driver: { id: r.driver_id, username: r.username, full_name: r.full_name, role: r.role } });
+    // create server-side session and set cookie; return clientKey to client
+    const clientKey = createLoginSession(req, res, payload);
+    res.json({ driver: { id: r.driver_id, username: r.username, full_name: r.full_name, role: r.role }, clientKey });
   } catch (err) {
     console.error('auth/login', err);
     res.status(500).json({ error: 'db_error' });

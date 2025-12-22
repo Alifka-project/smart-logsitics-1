@@ -3,9 +3,14 @@ const crypto = require('crypto');
 // Simple in-memory session store. For production use Redis or a DB-backed store.
 const SESSIONS = new Map();
 const DEFAULT_TTL = 12 * 3600 * 1000; // 12 hours
+const DEFAULT_INACTIVITY = 5 * 60 * 1000; // 5 minutes inactivity
 
 function makeId() {
   return crypto.randomBytes(24).toString('hex');
+}
+
+function makeClientKey() {
+  return crypto.randomBytes(18).toString('hex');
 }
 
 function makeFingerprint(req) {
@@ -16,22 +21,37 @@ function makeFingerprint(req) {
 
 function createSession(req, payload, ttl = DEFAULT_TTL) {
   const id = makeId();
+  const clientKey = makeClientKey();
   const fp = makeFingerprint(req);
-  const expiresAt = Date.now() + ttl;
-  SESSIONS.set(id, { payload, fp, expiresAt });
-  return id;
+  const now = Date.now();
+  const expiresAt = now + ttl;
+  SESSIONS.set(id, { payload, fp, expiresAt, clientKey, lastAccess: now });
+  return { id, clientKey };
 }
 
 function getSession(req, id) {
   if (!id) return null;
   const entry = SESSIONS.get(id);
   if (!entry) return null;
-  if (Date.now() > entry.expiresAt) {
+  const now = Date.now();
+  if (now > entry.expiresAt) {
+    SESSIONS.delete(id);
+    return null;
+  }
+  // inactivity check
+  const inactivityLimit = process.env.SESSION_INACTIVITY_MS ? parseInt(process.env.SESSION_INACTIVITY_MS, 10) : DEFAULT_INACTIVITY;
+  if (entry.lastAccess && (now - entry.lastAccess) > inactivityLimit) {
     SESSIONS.delete(id);
     return null;
   }
   const fp = makeFingerprint(req);
   if (entry.fp !== fp) return null;
+  // client key must be provided by client header
+  const clientKey = (req.headers['x-client-key'] || '').toString();
+  if (!clientKey || clientKey !== entry.clientKey) return null;
+  // update last access
+  entry.lastAccess = now;
+  SESSIONS.set(id, entry);
   return entry.payload;
 }
 

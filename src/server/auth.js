@@ -23,7 +23,7 @@ function generateToken(payload) {
 
 // New: create server-side session and set cookie via response helper
 function createLoginSession(req, res, payload) {
-  const sid = createSession(req, payload);
+  const { id: sid, clientKey } = createSession(req, payload);
   const cookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
@@ -32,6 +32,7 @@ function createLoginSession(req, res, payload) {
     maxAge: 12 * 3600 * 1000,
   };
   res.setHeader('Set-Cookie', cookie.serialize(SESSION_COOKIE, sid, cookieOptions));
+  return clientKey;
 }
 
 function clearLoginSession(res) {

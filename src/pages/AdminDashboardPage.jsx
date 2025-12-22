@@ -4,7 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recha
 
 function ensureAuth() {
   const token = localStorage.getItem('auth_token');
-  // Session is server-side via HttpOnly cookie; no client-side token to set
+    // Session is server-side via HttpOnly cookie; ensure client_key header will be sent by apiClient interceptor
 }
 
 export default function AdminDashboardPage() {
