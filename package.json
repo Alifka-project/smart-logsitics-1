@@ -10,6 +10,9 @@
     "start:server": "node src/server/index.js"
   },
   "dependencies": {
+    "helmet": "^6.0.0",
+    "express-rate-limit": "^6.8.0",
+    "cors": "^2.8.5",
     "axios": "^1.12.2",
     "bcryptjs": "^2.4.3",
     "dotenv": "^16.3.1",

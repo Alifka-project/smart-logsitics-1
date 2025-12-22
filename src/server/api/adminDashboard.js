@@ -1,35 +1,59 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db');
+// GET /api/admin/dashboard
 const { authenticate, requireRole } = require('../auth');
+const sapService = require('../../../services/sapService');
 
 // GET /api/admin/dashboard
 router.get('/', authenticate, requireRole('admin'), async (req, res) => {
   try {
-    const [{ rows: drivers }] = await Promise.all([
-      db.query('SELECT count(*)::int AS count FROM drivers'),
-      db.query("SELECT count(*)::int AS count FROM live_locations WHERE recorded_at > now() - interval '1 hour'"),
+    // Fetch deliveries and compute KPIs
+    const [driversResp, locationsResp, deliveriesResp, smsResp] = await Promise.allSettled([
+      sapService.call('/Drivers', 'get'),
+      sapService.call('/Locations', 'get'),
+      sapService.call('/Deliveries', 'get'),
+      sapService.call('/SMSConfirmations', 'get'),
     ]);
 
-    const driverCount = drivers[0] ? drivers[0].count : 0;
-    const recentLocations = (await db.query("SELECT count(*)::int AS count FROM live_locations WHERE recorded_at > now() - interval '1 hour'")).rows[0].count;
+    const drivers = driversResp.status === 'fulfilled' ? (Array.isArray(driversResp.value.data.value) ? driversResp.value.data.value.length : (Array.isArray(driversResp.value.data) ? driversResp.value.data.length : 0)) : 0;
+    const recentLocations = locationsResp.status === 'fulfilled' ? (Array.isArray(locationsResp.value.data.value) ? locationsResp.value.data.value.length : (Array.isArray(locationsResp.value.data) ? locationsResp.value.data.length : 0)) : 0;
+    const smsRecent = smsResp.status === 'fulfilled' ? (Array.isArray(smsResp.value.data.value) ? smsResp.value.data.value.length : (Array.isArray(smsResp.value.data) ? smsResp.value.data.length : 0)) : 0;
 
-    // deliveries table may not exist in all installs; guard the query
-    let pendingDeliveries = 0;
-    try {
-      const r = await db.query("SELECT count(*)::int AS count FROM deliveries WHERE status != 'delivered'");
-      pendingDeliveries = r.rows[0].count || 0;
-    } catch (e) {
-      // deliveries table not present
-      pendingDeliveries = null;
+    let deliveries = [];
+    if (deliveriesResp.status === 'fulfilled') {
+      if (Array.isArray(deliveriesResp.value.data.value)) deliveries = deliveriesResp.value.data.value;
+      else if (Array.isArray(deliveriesResp.value.data)) deliveries = deliveriesResp.value.data;
     }
 
-    const smsRecent = (await db.query("SELECT count(*)::int AS count FROM sms_confirmations WHERE created_at > now() - interval '24 hour'")).rows[0].count;
+    const totals = { total: deliveries.length, delivered: 0, cancelled: 0, rescheduled: 0, pending: 0 };
+    for (const d of deliveries) {
+      const s = (d.status || '').toLowerCase();
+      if (s === 'delivered' || s === 'done' || s === 'completed') totals.delivered++;
+      else if (s === 'cancelled' || s === 'canceled') totals.cancelled++;
+      else if (s === 'rescheduled') totals.rescheduled++;
+      else totals.pending++;
+    }
 
-    res.json({ drivers: driverCount, recentLocations, pendingDeliveries, smsRecent });
+    // Recent trends (last 24h) if created_at available
+    const now = Date.now();
+    const last24 = (d) => {
+      const t = d.created_at || d.createdAt || d.created || null;
+      if (!t) return false;
+      const dt = new Date(t).getTime();
+      return (now - dt) <= 24 * 3600 * 1000;
+    };
+    const recentCounts = { delivered: 0, cancelled: 0, rescheduled: 0 };
+    for (const d of deliveries.filter(last24)) {
+      const s = (d.status || '').toLowerCase();
+      if (s === 'delivered' || s === 'done' || s === 'completed') recentCounts.delivered++;
+      else if (s === 'cancelled' || s === 'canceled') recentCounts.cancelled++;
+      else if (s === 'rescheduled') recentCounts.rescheduled++;
+    }
+
+    res.json({ drivers, recentLocations, smsRecent, totals, recentCounts });
   } catch (err) {
-    console.error('admin/dashboard', err);
-    res.status(500).json({ error: 'db_error' });
+    console.error('admin/dashboard (sap)', err);
+    res.status(500).json({ error: 'sap_error', detail: err.message });
   }
 });
 
