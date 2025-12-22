@@ -51,4 +51,10 @@ router.post('/logout', async (req, res) => {
   }
 });
 
+// GET /api/auth/me - return current session user
+router.get('/me', (req, res) => {
+  if (!req.user) return res.status(401).json({ error: 'unauthorized' });
+  res.json({ user: req.user });
+});
+
 module.exports = router;

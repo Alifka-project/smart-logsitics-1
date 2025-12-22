@@ -14,17 +14,17 @@ export function parseToken(token) {
 }
 
 export function getCurrentUser() {
-  const t = getToken();
-  const p = parseToken(t);
-  if (!p) return null;
-  return { id: p.sub, role: p.role, username: p.username, exp: p.exp };
+  try {
+    const u = localStorage.getItem('client_user');
+    if (!u) return null;
+    return JSON.parse(u);
+  } catch (e) {
+    return null;
+  }
 }
 
 export function isAuthenticated() {
+  const ck = (() => { try { return localStorage.getItem('client_key'); } catch (e) { return null; } })();
   const u = getCurrentUser();
-  if (!u) return false;
-  if (u.exp && typeof u.exp === 'number') {
-    return u.exp * 1000 > Date.now();
-  }
-  return true;
+  return !!(ck && u);
 }

@@ -15,7 +15,7 @@ export default function LoginPage() {
       const res = await api.post('/auth/login', { username, password });
       const { driver, clientKey } = res.data;
       // store clientKey to bind this browser to the session cookie
-      try { localStorage.setItem('client_key', clientKey); } catch (e) {}
+      try { localStorage.setItem('client_key', clientKey); localStorage.setItem('client_user', JSON.stringify(driver)); } catch (e) {}
       // Server sets HttpOnly session cookie; redirect based on role
       if (driver?.role === 'admin') window.location.href = '/admin';
       else window.location.href = '/driver';

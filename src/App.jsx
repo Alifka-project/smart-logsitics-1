@@ -53,24 +53,8 @@ function App() {
     };
   }, []);
 
-  const authUser = (() => {
-    try { const payload = localStorage.getItem('auth_token'); return null; } catch(e){ return null; }
-  })();
-
-  // Show Navigation only for authenticated admins (hide during signin and for drivers)
-  const token = (() => { try { return localStorage.getItem('auth_token'); } catch (e) { return null; } })();
-  let showNavigation = false;
-  try {
-    if (token) {
-      const parts = token.split('.');
-      if (parts.length > 1) {
-        const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-        showNavigation = payload.role === 'admin';
-      }
-    }
-  } catch (e) {
-    showNavigation = false;
-  }
+  const clientUser = (() => { try { return JSON.parse(localStorage.getItem('client_user') || 'null'); } catch(e) { return null; } })();
+  const showNavigation = !!(clientUser && clientUser.role === 'admin');
 
   return (
     <BrowserRouter>
