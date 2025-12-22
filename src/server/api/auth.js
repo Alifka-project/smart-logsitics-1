@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { hashPassword, comparePassword, generateToken } = require('../auth');
+const { hashPassword, comparePassword, generateToken, createLoginSession, clearLoginSession } = require('../auth');
 
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
@@ -30,11 +30,24 @@ router.post('/login', async (req, res) => {
     const r = rows[0];
     const ok = await comparePassword(password, r.password_hash);
     if (!ok) return res.status(401).json({ error: 'invalid_credentials' });
-    const token = generateToken({ sub: r.driver_id, role: r.role, username: r.username });
-    res.json({ token, driver: { id: r.driver_id, username: r.username, full_name: r.full_name, role: r.role } });
+    const payload = { sub: r.driver_id, role: r.role, username: r.username };
+    // create server-side session and set cookie
+    createLoginSession(req, res, payload);
+    res.json({ driver: { id: r.driver_id, username: r.username, full_name: r.full_name, role: r.role } });
   } catch (err) {
     console.error('auth/login', err);
     res.status(500).json({ error: 'db_error' });
+  }
+});
+
+// POST /api/auth/logout
+router.post('/logout', async (req, res) => {
+  try {
+    clearLoginSession(res);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('auth/logout', err);
+    res.status(500).json({ error: 'server_error' });
   }
 });
 

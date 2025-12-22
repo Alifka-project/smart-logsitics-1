@@ -13,10 +13,8 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const res = await api.post('/auth/login', { username, password });
-      const { token, driver } = res.data;
-      localStorage.setItem('auth_token', token);
-      setAuthToken(token);
-      // Redirect based on role
+      const { driver } = res.data;
+      // Server sets HttpOnly session cookie; redirect based on role
       if (driver?.role === 'admin') window.location.href = '/admin';
       else window.location.href = '/driver';
     } catch (err) {
