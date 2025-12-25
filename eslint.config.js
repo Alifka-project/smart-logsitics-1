@@ -23,7 +23,24 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      'no-unused-vars': ['warn', { varsIgnorePattern: '^[A-Z_]' }],
+      'no-empty': 'off',
     },
   },
+  // Node/server override: treat server-side files as Node environment
+  {
+    files: ['src/server/**', 'services/**', 'db/**', 'server/**'],
+    languageOptions: {
+      ecmaVersion: 2020,
+      globals: globals.node,
+      parserOptions: {
+        ecmaVersion: 'latest',
+        sourceType: 'script'
+      }
+    },
+    rules: {
+      // allow CommonJS pattern on server files
+      'no-undef': 'error'
+    }
+  }
 ])

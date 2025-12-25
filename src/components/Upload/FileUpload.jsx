@@ -2,14 +2,18 @@ import React, { useRef, useState } from 'react';
 import { Upload, AlertCircle, CheckCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import useDeliveryStore from '../../store/useDeliveryStore';
+import { useNavigate } from 'react-router-dom';
 import { validateDeliveryData } from '../../utils/dataValidator';
 import { detectDataFormat } from '../../utils/dataTransformer';
 import GeocodingProgress from './GeocodingProgress';
+import { calculateRoute } from '../../services/advancedRoutingService';
 import { hasValidCoordinates } from '../../utils/addressHandler';
 
 export default function FileUpload({ onSuccess, onError }) {
   const inputRef = useRef();
   const loadDeliveries = useDeliveryStore((state) => state.loadDeliveries);
+  const navigate = useNavigate();
+  const setRoute = useDeliveryStore((state) => state.setRoute);
   const [isLoading, setIsLoading] = useState(false);
   const [validationResult, setValidationResult] = useState(null);
   const [showGeocoding, setShowGeocoding] = useState(false);
@@ -52,6 +56,13 @@ export default function FileUpload({ onSuccess, onError }) {
               !hasValidCoordinates(d.lat, d.lng)
             );
 
+            // Count how many rows used default coordinates during transformation
+            const fallbackCount = (jsonData || []).filter(d => d && d._usedDefaultCoords).length;
+            if (fallbackCount > 0) {
+              validation.warnings = validation.warnings || [];
+              validation.warnings.unshift(`Warning: ${fallbackCount} rows used default coordinates because latitude/longitude could not be parsed.`);
+            }
+
             if (needsGeocoding.length > 0) {
               console.log(`[FileUpload] ${needsGeocoding.length}/${validation.validData.length} deliveries need geocoding`);
               setDeliveriesToGeocode(validation.validData);
@@ -60,6 +71,7 @@ export default function FileUpload({ onSuccess, onError }) {
               // All deliveries have valid coordinates, load directly
               console.log(`[FileUpload] All ${validation.validData.length} deliveries have valid coordinates`);
               loadDeliveries(validation.validData);
+              try { navigate('/map'); } catch (e) { /* ignore */ }
               if (onSuccess) {
                 onSuccess({
                   count: validation.validData.length,
@@ -121,7 +133,31 @@ export default function FileUpload({ onSuccess, onError }) {
     
     const geocodedCount = geocodedDeliveries.filter(d => d.geocoded === true).length;
     
-    loadDeliveries(geocodedDeliveries);
+    // Sort by geocode accuracy so HIGH/MEDIUM appear first, LOW/FAILED last
+    const accuracyOrder = { 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1, 'PROVIDED': 3, 'FAILED': 0 };
+    const sorted = [...geocodedDeliveries].sort((a, b) => {
+      const aScore = accuracyOrder[a.geocodeAccuracy] || 0;
+      const bScore = accuracyOrder[b.geocodeAccuracy] || 0;
+      return bScore - aScore;
+    });
+
+    loadDeliveries(sorted);
+    // After loading deliveries, precompute route and navigate to map view
+    (async () => {
+      try {
+        const locations = [
+          { lat: 25.0053, lng: 55.0760 },
+          ...geocodedDeliveries.map(d => ({ lat: d.lat, lng: d.lng }))
+        ];
+
+        const routeData = await calculateRoute(locations, geocodedDeliveries, true);
+        try { setRoute(routeData); } catch (e) { /* ignore if store not ready */ }
+      } catch (err) {
+        console.warn('[FileUpload] Route calculation failed:', err?.message || err);
+      } finally {
+        try { navigate('/map'); } catch (e) { /* ignore in non-router contexts */ }
+      }
+    })();
     if (onSuccess) {
       onSuccess({
         count: geocodedDeliveries.length,
@@ -153,11 +189,11 @@ export default function FileUpload({ onSuccess, onError }) {
         className={`border-3 border-dashed rounded-lg p-6 sm:p-8 lg:p-12 text-center transition-colors ${
           isLoading
             ? 'border-gray-300 bg-gray-50 cursor-not-allowed'
-            : 'border-purple-300 hover:border-purple-500 hover:bg-purple-50 cursor-pointer'
+            : 'border-primary-300 hover:border-primary-500 hover:bg-primary-50 cursor-pointer'
         }`}
       >
         <Upload className={`w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 ${
-          isLoading ? 'text-gray-400 animate-pulse' : 'text-purple-500'
+          isLoading ? 'text-gray-400 animate-pulse' : 'text-primary-500'
         }`} />
         <h3 className="text-base sm:text-lg font-semibold text-gray-700 mb-2">
           {isLoading ? 'Processing file...' : 'Click to Upload Excel or Delivery Note'}

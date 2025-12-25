@@ -7,7 +7,10 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "start:server": "node src/server/index.js"
+    "start:server": "node src/server/index.js",
+    "dev:db": "docker-compose up -d db",
+    "dev:start": "./scripts/wait-for-db.sh localhost 5432 node src/server/index.js"
+    ,"dev:all": "./scripts/dev-all.sh"
   },
   "dependencies": {
     "helmet": "^6.0.0",

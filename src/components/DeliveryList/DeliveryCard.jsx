@@ -23,16 +23,16 @@ export default function DeliveryCard({
       onClick={onClick}
       className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border-l-4 rounded-lg transition-all cursor-move ${
         isDragging
-          ? 'opacity-50 bg-purple-100 border-purple-400'
+          ? 'opacity-50 bg-primary-100 border-primary-400'
           : isDragOver
-          ? 'bg-purple-50 border-purple-500 shadow-md scale-105'
-          : 'border-purple-500 bg-gradient-to-r from-purple-50 to-white hover:shadow-lg hover:translate-x-1'
+          ? 'bg-primary-50 border-primary-500 shadow-md scale-105'
+          : 'border-primary-500 bg-gradient-to-r from-primary-50 to-white hover:shadow-lg hover:translate-x-1'
       }`}
     >
       {/* Drag Handle - Mobile optimized */}
       <div className="flex items-center gap-2 mb-2 sm:mb-0 sm:mr-3 flex-shrink-0">
         <GripVertical className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 hover:text-gray-600 transition-colors" />
-        <span className="text-base sm:text-lg font-bold text-purple-600 w-6">
+        <span className="text-base sm:text-lg font-bold text-primary-600 w-6">
           {index + 1}.
         </span>
       </div>
@@ -60,7 +60,7 @@ export default function DeliveryCard({
           )}
           <div className="flex items-center gap-2">
             <Navigation className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-            <span className="font-semibold text-purple-600">
+            <span className="font-semibold text-primary-600">
               {delivery.distanceFromWarehouse.toFixed(1)} km
             </span>
           </div>

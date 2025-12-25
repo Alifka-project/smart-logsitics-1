@@ -155,7 +155,7 @@ export default function DeliveryMap({ deliveries, route }) {
         }).addTo(mapInstance.current);
         routeLayers.current.push(outlineLayer);
 
-        // Purple route (main layer)
+        // Brand route (main layer)
         const routeLine = L.polyline(validCoordinates, {
           color: '#667eea',
           weight: 5,

@@ -19,7 +19,8 @@ export default function HomePage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="h-screen flex items-center justify-center px-4 overflow-hidden">
+      <div className="w-full max-w-4xl max-h-[calc(100vh-40px)] overflow-auto">
       {/* Upload Section - Show First */}
       {showUpload && !deliveries.length ? (
         <div className="bg-white rounded-lg shadow-xl p-6 sm:p-10 mb-8">
@@ -56,7 +57,7 @@ export default function HomePage() {
       ) : (
         <>
           {/* Hero Section - Show when data is loaded */}
-          <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg shadow-lg p-8 sm:p-12 mb-8">
+          <div className="bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-lg shadow-lg p-8 sm:p-12 mb-8">
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
               Smart Logistics Management System
             </h1>
@@ -66,14 +67,14 @@ export default function HomePage() {
             <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={() => setShowUpload(true)}
-                className="bg-white text-purple-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition flex items-center justify-center gap-2"
+                className="bg-white text-primary-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition flex items-center justify-center gap-2"
               >
                 <Upload className="w-5 h-5" />
                 Upload New File
               </button>
               <button
                 onClick={() => navigate('/deliveries')}
-                className="bg-purple-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-600 transition flex items-center justify-center gap-2"
+                className="bg-primary-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary-600 transition flex items-center justify-center gap-2"
               >
                 <Database className="w-5 h-5" />
                 View Deliveries
@@ -104,8 +105,8 @@ export default function HomePage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
         <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition">
           <div className="flex items-center mb-4">
-            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-              <Upload className="w-6 h-6 text-purple-600" />
+            <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center">
+              <Upload className="w-6 h-6 text-primary-600" />
             </div>
             <h3 className="text-lg font-bold text-gray-800 ml-4">Easy Upload</h3>
           </div>
@@ -176,7 +177,7 @@ export default function HomePage() {
           <h2 className="text-xl font-bold text-gray-800 mb-4">Getting Started</h2>
           <ol className="space-y-3 text-gray-700">
             <li className="flex gap-4">
-              <span className="flex-shrink-0 w-8 h-8 bg-purple-600 text-white rounded-full flex items-center justify-center font-bold">
+              <span className="flex-shrink-0 w-8 h-8 bg-primary-600 text-white rounded-full flex items-center justify-center font-bold">
                 1
               </span>
               <span>
@@ -184,7 +185,7 @@ export default function HomePage() {
               </span>
             </li>
             <li className="flex gap-4">
-              <span className="flex-shrink-0 w-8 h-8 bg-purple-600 text-white rounded-full flex items-center justify-center font-bold">
+              <span className="flex-shrink-0 w-8 h-8 bg-primary-600 text-white rounded-full flex items-center justify-center font-bold">
                 2
               </span>
               <span>
@@ -192,7 +193,7 @@ export default function HomePage() {
               </span>
             </li>
             <li className="flex gap-4">
-              <span className="flex-shrink-0 w-8 h-8 bg-purple-600 text-white rounded-full flex items-center justify-center font-bold">
+              <span className="flex-shrink-0 w-8 h-8 bg-primary-600 text-white rounded-full flex items-center justify-center font-bold">
                 3
               </span>
               <span>
@@ -200,7 +201,7 @@ export default function HomePage() {
               </span>
             </li>
             <li className="flex gap-4">
-              <span className="flex-shrink-0 w-8 h-8 bg-purple-600 text-white rounded-full flex items-center justify-center font-bold">
+                <span className="flex-shrink-0 w-8 h-8 bg-primary-600 text-white rounded-full flex items-center justify-center font-bold">
                 4
               </span>
               <span>
@@ -210,6 +211,7 @@ export default function HomePage() {
           </ol>
         </div>
       )}
+      </div>
     </div>
   );
 }

@@ -8,8 +8,31 @@ export default {
     extend: {
       colors: {
         primary: {
-          500: '#667eea',
-          600: '#764ba2',
+          50: '#f2f6f9',
+          100: '#e6eef5',
+          200: '#cfe0ec',
+          300: '#9fc4df',
+          400: '#4e88b9',
+          500: '#1f5f93',
+          600: '#114a76',
+          700: '#0a3254',
+          800: '#042336',
+          900: '#011E41',
+          DEFAULT: '#011E41',
+        },
+        // Remap Tailwind's `purple` to the Electrolux blue palette so existing
+        // `purple-*` utility classes become the brand blue without changing markup.
+        purple: {
+          50: '#f2f6f9',
+          100: '#e6eef5',
+          200: '#cfe0ec',
+          300: '#9fc4df',
+          400: '#4e88b9',
+          500: '#1f5f93',
+          600: '#114a76',
+          700: '#0a3254',
+          800: '#042336',
+          900: '#011E41',
         },
       },
       screens: {

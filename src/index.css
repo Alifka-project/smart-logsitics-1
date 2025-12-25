@@ -2,9 +2,28 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --color-brand-50: #f2f6f9;
+  --color-brand-100: #e6eef5;
+  --color-brand-200: #cfe0ec;
+  --color-brand-300: #9fc4df;
+  --color-brand-400: #4e88b9;
+  --color-brand-500: #1f5f93;
+  --color-brand-600: #114a76;
+  --color-brand-700: #0a3254;
+  --color-brand-800: #042336;
+  --color-brand-900: #011E41;
+  --color-primary: var(--color-brand-900);
+  --color-bg: var(--color-brand-50);
+  --color-surface: #ffffff;
+  --color-text: #0b2030;
+  --color-muted: #6b7280;
+}
+
 @layer base {
   body {
-    @apply bg-gray-50;
+    background-color: var(--color-bg);
+    color: var(--color-text);
   }
   
   /* Mobile optimization */
@@ -20,6 +39,18 @@
       -webkit-touch-callout: none;
       user-select: none;
     }
+  }
+}
+
+/* Global link/button color defaults to brand */
+@layer base {
+  a,
+  button,
+  .btn-primary {
+    color: var(--color-primary);
+  }
+  .bg-surface {
+    background-color: var(--color-surface);
   }
 }
 

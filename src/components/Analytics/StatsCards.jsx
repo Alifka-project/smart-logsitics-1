@@ -22,8 +22,8 @@ export default function StatsCards() {
       label: 'Total Deliveries',
       value: analytics.total,
       icon: Package,
-      color: 'purple',
-      className: 'bg-gradient-to-br from-purple-500 to-purple-600',
+      color: 'primary',
+      className: 'bg-gradient-to-br from-primary-500 to-primary-600',
     },
     {
       label: 'Completed',

@@ -1,4 +1,20 @@
 // Data transformer to convert actual Excel format to system format
+/**
+ * Parse a coordinate value from various Excel/CVS formats to a float.
+ * Accepts numbers, strings with comma decimals ("25,1124"), extraneous spaces,
+ * and will strip non-numeric characters where reasonable.
+ */
+function parseCoordinate(value) {
+  if (value === null || value === undefined) return NaN;
+  if (typeof value === 'number') return value;
+  let s = String(value).trim();
+  // Replace comma decimal separators with dot
+  s = s.replace(/,/g, '.');
+  // Remove any characters except digits, dot, minus
+  s = s.replace(/[^0-9.\-]+/g, '');
+  const v = parseFloat(s);
+  return isNaN(v) ? NaN : v;
+}
 export function transformERPData(data) {
   /**
    * Transform SAP/ERP delivery data to simplified delivery format
@@ -21,10 +37,55 @@ export function transformERPData(data) {
       row['Material']
     ].filter(Boolean).join(' - ') || 'Items not specified';
 
-    // Use default Dubai coordinates if not available
-    // In a real scenario, you'd geocode the address
-    const lat = parseFloat(row['Ship to Latitude']) || 25.1124; // Default to Dubai area
-    const lng = parseFloat(row['Ship to Longitude']) || 55.1980;
+        // Resolve possible latitude/longitude column names (ERP exports vary)
+        const rowKeys = Object.keys(row || {});
+        const latKeyCandidates = [
+          'Ship to Latitude', 'Ship To Latitude', 'Ship-to Latitude', 'ShipToLatitude',
+          'Latitude', 'Lat', 'LATITUDE', 'Lat (Dec)', 'Ship to Lat'
+        ];
+        const lngKeyCandidates = [
+          'Ship to Longitude', 'Ship To Longitude', 'Ship-to Longitude', 'ShipToLongitude',
+          'Longitude', 'Long', 'Lon', 'LON', 'Lon (Dec)', 'Ship to Long'
+        ];
+
+        const findKey = (candidates) => {
+          for (const c of candidates) {
+            if (c in row) return c;
+          }
+          // fallback: find any key containing "lat" / "lon" case-insensitive
+          for (const k of rowKeys) {
+            if (k.toLowerCase().includes('lat')) return k;
+          }
+          return null;
+        };
+
+        const latKey = findKey(latKeyCandidates);
+        const lngKey = findKey(lngKeyCandidates);
+        // Also support combined coordinate fields like "Coordinates" => "25.1124,55.1980"
+        const combinedCandidates = ['Coordinates', 'Coord', 'Location', 'Geo', 'Ship to Coordinates', 'LatLon', 'Lat/Lon', 'Latitude/Longitude'];
+        const combinedKey = combinedCandidates.find(c => c in row) || rowKeys.find(k => /coord|lat.*lon|latlon|lat\/?lon/i.test(k));
+
+        let latRaw, lngRaw;
+        if (latKey && lngKey) {
+          latRaw = parseCoordinate(row[latKey]);
+          lngRaw = parseCoordinate(row[lngKey]);
+        } else if (combinedKey) {
+          const v = String(row[combinedKey] || '').trim();
+          // Try splitting by comma or space
+          const parts = v.includes(',') ? v.split(',') : v.split(/\s+/);
+          if (parts.length >= 2) {
+            latRaw = parseCoordinate(parts[0]);
+            lngRaw = parseCoordinate(parts[1]);
+          } else {
+            latRaw = parseCoordinate(row['Ship to Latitude']);
+            lngRaw = parseCoordinate(row['Ship to Longitude']);
+          }
+        } else {
+          latRaw = parseCoordinate(row['Ship to Latitude']);
+          lngRaw = parseCoordinate(row['Ship to Longitude']);
+        }
+        const lat = !isNaN(latRaw) ? latRaw : 25.1124; // Default to Dubai area
+        const lng = !isNaN(lngRaw) ? lngRaw : 55.1980;
 
     return {
       customer: String(customer).trim(),
@@ -33,6 +94,8 @@ export function transformERPData(data) {
       lng,
       phone: String(phone).trim(),
       items: String(items).trim(),
+      // Indicate whether defaults were applied because parsing failed
+      _usedDefaultCoords: isNaN(latRaw) || isNaN(lngRaw),
       // Store original data for reference
       _originalDeliveryNumber: row['Delivery number'],
       _originalPONumber: row['PO Number'],
@@ -111,8 +174,10 @@ export function transformGenericData(data) {
       row[cityKey]
     ].filter(Boolean).join(', ') || 'Address not available';
     
-    const lat = parseFloat(row[latKey]) || 25.1124;
-    const lng = parseFloat(row[lngKey]) || 55.1980;
+    const latRaw = parseCoordinate(row[latKey]);
+    const lngRaw = parseCoordinate(row[lngKey]);
+    const lat = !isNaN(latRaw) ? latRaw : 25.1124;
+    const lng = !isNaN(lngRaw) ? lngRaw : 55.1980;
     const phone = row[phoneKey] || '';
     const items = row[itemsKey] || 'Items not specified';
 
@@ -123,6 +188,8 @@ export function transformGenericData(data) {
       lng,
       phone: String(phone).trim(),
       items: String(items).trim()
+      ,
+      _usedDefaultCoords: isNaN(latRaw) || isNaN(lngRaw)
     };
   });
 }

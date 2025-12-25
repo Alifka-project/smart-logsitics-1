@@ -39,17 +39,17 @@ export default function CustomerModal({ isOpen, onClose }) {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
       <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b bg-gradient-to-r from-purple-600 to-purple-700 text-white">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b bg-gradient-to-r from-primary-600 to-primary-700 text-white">
           <h2 className="text-lg sm:text-xl lg:text-2xl font-bold">Delivery Confirmation</h2>
-          <button onClick={onClose} className="hover:bg-purple-800 p-2 rounded">
+          <button onClick={onClose} className="hover:bg-primary-800 p-2 rounded">
             <X className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
         </div>
 
         <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
           {/* Customer Details */}
-          <div className="bg-purple-50 rounded-lg p-3 sm:p-4 space-y-2">
-            <h3 className="text-lg sm:text-xl font-bold text-purple-800 mb-3 sm:mb-4">
+          <div className="bg-primary-50 rounded-lg p-3 sm:p-4 space-y-2">
+            <h3 className="text-lg sm:text-xl font-bold text-primary-800 mb-3 sm:mb-4">
               Stop {selectedDelivery.id}: {selectedDelivery.customer}
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
@@ -105,7 +105,7 @@ export default function CustomerModal({ isOpen, onClose }) {
           <button
             onClick={handleSubmit}
             disabled={!status || !driverSignature || !customerSignature}
-            className="w-full py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white font-bold rounded-lg hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            className="w-full py-3 bg-gradient-to-r from-primary-600 to-primary-700 text-white font-bold rounded-lg hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
             ✓ Complete Delivery
           </button>

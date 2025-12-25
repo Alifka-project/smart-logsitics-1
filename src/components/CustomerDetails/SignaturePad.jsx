@@ -16,7 +16,7 @@ export default function SignaturePad({ title, onChange }) {
   return (
     <div>
       <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-3">{title}</h3>
-      <div className="border-2 border-purple-300 rounded-lg">
+      <div className="border-2 border-primary-300 rounded-lg">
         <SignatureCanvas
           ref={sigCanvas}
           canvasProps={{

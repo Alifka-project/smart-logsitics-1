@@ -12,8 +12,8 @@ export default function Navigation() {
             className={({ isActive }) =>
               `flex items-center gap-1 sm:gap-2 px-3 sm:px-6 py-3 sm:py-4 font-medium transition-colors text-sm sm:text-base ${
                 isActive
-                  ? 'text-purple-600 border-b-2 border-purple-600'
-                  : 'text-gray-600 hover:text-purple-600'
+                  ? 'text-primary-600 border-b-2 border-primary-600'
+                  : 'text-gray-600 hover:text-primary-600'
               }`
             }
           >
@@ -25,8 +25,8 @@ export default function Navigation() {
             className={({ isActive }) =>
               `flex items-center gap-1 sm:gap-2 px-3 sm:px-6 py-3 sm:py-4 font-medium transition-colors text-sm sm:text-base ${
                 isActive
-                  ? 'text-purple-600 border-b-2 border-purple-600'
-                  : 'text-gray-600 hover:text-purple-600'
+                  ? 'text-primary-600 border-b-2 border-primary-600'
+                  : 'text-gray-600 hover:text-primary-600'
               }`
             }
           >
@@ -39,8 +39,8 @@ export default function Navigation() {
             className={({ isActive }) =>
               `flex items-center gap-1 sm:gap-2 px-3 sm:px-6 py-3 sm:py-4 font-medium transition-colors text-sm sm:text-base ${
                 isActive
-                  ? 'text-purple-600 border-b-2 border-purple-600'
-                  : 'text-gray-600 hover:text-purple-600'
+                  ? 'text-primary-600 border-b-2 border-primary-600'
+                  : 'text-gray-600 hover:text-primary-600'
               }`
             }
           >

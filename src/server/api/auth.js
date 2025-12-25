@@ -33,7 +33,9 @@ router.post('/login', async (req, res) => {
     const payload = { sub: r.driver_id, role: r.role, username: r.username };
     // create server-side session and set cookie; return clientKey to client
     const clientKey = createLoginSession(req, res, payload);
-    res.json({ driver: { id: r.driver_id, username: r.username, full_name: r.full_name, role: r.role }, clientKey });
+    // Also generate a JWT to support Authorization header based auth from the client
+    const authToken = generateToken(payload);
+    res.json({ driver: { id: r.driver_id, username: r.username, full_name: r.full_name, role: r.role }, clientKey, authToken });
   } catch (err) {
     console.error('auth/login', err);
     res.status(500).json({ error: 'db_error' });

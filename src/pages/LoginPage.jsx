@@ -13,9 +13,16 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const res = await api.post('/auth/login', { username, password });
-      const { driver, clientKey } = res.data;
+      const { driver, clientKey, authToken } = res.data;
       // store clientKey to bind this browser to the session cookie
-      try { localStorage.setItem('client_key', clientKey); localStorage.setItem('client_user', JSON.stringify(driver)); } catch (e) {}
+      try {
+        if (clientKey) localStorage.setItem('client_key', clientKey);
+        if (driver) localStorage.setItem('client_user', JSON.stringify(driver));
+        if (authToken) {
+          localStorage.setItem('auth_token', authToken);
+          setAuthToken(authToken);
+        }
+      } catch (e) {}
       // Server sets HttpOnly session cookie; redirect based on role
       if (driver?.role === 'admin') window.location.href = '/admin';
       else window.location.href = '/driver';
@@ -26,8 +33,9 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="max-w-md mx-auto bg-white p-8 rounded shadow-lg">
-      <h2 className="text-2xl font-semibold mb-4">Sign In to Dubai Logistics</h2>
+    <div className="h-screen flex items-center justify-center px-4 overflow-hidden">
+      <div className="w-full max-w-md bg-white p-6 sm:p-8 rounded shadow-lg">
+        <h2 className="text-2xl font-semibold mb-4">Sign In to Dubai Logistics</h2>
       <p className="text-sm text-gray-600 mb-4">Enter your company credentials to continue.</p>
       {error && <div className="text-red-600 mb-2">{error}</div>}
       <form onSubmit={submit}>
@@ -40,10 +48,11 @@ export default function LoginPage() {
           <input type="password" value={password} onChange={(e)=>setPassword(e.target.value)} className="border p-3 w-full rounded" placeholder="Enter password" />
         </label>
         <div className="flex items-center justify-between">
-          <button disabled={loading} className="bg-purple-600 disabled:opacity-60 text-white px-6 py-2 rounded font-medium">{loading? 'Signing in...' : 'Sign in'}</button>
+          <button disabled={loading} className="bg-primary-600 disabled:opacity-60 text-white px-6 py-2 rounded font-medium">{loading? 'Signing in...' : 'Sign in'}</button>
           <a href="#" className="text-sm text-gray-600">Forgot password?</a>
         </div>
       </form>
+    </div>
     </div>
   );
 }

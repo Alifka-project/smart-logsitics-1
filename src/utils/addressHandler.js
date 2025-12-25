@@ -57,8 +57,18 @@ export function isValidAddress(address) {
 export function hasValidCoordinates(lat, lng) {
   const lat_num = parseFloat(lat);
   const lng_num = parseFloat(lng);
-  
-  return !isNaN(lat_num) && !isNaN(lng_num) && lat_num !== 0 && lng_num !== 0;
+
+  if (isNaN(lat_num) || isNaN(lng_num)) return false;
+  // Treat explicit zeros as invalid
+  if (lat_num === 0 || lng_num === 0) return false;
+
+  // Treat known default placeholder coordinates as invalid so they trigger geocoding
+  const DEFAULT_LAT = 25.1124;
+  const DEFAULT_LNG = 55.1980;
+  const EPS = 0.0001;
+  if (Math.abs(lat_num - DEFAULT_LAT) < EPS && Math.abs(lng_num - DEFAULT_LNG) < EPS) return false;
+
+  return true;
 }
 
 /**

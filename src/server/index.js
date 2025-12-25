@@ -34,13 +34,30 @@ app.use((req, res, next) => {
 
 // CORS: restrict to configured origins or allow localhost in non-production
 const rawOrigins = (process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
-const defaultAllowed = process.env.NODE_ENV === 'production' ? [] : ['http://localhost:5173', 'http://127.0.0.1:5173'];
-const allowedOrigins = rawOrigins.length ? rawOrigins : defaultAllowed;
-if (allowedOrigins.length) {
+const allowedOriginsFromEnv = rawOrigins.length ? rawOrigins : [];
+if (allowedOriginsFromEnv.length) {
   app.use(cors({
     origin: function(origin, callback) {
       if (!origin) return callback(null, true); // allow non-browser requests (curl, server-to-server)
-      if (allowedOrigins.indexOf(origin) !== -1) return callback(null, true);
+      if (allowedOriginsFromEnv.indexOf(origin) !== -1) return callback(null, true);
+      return callback(new Error('Not allowed by CORS'));
+    },
+    optionsSuccessStatus: 200,
+  }));
+} else if (process.env.NODE_ENV === 'production') {
+  // In production, if no CORS_ORIGINS are provided, default to denying browser origins
+  app.use(cors({ origin: false }));
+} else {
+  // Development convenience: allow any localhost origin (any port) and 127.0.0.1
+  app.use(cors({
+    origin: function(origin, callback) {
+      if (!origin) return callback(null, true);
+      try {
+        const url = new URL(origin);
+        if ((url.hostname === 'localhost' || url.hostname === '127.0.0.1')) return callback(null, true);
+      } catch (e) {
+        // fall through
+      }
       return callback(new Error('Not allowed by CORS'));
     },
     optionsSuccessStatus: 200,

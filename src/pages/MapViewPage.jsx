@@ -77,7 +77,7 @@ export default function MapViewPage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Route Info */}
-      <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg shadow-lg p-4 sm:p-6">
+      <div className="bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-lg shadow-lg p-4 sm:p-6">
         <div className="flex items-center justify-between mb-3 sm:mb-4">
           <h2 className="text-xl sm:text-2xl font-bold">📍 Optimized Delivery Route</h2>
           {isOptimized && (
@@ -153,7 +153,7 @@ export default function MapViewPage() {
         {isLoading ? (
           <div className="h-[400px] sm:h-[500px] lg:h-[600px] flex items-center justify-center">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 sm:h-16 sm:w-16 border-b-2 border-purple-600 mx-auto mb-4"></div>
+              <div className="animate-spin rounded-full h-12 w-12 sm:h-16 sm:w-16 border-b-2 border-primary-600 mx-auto mb-4"></div>
               <p className="text-gray-600 text-sm sm:text-base">Calculating route for {deliveries.length} deliveries...</p>
               {deliveries.length > 50 && (
                 <p className="text-gray-500 text-xs mt-2">Large dataset - may take a minute</p>

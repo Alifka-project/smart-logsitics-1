@@ -31,7 +31,7 @@ export default function MultipleFileUpload({ photos, setPhotos }) {
   return (
     <div>
       <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
-        <Camera className="w-5 h-5 text-purple-600" />
+        <Camera className="w-5 h-5 text-primary-600" />
         📸 Upload Delivery Photos
       </h3>
       
@@ -40,7 +40,7 @@ export default function MultipleFileUpload({ photos, setPhotos }) {
         <div className="flex flex-col sm:flex-row gap-3">
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white font-semibold rounded-lg hover:shadow-lg transition-all text-sm sm:text-base"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-primary-600 to-primary-700 text-white font-semibold rounded-lg hover:shadow-lg transition-all text-sm sm:text-base"
           >
             <Upload className="w-4 h-4 sm:w-5 sm:h-5" />
             Upload Photos
@@ -92,7 +92,7 @@ export default function MultipleFileUpload({ photos, setPhotos }) {
             {photos.map((photo) => (
               <div
                 key={photo.id}
-                className="relative group rounded-lg overflow-hidden border-2 border-gray-200 hover:border-purple-400 transition-colors"
+                className="relative group rounded-lg overflow-hidden border-2 border-gray-200 hover:border-primary-400 transition-colors"
               >
                 <img
                   src={photo.data}

@@ -42,18 +42,27 @@ const useDeliveryStore = create((set, get) => ({
   loadDeliveries: (data) => {
     try {
       // 1. Calculate distance from warehouse using Haversine
-      const deliveriesWithDistance = data.map((delivery, index) => ({
-        ...delivery,
-        id: `delivery-${index + 1}`,
-        distanceFromWarehouse: calculateDistance(
-          WAREHOUSE_LAT,
-          WAREHOUSE_LNG,
-          delivery.lat,
-          delivery.lng
-        ),
-        status: 'pending',
-        estimatedTime: new Date(Date.now() + (index + 1) * 75 * 60 * 1000), // 75 min per stop
-      }));
+      const deliveriesWithDistance = data.map((delivery, index) => {
+        const lat = Number.parseFloat(delivery.lat);
+        const lng = Number.parseFloat(delivery.lng);
+        const safeLat = Number.isFinite(lat) ? lat : 25.1124;
+        const safeLng = Number.isFinite(lng) ? lng : 55.1980;
+
+        return {
+          ...delivery,
+          id: `delivery-${index + 1}`,
+          lat: safeLat,
+          lng: safeLng,
+          distanceFromWarehouse: calculateDistance(
+            WAREHOUSE_LAT,
+            WAREHOUSE_LNG,
+            safeLat,
+            safeLng
+          ),
+          status: 'pending',
+          estimatedTime: new Date(Date.now() + (index + 1) * 75 * 60 * 1000), // 75 min per stop
+        };
+      });
 
       // 2. Sort by distance and assign priorities
       const prioritized = assignPriorities(deliveriesWithDistance);
@@ -109,6 +118,10 @@ const useDeliveryStore = create((set, get) => ({
     set({ isLoading: true });
     // Route calculation is handled in MapViewPage
     set({ isLoading: false });
+  },
+  // Set route into store (used by upload flow to precompute route)
+  setRoute: (route) => {
+    set({ route });
   },
 }));
 

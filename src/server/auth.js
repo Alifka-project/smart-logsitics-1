@@ -29,7 +29,8 @@ function createLoginSession(req, res, payload) {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
     path: '/',
-    maxAge: 12 * 3600 * 1000,
+    // maxAge is in seconds for cookie.serialize()
+    maxAge: 12 * 3600,
   };
   res.setHeader('Set-Cookie', cookie.serialize(SESSION_COOKIE, sid, cookieOptions));
   return clientKey;
