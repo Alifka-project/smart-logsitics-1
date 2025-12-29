@@ -143,7 +143,7 @@ router.post('/login', loginLimiter, async (req, res) => {
     recordSuccess(sanitizedUsername);
     
     // Update last login using Prisma
-    await prisma.driverAccount.update({
+    await prisma.account.update({
       where: { driverId: driver.id },
       data: { lastLogin: new Date() }
     });
@@ -249,7 +249,7 @@ router.post('/change-password', authenticate, async (req, res) => {
   
   try {
     // Get current password hash using Prisma
-    const account = await prisma.driverAccount.findUnique({
+    const account = await prisma.account.findUnique({
       where: { driverId: req.user.sub }
     });
     
@@ -267,7 +267,7 @@ router.post('/change-password', authenticate, async (req, res) => {
     const newHash = await hashPassword(newPassword);
     
     // Update password using Prisma
-    await prisma.driverAccount.update({
+    await prisma.account.update({
       where: { driverId: req.user.sub },
       data: { passwordHash: newHash }
     });

@@ -1,5 +1,4 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// Optimized Prisma Schema - Essential tables only
 
 generator client {
   provider = "prisma-client-js"
@@ -7,8 +6,10 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
+// Users table (drivers and admins)
 model Driver {
   id        String   @id @default(uuid()) @db.Uuid
   username  String?  @unique @db.VarChar(100)
@@ -19,8 +20,7 @@ model Driver {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  account        DriverAccount?
-  profile        DriverProfile?
+  account        Account?
   status         DriverStatus?
   locations      LiveLocation[]
   assignments    DeliveryAssignment[]
@@ -28,51 +28,24 @@ model Driver {
   @@map("drivers")
 }
 
-model DriverAccount {
+// Account table for authentication (simplified - renamed from driver_accounts)
+model Account {
   id              String    @id @default(uuid()) @db.Uuid
   driverId        String    @unique @map("driver_id") @db.Uuid
   passwordHash    String?   @map("password_hash") @db.Text
   lastLogin       DateTime? @map("last_login") @db.Timestamptz(6)
-  twoFactorEnabled Boolean  @default(false) @map("two_factor_enabled")
-  role            String    @default("driver") @db.VarChar(50)
+  role            String    @default("driver") @db.VarChar(50) // 'admin' or 'driver'
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
   driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
 
-  @@map("driver_accounts")
+  @@map("accounts")
 }
 
-model Vehicle {
-  id         String   @id @default(uuid()) @db.Uuid
-  plateNumber String? @unique @map("plate_number") @db.VarChar(64)
-  model      String?  @db.VarChar(128)
-  capacity   Int?
-  active     Boolean  @default(true)
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  profiles DriverProfile[]
-
-  @@map("vehicles")
-}
-
-model DriverProfile {
-  driverId      String   @id @map("driver_id") @db.Uuid
-  vehicleId     String?  @unique @map("vehicle_id") @db.Uuid
-  licenseNumber String?  @map("license_number") @db.VarChar(64)
-  photoUrl      String?  @map("photo_url") @db.Text
-  workingHours  Json?    @map("working_hours")
-  preferredArea String?  @map("preferred_area") @db.Text
-  notes         String?  @db.Text
-
-  driver  Driver   @relation(fields: [driverId], references: [id])
-  vehicle Vehicle? @relation(fields: [vehicleId], references: [id])
-
-  @@map("driver_profiles")
-}
-
+// Driver status for tracking
 model DriverStatus {
   driverId          String   @id @map("driver_id") @db.Uuid
-  status            String   @db.VarChar(32)
+  status            String   @db.VarChar(32) // 'available', 'busy', 'offline'
   updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   currentAssignmentId String? @map("current_assignment_id") @db.Uuid
 
@@ -81,6 +54,7 @@ model DriverStatus {
   @@map("driver_status")
 }
 
+// Live GPS locations for drivers
 model LiveLocation {
   id        BigInt   @id @default(autoincrement())
   driverId  String   @map("driver_id") @db.Uuid
@@ -98,6 +72,7 @@ model LiveLocation {
   @@map("live_locations")
 }
 
+// Deliveries (minimal - main data comes from external source)
 model Delivery {
   id String @id @default(uuid()) @db.Uuid
 
@@ -108,6 +83,7 @@ model Delivery {
   @@map("deliveries")
 }
 
+// Delivery assignments to drivers
 model DeliveryAssignment {
   id        String    @id @default(uuid()) @db.Uuid
   deliveryId String   @map("delivery_id") @db.Uuid
@@ -115,7 +91,6 @@ model DeliveryAssignment {
   assignedAt DateTime @default(now()) @map("assigned_at") @db.Timestamptz(6)
   status      String  @default("assigned") @db.VarChar(32)
   eta         DateTime? @db.Timestamptz(6)
-  routeChunk  Int      @default(0) @map("route_chunk")
 
   driver Driver @relation(fields: [driverId], references: [id])
   delivery Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
@@ -123,6 +98,7 @@ model DeliveryAssignment {
   @@map("delivery_assignments")
 }
 
+// Delivery events for audit/logging
 model DeliveryEvent {
   id        BigInt   @id @default(autoincrement())
   deliveryId String  @map("delivery_id") @db.Uuid
@@ -137,6 +113,7 @@ model DeliveryEvent {
   @@map("delivery_events")
 }
 
+// SMS confirmations
 model SmsConfirmation {
   id          BigInt    @id @default(autoincrement())
   deliveryId  String    @map("delivery_id") @db.Uuid

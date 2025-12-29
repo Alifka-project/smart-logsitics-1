@@ -28,43 +28,17 @@ router.post('/migrate', async (req, res) => {
       );
     `);
 
-    // Create driver_accounts table
+    // Create accounts table (renamed from driver_accounts - simplified)
     await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS driver_accounts (
+      CREATE TABLE IF NOT EXISTS accounts (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         driver_id uuid REFERENCES drivers(id) ON DELETE CASCADE,
         password_hash text,
         last_login timestamptz,
-        two_factor_enabled boolean DEFAULT false,
         role varchar(50) DEFAULT 'driver',
         created_at timestamptz DEFAULT now()
       );
-      CREATE UNIQUE INDEX IF NOT EXISTS driver_accounts_driver_id_key ON driver_accounts(driver_id);
-    `);
-
-    // Create vehicles table
-    await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS vehicles (
-        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-        plate_number varchar(64) UNIQUE,
-        model varchar(128),
-        capacity integer,
-        active boolean DEFAULT true,
-        created_at timestamptz DEFAULT now()
-      );
-    `);
-
-    // Create driver_profiles table
-    await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS driver_profiles (
-        driver_id uuid PRIMARY KEY REFERENCES drivers(id),
-        vehicle_id uuid REFERENCES vehicles(id),
-        license_number varchar(64),
-        photo_url text,
-        working_hours jsonb,
-        preferred_area text,
-        notes text
-      );
+      CREATE UNIQUE INDEX IF NOT EXISTS accounts_driver_id_key ON accounts(driver_id);
     `);
 
     // Create driver_status table
