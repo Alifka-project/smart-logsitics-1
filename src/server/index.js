@@ -86,12 +86,12 @@ app.post('/api/sms/confirm', async (req, res) => {
   return smsRouter.confirm(req, res);
 });
 
-// Health check - verify database connection
+// Health check - verify database connection using Prisma
 app.get('/api/health', async (req, res) => {
   try {
-    const db = require('./db');
-    await db.query('SELECT 1');
-    res.json({ ok: true, database: 'connected', ts: new Date().toISOString() });
+    const prisma = require('./db/prisma');
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ ok: true, database: 'connected', orm: 'prisma', ts: new Date().toISOString() });
   } catch (error) {
     res.status(503).json({ 
       ok: false, 
