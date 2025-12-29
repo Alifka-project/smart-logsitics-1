@@ -28,6 +28,11 @@ router.post('/migrate', async (req, res) => {
       );
     `);
 
+    // Drop old tables if they exist (cleanup)
+    await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS driver_profiles CASCADE;`).catch(() => {});
+    await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS vehicles CASCADE;`).catch(() => {});
+    await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS driver_accounts CASCADE;`).catch(() => {});
+
     // Create accounts table (renamed from driver_accounts - simplified)
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS accounts (
