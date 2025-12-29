@@ -1,41 +1,177 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { hashPassword, comparePassword, generateToken, createLoginSession, clearLoginSession } = require('../auth');
+const prisma = require('../db/prisma');
+const {
+  hashPassword,
+  comparePassword,
+  generateAccessToken,
+  createLoginSession,
+  clearLoginSession,
+  refreshAccessToken,
+  authenticate,
+  destroyUserSessions
+} = require('../auth');
+const { loginLimiter } = require('../security/rateLimiter');
+const { validatePassword, sanitizeInput } = require('../security/passwordValidator');
+const { recordFailedAttempt, recordSuccess, isLocked } = require('../security/accountLockout');
 
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
   const { username, password, email, phone, full_name } = req.body;
-  if (!username || !password) return res.status(400).json({ error: 'username_password_required' });
+  
+  // Sanitize inputs
+  const sanitizedUsername = sanitizeInput(username);
+  const sanitizedEmail = email ? sanitizeInput(email) : null;
+  const sanitizedPhone = phone ? sanitizeInput(phone) : null;
+  const sanitizedFullName = full_name ? sanitizeInput(full_name) : null;
+  
+  if (!sanitizedUsername || !password) {
+    return res.status(400).json({ error: 'username_password_required' });
+  }
+  
+  // Validate password strength
+  const passwordValidation = validatePassword(password);
+  if (!passwordValidation.valid) {
+    return res.status(400).json({
+      error: 'password_validation_failed',
+      details: passwordValidation.errors
+    });
+  }
+  
   try {
-    // create driver
-    const insert = await db.query('INSERT INTO drivers(username, email, phone, full_name) VALUES($1,$2,$3,$4) RETURNING id, username, email, phone, full_name', [username, email || null, phone || null, full_name || null]);
-    const driver = insert.rows[0];
+    // Check if username already exists using Prisma
+    const existing = await prisma.driver.findUnique({
+      where: { username: sanitizedUsername }
+    });
+    
+    if (existing) {
+      return res.status(409).json({ error: 'username_already_exists' });
+    }
+    
+    // Hash password
     const pwHash = await hashPassword(password);
-    await db.query('INSERT INTO driver_accounts(driver_id, password_hash, role) VALUES($1,$2,$3)', [driver.id, pwHash, 'driver']);
-    res.status(201).json({ ok: true, driver });
+    
+    // Create driver with account using Prisma transaction
+    const driver = await prisma.$transaction(async (tx) => {
+      const newDriver = await tx.driver.create({
+        data: {
+          username: sanitizedUsername,
+          email: sanitizedEmail,
+          phone: sanitizedPhone,
+          fullName: sanitizedFullName,
+          account: {
+            create: {
+              passwordHash: pwHash,
+              role: 'driver'
+            }
+          }
+        }
+      });
+      return newDriver;
+    });
+    
+    res.status(201).json({ 
+      ok: true, 
+      driver: {
+        id: driver.id,
+        username: driver.username,
+        email: driver.email,
+        phone: driver.phone,
+        full_name: driver.fullName
+      }
+    });
   } catch (err) {
     console.error('auth/register', err);
+    if (err.code === 'P2002') { // Prisma unique constraint violation
+      return res.status(409).json({ error: 'username_already_exists' });
+    }
     res.status(500).json({ error: 'db_error' });
   }
 });
 
-// POST /api/auth/login
-router.post('/login', async (req, res) => {
+// POST /api/auth/login - with rate limiting and account lockout
+router.post('/login', loginLimiter, async (req, res) => {
   const { username, password } = req.body;
-  if (!username || !password) return res.status(400).json({ error: 'username_password_required' });
+  
+  if (!username || !password) {
+    return res.status(400).json({ error: 'username_password_required' });
+  }
+  
+  const sanitizedUsername = sanitizeInput(username);
+  
+  // Check account lockout
+  const lockoutStatus = isLocked(sanitizedUsername);
+  if (lockoutStatus) {
+    return res.status(423).json({
+      error: 'account_locked',
+      message: `Account locked due to too many failed attempts. Try again in ${lockoutStatus.remainingMinutes} minutes.`,
+      lockedUntil: new Date(lockoutStatus.lockedUntil).toISOString()
+    });
+  }
+  
   try {
-    const { rows } = await db.query('SELECT da.driver_id, da.password_hash, da.role, d.username, d.full_name FROM driver_accounts da JOIN drivers d ON d.id = da.driver_id WHERE d.username = $1 LIMIT 1', [username]);
-    if (!rows.length) return res.status(401).json({ error: 'invalid_credentials' });
-    const r = rows[0];
-    const ok = await comparePassword(password, r.password_hash);
-    if (!ok) return res.status(401).json({ error: 'invalid_credentials' });
-    const payload = { sub: r.driver_id, role: r.role, username: r.username };
-    // create server-side session and set cookie; return clientKey to client
-    const clientKey = createLoginSession(req, res, payload);
-    // Also generate a JWT to support Authorization header based auth from the client
-    const authToken = generateToken(payload);
-    res.json({ driver: { id: r.driver_id, username: r.username, full_name: r.full_name, role: r.role }, clientKey, authToken });
+    // Find driver with account using Prisma
+    const driver = await prisma.driver.findUnique({
+      where: { username: sanitizedUsername },
+      include: {
+        account: true
+      }
+    });
+    
+    if (!driver || !driver.account) {
+      recordFailedAttempt(sanitizedUsername);
+      // Use generic error to prevent username enumeration
+      return res.status(401).json({ error: 'invalid_credentials' });
+    }
+    
+    // Check if account is active
+    if (!driver.active) {
+      return res.status(403).json({ error: 'account_inactive' });
+    }
+    
+    // Verify password
+    const passwordMatch = await comparePassword(password, driver.account.passwordHash);
+    
+    if (!passwordMatch) {
+      recordFailedAttempt(sanitizedUsername);
+      // Use generic error to prevent username enumeration
+      return res.status(401).json({ error: 'invalid_credentials' });
+    }
+    
+    // Successful login
+    recordSuccess(sanitizedUsername);
+    
+    // Update last login using Prisma
+    await prisma.driverAccount.update({
+      where: { driverId: driver.id },
+      data: { lastLogin: new Date() }
+    });
+    
+    const payload = {
+      sub: driver.id,
+      role: driver.account.role,
+      username: driver.username
+    };
+    
+    // Create server-side session and set cookies
+    const { clientKey, csrfToken } = createLoginSession(req, res, payload);
+    
+    // Generate access token
+    const accessToken = generateAccessToken(payload);
+    
+    res.json({
+      driver: {
+        id: driver.id,
+        username: driver.username,
+        full_name: driver.fullName,
+        role: driver.account.role
+      },
+      clientKey,
+      csrfToken,
+      accessToken,
+      expiresIn: 15 * 60 // 15 minutes in seconds
+    });
   } catch (err) {
     console.error('auth/login', err);
     res.status(500).json({ error: 'db_error' });
@@ -43,9 +179,10 @@ router.post('/login', async (req, res) => {
 });
 
 // POST /api/auth/logout
-router.post('/logout', async (req, res) => {
+router.post('/logout', authenticate, async (req, res) => {
   try {
-    clearLoginSession(res);
+    const sessionId = req.sessionId;
+    clearLoginSession(res, sessionId);
     res.json({ ok: true });
   } catch (err) {
     console.error('auth/logout', err);
@@ -53,10 +190,97 @@ router.post('/logout', async (req, res) => {
   }
 });
 
-// GET /api/auth/me - return current session user
-router.get('/me', (req, res) => {
-  if (!req.user) return res.status(401).json({ error: 'unauthorized' });
-  res.json({ user: req.user });
+// POST /api/auth/refresh - Refresh access token
+router.post('/refresh', refreshAccessToken);
+
+// GET /api/auth/me - Return current session user
+router.get('/me', authenticate, async (req, res) => {
+  try {
+    const { user } = req; // Set by authenticate middleware
+    
+    if (!user) {
+      return res.status(401).json({ error: 'unauthorized' });
+    }
+    
+    // Get user info from database using Prisma
+    const driver = await prisma.driver.findUnique({
+      where: { id: user.id || user.sub },
+      include: {
+        account: true
+      }
+    });
+    
+    if (!driver || !driver.account) {
+      return res.status(401).json({ error: 'user_not_found' });
+    }
+    
+    res.json({
+      user: {
+        id: driver.id,
+        username: driver.username,
+        full_name: driver.fullName,
+        role: driver.account.role,
+        email: driver.email
+      },
+      csrfToken: req.csrfToken ? req.csrfToken() : 'dev-csrf-token'
+    });
+  } catch (err) {
+    console.error('auth/me', err);
+    res.status(500).json({ error: 'db_error' });
+  }
+});
+
+// POST /api/auth/change-password
+router.post('/change-password', authenticate, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'passwords_required' });
+  }
+  
+  // Validate new password strength
+  const passwordValidation = validatePassword(newPassword);
+  if (!passwordValidation.valid) {
+    return res.status(400).json({
+      error: 'password_validation_failed',
+      details: passwordValidation.errors
+    });
+  }
+  
+  try {
+    // Get current password hash using Prisma
+    const account = await prisma.driverAccount.findUnique({
+      where: { driverId: req.user.sub }
+    });
+    
+    if (!account) {
+      return res.status(404).json({ error: 'user_not_found' });
+    }
+    
+    // Verify current password
+    const isValid = await comparePassword(currentPassword, account.passwordHash);
+    if (!isValid) {
+      return res.status(401).json({ error: 'invalid_current_password' });
+    }
+    
+    // Hash new password
+    const newHash = await hashPassword(newPassword);
+    
+    // Update password using Prisma
+    await prisma.driverAccount.update({
+      where: { driverId: req.user.sub },
+      data: { passwordHash: newHash }
+    });
+    
+    // Destroy all existing sessions (force re-login)
+    destroyUserSessions(req.user.sub);
+    clearLoginSession(res);
+    
+    res.json({ ok: true, message: 'password_changed' });
+  } catch (err) {
+    console.error('auth/change-password', err);
+    res.status(500).json({ error: 'db_error' });
+  }
 });
 
 module.exports = router;

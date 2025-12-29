@@ -14,13 +14,11 @@ app.use(helmet({
   contentSecurityPolicy: false // CSP may be configured per-deployment
 }));
 
-// Rate limiting: reasonable default, tune for your environment
-const apiLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 120, // limit each IP to 120 requests per windowMs
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+const { authenticate, requireCSRF } = require('./auth');
+const { validateEnv } = require('./envCheck');
+const { apiLimiter } = require('./security/rateLimiter');
+
+// Rate limiting: use centralized rate limiter
 app.use('/api', apiLimiter);
 
 // Enforce simple HTTPS redirect when behind load balancer (X-Forwarded-Proto)
@@ -70,9 +68,6 @@ app.disable('x-powered-by');
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-const { authenticate } = require('./auth');
-const { validateEnv } = require('./envCheck');
-
 // Validate critical environment variables at startup
 try {
   validateEnv();
@@ -83,18 +78,52 @@ try {
 
 // Public API routes (no auth)
 app.use('/api/auth', require('./api/auth'));
-app.use('/api/sms', require('./api/smsWebhook'));
-app.get('/api/health', (req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
+app.use('/api/sms/webhook', require('./api/smsWebhook'));
+
+// Public SMS confirmation endpoint (before auth middleware)
+app.post('/api/sms/confirm', async (req, res) => {
+  const smsRouter = require('./api/sms');
+  return smsRouter.confirm(req, res);
+});
+
+// Health check - verify database connection
+app.get('/api/health', async (req, res) => {
+  try {
+    const db = require('./db');
+    await db.query('SELECT 1');
+    res.json({ ok: true, database: 'connected', ts: new Date().toISOString() });
+  } catch (error) {
+    res.status(503).json({ 
+      ok: false, 
+      database: 'disconnected', 
+      error: 'Database connection required',
+      ts: new Date().toISOString() 
+    });
+  }
+});
 
 // Protect all other /api routes with authentication
 app.use('/api', authenticate);
+
+// Apply CSRF protection to state-changing operations
+app.use('/api', (req, res, next) => {
+  // Skip CSRF for auth routes (they handle their own security)
+  if (req.path.startsWith('/auth')) {
+    return next();
+  }
+  // Apply CSRF to other routes
+  requireCSRF(req, res, next);
+});
 
 // Mount protected API routes
 app.use('/api/admin/drivers', require('./api/drivers'));
 app.use('/api/driver', require('./api/locations'));
 app.use('/api/admin/dashboard', require('./api/adminDashboard'));
+app.use('/api/admin/reports', require('./api/reports'));
+app.use('/api/admin/tracking', require('./api/tracking'));
 app.use('/api/ai', require('./api/ai'));
 app.use('/api/deliveries', require('./api/deliveries'));
+app.use('/api/sms', require('./api/sms'));
 app.use('/api/sap', require('./api/sap'));
 
 app.listen(port, () => {

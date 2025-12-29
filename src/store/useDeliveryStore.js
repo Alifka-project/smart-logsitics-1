@@ -43,23 +43,32 @@ const useDeliveryStore = create((set, get) => ({
     try {
       // 1. Calculate distance from warehouse using Haversine
       const deliveriesWithDistance = data.map((delivery, index) => {
-        const lat = Number.parseFloat(delivery.lat);
-        const lng = Number.parseFloat(delivery.lng);
-        const safeLat = Number.isFinite(lat) ? lat : 25.1124;
-        const safeLng = Number.isFinite(lng) ? lng : 55.1980;
+        // Try multiple ways to get coordinates (handle different data formats)
+        const latRaw = delivery.lat || delivery.Lat || delivery.latitude || delivery.Latitude;
+        const lngRaw = delivery.lng || delivery.Lng || delivery.longitude || delivery.Longitude;
+        
+        const lat = Number.parseFloat(latRaw);
+        const lng = Number.parseFloat(lngRaw);
+        
+        // Use provided coordinates if valid, otherwise use defaults
+        const safeLat = (Number.isFinite(lat) && lat !== 0) ? lat : 25.1124;
+        const safeLng = (Number.isFinite(lng) && lng !== 0) ? lng : 55.1980;
 
         return {
           ...delivery,
-          id: `delivery-${index + 1}`,
+          id: delivery.id || `delivery-${index + 1}`,
           lat: safeLat,
           lng: safeLng,
+          // Preserve original coordinates if they exist
+          originalLat: latRaw !== undefined ? latRaw : null,
+          originalLng: lngRaw !== undefined ? lngRaw : null,
           distanceFromWarehouse: calculateDistance(
             WAREHOUSE_LAT,
             WAREHOUSE_LNG,
             safeLat,
             safeLng
           ),
-          status: 'pending',
+          status: delivery.status || 'pending',
           estimatedTime: new Date(Date.now() + (index + 1) * 75 * 60 * 1000), // 75 min per stop
         };
       });

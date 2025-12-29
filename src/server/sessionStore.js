@@ -1,62 +1,188 @@
 const crypto = require('crypto');
 
-// Simple in-memory session store. For production use Redis or a DB-backed store.
+// Enhanced in-memory session store with CSRF protection
+// For production, migrate to Redis or DB-backed store
 const SESSIONS = new Map();
 const DEFAULT_TTL = 12 * 3600 * 1000; // 12 hours
 const DEFAULT_INACTIVITY = 5 * 60 * 1000; // 5 minutes inactivity
+const MAX_CONCURRENT_SESSIONS = 5; // Max sessions per user
+
+// Cleanup expired sessions every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, entry] of SESSIONS.entries()) {
+    if (now > entry.expiresAt || 
+        (entry.lastAccess && (now - entry.lastAccess) > DEFAULT_INACTIVITY)) {
+      SESSIONS.delete(id);
+    }
+  }
+}, 5 * 60 * 1000);
 
 function makeId() {
-  return crypto.randomBytes(24).toString('hex');
+  return crypto.randomBytes(32).toString('hex'); // Increased from 24 to 32 for better security
 }
 
 function makeClientKey() {
-  return crypto.randomBytes(18).toString('hex');
+  return crypto.randomBytes(32).toString('hex'); // Increased from 18 to 32
+}
+
+function makeCSRFToken() {
+  return crypto.randomBytes(32).toString('hex');
 }
 
 function makeFingerprint(req) {
   const ua = req.headers['user-agent'] || '';
-  const ip = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : (req.connection.remoteAddress || '');
-  return crypto.createHash('sha256').update(ua + '|' + ip).digest('hex');
+  const ip = req.headers['x-forwarded-for'] 
+    ? req.headers['x-forwarded-for'].split(',')[0].trim() 
+    : (req.connection?.remoteAddress || req.socket?.remoteAddress || '');
+  const acceptLang = req.headers['accept-language'] || '';
+  // More comprehensive fingerprinting
+  return crypto.createHash('sha256')
+    .update(`${ua}|${ip}|${acceptLang}`)
+    .digest('hex');
 }
 
 function createSession(req, payload, ttl = DEFAULT_TTL) {
   const id = makeId();
   const clientKey = makeClientKey();
+  const csrfToken = makeCSRFToken();
   const fp = makeFingerprint(req);
   const now = Date.now();
   const expiresAt = now + ttl;
-  SESSIONS.set(id, { payload, fp, expiresAt, clientKey, lastAccess: now });
-  return { id, clientKey };
+  const userId = payload.sub || payload.id;
+
+  // Enforce concurrent session limit
+  if (userId) {
+    const userSessions = Array.from(SESSIONS.values())
+      .filter(s => (s.payload.sub || s.payload.id) === userId);
+    
+    if (userSessions.length >= MAX_CONCURRENT_SESSIONS) {
+      // Remove oldest session
+      const oldest = userSessions.sort((a, b) => a.createdAt - b.createdAt)[0];
+      const oldestId = Array.from(SESSIONS.entries())
+        .find(([_, s]) => s === oldest)?.[0];
+      if (oldestId) {
+        SESSIONS.delete(oldestId);
+      }
+    }
+  }
+
+  SESSIONS.set(id, {
+    payload,
+    fp,
+    csrfToken,
+    expiresAt,
+    clientKey,
+    lastAccess: now,
+    createdAt: now,
+    ip: req.headers['x-forwarded-for']?.split(',')[0].trim() || 
+        req.connection?.remoteAddress || 
+        req.socket?.remoteAddress || 'unknown'
+  });
+
+  return { id, clientKey, csrfToken };
 }
 
 function getSession(req, id) {
   if (!id) return null;
   const entry = SESSIONS.get(id);
   if (!entry) return null;
+  
   const now = Date.now();
+  
+  // Check expiration
   if (now > entry.expiresAt) {
     SESSIONS.delete(id);
     return null;
   }
-  // inactivity check
-  const inactivityLimit = process.env.SESSION_INACTIVITY_MS ? parseInt(process.env.SESSION_INACTIVITY_MS, 10) : DEFAULT_INACTIVITY;
+  
+  // Check inactivity timeout
+  const inactivityLimit = process.env.SESSION_INACTIVITY_MS 
+    ? parseInt(process.env.SESSION_INACTIVITY_MS, 10) 
+    : DEFAULT_INACTIVITY;
   if (entry.lastAccess && (now - entry.lastAccess) > inactivityLimit) {
     SESSIONS.delete(id);
     return null;
   }
+  
+  // Verify fingerprint
   const fp = makeFingerprint(req);
-  if (entry.fp !== fp) return null;
-  // client key must be provided by client header
+  if (entry.fp !== fp) {
+    // Fingerprint mismatch - potential session hijacking
+    // Log and invalidate session
+    console.warn(`Session fingerprint mismatch for session ${id.substring(0, 8)}...`);
+    SESSIONS.delete(id);
+    return null;
+  }
+  
+  // Verify client key
   const clientKey = (req.headers['x-client-key'] || '').toString();
-  if (!clientKey || clientKey !== entry.clientKey) return null;
-  // update last access
+  if (!clientKey || clientKey !== entry.clientKey) {
+    return null;
+  }
+  
+  // Update last access
   entry.lastAccess = now;
   SESSIONS.set(id, entry);
-  return entry.payload;
+  
+  return {
+    payload: entry.payload,
+    csrfToken: entry.csrfToken
+  };
+}
+
+function verifyCSRF(req, sessionId) {
+  const entry = SESSIONS.get(sessionId);
+  if (!entry) return false;
+  
+  const csrfToken = req.headers['x-csrf-token'] || req.body?.csrfToken;
+  return csrfToken === entry.csrfToken;
+}
+
+function rotateSession(req, oldSessionId) {
+  const oldEntry = SESSIONS.get(oldSessionId);
+  if (!oldEntry) return null;
+  
+  // Create new session with same payload
+  const newSession = createSession(req, oldEntry.payload);
+  
+  // Delete old session
+  SESSIONS.delete(oldSessionId);
+  
+  return newSession;
 }
 
 function destroySession(id) {
   SESSIONS.delete(id);
 }
 
-module.exports = { createSession, getSession, destroySession };
+function destroyUserSessions(userId) {
+  // Destroy all sessions for a user (e.g., on password change)
+  for (const [id, entry] of SESSIONS.entries()) {
+    if ((entry.payload.sub || entry.payload.id) === userId) {
+      SESSIONS.delete(id);
+    }
+  }
+}
+
+function getSessionInfo(sessionId) {
+  const entry = SESSIONS.get(sessionId);
+  if (!entry) return null;
+  
+  return {
+    createdAt: entry.createdAt,
+    lastAccess: entry.lastAccess,
+    expiresAt: entry.expiresAt,
+    ip: entry.ip
+  };
+}
+
+module.exports = {
+  createSession,
+  getSession,
+  destroySession,
+  destroyUserSessions,
+  verifyCSRF,
+  rotateSession,
+  getSessionInfo
+};

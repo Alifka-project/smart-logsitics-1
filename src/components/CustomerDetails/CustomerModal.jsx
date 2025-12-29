@@ -99,6 +99,7 @@ export default function CustomerModal({ isOpen, onClose }) {
             setStatus={setStatus}
             notes={notes}
             setNotes={setNotes}
+            deliveryStatus={selectedDelivery.status}
           />
 
           {/* Submit Button */}

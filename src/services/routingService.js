@@ -149,3 +149,4 @@ export function calculateETAWithInstallation(routeTime, stopIndex) {
   return routeTime + (stopIndex * INSTALLATION_TIME) + (stopIndex * BUFFER_TIME);
 }
 
+

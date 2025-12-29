@@ -72,15 +72,37 @@ export default function DeliveryMap({ deliveries, route }) {
       let skipCount = 0;
 
       deliveries.forEach((delivery, index) => {
-        // Validate delivery has coordinates
-        if (!delivery.lat || !delivery.lng || isNaN(delivery.lat) || isNaN(delivery.lng)) {
-          console.warn(`Invalid coordinates for delivery ${index + 1}:`, delivery);
+        // Try multiple ways to get coordinates (handle different data formats)
+        const latRaw = delivery.lat || delivery.Lat || delivery.latitude || delivery.Latitude;
+        const lngRaw = delivery.lng || delivery.Lng || delivery.longitude || delivery.Longitude;
+
+        // Parse coordinates
+        const lat = parseFloat(latRaw);
+        const lng = parseFloat(lngRaw);
+
+        // Validate coordinates - check if they're valid numbers and within reasonable Dubai bounds
+        if (!latRaw || !lngRaw || isNaN(lat) || isNaN(lng)) {
+          console.warn(`Invalid coordinates for delivery ${index + 1}:`, {
+            delivery,
+            latRaw,
+            lngRaw,
+            lat,
+            lng
+          });
           skipCount++;
           return;
         }
 
-        const lat = parseFloat(delivery.lat);
-        const lng = parseFloat(delivery.lng);
+        // Validate coordinates are within Dubai bounds (approximately)
+        if (lat < 24.5 || lat > 25.5 || lng < 54.5 || lng > 56.0) {
+          console.warn(`Coordinates out of Dubai bounds for delivery ${index + 1}:`, {
+            lat,
+            lng,
+            delivery
+          });
+          // Still show it, but log a warning
+        }
+
         const color = delivery.priority === 1 ? 'red' : delivery.priority === 2 ? 'orange' : 'blue';
         
         // Create detailed popup with address info

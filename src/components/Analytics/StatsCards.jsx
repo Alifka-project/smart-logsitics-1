@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Package, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { Package, CheckCircle, Clock, XCircle, Truck, AlertCircle } from 'lucide-react';
 import useDeliveryStore from '../../store/useDeliveryStore';
 
 export default function StatsCards() {
@@ -9,11 +9,28 @@ export default function StatsCards() {
   const analytics = useMemo(() => {
     return {
       total: deliveries.length,
-      completed: deliveries.filter(d => d.status === 'delivered').length,
-      pending: deliveries.filter(d => d.status === 'pending').length,
-      cancelled: deliveries.filter(d => d.status === 'cancelled').length,
-      inProgress: deliveries.filter(d => d.status === 'in-progress').length,
-      returned: deliveries.filter(d => d.status === 'returned').length,
+      // Count all delivered variations
+      completed: deliveries.filter(d => {
+        const s = d.status?.toLowerCase();
+        return s === 'delivered' || s === 'delivered-with-installation' || s === 'delivered-without-installation';
+      }).length,
+      pending: deliveries.filter(d => {
+        const s = d.status?.toLowerCase();
+        return s === 'pending' || s === 'scheduled';
+      }).length,
+      cancelled: deliveries.filter(d => {
+        const s = d.status?.toLowerCase();
+        return s === 'cancelled' || s === 'rejected';
+      }).length,
+      inProgress: deliveries.filter(d => {
+        const s = d.status?.toLowerCase();
+        return s === 'in-progress' || s === 'out-for-delivery';
+      }).length,
+      scheduled: deliveries.filter(d => d.status?.toLowerCase() === 'scheduled').length,
+      scheduledConfirmed: deliveries.filter(d => d.status?.toLowerCase() === 'scheduled-confirmed').length,
+      outForDelivery: deliveries.filter(d => d.status?.toLowerCase() === 'out-for-delivery').length,
+      rescheduled: deliveries.filter(d => d.status?.toLowerCase() === 'rescheduled').length,
+      returned: deliveries.filter(d => d.status?.toLowerCase() === 'returned').length,
     };
   }, [deliveries]);
 
@@ -33,6 +50,13 @@ export default function StatsCards() {
       className: 'bg-gradient-to-br from-green-500 to-green-600',
     },
     {
+      label: 'Out for Delivery',
+      value: analytics.outForDelivery,
+      icon: Truck,
+      color: 'indigo',
+      className: 'bg-gradient-to-br from-indigo-500 to-indigo-600',
+    },
+    {
       label: 'Pending',
       value: analytics.pending,
       icon: Clock,
@@ -40,7 +64,14 @@ export default function StatsCards() {
       className: 'bg-gradient-to-br from-yellow-500 to-yellow-600',
     },
     {
-      label: 'Cancelled',
+      label: 'Scheduled',
+      value: analytics.scheduled,
+      icon: Clock,
+      color: 'purple',
+      className: 'bg-gradient-to-br from-purple-500 to-purple-600',
+    },
+    {
+      label: 'Cancelled/Rejected',
       value: analytics.cancelled,
       icon: XCircle,
       color: 'red',
@@ -49,18 +80,15 @@ export default function StatsCards() {
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-      {stats.map((stat) => {
+    <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
+      {stats.map((stat, index) => {
         const Icon = stat.icon;
         return (
-          <div
-            key={stat.label}
-            className={`${stat.className} text-white rounded-lg shadow-lg p-4 sm:p-6`}
-          >
-            <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <Icon className="w-6 h-6 sm:w-8 sm:h-8" />
-              <div className="text-xl sm:text-2xl lg:text-3xl font-bold">{stat.value}</div>
+          <div key={index} className={`${stat.className} rounded-lg shadow-md p-4 sm:p-6 text-white`}>
+            <div className="flex items-center justify-between mb-2">
+              <Icon className="w-5 h-5 sm:w-6 sm:h-6 opacity-80" />
             </div>
+            <div className="text-2xl sm:text-3xl font-bold mb-1">{stat.value}</div>
             <div className="text-xs sm:text-sm opacity-90">{stat.label}</div>
           </div>
         );
@@ -68,4 +96,3 @@ export default function StatsCards() {
     </div>
   );
 }
-

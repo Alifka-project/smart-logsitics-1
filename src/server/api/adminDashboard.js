@@ -25,13 +25,35 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
       else if (Array.isArray(deliveriesResp.value.data)) deliveries = deliveriesResp.value.data;
     }
 
-    const totals = { total: deliveries.length, delivered: 0, cancelled: 0, rescheduled: 0, pending: 0 };
+    const totals = { 
+      total: deliveries.length, 
+      delivered: 0, 
+      cancelled: 0, 
+      rescheduled: 0, 
+      pending: 0,
+      scheduled: 0,
+      'scheduled-confirmed': 0,
+      'out-for-delivery': 0,
+      'delivered-with-installation': 0,
+      'delivered-without-installation': 0,
+      rejected: 0
+    };
     for (const d of deliveries) {
       const s = (d.status || '').toLowerCase();
-      if (s === 'delivered' || s === 'done' || s === 'completed') totals.delivered++;
-      else if (s === 'cancelled' || s === 'canceled') totals.cancelled++;
-      else if (s === 'rescheduled') totals.rescheduled++;
-      else totals.pending++;
+      if (s === 'delivered' || s === 'done' || s === 'completed' || s === 'delivered-with-installation' || s === 'delivered-without-installation') {
+        totals.delivered++;
+      }
+      if (s === 'delivered-with-installation') totals['delivered-with-installation']++;
+      if (s === 'delivered-without-installation') totals['delivered-without-installation']++;
+      if (s === 'cancelled' || s === 'canceled') totals.cancelled++;
+      if (s === 'rejected') totals.rejected++;
+      if (s === 'rescheduled') totals.rescheduled++;
+      if (s === 'scheduled') totals.scheduled++;
+      if (s === 'scheduled-confirmed') totals['scheduled-confirmed']++;
+      if (s === 'out-for-delivery') totals['out-for-delivery']++;
+      if (!['delivered', 'done', 'completed', 'delivered-with-installation', 'delivered-without-installation', 'cancelled', 'canceled', 'rejected', 'rescheduled', 'scheduled', 'scheduled-confirmed', 'out-for-delivery', 'in-progress'].includes(s)) {
+        totals.pending++;
+      }
     }
 
     // Recent trends (last 24h) if created_at available

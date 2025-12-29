@@ -8,12 +8,20 @@ import DeliveryListPage from './pages/DeliveryListPage';
 import MapViewPage from './pages/MapViewPage';
 import LoginPage from './pages/LoginPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
+import AdminReportsPage from './pages/AdminReportsPage';
+import AdminDriverTrackingPage from './pages/AdminDriverTrackingPage';
+import AdminDeliveryTrackingPage from './pages/AdminDeliveryTrackingPage';
 import DriverPortal from './pages/DriverPortal';
 import AdminUsersPage from './pages/AdminUsersPage';
+import TrackingPage from './pages/TrackingPage';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 import useDeliveryStore from './store/useDeliveryStore';
+import { useTokenRefresh } from './hooks/useTokenRefresh';
 
 function App() {
+  // Enable automatic token refresh
+  useTokenRefresh();
+
   useEffect(() => {
     // Initialize deliveries from localStorage on app load
     useDeliveryStore.getState().initializeFromStorage();
@@ -53,29 +61,45 @@ function App() {
     };
   }, []);
 
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* Public routes - NO header, NO navigation */}
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/track/:deliveryId" element={<TrackingPage />} />
+
+        {/* Protected routes - with header and navigation */}
+        <Route path="/*" element={<ProtectedLayout />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+// Protected Layout Component - wraps authenticated pages with header and navigation
+function ProtectedLayout() {
   const clientUser = (() => { try { return JSON.parse(localStorage.getItem('client_user') || 'null'); } catch(e) { return null; } })();
   const showNavigation = !!(clientUser && clientUser.role === 'admin');
 
   return (
-    <BrowserRouter>
+    <ProtectedRoute>
       <div className="min-h-screen bg-gray-50">
         <Header />
         {showNavigation && <Navigation />}
         <main className="container mx-auto px-4 py-6">
           <Routes>
-            <Route path="/login" element={<LoginPage />} />
-
-            {/* Protected routes - require authentication */}
-            <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
-            <Route path="/deliveries" element={<ProtectedRoute><DeliveryListPage /></ProtectedRoute>} />
-            <Route path="/map" element={<ProtectedRoute><MapViewPage /></ProtectedRoute>} />
-            <Route path="/admin" element={<ProtectedRoute><AdminDashboardPage /></ProtectedRoute>} />
-            <Route path="/admin/users" element={<ProtectedRoute><AdminUsersPage /></ProtectedRoute>} />
-            <Route path="/driver" element={<ProtectedRoute><DriverPortal /></ProtectedRoute>} />
+            <Route path="/" element={<HomePage />} />
+            <Route path="/deliveries" element={<DeliveryListPage />} />
+            <Route path="/map" element={<MapViewPage />} />
+            <Route path="/admin" element={<AdminDashboardPage />} />
+            <Route path="/admin/reports" element={<AdminReportsPage />} />
+            <Route path="/admin/tracking/drivers" element={<AdminDriverTrackingPage />} />
+            <Route path="/admin/tracking/deliveries" element={<AdminDeliveryTrackingPage />} />
+            <Route path="/admin/users" element={<AdminUsersPage />} />
+            <Route path="/driver" element={<DriverPortal />} />
           </Routes>
         </main>
       </div>
-    </BrowserRouter>
+    </ProtectedRoute>
   );
 }
 
