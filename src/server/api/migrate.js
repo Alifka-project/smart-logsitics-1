@@ -79,7 +79,7 @@ router.post('/migrate', async (req, res) => {
       );
     `);
 
-    // Create delivery_assignments table
+    // Create delivery_assignments table (optimized - removed route_chunk)
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS delivery_assignments (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -87,8 +87,7 @@ router.post('/migrate', async (req, res) => {
         driver_id uuid REFERENCES drivers(id),
         assigned_at timestamptz DEFAULT now(),
         status varchar(32) DEFAULT 'assigned',
-        eta timestamptz,
-        route_chunk integer DEFAULT 0
+        eta timestamptz
       );
     `);
 
