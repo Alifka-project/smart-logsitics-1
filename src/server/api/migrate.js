@@ -11,12 +11,31 @@ const prisma = require('../db/prisma');
 // POST /api/migrate - Create all tables (ONE TIME USE)
 router.post('/migrate', async (req, res) => {
   try {
+    console.log('🚀 Starting database migration...');
+
     // Enable pgcrypto extension
     await prisma.$executeRawUnsafe(`CREATE EXTENSION IF NOT EXISTS pgcrypto;`);
 
-    // Create drivers table
+    // STEP 1: Drop old/unnecessary tables FIRST (order matters due to foreign keys)
+    console.log('🗑️  Dropping old tables...');
+    await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS sms_confirmations CASCADE;`).catch(() => {});
+    await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS delivery_events CASCADE;`).catch(() => {});
+    await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS delivery_assignments CASCADE;`).catch(() => {});
+    await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS deliveries CASCADE;`).catch(() => {});
+    await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS live_locations CASCADE;`).catch(() => {});
+    await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS driver_status CASCADE;`).catch(() => {});
+    await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS driver_profiles CASCADE;`).catch(() => {});
+    await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS vehicles CASCADE;`).catch(() => {});
+    await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS driver_accounts CASCADE;`).catch(() => {});
+    await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS accounts CASCADE;`).catch(() => {});
+    await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS drivers CASCADE;`).catch(() => {});
+
+    console.log('✅ Old tables dropped');
+
+    // STEP 2: Create drivers table
+    console.log('📦 Creating drivers table...');
     await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS drivers (
+      CREATE TABLE drivers (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         username varchar(100) UNIQUE,
         email varchar(255),
@@ -28,14 +47,10 @@ router.post('/migrate', async (req, res) => {
       );
     `);
 
-    // Drop old tables if they exist (cleanup)
-    await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS driver_profiles CASCADE;`).catch(() => {});
-    await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS vehicles CASCADE;`).catch(() => {});
-    await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS driver_accounts CASCADE;`).catch(() => {});
-
-    // Create accounts table (renamed from driver_accounts - simplified)
+    // STEP 3: Create accounts table (NEW - optimized, replaces driver_accounts)
+    console.log('📦 Creating accounts table...');
     await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS accounts (
+      CREATE TABLE accounts (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         driver_id uuid REFERENCES drivers(id) ON DELETE CASCADE,
         password_hash text,
@@ -43,12 +58,13 @@ router.post('/migrate', async (req, res) => {
         role varchar(50) DEFAULT 'driver',
         created_at timestamptz DEFAULT now()
       );
-      CREATE UNIQUE INDEX IF NOT EXISTS accounts_driver_id_key ON accounts(driver_id);
     `);
+    await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX accounts_driver_id_key ON accounts(driver_id);`);
 
-    // Create driver_status table
+    // STEP 4: Create driver_status table
+    console.log('📦 Creating driver_status table...');
     await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS driver_status (
+      CREATE TABLE driver_status (
         driver_id uuid PRIMARY KEY REFERENCES drivers(id),
         status varchar(32) NOT NULL,
         updated_at timestamptz DEFAULT now(),
@@ -56,9 +72,10 @@ router.post('/migrate', async (req, res) => {
       );
     `);
 
-    // Create live_locations table
+    // STEP 5: Create live_locations table
+    console.log('📦 Creating live_locations table...');
     await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS live_locations (
+      CREATE TABLE live_locations (
         id bigserial PRIMARY KEY,
         driver_id uuid REFERENCES drivers(id) ON DELETE CASCADE,
         latitude double precision NOT NULL,
@@ -68,20 +85,22 @@ router.post('/migrate', async (req, res) => {
         accuracy double precision,
         recorded_at timestamptz DEFAULT now()
       );
-      CREATE INDEX IF NOT EXISTS idx_live_locations_driver_time ON live_locations(driver_id, recorded_at DESC);
-      CREATE INDEX IF NOT EXISTS idx_live_locations_time ON live_locations(recorded_at);
     `);
+    await prisma.$executeRawUnsafe(`CREATE INDEX idx_live_locations_driver_time ON live_locations(driver_id, recorded_at DESC);`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX idx_live_locations_time ON live_locations(recorded_at);`);
 
-    // Create deliveries table (minimal)
+    // STEP 6: Create deliveries table
+    console.log('📦 Creating deliveries table...');
     await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS deliveries (
+      CREATE TABLE deliveries (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid()
       );
     `);
 
-    // Create delivery_assignments table (optimized - removed route_chunk)
+    // STEP 7: Create delivery_assignments table (optimized - no route_chunk)
+    console.log('📦 Creating delivery_assignments table...');
     await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS delivery_assignments (
+      CREATE TABLE delivery_assignments (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         delivery_id uuid REFERENCES deliveries(id) ON DELETE CASCADE,
         driver_id uuid REFERENCES drivers(id),
@@ -91,9 +110,10 @@ router.post('/migrate', async (req, res) => {
       );
     `);
 
-    // Create delivery_events table
+    // STEP 8: Create delivery_events table
+    console.log('📦 Creating delivery_events table...');
     await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS delivery_events (
+      CREATE TABLE delivery_events (
         id bigserial PRIMARY KEY,
         delivery_id uuid REFERENCES deliveries(id),
         event_type varchar(64),
@@ -104,9 +124,10 @@ router.post('/migrate', async (req, res) => {
       );
     `);
 
-    // Create sms_confirmations table
+    // STEP 9: Create sms_confirmations table
+    console.log('📦 Creating sms_confirmations table...');
     await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS sms_confirmations (
+      CREATE TABLE sms_confirmations (
         id bigserial PRIMARY KEY,
         delivery_id uuid REFERENCES deliveries(id),
         phone varchar(32),
@@ -119,6 +140,8 @@ router.post('/migrate', async (req, res) => {
         metadata jsonb
       );
     `);
+
+    console.log('✅ All tables created successfully!');
 
     res.json({ 
       success: true, 
