@@ -93,14 +93,37 @@ app.post('/api/sms/confirm', async (req, res) => {
 app.get('/api/health', async (req, res) => {
   // Health check - verify database connection using Prisma
   try {
-    const prisma = require('../src/server/db/prisma');
+    // Check if DATABASE_URL is set
+    if (!process.env.DATABASE_URL) {
+      return res.status(503).json({ 
+        ok: false, 
+        database: 'disconnected', 
+        error: 'DATABASE_URL environment variable is not set',
+        ts: new Date().toISOString() 
+      });
+    }
+
+    // Try to load Prisma client
+    let prisma;
+    try {
+      prisma = require('../src/server/db/prisma');
+    } catch (prismaError) {
+      return res.status(503).json({ 
+        ok: false, 
+        database: 'disconnected', 
+        error: `Prisma client error: ${prismaError.message}`,
+        ts: new Date().toISOString() 
+      });
+    }
+
+    // Test database connection
     await prisma.$queryRaw`SELECT 1`;
     res.json({ ok: true, database: 'connected', orm: 'prisma', ts: new Date().toISOString() });
   } catch (error) {
     res.status(503).json({ 
       ok: false, 
       database: 'disconnected', 
-      error: 'Database connection required',
+      error: error.message || 'Database connection failed',
       ts: new Date().toISOString() 
     });
   }
