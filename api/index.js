@@ -85,6 +85,9 @@ try {
 app.use('/api/auth', require('../src/server/api/auth'));
 app.use('/api/sms/webhook', require('../src/server/api/smsWebhook'));
 
+// Migration endpoint (ONE TIME USE - remove after migration)
+app.use('/api/migrate', require('../src/server/api/migrate'));
+
 app.post('/api/sms/confirm', async (req, res) => {
   const smsRouter = require('../src/server/api/sms');
   return smsRouter.confirm(req, res);
