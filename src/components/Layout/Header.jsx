@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { Truck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { isAuthenticated, getCurrentUser } from '../../frontend/auth';
 
@@ -34,12 +33,12 @@ export default function Header() {
     <header className="bg-gradient-to-r from-primary-600 to-primary-800 text-white shadow-lg">
       <div className="container mx-auto px-4 py-3 sm:py-4">
         <div className="flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 sm:gap-3 hover:opacity-80 transition-opacity">
-            <Truck className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
-            <div>
-              <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-white">Dubai Logistics System</h1>
-              <p className="text-xs sm:text-sm text-white">Warehouse: Jebel Ali Free Zone</p>
-            </div>
+          <Link to="/" className="flex items-center hover:opacity-80 transition-opacity">
+            <img 
+              src="/elect home.png" 
+              alt="Electrolux Logo" 
+              className="h-12 sm:h-16 lg:h-20 w-auto object-contain"
+            />
           </Link>
           <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">
