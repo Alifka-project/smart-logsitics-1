@@ -117,4 +117,10 @@
       @apply min-h-[44px] min-w-[44px];
     }
   }
+
+  /* Custom Leaflet marker styling */
+  .custom-marker {
+    background: transparent;
+    border: none;
+  }
 }
