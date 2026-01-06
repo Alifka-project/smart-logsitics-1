@@ -45,12 +45,14 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
     }
 
     // Calculate statistics
+    const deliveredDeliveries = deliveries.filter(d => {
+      const s = (d.status || '').toLowerCase();
+      return ['delivered', 'done', 'completed', 'delivered-with-installation', 'delivered-without-installation'].includes(s);
+    });
+    
     const stats = {
       total: deliveries.length,
-      delivered: deliveries.filter(d => {
-        const s = (d.status || '').toLowerCase();
-        return ['delivered', 'done', 'completed', 'delivered-with-installation', 'delivered-without-installation'].includes(s);
-      }).length,
+      delivered: deliveredDeliveries.length,
       'delivered-with-installation': deliveries.filter(d => (d.status || '').toLowerCase() === 'delivered-with-installation').length,
       'delivered-without-installation': deliveries.filter(d => (d.status || '').toLowerCase() === 'delivered-without-installation').length,
       cancelled: deliveries.filter(d => ['cancelled', 'canceled'].includes((d.status || '').toLowerCase())).length,
@@ -62,6 +64,28 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
       pending: deliveries.filter(d => {
         const s = (d.status || '').toLowerCase();
         return !['delivered', 'done', 'completed', 'delivered-with-installation', 'delivered-without-installation', 'cancelled', 'canceled', 'rejected', 'rescheduled', 'scheduled', 'scheduled-confirmed', 'out-for-delivery', 'in-progress'].includes(s);
+      }).length,
+      // Customer response tracking
+      customerAccepted: deliveries.filter(d => (d.status || '').toLowerCase() === 'scheduled-confirmed').length,
+      customerCancelled: deliveries.filter(d => {
+        const s = (d.status || '').toLowerCase();
+        return (s === 'cancelled' || s === 'canceled' || s === 'rejected') && 
+               (d.actor_type === 'customer' || d.cancelled_by === 'customer');
+      }).length,
+      customerRescheduled: deliveries.filter(d => {
+        return (d.status || '').toLowerCase() === 'rescheduled' && 
+               (d.actor_type === 'customer' || d.rescheduled_by === 'customer');
+      }).length,
+      // POD tracking
+      withPOD: deliveredDeliveries.filter(d => {
+        return d.driverSignature || d.customerSignature || 
+               (d.photos && d.photos.length > 0) || 
+               d.pod || d.proof_of_delivery || d.hasPOD;
+      }).length,
+      withoutPOD: deliveredDeliveries.filter(d => {
+        return !(d.driverSignature || d.customerSignature || 
+                (d.photos && d.photos.length > 0) || 
+                d.pod || d.proof_of_delivery || d.hasPOD);
       }).length,
     };
 
@@ -103,16 +127,38 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
     // If format is CSV, return CSV
     if (format === 'csv') {
       const csvRows = [
-        ['ID', 'Customer', 'Address', 'Status', 'Driver ID', 'Created At', 'Updated At'],
-        ...deliveries.map(d => [
-          d.id || d.ID || '',
-          d.customer || d.Customer || '',
-          d.address || d.Address || '',
-          d.status || d.Status || '',
-          d.driver_id || d.driverId || '',
-          d.created_at || d.createdAt || '',
-          d.updated_at || d.updatedAt || ''
-        ])
+        ['ID', 'Customer', 'Address', 'Status', 'Driver ID', 'Customer Response', 'POD Status', 'Created At', 'Updated At'],
+        ...deliveries.map(d => {
+          const status = (d.status || '').toLowerCase();
+          let customerResponse = 'Pending';
+          if (status === 'scheduled-confirmed') customerResponse = 'Accepted';
+          else if ((status === 'cancelled' || status === 'canceled' || status === 'rejected') && 
+                   (d.actor_type === 'customer' || d.cancelled_by === 'customer')) {
+            customerResponse = 'Cancelled';
+          } else if (status === 'rescheduled' && (d.actor_type === 'customer' || d.rescheduled_by === 'customer')) {
+            customerResponse = 'Rescheduled';
+          }
+          
+          let podStatus = 'No POD';
+          if (['delivered', 'done', 'completed', 'delivered-with-installation', 'delivered-without-installation'].includes(status)) {
+            const hasPOD = d.driverSignature || d.customerSignature || 
+                          (d.photos && d.photos.length > 0) || 
+                          d.pod || d.proof_of_delivery || d.hasPOD;
+            podStatus = hasPOD ? 'With POD' : 'No POD';
+          }
+          
+          return [
+            d.id || d.ID || '',
+            d.customer || d.Customer || '',
+            d.address || d.Address || '',
+            d.status || d.Status || '',
+            d.driver_id || d.driverId || '',
+            customerResponse,
+            podStatus,
+            d.created_at || d.createdAt || '',
+            d.updated_at || d.updatedAt || ''
+          ];
+        })
       ];
 
       const csv = csvRows.map(row => 

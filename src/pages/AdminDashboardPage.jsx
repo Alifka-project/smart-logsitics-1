@@ -91,7 +91,18 @@ export default function AdminDashboardPage() {
     );
   }
 
-  const totals = data?.totals || { total: 0, delivered: 0, cancelled: 0, rescheduled: 0, pending: 0 };
+  const totals = data?.totals || { 
+    total: 0, 
+    delivered: 0, 
+    cancelled: 0, 
+    rescheduled: 0, 
+    pending: 0,
+    customerAccepted: 0,
+    customerCancelled: 0,
+    customerRescheduled: 0,
+    withPOD: 0,
+    withoutPOD: 0
+  };
   const recent = data?.recentCounts || { delivered: 0, cancelled: 0, rescheduled: 0 };
   const activeDrivers = drivers.filter(d => d.active !== false).length;
 
@@ -207,6 +218,57 @@ export default function AdminDashboardPage() {
           trend={`${recent.delivered} delivered`}
         />
       </div>
+
+      {/* Customer Response Metrics */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-xl font-semibold mb-4">Customer Response Status</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <MetricCard
+            icon={CheckCircle}
+            label="Customer Accepted"
+            value={totals.customerAccepted || 0}
+            color="green"
+            trend={`${totals.total > 0 ? ((totals.customerAccepted / totals.total) * 100).toFixed(1) : 0}% acceptance rate`}
+          />
+          <MetricCard
+            icon={XCircle}
+            label="Customer Cancelled"
+            value={totals.customerCancelled || 0}
+            color="red"
+            trend={`${totals.total > 0 ? ((totals.customerCancelled / totals.total) * 100).toFixed(1) : 0}% cancellation rate`}
+          />
+          <MetricCard
+            icon={Clock}
+            label="Customer Rescheduled"
+            value={totals.customerRescheduled || 0}
+            color="yellow"
+            trend={`${totals.total > 0 ? ((totals.customerRescheduled / totals.total) * 100).toFixed(1) : 0}% reschedule rate`}
+          />
+        </div>
+      </div>
+
+      {/* POD (Proof of Delivery) Metrics */}
+      {totals.delivered > 0 && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-xl font-semibold mb-4">Proof of Delivery (POD) Status</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <MetricCard
+              icon={CheckCircle}
+              label="Deliveries with POD"
+              value={totals.withPOD || 0}
+              color="green"
+              trend={`${totals.delivered > 0 ? ((totals.withPOD / totals.delivered) * 100).toFixed(1) : 0}% of delivered`}
+            />
+            <MetricCard
+              icon={XCircle}
+              label="Deliveries without POD"
+              value={totals.withoutPOD || 0}
+              color="red"
+              trend={`${totals.delivered > 0 ? ((totals.withoutPOD / totals.delivered) * 100).toFixed(1) : 0}% of delivered`}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

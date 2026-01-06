@@ -1,0 +1,847 @@
+import React, { useEffect, useState } from 'react';
+import api from '../frontend/apiClient';
+import { 
+  MapPin, 
+  Activity, 
+  Users, 
+  AlertCircle, 
+  CheckCircle, 
+  XCircle, 
+  Clock,
+  RefreshCw,
+  Truck,
+  Settings,
+  MessageSquare,
+  Phone,
+  Send,
+  Paperclip,
+  Navigation as NavigationIcon
+} from 'lucide-react';
+import DriverTrackingMap from '../components/Tracking/DriverTrackingMap';
+
+export default function AdminOperationsPage() {
+  const [activeTab, setActiveTab] = useState('monitoring');
+  const [drivers, setDrivers] = useState([]);
+  const [deliveries, setDeliveries] = useState([]);
+  const [alerts, setAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState(new Date());
+  
+  // Communication tab state
+  const [selectedDriver, setSelectedDriver] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [messageTemplates] = useState([
+    'Please update delivery status',
+    'New delivery assigned',
+    'Please contact customer',
+    'Delivery rescheduled',
+    'Emergency: Return to warehouse'
+  ]);
+
+  useEffect(() => {
+    loadData();
+    
+    let interval = null;
+    if (autoRefresh) {
+      interval = setInterval(() => {
+        loadData();
+      }, 5000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [autoRefresh]);
+
+  const loadData = async () => {
+    try {
+      const [driversResp, deliveriesResp] = await Promise.allSettled([
+        api.get('/admin/tracking/drivers').catch(() => ({ data: { drivers: [] } })),
+        api.get('/admin/tracking/deliveries').catch(() => ({ data: { deliveries: [] } }))
+      ]);
+
+      if (driversResp.status === 'fulfilled') {
+        setDrivers(driversResp.value.data?.drivers || []);
+      }
+
+      if (deliveriesResp.status === 'fulfilled') {
+        const deliveryData = deliveriesResp.value.data?.deliveries || [];
+        setDeliveries(deliveryData);
+        
+        // Generate alerts from data
+        const newAlerts = generateAlerts(deliveryData, driversResp.value.data?.drivers || []);
+        setAlerts(newAlerts);
+      }
+
+      setLastUpdate(new Date());
+    } catch (e) {
+      console.error('Error loading operations data:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !selectedDriver) return;
+
+    const message = {
+      id: Date.now(),
+      from: 'admin',
+      to: selectedDriver.id,
+      text: newMessage,
+      timestamp: new Date().toISOString(),
+      read: false
+    };
+
+    // Add to local state immediately for instant feedback
+    setMessages(prev => [...prev, message]);
+    setNewMessage('');
+
+    // TODO: Send to backend API
+    try {
+      // await api.post('/admin/messages/send', {
+      //   driverId: selectedDriver.id,
+      //   message: newMessage
+      // });
+      console.log('Message sent:', message);
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      // Remove from local state if failed
+      setMessages(prev => prev.filter(m => m.id !== message.id));
+    }
+  };
+
+  const generateAlerts = (deliveries, drivers) => {
+    const alertsList = [];
+    const now = new Date();
+
+    // Check for delayed deliveries
+    deliveries.forEach(delivery => {
+      if (delivery.tracking?.eta) {
+        const eta = new Date(delivery.tracking.eta);
+        const delayMinutes = (now - eta) / (1000 * 60);
+        
+        if (delayMinutes > 30) {
+          alertsList.push({
+            id: `delay-${delivery.id}`,
+            type: 'urgent',
+            title: `Delivery #${delivery.id?.slice(0, 8)} delayed`,
+            message: `Delayed by ${Math.round(delayMinutes)} minutes`,
+            timestamp: now
+          });
+        }
+      }
+    });
+
+    // Check for idle drivers
+    drivers.forEach(driver => {
+      if (driver.tracking?.lastUpdate) {
+        const lastUpdate = new Date(driver.tracking.lastUpdate);
+        const idleMinutes = (now - lastUpdate) / (1000 * 60);
+        
+        if (idleMinutes > 30 && driver.tracking?.online) {
+          alertsList.push({
+            id: `idle-${driver.id}`,
+            type: 'warning',
+            title: `Driver ${driver.full_name || driver.username} idle`,
+            message: `Idle for ${Math.round(idleMinutes)} minutes`,
+            timestamp: now
+          });
+        }
+      }
+    });
+
+    return alertsList;
+  };
+
+  const onlineDrivers = drivers.filter(d => d.tracking?.online);
+  const activeDeliveries = deliveries.filter(d => 
+    d.tracking?.status === 'in_progress' || d.status?.toLowerCase() === 'out-for-delivery'
+  );
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading operations center...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800">Operations Center</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Last updated: {lastUpdate.toLocaleTimeString()}
+            {autoRefresh && <span className="ml-2 text-green-600">● Live</span>}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={autoRefresh}
+              onChange={(e) => setAutoRefresh(e.target.checked)}
+              className="rounded"
+            />
+            <span className="text-sm text-gray-700">Auto-refresh</span>
+          </label>
+          <button
+            onClick={loadData}
+            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm flex items-center gap-2"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Refresh Now
+          </button>
+        </div>
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-200">
+        <nav className="flex space-x-8">
+          {[
+            { id: 'monitoring', label: 'Monitoring', icon: Activity },
+            { id: 'control', label: 'Control', icon: Settings },
+            { id: 'communication', label: 'Communication', icon: MessageSquare },
+            { id: 'alerts', label: 'Alerts', icon: AlertCircle }
+          ].map(tab => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`
+                  flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm
+                  ${activeTab === tab.id
+                    ? 'border-primary-600 text-primary-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }
+                `}
+              >
+                <Icon className="w-5 h-5" />
+                {tab.label}
+                {tab.id === 'alerts' && alerts.length > 0 && (
+                  <span className="ml-2 bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
+                    {alerts.length}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'monitoring' && (
+        <div className="space-y-6">
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm text-gray-600 mb-1">Active Deliveries</div>
+                  <div className="text-3xl font-bold text-gray-800">{activeDeliveries.length}</div>
+                </div>
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <Truck className="w-6 h-6 text-blue-600" />
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm text-gray-600 mb-1">Online Drivers</div>
+                  <div className="text-3xl font-bold text-green-600">{onlineDrivers.length}</div>
+                </div>
+                <div className="p-3 bg-green-50 rounded-lg">
+                  <Users className="w-6 h-6 text-green-600" />
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm text-gray-600 mb-1">Total Drivers</div>
+                  <div className="text-3xl font-bold text-gray-800">{drivers.length}</div>
+                </div>
+                <div className="p-3 bg-purple-50 rounded-lg">
+                  <Users className="w-6 h-6 text-purple-600" />
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm text-gray-600 mb-1">Active Alerts</div>
+                  <div className="text-3xl font-bold text-red-600">{alerts.length}</div>
+                </div>
+                <div className="p-3 bg-red-50 rounded-lg">
+                  <AlertCircle className="w-6 h-6 text-red-600" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Map and Lists */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Map */}
+            <div className="lg:col-span-2 bg-white rounded-lg shadow-lg overflow-hidden">
+              <div className="p-4 bg-gray-50 border-b">
+                <h2 className="text-lg font-semibold">Live Map View</h2>
+              </div>
+              <div className="h-[500px]">
+                <DriverTrackingMap drivers={drivers} />
+              </div>
+            </div>
+
+            {/* Active Deliveries List */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-lg font-semibold mb-4">Active Deliveries</h2>
+              <div className="space-y-3 max-h-[500px] overflow-y-auto">
+                {activeDeliveries.slice(0, 10).map(delivery => (
+                  <div key={delivery.id} className="p-3 border border-gray-200 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">
+                        #{delivery.id?.slice(0, 8) || 'N/A'}
+                      </span>
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        delivery.status === 'out-for-delivery' 
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-blue-100 text-blue-800'
+                      }`}>
+                        {delivery.status || 'In Progress'}
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-600">
+                      {delivery.customer || delivery.Customer || 'Unknown Customer'}
+                    </div>
+                    {delivery.tracking?.eta && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        ETA: {new Date(delivery.tracking.eta).toLocaleTimeString()}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {activeDeliveries.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">No active deliveries</div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Driver Status Panel */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold mb-4">Driver Status</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {drivers.map(driver => {
+                const isOnline = driver.tracking?.online;
+                const location = driver.tracking?.location;
+                
+                return (
+                  <div key={driver.id} className="p-4 border border-gray-200 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                        <span className="font-medium text-sm">
+                          {driver.full_name || driver.username || 'Unknown'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-600 space-y-1">
+                      <div>Status: {driver.tracking?.status || 'offline'}</div>
+                      {location && (
+                        <>
+                          <div>Speed: {location.speed ? `${(location.speed * 3.6).toFixed(0)} km/h` : 'N/A'}</div>
+                          <div>Last Update: {new Date(location.timestamp || driver.tracking?.lastUpdate).toLocaleTimeString()}</div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'control' && (
+        <div className="space-y-6">
+          {/* Quick Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white rounded-lg shadow p-4">
+              <div className="text-sm text-gray-600 mb-1">Unassigned Deliveries</div>
+              <div className="text-2xl font-bold text-gray-800">
+                {deliveries.filter(d => !d.tracking?.assigned).length}
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow p-4">
+              <div className="text-sm text-gray-600 mb-1">Available Drivers</div>
+              <div className="text-2xl font-bold text-green-600">
+                {onlineDrivers.filter(d => d.tracking?.status === 'available').length}
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow p-4">
+              <div className="text-sm text-gray-600 mb-1">Pending Actions</div>
+              <div className="text-2xl font-bold text-yellow-600">
+                {alerts.filter(a => a.type === 'warning').length}
+              </div>
+            </div>
+          </div>
+
+          {/* Control Actions */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl font-semibold mb-4">Control Actions</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Route Management */}
+              <div>
+                <h3 className="font-medium mb-3 text-gray-700">Route Management</h3>
+                <div className="space-y-2">
+                  <button 
+                    onClick={() => alert('Route optimization feature - Coming soon')}
+                    className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-left flex items-center justify-between"
+                  >
+                    <span>Optimize Routes</span>
+                    <NavigationIcon className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => alert('Reassign delivery feature - Coming soon')}
+                    className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-left"
+                  >
+                    Reassign Delivery
+                  </button>
+                  <button 
+                    onClick={() => alert('Update status feature - Coming soon')}
+                    className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-left"
+                  >
+                    Update Status
+                  </button>
+                  <button 
+                    onClick={() => alert('Create route template feature - Coming soon')}
+                    className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-left"
+                  >
+                    Save Route Template
+                  </button>
+                </div>
+              </div>
+
+              {/* Driver Assignment */}
+              <div>
+                <h3 className="font-medium mb-3 text-gray-700">Driver Assignment</h3>
+                <div className="space-y-2">
+                  <button 
+                    onClick={() => alert('Assign driver feature - Coming soon')}
+                    className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-left flex items-center justify-between"
+                  >
+                    <span>Assign Driver</span>
+                    <Users className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => alert('Bulk assign feature - Coming soon')}
+                    className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-left"
+                  >
+                    Bulk Assign
+                  </button>
+                  <button 
+                    onClick={() => alert('Reassign delivery feature - Coming soon')}
+                    className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-left"
+                  >
+                    Reassign Delivery
+                  </button>
+                  <button 
+                    onClick={() => alert('Auto-assign feature - Coming soon')}
+                    className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-left"
+                  >
+                    Auto-Assign (AI)
+                  </button>
+                </div>
+              </div>
+
+              {/* Delivery Actions */}
+              <div>
+                <h3 className="font-medium mb-3 text-gray-700">Delivery Actions</h3>
+                <div className="space-y-2">
+                  <button 
+                    onClick={() => alert('Change priority feature - Coming soon')}
+                    className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-left flex items-center justify-between"
+                  >
+                    <span>Change Priority</span>
+                    <AlertCircle className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => alert('Reschedule delivery feature - Coming soon')}
+                    className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-left"
+                  >
+                    Reschedule Delivery
+                  </button>
+                  <button 
+                    onClick={() => alert('Cancel delivery feature - Coming soon')}
+                    className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-left"
+                  >
+                    Cancel Delivery
+                  </button>
+                  <button 
+                    onClick={() => alert('Add delivery notes feature - Coming soon')}
+                    className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-left"
+                  >
+                    Add Notes
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Active Deliveries for Quick Actions */}
+          {activeDeliveries.length > 0 && (
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="font-semibold mb-4">Active Deliveries - Quick Actions</h3>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {activeDeliveries.slice(0, 10).map(delivery => (
+                  <div key={delivery.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
+                    <div className="flex-1">
+                      <div className="font-medium text-sm">
+                        #{delivery.id?.slice(0, 8) || 'N/A'} - {delivery.customer || delivery.Customer || 'Unknown'}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Driver: {delivery.tracking?.driverId || 'Unassigned'} • 
+                        Status: {delivery.status || delivery.tracking?.status || 'Pending'}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => alert(`View details for delivery ${delivery.id}`)}
+                        className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+                      >
+                        View
+                      </button>
+                      <button 
+                        onClick={() => alert(`Reassign delivery ${delivery.id}`)}
+                        className="px-3 py-1 text-xs bg-primary-100 text-primary-700 rounded hover:bg-primary-200"
+                      >
+                        Reassign
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'communication' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-300px)]">
+          {/* Driver List Sidebar */}
+          <div className="bg-white rounded-lg shadow-lg overflow-hidden flex flex-col">
+            <div className="p-4 bg-gray-50 border-b">
+              <h2 className="text-lg font-semibold">Drivers</h2>
+              <input
+                type="text"
+                placeholder="Search drivers..."
+                className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              />
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {drivers.map(driver => {
+                const isOnline = driver.tracking?.online;
+                const isSelected = selectedDriver?.id === driver.id;
+                const unreadCount = 0; // TODO: Get from messages API
+                
+                return (
+                  <button
+                    key={driver.id}
+                    onClick={() => setSelectedDriver(driver)}
+                    className={`w-full p-4 border-b border-gray-200 hover:bg-gray-50 text-left transition ${
+                      isSelected ? 'bg-primary-50 border-l-4 border-l-primary-600' : ''
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                        <span className="font-medium text-sm">
+                          {driver.full_name || driver.fullName || driver.username || 'Unknown'}
+                        </span>
+                      </div>
+                      {unreadCount > 0 && (
+                        <span className="bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
+                          {unreadCount}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {isOnline ? 'Online' : 'Offline'}
+                      {driver.tracking?.location && (
+                        <span className="ml-2">
+                          • {driver.tracking.location.speed ? `${(driver.tracking.location.speed * 3.6).toFixed(0)} km/h` : 'Stationary'}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+              {drivers.length === 0 && (
+                <div className="p-8 text-center text-gray-500">
+                  <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>No drivers available</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Chat Area */}
+          <div className="lg:col-span-2 bg-white rounded-lg shadow-lg overflow-hidden flex flex-col">
+            {selectedDriver ? (
+              <>
+                {/* Chat Header */}
+                <div className="p-4 bg-gray-50 border-b flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-3 h-3 rounded-full ${selectedDriver.tracking?.online ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                    <div>
+                      <h3 className="font-semibold">
+                        {selectedDriver.full_name || selectedDriver.fullName || selectedDriver.username || 'Unknown'}
+                      </h3>
+                      <p className="text-xs text-gray-500">
+                        {selectedDriver.tracking?.online ? 'Online' : 'Offline'}
+                        {selectedDriver.phone && ` • ${selectedDriver.phone}`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    {selectedDriver.phone && (
+                      <a
+                        href={`tel:${selectedDriver.phone}`}
+                        className="p-2 text-gray-600 hover:text-primary-600 hover:bg-gray-100 rounded-lg transition"
+                        title="Call Driver"
+                      >
+                        <Phone className="w-5 h-5" />
+                      </a>
+                    )}
+                    <button
+                      onClick={() => {
+                        // TODO: Request location
+                        alert('Location request sent');
+                      }}
+                      className="p-2 text-gray-600 hover:text-primary-600 hover:bg-gray-100 rounded-lg transition"
+                      title="Request Location"
+                    >
+                      <MapPin className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Messages Area */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+                  {messages.length === 0 ? (
+                    <div className="text-center py-12 text-gray-500">
+                      <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p>No messages yet</p>
+                      <p className="text-sm mt-1">Start a conversation with {selectedDriver.full_name || selectedDriver.username}</p>
+                    </div>
+                  ) : (
+                    messages.map((msg, idx) => (
+                      <div
+                        key={idx}
+                        className={`flex ${msg.from === 'admin' ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div
+                          className={`max-w-[70%] rounded-lg p-3 ${
+                            msg.from === 'admin'
+                              ? 'bg-primary-600 text-white'
+                              : 'bg-white text-gray-900 border border-gray-200'
+                          }`}
+                        >
+                          <p className="text-sm">{msg.text}</p>
+                          <p className={`text-xs mt-1 ${msg.from === 'admin' ? 'text-primary-100' : 'text-gray-500'}`}>
+                            {new Date(msg.timestamp).toLocaleTimeString()}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Message Templates */}
+                <div className="px-4 py-2 bg-gray-50 border-t border-b">
+                  <div className="flex gap-2 overflow-x-auto">
+                    {messageTemplates.map((template, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setNewMessage(template)}
+                        className="px-3 py-1 bg-white border border-gray-300 rounded-lg text-xs hover:bg-gray-50 whitespace-nowrap"
+                      >
+                        {template}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Message Input */}
+                <div className="p-4 bg-white border-t">
+                  <div className="flex gap-2">
+                    <button
+                      className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition"
+                      title="Attach File"
+                    >
+                      <Paperclip className="w-5 h-5" />
+                    </button>
+                    <input
+                      type="text"
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && newMessage.trim()) {
+                          handleSendMessage();
+                        }
+                      }}
+                      placeholder="Type a message..."
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    />
+                    <button
+                      onClick={handleSendMessage}
+                      disabled={!newMessage.trim()}
+                      className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      <Send className="w-4 h-4" />
+                      Send
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-gray-500">
+                <div className="text-center">
+                  <MessageSquare className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                  <p className="text-lg">Select a driver to start messaging</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'alerts' && (
+        <div className="space-y-6">
+          {/* Alert Summary */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm text-red-700 mb-1">Urgent Alerts</div>
+                  <div className="text-2xl font-bold text-red-600">
+                    {alerts.filter(a => a.type === 'urgent').length}
+                  </div>
+                </div>
+                <AlertCircle className="w-8 h-8 text-red-600" />
+              </div>
+            </div>
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm text-yellow-700 mb-1">Warnings</div>
+                  <div className="text-2xl font-bold text-yellow-600">
+                    {alerts.filter(a => a.type === 'warning').length}
+                  </div>
+                </div>
+                <Clock className="w-8 h-8 text-yellow-600" />
+              </div>
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm text-blue-700 mb-1">Info Alerts</div>
+                  <div className="text-2xl font-bold text-blue-600">
+                    {alerts.filter(a => a.type === 'info').length}
+                  </div>
+                </div>
+                <Activity className="w-8 h-8 text-blue-600" />
+              </div>
+            </div>
+          </div>
+
+          {/* Alerts List */}
+          <div className="bg-white rounded-lg shadow">
+            <div className="p-4 border-b flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Active Alerts</h2>
+              <div className="flex gap-2">
+                <select className="px-3 py-1 border border-gray-300 rounded-lg text-sm">
+                  <option value="all">All Types</option>
+                  <option value="urgent">Urgent</option>
+                  <option value="warning">Warning</option>
+                  <option value="info">Info</option>
+                </select>
+                <button className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm">
+                  Mark All Read
+                </button>
+              </div>
+            </div>
+            <div className="divide-y divide-gray-200">
+              {alerts.length === 0 ? (
+                <div className="p-12 text-center">
+                  <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
+                  <p className="text-gray-600">No active alerts</p>
+                  <p className="text-sm text-gray-500 mt-2">All systems operating normally</p>
+                </div>
+              ) : (
+                alerts.map(alert => (
+                  <div
+                    key={alert.id}
+                    className={`p-4 border-l-4 ${
+                      alert.type === 'urgent'
+                        ? 'bg-red-50 border-red-500'
+                        : alert.type === 'warning'
+                        ? 'bg-yellow-50 border-yellow-500'
+                        : 'bg-blue-50 border-blue-500'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start gap-3 flex-1">
+                        {alert.type === 'urgent' ? (
+                          <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+                        ) : alert.type === 'warning' ? (
+                          <Clock className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                        ) : (
+                          <Activity className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                        )}
+                        <div className="flex-1">
+                          <div className="font-semibold text-gray-900">{alert.title}</div>
+                          <div className="text-sm text-gray-600 mt-1">{alert.message}</div>
+                          <div className="text-xs text-gray-500 mt-2">
+                            {alert.timestamp.toLocaleTimeString()} • {alert.timestamp.toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 ml-4">
+                        <button 
+                          onClick={() => alert(`View details for: ${alert.title}`)}
+                          className="px-3 py-1 text-sm bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                        >
+                          View
+                        </button>
+                        <button 
+                          onClick={() => {
+                            // TODO: Dismiss alert
+                            alert('Alert dismissed');
+                          }}
+                          className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+

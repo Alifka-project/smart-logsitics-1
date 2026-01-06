@@ -188,6 +188,57 @@ export default function AdminReportsPage() {
         <StatCard label="Pending" value={stats.pending} color="yellow" />
       </div>
 
+      {/* Customer Response Statistics */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-lg font-semibold mb-4">Customer Response Statistics</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <StatCard 
+            label="Customer Accepted" 
+            value={stats.customerAccepted || 0} 
+            color="green" 
+            subtitle={`${stats.total > 0 ? ((stats.customerAccepted / stats.total) * 100).toFixed(1) : 0}% acceptance rate`} 
+          />
+          <StatCard 
+            label="Customer Cancelled" 
+            value={stats.customerCancelled || 0} 
+            color="red" 
+            subtitle={`${stats.total > 0 ? ((stats.customerCancelled / stats.total) * 100).toFixed(1) : 0}% cancellation rate`} 
+          />
+          <StatCard 
+            label="Customer Rescheduled" 
+            value={stats.customerRescheduled || 0} 
+            color="yellow" 
+            subtitle={`${stats.total > 0 ? ((stats.customerRescheduled / stats.total) * 100).toFixed(1) : 0}% reschedule rate`} 
+          />
+        </div>
+      </div>
+
+      {/* POD (Proof of Delivery) Statistics */}
+      {stats.delivered > 0 && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold mb-4">Proof of Delivery (POD) Statistics</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <StatCard 
+              label="Deliveries with POD" 
+              value={stats.withPOD || 0} 
+              color="green" 
+              subtitle={`${stats.delivered > 0 ? ((stats.withPOD / stats.delivered) * 100).toFixed(1) : 0}% of delivered deliveries`} 
+            />
+            <StatCard 
+              label="Deliveries without POD" 
+              value={stats.withoutPOD || 0} 
+              color="red" 
+              subtitle={`${stats.delivered > 0 ? ((stats.withoutPOD / stats.delivered) * 100).toFixed(1) : 0}% of delivered deliveries`} 
+            />
+          </div>
+          <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+            <p className="text-sm text-gray-700">
+              <strong>POD includes:</strong> Driver signature, Customer signature, or Delivery photos
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Daily Breakdown */}

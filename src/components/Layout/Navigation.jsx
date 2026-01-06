@@ -1,112 +1,83 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
-import { Home, List, Map, BarChart3, FileText, Users, Navigation as NavigationIcon } from 'lucide-react';
+import { NavLink, useLocation } from 'react-router-dom';
+import { 
+  LayoutDashboard, 
+  Settings, 
+  FileText, 
+  Users,
+  Database
+} from 'lucide-react';
 
 export default function Navigation() {
+  const location = useLocation();
+  const clientUser = (() => { 
+    try { 
+      return JSON.parse(localStorage.getItem('client_user') || 'null'); 
+    } catch(e) { 
+      return null; 
+    } 
+  })();
+  
+  const isAdmin = clientUser && clientUser.role === 'admin';
+  
+  if (!isAdmin) return null;
+
+  const navItems = [
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/admin', exact: true },
+    { icon: Database, label: 'Delivery Management', path: '/deliveries', exact: false },
+    { icon: Settings, label: 'Operations', path: '/admin/operations' },
+    { icon: FileText, label: 'Reports', path: '/admin/reports' },
+    { icon: Users, label: 'Users', path: '/admin/users' },
+  ];
+
   return (
-    <nav className="bg-white shadow-md border-b">
-      <div className="container mx-auto px-4">
-        <div className="flex gap-2 sm:gap-4 overflow-x-auto">
-          <NavLink
-            to="/"
-            className={({ isActive }) =>
-              `flex items-center gap-1 sm:gap-2 px-3 sm:px-6 py-3 sm:py-4 font-medium transition-colors text-sm sm:text-base whitespace-nowrap ${
-                isActive
-                  ? 'text-primary-600 border-b-2 border-primary-600'
-                  : 'text-gray-600 hover:text-primary-600'
-              }`
-            }
-          >
-            <Home className="w-4 h-4 sm:w-5 sm:h-5" />
-            <span className="hidden xs:inline">Home</span>
-          </NavLink>
-          <NavLink
-            to="/deliveries"
-            className={({ isActive }) =>
-              `flex items-center gap-1 sm:gap-2 px-3 sm:px-6 py-3 sm:py-4 font-medium transition-colors text-sm sm:text-base whitespace-nowrap ${
-                isActive
-                  ? 'text-primary-600 border-b-2 border-primary-600'
-                  : 'text-gray-600 hover:text-primary-600'
-              }`
-            }
-          >
-            <List className="w-4 h-4 sm:w-5 sm:h-5" />
-            <span className="hidden xs:inline">Delivery List</span>
-            <span className="xs:hidden">List</span>
-          </NavLink>
-          <NavLink
-            to="/map"
-            className={({ isActive }) =>
-              `flex items-center gap-1 sm:gap-2 px-3 sm:px-6 py-3 sm:py-4 font-medium transition-colors text-sm sm:text-base whitespace-nowrap ${
-                isActive
-                  ? 'text-primary-600 border-b-2 border-primary-600'
-                  : 'text-gray-600 hover:text-primary-600'
-              }`
-            }
-          >
-            <Map className="w-4 h-4 sm:w-5 sm:h-5" />
-            <span className="hidden xs:inline">Map View</span>
-            <span className="xs:hidden">Map</span>
-          </NavLink>
-          <NavLink
-            to="/admin"
-            className={({ isActive }) =>
-              `flex items-center gap-1 sm:gap-2 px-3 sm:px-6 py-3 sm:py-4 font-medium transition-colors text-sm sm:text-base whitespace-nowrap ${
-                isActive
-                  ? 'text-primary-600 border-b-2 border-primary-600'
-                  : 'text-gray-600 hover:text-primary-600'
-              }`
-            }
-          >
-            <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5" />
-            <span className="hidden xs:inline">Dashboard</span>
-            <span className="xs:hidden">Dash</span>
-          </NavLink>
-          <NavLink
-            to="/admin/tracking/deliveries"
-            className={({ isActive }) =>
-              `flex items-center gap-1 sm:gap-2 px-3 sm:px-6 py-3 sm:py-4 font-medium transition-colors text-sm sm:text-base whitespace-nowrap ${
-                isActive
-                  ? 'text-primary-600 border-b-2 border-primary-600'
-                  : 'text-gray-600 hover:text-primary-600'
-              }`
-            }
-          >
-            <NavigationIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-            <span className="hidden sm:inline">Delivery Tracking</span>
-            <span className="sm:hidden">Tracking</span>
-          </NavLink>
-          <NavLink
-            to="/admin/tracking/drivers"
-            className={({ isActive }) =>
-              `flex items-center gap-1 sm:gap-2 px-3 sm:px-6 py-3 sm:py-4 font-medium transition-colors text-sm sm:text-base whitespace-nowrap ${
-                isActive
-                  ? 'text-primary-600 border-b-2 border-primary-600'
-                  : 'text-gray-600 hover:text-primary-600'
-              }`
-            }
-          >
-            <Users className="w-4 h-4 sm:w-5 sm:h-5" />
-            <span className="hidden sm:inline">Driver Tracking</span>
-            <span className="sm:hidden">Drivers</span>
-          </NavLink>
-          <NavLink
-            to="/admin/reports"
-            className={({ isActive }) =>
-              `flex items-center gap-1 sm:gap-2 px-3 sm:px-6 py-3 sm:py-4 font-medium transition-colors text-sm sm:text-base whitespace-nowrap ${
-                isActive
-                  ? 'text-primary-600 border-b-2 border-primary-600'
-                  : 'text-gray-600 hover:text-primary-600'
-              }`
-            }
-          >
-            <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
-            <span className="hidden xs:inline">Reports</span>
-            <span className="xs:hidden">Reports</span>
-          </NavLink>
+    <nav className="bg-white shadow-sm border-b border-gray-200">
+      <div className="container mx-auto px-6">
+        <div className="flex gap-2 overflow-x-auto py-2">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = item.exact 
+              ? location.pathname === item.path
+              : location.pathname.startsWith(item.path);
+
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                className={`
+                  flex items-center gap-2.5 px-5 py-3 font-medium transition-all duration-200 ease-out text-sm sm:text-base whitespace-nowrap relative group rounded-full
+                  ${isActive
+                    ? 'text-white bg-primary-600 shadow-md scale-[1.02]'
+                    : 'text-gray-700 hover:text-primary-600 hover:bg-gray-50 hover:scale-[1.01]'
+                  }
+                `}
+              >
+                {/* Icon with circular background */}
+                <div className={`
+                  flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200 flex-shrink-0
+                  ${isActive
+                    ? 'bg-white/20'
+                    : 'bg-gray-100 group-hover:bg-primary-100'
+                  }
+                `}>
+                  <Icon className={`w-5 h-5 transition-all duration-200 ${
+                    isActive 
+                      ? 'text-white' 
+                      : 'text-gray-600 group-hover:text-primary-600 group-hover:scale-110'
+                  }`} />
+                </div>
+                
+                {/* Label */}
+                <span className={`hidden sm:inline transition-all duration-200 ${
+                  isActive ? 'font-semibold' : 'font-medium group-hover:font-semibold'
+                }`}>
+                  {item.label}
+                </span>
+              </NavLink>
+            );
+          })}
         </div>
       </div>
     </nav>
   );
 }
-

@@ -3,11 +3,14 @@ import { useEffect } from 'react';
 import api from './frontend/apiClient';
 import Header from './components/Layout/Header';
 import Navigation from './components/Layout/Navigation';
+import DeliveryManagementPage from './pages/DeliveryManagementPage';
+// Keep old imports for backward compatibility (redirects)
 import HomePage from './pages/HomePage';
 import DeliveryListPage from './pages/DeliveryListPage';
 import MapViewPage from './pages/MapViewPage';
 import LoginPage from './pages/LoginPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
+import AdminOperationsPage from './pages/AdminOperationsPage';
 import AdminReportsPage from './pages/AdminReportsPage';
 import AdminDriverTrackingPage from './pages/AdminDriverTrackingPage';
 import AdminDeliveryTrackingPage from './pages/AdminDeliveryTrackingPage';
@@ -87,14 +90,19 @@ function ProtectedLayout() {
         {showNavigation && <Navigation />}
         <main className="container mx-auto px-4 py-6">
           <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/deliveries" element={<DeliveryListPage />} />
-            <Route path="/map" element={<MapViewPage />} />
+            {/* Unified Delivery Management - replaces Home, Deliveries, and Map */}
+            <Route path="/deliveries" element={<DeliveryManagementPage />} />
+            {/* Backward compatibility redirects */}
+            <Route path="/" element={<Navigate to="/deliveries" replace />} />
+            <Route path="/map" element={<Navigate to="/deliveries?tab=map" replace />} />
+            {/* Admin routes */}
             <Route path="/admin" element={<AdminDashboardPage />} />
+            <Route path="/admin/operations" element={<AdminOperationsPage />} />
             <Route path="/admin/reports" element={<AdminReportsPage />} />
             <Route path="/admin/tracking/drivers" element={<AdminDriverTrackingPage />} />
             <Route path="/admin/tracking/deliveries" element={<AdminDeliveryTrackingPage />} />
             <Route path="/admin/users" element={<AdminUsersPage />} />
+            {/* Driver portal */}
             <Route path="/driver" element={<DriverPortal />} />
           </Routes>
         </main>

@@ -36,12 +36,27 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
       'out-for-delivery': 0,
       'delivered-with-installation': 0,
       'delivered-without-installation': 0,
-      rejected: 0
+      rejected: 0,
+      // Customer response tracking
+      customerAccepted: 0,
+      customerCancelled: 0,
+      customerRescheduled: 0,
+      // POD tracking
+      withPOD: 0,
+      withoutPOD: 0
     };
     for (const d of deliveries) {
       const s = (d.status || '').toLowerCase();
       if (s === 'delivered' || s === 'done' || s === 'completed' || s === 'delivered-with-installation' || s === 'delivered-without-installation') {
         totals.delivered++;
+        // Check for POD (Proof of Delivery) - signature or photos
+        const hasPOD = (d.driverSignature || d.customerSignature || (d.photos && d.photos.length > 0) || 
+                       d.pod || d.proof_of_delivery || d.hasPOD);
+        if (hasPOD) {
+          totals.withPOD++;
+        } else {
+          totals.withoutPOD++;
+        }
       }
       if (s === 'delivered-with-installation') totals['delivered-with-installation']++;
       if (s === 'delivered-without-installation') totals['delivered-without-installation']++;
@@ -49,8 +64,26 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
       if (s === 'rejected') totals.rejected++;
       if (s === 'rescheduled') totals.rescheduled++;
       if (s === 'scheduled') totals.scheduled++;
-      if (s === 'scheduled-confirmed') totals['scheduled-confirmed']++;
+      if (s === 'scheduled-confirmed') {
+        totals['scheduled-confirmed']++;
+        totals.customerAccepted++; // Customer accepted/confirmed
+      }
       if (s === 'out-for-delivery') totals['out-for-delivery']++;
+      
+      // Track customer responses from status
+      if (s === 'cancelled' || s === 'canceled' || s === 'rejected') {
+        // Check if cancelled by customer
+        if (d.actor_type === 'customer' || d.cancelled_by === 'customer') {
+          totals.customerCancelled++;
+        }
+      }
+      if (s === 'rescheduled') {
+        // Check if rescheduled by customer
+        if (d.actor_type === 'customer' || d.rescheduled_by === 'customer') {
+          totals.customerRescheduled++;
+        }
+      }
+      
       if (!['delivered', 'done', 'completed', 'delivered-with-installation', 'delivered-without-installation', 'cancelled', 'canceled', 'rejected', 'rescheduled', 'scheduled', 'scheduled-confirmed', 'out-for-delivery', 'in-progress'].includes(s)) {
         totals.pending++;
       }
