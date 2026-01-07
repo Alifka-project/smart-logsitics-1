@@ -24,7 +24,40 @@
   --color-bg: #0f172a;
   --color-surface: #1e293b;
   --color-text: #f1f5f9;
-  --color-muted: #94a3b8;
+  --color-muted: #cbd5e1;
+}
+
+/* Enhanced dark mode styles */
+.dark body {
+  background-color: #0f172a;
+  color: #f1f5f9;
+}
+
+/* Ensure all text is visible in dark mode */
+.dark * {
+  color: inherit;
+}
+
+/* Dark mode input and form elements */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: #1e293b;
+  color: #f1f5f9;
+  border-color: #334155;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #94a3b8;
+}
+
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus {
+  border-color: #3b82f6;
+  background-color: #1e293b;
+  color: #f1f5f9;
 }
 
 @layer base {

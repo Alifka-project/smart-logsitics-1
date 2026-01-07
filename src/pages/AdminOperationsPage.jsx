@@ -166,7 +166,7 @@ export default function AdminOperationsPage() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading operations center...</p>
+          <p className="text-gray-600 dark:text-gray-400">Loading operations center...</p>
         </div>
       </div>
     );
@@ -177,10 +177,10 @@ export default function AdminOperationsPage() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800">Operations Center</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Operations Center</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Last updated: {lastUpdate.toLocaleTimeString()}
-            {autoRefresh && <span className="ml-2 text-green-600">● Live</span>}
+            {autoRefresh && <span className="ml-2 text-green-600 dark:text-green-400">● Live</span>}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -191,7 +191,7 @@ export default function AdminOperationsPage() {
               onChange={(e) => setAutoRefresh(e.target.checked)}
               className="rounded"
             />
-            <span className="text-sm text-gray-700">Auto-refresh</span>
+            <span className="text-sm text-gray-700 dark:text-gray-300">Auto-refresh</span>
           </label>
           <button
             onClick={loadData}
@@ -204,7 +204,7 @@ export default function AdminOperationsPage() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-gray-200 dark:border-gray-700">
         <nav className="flex space-x-8">
           {[
             { id: 'monitoring', label: 'Monitoring', icon: Activity },
@@ -220,8 +220,8 @@ export default function AdminOperationsPage() {
                 className={`
                   flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm
                   ${activeTab === tab.id
-                    ? 'border-primary-600 text-primary-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-primary-600 dark:border-primary-400 text-primary-600 dark:text-primary-400'
+                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
                   }
                 `}
               >
@@ -243,47 +243,47 @@ export default function AdminOperationsPage() {
         <div className="space-y-6">
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-sm text-gray-600 mb-1">Active Deliveries</div>
-                  <div className="text-3xl font-bold text-gray-800">{activeDeliveries.length}</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Active Deliveries</div>
+                  <div className="text-3xl font-bold text-gray-800 dark:text-gray-100">{activeDeliveries.length}</div>
                 </div>
-                <div className="p-3 bg-blue-50 rounded-lg">
-                  <Truck className="w-6 h-6 text-blue-600" />
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <Truck className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                 </div>
               </div>
             </div>
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-sm text-gray-600 mb-1">Online Drivers</div>
-                  <div className="text-3xl font-bold text-green-600">{onlineDrivers.length}</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Online Drivers</div>
+                  <div className="text-3xl font-bold text-green-600 dark:text-green-400">{onlineDrivers.length}</div>
                 </div>
-                <div className="p-3 bg-green-50 rounded-lg">
-                  <Users className="w-6 h-6 text-green-600" />
+                <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                  <Users className="w-6 h-6 text-green-600 dark:text-green-400" />
                 </div>
               </div>
             </div>
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-sm text-gray-600 mb-1">Total Drivers</div>
-                  <div className="text-3xl font-bold text-gray-800">{drivers.length}</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Drivers</div>
+                  <div className="text-3xl font-bold text-gray-800 dark:text-gray-100">{drivers.length}</div>
                 </div>
-                <div className="p-3 bg-purple-50 rounded-lg">
-                  <Users className="w-6 h-6 text-purple-600" />
+                <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                  <Users className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                 </div>
               </div>
             </div>
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-sm text-gray-600 mb-1">Active Alerts</div>
-                  <div className="text-3xl font-bold text-red-600">{alerts.length}</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Active Alerts</div>
+                  <div className="text-3xl font-bold text-red-600 dark:text-red-400">{alerts.length}</div>
                 </div>
-                <div className="p-3 bg-red-50 rounded-lg">
-                  <AlertCircle className="w-6 h-6 text-red-600" />
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                  <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
                 </div>
               </div>
             </div>
@@ -292,9 +292,9 @@ export default function AdminOperationsPage() {
           {/* Map and Lists */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Map */}
-            <div className="lg:col-span-2 bg-white rounded-lg shadow-lg overflow-hidden">
-              <div className="p-4 bg-gray-50 border-b">
-                <h2 className="text-lg font-semibold">Live Map View</h2>
+            <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden transition-colors">
+              <div className="p-4 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Live Map View</h2>
               </div>
               <div className="h-[500px]">
                 <DriverTrackingMap drivers={drivers} />
@@ -302,59 +302,59 @@ export default function AdminOperationsPage() {
             </div>
 
             {/* Active Deliveries List */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold mb-4">Active Deliveries</h2>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+              <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Active Deliveries</h2>
               <div className="space-y-3 max-h-[500px] overflow-y-auto">
                 {activeDeliveries.slice(0, 10).map(delivery => (
-                  <div key={delivery.id} className="p-3 border border-gray-200 rounded-lg">
+                  <div key={delivery.id} className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium">
+                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
                         #{delivery.id?.slice(0, 8) || 'N/A'}
                       </span>
                       <span className={`px-2 py-1 text-xs rounded-full ${
                         delivery.status === 'out-for-delivery' 
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-blue-100 text-blue-800'
+                          ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
+                          : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
                       }`}>
                         {delivery.status || 'In Progress'}
                       </span>
                     </div>
-                    <div className="text-xs text-gray-600">
+                    <div className="text-xs text-gray-600 dark:text-gray-400">
                       {delivery.customer || delivery.Customer || 'Unknown Customer'}
                     </div>
                     {delivery.tracking?.eta && (
-                      <div className="text-xs text-gray-500 mt-1">
+                      <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
                         ETA: {new Date(delivery.tracking.eta).toLocaleTimeString()}
                       </div>
                     )}
                   </div>
                 ))}
                 {activeDeliveries.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">No active deliveries</div>
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">No active deliveries</div>
                 )}
               </div>
             </div>
           </div>
 
           {/* Driver Status Panel */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold mb-4">Driver Status</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Driver Status</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {drivers.map(driver => {
                 const isOnline = driver.tracking?.online;
                 const location = driver.tracking?.location;
                 
                 return (
-                  <div key={driver.id} className="p-4 border border-gray-200 rounded-lg">
+                  <div key={driver.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-                        <span className="font-medium text-sm">
+                        <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
                           {driver.full_name || driver.username || 'Unknown'}
                         </span>
                       </div>
                     </div>
-                    <div className="text-xs text-gray-600 space-y-1">
+                    <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
                       <div>Status: {driver.tracking?.status || 'offline'}</div>
                       {location && (
                         <>
@@ -375,33 +375,33 @@ export default function AdminOperationsPage() {
         <div className="space-y-6">
           {/* Quick Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white rounded-lg shadow p-4">
-              <div className="text-sm text-gray-600 mb-1">Unassigned Deliveries</div>
-              <div className="text-2xl font-bold text-gray-800">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 transition-colors">
+              <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Unassigned Deliveries</div>
+              <div className="text-2xl font-bold text-gray-800 dark:text-gray-100">
                 {deliveries.filter(d => !d.tracking?.assigned).length}
               </div>
             </div>
-            <div className="bg-white rounded-lg shadow p-4">
-              <div className="text-sm text-gray-600 mb-1">Available Drivers</div>
-              <div className="text-2xl font-bold text-green-600">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 transition-colors">
+              <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Available Drivers</div>
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
                 {onlineDrivers.filter(d => d.tracking?.status === 'available').length}
               </div>
             </div>
-            <div className="bg-white rounded-lg shadow p-4">
-              <div className="text-sm text-gray-600 mb-1">Pending Actions</div>
-              <div className="text-2xl font-bold text-yellow-600">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 transition-colors">
+              <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Pending Actions</div>
+              <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
                 {alerts.filter(a => a.type === 'warning').length}
               </div>
             </div>
           </div>
 
           {/* Control Actions */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold mb-4">Control Actions</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+            <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Control Actions</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {/* Route Management */}
               <div>
-                <h3 className="font-medium mb-3 text-gray-700">Route Management</h3>
+                <h3 className="font-medium mb-3 text-gray-700 dark:text-gray-300">Route Management</h3>
                 <div className="space-y-2">
                   <button 
                     onClick={() => alert('Route optimization feature - Coming soon')}
@@ -433,7 +433,7 @@ export default function AdminOperationsPage() {
 
               {/* Driver Assignment */}
               <div>
-                <h3 className="font-medium mb-3 text-gray-700">Driver Assignment</h3>
+                <h3 className="font-medium mb-3 text-gray-700 dark:text-gray-300">Driver Assignment</h3>
                 <div className="space-y-2">
                   <button 
                     onClick={() => alert('Assign driver feature - Coming soon')}
@@ -465,7 +465,7 @@ export default function AdminOperationsPage() {
 
               {/* Delivery Actions */}
               <div>
-                <h3 className="font-medium mb-3 text-gray-700">Delivery Actions</h3>
+                <h3 className="font-medium mb-3 text-gray-700 dark:text-gray-300">Delivery Actions</h3>
                 <div className="space-y-2">
                   <button 
                     onClick={() => alert('Change priority feature - Coming soon')}
@@ -499,16 +499,16 @@ export default function AdminOperationsPage() {
 
           {/* Active Deliveries for Quick Actions */}
           {activeDeliveries.length > 0 && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="font-semibold mb-4">Active Deliveries - Quick Actions</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+              <h3 className="font-semibold mb-4 text-gray-900 dark:text-gray-100">Active Deliveries - Quick Actions</h3>
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {activeDeliveries.slice(0, 10).map(delivery => (
-                  <div key={delivery.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
+                  <div key={delivery.id} className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                     <div className="flex-1">
-                      <div className="font-medium text-sm">
+                      <div className="font-medium text-sm text-gray-900 dark:text-gray-100">
                         #{delivery.id?.slice(0, 8) || 'N/A'} - {delivery.customer || delivery.Customer || 'Unknown'}
                       </div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
                         Driver: {delivery.tracking?.driverId || 'Unassigned'} • 
                         Status: {delivery.status || delivery.tracking?.status || 'Pending'}
                       </div>

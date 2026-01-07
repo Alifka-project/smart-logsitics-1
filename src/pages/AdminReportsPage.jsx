@@ -97,8 +97,8 @@ export default function AdminReportsPage() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800">Reports & Analytics</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Reports & Analytics</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Generated: {reportData?.generatedAt ? new Date(reportData.generatedAt).toLocaleString() : 'N/A'}
           </p>
         </div>
@@ -122,36 +122,36 @@ export default function AdminReportsPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
         <div className="flex items-center gap-2 mb-4">
-          <Filter className="w-5 h-5 text-gray-600" />
-          <h2 className="text-lg font-semibold">Filters</h2>
+          <Filter className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Filters</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Date</label>
             <input
               type="date"
               value={filters.startDate}
               onChange={(e) => handleFilterChange('startDate', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Date</label>
             <input
               type="date"
               value={filters.endDate}
               onChange={(e) => handleFilterChange('endDate', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
             <select
               value={filters.status}
               onChange={(e) => handleFilterChange('status', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
             >
               <option value="">All Statuses</option>
               <option value="delivered">Delivered</option>
@@ -161,13 +161,13 @@ export default function AdminReportsPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Driver ID</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Driver ID</label>
             <input
               type="text"
               value={filters.driverId}
               onChange={(e) => handleFilterChange('driverId', e.target.value)}
               placeholder="Optional"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500"
             />
           </div>
         </div>
@@ -189,8 +189,8 @@ export default function AdminReportsPage() {
       </div>
 
       {/* Customer Response Statistics */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold mb-4">Customer Response Statistics</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+        <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Customer Response Statistics</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <StatCard 
             label="Customer Accepted" 
@@ -215,8 +215,8 @@ export default function AdminReportsPage() {
 
       {/* POD (Proof of Delivery) Statistics */}
       {stats.delivered > 0 && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold mb-4">Proof of Delivery (POD) Statistics</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+          <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Proof of Delivery (POD) Statistics</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <StatCard 
               label="Deliveries with POD" 
@@ -231,8 +231,8 @@ export default function AdminReportsPage() {
               subtitle={`${stats.delivered > 0 ? ((stats.withoutPOD / stats.delivered) * 100).toFixed(1) : 0}% of delivered deliveries`} 
             />
           </div>
-          <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-            <p className="text-sm text-gray-700">
+          <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <p className="text-sm text-gray-700 dark:text-gray-300">
               <strong>POD includes:</strong> Driver signature, Customer signature, or Delivery photos
             </p>
           </div>
@@ -242,8 +242,8 @@ export default function AdminReportsPage() {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Daily Breakdown */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">Daily Breakdown</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+          <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Daily Breakdown</h2>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={dailyBreakdown}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -260,8 +260,8 @@ export default function AdminReportsPage() {
         </div>
 
         {/* Status Distribution */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">Status Distribution</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+          <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Status Distribution</h2>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
@@ -285,8 +285,8 @@ export default function AdminReportsPage() {
       </div>
 
       {/* Daily Trend */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4">Daily Trend</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+        <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Daily Trend</h2>
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={dailyBreakdown}>
             <CartesianGrid strokeDasharray="3 3" />
@@ -305,18 +305,18 @@ export default function AdminReportsPage() {
 }
 
 function StatCard({ label, value, color, subtitle }) {
-  const colorClasses = {
-    blue: 'bg-blue-50 text-blue-600',
-    green: 'bg-green-50 text-green-600',
-    yellow: 'bg-yellow-50 text-yellow-600',
-    red: 'bg-red-50 text-red-600',
+  const textColorClasses = {
+    blue: 'text-blue-600 dark:text-blue-400',
+    green: 'text-green-600 dark:text-green-400',
+    yellow: 'text-yellow-600 dark:text-yellow-400',
+    red: 'text-red-600 dark:text-red-400',
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <div className="text-sm text-gray-600 mb-1">{label}</div>
-      <div className={`text-3xl font-bold ${colorClasses[color].split(' ')[1]}`}>{value}</div>
-      {subtitle && <div className="text-xs text-gray-500 mt-2">{subtitle}</div>}
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+      <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">{label}</div>
+      <div className={`text-3xl font-bold ${textColorClasses[color] || 'text-gray-800 dark:text-gray-100'}`}>{value}</div>
+      {subtitle && <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">{subtitle}</div>}
     </div>
   );
 }

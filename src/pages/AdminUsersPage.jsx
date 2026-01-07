@@ -233,8 +233,8 @@ export default function AdminUsersPage() {
       {/* Header */}
       <div className="flex justify-between items-center">
     <div>
-          <h1 className="text-3xl font-bold text-gray-800">User & Account Management</h1>
-          <p className="text-sm text-gray-500 mt-1">Manage accounts, drivers, and permissions</p>
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">User & Account Management</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage accounts, drivers, and permissions</p>
         </div>
         <button
           onClick={openAddModal}
@@ -246,7 +246,7 @@ export default function AdminUsersPage() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-gray-200 dark:border-gray-700">
         <nav className="flex space-x-8">
           {[
             { id: 'accounts', label: 'Accounts', icon: Users },
@@ -263,14 +263,14 @@ export default function AdminUsersPage() {
                 className={`
                   flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm
                   ${activeTab === tab.id
-                    ? 'border-primary-600 text-primary-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-primary-600 dark:border-primary-400 text-primary-600 dark:text-primary-400'
+                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
                   }
                 `}
               >
                 <Icon className="w-5 h-5" />
                 {tab.label}
-                <span className="ml-2 bg-gray-100 text-gray-600 text-xs rounded-full px-2 py-0.5">
+                <span className="ml-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs rounded-full px-2 py-0.5">
                   {tab.id === 'accounts' ? accounts.length : drivers.length}
                 </span>
               </button>
@@ -280,22 +280,22 @@ export default function AdminUsersPage() {
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
             <input
               type="text"
               placeholder="Search by username, name, or email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
             />
           </div>
           <select
             value={filterRole}
             onChange={(e) => setFilterRole(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
           >
             <option value="all">All Roles</option>
             <option value="admin">Admin</option>
@@ -304,7 +304,7 @@ export default function AdminUsersPage() {
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
           >
             <option value="all">All Status</option>
             <option value="active">Active</option>
@@ -314,68 +314,68 @@ export default function AdminUsersPage() {
       </div>
 
       {/* Users Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden transition-colors">
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">Loading users...</p>
+              <p className="text-gray-600 dark:text-gray-400">Loading users...</p>
             </div>
           </div>
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       User
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Contact
                     </th>
                     {activeTab === 'drivers' && (
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                         License
                       </th>
                     )}
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Role
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {filteredUsers.length > 0 ? (
                     filteredUsers.map(user => (
-                      <tr key={user.id} className="hover:bg-gray-50">
+                      <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
-                              <Users className="w-5 h-5 text-primary-600" />
+                            <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center">
+                              <Users className="w-5 h-5 text-primary-600 dark:text-primary-400" />
                             </div>
                             <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900">
+                              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                                 {user.fullName || user.full_name || user.username || 'N/A'}
                               </div>
-                              <div className="text-sm text-gray-500">{user.username}</div>
+                              <div className="text-sm text-gray-500 dark:text-gray-400">{user.username}</div>
                             </div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{user.email || 'N/A'}</div>
-                          <div className="text-sm text-gray-500">{user.phone || 'N/A'}</div>
+                          <div className="text-sm text-gray-900 dark:text-gray-100">{user.email || 'N/A'}</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">{user.phone || 'N/A'}</div>
                         </td>
                         {activeTab === 'drivers' && (
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{user.license_number || 'N/A'}</div>
+                            <div className="text-sm text-gray-900 dark:text-gray-100">{user.license_number || 'N/A'}</div>
                             {user.license_expiry && (
-                              <div className="text-sm text-gray-500">
+                              <div className="text-sm text-gray-500 dark:text-gray-400">
                                 Exp: {new Date(user.license_expiry).toLocaleDateString()}
                               </div>
                             )}
@@ -384,8 +384,8 @@ export default function AdminUsersPage() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
                             user.account?.role === 'admin'
-                              ? 'bg-purple-100 text-purple-800'
-                              : 'bg-blue-100 text-blue-800'
+                              ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300'
+                              : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
                           }`}>
                             {user.account?.role || 'driver'}
                           </span>
@@ -395,8 +395,8 @@ export default function AdminUsersPage() {
                             onClick={() => handleToggleStatus(user.id, user.active)}
                             className={`px-2 py-1 text-xs font-semibold rounded-full ${
                               user.active !== false
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-gray-100 text-gray-800'
+                                ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                                : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
                             }`}
                           >
                             {user.active !== false ? 'Active' : 'Inactive'}
@@ -406,14 +406,14 @@ export default function AdminUsersPage() {
                           <div className="flex items-center justify-end gap-2">
                             <button
                               onClick={() => handleEdit(user)}
-                              className="text-primary-600 hover:text-primary-900 p-2 hover:bg-primary-50 rounded"
+                              className="text-primary-600 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-300 p-2 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded transition-colors"
                               title="Edit"
                             >
                               <Edit className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleDelete(user.id)}
-                              className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded"
+                              className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                               title="Delete"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -425,10 +425,10 @@ export default function AdminUsersPage() {
                   ) : (
                     <tr>
                       <td colSpan={activeTab === 'drivers' ? 6 : 5} className="px-6 py-12 text-center">
-                        <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-gray-600">No {activeTab === 'accounts' ? 'accounts' : 'drivers'} found</p>
+                        <Users className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+                        <p className="text-gray-600 dark:text-gray-400">No {activeTab === 'accounts' ? 'accounts' : 'drivers'} found</p>
                         {searchTerm && (
-                          <p className="text-sm text-gray-500 mt-2">Try adjusting your search or filters</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">Try adjusting your search or filters</p>
                         )}
                       </td>
                     </tr>
@@ -443,14 +443,14 @@ export default function AdminUsersPage() {
       {/* Add/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-              <h2 className="text-xl font-semibold">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto transition-colors">
+            <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
                 {editingUser ? 'Edit' : 'Add New'} {activeTab === 'accounts' ? 'Account' : 'Driver'}
               </h2>
               <button
                 onClick={closeModal}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
               >
                 <X className="w-6 h-6" />
               </button>
@@ -459,66 +459,66 @@ export default function AdminUsersPage() {
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               {/* Personal Information */}
               <div>
-                <h3 className="text-lg font-medium mb-4">Personal Information</h3>
+                <h3 className="text-lg font-medium mb-4 text-gray-900 dark:text-gray-100">Personal Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Username *
                     </label>
                     <input
                       type="text"
                       value={formData.username}
                       onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 ${
-                        errors.username ? 'border-red-500' : 'border-gray-300'
+                      className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 ${
+                        errors.username ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'
                       }`}
                       disabled={!!editingUser}
                     />
                     {errors.username && (
-                      <p className="text-red-500 text-xs mt-1">{errors.username}</p>
+                      <p className="text-red-500 dark:text-red-400 text-xs mt-1">{errors.username}</p>
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Full Name *
                     </label>
                     <input
                       type="text"
                       value={formData.full_name}
                       onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 ${
-                        errors.full_name ? 'border-red-500' : 'border-gray-300'
+                      className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 ${
+                        errors.full_name ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'
                       }`}
                     />
                     {errors.full_name && (
-                      <p className="text-red-500 text-xs mt-1">{errors.full_name}</p>
+                      <p className="text-red-500 dark:text-red-400 text-xs mt-1">{errors.full_name}</p>
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Email {activeTab === 'accounts' && '*'}
                     </label>
                     <input
                       type="email"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 ${
-                        errors.email ? 'border-red-500' : 'border-gray-300'
+                      className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 ${
+                        errors.email ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'
                       }`}
                     />
                     {errors.email && (
-                      <p className="text-red-500 text-xs mt-1">{errors.email}</p>
+                      <p className="text-red-500 dark:text-red-400 text-xs mt-1">{errors.email}</p>
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Phone
                     </label>
                     <input
                       type="tel"
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
                     />
                   </div>
                 </div>
@@ -527,33 +527,33 @@ export default function AdminUsersPage() {
               {/* Driver Specific Fields */}
               {activeTab === 'drivers' && (
                 <div>
-                  <h3 className="text-lg font-medium mb-4">Driver Details</h3>
+                  <h3 className="text-lg font-medium mb-4 text-gray-900 dark:text-gray-100">Driver Details</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         License Number *
                       </label>
                       <input
                         type="text"
                         value={formData.license_number}
                         onChange={(e) => setFormData({ ...formData, license_number: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 ${
-                          errors.license_number ? 'border-red-500' : 'border-gray-300'
+                        className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 ${
+                          errors.license_number ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'
                         }`}
                       />
                       {errors.license_number && (
-                        <p className="text-red-500 text-xs mt-1">{errors.license_number}</p>
+                        <p className="text-red-500 dark:text-red-400 text-xs mt-1">{errors.license_number}</p>
                       )}
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         License Expiry
                       </label>
                       <input
                         type="date"
                         value={formData.license_expiry}
                         onChange={(e) => setFormData({ ...formData, license_expiry: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
                       />
                     </div>
                   </div>
@@ -562,35 +562,35 @@ export default function AdminUsersPage() {
 
               {/* Account Settings */}
               <div>
-                <h3 className="text-lg font-medium mb-4">Account Settings</h3>
+                <h3 className="text-lg font-medium mb-4 text-gray-900 dark:text-gray-100">Account Settings</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Role *
                     </label>
                     <select
                       value={formData.role}
                       onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
                     >
                       <option value="driver">Driver</option>
                       <option value="admin">Admin</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       {editingUser ? 'New Password (leave blank to keep current)' : 'Password *'}
                     </label>
                     <input
                       type="password"
                       value={formData.password}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 ${
-                        errors.password ? 'border-red-500' : 'border-gray-300'
+                      className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 ${
+                        errors.password ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'
                       }`}
                     />
                     {errors.password && (
-                      <p className="text-red-500 text-xs mt-1">{errors.password}</p>
+                      <p className="text-red-500 dark:text-red-400 text-xs mt-1">{errors.password}</p>
                     )}
                   </div>
                 </div>
@@ -600,19 +600,19 @@ export default function AdminUsersPage() {
                       type="checkbox"
                       checked={formData.active}
                       onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
-                      className="rounded border-gray-300"
+                      className="rounded border-gray-300 dark:border-gray-600"
                     />
-                    <span className="text-sm text-gray-700">Active</span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">Active</span>
                   </label>
                 </div>
               </div>
 
               {/* Form Actions */}
-              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   Cancel
                 </button>

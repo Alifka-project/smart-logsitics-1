@@ -121,8 +121,8 @@ export default function DeliveryManagementPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800">Delivery Management</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Delivery Management</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Manage deliveries, view routes, and track status
           </p>
         </div>
@@ -147,7 +147,7 @@ export default function DeliveryManagementPage() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-gray-200 dark:border-gray-700">
         <nav className="flex space-x-8">
           {tabs.map((tab) => {
             const Icon = tab.icon;
@@ -163,8 +163,8 @@ export default function DeliveryManagementPage() {
                 className={`
                   flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm
                   ${activeTab === tab.id
-                    ? 'border-primary-600 text-primary-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-primary-600 dark:border-primary-400 text-primary-600 dark:text-primary-400'
+                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
                   }
                 `}
               >
@@ -181,15 +181,15 @@ export default function DeliveryManagementPage() {
         <div className="space-y-6">
           {/* Upload Section - Show if no deliveries or if explicitly opened */}
           {(showUpload || deliveries.length === 0) && (
-            <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 sm:p-8 transition-colors">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-800">
+                <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
                   {deliveries.length === 0 ? 'Upload Delivery Data' : 'Upload New Data'}
                 </h2>
                 {deliveries.length > 0 && (
                   <button
                     onClick={() => setShowUpload(false)}
-                    className="text-gray-500 hover:text-gray-700"
+                    className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                   >
                     ✕
                   </button>
@@ -200,8 +200,8 @@ export default function DeliveryManagementPage() {
                 onError={handleFileError}
                 onDataLoaded={handleDataLoaded}
               />
-              <div className="mt-6 pt-6 border-t">
-                <p className="text-gray-600 text-sm mb-4">Or load sample data:</p>
+              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">Or load sample data:</p>
                 <SyntheticDataButton 
                   onLoadSuccess={handleSyntheticSuccess}
                   onDataLoaded={handleDataLoaded}
@@ -215,47 +215,47 @@ export default function DeliveryManagementPage() {
           {deliveries.length > 0 && (
             <>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-white rounded-lg shadow p-6">
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-sm text-gray-600 mb-1">Total Deliveries</div>
-                      <div className="text-3xl font-bold text-gray-800">{deliveries.length}</div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Deliveries</div>
+                      <div className="text-3xl font-bold text-gray-800 dark:text-gray-100">{deliveries.length}</div>
                     </div>
-                    <div className="p-3 bg-blue-50 rounded-lg">
-                      <Database className="w-6 h-6 text-blue-600" />
+                    <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                      <Database className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                     </div>
                   </div>
                 </div>
-                <div className="bg-white rounded-lg shadow p-6">
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-sm text-gray-600 mb-1">Total Distance</div>
-                      <div className="text-3xl font-bold text-gray-800">
+                      <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Distance</div>
+                      <div className="text-3xl font-bold text-gray-800 dark:text-gray-100">
                         {Math.round(deliveries.reduce((sum, d) => sum + (d.distanceFromWarehouse || 0), 0))} km
                       </div>
                     </div>
-                    <div className="p-3 bg-green-50 rounded-lg">
-                      <MapPin className="w-6 h-6 text-green-600" />
+                    <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                      <MapPin className="w-6 h-6 text-green-600 dark:text-green-400" />
                     </div>
                   </div>
                 </div>
-                <div className="bg-white rounded-lg shadow p-6">
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-sm text-gray-600 mb-1">High Priority</div>
-                      <div className="text-3xl font-bold text-red-600">
+                      <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">High Priority</div>
+                      <div className="text-3xl font-bold text-red-600 dark:text-red-400">
                         {deliveries.filter(d => d.priority === 1).length}
                       </div>
                     </div>
-                    <div className="p-3 bg-red-50 rounded-lg">
-                      <AlertCircle className="w-6 h-6 text-red-600" />
+                    <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                      <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
                     </div>
                   </div>
                 </div>
-                <div className="bg-white rounded-lg shadow p-6">
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-sm text-gray-600 mb-1">Quick Actions</div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Quick Actions</div>
                       <div className="flex gap-2 mt-2">
                         <button
                           onClick={() => setActiveTab('list')}
@@ -265,14 +265,14 @@ export default function DeliveryManagementPage() {
                         </button>
                         <button
                           onClick={() => setActiveTab('map')}
-                          className="px-3 py-1 bg-gray-200 text-gray-700 text-xs rounded hover:bg-gray-300"
+                          className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs rounded hover:bg-gray-300 dark:hover:bg-gray-600"
                         >
                           View Map
                         </button>
                       </div>
                     </div>
-                    <div className="p-3 bg-purple-50 rounded-lg">
-                      <Zap className="w-6 h-6 text-purple-600" />
+                    <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                      <Zap className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                     </div>
                   </div>
                 </div>
@@ -283,38 +283,38 @@ export default function DeliveryManagementPage() {
 
               {/* Features Section */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition">
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 hover:shadow-lg transition">
                   <div className="flex items-center mb-4">
-                    <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center">
-                      <Upload className="w-6 h-6 text-primary-600" />
+                    <div className="w-12 h-12 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center">
+                      <Upload className="w-6 h-6 text-primary-600 dark:text-primary-400" />
                     </div>
-                    <h3 className="text-lg font-bold text-gray-800 ml-4">Easy Upload</h3>
+                    <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 ml-4">Easy Upload</h3>
                   </div>
-                  <p className="text-gray-600 text-sm">
+                  <p className="text-gray-600 dark:text-gray-400 text-sm">
                     Upload your Excel files with delivery data. Supports ERP, simplified, and generic formats.
                   </p>
                 </div>
 
-                <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition">
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 hover:shadow-lg transition">
                   <div className="flex items-center mb-4">
-                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <MapPin className="w-6 h-6 text-blue-600" />
+                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                      <MapPin className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                     </div>
-                    <h3 className="text-lg font-bold text-gray-800 ml-4">Route Optimization</h3>
+                    <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 ml-4">Route Optimization</h3>
                   </div>
-                  <p className="text-gray-600 text-sm">
+                  <p className="text-gray-600 dark:text-gray-400 text-sm">
                     Automatically optimized delivery routes with visual mapping and turn-by-turn directions.
                   </p>
                 </div>
 
-                <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition">
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 hover:shadow-lg transition">
                   <div className="flex items-center mb-4">
-                    <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                      <Zap className="w-6 h-6 text-green-600" />
+                    <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                      <Zap className="w-6 h-6 text-green-600 dark:text-green-400" />
                     </div>
-                    <h3 className="text-lg font-bold text-gray-800 ml-4">Real-time Tracking</h3>
+                    <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 ml-4">Real-time Tracking</h3>
                   </div>
-                  <p className="text-gray-600 text-sm">
+                  <p className="text-gray-600 dark:text-gray-400 text-sm">
                     Track deliveries in real-time with status updates, signatures, and photo confirmation.
                   </p>
                 </div>
@@ -324,9 +324,9 @@ export default function DeliveryManagementPage() {
 
           {/* Getting Started (when no deliveries) */}
           {deliveries.length === 0 && !showUpload && (
-            <div className="bg-gray-100 rounded-lg p-6 sm:p-8">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">Getting Started</h2>
-              <ol className="space-y-3 text-gray-700">
+            <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-6 sm:p-8 transition-colors">
+              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Getting Started</h2>
+              <ol className="space-y-3 text-gray-700 dark:text-gray-300">
                 <li className="flex gap-4">
                   <span className="flex-shrink-0 w-8 h-8 bg-primary-600 text-white rounded-full flex items-center justify-center font-bold">
                     1
@@ -374,9 +374,9 @@ export default function DeliveryManagementPage() {
           {deliveries.length > 0 ? (
             <DeliveryTable onSelectDelivery={() => setShowModal(true)} />
           ) : (
-            <div className="bg-white rounded-lg shadow-md p-8 text-center">
-              <Database className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 text-lg mb-4">No deliveries loaded</p>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 text-center transition-colors">
+              <Database className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+              <p className="text-gray-600 dark:text-gray-400 text-lg mb-4">No deliveries loaded</p>
               <button
                 onClick={() => setShowUpload(true)}
                 className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
@@ -391,10 +391,10 @@ export default function DeliveryManagementPage() {
       {activeTab === 'map' && (
         <div className="space-y-4 sm:space-y-6">
           {deliveries.length === 0 ? (
-            <div className="bg-white rounded-lg shadow-md p-8 text-center">
-              <MapPin className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 text-lg mb-4">No deliveries loaded</p>
-              <p className="text-gray-500 text-sm mb-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 text-center transition-colors">
+              <MapPin className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+              <p className="text-gray-600 dark:text-gray-400 text-lg mb-4">No deliveries loaded</p>
+              <p className="text-gray-500 dark:text-gray-500 text-sm mb-6">
                 Upload delivery data to view routes on the map
               </p>
               <button
@@ -482,14 +482,14 @@ export default function DeliveryManagementPage() {
               )}
 
               {/* Map */}
-              <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden transition-colors">
                 {isLoadingRoute ? (
                   <div className="h-[400px] sm:h-[500px] lg:h-[600px] flex items-center justify-center">
                     <div className="text-center">
                       <div className="animate-spin rounded-full h-12 w-12 sm:h-16 sm:w-16 border-b-2 border-primary-600 mx-auto mb-4"></div>
-                      <p className="text-gray-600 text-sm sm:text-base">Calculating route for {deliveries.length} deliveries...</p>
+                      <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">Calculating route for {deliveries.length} deliveries...</p>
                       {deliveries.length > 50 && (
-                        <p className="text-gray-500 text-xs mt-2">Large dataset - may take a minute</p>
+                        <p className="text-gray-500 dark:text-gray-500 text-xs mt-2">Large dataset - may take a minute</p>
                       )}
                     </div>
                   </div>
