@@ -30,9 +30,9 @@ function App() {
     useDeliveryStore.getState().initializeFromStorage();
   }, []);
 
-  // Auto-logout on inactivity (5 minutes) — keep client-side timer in sync with server inactivity
+  // Auto-logout on inactivity (15 minutes) — keep client-side timer in sync with server inactivity
   useEffect(() => {
-    const INACT_MS = import.meta?.env?.VITE_SESSION_INACTIVITY_MS ? parseInt(import.meta.env.VITE_SESSION_INACTIVITY_MS, 10) : 5 * 60 * 1000;
+    const INACT_MS = import.meta?.env?.VITE_SESSION_INACTIVITY_MS ? parseInt(import.meta.env.VITE_SESSION_INACTIVITY_MS, 10) : 15 * 60 * 1000;
     let lastActivity = Date.now();
     let timeout = null;
     function reset() {

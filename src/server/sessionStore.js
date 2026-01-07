@@ -4,7 +4,7 @@ const crypto = require('crypto');
 // For production, migrate to Redis or DB-backed store
 const SESSIONS = new Map();
 const DEFAULT_TTL = 12 * 3600 * 1000; // 12 hours
-const DEFAULT_INACTIVITY = 5 * 60 * 1000; // 5 minutes inactivity
+const DEFAULT_INACTIVITY = 15 * 60 * 1000; // 15 minutes inactivity
 const MAX_CONCURRENT_SESSIONS = 5; // Max sessions per user
 
 // Cleanup expired sessions every 5 minutes
