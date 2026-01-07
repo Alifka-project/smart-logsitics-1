@@ -85,7 +85,7 @@ function ProtectedLayout() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
         <Header />
         {showNavigation && <Navigation />}
         <main className="container mx-auto px-4 py-6">

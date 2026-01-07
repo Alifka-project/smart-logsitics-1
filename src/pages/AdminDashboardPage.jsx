@@ -76,7 +76,7 @@ export default function AdminDashboardPage() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading dashboard...</p>
+          <p className="text-gray-600 dark:text-gray-400">Loading dashboard...</p>
         </div>
       </div>
     );
@@ -84,9 +84,9 @@ export default function AdminDashboardPage() {
 
   if (data?.error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-        <div className="text-red-600 font-semibold">Error loading dashboard</div>
-        <div className="text-red-500 text-sm mt-1">{data.error}</div>
+      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+        <div className="text-red-600 dark:text-red-400 font-semibold">Error loading dashboard</div>
+        <div className="text-red-500 dark:text-red-400 text-sm mt-1">{data.error}</div>
       </div>
     );
   }
@@ -137,10 +137,10 @@ export default function AdminDashboardPage() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800">Admin Dashboard</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Admin Dashboard</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Last updated: {lastUpdate.toLocaleTimeString()}
-            {autoRefresh && <span className="ml-2 text-green-600">● Live</span>}
+            {autoRefresh && <span className="ml-2 text-green-600 dark:text-green-400">● Live</span>}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -151,7 +151,7 @@ export default function AdminDashboardPage() {
               onChange={(e) => setAutoRefresh(e.target.checked)}
               className="rounded"
             />
-            <span className="text-sm text-gray-700">Auto-refresh</span>
+            <span className="text-sm text-gray-700 dark:text-gray-300">Auto-refresh</span>
           </label>
           <button
             onClick={loadDashboardData}
@@ -220,8 +220,8 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Customer Response Metrics */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4">Customer Response Status</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+        <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Customer Response Status</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <MetricCard
             icon={CheckCircle}
@@ -249,8 +249,8 @@ export default function AdminDashboardPage() {
 
       {/* POD (Proof of Delivery) Metrics */}
       {totals.delivered > 0 && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">Proof of Delivery (POD) Status</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+          <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Proof of Delivery (POD) Status</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <MetricCard
               icon={CheckCircle}
@@ -273,8 +273,8 @@ export default function AdminDashboardPage() {
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Status Breakdown - Bar Chart */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">Status Breakdown</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+          <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Status Breakdown</h2>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={statusChartData}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -291,8 +291,8 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Status Distribution - Pie Chart */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">Status Distribution</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+          <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Status Distribution</h2>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
@@ -316,8 +316,8 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Recent Activity */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4">Recent Activity (Last 24 Hours)</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+        <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Recent Activity (Last 24 Hours)</h2>
         <ResponsiveContainer width="100%" height={250}>
           <LineChart data={recentTrendData}>
             <CartesianGrid strokeDasharray="3 3" />
@@ -331,20 +331,20 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Recent Activity Summary */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4">Activity Summary</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+        <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Activity Summary</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="p-4 bg-green-50 rounded-lg">
-            <div className="text-sm text-gray-600">Delivered (24h)</div>
-            <div className="text-2xl font-bold text-green-600">{recent.delivered}</div>
+          <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+            <div className="text-sm text-gray-600 dark:text-gray-400">Delivered (24h)</div>
+            <div className="text-2xl font-bold text-green-600 dark:text-green-400">{recent.delivered}</div>
           </div>
-          <div className="p-4 bg-red-50 rounded-lg">
-            <div className="text-sm text-gray-600">Cancelled (24h)</div>
-            <div className="text-2xl font-bold text-red-600">{recent.cancelled}</div>
+          <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
+            <div className="text-sm text-gray-600 dark:text-gray-400">Cancelled (24h)</div>
+            <div className="text-2xl font-bold text-red-600 dark:text-red-400">{recent.cancelled}</div>
           </div>
-          <div className="p-4 bg-yellow-50 rounded-lg">
-            <div className="text-sm text-gray-600">Rescheduled (24h)</div>
-            <div className="text-2xl font-bold text-yellow-600">{recent.rescheduled}</div>
+          <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+            <div className="text-sm text-gray-600 dark:text-gray-400">Rescheduled (24h)</div>
+            <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{recent.rescheduled}</div>
           </div>
         </div>
       </div>
@@ -364,13 +364,13 @@ function MetricCard({ icon: Icon, label, value, color, trend }) {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
       <div className="flex items-center justify-between">
         <div className="flex-1">
-          <div className="text-sm text-gray-600 mb-1">{label}</div>
-          <div className="text-3xl font-bold text-gray-800">{value}</div>
+          <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">{label}</div>
+          <div className="text-3xl font-bold text-gray-800 dark:text-gray-100">{value}</div>
           {trend && (
-            <div className="text-xs text-gray-500 mt-2">{trend}</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">{trend}</div>
           )}
         </div>
         <div className={`p-3 rounded-lg ${colorClasses[color]}`}>

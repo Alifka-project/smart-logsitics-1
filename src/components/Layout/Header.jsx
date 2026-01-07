@@ -12,9 +12,15 @@ export default function Header() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [theme, setTheme] = useState(() => {
-    // Get theme from localStorage or default to light
+    // Get theme from localStorage, system preference, or default to light
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('theme') || 'light';
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme) return savedTheme;
+      // Check system preference
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        return 'dark';
+      }
+      return 'light';
     }
     return 'light';
   });
@@ -54,11 +60,16 @@ export default function Header() {
     };
   }, []);
 
-  // Apply theme to document
+  // Apply theme to document on mount and when theme changes
   useEffect(() => {
-    document.documentElement.classList.remove('light', 'dark');
-    document.documentElement.classList.add(theme);
-    localStorage.setItem('theme', theme);
+    if (typeof document !== 'undefined') {
+      // Remove both classes first
+      document.documentElement.classList.remove('light', 'dark');
+      // Add the current theme class
+      document.documentElement.classList.add(theme);
+      // Save to localStorage
+      localStorage.setItem('theme', theme);
+    }
   }, [theme]);
 
   // Close dropdowns when clicking outside
@@ -287,16 +298,16 @@ export default function Header() {
 
                   {/* Notifications Dropdown */}
                   {showNotifications && (
-                    <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden z-50">
-                      <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-                        <h3 className="font-semibold text-gray-900">Notifications</h3>
+                    <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50 transition-colors">
+                      <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 flex items-center justify-between">
+                        <h3 className="font-semibold text-gray-900 dark:text-gray-100">Notifications</h3>
                         {unreadCount > 0 && (
-                          <span className="text-xs text-gray-500">{unreadCount} unread</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">{unreadCount} unread</span>
                         )}
                       </div>
                       <div className="max-h-96 overflow-y-auto">
                         {notifications.length === 0 ? (
-                          <div className="p-8 text-center text-gray-500">
+                          <div className="p-8 text-center text-gray-500 dark:text-gray-400">
                             <Bell className="w-12 h-12 mx-auto mb-2 opacity-50" />
                             <p>No notifications</p>
                           </div>
@@ -305,8 +316,8 @@ export default function Header() {
                             <div
                               key={notification.id}
                               onClick={() => markNotificationAsRead(notification.id)}
-                              className={`px-4 py-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${
-                                !notification.read ? 'bg-blue-50/50' : ''
+                              className={`px-4 py-3 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors ${
+                                !notification.read ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''
                               }`}
                             >
                               <div className="flex items-start gap-3">
@@ -314,13 +325,13 @@ export default function Header() {
                                   !notification.read ? 'bg-primary-600' : 'bg-transparent'
                                 }`}></div>
                                 <div className="flex-1 min-w-0">
-                                  <div className="font-medium text-gray-900 text-sm">
+                                  <div className="font-medium text-gray-900 dark:text-gray-100 text-sm">
                                     {notification.title}
                                   </div>
-                                  <div className="text-sm text-gray-600 mt-1">
+                                  <div className="text-sm text-gray-600 dark:text-gray-300 mt-1">
                                     {notification.message}
                                   </div>
-                                  <div className="text-xs text-gray-400 mt-1">
+                                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                                     {new Date(notification.timestamp).toLocaleString()}
                                   </div>
                                 </div>
@@ -367,12 +378,12 @@ export default function Header() {
 
                   {/* Dropdown Menu */}
                   {showDropdown && (
-                    <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden z-50">
+                    <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50 transition-colors">
                       {/* User Info Section */}
-                      <div className="px-4 py-4 bg-gradient-to-r from-primary-50 to-primary-100 border-b border-gray-200">
+                      <div className="px-4 py-4 bg-gradient-to-r from-primary-50 to-primary-100 dark:from-primary-900/30 dark:to-primary-800/30 border-b border-gray-200 dark:border-gray-700">
                         <div className="flex items-center gap-3">
                           <div className="relative">
-                            <div className="w-16 h-16 rounded-full bg-primary-600 flex items-center justify-center text-white font-semibold text-lg border-4 border-white shadow-lg overflow-hidden">
+                            <div className="w-16 h-16 rounded-full bg-primary-600 flex items-center justify-center text-white font-semibold text-lg border-4 border-white dark:border-gray-800 shadow-lg overflow-hidden">
                               {profileData.profilePicturePreview || user.profile_picture || user.profilePicture ? (
                                 <img
                                   src={profileData.profilePicturePreview || user.profile_picture || user.profilePicture}
@@ -385,15 +396,15 @@ export default function Header() {
                             </div>
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="font-bold text-gray-900 truncate text-base">
+                            <div className="font-bold text-gray-900 dark:text-gray-100 truncate text-base">
                               {getUserDisplayName()}
                             </div>
                             {getUserEmail() && (
-                              <div className="text-sm text-gray-600 truncate">
+                              <div className="text-sm text-gray-600 dark:text-gray-400 truncate">
                                 {getUserEmail()}
                               </div>
                             )}
-                            <div className="text-xs text-primary-700 font-medium mt-1">
+                            <div className="text-xs text-primary-700 dark:text-primary-400 font-medium mt-1">
                               {getUserRole()}
                             </div>
                           </div>
@@ -407,17 +418,17 @@ export default function Header() {
                             setShowProfileModal(true);
                             setShowDropdown(false);
                           }}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-100 transition-colors text-left"
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
                         >
-                          <User className="w-5 h-5 text-gray-500" />
+                          <User className="w-5 h-5 text-gray-500 dark:text-gray-400" />
                           <span className="font-medium">Edit Profile</span>
                         </button>
                         
-                        <div className="border-t border-gray-200 my-2"></div>
+                        <div className="border-t border-gray-200 dark:border-gray-700 my-2"></div>
                         
                         <button
                           onClick={handleLogout}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-red-600 hover:bg-red-50 transition-colors text-left"
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left"
                         >
                           <LogOut className="w-5 h-5" />
                           <span className="font-medium">Sign Out</span>
@@ -452,12 +463,12 @@ export default function Header() {
       {/* Profile Edit Modal */}
       {showProfileModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-gray-900">Edit Profile</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto transition-colors">
+            <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Edit Profile</h2>
               <button
                 onClick={() => setShowProfileModal(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
               >
                 <X className="w-6 h-6" />
               </button>
@@ -488,65 +499,65 @@ export default function Header() {
                     />
                   </label>
                 </div>
-                <p className="text-sm text-gray-500 mt-2">Click camera icon to change photo</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Click camera icon to change photo</p>
               </div>
 
               {/* Form Fields */}
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Full Name
                   </label>
                   <input
                     type="text"
                     value={profileData.fullName}
                     onChange={(e) => setProfileData(prev => ({ ...prev, fullName: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Email
                   </label>
                   <input
                     type="email"
                     value={profileData.email}
                     onChange={(e) => setProfileData(prev => ({ ...prev, email: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Phone
                   </label>
                   <input
                     type="tel"
                     value={profileData.phone}
                     onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Role
                   </label>
                   <input
                     type="text"
                     value={getUserRole()}
                     disabled
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
                   />
                 </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-3 pt-4 border-t border-gray-200">
+              <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <button
                   onClick={() => setShowProfileModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   Cancel
                 </button>

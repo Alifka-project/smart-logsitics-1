@@ -31,7 +31,7 @@ export default function Navigation() {
   ];
 
   return (
-    <nav className="bg-white shadow-sm border-b border-gray-200">
+    <nav className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 transition-colors">
       <div className="container mx-auto px-6">
         <div className="flex gap-2 overflow-x-auto py-2">
           {navItems.map((item) => {
@@ -48,7 +48,7 @@ export default function Navigation() {
                   flex items-center gap-2.5 px-5 py-3 font-medium transition-all duration-200 ease-out text-sm sm:text-base whitespace-nowrap relative group rounded-full
                   ${isActive
                     ? 'text-white bg-primary-600 shadow-md scale-[1.02]'
-                    : 'text-gray-700 hover:text-primary-600 hover:bg-gray-50 hover:scale-[1.01]'
+                    : 'text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:scale-[1.01]'
                   }
                 `}
               >
@@ -57,13 +57,13 @@ export default function Navigation() {
                   flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200 flex-shrink-0
                   ${isActive
                     ? 'bg-white/20'
-                    : 'bg-gray-100 group-hover:bg-primary-100'
+                    : 'bg-gray-100 dark:bg-gray-700 group-hover:bg-primary-100 dark:group-hover:bg-primary-900'
                   }
                 `}>
                   <Icon className={`w-5 h-5 transition-all duration-200 ${
                     isActive 
                       ? 'text-white' 
-                      : 'text-gray-600 group-hover:text-primary-600 group-hover:scale-110'
+                      : 'text-gray-600 dark:text-gray-300 group-hover:text-primary-600 dark:group-hover:text-primary-400 group-hover:scale-110'
                   }`} />
                 </div>
                 
