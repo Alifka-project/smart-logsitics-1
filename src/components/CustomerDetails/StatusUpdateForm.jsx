@@ -80,7 +80,7 @@ export default function StatusUpdateForm({ status, setStatus, notes, setNotes, d
 
   return (
     <div className="space-y-4">
-      <h3 className="text-base sm:text-lg font-semibold text-gray-800">Update Status</h3>
+      <h3 className="text-base sm:text-lg font-semibold text-gray-800 dark:text-gray-100">Update Status</h3>
       
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
         {statuses.map((s) => {
@@ -92,12 +92,20 @@ export default function StatusUpdateForm({ status, setStatus, notes, setNotes, d
               className={`flex flex-col items-center gap-2 p-3 sm:p-4 rounded-lg border-2 transition-all hover:shadow-md ${
                 status === s.value
                   ? s.activeClass
-                  : 'border-gray-300 hover:border-gray-400 bg-white'
+                  : 'border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500 bg-white dark:bg-gray-800'
               }`}
               title={s.description}
             >
-              <Icon className={`w-5 h-5 sm:w-6 sm:h-6 ${status === s.value ? s.iconActiveClass : 'text-gray-400'}`} />
-              <span className={`font-medium text-xs sm:text-sm text-center ${status === s.value ? 'text-gray-800' : 'text-gray-600'}`}>
+              <Icon className={`w-5 h-5 sm:w-6 sm:h-6 ${
+                status === s.value
+                  ? s.iconActiveClass
+                  : 'text-gray-400 dark:text-gray-500'
+              }`} />
+              <span className={`font-medium text-xs sm:text-sm text-center ${
+                status === s.value
+                  ? 'text-gray-800 dark:text-gray-100'
+                  : 'text-gray-600 dark:text-gray-300'
+              }`}>
                 {s.label}
               </span>
             </button>
@@ -106,14 +114,14 @@ export default function StatusUpdateForm({ status, setStatus, notes, setNotes, d
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
           Notes / Comments
         </label>
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={3}
-          className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm sm:text-base"
+          className="w-full px-3 sm:px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm sm:text-base bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 transition-colors"
           placeholder="Add any additional notes (reason for cancellation, reschedule details, etc.)..."
         />
       </div>

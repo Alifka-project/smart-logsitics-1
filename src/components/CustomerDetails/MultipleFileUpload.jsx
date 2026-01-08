@@ -30,8 +30,8 @@ export default function MultipleFileUpload({ photos, setPhotos }) {
 
   return (
     <div>
-      <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
-        <Camera className="w-5 h-5 text-primary-600" />
+      <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-3 flex items-center gap-2">
+        <Camera className="w-5 h-5 text-primary-600 dark:text-primary-400" />
         📸 Upload Delivery Photos
       </h3>
       
@@ -68,7 +68,7 @@ export default function MultipleFileUpload({ photos, setPhotos }) {
         />
 
         {/* Info Text */}
-        <p className="text-sm text-gray-500 text-center">
+        <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
           You can upload multiple photos (delivery proof, damaged items, etc.)
         </p>
       </div>
@@ -77,12 +77,12 @@ export default function MultipleFileUpload({ photos, setPhotos }) {
       {photos.length > 0 && (
         <div className="mt-4">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
               Uploaded Photos ({photos.length})
             </span>
             <button
               onClick={() => setPhotos([])}
-              className="text-sm text-red-600 hover:text-red-700 font-medium"
+              className="text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium"
             >
               Remove All
             </button>
@@ -92,7 +92,7 @@ export default function MultipleFileUpload({ photos, setPhotos }) {
             {photos.map((photo) => (
               <div
                 key={photo.id}
-                className="relative group rounded-lg overflow-hidden border-2 border-gray-200 hover:border-primary-400 transition-colors"
+                className="relative group rounded-lg overflow-hidden border-2 border-gray-200 dark:border-gray-700 hover:border-primary-400 dark:hover:border-primary-500 transition-colors"
               >
                 <img
                   src={photo.data}
@@ -124,10 +124,10 @@ export default function MultipleFileUpload({ photos, setPhotos }) {
 
       {/* Empty State */}
       {photos.length === 0 && (
-        <div className="mt-4 border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-          <ImageIcon className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-          <p className="text-sm text-gray-500">No photos uploaded yet</p>
-          <p className="text-xs text-gray-400 mt-1">
+        <div className="mt-4 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-8 text-center">
+          <ImageIcon className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-2" />
+          <p className="text-sm text-gray-500 dark:text-gray-400">No photos uploaded yet</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
             Click buttons above to add photos
           </p>
         </div>

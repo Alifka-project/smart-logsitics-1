@@ -37,37 +37,37 @@ export default function CustomerModal({ isOpen, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
-      <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-2xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto transition-colors">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b bg-gradient-to-r from-primary-600 to-primary-700 text-white">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-primary-700/60 bg-gradient-to-r from-primary-600 to-primary-700 text-white">
           <h2 className="text-lg sm:text-xl lg:text-2xl font-bold">Delivery Confirmation</h2>
-          <button onClick={onClose} className="hover:bg-primary-800 p-2 rounded">
+          <button onClick={onClose} className="hover:bg-primary-800/90 p-2 rounded transition-colors">
             <X className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
         </div>
 
-        <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 bg-gray-50 dark:bg-gray-900 transition-colors">
           {/* Customer Details */}
-          <div className="bg-primary-50 rounded-lg p-3 sm:p-4 space-y-2">
-            <h3 className="text-lg sm:text-xl font-bold text-primary-800 mb-3 sm:mb-4">
+          <div className="bg-primary-50 dark:bg-primary-900/20 rounded-lg p-3 sm:p-4 space-y-2">
+            <h3 className="text-lg sm:text-xl font-bold text-primary-800 dark:text-primary-300 mb-3 sm:mb-4">
               Stop {selectedDelivery.id}: {selectedDelivery.customer}
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
               <div>
-                <span className="font-semibold text-gray-700">Address:</span>
-                <p className="text-gray-600 break-words">{selectedDelivery.address}</p>
+                <span className="font-semibold text-gray-700 dark:text-gray-200">Address:</span>
+                <p className="text-gray-600 dark:text-gray-300 break-words">{selectedDelivery.address}</p>
               </div>
               <div>
-                <span className="font-semibold text-gray-700">Phone:</span>
-                <p className="text-gray-600 break-all">{selectedDelivery.phone}</p>
+                <span className="font-semibold text-gray-700 dark:text-gray-200">Phone:</span>
+                <p className="text-gray-600 dark:text-gray-300 break-all">{selectedDelivery.phone}</p>
               </div>
               <div>
-                <span className="font-semibold text-gray-700">Items:</span>
-                <p className="text-gray-600 break-words">{selectedDelivery.items}</p>
+                <span className="font-semibold text-gray-700 dark:text-gray-200">Items:</span>
+                <p className="text-gray-600 dark:text-gray-300 break-words">{selectedDelivery.items}</p>
               </div>
               <div>
-                <span className="font-semibold text-gray-700">Distance:</span>
-                <p className="text-gray-600">
+                <span className="font-semibold text-gray-700 dark:text-gray-200">Distance:</span>
+                <p className="text-gray-600 dark:text-gray-300">
                   {selectedDelivery.distanceFromWarehouse.toFixed(1)} km
                 </p>
               </div>

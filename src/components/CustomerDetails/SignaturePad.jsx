@@ -15,8 +15,8 @@ export default function SignaturePad({ title, onChange }) {
 
   return (
     <div>
-      <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-3">{title}</h3>
-      <div className="border-2 border-primary-300 rounded-lg">
+      <h3 className="text-base sm:text-lg font-semibold text-gray-800 dark:text-gray-100 mb-3">{title}</h3>
+      <div className="border-2 border-primary-300 dark:border-primary-500 rounded-lg bg-white dark:bg-gray-800 transition-colors">
         <SignatureCanvas
           ref={sigCanvas}
           canvasProps={{
@@ -25,9 +25,9 @@ export default function SignaturePad({ title, onChange }) {
           onEnd={handleEnd}
         />
       </div>
-      <button
+          <button
         onClick={handleClear}
-        className="mt-2 px-3 sm:px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-xs sm:text-sm font-medium"
+        className="mt-2 px-3 sm:px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-xs sm:text-sm font-medium text-gray-800 dark:text-gray-100 transition-colors"
       >
         Clear Signature
       </button>
