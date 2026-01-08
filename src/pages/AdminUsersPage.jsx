@@ -74,8 +74,8 @@ export default function AdminUsersPage() {
       setAccounts([]);
       setDrivers([]);
     } finally {
-      setLoading(false);
-    }
+    setLoading(false);
+  }
   };
 
   const validateForm = () => {
@@ -433,7 +433,7 @@ export default function AdminUsersPage() {
                       </td>
                     </tr>
                   )}
-                </tbody>
+            </tbody>
           </table>
             </div>
           </>

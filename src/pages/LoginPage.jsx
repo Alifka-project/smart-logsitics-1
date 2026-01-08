@@ -103,7 +103,7 @@ export default function LoginPage() {
 
   return (
     <div 
-      className="min-h-screen flex items-center justify-center px-4 py-8"
+      className="min-h-screen flex items-center justify-center px-4 py-8 light"
       style={{
         backgroundImage: 'url(/elec%20login.png)',
         backgroundSize: 'cover',
@@ -129,8 +129,8 @@ export default function LoginPage() {
         {/* Right Section - Login Form */}
         <div className="w-full lg:w-1/2 bg-white p-8 lg:p-12 flex flex-col justify-center rounded-b-3xl lg:rounded-r-3xl lg:rounded-bl-none">
           <div className="max-w-md mx-auto w-full">
-            <h2 className="text-3xl lg:text-4xl font-bold text-black mb-2">WELCOME BACK!</h2>
-            <p className="text-black text-sm mb-8">Welcome back! Please enter your details.</p>
+            <h2 className="text-3xl lg:text-4xl font-bold text-black mb-2" style={{ color: '#000000' }}>WELCOME BACK!</h2>
+            <p className="text-black text-sm mb-8" style={{ color: '#000000' }}>Welcome back! Please enter your details.</p>
           
           {error && (
             <div className="bg-red-50 border-l-4 border-red-500 text-red-800 text-sm p-4 rounded mb-6">
@@ -153,9 +153,9 @@ export default function LoginPage() {
             <form onSubmit={submit} className="space-y-6">
               {/* Username Field */}
             <div>
-                <label className="block text-sm font-medium text-black mb-2">
+                <label className="block text-sm font-medium text-black mb-2" style={{ color: '#000000' }}>
                   Username
-              </label>
+                </label>
               <input
                   type="text"
                   value={username}
@@ -181,7 +181,7 @@ export default function LoginPage() {
             
               {/* Password Field */}
             <div>
-                <label className="block text-sm font-medium text-black mb-2">
+                <label className="block text-sm font-medium text-black mb-2" style={{ color: '#000000' }}>
                 Password
               </label>
                 <div className="relative">
@@ -233,7 +233,7 @@ export default function LoginPage() {
                       accentColor: '#011E41'
                     }}
                   />
-                  <span className="ml-2 text-black">Remember me</span>
+                  <span className="ml-2 text-black" style={{ color: '#000000' }}>Remember me</span>
               </label>
             </div>
             

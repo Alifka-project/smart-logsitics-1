@@ -232,113 +232,123 @@ export default function AdminDashboardPage() {
       {/* Tab Content */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
-          {/* Key Metrics Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <MetricCard
-              icon={Package}
-              label="Total Deliveries"
-              value={totals.total}
-              color="blue"
-              trend={null}
-            />
-            <MetricCard
-              icon={CheckCircle}
-              label="Delivered"
-              value={totals.delivered}
-              color="green"
-              trend={`${successRate}% success rate`}
-            />
-            <MetricCard
-              icon={Clock}
-              label="Pending"
-              value={totals.pending}
-              color="yellow"
-              trend={`${totals.total > 0 ? ((totals.pending / totals.total) * 100).toFixed(1) : 0}% of total`}
-            />
-            <MetricCard
-              icon={XCircle}
-              label="Cancelled"
-              value={totals.cancelled}
-              color="red"
-              trend={`${cancellationRate}% cancellation rate`}
-            />
-          </div>
+      {/* Key Metrics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <MetricCard
+          icon={Package}
+          label="Total Deliveries"
+          value={totals.total}
+          color="blue"
+          trend={null}
+        />
+        <MetricCard
+          icon={CheckCircle}
+          label="Delivered"
+          value={totals.delivered}
+          color="green"
+          trend={`${successRate}% success rate`}
+        />
+        <MetricCard
+          icon={Clock}
+          label="Pending"
+          value={totals.pending}
+          color="yellow"
+          trend={`${totals.total > 0 ? ((totals.pending / totals.total) * 100).toFixed(1) : 0}% of total`}
+        />
+        <MetricCard
+          icon={XCircle}
+          label="Cancelled"
+          value={totals.cancelled}
+          color="red"
+          trend={`${cancellationRate}% cancellation rate`}
+        />
+      </div>
 
-          {/* Secondary Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <MetricCard
-              icon={Users}
-              label="Active Drivers"
-              value={activeDrivers}
-              color="purple"
-              trend={`${drivers.length} total drivers`}
-            />
-            <MetricCard
-              icon={Activity}
-              label="Recent Locations"
-              value={data?.recentLocations || 0}
-              color="indigo"
-              trend="Last 24 hours"
-            />
-            <MetricCard
-              icon={TrendingUp}
-              label="Recent Deliveries (24h)"
-              value={recent.delivered + recent.cancelled + recent.rescheduled}
-              color="pink"
-              trend={`${recent.delivered} delivered`}
-            />
-          </div>
+      {/* Secondary Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <MetricCard
+          icon={Users}
+          label="Active Drivers"
+          value={activeDrivers}
+          color="purple"
+          trend={`${drivers.length} total drivers`}
+        />
+        <MetricCard
+          icon={Activity}
+          label="Recent Locations"
+          value={data?.recentLocations || 0}
+          color="indigo"
+          trend="Last 24 hours"
+        />
+        <MetricCard
+          icon={TrendingUp}
+          label="Recent Deliveries (24h)"
+          value={recent.delivered + recent.cancelled + recent.rescheduled}
+          color="pink"
+          trend={`${recent.delivered} delivered`}
+        />
+      </div>
 
-          {/* Charts Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Status Breakdown - Bar Chart */}
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Status Breakdown - Bar Chart */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
               <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Status Breakdown</h2>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={statusChartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="name" stroke="#6b7280" />
-                  <YAxis stroke="#6b7280" />
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={statusChartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-700" />
+                  <XAxis dataKey="name" stroke="#6b7280" className="dark:stroke-gray-400" />
+                  <YAxis stroke="#6b7280" className="dark:stroke-gray-400" />
                   <Tooltip 
                     contentStyle={{ 
                       backgroundColor: 'rgba(255, 255, 255, 0.95)',
                       border: '1px solid #e5e7eb',
-                      borderRadius: '8px'
+                      borderRadius: '8px',
+                      color: '#111827'
                     }}
+                    wrapperClassName="dark:!bg-gray-800 dark:!border-gray-700 dark:!text-gray-100"
                   />
                   <Bar dataKey="value" fill="#2563EB" radius={[8, 8, 0, 0]}>
-                    {statusChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+                {statusChartData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
 
-            {/* Status Distribution - Pie Chart */}
+        {/* Status Distribution - Pie Chart */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
               <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Status Distribution</h2>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={pieChartData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={100}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {pieChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={pieChartData}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                outerRadius={100}
+                fill="#8884d8"
+                dataKey="value"
+              >
+                {pieChartData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Pie>
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px',
+                      color: '#111827'
+                    }}
+                    wrapperClassName="dark:!bg-gray-800 dark:!border-gray-700 dark:!text-gray-100"
+                  />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
 
           {/* Customer Response & POD Metrics */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -392,28 +402,30 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
             )}
-          </div>
+      </div>
 
-          {/* Recent Activity */}
+      {/* Recent Activity */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
             <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Recent Activity (Last 24 Hours)</h2>
-            <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={recentTrendData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="name" stroke="#6b7280" />
-                <YAxis stroke="#6b7280" />
+        <ResponsiveContainer width="100%" height={250}>
+          <LineChart data={recentTrendData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-700" />
+                <XAxis dataKey="name" stroke="#6b7280" className="dark:stroke-gray-400" />
+                <YAxis stroke="#6b7280" className="dark:stroke-gray-400" />
                 <Tooltip 
                   contentStyle={{ 
                     backgroundColor: 'rgba(255, 255, 255, 0.95)',
                     border: '1px solid #e5e7eb',
-                    borderRadius: '8px'
+                    borderRadius: '8px',
+                    color: '#111827'
                   }}
+                  wrapperClassName="dark:!bg-gray-800 dark:!border-gray-700 dark:!text-gray-100"
                 />
-                <Legend />
-                <Line type="monotone" dataKey="value" stroke="#2563EB" strokeWidth={2} name="Count" />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+            <Legend wrapperClassName="dark:text-gray-300" />
+            <Line type="monotone" dataKey="value" stroke="#2563EB" strokeWidth={2} name="Count" />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
         </div>
       )}
 
@@ -683,17 +695,19 @@ export default function AdminDashboardPage() {
                     <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="day" stroke="#6b7280" />
-                <YAxis stroke="#6b7280" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-700" />
+                <XAxis dataKey="day" stroke="#6b7280" className="dark:stroke-gray-400" />
+                <YAxis stroke="#6b7280" className="dark:stroke-gray-400" />
                 <Tooltip 
                   contentStyle={{ 
                     backgroundColor: 'rgba(255, 255, 255, 0.95)',
                     border: '1px solid #e5e7eb',
-                    borderRadius: '8px'
+                    borderRadius: '8px',
+                    color: '#111827'
                   }}
+                  wrapperClassName="dark:!bg-gray-800 dark:!border-gray-700 dark:!text-gray-100"
                 />
-                <Legend />
+                <Legend wrapperClassName="dark:text-gray-300" />
                 <Area type="monotone" dataKey="deliveries" stroke="#3b82f6" fillOpacity={1} fill="url(#colorDeliveries)" name="Total Deliveries" />
                 <Area type="monotone" dataKey="success" stroke="#10b981" fillOpacity={1} fill="url(#colorSuccess)" name="Successful" />
               </AreaChart>
@@ -756,9 +770,9 @@ export default function AdminDashboardPage() {
                   <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{recent.rescheduled}</div>
                 </div>
               </div>
-            </div>
           </div>
         </div>
+      </div>
       )}
     </div>
   );

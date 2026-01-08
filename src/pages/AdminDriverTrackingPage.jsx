@@ -46,7 +46,7 @@ export default function AdminDriverTrackingPage() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading driver tracking...</p>
+          <p className="text-gray-600 dark:text-gray-400">Loading driver tracking...</p>
         </div>
       </div>
     );
@@ -57,10 +57,10 @@ export default function AdminDriverTrackingPage() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800">Real-Time Driver Tracking</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Real-Time Driver Tracking</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Last updated: {lastUpdate.toLocaleTimeString()}
-            {autoRefresh && <span className="ml-2 text-green-600">● Live</span>}
+            {autoRefresh && <span className="ml-2 text-green-600 dark:text-green-400">● Live</span>}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -71,7 +71,7 @@ export default function AdminDriverTrackingPage() {
               onChange={(e) => setAutoRefresh(e.target.checked)}
               className="rounded"
             />
-            <span className="text-sm text-gray-700">Auto-refresh</span>
+            <span className="text-sm text-gray-700 dark:text-gray-300">Auto-refresh</span>
           </label>
           <button
             onClick={loadDriverTracking}
@@ -84,74 +84,74 @@ export default function AdminDriverTrackingPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-sm text-gray-600 mb-1">Total Drivers</div>
-              <div className="text-3xl font-bold text-gray-800">{drivers.length}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Drivers</div>
+              <div className="text-3xl font-bold text-gray-800 dark:text-gray-100">{drivers.length}</div>
             </div>
-            <div className="p-3 bg-blue-50 rounded-lg">
-              <Users className="w-6 h-6 text-blue-600" />
+            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <Users className="w-6 h-6 text-blue-600 dark:text-blue-400" />
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-sm text-gray-600 mb-1">Online Drivers</div>
-              <div className="text-3xl font-bold text-green-600">{onlineDrivers.length}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Online Drivers</div>
+              <div className="text-3xl font-bold text-green-600 dark:text-green-400">{onlineDrivers.length}</div>
             </div>
-            <div className="p-3 bg-green-50 rounded-lg">
-              <Activity className="w-6 h-6 text-green-600" />
+            <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+              <Activity className="w-6 h-6 text-green-600 dark:text-green-400" />
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-sm text-gray-600 mb-1">With Location</div>
-              <div className="text-3xl font-bold text-purple-600">{driversWithLocation.length}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">With Location</div>
+              <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">{driversWithLocation.length}</div>
             </div>
-            <div className="p-3 bg-purple-50 rounded-lg">
-              <MapPin className="w-6 h-6 text-purple-600" />
+            <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+              <MapPin className="w-6 h-6 text-purple-600 dark:text-purple-400" />
             </div>
           </div>
         </div>
       </div>
 
       {/* Map */}
-      <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden transition-colors">
         <DriverTrackingMap drivers={drivers} />
       </div>
 
       {/* Driver List */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4">Driver Status</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+        <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Driver Status</h2>
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-700">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Driver</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Update</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Driver</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Location</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Last Update</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {drivers.map(driver => {
                 const driverName = driver.full_name || driver.name || driver.username || 'Unknown';
                 const isOnline = driver.tracking?.online;
                 const location = driver.tracking?.location;
 
                 return (
-                  <tr key={driver.id}>
+                  <tr key={driver.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className={`w-3 h-3 rounded-full mr-3 ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`}></div>
                         <div>
-                          <div className="text-sm font-medium text-gray-900">{driverName}</div>
+                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{driverName}</div>
                           {driver.phone && (
-                            <div className="text-sm text-gray-500">{driver.phone}</div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">{driver.phone}</div>
                           )}
                         </div>
                       </div>
@@ -159,25 +159,25 @@ export default function AdminDriverTrackingPage() {
                     <td className="px-4 py-3 whitespace-nowrap">
                       <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
                         isOnline 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-gray-100 text-gray-800'
+                          ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' 
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
                       }`}>
                         {driver.tracking?.status || 'offline'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {location ? (
                         <div>
                           <div>{location.lat.toFixed(4)}, {location.lng.toFixed(4)}</div>
                           {location.speed && (
-                            <div className="text-xs">{(location.speed * 3.6).toFixed(0)} km/h</div>
+                            <div className="text-xs text-gray-400 dark:text-gray-500">{(location.speed * 3.6).toFixed(0)} km/h</div>
                           )}
                         </div>
                       ) : (
-                        <span className="text-gray-400">No location</span>
+                        <span className="text-gray-400 dark:text-gray-500">No location</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {location?.timestamp 
                         ? new Date(location.timestamp).toLocaleTimeString()
                         : driver.tracking?.lastUpdate
@@ -191,7 +191,7 @@ export default function AdminDriverTrackingPage() {
             </tbody>
           </table>
           {drivers.length === 0 && (
-            <div className="text-center py-8 text-gray-500">No drivers found</div>
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">No drivers found</div>
           )}
         </div>
       </div>

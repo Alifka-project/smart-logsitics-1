@@ -246,11 +246,19 @@ export default function AdminReportsPage() {
           <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Daily Breakdown</h2>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={dailyBreakdown}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-700" />
+              <XAxis dataKey="date" stroke="#6b7280" className="dark:stroke-gray-400" />
+              <YAxis stroke="#6b7280" className="dark:stroke-gray-400" />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  color: '#111827'
+                }}
+                wrapperClassName="dark:!bg-gray-800 dark:!border-gray-700 dark:!text-gray-100"
+              />
+              <Legend wrapperClassName="dark:text-gray-300" />
               <Bar dataKey="delivered" stackId="a" fill="#10b981" name="Delivered" />
               <Bar dataKey="cancelled" stackId="a" fill="#ef4444" name="Cancelled" />
               <Bar dataKey="rescheduled" stackId="a" fill="#f59e0b" name="Rescheduled" />
@@ -278,7 +286,15 @@ export default function AdminReportsPage() {
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  color: '#111827'
+                }}
+                wrapperClassName="dark:!bg-gray-800 dark:!border-gray-700 dark:!text-gray-100"
+              />
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -289,11 +305,19 @@ export default function AdminReportsPage() {
         <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Daily Trend</h2>
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={dailyBreakdown}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-700" />
+            <XAxis dataKey="date" stroke="#6b7280" className="dark:stroke-gray-400" />
+            <YAxis stroke="#6b7280" className="dark:stroke-gray-400" />
+            <Tooltip 
+              contentStyle={{ 
+                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                border: '1px solid #e5e7eb',
+                borderRadius: '8px',
+                color: '#111827'
+              }}
+              wrapperClassName="dark:!bg-gray-800 dark:!border-gray-700 dark:!text-gray-100"
+            />
+            <Legend wrapperClassName="dark:text-gray-300" />
             <Line type="monotone" dataKey="delivered" stroke="#10b981" strokeWidth={2} name="Delivered" />
             <Line type="monotone" dataKey="cancelled" stroke="#ef4444" strokeWidth={2} name="Cancelled" />
             <Line type="monotone" dataKey="pending" stroke="#6b7280" strokeWidth={2} name="Pending" />

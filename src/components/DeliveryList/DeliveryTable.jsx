@@ -38,12 +38,12 @@ export default function DeliveryTable({ onSelectDelivery }) {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 transition-colors">
       <div className="mb-4">
-        <h2 className="text-lg sm:text-2xl font-bold text-gray-800 mb-2">
+        <h2 className="text-lg sm:text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">
           🚚 Delivery Sequence
         </h2>
-        <p className="text-xs sm:text-sm text-gray-600">
+        <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
           Drag to reorder • Tap to edit • Sorted by distance
         </p>
       </div>
@@ -66,7 +66,7 @@ export default function DeliveryTable({ onSelectDelivery }) {
       </div>
 
       {items.length === 0 && (
-        <div className="text-center py-8 text-gray-500">
+        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
           No deliveries loaded yet
         </div>
       )}

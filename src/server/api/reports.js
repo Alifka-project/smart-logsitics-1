@@ -148,15 +148,15 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
           }
           
           return [
-            d.id || d.ID || '',
-            d.customer || d.Customer || '',
-            d.address || d.Address || '',
-            d.status || d.Status || '',
-            d.driver_id || d.driverId || '',
+          d.id || d.ID || '',
+          d.customer || d.Customer || '',
+          d.address || d.Address || '',
+          d.status || d.Status || '',
+          d.driver_id || d.driverId || '',
             customerResponse,
             podStatus,
-            d.created_at || d.createdAt || '',
-            d.updated_at || d.updatedAt || ''
+          d.created_at || d.createdAt || '',
+          d.updated_at || d.updatedAt || ''
           ];
         })
       ];
