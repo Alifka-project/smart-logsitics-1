@@ -168,6 +168,8 @@ router.post('/upload', authenticate, async (req, res) => {
       };
     });
 
+    console.log(`[Deliveries] Upload complete: ${results.filter(r => r.saved).length} saved, ${assignmentResults.filter(a => a.success).length} assigned`);
+    
     res.json({
       success: true,
       count: deliveryIds.length,
@@ -177,6 +179,7 @@ router.post('/upload', authenticate, async (req, res) => {
     });
   } catch (err) {
     console.error('deliveries/upload error', err);
+    console.error('deliveries/upload error stack:', err.stack);
     res.status(500).json({ error: 'upload_error', detail: err.message });
   }
 });
