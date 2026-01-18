@@ -8,6 +8,7 @@ import StatsCards from '../components/Analytics/StatsCards';
 import DeliveryMap from '../components/MapView/DeliveryMap';
 import DirectionsPanel from '../components/MapView/DirectionsPanel';
 import { calculateRoute, generateFallbackRoute } from '../services/advancedRoutingService';
+import { calculateRouteWithOSRM } from '../services/osrmRoutingService';
 import useDeliveryStore from '../store/useDeliveryStore';
 import { useToast } from '../hooks/useToast';
 import { ToastContainer } from '../components/common/Toast';
@@ -55,7 +56,6 @@ export default function DeliveryManagementPage() {
         
         // Try OSRM as backup (road-following)
         try {
-          const { calculateRouteWithOSRM } = await import('../services/osrmRoutingService');
           const osrmRoute = await calculateRouteWithOSRM(locations);
           setRoute(osrmRoute);
           setRouteError('Using OSRM routing (Valhalla unavailable)');
