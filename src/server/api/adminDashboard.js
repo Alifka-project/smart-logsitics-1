@@ -27,6 +27,9 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
           }
         },
         orderBy: { createdAt: 'desc' }
+      }).catch(err => {
+        console.error('[Dashboard] Prisma query error:', err);
+        return []; // Return empty array on error
       }),
       sapService.call('/Drivers', 'get').catch(() => ({ data: { value: [] } })),
       sapService.call('/Locations', 'get').catch(() => ({ data: { value: [] } })),
@@ -163,8 +166,9 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
 
     res.json({ drivers, recentLocations, smsRecent, totals, recentCounts });
   } catch (err) {
-    console.error('admin/dashboard (sap)', err);
-    res.status(500).json({ error: 'sap_error', detail: err.message });
+    console.error('admin/dashboard error:', err);
+    console.error('Error stack:', err.stack);
+    res.status(500).json({ error: 'server_error', detail: err.message });
   }
 });
 

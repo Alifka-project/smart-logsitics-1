@@ -23,6 +23,9 @@ router.get('/deliveries', authenticate, requireRole('admin'), async (req, res) =
         }
       },
       orderBy: { createdAt: 'desc' }
+    }).catch(err => {
+      console.error('[Tracking] Prisma query error:', err);
+      return []; // Return empty array on error
     });
 
     // Format database deliveries
