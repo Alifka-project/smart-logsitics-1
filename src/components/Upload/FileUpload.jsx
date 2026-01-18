@@ -6,7 +6,6 @@ import { useNavigate } from 'react-router-dom';
 import { validateDeliveryData } from '../../utils/dataValidator';
 import { detectDataFormat } from '../../utils/dataTransformer';
 import GeocodingProgress from './GeocodingProgress';
-import { calculateRoute } from '../../services/advancedRoutingService';
 import { hasValidCoordinates } from '../../utils/addressHandler';
 import api from '../../frontend/apiClient';
 
@@ -72,20 +71,27 @@ export default function FileUpload({ onSuccess, onError }) {
               // All deliveries have valid coordinates, load directly
               console.log(`[FileUpload] All ${validation.validData.length} deliveries have valid coordinates`);
               
-              // Save to database and auto-assign drivers
-              saveDeliveriesAndAssign(validation.validData);
-              
-              loadDeliveries(validation.validData);
-              try { navigate('/map'); } catch (e) { /* ignore */ }
-              if (onSuccess) {
-                onSuccess({
-                  count: validation.validData.length,
-                  warnings: validation.warnings,
-                  format: format,
-                  geocoded: false,
-                  geocodedCount: 0
-                });
-              }
+              // Save to database and auto-assign drivers (await to ensure it completes)
+              (async () => {
+                try {
+                  await saveDeliveriesAndAssign(validation.validData);
+                } catch (error) {
+                  console.error('[FileUpload] Database save failed, but continuing with local load:', error);
+                }
+                
+                loadDeliveries(validation.validData);
+                try { navigate('/deliveries'); } catch (e) { /* ignore */ }
+                
+                if (onSuccess) {
+                  onSuccess({
+                    count: validation.validData.length,
+                    warnings: validation.warnings,
+                    format: format,
+                    geocoded: false,
+                    geocodedCount: 0
+                  });
+                }
+              })();
             }
           } else {
             if (onError) {
@@ -132,7 +138,7 @@ export default function FileUpload({ onSuccess, onError }) {
     }
   };
 
-  const handleGeocodingComplete = (geocodedDeliveries) => {
+  const handleGeocodingComplete = async (geocodedDeliveries) => {
     console.log('[FileUpload] Geocoding complete, loading deliveries');
     setShowGeocoding(false);
     
@@ -146,34 +152,44 @@ export default function FileUpload({ onSuccess, onError }) {
       return bScore - aScore;
     });
 
-    // Save to database and auto-assign drivers
-    saveDeliveriesAndAssign(sorted);
-    
-    loadDeliveries(sorted);
-    // After loading deliveries, precompute route and navigate to map view
-    (async () => {
-      try {
-        const locations = [
-          { lat: 25.0053, lng: 55.0760 },
-          ...geocodedDeliveries.map(d => ({ lat: d.lat, lng: d.lng }))
-        ];
-
-        const routeData = await calculateRoute(locations, geocodedDeliveries, true);
-        try { setRoute(routeData); } catch (e) { /* ignore if store not ready */ }
-      } catch (err) {
-        console.warn('[FileUpload] Route calculation failed:', err?.message || err);
-      } finally {
-        try { navigate('/map'); } catch (e) { /* ignore in non-router contexts */ }
+    try {
+      // Save to database and auto-assign drivers - await this to ensure it completes
+      await saveDeliveriesAndAssign(sorted);
+      
+      // Load deliveries into store
+      loadDeliveries(sorted);
+      
+      // Navigate to list view (route calculation will happen when Map tab is opened)
+      try { 
+        navigate('/deliveries'); 
+      } catch (e) { 
+        console.warn('[FileUpload] Navigation error:', e);
       }
-    })();
-    if (onSuccess) {
-      onSuccess({
-        count: geocodedDeliveries.length,
-        warnings: validationResult.warnings,
-        format: validationResult.detectedFormat,
-        geocoded: true,
-        geocodedCount: geocodedCount
-      });
+      
+      if (onSuccess) {
+        onSuccess({
+          count: geocodedDeliveries.length,
+          warnings: validationResult?.warnings || [],
+          format: validationResult?.detectedFormat || 'unknown',
+          geocoded: true,
+          geocodedCount: geocodedCount
+        });
+      }
+    } catch (error) {
+      console.error('[FileUpload] Error in geocoding complete handler:', error);
+      // Still load deliveries even if database save failed
+      loadDeliveries(sorted);
+      try { navigate('/deliveries'); } catch (e) { /* ignore */ }
+      
+      if (onSuccess) {
+        onSuccess({
+          count: geocodedDeliveries.length,
+          warnings: [...(validationResult?.warnings || []), 'Database save may have failed - deliveries loaded locally'],
+          format: validationResult?.detectedFormat || 'unknown',
+          geocoded: true,
+          geocodedCount: geocodedCount
+        });
+      }
     }
   };
 
@@ -185,11 +201,18 @@ export default function FileUpload({ onSuccess, onError }) {
   // Save deliveries to database and auto-assign drivers
   const saveDeliveriesAndAssign = async (deliveries) => {
     try {
+      if (!deliveries || deliveries.length === 0) {
+        console.warn('[FileUpload] No deliveries to save');
+        return { success: false, error: 'No deliveries provided' };
+      }
+
       // Prepare deliveries with IDs
       const deliveriesWithIds = deliveries.map((delivery, index) => ({
         ...delivery,
         id: delivery.id || `delivery-${Date.now()}-${index}`
       }));
+
+      console.log(`[FileUpload] Saving ${deliveriesWithIds.length} deliveries to database...`);
 
       // Save to database and trigger auto-assignment
       const response = await api.post('/deliveries/upload', {
@@ -197,7 +220,7 @@ export default function FileUpload({ onSuccess, onError }) {
       });
 
       if (response.data?.success) {
-        console.log(`[FileUpload] Saved ${response.data.saved} deliveries and assigned ${response.data.assigned} to drivers`);
+        console.log(`[FileUpload] ✓ Saved ${response.data.saved} deliveries and assigned ${response.data.assigned} to drivers`);
         
         // Show assignment results if any
         if (response.data.assigned > 0) {
@@ -208,10 +231,17 @@ export default function FileUpload({ onSuccess, onError }) {
         window.dispatchEvent(new CustomEvent('deliveriesUpdated', {
           detail: { count: response.data.saved, assigned: response.data.assigned }
         }));
+        
+        return { success: true, saved: response.data.saved, assigned: response.data.assigned };
+      } else {
+        console.error('[FileUpload] Upload response indicates failure:', response.data);
+        throw new Error('Upload failed: ' + (response.data?.error || 'Unknown error'));
       }
     } catch (error) {
       console.error('[FileUpload] Error saving deliveries to database:', error);
-      // Don't block UI - deliveries are still in localStorage/store
+      console.error('[FileUpload] Error details:', error.response?.data || error.message);
+      // Re-throw so caller can handle it
+      throw error;
     }
   };
 
