@@ -16,7 +16,7 @@ const {
 const { validatePassword, sanitizeInput } = require('../security/passwordValidator');
 const { recordFailedAttempt, recordSuccess, isLocked } = require('../security/accountLockout');
 const { loginLimiter } = require('../security/rateLimiter');
-const { getEmailService } = require('../../services/emailService');
+const { getEmailService } = require('../services/emailService');
 
 // POST /api/auth/login - with rate limiting and account lockout
 router.post('/login', loginLimiter, async (req, res) => {
