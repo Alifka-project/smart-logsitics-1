@@ -298,10 +298,31 @@ export async function calculateRoute(locations, deliveries = null, useAI = true)
 
         if (trip.legs && trip.legs.length > 0) {
           trip.legs.forEach((leg, idx) => {
-            if (leg.shape) {
-              const coords = decodePolyline(leg.shape);
-              allCoordinates = allCoordinates.concat(coords);
-              console.log(`  Leg ${idx + 1}: ${coords.length} coordinates`);
+            if (leg.shape && leg.shape.length > 0) {
+              try {
+                const coords = decodePolyline(leg.shape);
+                if (coords && coords.length > 0) {
+                  // Validate coordinates are valid (lat/lng pairs)
+                  const validCoords = coords.filter(coord => 
+                    Array.isArray(coord) && 
+                    coord.length === 2 && 
+                    !isNaN(coord[0]) && 
+                    !isNaN(coord[1]) &&
+                    coord[0] >= -90 && coord[0] <= 90 &&
+                    coord[1] >= -180 && coord[1] <= 180
+                  );
+                  if (validCoords.length > 0) {
+                    allCoordinates = allCoordinates.concat(validCoords);
+                    console.log(`  Leg ${idx + 1}: ${validCoords.length} road-following coordinates`);
+                  } else {
+                    console.warn(`  Leg ${idx + 1}: No valid coordinates after decoding`);
+                  }
+                }
+              } catch (decodeError) {
+                console.error(`  Leg ${idx + 1}: Failed to decode polyline:`, decodeError);
+              }
+            } else {
+              console.warn(`  Leg ${idx + 1}: No shape data in route leg`);
             }
             totalDistance += leg.summary?.length || 0;
             totalTime += leg.summary?.time || 0;
@@ -312,15 +333,18 @@ export async function calculateRoute(locations, deliveries = null, useAI = true)
           }
         }
       } catch (chunkError) {
-        console.warn(`[Routing] Chunk ${i + 1} failed, continuing with remaining chunks:`, chunkError.message);
-        // Still add the location points even if routing fails
-        const chunkPoints = chunks[i].map(loc => [loc.lat, loc.lng]);
-        allCoordinates = allCoordinates.concat(chunkPoints);
+        console.error(`[Routing] Chunk ${i + 1} routing failed:`, chunkError.message);
+        // Don't add straight lines - throw to prevent fallback
+        throw chunkError;
       }
     }
 
+    // Validate we got road-following coordinates
     if (allCoordinates.length === 0) {
-      allCoordinates = finalLocations.map(loc => [loc.lat, loc.lng]);
+      console.error('[Routing] CRITICAL: No road-following coordinates decoded!');
+      throw new Error('Failed to decode road-following route - no coordinates available');
+    } else {
+      console.log(`[Routing] Successfully decoded ${allCoordinates.length} road-following coordinates`);
     }
 
     const result = {
