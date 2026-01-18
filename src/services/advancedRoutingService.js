@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { decodePolyline } from '../utils/polylineDecoder';
 import { isValidDubaiCoordinates } from './geocodingService';
+import { calculateRouteWithOSRM } from './osrmRoutingService';
 
 // In frontend, use Vite environment variables exposed as import.meta.env
 const OPENAI_API_KEY = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_OPENAI_API_KEY ? import.meta.env.VITE_OPENAI_API_KEY : '';
@@ -181,41 +182,35 @@ function splitLocationsForRouting(locations, maxWaypoints = 25) {
  */
 async function calculateRouteChunk(locations) {
   // Use Valhalla routing service with proper road-following parameters
-  const response = await axios.post(
-    'https://valhalla1.openstreetmap.de/route',
-    {
-      locations: locations.map(loc => ({ 
-        lat: loc.lat, 
-        lon: loc.lng 
-      })),
-      costing: 'auto', // Use 'auto' for driving routes that follow roads
-      costing_options: {
-        auto: {
-          use_highways: 0.8, // Prefer highways but allow alternatives
-          use_tolls: 0.5,
-          use_tracks: 0.0, // Don't use unpaved roads
-          use_ferry: 0.5
-        }
-      },
-      directions_options: { 
-        units: 'kilometers',
-        language: 'en',
-        format: 'osrm' // Use OSRM format for better compatibility
-      },
-      shape_match: 'edge_walk', // Force snapping to road network edges
-      shape: undefined, // Let Valhalla calculate the route
-      filters: {
-        attributes: ['edge.id', 'edge.way_id'],
-        action: 'include'
-      }
-    },
-    {
-      timeout: 45000, // Increased timeout for road routing
-      headers: {
-        'Content-Type': 'application/json'
-      }
+  // Simplified request to ensure it works
+  const requestBody = {
+    locations: locations.map(loc => ({ 
+      lat: loc.lat, 
+      lon: loc.lng 
+    })),
+    costing: 'auto', // Use 'auto' for driving routes that follow roads
+    directions_options: { 
+      units: 'kilometers',
+      language: 'en'
     }
-  );
+  };
+
+  let response;
+  try {
+    response = await axios.post(
+      'https://valhalla1.openstreetmap.de/route',
+      requestBody,
+      {
+        timeout: 45000,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+  } catch (error) {
+    console.error('[Routing] Valhalla API error:', error.response?.data || error.message);
+    throw new Error(`Valhalla routing failed: ${error.response?.data?.error || error.message}`);
+  }
 
   if (!response.data || !response.data.trip) {
     console.error('Invalid Valhalla response:', response.data);
