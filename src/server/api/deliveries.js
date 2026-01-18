@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { authenticate, requireRole } = require('../auth');
 const sapService = require('../../../services/sapService');
-const { autoAssignDeliveries, getAvailableDrivers } = require('../../services/autoAssignmentService');
+const { autoAssignDeliveries, getAvailableDrivers } = require('../services/autoAssignmentService');
 const prisma = require('../db/prisma');
 
 async function deliveryExists(deliveryId) {
