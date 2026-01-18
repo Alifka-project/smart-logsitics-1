@@ -29,7 +29,14 @@ export function transformERPData(data) {
       row['Postal code']
     ].filter(Boolean).join(', ') || 'Address not available';
     
-    const phone = row['Telephone1'] || '';
+    // Check multiple phone column variations
+    const phone = row['Telephone1'] || 
+                  row['Phone'] || 
+                  row['Mobile'] || 
+                  row['Contact Phone'] ||
+                  row['Ship to Phone'] ||
+                  row['Telephone'] ||
+                  '';
     
     // Create item description from material info
     const items = [

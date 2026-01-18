@@ -59,7 +59,11 @@ export default function CustomerModal({ isOpen, onClose }) {
               </div>
               <div>
                 <span className="font-semibold text-gray-700 dark:text-gray-200">Phone:</span>
-                <p className="text-gray-600 dark:text-gray-300 break-all">{selectedDelivery.phone}</p>
+                <p className="text-gray-600 dark:text-gray-300 break-all">
+                  {selectedDelivery.phone && selectedDelivery.phone.trim() 
+                    ? selectedDelivery.phone 
+                    : <span className="text-gray-400 italic">Not available</span>}
+                </p>
               </div>
               <div>
                 <span className="font-semibold text-gray-700 dark:text-gray-200">Items:</span>
