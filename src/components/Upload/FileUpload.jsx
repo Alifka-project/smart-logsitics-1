@@ -207,11 +207,15 @@ export default function FileUpload({ onSuccess, onError }) {
         return { success: false, error: 'No deliveries provided' };
       }
 
-      // Prepare deliveries with IDs
-      const deliveriesWithIds = deliveries.map((delivery, index) => ({
-        ...delivery,
-        id: delivery.id || `delivery-${Date.now()}-${index}`
-      }));
+      // Prepare deliveries with IDs - remove IDs that aren't valid UUIDs (backend will generate new ones)
+      const deliveriesWithIds = deliveries.map((delivery, index) => {
+        const deliveryCopy = { ...delivery };
+        // Only keep ID if it's a valid UUID format, otherwise let backend generate UUID
+        if (deliveryCopy.id && !deliveryCopy.id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+          delete deliveryCopy.id; // Let backend generate valid UUID
+        }
+        return deliveryCopy;
+      });
 
       console.log(`[FileUpload] Saving ${deliveriesWithIds.length} deliveries to database...`);
 

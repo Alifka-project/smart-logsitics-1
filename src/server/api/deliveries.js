@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { v4: uuidv4 } = require('uuid');
 const { authenticate, requireRole } = require('../auth');
 const sapService = require('../../../services/sapService');
 const { autoAssignDeliveries, getAvailableDrivers } = require('../services/autoAssignmentService');
@@ -73,20 +74,35 @@ router.post('/upload', authenticate, async (req, res) => {
   try {
     const { deliveries } = req.body;
 
+    console.log(`[Deliveries/Upload] Received ${deliveries?.length || 0} deliveries to save`);
+
     if (!deliveries || !Array.isArray(deliveries)) {
       return res.status(400).json({ error: 'deliveries_array_required' });
+    }
+
+    if (deliveries.length === 0) {
+      return res.status(400).json({ error: 'no_deliveries_provided' });
     }
 
     const results = [];
     const deliveryIds = [];
 
     // Save deliveries to database with full data
-    for (const delivery of deliveries) {
-      const deliveryId = delivery.id || `delivery-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    for (let i = 0; i < deliveries.length; i++) {
+      const delivery = deliveries[i];
+      // Generate valid UUID for each delivery (required by database)
+      // If delivery.id exists and is a valid UUID, use it; otherwise generate new UUID
+      let deliveryId = delivery.id;
+      if (!deliveryId || !deliveryId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+        deliveryId = uuidv4();
+      }
+      
+      console.log(`[Deliveries/Upload] Saving delivery ${i + 1}/${deliveries.length}: ${deliveryId}`);
+      console.log(`[Deliveries/Upload] Data: customer="${delivery.customer}", address="${delivery.address?.substring(0, 50)}", phone="${delivery.phone}", status="${delivery.status}"`);
       
       try {
         // Save full delivery data to database
-        await prisma.delivery.upsert({
+        const savedDelivery = await prisma.delivery.upsert({
           where: { id: deliveryId },
           update: {
             customer: delivery.customer || delivery.name || null,
@@ -123,6 +139,9 @@ router.post('/upload', authenticate, async (req, res) => {
             } : null)
           }
         });
+
+        console.log(`[Deliveries/Upload] ✓ Successfully saved delivery ${deliveryId} to database`);
+        console.log(`[Deliveries/Upload] Saved delivery has: customer="${savedDelivery.customer}", address="${savedDelivery.address?.substring(0, 50)}"`);
 
         // Save delivery event for audit
         await prisma.deliveryEvent.create({
