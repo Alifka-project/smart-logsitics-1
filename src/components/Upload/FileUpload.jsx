@@ -72,26 +72,27 @@ export default function FileUpload({ onSuccess, onError }) {
               console.log(`[FileUpload] All ${validation.validData.length} deliveries have valid coordinates`);
               
               // Save to database and auto-assign drivers (await to ensure it completes)
-              (async () => {
-                try {
-                  await saveDeliveriesAndAssign(validation.validData);
-                } catch (error) {
-                  console.error('[FileUpload] Database save failed, but continuing with local load:', error);
-                }
-                
-                loadDeliveries(validation.validData);
-                try { navigate('/deliveries'); } catch (e) { /* ignore */ }
-                
-                if (onSuccess) {
-                  onSuccess({
-                    count: validation.validData.length,
-                    warnings: validation.warnings,
-                    format: format,
-                    geocoded: false,
-                    geocodedCount: 0
-                  });
-                }
-              })();
+              try {
+                await saveDeliveriesAndAssign(validation.validData);
+                console.log('[FileUpload] Successfully saved to database');
+              } catch (error) {
+                console.error('[FileUpload] Database save failed:', error);
+                console.error('[FileUpload] Error response:', error.response?.data);
+                // Continue with local load even if database save fails
+              }
+              
+              loadDeliveries(validation.validData);
+              try { navigate('/deliveries'); } catch (e) { /* ignore */ }
+              
+              if (onSuccess) {
+                onSuccess({
+                  count: validation.validData.length,
+                  warnings: validation.warnings,
+                  format: format,
+                  geocoded: false,
+                  geocodedCount: 0
+                });
+              }
             }
           } else {
             if (onError) {
