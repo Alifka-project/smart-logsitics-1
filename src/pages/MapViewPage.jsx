@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { AlertCircle, AlertTriangle, Zap } from 'lucide-react';
 import useDeliveryStore from '../store/useDeliveryStore';
 import DeliveryMap from '../components/MapView/DeliveryMap';
-import DirectionsPanel from '../components/MapView/DirectionsPanel';
+// import DirectionsPanel from '../components/MapView/DirectionsPanel'; // Hidden for now
 import { calculateRoute, generateFallbackRoute } from '../services/advancedRoutingService';
 import { calculateRouteWithOSRM } from '../services/osrmRoutingService';
 
@@ -54,7 +54,8 @@ export default function MapViewPage() {
           try {
             const osrmRoute = await calculateRouteWithOSRM(locations);
             setRoute(osrmRoute);
-            setError('Using OSRM routing (Valhalla unavailable)');
+            // Don't show error - OSRM is working fine, just a different service
+            setError(null); // OSRM works well, no need to show message
             setIsFallback(false); // OSRM is road-following
             console.log('OSRM routing successful:', { distance: osrmRoute.distanceKm.toFixed(2) });
           } catch (osrmError) {
@@ -177,8 +178,8 @@ export default function MapViewPage() {
         )}
       </div>
 
-      {/* Turn-by-turn Directions */}
-      {route && <DirectionsPanel route={route} />}
+      {/* Turn-by-turn Directions - Hidden for now */}
+      {/* {route && <DirectionsPanel route={route} />} */}
     </div>
   );
 }

@@ -6,7 +6,7 @@ import DeliveryTable from '../components/DeliveryList/DeliveryTable';
 import CustomerModal from '../components/CustomerDetails/CustomerModal';
 import StatsCards from '../components/Analytics/StatsCards';
 import DeliveryMap from '../components/MapView/DeliveryMap';
-import DirectionsPanel from '../components/MapView/DirectionsPanel';
+// import DirectionsPanel from '../components/MapView/DirectionsPanel'; // Hidden for now
 import { calculateRoute, generateFallbackRoute } from '../services/advancedRoutingService';
 import { calculateRouteWithOSRM } from '../services/osrmRoutingService';
 import useDeliveryStore from '../store/useDeliveryStore';
@@ -58,7 +58,8 @@ export default function DeliveryManagementPage() {
         try {
           const osrmRoute = await calculateRouteWithOSRM(locations);
           setRoute(osrmRoute);
-          setRouteError('Using OSRM routing (Valhalla unavailable)');
+          // Don't show error - OSRM is working fine, just a different service
+          setRouteError(null); // OSRM works well, no need to show message
           setIsFallback(false); // OSRM is still road-following, not a straight-line fallback
           console.log('OSRM routing successful:', { distance: osrmRoute.distanceKm.toFixed(2) });
         } catch (osrmError) {
@@ -510,8 +511,8 @@ export default function DeliveryManagementPage() {
                 )}
               </div>
 
-              {/* Turn-by-turn Directions */}
-              {route && <DirectionsPanel route={route} />}
+              {/* Turn-by-turn Directions - Hidden for now */}
+              {/* {route && <DirectionsPanel route={route} />} */}
             </>
           )}
         </div>
