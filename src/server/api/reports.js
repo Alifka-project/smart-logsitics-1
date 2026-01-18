@@ -2,19 +2,77 @@ const express = require('express');
 const router = express.Router();
 const { authenticate, requireRole } = require('../auth');
 const sapService = require('../../../services/sapService');
+const prisma = require('../db/prisma');
 
 // GET /api/admin/reports
 router.get('/', authenticate, requireRole('admin'), async (req, res) => {
   try {
     const { startDate, endDate, status, driverId, format } = req.query;
 
-    // Fetch deliveries
-    const deliveriesResp = await sapService.call('/Deliveries', 'get');
+    // Fetch from database first (uploaded deliveries), then fallback to SAP
+    const [dbDeliveries, sapDeliveriesResp] = await Promise.allSettled([
+      prisma.delivery.findMany({
+        include: {
+          assignments: {
+            include: {
+              driver: {
+                include: {
+                  account: true
+                }
+              }
+            }
+          }
+        },
+        orderBy: { createdAt: 'desc' }
+      }).catch(err => {
+        console.error('[Reports] Prisma query error:', err);
+        return []; // Return empty array on error
+      }),
+      sapService.call('/Deliveries', 'get').catch(() => ({ data: { value: [] } })),
+    ]);
+
+    // Combine database deliveries with SAP deliveries (avoid duplicates)
     let deliveries = [];
-    if (Array.isArray(deliveriesResp.data?.value)) {
-      deliveries = deliveriesResp.data.value;
-    } else if (Array.isArray(deliveriesResp.data)) {
-      deliveries = deliveriesResp.data;
+    
+    // Add database deliveries (formatted for compatibility)
+    if (dbDeliveries.status === 'fulfilled') {
+      deliveries = dbDeliveries.value.map(d => ({
+        id: d.id,
+        customer: d.customer,
+        address: d.address,
+        phone: d.phone,
+        lat: d.lat,
+        lng: d.lng,
+        status: d.status,
+        items: d.items,
+        metadata: d.metadata,
+        created_at: d.createdAt,
+        createdAt: d.createdAt,
+        created: d.createdAt,
+        updated_at: d.updatedAt,
+        updatedAt: d.updatedAt,
+        driver_id: d.assignments?.[0]?.driverId || null,
+        driverId: d.assignments?.[0]?.driverId || null,
+        assignedDriverId: d.assignments?.[0]?.driverId || null
+      }));
+    }
+
+    // Add SAP deliveries (if any) that don't exist in database
+    if (sapDeliveriesResp.status === 'fulfilled') {
+      let sapDeliveries = [];
+      if (Array.isArray(sapDeliveriesResp.value.data?.value)) {
+        sapDeliveries = sapDeliveriesResp.value.data.value;
+      } else if (Array.isArray(sapDeliveriesResp.value.data)) {
+        sapDeliveries = sapDeliveriesResp.value.data;
+      }
+      
+      // Only add SAP deliveries that aren't already in database
+      const dbDeliveryIds = new Set(deliveries.map(d => d.id));
+      const newSapDeliveries = sapDeliveries.filter(d => {
+        const sapId = d.id || d.ID;
+        return sapId && !dbDeliveryIds.has(sapId);
+      });
+      deliveries = deliveries.concat(newSapDeliveries);
     }
 
     // Filter by date range
