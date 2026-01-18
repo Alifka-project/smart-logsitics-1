@@ -4,6 +4,7 @@ import useDeliveryStore from '../store/useDeliveryStore';
 import DeliveryMap from '../components/MapView/DeliveryMap';
 import DirectionsPanel from '../components/MapView/DirectionsPanel';
 import { calculateRoute, generateFallbackRoute } from '../services/advancedRoutingService';
+import { calculateRouteWithOSRM } from '../services/osrmRoutingService';
 
 export default function MapViewPage() {
   const deliveries = useDeliveryStore((state) => state.deliveries);
