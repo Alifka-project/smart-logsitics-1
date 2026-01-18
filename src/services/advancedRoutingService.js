@@ -180,6 +180,7 @@ function splitLocationsForRouting(locations, maxWaypoints = 25) {
  * Calculate route for a single chunk of locations
  */
 async function calculateRouteChunk(locations) {
+  // Use Valhalla routing service with proper road-following parameters
   const response = await axios.post(
     'https://valhalla1.openstreetmap.de/route',
     {
@@ -187,24 +188,49 @@ async function calculateRouteChunk(locations) {
         lat: loc.lat, 
         lon: loc.lng 
       })),
-      costing: 'auto',
+      costing: 'auto', // Use 'auto' for driving routes that follow roads
+      costing_options: {
+        auto: {
+          use_highways: 0.8, // Prefer highways but allow alternatives
+          use_tolls: 0.5,
+          use_tracks: 0.0, // Don't use unpaved roads
+          use_ferry: 0.5
+        }
+      },
       directions_options: { 
         units: 'kilometers',
-        language: 'en'
+        language: 'en',
+        format: 'osrm' // Use OSRM format for better compatibility
       },
-      shape_match: 'map_snap',
+      shape_match: 'edge_walk', // Force snapping to road network edges
+      shape: undefined, // Let Valhalla calculate the route
       filters: {
         attributes: ['edge.id', 'edge.way_id'],
         action: 'include'
       }
     },
     {
-      timeout: 30000
+      timeout: 45000, // Increased timeout for road routing
+      headers: {
+        'Content-Type': 'application/json'
+      }
     }
   );
 
-  if (!response.data.trip) {
-    throw new Error('Invalid response from routing service');
+  if (!response.data || !response.data.trip) {
+    console.error('Invalid Valhalla response:', response.data);
+    throw new Error('Invalid response from routing service - no trip data');
+  }
+
+  // Validate that the trip has legs with shapes (road-following coordinates)
+  if (!response.data.trip.legs || response.data.trip.legs.length === 0) {
+    throw new Error('No route legs returned from routing service');
+  }
+
+  // Verify that legs have shapes (encoded polylines with road coordinates)
+  const hasShapes = response.data.trip.legs.some(leg => leg.shape && leg.shape.length > 0);
+  if (!hasShapes) {
+    console.warn('Warning: Route legs missing shape data - may result in straight lines');
   }
 
   return response.data.trip;
