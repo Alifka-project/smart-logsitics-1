@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db');
 const prisma = require('../db/prisma');
 const {
   hashPassword,
@@ -142,11 +141,16 @@ router.post('/login', loginLimiter, async (req, res) => {
     // Successful login
     recordSuccess(sanitizedUsername);
     
-    // Update last login using Prisma
-    await prisma.account.update({
-      where: { driverId: driver.id },
-      data: { lastLogin: new Date() }
-    });
+    // Update last login using Prisma (non-blocking - don't fail login if this fails)
+    try {
+      await prisma.account.update({
+        where: { driverId: driver.id },
+        data: { lastLogin: new Date() }
+      });
+    } catch (updateErr) {
+      console.warn('Failed to update last login timestamp:', updateErr.message);
+      // Continue with login even if update fails
+    }
     
     const payload = {
       sub: driver.id,
@@ -173,8 +177,21 @@ router.post('/login', loginLimiter, async (req, res) => {
       expiresIn: 15 * 60 // 15 minutes in seconds
     });
   } catch (err) {
-    console.error('auth/login', err);
-    res.status(500).json({ error: 'db_error' });
+    console.error('auth/login error:', err);
+    console.error('auth/login error stack:', err.stack);
+    console.error('auth/login error message:', err.message);
+    console.error('auth/login error code:', err.code);
+    
+    // Provide more detailed error for debugging
+    const errorMessage = err.message || 'Unknown error';
+    const errorCode = err.code || 'UNKNOWN';
+    
+    res.status(500).json({ 
+      error: 'server_error',
+      message: 'Server error. Please try again later.',
+      detail: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
+      code: process.env.NODE_ENV === 'development' ? errorCode : undefined
+    });
   }
 });
 
