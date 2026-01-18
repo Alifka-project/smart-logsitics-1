@@ -17,6 +17,8 @@ model Driver {
   phone     String?  @db.VarChar(32)
   fullName  String?  @map("full_name") @db.VarChar(200)
   active    Boolean  @default(true)
+  gpsEnabled Boolean @default(false) @map("gps_enabled") // GPS tracking enabled
+  gpsPermissionGranted Boolean @default(false) @map("gps_permission_granted") // Browser permission granted
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -37,7 +39,8 @@ model Account {
   role            String    @default("driver") @db.VarChar(50) // 'admin' or 'driver'
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  driver         Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  passwordResets PasswordReset[]
 
   @@map("accounts")
 }
@@ -129,4 +132,20 @@ model SmsConfirmation {
   delivery Delivery @relation(fields: [deliveryId], references: [id])
 
   @@map("sms_confirmations")
+}
+
+// Password reset tokens
+model PasswordReset {
+  id        String   @id @default(uuid()) @db.Uuid
+  accountId String   @map("account_id") @db.Uuid
+  token     String   @unique @db.VarChar(255)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([token], map: "idx_password_reset_token")
+  @@index([expiresAt], map: "idx_password_reset_expires")
+  @@map("password_resets")
 }

@@ -8,6 +8,7 @@ import { detectDataFormat } from '../../utils/dataTransformer';
 import GeocodingProgress from './GeocodingProgress';
 import { calculateRoute } from '../../services/advancedRoutingService';
 import { hasValidCoordinates } from '../../utils/addressHandler';
+import api from '../../frontend/apiClient';
 
 export default function FileUpload({ onSuccess, onError }) {
   const inputRef = useRef();
@@ -70,6 +71,10 @@ export default function FileUpload({ onSuccess, onError }) {
             } else {
               // All deliveries have valid coordinates, load directly
               console.log(`[FileUpload] All ${validation.validData.length} deliveries have valid coordinates`);
+              
+              // Save to database and auto-assign drivers
+              saveDeliveriesAndAssign(validation.validData);
+              
               loadDeliveries(validation.validData);
               try { navigate('/map'); } catch (e) { /* ignore */ }
               if (onSuccess) {
@@ -141,6 +146,9 @@ export default function FileUpload({ onSuccess, onError }) {
       return bScore - aScore;
     });
 
+    // Save to database and auto-assign drivers
+    saveDeliveriesAndAssign(sorted);
+    
     loadDeliveries(sorted);
     // After loading deliveries, precompute route and navigate to map view
     (async () => {
@@ -172,6 +180,34 @@ export default function FileUpload({ onSuccess, onError }) {
   const handleGeocodingCancel = () => {
     console.log('[FileUpload] Geocoding cancelled');
     setShowGeocoding(false);
+  };
+
+  // Save deliveries to database and auto-assign drivers
+  const saveDeliveriesAndAssign = async (deliveries) => {
+    try {
+      // Prepare deliveries with IDs
+      const deliveriesWithIds = deliveries.map((delivery, index) => ({
+        ...delivery,
+        id: delivery.id || `delivery-${Date.now()}-${index}`
+      }));
+
+      // Save to database and trigger auto-assignment
+      const response = await api.post('/deliveries/upload', {
+        deliveries: deliveriesWithIds
+      });
+
+      if (response.data?.success) {
+        console.log(`[FileUpload] Saved ${response.data.saved} deliveries and assigned ${response.data.assigned} to drivers`);
+        
+        // Show assignment results if any
+        if (response.data.assigned > 0) {
+          console.log(`[FileUpload] Auto-assigned ${response.data.assigned} deliveries to drivers`);
+        }
+      }
+    } catch (error) {
+      console.error('[FileUpload] Error saving deliveries to database:', error);
+      // Don't block UI - deliveries are still in localStorage/store
+    }
   };
 
   return (

@@ -9,6 +9,8 @@ import HomePage from './pages/HomePage';
 import DeliveryListPage from './pages/DeliveryListPage';
 import MapViewPage from './pages/MapViewPage';
 import LoginPage from './pages/LoginPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminOperationsPage from './pages/AdminOperationsPage';
 import AdminReportsPage from './pages/AdminReportsPage';
@@ -69,6 +71,8 @@ function App() {
       <Routes>
         {/* Public routes - NO header, NO navigation */}
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/track/:deliveryId" element={<TrackingPage />} />
 
         {/* Protected routes - with header and navigation */}

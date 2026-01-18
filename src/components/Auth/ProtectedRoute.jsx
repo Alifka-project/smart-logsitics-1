@@ -2,8 +2,11 @@ import React, { useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { isAuthenticated, clearAuth } from '../../frontend/auth';
 import api from '../../frontend/apiClient';
+import { useAutoSignout } from '../../hooks/useAutoSignout';
 
 export default function ProtectedRoute({ children }) {
+  // Enable auto-signout on inactivity and tab close
+  useAutoSignout();
   const [isValidating, setIsValidating] = React.useState(true);
   const [isValid, setIsValid] = React.useState(false);
 

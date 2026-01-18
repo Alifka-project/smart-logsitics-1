@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const { authenticate, requireRole } = require('../auth');
 const sapService = require('../../../services/sapService');
+const { autoAssignDeliveries, getAvailableDrivers } = require('../../services/autoAssignmentService');
+const prisma = require('../db/prisma');
 
 async function deliveryExists(deliveryId) {
   try {
@@ -63,6 +65,119 @@ router.get('/:id/events', authenticate, requireRole('admin'), async (req, res) =
     console.error('deliveries events error (sap)', err);
     const statusCode = err.response && err.response.status ? err.response.status : 500;
     res.status(statusCode).json({ error: 'sap_error', detail: err.message });
+  }
+});
+
+// POST /api/deliveries/upload - Save uploaded delivery data and auto-assign
+router.post('/upload', authenticate, async (req, res) => {
+  try {
+    const { deliveries } = req.body;
+
+    if (!deliveries || !Array.isArray(deliveries)) {
+      return res.status(400).json({ error: 'deliveries_array_required' });
+    }
+
+    const results = [];
+    const deliveryIds = [];
+
+    // Save deliveries to database
+    for (const delivery of deliveries) {
+      const deliveryId = delivery.id || `delivery-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      try {
+        // Ensure delivery exists in database
+        await prisma.delivery.upsert({
+          where: { id: deliveryId },
+          update: {},
+          create: { id: deliveryId }
+        });
+
+        // Save delivery event
+        await prisma.deliveryEvent.create({
+          data: {
+            deliveryId,
+            eventType: 'uploaded',
+            payload: {
+              customer: delivery.customer || delivery.name,
+              address: delivery.address,
+              phone: delivery.phone,
+              lat: delivery.lat,
+              lng: delivery.lng,
+              uploadDate: new Date().toISOString()
+            },
+            actorType: req.user.role || 'admin',
+            actorId: req.user.sub
+          }
+        });
+
+        deliveryIds.push(deliveryId);
+        results.push({ deliveryId, saved: true });
+      } catch (error) {
+        console.error(`[Deliveries] Error saving delivery ${deliveryId}:`, error);
+        results.push({ deliveryId, saved: false, error: error.message });
+      }
+    }
+
+    // Auto-assign deliveries to drivers
+    const assignmentResults = await autoAssignDeliveries(deliveryIds);
+
+    // Merge results
+    const mergedResults = results.map(result => {
+      const assignment = assignmentResults.find(a => a.deliveryId === result.deliveryId);
+      return {
+        ...result,
+        assigned: assignment?.success || false,
+        driverId: assignment?.assignment?.driverId || null,
+        driverName: assignment?.assignment?.driverName || null,
+        assignmentError: assignment?.error || null
+      };
+    });
+
+    res.json({
+      success: true,
+      count: deliveryIds.length,
+      saved: results.filter(r => r.saved).length,
+      assigned: assignmentResults.filter(a => a.success).length,
+      results: mergedResults
+    });
+  } catch (err) {
+    console.error('deliveries/upload error', err);
+    res.status(500).json({ error: 'upload_error', detail: err.message });
+  }
+});
+
+// POST /api/deliveries/bulk-assign - Auto-assign multiple deliveries
+router.post('/bulk-assign', authenticate, requireRole('admin'), async (req, res) => {
+  try {
+    const { deliveryIds } = req.body;
+
+    if (!deliveryIds || !Array.isArray(deliveryIds)) {
+      return res.status(400).json({ error: 'delivery_ids_array_required' });
+    }
+
+    const results = await autoAssignDeliveries(deliveryIds);
+
+    res.json({
+      success: true,
+      total: deliveryIds.length,
+      assigned: results.filter(r => r.success).length,
+      failed: results.filter(r => !r.success).length,
+      results
+    });
+  } catch (err) {
+    console.error('deliveries/bulk-assign error', err);
+    res.status(500).json({ error: 'bulk_assign_error', detail: err.message });
+  }
+});
+
+// GET /api/deliveries/available-drivers - Get available drivers for manual selection
+router.get('/available-drivers', authenticate, requireRole('admin'), async (req, res) => {
+  try {
+    const drivers = await getAvailableDrivers();
+    res.json({ drivers, count: drivers.length });
+  } catch (err) {
+    console.error('deliveries/available-drivers error', err);
+    res.status(500).json({ error: 'db_error', detail: err.message });
   }
 });
 

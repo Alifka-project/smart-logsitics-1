@@ -78,6 +78,7 @@ router.post('/', authenticate, requireRole('admin'), async (req, res) => {
   const body = req.body || {};
   if (!body.username) return res.status(400).json({ error: 'username_required' });
   if (!body.password) return res.status(400).json({ error: 'password_required' });
+  if (!body.phone) return res.status(400).json({ error: 'phone_required', message: 'Mobile phone number is required for GPS tracking' });
   
   try {
     // Check if username already exists
@@ -98,18 +99,26 @@ router.post('/', authenticate, requireRole('admin'), async (req, res) => {
         data: {
           username: body.username,
           email: body.email || null,
-          phone: body.phone || null,
+          phone: body.phone, // Required - validated above
           fullName: body.full_name || body.fullName || null,
           active: body.active !== false,
+          gpsEnabled: false, // Will be enabled when driver activates GPS
+          gpsPermissionGranted: false,
           account: {
             create: {
               passwordHash: passwordHash,
               role: body.role || 'driver'
             }
+          },
+          status: {
+            create: {
+              status: 'offline'
+            }
           }
         },
         include: {
-          account: true
+          account: true,
+          status: true
         }
       });
       return newDriver;
@@ -305,6 +314,86 @@ router.post('/:id/reset-password', authenticate, requireRole('admin'), async (re
     // Fallback: return ok (no-op) but log
     console.error('POST /api/admin/drivers/:id/reset-password (sap)', err);
     res.json({ ok: true, note: 'no-op; SAP call failed or not implemented' });
+  }
+});
+
+// POST /api/admin/drivers/:id/activate-gps - Activate GPS tracking for driver
+router.post('/:id/activate-gps', authenticate, async (req, res) => {
+  const id = req.params.id;
+  const { phone, gpsPermission } = req.body;
+
+  try {
+    // Verify this is the driver's own account or admin
+    const isAdmin = req.user.role === 'admin';
+    const isOwnAccount = req.user.sub === id;
+
+    if (!isAdmin && !isOwnAccount) {
+      return res.status(403).json({ error: 'forbidden', message: 'You can only activate GPS for your own account' });
+    }
+
+    // Get driver
+    const driver = await prisma.driver.findUnique({
+      where: { id }
+    });
+
+    if (!driver) {
+      return res.status(404).json({ error: 'driver_not_found' });
+    }
+
+    // Verify phone matches (if provided)
+    if (phone && driver.phone && phone !== driver.phone) {
+      return res.status(400).json({ error: 'phone_mismatch', message: 'Phone number does not match driver record' });
+    }
+
+    if (!driver.phone && !phone) {
+      return res.status(400).json({ error: 'phone_required', message: 'Phone number is required for GPS tracking' });
+    }
+
+    // Update driver with GPS enabled
+    const updated = await prisma.driver.update({
+      where: { id },
+      data: {
+        gpsEnabled: gpsPermission === true,
+        gpsPermissionGranted: gpsPermission === true,
+        phone: phone || driver.phone // Update phone if provided
+      },
+      include: {
+        account: true,
+        status: true
+      }
+    });
+
+    // Update driver status to available if offline
+    if (updated.status?.status === 'offline' || !updated.status) {
+      await prisma.driverStatus.upsert({
+        where: { driverId: id },
+        update: {
+          status: 'available',
+          updatedAt: new Date()
+        },
+        create: {
+          driverId: id,
+          status: 'available'
+        }
+      });
+    }
+
+    console.log(`[GPS] Driver ${id} (${driver.username}) GPS ${gpsPermission ? 'activated' : 'deactivated'}`);
+
+    res.json({
+      success: true,
+      driver: {
+        id: updated.id,
+        username: updated.username,
+        phone: updated.phone,
+        gpsEnabled: updated.gpsEnabled,
+        gpsPermissionGranted: updated.gpsPermissionGranted
+      },
+      message: gpsPermission ? 'GPS tracking activated successfully' : 'GPS tracking deactivated'
+    });
+  } catch (err) {
+    console.error('POST /api/admin/drivers/:id/activate-gps', err);
+    res.status(500).json({ error: 'db_error', detail: err.message });
   }
 });
 

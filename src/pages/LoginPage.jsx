@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import api, { setAuthToken } from '../frontend/apiClient';
 import { setAuthData, isAuthenticated } from '../frontend/auth';
 import { Eye, EyeOff } from 'lucide-react';
@@ -222,7 +222,7 @@ export default function LoginPage() {
             </div>
             
               {/* Remember me */}
-            <div className="flex items-center text-sm">
+            <div className="flex items-center justify-between text-sm">
               <label className="flex items-center">
                   <input 
                     type="checkbox" 
@@ -235,6 +235,13 @@ export default function LoginPage() {
                   />
                   <span className="ml-2 text-black" style={{ color: '#000000' }}>Remember me</span>
               </label>
+              <Link 
+                to="/forgot-password"
+                className="text-black hover:underline"
+                style={{ color: '#000000' }}
+              >
+                Forgot password?
+              </Link>
             </div>
             
               {/* Sign in Button */}
