@@ -7,12 +7,62 @@ const sapService = require('../../../services/sapService');
 // GET /api/admin/tracking/deliveries - real-time delivery tracking
 router.get('/deliveries', authenticate, requireRole('admin'), async (req, res) => {
   try {
-    const deliveriesResp = await sapService.call('/Deliveries', 'get');
-    let deliveries = [];
-    if (Array.isArray(deliveriesResp.data?.value)) {
-      deliveries = deliveriesResp.data.value;
-    } else if (Array.isArray(deliveriesResp.data)) {
-      deliveries = deliveriesResp.data;
+    const prisma = require('../db/prisma');
+    
+    // Fetch from database first (uploaded deliveries)
+    const dbDeliveries = await prisma.delivery.findMany({
+      include: {
+        assignments: {
+          include: {
+            driver: {
+              include: {
+                account: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    // Format database deliveries
+    let deliveries = dbDeliveries.map(d => ({
+      id: d.id,
+      customer: d.customer,
+      address: d.address,
+      phone: d.phone,
+      lat: d.lat,
+      lng: d.lng,
+      status: d.status,
+      items: d.items,
+      metadata: d.metadata,
+      created_at: d.createdAt,
+      createdAt: d.createdAt,
+      created: d.createdAt,
+      assignedDriverId: d.assignments?.[0]?.driverId || null,
+      driverName: d.assignments?.[0]?.driver?.fullName || null,
+      assignmentStatus: d.assignments?.[0]?.status || 'unassigned'
+    }));
+
+    // Try to fetch from SAP as well (fallback/additional data)
+    try {
+      const deliveriesResp = await sapService.call('/Deliveries', 'get');
+      let sapDeliveries = [];
+      if (Array.isArray(deliveriesResp.data?.value)) {
+        sapDeliveries = deliveriesResp.data.value;
+      } else if (Array.isArray(deliveriesResp.data)) {
+        sapDeliveries = deliveriesResp.data;
+      }
+      
+      // Only add SAP deliveries that don't exist in database
+      const dbDeliveryIds = new Set(deliveries.map(d => d.id));
+      const newSapDeliveries = sapDeliveries.filter(d => {
+        const sapId = d.id || d.ID;
+        return sapId && !dbDeliveryIds.has(sapId);
+      });
+      deliveries = deliveries.concat(newSapDeliveries);
+    } catch (sapError) {
+      console.warn('[Tracking] SAP fetch failed, using database only:', sapError.message);
     }
 
     // Get delivery assignments and driver locations

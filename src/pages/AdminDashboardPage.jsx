@@ -73,11 +73,21 @@ export default function AdminDashboardPage() {
       }, 5000);
     }
 
+    // Listen for delivery updates
+    const handleDeliveriesUpdated = () => {
+      if (mounted) {
+        console.log('[Dashboard] Deliveries updated, refreshing...');
+        loadDashboardData();
+      }
+    };
+    window.addEventListener('deliveriesUpdated', handleDeliveriesUpdated);
+
     return () => {
       mounted = false;
       if (interval) {
         clearInterval(interval);
       }
+      window.removeEventListener('deliveriesUpdated', handleDeliveriesUpdated);
     };
   }, [autoRefresh]);
 
@@ -487,7 +497,9 @@ export default function AdminDashboardPage() {
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                            {delivery.tracking?.driverId ? `Driver ${String(delivery.tracking.driverId).slice(0, 6)}` : 'Unassigned'}
+                            {delivery.driverName || delivery.tracking?.driverId ? 
+                              (delivery.driverName || `Driver ${String(delivery.tracking?.driverId || delivery.assignedDriverId || '').slice(0, 6)}`) 
+                              : 'Unassigned'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                             {delivery.created_at || delivery.createdAt || delivery.created 

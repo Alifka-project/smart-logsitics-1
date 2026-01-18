@@ -203,6 +203,11 @@ export default function FileUpload({ onSuccess, onError }) {
         if (response.data.assigned > 0) {
           console.log(`[FileUpload] Auto-assigned ${response.data.assigned} deliveries to drivers`);
         }
+        
+        // Dispatch custom event to trigger dashboard refresh
+        window.dispatchEvent(new CustomEvent('deliveriesUpdated', {
+          detail: { count: response.data.saved, assigned: response.data.assigned }
+        }));
       }
     } catch (error) {
       console.error('[FileUpload] Error saving deliveries to database:', error);

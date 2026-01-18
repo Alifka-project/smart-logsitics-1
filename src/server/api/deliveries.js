@@ -80,19 +80,51 @@ router.post('/upload', authenticate, async (req, res) => {
     const results = [];
     const deliveryIds = [];
 
-    // Save deliveries to database
+    // Save deliveries to database with full data
     for (const delivery of deliveries) {
       const deliveryId = delivery.id || `delivery-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       
       try {
-        // Ensure delivery exists in database
+        // Save full delivery data to database
         await prisma.delivery.upsert({
           where: { id: deliveryId },
-          update: {},
-          create: { id: deliveryId }
+          update: {
+            customer: delivery.customer || delivery.name || null,
+            address: delivery.address || null,
+            phone: delivery.phone || null,
+            lat: delivery.lat || null,
+            lng: delivery.lng || null,
+            status: delivery.status || 'pending',
+            items: typeof delivery.items === 'string' ? delivery.items : (delivery.items ? JSON.stringify(delivery.items) : null),
+            metadata: delivery.metadata || (delivery._originalDeliveryNumber ? {
+              originalDeliveryNumber: delivery._originalDeliveryNumber,
+              originalPONumber: delivery._originalPONumber,
+              originalQuantity: delivery._originalQuantity,
+              originalCity: delivery._originalCity,
+              originalRoute: delivery._originalRoute,
+            } : null),
+            updatedAt: new Date()
+          },
+          create: {
+            id: deliveryId,
+            customer: delivery.customer || delivery.name || null,
+            address: delivery.address || null,
+            phone: delivery.phone || null,
+            lat: delivery.lat || null,
+            lng: delivery.lng || null,
+            status: delivery.status || 'pending',
+            items: typeof delivery.items === 'string' ? delivery.items : (delivery.items ? JSON.stringify(delivery.items) : null),
+            metadata: delivery.metadata || (delivery._originalDeliveryNumber ? {
+              originalDeliveryNumber: delivery._originalDeliveryNumber,
+              originalPONumber: delivery._originalPONumber,
+              originalQuantity: delivery._originalQuantity,
+              originalCity: delivery._originalCity,
+              originalRoute: delivery._originalRoute,
+            } : null)
+          }
         });
 
-        // Save delivery event
+        // Save delivery event for audit
         await prisma.deliveryEvent.create({
           data: {
             deliveryId,
@@ -105,9 +137,12 @@ router.post('/upload', authenticate, async (req, res) => {
               lng: delivery.lng,
               uploadDate: new Date().toISOString()
             },
-            actorType: req.user.role || 'admin',
-            actorId: req.user.sub
+            actorType: req.user?.role || 'admin',
+            actorId: req.user?.sub || null
           }
+        }).catch(err => {
+          // Don't fail if event creation fails
+          console.warn(`[Deliveries] Failed to create event for ${deliveryId}:`, err.message);
         });
 
         deliveryIds.push(deliveryId);
@@ -177,6 +212,58 @@ router.get('/available-drivers', authenticate, requireRole('admin'), async (req,
     res.json({ drivers, count: drivers.length });
   } catch (err) {
     console.error('deliveries/available-drivers error', err);
+    res.status(500).json({ error: 'db_error', detail: err.message });
+  }
+});
+
+// GET /api/deliveries - Get all deliveries from database
+router.get('/', authenticate, async (req, res) => {
+  try {
+    const deliveries = await prisma.delivery.findMany({
+      include: {
+        assignments: {
+          include: {
+            driver: {
+              include: {
+                account: true
+              }
+            }
+          }
+        },
+        events: {
+          orderBy: { createdAt: 'desc' },
+          take: 1
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    // Format deliveries for frontend
+    const formattedDeliveries = deliveries.map(d => ({
+      id: d.id,
+      customer: d.customer,
+      address: d.address,
+      phone: d.phone,
+      lat: d.lat,
+      lng: d.lng,
+      status: d.status,
+      items: d.items,
+      metadata: d.metadata,
+      created_at: d.createdAt,
+      createdAt: d.createdAt,
+      created: d.createdAt,
+      updatedAt: d.updatedAt,
+      assignedDriverId: d.assignments?.[0]?.driverId || null,
+      driverName: d.assignments?.[0]?.driver?.fullName || null,
+      assignmentStatus: d.assignments?.[0]?.status || 'unassigned'
+    }));
+
+    res.json({
+      deliveries: formattedDeliveries,
+      count: formattedDeliveries.length
+    });
+  } catch (err) {
+    console.error('GET /api/deliveries error', err);
     res.status(500).json({ error: 'db_error', detail: err.message });
   }
 });

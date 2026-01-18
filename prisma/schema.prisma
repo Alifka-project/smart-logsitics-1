@@ -75,14 +75,26 @@ model LiveLocation {
   @@map("live_locations")
 }
 
-// Deliveries (minimal - main data comes from external source)
+// Deliveries - stores full delivery data from uploads
 model Delivery {
-  id String @id @default(uuid()) @db.Uuid
+  id        String   @id @default(uuid()) @db.Uuid
+  customer  String?   @db.VarChar(255)
+  address   String?   @db.Text
+  phone     String?   @db.VarChar(32)
+  lat       Float?
+  lng       Float?
+  status    String    @default("pending") @db.VarChar(50)
+  items     String?   @db.Text // JSON string or text description
+  metadata  Json?     // Additional metadata (original delivery number, PO, etc.)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   assignments DeliveryAssignment[]
   events      DeliveryEvent[]
   smsConfirmations SmsConfirmation[]
 
+  @@index([status], map: "idx_delivery_status")
+  @@index([createdAt], map: "idx_delivery_created")
   @@map("deliveries")
 }
 

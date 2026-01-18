@@ -3,27 +3,83 @@ const router = express.Router();
 // GET /api/admin/dashboard
 const { authenticate, requireRole } = require('../auth');
 const sapService = require('../../../services/sapService');
+const prisma = require('../db/prisma');
 
 // GET /api/admin/dashboard
 router.get('/', authenticate, requireRole('admin'), async (req, res) => {
   try {
-    // Fetch deliveries and compute KPIs
-    const [driversResp, locationsResp, deliveriesResp, smsResp] = await Promise.allSettled([
-      sapService.call('/Drivers', 'get'),
-      sapService.call('/Locations', 'get'),
-      sapService.call('/Deliveries', 'get'),
-      sapService.call('/SMSConfirmations', 'get'),
+    // Fetch from database first (uploaded deliveries), then fallback to SAP
+    const [dbDeliveries, driversResp, locationsResp, sapDeliveriesResp, smsResp] = await Promise.allSettled([
+      prisma.delivery.findMany({
+        include: {
+          assignments: {
+            include: {
+              driver: {
+                include: {
+                  account: true
+                }
+              }
+            }
+          },
+          events: {
+            orderBy: { createdAt: 'desc' },
+            take: 1
+          }
+        },
+        orderBy: { createdAt: 'desc' }
+      }),
+      sapService.call('/Drivers', 'get').catch(() => ({ data: { value: [] } })),
+      sapService.call('/Locations', 'get').catch(() => ({ data: { value: [] } })),
+      sapService.call('/Deliveries', 'get').catch(() => ({ data: { value: [] } })),
+      sapService.call('/SMSConfirmations', 'get').catch(() => ({ data: { value: [] } })),
     ]);
+
+    // Combine database deliveries with SAP deliveries (avoid duplicates)
+    let deliveries = [];
+    
+    // Add database deliveries (formatted for compatibility)
+    if (dbDeliveries.status === 'fulfilled') {
+      deliveries = dbDeliveries.value.map(d => ({
+        id: d.id,
+        customer: d.customer,
+        address: d.address,
+        phone: d.phone,
+        lat: d.lat,
+        lng: d.lng,
+        status: d.status,
+        items: d.items,
+        metadata: d.metadata,
+        created_at: d.createdAt,
+        createdAt: d.createdAt,
+        created: d.createdAt,
+        assignedDriverId: d.assignments?.[0]?.driverId || null,
+        driverName: d.assignments?.[0]?.driver?.fullName || null,
+        // Include assignment status
+        assignmentStatus: d.assignments?.[0]?.status || 'unassigned'
+      }));
+    }
+
+    // Add SAP deliveries (if any) that don't exist in database
+    if (sapDeliveriesResp.status === 'fulfilled') {
+      let sapDeliveries = [];
+      if (Array.isArray(sapDeliveriesResp.value.data?.value)) {
+        sapDeliveries = sapDeliveriesResp.value.data.value;
+      } else if (Array.isArray(sapDeliveriesResp.value.data)) {
+        sapDeliveries = sapDeliveriesResp.value.data;
+      }
+      
+      // Only add SAP deliveries that aren't already in database
+      const dbDeliveryIds = new Set(deliveries.map(d => d.id));
+      const newSapDeliveries = sapDeliveries.filter(d => {
+        const sapId = d.id || d.ID;
+        return sapId && !dbDeliveryIds.has(sapId);
+      });
+      deliveries = deliveries.concat(newSapDeliveries);
+    }
 
     const drivers = driversResp.status === 'fulfilled' ? (Array.isArray(driversResp.value.data.value) ? driversResp.value.data.value.length : (Array.isArray(driversResp.value.data) ? driversResp.value.data.length : 0)) : 0;
     const recentLocations = locationsResp.status === 'fulfilled' ? (Array.isArray(locationsResp.value.data.value) ? locationsResp.value.data.value.length : (Array.isArray(locationsResp.value.data) ? locationsResp.value.data.length : 0)) : 0;
     const smsRecent = smsResp.status === 'fulfilled' ? (Array.isArray(smsResp.value.data.value) ? smsResp.value.data.value.length : (Array.isArray(smsResp.value.data) ? smsResp.value.data.length : 0)) : 0;
-
-    let deliveries = [];
-    if (deliveriesResp.status === 'fulfilled') {
-      if (Array.isArray(deliveriesResp.value.data.value)) deliveries = deliveriesResp.value.data.value;
-      else if (Array.isArray(deliveriesResp.value.data)) deliveries = deliveriesResp.value.data;
-    }
 
     const totals = { 
       total: deliveries.length, 
