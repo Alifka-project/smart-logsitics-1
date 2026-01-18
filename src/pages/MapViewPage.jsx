@@ -48,11 +48,22 @@ export default function MapViewPage() {
             time: routeData.timeHours.toFixed(2)
           });
         } catch (apiError) {
-          console.warn('Advanced route calculation failed, using fallback:', apiError.message);
-          setError('Using simple fallback route (advanced routing temporarily unavailable)');
-          setIsFallback(true);
-          const fallbackRoute = generateFallbackRoute(locations);
-          setRoute(fallbackRoute);
+          console.warn('Advanced route calculation failed, trying OSRM routing:', apiError.message);
+          
+          // Try OSRM as backup (road-following, not straight lines)
+          try {
+            const osrmRoute = await calculateRouteWithOSRM(locations);
+            setRoute(osrmRoute);
+            setError('Using OSRM routing (Valhalla unavailable)');
+            setIsFallback(false); // OSRM is road-following
+            console.log('OSRM routing successful:', { distance: osrmRoute.distanceKm.toFixed(2) });
+          } catch (osrmError) {
+            console.error('OSRM routing also failed, using fallback:', osrmError.message);
+            setError('Using simplified route (road routing unavailable)');
+            setIsFallback(true);
+            const fallbackRoute = generateFallbackRoute(locations);
+            setRoute(fallbackRoute);
+          }
         }
       } catch (err) {
         console.error('Fatal error loading route:', err);
