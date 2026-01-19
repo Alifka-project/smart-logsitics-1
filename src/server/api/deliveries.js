@@ -38,6 +38,84 @@ router.post('/:id/status', authenticate, async (req, res) => {
   }
 });
 
+// PUT /api/admin/deliveries/:id/status - Update delivery status in database
+// body: { status, notes, driverSignature, customerSignature, photos, actualTime }
+router.put('/admin/:id/status', authenticate, requireRole('admin'), async (req, res) => {
+  const deliveryId = req.params.id;
+  const { status, notes, driverSignature, customerSignature, photos, actualTime } = req.body;
+
+  if (!status) return res.status(400).json({ error: 'status_required' });
+
+  try {
+    console.log(`[Deliveries] Updating delivery ${deliveryId} status to ${status}`);
+    
+    // First check if delivery exists in database
+    const existingDelivery = await prisma.delivery.findUnique({
+      where: { id: deliveryId }
+    });
+
+    if (!existingDelivery) {
+      console.warn(`[Deliveries] Delivery ${deliveryId} not found in database`);
+      return res.status(404).json({ error: 'delivery_not_found' });
+    }
+
+    // Update delivery status in database
+    const updatedDelivery = await prisma.delivery.update({
+      where: { id: deliveryId },
+      data: {
+        status: status,
+        metadata: {
+          ...existingDelivery.metadata || {},
+          notes: notes || null,
+          driverSignature: driverSignature || null,
+          customerSignature: customerSignature || null,
+          photos: photos || null,
+          actualTime: actualTime || null,
+          statusUpdatedAt: new Date().toISOString(),
+          statusUpdatedBy: req.user?.sub || 'admin'
+        },
+        updatedAt: new Date()
+      }
+    });
+
+    // Create delivery event for audit
+    await prisma.deliveryEvent.create({
+      data: {
+        deliveryId: deliveryId,
+        eventType: 'status_updated',
+        payload: {
+          previousStatus: existingDelivery.status,
+          newStatus: status,
+          notes: notes,
+          actualTime: actualTime,
+          updatedAt: new Date().toISOString()
+        },
+        actorType: req.user?.role || 'admin',
+        actorId: req.user?.sub || null
+      }
+    }).catch(err => {
+      console.warn(`[Deliveries] Failed to create audit event for ${deliveryId}:`, err.message);
+    });
+
+    console.log(`[Deliveries] ✓ Successfully updated delivery ${deliveryId} to status ${status}`);
+
+    res.json({
+      ok: true,
+      status: status,
+      delivery: {
+        id: updatedDelivery.id,
+        customer: updatedDelivery.customer,
+        address: updatedDelivery.address,
+        status: updatedDelivery.status,
+        updatedAt: updatedDelivery.updatedAt
+      }
+    });
+  } catch (err) {
+    console.error('deliveries status update error (database)', err);
+    res.status(500).json({ error: 'status_update_failed', detail: err.message });
+  }
+});
+
 // POST /api/deliveries/:id/assign - assign driver
 // body: { driver_id }
 router.post('/:id/assign', authenticate, requireRole('admin'), async (req, res) => {

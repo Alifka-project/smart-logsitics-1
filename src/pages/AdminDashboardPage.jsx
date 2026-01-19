@@ -80,7 +80,18 @@ export default function AdminDashboardPage() {
         loadDashboardData();
       }
     };
+
+    // Listen for delivery status updates
+    const handleDeliveryStatusUpdated = (event) => {
+      if (mounted) {
+        console.log('[Dashboard] 🔄 Delivery status updated event received:', event.detail);
+        console.log('[Dashboard] Loading dashboard data now...');
+        loadDashboardData();
+      }
+    };
+
     window.addEventListener('deliveriesUpdated', handleDeliveriesUpdated);
+    window.addEventListener('deliveryStatusUpdated', handleDeliveryStatusUpdated);
 
     return () => {
       mounted = false;
@@ -88,6 +99,7 @@ export default function AdminDashboardPage() {
         clearInterval(interval);
       }
       window.removeEventListener('deliveriesUpdated', handleDeliveriesUpdated);
+      window.removeEventListener('deliveryStatusUpdated', handleDeliveryStatusUpdated);
     };
   }, [autoRefresh]);
 
@@ -125,6 +137,16 @@ export default function AdminDashboardPage() {
   };
   const recent = data?.recentCounts || { delivered: 0, cancelled: 0, rescheduled: 0 };
   const activeDrivers = drivers.filter(d => d.active !== false).length;
+
+  // Debug: Log deliveries data
+  useEffect(() => {
+    if (deliveries && deliveries.length > 0) {
+      console.log('[Dashboard] Deliveries loaded:', deliveries.length);
+      console.log('[Dashboard] First delivery:', deliveries[0]);
+    } else {
+      console.warn('[Dashboard] No deliveries loaded yet');
+    }
+  }, [deliveries]);
 
   // Get recent deliveries (last 10)
   const recentDeliveries = deliveries
@@ -449,6 +471,15 @@ export default function AdminDashboardPage() {
             <MetricCard icon={Truck} label="In Transit" value={activeDeliveries.length} color="indigo" />
           </div>
 
+          {/* Debug Info - Show deliveries count */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <p className="text-sm text-blue-800 dark:text-blue-300">
+                <strong>Debug:</strong> Deliveries loaded: {deliveries.length} | Total from API: {totals.total} | Recent Deliveries: {recentDeliveries.length}
+              </p>
+            </div>
+          )}
+
           {/* Recent Deliveries Table */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden transition-colors">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
@@ -520,7 +551,14 @@ export default function AdminDashboardPage() {
                   ) : (
                     <tr>
                       <td colSpan={6} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                        No deliveries found
+                        <div className="space-y-3">
+                          <p>No deliveries found</p>
+                          {totals.total > 0 && (
+                            <p className="text-sm text-blue-600 dark:text-blue-400">
+                              💡 {totals.total} deliveries recorded but not loaded from tracking. Try <button onClick={loadDashboardData} className="underline font-semibold">refreshing</button> the page.
+                            </p>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   )}
