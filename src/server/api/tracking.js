@@ -3,12 +3,11 @@ const router = express.Router();
 const { authenticate, requireRole } = require('../auth');
 const db = require('../db');
 const sapService = require('../../../services/sapService');
+const prisma = require('../db/prisma');
 
 // GET /api/admin/tracking/deliveries - real-time delivery tracking
 router.get('/deliveries', authenticate, requireRole('admin'), async (req, res) => {
   try {
-    const prisma = require('../db/prisma');
-    
     // Fetch from database first (uploaded deliveries)
     const dbDeliveries = await prisma.delivery.findMany({
       include: {
@@ -92,8 +91,7 @@ router.get('/deliveries', authenticate, requireRole('admin'), async (req, res) =
 
     // Get latest locations for all drivers - simplified for now
     // In production, this would query a live_locations table
-    // For now, return empty array as fallback
-    const locations = [];
+    // Note: locations is already initialized above as let locations = []
 
     // Enrich deliveries with tracking info
     const trackedDeliveries = deliveries.map(delivery => {
@@ -143,7 +141,6 @@ router.get('/drivers', authenticate, requireRole('admin'), async (req, res) => {
     // Get latest location for each driver - simplified for now
     let locations = [];
     try {
-      const prisma = require('../db/prisma');
       // Try to get locations from Prisma if available
       const locationsData = await prisma.liveLocation.findMany({
         distinct: ['driverId'],
@@ -166,7 +163,6 @@ router.get('/drivers', authenticate, requireRole('admin'), async (req, res) => {
     // Get driver status - simplified for now
     let statuses = [];
     try {
-      const prisma = require('../db/prisma');
       // Try to get statuses from Prisma if available
       const statusData = await prisma.driverStatus.findMany().catch(() => []);
       statuses = statusData.map(s => ({
