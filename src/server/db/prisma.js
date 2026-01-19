@@ -9,10 +9,14 @@
 const { PrismaClient } = require('@prisma/client');
 
 // Verify DATABASE_URL is set
-if (!process.env.DATABASE_URL) {
-  console.error('CRITICAL: DATABASE_URL environment variable is required');
-  console.error('Make sure DATABASE_URL is set in your environment');
-  throw new Error('DATABASE_URL is required. Database integration is mandatory.');
+if (!process.env.DATABASE_URL && !process.env.PRISMA_DATABASE_URL) {
+  console.error('CRITICAL: DATABASE_URL or PRISMA_DATABASE_URL environment variable is required');
+  console.error('Make sure DATABASE_URL is set in Vercel Environment Variables');
+  console.error('Current env vars:', Object.keys(process.env).filter(k => k.includes('DATABASE') || k.includes('PRISMA')));
+  // In production, throw error so deployment logs show it
+  if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+    throw new Error('DATABASE_URL is required. Configure in Vercel Settings → Environment Variables');
+  }
 }
 
 // Singleton pattern for serverless environments (prevents connection pool exhaustion)
