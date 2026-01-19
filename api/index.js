@@ -153,5 +153,30 @@ app.use('/api/deliveries', require('../src/server/api/deliveries'));
 app.use('/api/sms', require('../src/server/api/sms'));
 app.use('/api/sap', require('../src/server/api/sap'));
 
+// Global error handler - catch any unhandled errors
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  console.error('Error stack:', err.stack);
+  console.error('Request path:', req.path);
+  console.error('Request method:', req.method);
+  
+  // Don't send error details in production
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+  
+  res.status(err.status || 500).json({
+    error: 'server_error',
+    message: 'Server error. Please try again later.',
+    ...(isDevelopment && {
+      detail: err.message,
+      stack: err.stack
+    })
+  });
+});
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ error: 'not_found', message: 'Endpoint not found' });
+});
+
 // Export for Vercel - Database is REQUIRED
 module.exports = app;
