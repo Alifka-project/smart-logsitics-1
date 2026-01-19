@@ -97,17 +97,21 @@ router.get('/test', (req, res) => {
 
 // POST /api/auth/login - with rate limiting and account lockout
 router.post('/login', loginLimiter, async (req, res) => {
+  console.log('=== LOGIN REQUEST RECEIVED ===');
   const { username, password } = req.body;
   
   if (!username || !password) {
+    console.log('Missing username or password');
     return res.status(400).json({ error: 'username_password_required' });
   }
   
   const sanitizedUsername = sanitizeInput(username);
+  console.log('Login attempt for username:', sanitizedUsername);
   
   // Check account lockout
   const lockoutStatus = isLocked(sanitizedUsername);
   if (lockoutStatus) {
+    console.log('Account locked:', sanitizedUsername);
     return res.status(423).json({
       error: 'account_locked',
       message: `Account locked due to too many failed attempts. Try again in ${lockoutStatus.remainingMinutes} minutes.`,
@@ -121,47 +125,62 @@ router.post('/login', loginLimiter, async (req, res) => {
       console.error('auth/login: Prisma client not initialized');
       return res.status(503).json({ error: 'service_unavailable', message: 'Database service not available' });
     }
+    console.log('Prisma client available, querying for user...');
     
     // Find driver with account using Prisma
     let driver;
     try {
+      console.log('Executing Prisma query for user:', sanitizedUsername);
       driver = await prisma.driver.findUnique({
         where: { username: sanitizedUsername },
         include: {
           account: true
         }
       });
+      console.log('Query result:', driver ? 'User found' : 'User not found');
     } catch (dbErr) {
       console.error('auth/login: Database query error:', dbErr.message);
       console.error('auth/login: Database error code:', dbErr.code);
+      console.error('auth/login: Full error:', dbErr);
       return res.status(503).json({ error: 'database_error', message: 'Database connection failed. Please try again later.' });
     }
     
     if (!driver || !driver.account) {
+      console.log('User not found or no account:', sanitizedUsername);
       recordFailedAttempt(sanitizedUsername);
       // Use generic error to prevent username enumeration
       return res.status(401).json({ error: 'invalid_credentials' });
     }
     
+    console.log('User found. Checking if active...');
+    
     // Check if account is active
     if (!driver.active) {
+      console.log('Account inactive:', sanitizedUsername);
       return res.status(403).json({ error: 'account_inactive' });
     }
+    
+    console.log('Account is active. Checking password...');
     
     // Verify password
     let passwordMatch = false;
     try {
       passwordMatch = await comparePassword(password, driver.account.passwordHash);
+      console.log('Password check result:', passwordMatch ? 'MATCH' : 'NO MATCH');
     } catch (compareErr) {
       console.error('auth/login: Password comparison error:', compareErr.message);
+      console.error('auth/login: Full error:', compareErr);
       return res.status(500).json({ error: 'auth_error', message: 'Authentication service error' });
     }
     
     if (!passwordMatch) {
+      console.log('Password does not match for user:', sanitizedUsername);
       recordFailedAttempt(sanitizedUsername);
       // Use generic error to prevent username enumeration
       return res.status(401).json({ error: 'invalid_credentials' });
     }
+    
+    console.log('✅ LOGIN SUCCESSFUL for:', sanitizedUsername);
     
     // Successful login
     recordSuccess(sanitizedUsername);
