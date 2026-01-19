@@ -84,7 +84,7 @@ router.post('/send-confirmation', authenticate, requireRole('admin'), async (req
 
     // Generate confirmation code (simple numeric code)
     const confirmationCode = Math.floor(1000 + Math.random() * 9000).toString();
-    const trackingUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/track/${deliveryId}`;
+    const trackingUrl = `${process.env.FRONTEND_URL || 'https://smart-logistics-1.vercel.app'}/track/${deliveryId}`;
 
     // Create SMS message
     const message = `Your delivery is scheduled for ${delivery.delivery_date || 'soon'}. 

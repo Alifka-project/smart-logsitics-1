@@ -75,7 +75,7 @@ class EmailService {
   async sendPasswordResetEmail({ to, username, resetToken, resetUrl }) {
     const subject = 'Password Reset Request - Logistics System';
     
-    const resetLink = resetUrl || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
+    const resetLink = resetUrl || `${process.env.FRONTEND_URL || 'https://smart-logistics-1.vercel.app'}/reset-password?token=${resetToken}`;
     
     const html = `
       <!DOCTYPE html>
