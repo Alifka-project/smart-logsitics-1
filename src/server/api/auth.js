@@ -90,6 +90,11 @@ router.post('/register', async (req, res) => {
   }
 });
 
+// Test endpoint to verify server is working
+router.get('/test', (req, res) => {
+  res.json({ ok: true, message: 'Auth endpoint is working', timestamp: new Date().toISOString() });
+});
+
 // POST /api/auth/login - with rate limiting and account lockout
 router.post('/login', loginLimiter, async (req, res) => {
   const { username, password } = req.body;
@@ -111,6 +116,12 @@ router.post('/login', loginLimiter, async (req, res) => {
   }
   
   try {
+    // Verify Prisma is available
+    if (!prisma) {
+      console.error('Prisma client is not available');
+      return res.status(500).json({ error: 'server_error', message: 'Database connection not available' });
+    }
+    
     // Find driver with account using Prisma
     const driver = await prisma.driver.findUnique({
       where: { username: sanitizedUsername },
