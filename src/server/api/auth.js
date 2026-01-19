@@ -183,6 +183,15 @@ router.post('/login', loginLimiter, async (req, res) => {
       username: driver.username
     };
     
+    // Generate access token first (before session creation)
+    let accessToken;
+    try {
+      accessToken = generateAccessToken(payload);
+    } catch (tokenErr) {
+      console.error('auth/login: Token generation error:', tokenErr.message);
+      return res.status(500).json({ error: 'token_error', message: 'Failed to generate authentication token' });
+    }
+    
     // Create server-side session and set cookies
     let clientKey, csrfToken;
     try {
@@ -195,15 +204,6 @@ router.post('/login', loginLimiter, async (req, res) => {
     } catch (sessionErr) {
       console.error('auth/login: Session creation error:', sessionErr.message);
       return res.status(500).json({ error: 'session_error', message: 'Failed to create session' });
-    }
-    
-    // Generate access token
-    let accessToken;
-    try {
-      accessToken = generateAccessToken(payload);
-    } catch (tokenErr) {
-      console.error('auth/login: Token generation error:', tokenErr.message);
-      return res.status(500).json({ error: 'token_error', message: 'Failed to generate authentication token' });
     }
     
     res.json({
