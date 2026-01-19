@@ -32,9 +32,11 @@ export default function AdminDashboardPage() {
       ]);
 
       if (dashboardResp.status === 'fulfilled') {
+        // API returns { drivers, recentLocations, smsRecent, totals, recentCounts }
         setData(dashboardResp.value.data);
         setLastUpdate(new Date());
       } else {
+        console.error('[Dashboard] Error loading dashboard:', dashboardResp.reason);
         setData({ error: dashboardResp.reason?.response?.data?.error || 'fetch_failed' });
       }
 
