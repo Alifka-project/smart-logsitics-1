@@ -122,13 +122,33 @@ router.post('/login', loginLimiter, async (req, res) => {
       return res.status(500).json({ error: 'server_error', message: 'Database connection not available' });
     }
     
+    // Test Prisma connection first
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+    } catch (dbErr) {
+      console.error('Database connection test failed:', dbErr);
+      console.error('Database error message:', dbErr.message);
+      return res.status(500).json({ 
+        error: 'database_connection_error', 
+        message: 'Cannot connect to database. Please check configuration.' 
+      });
+    }
+    
     // Find driver with account using Prisma
-    const driver = await prisma.driver.findUnique({
-      where: { username: sanitizedUsername },
-      include: {
-        account: true
-      }
-    });
+    let driver;
+    try {
+      driver = await prisma.driver.findUnique({
+        where: { username: sanitizedUsername },
+        include: {
+          account: true
+        }
+      });
+    } catch (queryErr) {
+      console.error('Prisma query error:', queryErr);
+      console.error('Query error message:', queryErr.message);
+      console.error('Query error code:', queryErr.code);
+      throw new Error('Database query failed: ' + queryErr.message);
+    }
     
     if (!driver || !driver.account) {
       recordFailedAttempt(sanitizedUsername);
