@@ -116,10 +116,14 @@ router.post('/login', loginLimiter, async (req, res) => {
   }
   
   try {
-    // Verify Prisma is available
-    if (!prisma) {
-      console.error('Prisma client is not available');
-      return res.status(500).json({ error: 'server_error', message: 'Database connection not available' });
+    // Verify Prisma is available and properly initialized
+    if (!prisma || typeof prisma.$queryRaw !== 'function') {
+      console.error('Prisma client is not available or not properly initialized');
+      console.error('DATABASE_URL is set:', !!process.env.DATABASE_URL);
+      return res.status(500).json({ 
+        error: 'server_error', 
+        message: 'Database connection not available. Please check server configuration.' 
+      });
     }
     
     // Test Prisma connection first
@@ -128,9 +132,22 @@ router.post('/login', loginLimiter, async (req, res) => {
     } catch (dbErr) {
       console.error('Database connection test failed:', dbErr);
       console.error('Database error message:', dbErr.message);
+      console.error('Database error code:', dbErr.code);
+      console.error('DATABASE_URL is set:', !!process.env.DATABASE_URL);
+      
+      // Provide more specific error message
+      let errorMessage = 'Cannot connect to database. Please check configuration.';
+      if (dbErr.message && dbErr.message.includes('DATABASE_URL')) {
+        errorMessage = 'Database connection string is missing or invalid.';
+      } else if (dbErr.code === 'P1001') {
+        errorMessage = 'Cannot reach database server. Please check network connection.';
+      } else if (dbErr.code === 'P1000') {
+        errorMessage = 'Database authentication failed. Please check credentials.';
+      }
+      
       return res.status(500).json({ 
         error: 'database_connection_error', 
-        message: 'Cannot connect to database. Please check configuration.' 
+        message: errorMessage 
       });
     }
     
