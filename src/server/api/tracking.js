@@ -9,23 +9,27 @@ const prisma = require('../db/prisma');
 router.get('/deliveries', authenticate, requireRole('admin'), async (req, res) => {
   try {
     // Fetch from database first (uploaded deliveries)
-    const dbDeliveries = await prisma.delivery.findMany({
-      include: {
-        assignments: {
-          include: {
-            driver: {
-              include: {
-                account: true
+    let dbDeliveries = [];
+    try {
+      dbDeliveries = await prisma.delivery.findMany({
+        include: {
+          assignments: {
+            include: {
+              driver: {
+                include: {
+                  account: true
+                }
               }
             }
           }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    }).catch(err => {
-      console.error('[Tracking] Prisma query error:', err);
-      return []; // Return empty array on error
-    });
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+    } catch (err) {
+      console.error('[Tracking] Prisma query error:', err.message);
+      // Return empty array as fallback
+      dbDeliveries = [];
+    }
 
     // Format database deliveries
     let deliveries = dbDeliveries.map(d => ({
@@ -72,7 +76,6 @@ router.get('/deliveries', authenticate, requireRole('admin'), async (req, res) =
     let locations = [];
     
     try {
-      const prisma = require('../db/prisma');
       // Try to get assignments from Prisma if available
       const assignmentsData = await prisma.deliveryAssignment.findMany({
         where: {
