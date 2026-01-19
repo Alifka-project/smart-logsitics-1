@@ -219,34 +219,6 @@ router.post('/login', loginLimiter, async (req, res) => {
       expiresIn: 15 * 60 // 15 minutes in seconds
     });
   } catch (err) {
-    console.error('auth/login: Unexpected error:', err);
-    console.error('auth/login: Error message:', err.message);
-    console.error('auth/login: Error stack:', err.stack);
-    res.status(500).json({ error: 'server_error', message: 'An unexpected error occurred during login' });
-  }
-      console.error('Token error stack:', tokenErr.stack);
-      throw new Error('Token generation failed: ' + tokenErr.message);
-    }
-    
-    // Ensure response hasn't been sent
-    if (res.headersSent) {
-      console.error('Response already sent, cannot send login response');
-      return;
-    }
-    
-    res.json({
-      driver: {
-        id: driver.id,
-        username: driver.username,
-        full_name: driver.fullName,
-        role: driver.account.role
-      },
-      clientKey,
-      csrfToken,
-      accessToken,
-      expiresIn: 15 * 60 // 15 minutes in seconds
-    });
-  } catch (err) {
     console.error('auth/login error:', err);
     console.error('auth/login error stack:', err.stack);
     console.error('auth/login error message:', err.message);
