@@ -21,6 +21,7 @@ if (!process.env.DATABASE_URL && !process.env.PRISMA_DATABASE_URL) {
 
 // Singleton pattern for serverless environments (prevents connection pool exhaustion)
 let prisma;
+let initError = null;
 
 if (global.prisma) {
   prisma = global.prisma;
@@ -36,9 +37,9 @@ if (global.prisma) {
     }
   } catch (err) {
     console.error('CRITICAL: Failed to initialize Prisma Client:', err.message);
-    throw err;
     console.error('Error details:', err.message);
-    // Re-throw in development to catch configuration issues early
+    initError = err;
+    // In development, throw immediately to catch issues
     if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
       throw err;
     }
@@ -55,6 +56,16 @@ if (!process.env.VERCEL && prisma && typeof prisma.$disconnect === 'function') {
     } catch (err) {
       console.error('Error disconnecting Prisma:', err);
     }
+  });
+}
+
+// Export with helpful error info
+if (!prisma && initError) {
+  console.warn('Prisma initialization error info:', {
+    error: initError.message,
+    code: initError.code,
+    dbUrl: process.env.DATABASE_URL ? 'SET' : 'NOT_SET',
+    prismaDbUrl: process.env.PRISMA_DATABASE_URL ? 'SET' : 'NOT_SET',
   });
 }
 
