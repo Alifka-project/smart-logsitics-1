@@ -8,25 +8,19 @@
 
 const { PrismaClient } = require('@prisma/client');
 
+// Verify DATABASE_URL is set
+if (!process.env.DATABASE_URL) {
+  console.error('CRITICAL: DATABASE_URL environment variable is required');
+  console.error('Make sure DATABASE_URL is set in your environment');
+  throw new Error('DATABASE_URL is required. Database integration is mandatory.');
+}
+
 // Singleton pattern for serverless environments (prevents connection pool exhaustion)
 let prisma;
 
 if (global.prisma) {
   prisma = global.prisma;
 } else {
-  // Verify DATABASE_URL is set, but don't throw at module load in serverless
-  if (!process.env.DATABASE_URL) {
-    console.error('ERROR: DATABASE_URL environment variable is required');
-    // In serverless, don't throw - let it fail gracefully on first query
-    // This allows endpoints to return proper error responses
-    if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
-      console.warn('WARNING: DATABASE_URL not set. Database queries will fail.');
-    } else {
-      // Only throw in development/local environments
-      throw new Error('DATABASE_URL is required. Database integration is mandatory.');
-    }
-  }
-
   try {
     prisma = new PrismaClient({
       log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
@@ -37,7 +31,8 @@ if (global.prisma) {
       global.prisma = prisma;
     }
   } catch (err) {
-    console.error('Failed to initialize Prisma Client:', err);
+    console.error('CRITICAL: Failed to initialize Prisma Client:', err.message);
+    throw err;
     console.error('Error details:', err.message);
     // Re-throw in development to catch configuration issues early
     if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {

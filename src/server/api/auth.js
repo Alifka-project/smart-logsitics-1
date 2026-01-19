@@ -116,39 +116,10 @@ router.post('/login', loginLimiter, async (req, res) => {
   }
   
   try {
-    // Verify Prisma is available and properly initialized
-    if (!prisma || typeof prisma.$queryRaw !== 'function') {
-      console.error('Prisma client is not available or not properly initialized');
-      console.error('DATABASE_URL is set:', !!process.env.DATABASE_URL);
-      return res.status(500).json({ 
-        error: 'server_error', 
-        message: 'Database connection not available. Please check server configuration.' 
-      });
-    }
-    
-    // Test Prisma connection first
-    try {
-      await prisma.$queryRaw`SELECT 1`;
-    } catch (dbErr) {
-      console.error('Database connection test failed:', dbErr);
-      console.error('Database error message:', dbErr.message);
-      console.error('Database error code:', dbErr.code);
-      console.error('DATABASE_URL is set:', !!process.env.DATABASE_URL);
-      
-      // Provide more specific error message
-      let errorMessage = 'Cannot connect to database. Please check configuration.';
-      if (dbErr.message && dbErr.message.includes('DATABASE_URL')) {
-        errorMessage = 'Database connection string is missing or invalid.';
-      } else if (dbErr.code === 'P1001') {
-        errorMessage = 'Cannot reach database server. Please check network connection.';
-      } else if (dbErr.code === 'P1000') {
-        errorMessage = 'Database authentication failed. Please check credentials.';
-      }
-      
-      return res.status(500).json({ 
-        error: 'database_connection_error', 
-        message: errorMessage 
-      });
+    // Verify Prisma is available
+    if (!prisma) {
+      console.error('auth/login: Prisma client not initialized');
+      return res.status(503).json({ error: 'service_unavailable', message: 'Database service not available' });
     }
     
     // Find driver with account using Prisma
@@ -160,11 +131,10 @@ router.post('/login', loginLimiter, async (req, res) => {
           account: true
         }
       });
-    } catch (queryErr) {
-      console.error('Prisma query error:', queryErr);
-      console.error('Query error message:', queryErr.message);
-      console.error('Query error code:', queryErr.code);
-      throw new Error('Database query failed: ' + queryErr.message);
+    } catch (dbErr) {
+      console.error('auth/login: Database query error:', dbErr.message);
+      console.error('auth/login: Database error code:', dbErr.code);
+      return res.status(503).json({ error: 'database_error', message: 'Database connection failed. Please try again later.' });
     }
     
     if (!driver || !driver.account) {
@@ -178,20 +148,13 @@ router.post('/login', loginLimiter, async (req, res) => {
       return res.status(403).json({ error: 'account_inactive' });
     }
     
-    // Check if password hash exists
-    if (!driver.account.passwordHash) {
-      console.error('Account has no password hash for user:', sanitizedUsername);
-      return res.status(500).json({ error: 'account_configuration_error', message: 'Account is not properly configured. Please contact administrator.' });
-    }
-    
     // Verify password
     let passwordMatch = false;
     try {
       passwordMatch = await comparePassword(password, driver.account.passwordHash);
     } catch (compareErr) {
-      console.error('Password comparison error:', compareErr);
-      console.error('Compare error stack:', compareErr.stack);
-      throw new Error('Password verification failed: ' + compareErr.message);
+      console.error('auth/login: Password comparison error:', compareErr.message);
+      return res.status(500).json({ error: 'auth_error', message: 'Authentication service error' });
     }
     
     if (!passwordMatch) {
@@ -210,7 +173,7 @@ router.post('/login', loginLimiter, async (req, res) => {
         data: { lastLogin: new Date() }
       });
     } catch (updateErr) {
-      console.warn('Failed to update last login timestamp:', updateErr.message);
+      console.warn('auth/login: Failed to update last login timestamp:', updateErr.message);
       // Continue with login even if update fails
     }
     
@@ -225,29 +188,42 @@ router.post('/login', loginLimiter, async (req, res) => {
     try {
       const sessionResult = createLoginSession(req, res, payload);
       if (!sessionResult || !sessionResult.clientKey || !sessionResult.csrfToken) {
-        throw new Error('createLoginSession returned invalid result');
+        throw new Error('Session creation returned invalid result');
       }
       clientKey = sessionResult.clientKey;
       csrfToken = sessionResult.csrfToken;
     } catch (sessionErr) {
-      console.error('Failed to create login session:', sessionErr);
-      console.error('Session error message:', sessionErr.message);
-      console.error('Session error stack:', sessionErr.stack);
-      // Generate fallback tokens if session creation fails
-      clientKey = crypto.randomBytes(32).toString('hex');
-      csrfToken = crypto.randomBytes(32).toString('hex');
-      console.warn('Using fallback session tokens due to session creation failure');
+      console.error('auth/login: Session creation error:', sessionErr.message);
+      return res.status(500).json({ error: 'session_error', message: 'Failed to create session' });
     }
     
     // Generate access token
     let accessToken;
     try {
       accessToken = generateAccessToken(payload);
-      if (!accessToken) {
-        throw new Error('Failed to generate access token');
-      }
     } catch (tokenErr) {
-      console.error('Token generation error:', tokenErr);
+      console.error('auth/login: Token generation error:', tokenErr.message);
+      return res.status(500).json({ error: 'token_error', message: 'Failed to generate authentication token' });
+    }
+    
+    res.json({
+      driver: {
+        id: driver.id,
+        username: driver.username,
+        full_name: driver.fullName,
+        role: driver.account.role
+      },
+      clientKey,
+      csrfToken,
+      accessToken,
+      expiresIn: 15 * 60 // 15 minutes in seconds
+    });
+  } catch (err) {
+    console.error('auth/login: Unexpected error:', err);
+    console.error('auth/login: Error message:', err.message);
+    console.error('auth/login: Error stack:', err.stack);
+    res.status(500).json({ error: 'server_error', message: 'An unexpected error occurred during login' });
+  }
       console.error('Token error stack:', tokenErr.stack);
       throw new Error('Token generation failed: ' + tokenErr.message);
     }

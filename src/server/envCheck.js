@@ -8,6 +8,15 @@ function requireEnv(varName) {
 
 function validateEnv() {
   // Minimal required envs for secure operation.
+  // DATABASE_URL is ALWAYS required (both dev and production)
+  const alwaysRequired = ['DATABASE_URL'];
+  for (const v of alwaysRequired) {
+    if (!process.env[v]) {
+      console.error(`CRITICAL: Required environment variable ${v} is missing`);
+      throw new Error(`Required environment variable ${v} is missing`);
+    }
+  }
+  
   // Require `JWT_SECRET` in production, but allow a development default otherwise.
   const required = [];
   if (process.env.NODE_ENV === 'production') {
