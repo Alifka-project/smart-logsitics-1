@@ -192,7 +192,23 @@ router.post('/login', loginLimiter, async (req, res) => {
     }
     
     // Generate access token
-    const accessToken = generateAccessToken(payload);
+    let accessToken;
+    try {
+      accessToken = generateAccessToken(payload);
+      if (!accessToken) {
+        throw new Error('Failed to generate access token');
+      }
+    } catch (tokenErr) {
+      console.error('Token generation error:', tokenErr);
+      console.error('Token error stack:', tokenErr.stack);
+      throw new Error('Token generation failed: ' + tokenErr.message);
+    }
+    
+    // Ensure response hasn't been sent
+    if (res.headersSent) {
+      console.error('Response already sent, cannot send login response');
+      return;
+    }
     
     res.json({
       driver: {
