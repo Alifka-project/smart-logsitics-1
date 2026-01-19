@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('crypto');
 const { authenticate, requireRole } = require('../auth');
 const sapService = require('../../../services/sapService');
 const { autoAssignDeliveries, getAvailableDrivers } = require('../services/autoAssignmentService');
@@ -94,7 +94,7 @@ router.post('/upload', authenticate, async (req, res) => {
       // If delivery.id exists and is a valid UUID, use it; otherwise generate new UUID
       let deliveryId = delivery.id;
       if (!deliveryId || !deliveryId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-        deliveryId = uuidv4();
+        deliveryId = randomUUID();
       }
       
       console.log(`[Deliveries/Upload] Saving delivery ${i + 1}/${deliveries.length}: ${deliveryId}`);
