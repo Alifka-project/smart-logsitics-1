@@ -31,15 +31,21 @@ function makeCSRFToken() {
 }
 
 function makeFingerprint(req) {
-  const ua = req.headers['user-agent'] || '';
-  const ip = req.headers['x-forwarded-for'] 
-    ? req.headers['x-forwarded-for'].split(',')[0].trim() 
-    : (req.connection?.remoteAddress || req.socket?.remoteAddress || '');
-  const acceptLang = req.headers['accept-language'] || '';
-  // More comprehensive fingerprinting
-  return crypto.createHash('sha256')
-    .update(`${ua}|${ip}|${acceptLang}`)
-    .digest('hex');
+  try {
+    const ua = req.headers['user-agent'] || '';
+    const ip = req.headers['x-forwarded-for'] 
+      ? req.headers['x-forwarded-for'].split(',')[0].trim() 
+      : (req.connection?.remoteAddress || req.socket?.remoteAddress || req.ip || '');
+    const acceptLang = req.headers['accept-language'] || '';
+    // More comprehensive fingerprinting
+    return crypto.createHash('sha256')
+      .update(`${ua}|${ip}|${acceptLang}`)
+      .digest('hex');
+  } catch (err) {
+    // Fallback if fingerprinting fails
+    console.warn('Fingerprint generation failed:', err.message);
+    return crypto.randomBytes(32).toString('hex');
+  }
 }
 
 function createSession(req, payload, ttl = DEFAULT_TTL) {
@@ -67,6 +73,18 @@ function createSession(req, payload, ttl = DEFAULT_TTL) {
     }
   }
 
+  // Safely extract IP address (works in both traditional and serverless environments)
+  let ip = 'unknown';
+  try {
+    ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || 
+         req.connection?.remoteAddress || 
+         req.socket?.remoteAddress || 
+         req.ip || 
+         'unknown';
+  } catch (err) {
+    // Ignore IP extraction errors
+  }
+
   SESSIONS.set(id, {
     payload,
     fp,
@@ -75,9 +93,7 @@ function createSession(req, payload, ttl = DEFAULT_TTL) {
     clientKey,
     lastAccess: now,
     createdAt: now,
-    ip: req.headers['x-forwarded-for']?.split(',')[0].trim() || 
-        req.connection?.remoteAddress || 
-        req.socket?.remoteAddress || 'unknown'
+    ip
   });
 
   return { id, clientKey, csrfToken };

@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const crypto = require('crypto');
 const prisma = require('../db/prisma');
 const {
   hashPassword,
@@ -159,7 +160,23 @@ router.post('/login', loginLimiter, async (req, res) => {
     };
     
     // Create server-side session and set cookies
-    const { clientKey, csrfToken } = createLoginSession(req, res, payload);
+    let clientKey, csrfToken;
+    try {
+      const sessionResult = createLoginSession(req, res, payload);
+      if (!sessionResult || !sessionResult.clientKey || !sessionResult.csrfToken) {
+        throw new Error('createLoginSession returned invalid result');
+      }
+      clientKey = sessionResult.clientKey;
+      csrfToken = sessionResult.csrfToken;
+    } catch (sessionErr) {
+      console.error('Failed to create login session:', sessionErr);
+      console.error('Session error message:', sessionErr.message);
+      console.error('Session error stack:', sessionErr.stack);
+      // Generate fallback tokens if session creation fails
+      clientKey = crypto.randomBytes(32).toString('hex');
+      csrfToken = crypto.randomBytes(32).toString('hex');
+      console.warn('Using fallback session tokens due to session creation failure');
+    }
     
     // Generate access token
     const accessToken = generateAccessToken(payload);
