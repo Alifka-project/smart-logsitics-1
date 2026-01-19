@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import api, { setAuthToken } from '../frontend/apiClient';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, AreaChart, Area } from 'recharts';
 import { 
@@ -23,7 +23,7 @@ export default function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState('overview');
   const navigate = useNavigate();
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     try {
       const [dashboardResp, driversResp, deliveriesResp] = await Promise.allSettled([
         api.get('/admin/dashboard'),
@@ -36,8 +36,8 @@ export default function AdminDashboardPage() {
         setData(dashboardResp.value.data);
         setLastUpdate(new Date());
       } else {
-        console.error('[Dashboard] Error loading dashboard:', dashboardResp.reason);
-        setData({ error: dashboardResp.reason?.response?.data?.error || 'fetch_failed' });
+        console.error('[Dashboard] Error loading dashboard:', dashboardResp.reason?.message);
+        setData({ error: 'fetch_failed' });
       }
 
       if (driversResp.status === 'fulfilled') {
@@ -48,12 +48,12 @@ export default function AdminDashboardPage() {
         setDeliveries(deliveriesResp.value.data?.deliveries || []);
       }
     } catch (e) {
-      console.error('Error loading dashboard:', e);
-      setData({ error: e?.response?.data?.error || 'fetch_failed' });
+      console.error('[Dashboard] Error loading dashboard:', e.message);
+      setData({ error: 'fetch_failed' });
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     ensureAuth();
@@ -86,8 +86,7 @@ export default function AdminDashboardPage() {
     // Listen for delivery status updates
     const handleDeliveryStatusUpdated = (event) => {
       if (mounted) {
-        console.log('[Dashboard] 🔄 Delivery status updated event received:', event.detail);
-        console.log('[Dashboard] Loading dashboard data now...');
+        console.log('[Dashboard] 🔄 Delivery status updated event received');
         loadDashboardData();
       }
     };
@@ -103,7 +102,7 @@ export default function AdminDashboardPage() {
       window.removeEventListener('deliveriesUpdated', handleDeliveriesUpdated);
       window.removeEventListener('deliveryStatusUpdated', handleDeliveryStatusUpdated);
     };
-  }, [autoRefresh]);
+  }, [loadDashboardData, autoRefresh]);
 
   if (loading && !data) {
     return (
@@ -138,20 +137,10 @@ export default function AdminDashboardPage() {
     withoutPOD: 0
   };
   const recent = data?.recentCounts || { delivered: 0, cancelled: 0, rescheduled: 0 };
-  const activeDrivers = drivers.filter(d => d.active !== false).length;
+  const activeDrivers = drivers?.filter(d => d.active !== false).length || 0;
 
-  // Debug: Log deliveries data
-  useEffect(() => {
-    if (deliveries && deliveries.length > 0) {
-      console.log('[Dashboard] Deliveries loaded:', deliveries.length);
-      console.log('[Dashboard] First delivery:', deliveries[0]);
-    } else {
-      console.warn('[Dashboard] No deliveries loaded yet');
-    }
-  }, [deliveries]);
-
-  // Get recent deliveries (last 10)
-  const recentDeliveries = deliveries
+  // Get recent deliveries (last 10) - safely handle empty arrays
+  const recentDeliveries = (deliveries && Array.isArray(deliveries) ? deliveries : [])
     .sort((a, b) => {
       const dateA = new Date(a.created_at || a.createdAt || a.created || 0);
       const dateB = new Date(b.created_at || b.createdAt || b.created || 0);
@@ -159,8 +148,8 @@ export default function AdminDashboardPage() {
     })
     .slice(0, 10);
 
-  // Get active deliveries
-  const activeDeliveries = deliveries.filter(d => {
+  // Get active deliveries - safely handle empty arrays
+  const activeDeliveries = (deliveries && Array.isArray(deliveries) ? deliveries : []).filter(d => {
     const status = (d.status || '').toLowerCase();
     return ['out-for-delivery', 'in-progress', 'assigned', 'scheduled', 'scheduled-confirmed'].includes(status);
   }).slice(0, 10);
