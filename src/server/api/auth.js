@@ -227,12 +227,27 @@ router.post('/login', loginLimiter, async (req, res) => {
     console.error('auth/login error stack:', err.stack);
     console.error('auth/login error message:', err.message);
     console.error('auth/login error code:', err.code);
+    console.error('auth/login error name:', err.name);
+    
+    // Check if response was already sent
+    if (res.headersSent) {
+      console.error('Response already sent, cannot send error response');
+      return;
+    }
     
     // Provide more detailed error for debugging
     const errorMessage = err.message || 'Unknown error';
     const errorCode = err.code || 'UNKNOWN';
     
-    res.status(500).json({ 
+    // Determine appropriate status code
+    let statusCode = 500;
+    if (err.message && err.message.includes('Password verification failed')) {
+      statusCode = 500; // Server error, not user error
+    } else if (err.message && err.message.includes('Token generation failed')) {
+      statusCode = 500;
+    }
+    
+    res.status(statusCode).json({ 
       error: 'server_error',
       message: 'Server error. Please try again later.',
       detail: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
