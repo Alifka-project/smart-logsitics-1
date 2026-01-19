@@ -9,74 +9,31 @@ export default function ProtectedRoute({ children }) {
   useAutoSignout();
   const [isValidating, setIsValidating] = React.useState(true);
   const [isValid, setIsValid] = React.useState(false);
-  const [validationAttempt, setValidationAttempt] = React.useState(0);
 
   useEffect(() => {
-    // Validate session - STRICT authentication required
+    // Validate session - check local storage only (don't call /api/auth/me)
     async function validateSession() {
-      // Prevent infinite loops - max 2 validation attempts
-      if (validationAttempt > 1) {
-        console.warn('[ProtectedRoute] Max validation attempts reached, allowing access with existing tokens');
-        setIsValid(true);
-        setIsValidating(false);
-        return;
-      }
-
-      // FIRST: Check if we have authentication tokens at all
+      // Check if we have authentication tokens at all
       const token = localStorage.getItem('auth_token');
       const user = localStorage.getItem('client_user');
       const clientKey = localStorage.getItem('client_key');
       
-      // NO TOKENS = NO ACCESS - redirect to login immediately
-      if (!token || !user || !clientKey) {
+      // If we have all required tokens, we're good
+      if (token && user && clientKey) {
+        console.log('[ProtectedRoute] ✓ User authenticated with valid tokens');
+        setIsValid(true);
+      } else {
+        // Missing tokens - not authenticated
+        console.log('[ProtectedRoute] No valid tokens found, redirecting to login');
         clearAuth();
         setIsValid(false);
-        setIsValidating(false);
-        return;
-      }
-
-      // We have tokens - validate with server
-      try {
-        const response = await api.get('/auth/me');
-        
-        if (response?.data?.user || response?.data?.driver) {
-          // Server validated - session is valid
-          if (response.data.csrfToken) {
-            try {
-              localStorage.setItem('csrf_token', response.data.csrfToken);
-            } catch (e) {
-              console.error('Failed to update CSRF token:', e);
-            }
-          }
-          setIsValid(true);
-        } else {
-          // Server says invalid
-          clearAuth();
-          setIsValid(false);
-        }
-      } catch (error) {
-        // Server validation failed
-        // If it's a network error (server unavailable), we allow access if tokens exist
-        // This is for development/offline scenarios
-        // BUT if it's a 401/403, it means tokens are invalid - clear and redirect
-        if (error?.response?.status === 401 || error?.response?.status === 403) {
-          // Invalid tokens - clear and redirect to login
-          clearAuth();
-          setIsValid(false);
-        } else {
-          // Network error or server unavailable
-          // Allow access if we have tokens (for offline/development)
-          // But user MUST have logged in properly before (tokens exist)
-          setIsValid(true);
-        }
       }
       
       setIsValidating(false);
     }
 
-    setValidationAttempt(prev => prev + 1);
     validateSession();
-  }, [validationAttempt]);
+  }, []);
 
   if (isValidating) {
     // Show loading state while validating

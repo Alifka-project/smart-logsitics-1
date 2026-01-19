@@ -287,9 +287,25 @@ router.post('/logout', authenticate, async (req, res) => {
 router.post('/refresh', refreshAccessToken);
 
 // GET /api/auth/me - Return current session user
-router.get('/me', authenticate, async (req, res) => {
+router.get('/me', async (req, res) => {
   try {
-    const { user } = req; // Set by authenticate middleware
+    // Try to get user from authenticate middleware first (if it was applied)
+    let user = req.user;
+    
+    // If no user from middleware, try to extract from Authorization header
+    if (!user) {
+      const authHeader = req.headers.authorization || '';
+      const parts = authHeader.split(' ');
+      if (parts.length === 2 && parts[0] === 'Bearer') {
+        const token = parts[1];
+        // Import verifyAccessToken
+        const { verifyAccessToken } = require('../auth');
+        const decoded = verifyAccessToken(token);
+        if (decoded) {
+          user = decoded;
+        }
+      }
+    }
     
     if (!user) {
       return res.status(401).json({ error: 'unauthorized' });
@@ -301,6 +317,9 @@ router.get('/me', authenticate, async (req, res) => {
       include: {
         account: true
       }
+    }).catch(err => {
+      console.error('[auth/me] Prisma query error:', err);
+      return null;
     });
     
     if (!driver || !driver.account) {
