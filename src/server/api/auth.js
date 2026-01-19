@@ -130,8 +130,21 @@ router.post('/login', loginLimiter, async (req, res) => {
       return res.status(403).json({ error: 'account_inactive' });
     }
     
+    // Check if password hash exists
+    if (!driver.account.passwordHash) {
+      console.error('Account has no password hash for user:', sanitizedUsername);
+      return res.status(500).json({ error: 'account_configuration_error', message: 'Account is not properly configured. Please contact administrator.' });
+    }
+    
     // Verify password
-    const passwordMatch = await comparePassword(password, driver.account.passwordHash);
+    let passwordMatch = false;
+    try {
+      passwordMatch = await comparePassword(password, driver.account.passwordHash);
+    } catch (compareErr) {
+      console.error('Password comparison error:', compareErr);
+      console.error('Compare error stack:', compareErr.stack);
+      throw new Error('Password verification failed: ' + compareErr.message);
+    }
     
     if (!passwordMatch) {
       recordFailedAttempt(sanitizedUsername);
