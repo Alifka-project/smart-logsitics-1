@@ -38,7 +38,9 @@ export default function AdminReportsPage() {
         // Handle CSV download using fetch directly
         const token = localStorage.getItem('auth_token');
         const clientKey = localStorage.getItem('client_key');
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:4000'}/api/admin/reports?${params.toString()}`, {
+        // Use relative URLs for production (same domain), or VITE_API_URL if set
+        const apiUrl = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api/admin/reports` : `/api/admin/reports`;
+        const response = await fetch(`${apiUrl}?${params.toString()}`, {
           headers: {
             'Authorization': token ? `Bearer ${token}` : '',
             'X-Client-Key': clientKey || '',
