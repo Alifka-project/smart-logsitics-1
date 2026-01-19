@@ -54,7 +54,9 @@ export default function LoginPage() {
         return;
       }
       
-      // Store authentication data
+      console.log('[LoginPage] Setting auth token and data...');
+      
+      // Store authentication data FIRST
       setAuthData({
         clientKey,
         driver,
@@ -62,7 +64,20 @@ export default function LoginPage() {
         accessToken
       });
       
+      // Set the Authorization header
       setAuthToken(accessToken);
+      console.log('[LoginPage] Auth token set in headers');
+      
+      // Verify token was set
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        console.error('[LoginPage] Auth token not found in localStorage after setting!');
+        setError('Failed to save authentication token');
+        setLoading(false);
+        return;
+      }
+      
+      console.log('[LoginPage] Token saved to localStorage, redirecting...');
       
       // Redirect based on role
       if (driver?.role === 'admin') {

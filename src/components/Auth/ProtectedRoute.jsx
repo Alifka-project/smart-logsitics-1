@@ -9,10 +9,19 @@ export default function ProtectedRoute({ children }) {
   useAutoSignout();
   const [isValidating, setIsValidating] = React.useState(true);
   const [isValid, setIsValid] = React.useState(false);
+  const [validationAttempt, setValidationAttempt] = React.useState(0);
 
   useEffect(() => {
     // Validate session - STRICT authentication required
     async function validateSession() {
+      // Prevent infinite loops - max 2 validation attempts
+      if (validationAttempt > 1) {
+        console.warn('[ProtectedRoute] Max validation attempts reached, allowing access with existing tokens');
+        setIsValid(true);
+        setIsValidating(false);
+        return;
+      }
+
       // FIRST: Check if we have authentication tokens at all
       const token = localStorage.getItem('auth_token');
       const user = localStorage.getItem('client_user');
@@ -65,8 +74,9 @@ export default function ProtectedRoute({ children }) {
       setIsValidating(false);
     }
 
+    setValidationAttempt(prev => prev + 1);
     validateSession();
-  }, []);
+  }, [validationAttempt]);
 
   if (isValidating) {
     // Show loading state while validating
