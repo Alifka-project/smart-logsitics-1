@@ -48,7 +48,9 @@ export default function CustomerModal({ isOpen, onClose }) {
         driverSignature: driverSignature,
         customerSignature: customerSignature,
         photos: photos,
-        actualTime: new Date().toISOString()
+        actualTime: new Date().toISOString(),
+        customer: selectedDelivery.customer,
+        address: selectedDelivery.address
       });
 
       console.log('[CustomerModal] API Response:', response.data);

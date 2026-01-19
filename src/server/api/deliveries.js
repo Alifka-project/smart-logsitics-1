@@ -39,29 +39,55 @@ router.post('/:id/status', authenticate, async (req, res) => {
 });
 
 // PUT /api/admin/deliveries/:id/status - Update delivery status in database
-// body: { status, notes, driverSignature, customerSignature, photos, actualTime }
+// body: { status, notes, driverSignature, customerSignature, photos, actualTime, customer, address }
 router.put('/admin/:id/status', authenticate, requireRole('admin'), async (req, res) => {
-  const deliveryId = req.params.id;
-  const { status, notes, driverSignature, customerSignature, photos, actualTime } = req.body;
+  const deliveryIdParam = req.params.id;
+  const { status, notes, driverSignature, customerSignature, photos, actualTime, customer, address } = req.body;
 
   if (!status) return res.status(400).json({ error: 'status_required' });
 
   try {
-    console.log(`[Deliveries] Updating delivery ${deliveryId} status to ${status}`);
+    console.log(`[Deliveries] Updating delivery ${deliveryIdParam} status to ${status}`);
     
-    // First check if delivery exists in database
-    const existingDelivery = await prisma.delivery.findUnique({
-      where: { id: deliveryId }
-    });
+    let existingDelivery;
+    
+    // Try to find by ID first (if it's a valid UUID)
+    try {
+      // Check if ID looks like a UUID
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (uuidRegex.test(deliveryIdParam)) {
+        existingDelivery = await prisma.delivery.findUnique({
+          where: { id: deliveryIdParam }
+        });
+      }
+    } catch (e) {
+      console.log(`[Deliveries] Could not find by ID ${deliveryIdParam}, trying by customer+address`);
+    }
+
+    // If not found by ID or ID is not a UUID, try by customer + address
+    if (!existingDelivery && customer && address) {
+      console.log(`[Deliveries] Looking up delivery by customer="${customer}" and address="${address}"`);
+      existingDelivery = await prisma.delivery.findFirst({
+        where: {
+          customer: customer,
+          address: address
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      });
+    }
 
     if (!existingDelivery) {
-      console.warn(`[Deliveries] Delivery ${deliveryId} not found in database`);
+      console.warn(`[Deliveries] Delivery not found: id=${deliveryIdParam}, customer=${customer}, address=${address}`);
       return res.status(404).json({ error: 'delivery_not_found' });
     }
 
+    console.log(`[Deliveries] Found delivery: id=${existingDelivery.id}, customer=${existingDelivery.customer}`);
+
     // Update delivery status in database
     const updatedDelivery = await prisma.delivery.update({
-      where: { id: deliveryId },
+      where: { id: existingDelivery.id },
       data: {
         status: status,
         metadata: {
@@ -81,7 +107,7 @@ router.put('/admin/:id/status', authenticate, requireRole('admin'), async (req, 
     // Create delivery event for audit
     await prisma.deliveryEvent.create({
       data: {
-        deliveryId: deliveryId,
+        deliveryId: existingDelivery.id,
         eventType: 'status_updated',
         payload: {
           previousStatus: existingDelivery.status,
@@ -94,10 +120,10 @@ router.put('/admin/:id/status', authenticate, requireRole('admin'), async (req, 
         actorId: req.user?.sub || null
       }
     }).catch(err => {
-      console.warn(`[Deliveries] Failed to create audit event for ${deliveryId}:`, err.message);
+      console.warn(`[Deliveries] Failed to create audit event for ${existingDelivery.id}:`, err.message);
     });
 
-    console.log(`[Deliveries] ✓ Successfully updated delivery ${deliveryId} to status ${status}`);
+    console.log(`[Deliveries] ✓ Successfully updated delivery ${existingDelivery.id} to status ${status}`);
 
     res.json({
       ok: true,
