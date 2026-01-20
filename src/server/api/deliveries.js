@@ -203,16 +203,21 @@ router.post('/upload', authenticate, async (req, res) => {
       
       console.log(`[Deliveries/Upload] Saving delivery ${i + 1}/${deliveries.length}: ${deliveryId}`);
       console.log(`[Deliveries/Upload] Data: customer="${delivery.customer}", address="${delivery.address?.substring(0, 50)}", phone="${delivery.phone}", status="${delivery.status}"`);
+      console.log(`[Deliveries/Upload] DEBUG: delivery._originalPONumber = "${delivery._originalPONumber}"`);
+      console.log(`[Deliveries/Upload] DEBUG: delivery object keys = ${Object.keys(delivery).join(', ')}`);
       
       try {
         // Save full delivery data to database
+        const poNumberToSave = delivery._originalPONumber || null;
+        console.log(`[Deliveries/Upload] DEBUG: About to save poNumber = "${poNumberToSave}"`);
+        
         const savedDelivery = await prisma.delivery.upsert({
           where: { id: deliveryId },
           update: {
             customer: delivery.customer || delivery.name || null,
             address: delivery.address || null,
             phone: delivery.phone || null,
-            poNumber: delivery._originalPONumber || null,
+            poNumber: poNumberToSave,
             lat: delivery.lat || null,
             lng: delivery.lng || null,
             status: delivery.status || 'pending',
@@ -231,7 +236,7 @@ router.post('/upload', authenticate, async (req, res) => {
             customer: delivery.customer || delivery.name || null,
             address: delivery.address || null,
             phone: delivery.phone || null,
-            poNumber: delivery._originalPONumber || null,
+            poNumber: poNumberToSave,
             lat: delivery.lat || null,
             lng: delivery.lng || null,
             status: delivery.status || 'pending',

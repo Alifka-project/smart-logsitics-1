@@ -242,6 +242,15 @@ export default function FileUpload({ onSuccess, onError }) {
       });
 
       console.log(`[FileUpload] Saving ${deliveriesWithIds.length} deliveries to database...`);
+      
+      // Log what we're sending for the first delivery
+      if (deliveriesWithIds.length > 0) {
+        console.log('[FileUpload] DEBUG - First delivery being sent:');
+        console.log('  customer:', deliveriesWithIds[0].customer);
+        console.log('  address:', deliveriesWithIds[0].address);
+        console.log('  _originalPONumber:', deliveriesWithIds[0]._originalPONumber);
+        console.log('  All keys:', Object.keys(deliveriesWithIds[0]).join(', '));
+      }
 
       // Save to database and trigger auto-assignment
       const response = await api.post('/deliveries/upload', {
