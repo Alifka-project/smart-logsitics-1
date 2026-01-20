@@ -104,11 +104,11 @@ export function transformERPData(data) {
       // Indicate whether defaults were applied because parsing failed
       _usedDefaultCoords: isNaN(latRaw) || isNaN(lngRaw),
       // Store original data for reference
-      _originalDeliveryNumber: row['Delivery number'],
-      _originalPONumber: row['PO Number'],
-      _originalQuantity: row['Confirmed quantity'],
-      _originalCity: row['City'],
-      _originalRoute: row['Route']
+      _originalDeliveryNumber: row['Delivery number'] || row['Delivery Number'] || row['DeliveryNumber'],
+      _originalPONumber: row['PO Number'] || row['PO#'] || row['PO'] || row['Cust. PO Number'] || row['Purchase Order'] || row['PONumber'],
+      _originalQuantity: row['Confirmed quantity'] || row['Confirmed Quantity'] || row['Qty'] || row['Quantity'],
+      _originalCity: row['City'] || row['city'],
+      _originalRoute: row['Route'] || row['route']
     };
   });
 }

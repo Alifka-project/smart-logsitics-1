@@ -37,21 +37,30 @@ export default function FileUpload({ onSuccess, onError }) {
 
           // Log available column names for debugging
           if (jsonData.length > 0) {
-            console.log('[FileUpload] Excel columns detected:', Object.keys(jsonData[0]));
+            const columns = Object.keys(jsonData[0]);
+            console.log('[FileUpload] Excel columns detected:', columns);
+            console.log('[FileUpload] Looking for PO Number columns...');
+            const poColumns = columns.filter(col => col.toLowerCase().includes('po'));
+            console.log('[FileUpload] PO-related columns found:', poColumns);
           }
 
           // Detect data format and transform if needed
           const { format, transform } = detectDataFormat(jsonData);
+          console.log('[FileUpload] Detected format:', format);
           
           if (transform) {
             // Transform data to simplified format
             jsonData = transform(jsonData);
-            // Log transformed data to see PO Numbers
+            // Log transformed data to see PO Numbers and delivery data
             if (jsonData.length > 0) {
-              console.log('[FileUpload] First transformed delivery:', {
+              console.log('[FileUpload] Transformed deliveries sample:', {
                 customer: jsonData[0].customer,
+                address: jsonData[0].address,
                 _originalDeliveryNumber: jsonData[0]._originalDeliveryNumber,
                 _originalPONumber: jsonData[0]._originalPONumber,
+                _originalQuantity: jsonData[0]._originalQuantity,
+                _originalCity: jsonData[0]._originalCity,
+                _originalRoute: jsonData[0]._originalRoute,
               });
             }
           }

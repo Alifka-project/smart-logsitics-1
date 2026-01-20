@@ -245,7 +245,12 @@ router.post('/upload', authenticate, async (req, res) => {
         });
 
         console.log(`[Deliveries/Upload] ✓ Successfully saved delivery ${deliveryId} to database`);
-        console.log(`[Deliveries/Upload] Saved delivery has: customer="${savedDelivery.customer}", address="${savedDelivery.address?.substring(0, 50)}"`);
+        console.log(`[Deliveries/Upload] Saved delivery: customer="${savedDelivery.customer}", address="${savedDelivery.address?.substring(0, 50)}"`);
+        if (savedDelivery.metadata?.originalPONumber) {
+          console.log(`[Deliveries/Upload] ✓ PO Number captured: "${savedDelivery.metadata.originalPONumber}"`);
+        } else {
+          console.log(`[Deliveries/Upload] ⚠ Warning: No PO Number found in metadata for delivery ${deliveryId}`);
+        }
 
         // Save delivery event for audit
         await prisma.deliveryEvent.create({
