@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import api, { setAuthToken } from '../frontend/apiClient';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, AreaChart, Area } from 'recharts';
 import { 
@@ -165,20 +165,57 @@ export default function AdminDashboardPage() {
   const pieChartData = statusChartData.filter(d => d.value > 0);
 
   const recentTrendData = [
-    { name: 'Delivered', value: recent.delivered },
-    { name: 'Cancelled', value: recent.cancelled },
-    { name: 'Rescheduled', value: recent.rescheduled },
+    { name: 'Delivered', value: recent.delivered || 0 },
+    { name: 'Cancelled', value: recent.cancelled || 0 },
+    { name: 'Rescheduled', value: recent.rescheduled || 0 },
   ];
 
-  // Daily performance data (mock for now, can be enhanced with real data)
-  const dailyPerformance = [
-    { day: 'Mon', deliveries: totals.delivered > 0 ? Math.floor(totals.delivered * 0.15) : 0, success: totals.delivered > 0 ? Math.floor(totals.delivered * 0.12) : 0 },
-    { day: 'Tue', deliveries: totals.delivered > 0 ? Math.floor(totals.delivered * 0.18) : 0, success: totals.delivered > 0 ? Math.floor(totals.delivered * 0.16) : 0 },
-    { day: 'Wed', deliveries: totals.delivered > 0 ? Math.floor(totals.delivered * 0.20) : 0, success: totals.delivered > 0 ? Math.floor(totals.delivered * 0.18) : 0 },
-    { day: 'Thu', deliveries: totals.delivered > 0 ? Math.floor(totals.delivered * 0.22) : 0, success: totals.delivered > 0 ? Math.floor(totals.delivered * 0.20) : 0 },
-    { day: 'Fri', deliveries: totals.delivered > 0 ? Math.floor(totals.delivered * 0.15) : 0, success: totals.delivered > 0 ? Math.floor(totals.delivered * 0.14) : 0 },
-    { day: 'Sat', deliveries: totals.delivered > 0 ? Math.floor(totals.delivered * 0.10) : 0, success: totals.delivered > 0 ? Math.floor(totals.delivered * 0.09) : 0 },
-  ];
+  // Calculate real daily performance data from deliveries (last 7 days)
+  const dailyPerformance = useMemo(() => {
+    const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const dailyData = {};
+    
+    // Initialize all days with zeros
+    daysOfWeek.forEach(day => {
+      dailyData[day] = { day, deliveries: 0, success: 0 };
+    });
+
+    if (deliveries && Array.isArray(deliveries) && deliveries.length > 0) {
+      const now = new Date();
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      
+      deliveries.forEach(delivery => {
+        const createdDateStr = delivery.created_at || delivery.createdAt || delivery.created;
+        if (!createdDateStr) return;
+        
+        const createdDate = new Date(createdDateStr);
+        
+        // Only count deliveries from the last 7 days
+        if (createdDate >= sevenDaysAgo && createdDate <= now) {
+          const dayName = daysOfWeek[createdDate.getDay()];
+          if (dailyData[dayName]) {
+            dailyData[dayName].deliveries++;
+            
+            // Count successful deliveries
+            const status = (delivery.status || '').toLowerCase();
+            if (['delivered', 'done', 'completed', 'delivered-with-installation', 'delivered-without-installation'].includes(status)) {
+              dailyData[dayName].success++;
+            }
+          }
+        }
+      });
+    }
+
+    // Return array in order: Mon-Sat (skip Sunday)
+    return [
+      dailyData['Mon'],
+      dailyData['Tue'],
+      dailyData['Wed'],
+      dailyData['Thu'],
+      dailyData['Fri'],
+      dailyData['Sat'],
+    ];
+  }, [deliveries]);
 
   // Calculate success rate
   const successRate = totals.total > 0 

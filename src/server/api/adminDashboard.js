@@ -148,10 +148,11 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
       }
     }
 
-    // Recent trends (last 24h) if created_at available
+    // Recent trends (last 24h) if created_at or updated_at available
     const now = Date.now();
     const last24 = (d) => {
-      const t = d.created_at || d.createdAt || d.created || null;
+      // Check both created_at and updated_at to catch status changes
+      const t = d.updated_at || d.updatedAt || d.created_at || d.createdAt || d.created || null;
       if (!t) return false;
       const dt = new Date(t).getTime();
       return (now - dt) <= 24 * 3600 * 1000;
@@ -159,9 +160,14 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
     const recentCounts = { delivered: 0, cancelled: 0, rescheduled: 0 };
     for (const d of deliveries.filter(last24)) {
       const s = (d.status || '').toLowerCase();
-      if (s === 'delivered' || s === 'done' || s === 'completed') recentCounts.delivered++;
-      else if (s === 'cancelled' || s === 'canceled') recentCounts.cancelled++;
-      else if (s === 'rescheduled') recentCounts.rescheduled++;
+      // Count all delivered variations including with/without installation
+      if (['delivered', 'done', 'completed', 'delivered-with-installation', 'delivered-without-installation'].includes(s)) {
+        recentCounts.delivered++;
+      } else if (['cancelled', 'canceled', 'rejected'].includes(s)) {
+        recentCounts.cancelled++;
+      } else if (s === 'rescheduled') {
+        recentCounts.rescheduled++;
+      }
     }
 
     res.json({ drivers, recentLocations, smsRecent, totals, recentCounts });
