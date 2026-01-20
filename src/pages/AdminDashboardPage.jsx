@@ -9,6 +9,9 @@ import { useNavigate } from 'react-router-dom';
 
 function ensureAuth() {
   const token = localStorage.getItem('auth_token');
+  if (token) {
+    setAuthToken(token);
+  }
 }
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
@@ -104,72 +107,7 @@ export default function AdminDashboardPage() {
     };
   }, [loadDashboardData, autoRefresh]);
 
-  if (loading && !data) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Handle error state - but still show basic layout
-  if (data?.error) {
-    return (
-      <div className="space-y-6">
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-          <div className="text-red-600 dark:text-red-400 font-semibold">Error loading dashboard</div>
-          <div className="text-red-500 dark:text-red-400 text-sm mt-1">
-            {data.error === 'fetch_failed' ? 'Failed to fetch dashboard data. Please check your connection and try again.' : data.error}
-          </div>
-          <button
-            onClick={() => {
-              setLoading(true);
-              setData(null);
-              loadDashboardData();
-            }}
-            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // If no data at all, initialize with empty structure
-  if (!data) {
-    return (
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Admin Dashboard</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Last updated: {lastUpdate.toLocaleTimeString()}
-            </p>
-          </div>
-          <button
-            onClick={() => {
-              setLoading(true);
-              loadDashboardData();
-            }}
-            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm"
-          >
-            Load Dashboard
-          </button>
-        </div>
-        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-          <p className="text-yellow-800 dark:text-yellow-300">
-            Dashboard data not loaded. Click "Load Dashboard" to fetch data.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Safely extract data with defaults
+  // Safely extract data with defaults - MUST be before any conditional returns (React hooks rule)
   const totals = (data && data.totals) ? { ...data.totals } : { 
     total: 0, 
     delivered: 0, 
@@ -216,7 +154,7 @@ export default function AdminDashboardPage() {
     { name: 'Rescheduled', value: recent.rescheduled || 0 },
   ];
 
-  // Calculate real daily performance data from deliveries (last 7 days)
+  // Calculate real daily performance data from deliveries (last 7 days) - MUST be before conditional returns
   const dailyPerformance = useMemo(() => {
     const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const dailyData = {};
@@ -262,6 +200,72 @@ export default function AdminDashboardPage() {
       dailyData['Sat'],
     ];
   }, [deliveries]);
+
+  // Now handle conditional returns AFTER all hooks are defined
+  if (loading && !data) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle error state - but still show basic layout
+  if (data?.error) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <div className="text-red-600 dark:text-red-400 font-semibold">Error loading dashboard</div>
+          <div className="text-red-500 dark:text-red-400 text-sm mt-1">
+            {data.error === 'fetch_failed' ? 'Failed to fetch dashboard data. Please check your connection and try again.' : data.error}
+          </div>
+          <button
+            onClick={() => {
+              setLoading(true);
+              setData(null);
+              loadDashboardData();
+            }}
+            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // If no data at all, show empty state
+  if (!data) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Admin Dashboard</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Last updated: {lastUpdate.toLocaleTimeString()}
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              setLoading(true);
+              loadDashboardData();
+            }}
+            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm"
+          >
+            Load Dashboard
+          </button>
+        </div>
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+          <p className="text-yellow-800 dark:text-yellow-300">
+            Dashboard data not loaded. Click "Load Dashboard" to fetch data.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Calculate success rate
   const successRate = totals.total > 0 
