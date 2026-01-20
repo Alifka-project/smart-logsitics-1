@@ -431,7 +431,7 @@ export default function AdminDashboardPage() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
             <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Recent Activity (Last 24 Hours)</h2>
         <ResponsiveContainer width="100%" height={250}>
-          <LineChart data={recentTrendData}>
+          <BarChart data={recentTrendData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-700" />
                 <XAxis dataKey="name" stroke="#6b7280" className="dark:stroke-gray-400" />
                 <YAxis stroke="#6b7280" className="dark:stroke-gray-400" />
@@ -445,8 +445,8 @@ export default function AdminDashboardPage() {
                   wrapperClassName="dark:!bg-gray-800 dark:!border-gray-700 dark:!text-gray-100"
                 />
             <Legend wrapperClassName="dark:text-gray-300" />
-            <Line type="monotone" dataKey="value" stroke="#2563EB" strokeWidth={2} name="Count" />
-          </LineChart>
+            <Bar dataKey="value" fill="#2563EB" name="Count" />
+          </BarChart>
         </ResponsiveContainer>
       </div>
         </div>
