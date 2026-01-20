@@ -618,16 +618,54 @@ export default function AdminDashboardPage() {
                               ? new Date(delivery.created_at || delivery.createdAt || delivery.created).toLocaleDateString()
                               : 'N/A'}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            <button
-                              onClick={() => {
-                                setSelectedDelivery(delivery);
-                                setIsModalOpen(true);
-                              }}
-                              className="text-primary-600 dark:text-primary-400 hover:underline"
-                            >
-                              View
-                            </button>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm space-y-2">
+                            <div className="flex items-center gap-2">
+                              <select
+                                value={delivery.status || 'pending'}
+                                onChange={async (e) => {
+                                  const newStatusValue = e.target.value;
+                                  try {
+                                    const response = await api.put(`/deliveries/admin/${delivery.id || delivery.ID}/status`, {
+                                      status: newStatusValue
+                                    });
+                                    
+                                    if (response.data.success || response.status === 200) {
+                                      // Update local state
+                                      setDeliveries(deliveries.map(d => 
+                                        (d.id === delivery.id || d.ID === delivery.id || d.id === delivery.ID || d.ID === delivery.ID)
+                                          ? { ...d, status: newStatusValue }
+                                          : d
+                                      ));
+                                      // Refresh dashboard data
+                                      loadDashboardData();
+                                      // Show toast notification
+                                      window.dispatchEvent(new CustomEvent('deliveryStatusUpdated', {
+                                        detail: { deliveryId: delivery.id || delivery.ID, newStatus: newStatusValue }
+                                      }));
+                                    }
+                                  } catch (err) {
+                                    console.error('Error updating status:', err);
+                                    alert('Error updating status: ' + (err.response?.data?.message || err.message));
+                                  }
+                                }}
+                                className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="pending">Pending</option>
+                                <option value="out-for-delivery">Out for Delivery</option>
+                                <option value="delivered">Delivered</option>
+                                <option value="delivered-without-installation">Delivered without Installation</option>
+                                <option value="cancelled">Cancelled</option>
+                              </select>
+                              <button
+                                onClick={() => {
+                                  setSelectedDelivery(delivery);
+                                  setIsModalOpen(true);
+                                }}
+                                className="text-blue-600 dark:text-blue-400 hover:underline text-xs font-medium"
+                              >
+                                View Details
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
