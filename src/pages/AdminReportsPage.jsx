@@ -99,20 +99,6 @@ export default function AdminReportsPage() {
     return 'Pending';
   };
 
-  // Get customer status from delivery
-  const getCustomerStatus = (delivery) => {
-    const status = (delivery.status || '').toLowerCase();
-    if (status === 'scheduled-confirmed') return 'Accepted';
-    if ((status === 'cancelled' || status === 'canceled' || status === 'rejected') && 
-        (delivery.actor_type === 'customer' || delivery.cancelled_by === 'customer')) {
-      return 'Cancelled';
-    }
-    if (status === 'rescheduled' && (delivery.actor_type === 'customer' || delivery.rescheduled_by === 'customer')) {
-      return 'Rescheduled';
-    }
-    return 'Pending';
-  };
-
   // Filter deliveries by customer status
   const filteredDeliveries = useMemo(() => {
     if (!reportData?.deliveries) return [];
