@@ -47,6 +47,7 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
         customer: d.customer,
         address: d.address,
         phone: d.phone,
+        poNumber: d.poNumber,
         lat: d.lat,
         lng: d.lng,
         status: d.status,

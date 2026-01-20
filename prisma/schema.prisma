@@ -81,6 +81,7 @@ model Delivery {
   customer  String?   @db.VarChar(255)
   address   String?   @db.Text
   phone     String?   @db.VarChar(32)
+  poNumber  String?   @db.VarChar(100) // Purchase Order Number from uploaded file
   lat       Float?
   lng       Float?
   status    String    @default("pending") @db.VarChar(50)
@@ -95,6 +96,7 @@ model Delivery {
 
   @@index([status], map: "idx_delivery_status")
   @@index([createdAt], map: "idx_delivery_created")
+  @@index([poNumber], map: "idx_delivery_po_number")
   @@map("deliveries")
 }
 

@@ -598,7 +598,7 @@ export default function AdminDashboardPage() {
                       return (
                         <tr key={delivery.id || delivery.ID} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600 dark:text-blue-400 font-mono">
-                            {delivery.poNumber || delivery.PO || (delivery.metadata?.originalPONumber) || String(delivery.id || delivery.ID || 'N/A').slice(0, 8)}
+                            {delivery.poNumber || String(delivery.id || delivery.ID || 'N/A').slice(0, 8)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                             {delivery.customer || delivery.Customer || delivery.customerName || 'N/A'}
