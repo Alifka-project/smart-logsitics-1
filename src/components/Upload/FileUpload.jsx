@@ -35,12 +35,25 @@ export default function FileUpload({ onSuccess, onError }) {
           const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
           let jsonData = XLSX.utils.sheet_to_json(firstSheet);
 
+          // Log available column names for debugging
+          if (jsonData.length > 0) {
+            console.log('[FileUpload] Excel columns detected:', Object.keys(jsonData[0]));
+          }
+
           // Detect data format and transform if needed
           const { format, transform } = detectDataFormat(jsonData);
           
           if (transform) {
             // Transform data to simplified format
             jsonData = transform(jsonData);
+            // Log transformed data to see PO Numbers
+            if (jsonData.length > 0) {
+              console.log('[FileUpload] First transformed delivery:', {
+                customer: jsonData[0].customer,
+                _originalDeliveryNumber: jsonData[0]._originalDeliveryNumber,
+                _originalPONumber: jsonData[0]._originalPONumber,
+              });
+            }
           }
 
           // Validate the transformed data
