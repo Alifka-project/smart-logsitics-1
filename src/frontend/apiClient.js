@@ -34,9 +34,25 @@ function getCSRFToken() {
   }
 }
 
-// Attach client-key and CSRF token headers
+// Initialize token from localStorage on module load
+try {
+  const savedToken = localStorage.getItem('auth_token');
+  if (savedToken) {
+    api.defaults.headers.common.Authorization = `Bearer ${savedToken}`;
+  }
+} catch (e) {
+  // Ignore localStorage errors
+}
+
+// Attach client-key, auth token, and CSRF token headers
 api.interceptors.request.use((config) => {
   try {
+    // Ensure auth token is set from localStorage (in case it was updated elsewhere)
+    const token = localStorage.getItem('auth_token');
+    if (token && !config.headers.Authorization) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    
     const ck = localStorage.getItem('client_key');
     if (ck) {
       config.headers['x-client-key'] = ck;

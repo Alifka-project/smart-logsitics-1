@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import api, { setAuthToken } from '../frontend/apiClient';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, AreaChart, Area } from 'recharts';
 import { 
@@ -9,6 +9,9 @@ import { useNavigate } from 'react-router-dom';
 
 function ensureAuth() {
   const token = localStorage.getItem('auth_token');
+  if (token) {
+    setAuthToken(token);
+  }
 }
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
@@ -104,27 +107,8 @@ export default function AdminDashboardPage() {
     };
   }, [loadDashboardData, autoRefresh]);
 
-  if (loading && !data) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (data?.error) {
-    return (
-      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-        <div className="text-red-600 dark:text-red-400 font-semibold">Error loading dashboard</div>
-        <div className="text-red-500 dark:text-red-400 text-sm mt-1">{data.error}</div>
-      </div>
-    );
-  }
-
-  const totals = data?.totals || { 
+  // Safely extract data with defaults - MUST be before any conditional returns (React hooks rule)
+  const totals = (data && data.totals) ? { ...data.totals } : { 
     total: 0, 
     delivered: 0, 
     cancelled: 0, 
@@ -136,7 +120,7 @@ export default function AdminDashboardPage() {
     withPOD: 0,
     withoutPOD: 0
   };
-  const recent = data?.recentCounts || { delivered: 0, cancelled: 0, rescheduled: 0 };
+  const recent = (data && data.recentCounts) ? { ...data.recentCounts } : { delivered: 0, cancelled: 0, rescheduled: 0 };
   const activeDrivers = drivers?.filter(d => d.active !== false).length || 0;
 
   // Get recent deliveries (last 10) - safely handle empty arrays
@@ -165,20 +149,123 @@ export default function AdminDashboardPage() {
   const pieChartData = statusChartData.filter(d => d.value > 0);
 
   const recentTrendData = [
-    { name: 'Delivered', value: recent.delivered },
-    { name: 'Cancelled', value: recent.cancelled },
-    { name: 'Rescheduled', value: recent.rescheduled },
+    { name: 'Delivered', value: recent.delivered || 0 },
+    { name: 'Cancelled', value: recent.cancelled || 0 },
+    { name: 'Rescheduled', value: recent.rescheduled || 0 },
   ];
 
-  // Daily performance data (mock for now, can be enhanced with real data)
-  const dailyPerformance = [
-    { day: 'Mon', deliveries: totals.delivered > 0 ? Math.floor(totals.delivered * 0.15) : 0, success: totals.delivered > 0 ? Math.floor(totals.delivered * 0.12) : 0 },
-    { day: 'Tue', deliveries: totals.delivered > 0 ? Math.floor(totals.delivered * 0.18) : 0, success: totals.delivered > 0 ? Math.floor(totals.delivered * 0.16) : 0 },
-    { day: 'Wed', deliveries: totals.delivered > 0 ? Math.floor(totals.delivered * 0.20) : 0, success: totals.delivered > 0 ? Math.floor(totals.delivered * 0.18) : 0 },
-    { day: 'Thu', deliveries: totals.delivered > 0 ? Math.floor(totals.delivered * 0.22) : 0, success: totals.delivered > 0 ? Math.floor(totals.delivered * 0.20) : 0 },
-    { day: 'Fri', deliveries: totals.delivered > 0 ? Math.floor(totals.delivered * 0.15) : 0, success: totals.delivered > 0 ? Math.floor(totals.delivered * 0.14) : 0 },
-    { day: 'Sat', deliveries: totals.delivered > 0 ? Math.floor(totals.delivered * 0.10) : 0, success: totals.delivered > 0 ? Math.floor(totals.delivered * 0.09) : 0 },
-  ];
+  // Calculate real daily performance data from deliveries (last 7 days) - MUST be before conditional returns
+  const dailyPerformance = useMemo(() => {
+    const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const dailyData = {};
+    
+    // Initialize all days with zeros
+    daysOfWeek.forEach(day => {
+      dailyData[day] = { day, deliveries: 0, success: 0 };
+    });
+
+    if (deliveries && Array.isArray(deliveries) && deliveries.length > 0) {
+      const now = new Date();
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      
+      deliveries.forEach(delivery => {
+        const createdDateStr = delivery.created_at || delivery.createdAt || delivery.created;
+        if (!createdDateStr) return;
+        
+        const createdDate = new Date(createdDateStr);
+        
+        // Only count deliveries from the last 7 days
+        if (createdDate >= sevenDaysAgo && createdDate <= now) {
+          const dayName = daysOfWeek[createdDate.getDay()];
+          if (dailyData[dayName]) {
+            dailyData[dayName].deliveries++;
+            
+            // Count successful deliveries
+            const status = (delivery.status || '').toLowerCase();
+            if (['delivered', 'done', 'completed', 'delivered-with-installation', 'delivered-without-installation'].includes(status)) {
+              dailyData[dayName].success++;
+            }
+          }
+        }
+      });
+    }
+
+    // Return array in order: Mon-Sat (skip Sunday)
+    return [
+      dailyData['Mon'],
+      dailyData['Tue'],
+      dailyData['Wed'],
+      dailyData['Thu'],
+      dailyData['Fri'],
+      dailyData['Sat'],
+    ];
+  }, [deliveries]);
+
+  // Now handle conditional returns AFTER all hooks are defined
+  if (loading && !data) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle error state - but still show basic layout
+  if (data?.error) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <div className="text-red-600 dark:text-red-400 font-semibold">Error loading dashboard</div>
+          <div className="text-red-500 dark:text-red-400 text-sm mt-1">
+            {data.error === 'fetch_failed' ? 'Failed to fetch dashboard data. Please check your connection and try again.' : data.error}
+          </div>
+          <button
+            onClick={() => {
+              setLoading(true);
+              setData(null);
+              loadDashboardData();
+            }}
+            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // If no data at all, show empty state
+  if (!data) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Admin Dashboard</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Last updated: {lastUpdate.toLocaleTimeString()}
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              setLoading(true);
+              loadDashboardData();
+            }}
+            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm"
+          >
+            Load Dashboard
+          </button>
+        </div>
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+          <p className="text-yellow-800 dark:text-yellow-300">
+            Dashboard data not loaded. Click "Load Dashboard" to fetch data.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Calculate success rate
   const successRate = totals.total > 0 

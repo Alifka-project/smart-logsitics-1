@@ -15,6 +15,13 @@ export default function ForgotPasswordPage() {
     setError(null);
     setLoading(true);
 
+    // Validate that at least one field is provided
+    if (!username && !email) {
+      setError('Please enter either username or email address');
+      setLoading(false);
+      return;
+    }
+
     try {
       const response = await api.post('/auth/forgot-password', { 
         username: username || undefined, 
@@ -23,7 +30,8 @@ export default function ForgotPasswordPage() {
       
       setSuccess(true);
     } catch (err) {
-      setError(err?.response?.data?.error || 'Failed to send reset email. Please try again.');
+      const errorMessage = err?.response?.data?.error || err?.response?.data?.message || 'Failed to send reset email. Please try again.';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -31,24 +39,52 @@ export default function ForgotPasswordPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4 py-8 bg-gray-50">
-        <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-8">
-          <div className="text-center">
-            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
-              <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
+      <div 
+        className="min-h-screen flex items-center justify-center px-4 py-8 light"
+        style={{
+          backgroundImage: 'url(/elec%20login.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat'
+        }}
+      >
+        {/* Main Container */}
+        <div className="w-full max-w-6xl bg-white rounded-3xl border-4 border-white shadow-2xl overflow-hidden flex flex-col lg:flex-row">
+          {/* Left Section - Promotional */}
+          <div 
+            className="w-full lg:w-1/2 relative overflow-hidden p-4 lg:p-6 flex flex-col justify-between rounded-t-3xl lg:rounded-l-3xl lg:rounded-tr-none"
+            style={{
+              backgroundImage: 'url(/elec%20login.png)',
+              backgroundSize: 'cover',
+              backgroundPosition: 'top left',
+              backgroundRepeat: 'no-repeat',
+              minHeight: '600px'
+            }}
+          >
+          </div>
+
+          {/* Right Section - Success Message */}
+          <div className="w-full lg:w-1/2 bg-white p-8 lg:p-12 flex flex-col justify-center rounded-b-3xl lg:rounded-r-3xl lg:rounded-bl-none">
+            <div className="max-w-md mx-auto w-full text-center">
+              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full mb-6" style={{ backgroundColor: '#E8F5E9' }}>
+                <svg className="h-8 w-8" style={{ color: '#4CAF50' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h2 className="text-3xl lg:text-4xl font-bold mb-2" style={{ color: '#000000' }}>Check Your Email</h2>
+              <p className="mb-8" style={{ color: '#000000' }}>
+                If an account exists with that username/email, a password reset link has been sent.
+              </p>
+              <Link 
+                to="/login" 
+                className="inline-block text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200"
+                style={{ backgroundColor: '#011E41' }}
+                onMouseEnter={(e) => e.target.style.backgroundColor = '#001529'}
+                onMouseLeave={(e) => e.target.style.backgroundColor = '#011E41'}
+              >
+                Back to Login
+              </Link>
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Check Your Email</h2>
-            <p className="text-gray-600 mb-6">
-              If an account exists with that username/email, a password reset link has been sent.
-            </p>
-            <Link 
-              to="/login" 
-              className="text-primary-600 hover:text-primary-700 font-medium"
-            >
-              Back to Login
-            </Link>
           </div>
         </div>
       </div>
@@ -56,66 +92,144 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-8 bg-gray-50">
-      <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Forgot Password?</h2>
-        <p className="text-gray-600 mb-6">
-          Enter your username or email address and we'll send you a link to reset your password.
-        </p>
+    <div 
+      className="min-h-screen flex items-center justify-center px-4 py-8 light"
+      style={{
+        backgroundImage: 'url(/elec%20login.png)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }}
+    >
+      {/* Main Container */}
+      <div className="w-full max-w-6xl bg-white rounded-3xl border-4 border-white shadow-2xl overflow-hidden flex flex-col lg:flex-row">
+        {/* Left Section - Promotional */}
+        <div 
+          className="w-full lg:w-1/2 relative overflow-hidden p-4 lg:p-6 flex flex-col justify-between rounded-t-3xl lg:rounded-l-3xl lg:rounded-tr-none"
+          style={{
+            backgroundImage: 'url(/elec%20login.png)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'top left',
+            backgroundRepeat: 'no-repeat',
+            minHeight: '600px'
+          }}
+        >
+        </div>
 
-        {error && (
-          <div className="bg-red-50 border-l-4 border-red-500 text-red-800 text-sm p-4 rounded mb-6">
-            {error}
+        {/* Right Section - Forgot Password Form */}
+        <div className="w-full lg:w-1/2 bg-white p-8 lg:p-12 flex flex-col justify-center rounded-b-3xl lg:rounded-r-3xl lg:rounded-bl-none">
+          <div className="max-w-md mx-auto w-full">
+            <h2 className="text-3xl lg:text-4xl font-bold mb-2" style={{ color: '#000000' }}>FORGOT PASSWORD?</h2>
+            <p className="mb-8 text-sm" style={{ color: '#000000' }}>
+              Enter your username or email address and we'll send you a link to reset your password.
+            </p>
+          
+            {error && (
+              <div className="bg-red-50 border-l-4 border-red-500 text-red-800 text-sm p-4 rounded mb-6">
+                <div className="font-semibold mb-1">Error</div>
+                <div>{error}</div>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Username Field */}
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#000000' }}>
+                  Username
+                </label>
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg transition-all outline-none bg-white"
+                  style={{
+                    '--focus-color': '#011E41'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#011E41';
+                    e.target.style.boxShadow = '0 0 0 2px rgba(1, 30, 65, 0.2)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#d1d5db';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                  placeholder="Enter your username"
+                  autoComplete="username"
+                  disabled={loading}
+                />
+              </div>
+
+              {/* OR Divider */}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white" style={{ color: '#000000' }}>OR</span>
+                </div>
+              </div>
+
+              {/* Email Field */}
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#000000' }}>
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg transition-all outline-none bg-white"
+                  style={{
+                    '--focus-color': '#011E41'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#011E41';
+                    e.target.style.boxShadow = '0 0 0 2px rgba(1, 30, 65, 0.2)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#d1d5db';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                  placeholder="Enter your email"
+                  autoComplete="email"
+                  disabled={loading}
+                />
+              </div>
+
+              {/* Send Reset Link Button */}
+              <button
+                type="submit"
+                disabled={loading || (!username && !email)}
+                className="w-full text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                style={{ backgroundColor: '#011E41' }}
+                onMouseEnter={(e) => !loading && !(!username && !email) && (e.target.style.backgroundColor = '#001529')}
+                onMouseLeave={(e) => !loading && (e.target.style.backgroundColor = '#011E41')}
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Sending...
+                  </span>
+                ) : (
+                  'Send Reset Link'
+                )}
+              </button>
+            </form>
+
+            {/* Back to Login Link */}
+            <div className="mt-6 text-center">
+              <Link 
+                to="/login" 
+                className="text-sm font-medium hover:underline"
+                style={{ color: '#000000' }}
+              >
+                Back to Login
+              </Link>
+            </div>
           </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Username
-            </label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              placeholder="Enter your username"
-              disabled={loading}
-            />
-          </div>
-
-          <div className="text-center text-gray-500">OR</div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Email Address
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              placeholder="Enter your email"
-              disabled={loading}
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading || (!username && !email)}
-            className="w-full bg-primary-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Sending...' : 'Send Reset Link'}
-          </button>
-        </form>
-
-        <div className="mt-6 text-center">
-          <Link 
-            to="/login" 
-            className="text-primary-600 hover:text-primary-700 text-sm font-medium"
-          >
-            Back to Login
-          </Link>
         </div>
       </div>
     </div>

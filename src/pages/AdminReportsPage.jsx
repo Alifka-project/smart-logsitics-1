@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import api, { setAuthToken } from '../frontend/apiClient';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { Download, Filter, Calendar, FileText } from 'lucide-react';
+import { Download, Filter, Calendar, FileText, ChevronDown, ChevronUp, Package, MapPin, Phone, User, Clock } from 'lucide-react';
 
 function ensureAuth() {
   const token = localStorage.getItem('auth_token');
@@ -16,8 +16,12 @@ export default function AdminReportsPage() {
     startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Last 30 days
     endDate: new Date().toISOString().split('T')[0],
     status: '',
+    customerStatus: '', // New filter for customer response status
     driverId: ''
   });
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(20);
 
   useEffect(() => {
     ensureAuth();
@@ -73,10 +77,119 @@ export default function AdminReportsPage() {
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
+    // Reset to first page when filters change
+    setCurrentPage(1);
   };
 
   const handleExportCSV = () => {
     loadReport('csv');
+  };
+
+  // Get customer status from delivery
+  const getCustomerStatus = (delivery) => {
+    const status = (delivery.status || '').toLowerCase();
+    if (status === 'scheduled-confirmed') return 'Accepted';
+    if ((status === 'cancelled' || status === 'canceled' || status === 'rejected') && 
+        (delivery.actor_type === 'customer' || delivery.cancelled_by === 'customer')) {
+      return 'Cancelled';
+    }
+    if (status === 'rescheduled' && (delivery.actor_type === 'customer' || delivery.rescheduled_by === 'customer')) {
+      return 'Rescheduled';
+    }
+    return 'Pending';
+  };
+
+  // Filter deliveries by customer status
+  const filteredDeliveries = useMemo(() => {
+    if (!reportData?.deliveries) return [];
+    
+    let filtered = [...reportData.deliveries];
+    
+    // Apply customer status filter
+    if (filters.customerStatus) {
+      filtered = filtered.filter(delivery => {
+        const customerStatus = getCustomerStatus(delivery);
+        return customerStatus.toLowerCase() === filters.customerStatus.toLowerCase();
+      });
+    }
+    
+    return filtered;
+  }, [reportData?.deliveries, filters.customerStatus]);
+
+  // Sort deliveries
+  const sortedDeliveries = useMemo(() => {
+    if (!sortConfig.key) return filteredDeliveries;
+    
+    const sorted = [...filteredDeliveries].sort((a, b) => {
+      let aValue = a[sortConfig.key];
+      let bValue = b[sortConfig.key];
+      
+      // Handle nested properties
+      if (sortConfig.key === 'customer') {
+        aValue = a.customer || a.Customer || '';
+        bValue = b.customer || b.Customer || '';
+      } else if (sortConfig.key === 'address') {
+        aValue = a.address || a.Address || '';
+        bValue = b.address || b.Address || '';
+      } else if (sortConfig.key === 'createdAt') {
+        aValue = new Date(a.created_at || a.createdAt || a.created || 0);
+        bValue = new Date(b.created_at || b.createdAt || b.created || 0);
+      }
+      
+      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+    
+    return sorted;
+  }, [filteredDeliveries, sortConfig]);
+
+  // Paginate deliveries
+  const paginatedDeliveries = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return sortedDeliveries.slice(startIndex, startIndex + itemsPerPage);
+  }, [sortedDeliveries, currentPage, itemsPerPage]);
+
+  const totalPages = Math.ceil(sortedDeliveries.length / itemsPerPage);
+
+  const handleSort = (key) => {
+    setSortConfig(prevConfig => {
+      if (prevConfig.key === key) {
+        return {
+          key,
+          direction: prevConfig.direction === 'asc' ? 'desc' : 'asc'
+        };
+      }
+      return { key, direction: 'asc' };
+    });
+  };
+
+  const getStatusColor = (status) => {
+    const s = (status || '').toLowerCase();
+    if (['delivered', 'done', 'completed', 'delivered-with-installation', 'delivered-without-installation'].includes(s)) {
+      return 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300';
+    }
+    if (['cancelled', 'canceled', 'rejected'].includes(s)) {
+      return 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300';
+    }
+    if (s === 'rescheduled') {
+      return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300';
+    }
+    if (['scheduled', 'scheduled-confirmed'].includes(s)) {
+      return 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300';
+    }
+    if (['out-for-delivery', 'in-progress'].includes(s)) {
+      return 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300';
+    }
+    return 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300';
+  };
+
+  const getCustomerStatusColor = (status) => {
+    const s = status.toLowerCase();
+    if (s === 'accepted') return 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300';
+    if (s === 'cancelled') return 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300';
+    if (s === 'rescheduled') return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300';
+    return 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300';
   };
 
   if (!reportData && !loading) {
@@ -129,7 +242,7 @@ export default function AdminReportsPage() {
           <Filter className="w-5 h-5 text-gray-600 dark:text-gray-400" />
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Filters</h2>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Date</label>
             <input
@@ -149,17 +262,38 @@ export default function AdminReportsPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Delivery Status</label>
             <select
               value={filters.status}
               onChange={(e) => handleFilterChange('status', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
             >
-              <option value="">All Statuses</option>
+              <option value="">All Delivery Statuses</option>
               <option value="delivered">Delivered</option>
+              <option value="delivered-with-installation">Delivered (With Installation)</option>
+              <option value="delivered-without-installation">Delivered (Without Installation)</option>
               <option value="pending">Pending</option>
+              <option value="scheduled">Scheduled</option>
+              <option value="scheduled-confirmed">Scheduled Confirmed</option>
+              <option value="out-for-delivery">Out for Delivery</option>
+              <option value="in-progress">In Progress</option>
               <option value="cancelled">Cancelled</option>
               <option value="rescheduled">Rescheduled</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Customer Response</label>
+            <select
+              value={filters.customerStatus}
+              onChange={(e) => handleFilterChange('customerStatus', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="">All Customer Statuses</option>
+              <option value="accepted">Accepted</option>
+              <option value="cancelled">Cancelled</option>
+              <option value="rescheduled">Rescheduled</option>
+              <option value="pending">Pending</option>
             </select>
           </div>
           <div>
@@ -173,13 +307,18 @@ export default function AdminReportsPage() {
             />
           </div>
         </div>
-        <button
-          onClick={() => loadReport()}
-          disabled={loading}
-          className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
-        >
-          Apply Filters
-        </button>
+        <div className="flex items-center justify-between mt-4">
+          <button
+            onClick={() => loadReport()}
+            disabled={loading}
+            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+          >
+            Apply Filters
+          </button>
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            Showing {filteredDeliveries.length} delivery{filteredDeliveries.length !== 1 ? 'ies' : ''}
+          </div>
+        </div>
       </div>
 
       {/* Summary Statistics */}
@@ -326,6 +465,195 @@ export default function AdminReportsPage() {
           </LineChart>
         </ResponsiveContainer>
       </div>
+
+      {/* Detailed Delivery List */}
+      {reportData?.deliveries && reportData.deliveries.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow transition-colors">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Delivery Details</h2>
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                Total: {sortedDeliveries.length} delivery{sortedDeliveries.length !== 1 ? 'ies' : ''}
+              </div>
+            </div>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-900">
+                <tr>
+                  <th 
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+                    onClick={() => handleSort('id')}
+                  >
+                    <div className="flex items-center gap-2">
+                      ID
+                      {sortConfig.key === 'id' && (
+                        sortConfig.direction === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+                    onClick={() => handleSort('customer')}
+                  >
+                    <div className="flex items-center gap-2">
+                      Customer
+                      {sortConfig.key === 'customer' && (
+                        sortConfig.direction === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
+                      )}
+                    </div>
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Address
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Phone
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Delivery Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Customer Response
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Driver ID
+                  </th>
+                  <th 
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+                    onClick={() => handleSort('createdAt')}
+                  >
+                    <div className="flex items-center gap-2">
+                      Created Date
+                      {sortConfig.key === 'createdAt' && (
+                        sortConfig.direction === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
+                      )}
+                    </div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {paginatedDeliveries.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                      No deliveries found matching the filters
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedDeliveries.map((delivery) => {
+                    const customerStatus = getCustomerStatus(delivery);
+                    const deliveryStatus = delivery.status || 'Pending';
+                    
+                    return (
+                      <tr key={delivery.id || delivery.ID} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
+                          #{String(delivery.id || delivery.ID || 'N/A').slice(0, 8)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                          <div className="flex items-center gap-2">
+                            <User className="w-4 h-4 text-gray-400" />
+                            {delivery.customer || delivery.Customer || 'N/A'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate">
+                          <div className="flex items-start gap-2">
+                            <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                            <span className="break-words">{delivery.address || delivery.Address || 'N/A'}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          <div className="flex items-center gap-2">
+                            <Phone className="w-4 h-4 text-gray-400" />
+                            {delivery.phone || delivery.Phone || delivery.telephone1 || 'N/A'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(deliveryStatus)}`}>
+                            {deliveryStatus}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getCustomerStatusColor(customerStatus)}`}>
+                            {customerStatus}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {delivery.driver_id || delivery.driverId || delivery.assignedDriverId || 'Unassigned'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          <div className="flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-gray-400" />
+                            {delivery.created_at || delivery.createdAt || delivery.created
+                              ? new Date(delivery.created_at || delivery.createdAt || delivery.created).toLocaleDateString('en-US', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric'
+                                })
+                              : 'N/A'}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+          
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <div className="text-sm text-gray-700 dark:text-gray-300">
+                Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, sortedDeliveries.length)} of {sortedDeliveries.length} entries
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-600"
+                >
+                  Previous
+                </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`px-3 py-2 text-sm rounded-lg ${
+                          currentPage === pageNum
+                            ? 'bg-primary-600 text-white'
+                            : 'border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-600"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
