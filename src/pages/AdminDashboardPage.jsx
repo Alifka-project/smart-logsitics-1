@@ -6,6 +6,7 @@ import {
   Truck, AlertCircle, FileText, Calendar, DollarSign, Target, Zap
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import DeliveryDetailModal from '../components/DeliveryDetailModal';
 
 function ensureAuth() {
   const token = localStorage.getItem('auth_token');
@@ -24,6 +25,8 @@ export default function AdminDashboardPage() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [activeTab, setActiveTab] = useState('overview');
+  const [selectedDelivery, setSelectedDelivery] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const navigate = useNavigate();
 
   const loadDashboardData = useCallback(async () => {
@@ -617,7 +620,10 @@ export default function AdminDashboardPage() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm">
                             <button
-                              onClick={() => navigate(`/deliveries?delivery=${delivery.id || delivery.ID}`)}
+                              onClick={() => {
+                                setSelectedDelivery(delivery);
+                                setIsModalOpen(true);
+                              }}
                               className="text-primary-600 dark:text-primary-400 hover:underline"
                             >
                               View
@@ -902,6 +908,28 @@ export default function AdminDashboardPage() {
         </div>
       </div>
       )}
+
+      {/* Delivery Detail Modal */}
+      <DeliveryDetailModal
+        delivery={selectedDelivery}
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedDelivery(null);
+        }}
+        onStatusUpdate={(deliveryId, newStatus) => {
+          // Update the delivery status in the local state
+          setDeliveries(deliveries.map(d => 
+            (d.id === deliveryId || d.ID === deliveryId) 
+              ? { ...d, status: newStatus }
+              : d
+          ));
+          // Close modal and refresh dashboard data
+          setIsModalOpen(false);
+          setSelectedDelivery(null);
+          loadDashboardData();
+        }}
+      />
     </div>
   );
 }
