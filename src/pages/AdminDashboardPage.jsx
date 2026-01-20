@@ -619,7 +619,7 @@ export default function AdminDashboardPage() {
                               : 'N/A'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2">
                               <select
                                 value={delivery.status || 'pending'}
                                 onChange={async (e) => {
@@ -648,26 +648,26 @@ export default function AdminDashboardPage() {
                                     alert('Error updating status: ' + (err.response?.data?.message || err.message));
                                   }
                                 }}
-                                className="flex-1 px-3 py-2 text-sm font-medium border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none cursor-pointer pr-8 bg-right bg-no-repeat"
+                                className="px-2.5 py-1.5 text-xs font-medium border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none cursor-pointer pr-6 bg-right bg-no-repeat max-w-xs"
                                 style={{
                                   backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
-                                  backgroundSize: '1.2em'
+                                  backgroundSize: '1rem'
                                 }}
                               >
-                                <option value="pending" className="bg-yellow-50">📋 Pending</option>
-                                <option value="out-for-delivery" className="bg-blue-50">🚚 Out for Delivery</option>
-                                <option value="delivered" className="bg-green-50">✓ Delivered</option>
-                                <option value="delivered-without-installation" className="bg-orange-50">📦 Delivered without Installation</option>
-                                <option value="cancelled" className="bg-red-50">✕ Cancelled</option>
+                                <option value="pending">📋 Pending</option>
+                                <option value="out-for-delivery">🚚 Out for Delivery</option>
+                                <option value="delivered">✓ Delivered</option>
+                                <option value="delivered-without-installation">📦 Delivered w/o Install</option>
+                                <option value="cancelled">✕ Cancelled</option>
                               </select>
                               <button
                                 onClick={() => {
                                   setSelectedDelivery(delivery);
                                   setIsModalOpen(true);
                                 }}
-                                className="px-4 py-2 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-400 font-semibold rounded-lg transition-all duration-200 whitespace-nowrap text-sm border border-blue-300 dark:border-blue-700"
+                                className="px-2.5 py-1.5 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-400 font-semibold rounded-md transition-all duration-200 text-xs border border-blue-300 dark:border-blue-700 whitespace-nowrap"
                               >
-                                📄 View
+                                📄
                               </button>
                             </div>
                           </td>
