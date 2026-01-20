@@ -1,5 +1,36 @@
 // Data transformer to convert actual Excel format to system format
 /**
+ * Extract PO Number from row with multiple fallback strategies
+ */
+function extractPONumber(row) {
+  if (!row) return null;
+  
+  // Try exact column name matches first
+  const exactMatches = [
+    'PO Number', 'PO#', 'PO', 'Cust. PO Number', 'Purchase Order', 'PONumber',
+    'PO Ref', 'PO Reference', 'Purchase Order Number', 'Order Number',
+    'po number', 'po#', 'po', 'order no', 'Order No', 'ORDER NO'
+  ];
+  
+  for (const colName of exactMatches) {
+    if (colName in row && row[colName]) {
+      const val = String(row[colName]).trim();
+      if (val) return val;
+    }
+  }
+  
+  // Try case-insensitive search in all columns
+  for (const [colName, value] of Object.entries(row)) {
+    if (colName.toLowerCase().includes('po') && value) {
+      const val = String(value).trim();
+      if (val) return val;
+    }
+  }
+  
+  return null;
+}
+
+/**
  * Parse a coordinate value from various Excel/CVS formats to a float.
  * Accepts numbers, strings with comma decimals ("25,1124"), extraneous spaces,
  * and will strip non-numeric characters where reasonable.
@@ -105,7 +136,7 @@ export function transformERPData(data) {
       _usedDefaultCoords: isNaN(latRaw) || isNaN(lngRaw),
       // Store original data for reference
       _originalDeliveryNumber: row['Delivery number'] || row['Delivery Number'] || row['DeliveryNumber'],
-      _originalPONumber: row['PO Number'] || row['PO#'] || row['PO'] || row['Cust. PO Number'] || row['Purchase Order'] || row['PONumber'],
+      _originalPONumber: extractPONumber(row),
       _originalQuantity: row['Confirmed quantity'] || row['Confirmed Quantity'] || row['Qty'] || row['Quantity'],
       _originalCity: row['City'] || row['city'],
       _originalRoute: row['Route'] || row['route']
