@@ -104,30 +104,45 @@ export default function Header() {
 
   const loadNotifications = async () => {
     try {
-      // TODO: Replace with actual notifications API
-      // const response = await api.get('/admin/notifications');
-      // setNotifications(response.data.notifications || []);
+      const currentUser = getCurrentUser();
+      const userRole = currentUser?.account?.role || currentUser?.role || 'driver';
       
-      // Mock notifications for now
-      const mockNotifications = [
-        {
-          id: 1,
-          type: 'delivery',
-          title: 'New delivery assigned',
-          message: 'Delivery #12345 has been assigned to you',
-          timestamp: new Date(Date.now() - 5 * 60000),
-          read: false
-        },
-        {
-          id: 2,
-          type: 'alert',
-          title: 'Delivery delayed',
-          message: 'Delivery #12340 is running 15 minutes late',
-          timestamp: new Date(Date.now() - 30 * 60000),
-          read: false
+      let unreadCount = 0;
+      
+      // Load unread messages based on user role
+      if (userRole === 'admin') {
+        // Admin: get unread messages count
+        try {
+          const response = await api.get('/admin/messages/unread');
+          // Count total unread messages across all drivers
+          const counts = Object.values(response.data || {});
+          unreadCount = counts.reduce((sum, count) => sum + count, 0);
+        } catch (e) {
+          console.error('Failed to load admin notifications:', e);
         }
-      ];
-      setNotifications(mockNotifications);
+      } else if (userRole === 'driver') {
+        // Driver: get their unread messages count
+        try {
+          const response = await api.get('/driver/notifications/count');
+          unreadCount = response.data?.count || 0;
+        } catch (e) {
+          console.error('Failed to load driver notifications:', e);
+        }
+      }
+      
+      // Convert count to notifications array
+      const notificationsArray = unreadCount > 0 
+        ? [{
+            id: 'messages',
+            type: 'message',
+            title: `${unreadCount} unread message${unreadCount !== 1 ? 's' : ''}`,
+            message: userRole === 'admin' ? 'You have unread messages from drivers' : 'You have unread messages from admin',
+            timestamp: new Date(),
+            read: false
+          }]
+        : [];
+      
+      setNotifications(notificationsArray);
     } catch (error) {
       console.error('Failed to load notifications:', error);
     }
