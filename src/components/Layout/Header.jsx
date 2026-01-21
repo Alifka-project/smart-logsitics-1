@@ -257,13 +257,13 @@ export default function Header() {
   return (
     <>
       <header className="bg-gradient-to-r from-primary-600 to-primary-800 text-white shadow-lg sticky top-0 z-50">
-      <div className="container mx-auto px-4 py-3 sm:py-4">
+      <div className="container mx-auto px-4 py-2 sm:py-2.5">
         <div className="flex items-center justify-between">
           <Link to="/" className="flex items-center hover:opacity-80 transition-opacity">
             <img 
               src="/elect home.png" 
               alt="Electrolux Logo" 
-              className="h-12 sm:h-16 lg:h-20 w-auto object-contain"
+              className="h-10 sm:h-12 lg:h-14 w-auto object-contain"
             />
           </Link>
             

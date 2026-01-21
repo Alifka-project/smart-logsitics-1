@@ -31,9 +31,9 @@ export default function Navigation() {
   ];
 
   return (
-    <nav className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 transition-colors">
-      <div className="container mx-auto px-6">
-        <div className="flex gap-2 overflow-x-auto py-2">
+    <nav className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 transition-colors sticky top-[3.25rem] z-40">
+      <div className="container mx-auto px-4 sm:px-6">
+        <div className="flex gap-1.5 overflow-x-auto py-1.5">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = item.exact 
@@ -45,7 +45,7 @@ export default function Navigation() {
                 key={item.path}
                 to={item.path}
                 className={`
-                  flex items-center gap-2.5 px-5 py-3 font-medium transition-all duration-200 ease-out text-sm sm:text-base whitespace-nowrap relative group rounded-full
+                  flex items-center gap-2 px-3.5 py-2 font-medium transition-all duration-200 ease-out text-xs sm:text-sm whitespace-nowrap relative group rounded-full
                   ${isActive
                     ? 'text-white bg-primary-600 shadow-md scale-[1.02]'
                     : 'text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:scale-[1.01]'
@@ -54,13 +54,13 @@ export default function Navigation() {
               >
                 {/* Icon with circular background */}
                 <div className={`
-                  flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200 flex-shrink-0
+                  flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 flex-shrink-0
                   ${isActive
                     ? 'bg-white/20'
                     : 'bg-gray-100 dark:bg-gray-700 group-hover:bg-primary-100 dark:group-hover:bg-primary-900'
                   }
                 `}>
-                  <Icon className={`w-5 h-5 transition-all duration-200 ${
+                  <Icon className={`w-4 h-4 transition-all duration-200 ${
                     isActive 
                       ? 'text-white' 
                       : 'text-gray-600 dark:text-gray-300 group-hover:text-primary-600 dark:group-hover:text-primary-400 group-hover:scale-110'
