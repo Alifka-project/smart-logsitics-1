@@ -795,89 +795,89 @@ export default function AdminOperationsPage() {
         <div className="space-y-6">
           {/* Alert Summary */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 transition-colors">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-sm text-red-700 mb-1">Urgent Alerts</div>
-                  <div className="text-2xl font-bold text-red-600">
+                  <div className="text-sm text-red-700 dark:text-red-300 mb-1">Urgent Alerts</div>
+                  <div className="text-2xl font-bold text-red-600 dark:text-red-400">
                     {alerts.filter(a => a.type === 'urgent').length}
                   </div>
                 </div>
-                <AlertCircle className="w-8 h-8 text-red-600" />
+                <AlertCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
               </div>
             </div>
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 transition-colors">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-sm text-yellow-700 mb-1">Warnings</div>
-                  <div className="text-2xl font-bold text-yellow-600">
+                  <div className="text-sm text-yellow-700 dark:text-yellow-300 mb-1">Warnings</div>
+                  <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
                     {alerts.filter(a => a.type === 'warning').length}
                   </div>
                 </div>
-                <Clock className="w-8 h-8 text-yellow-600" />
+                <Clock className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
               </div>
             </div>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 transition-colors">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-sm text-blue-700 mb-1">Info Alerts</div>
-                  <div className="text-2xl font-bold text-blue-600">
+                  <div className="text-sm text-blue-700 dark:text-blue-300 mb-1">Info Alerts</div>
+                  <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                     {alerts.filter(a => a.type === 'info').length}
                   </div>
                 </div>
-                <Activity className="w-8 h-8 text-blue-600" />
+                <Activity className="w-8 h-8 text-blue-600 dark:text-blue-400" />
               </div>
             </div>
           </div>
 
           {/* Alerts List */}
-          <div className="bg-white rounded-lg shadow">
-            <div className="p-4 border-b flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Active Alerts</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow transition-colors">
+            <div className="p-4 border-b dark:border-gray-700 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Active Alerts</h2>
               <div className="flex gap-2">
-                <select className="px-3 py-1 border border-gray-300 rounded-lg text-sm">
+                <select className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                   <option value="all">All Types</option>
                   <option value="urgent">Urgent</option>
                   <option value="warning">Warning</option>
                   <option value="info">Info</option>
                 </select>
-                <button className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm">
+                <button className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm transition-colors">
                   Mark All Read
                 </button>
               </div>
             </div>
-            <div className="divide-y divide-gray-200">
+            <div className="divide-y divide-gray-200 dark:divide-gray-700">
               {alerts.length === 0 ? (
                 <div className="p-12 text-center">
-                  <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
-                  <p className="text-gray-600">No active alerts</p>
-                  <p className="text-sm text-gray-500 mt-2">All systems operating normally</p>
+                  <CheckCircle className="w-12 h-12 text-green-500 dark:text-green-400 mx-auto mb-4" />
+                  <p className="text-gray-600 dark:text-gray-400">No active alerts</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">All systems operating normally</p>
                 </div>
               ) : (
                 alerts.map(alert => (
                   <div
                     key={alert.id}
-                    className={`p-4 border-l-4 ${
+                    className={`p-4 border-l-4 transition-colors ${
                       alert.type === 'urgent'
-                        ? 'bg-red-50 border-red-500'
+                        ? 'bg-red-50 dark:bg-red-900/20 border-red-500 dark:border-red-400'
                         : alert.type === 'warning'
-                        ? 'bg-yellow-50 border-yellow-500'
-                        : 'bg-blue-50 border-blue-500'
+                        ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-500 dark:border-yellow-400'
+                        : 'bg-blue-50 dark:bg-blue-900/20 border-blue-500 dark:border-blue-400'
                     }`}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-3 flex-1">
                         {alert.type === 'urgent' ? (
-                          <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+                          <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
                         ) : alert.type === 'warning' ? (
-                          <Clock className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                          <Clock className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
                         ) : (
-                          <Activity className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                          <Activity className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                         )}
                         <div className="flex-1">
-                          <div className="font-semibold text-gray-900">{alert.title}</div>
-                          <div className="text-sm text-gray-600 mt-1">{alert.message}</div>
-                          <div className="text-xs text-gray-500 mt-2">
+                          <div className="font-semibold text-gray-900 dark:text-gray-100">{alert.title}</div>
+                          <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">{alert.message}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-500 mt-2">
                             {alert.timestamp.toLocaleTimeString()} • {alert.timestamp.toLocaleDateString()}
                           </div>
                         </div>
@@ -885,7 +885,7 @@ export default function AdminOperationsPage() {
                       <div className="flex gap-2 ml-4">
                         <button 
                           onClick={() => alert(`View details for: ${alert.title}`)}
-                          className="px-3 py-1 text-sm bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                          className="px-3 py-1 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                         >
                           View
                         </button>
@@ -894,7 +894,7 @@ export default function AdminOperationsPage() {
                             // TODO: Dismiss alert
                             alert('Alert dismissed');
                           }}
-                          className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                          className="px-3 py-1 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                         >
                           Dismiss
                         </button>
