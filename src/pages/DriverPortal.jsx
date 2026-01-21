@@ -2,7 +2,10 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import api, { setAuthToken } from '../frontend/apiClient';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { MapPin, Navigation, Activity, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { 
+  MapPin, Navigation, Activity, RefreshCw, AlertCircle, CheckCircle2, 
+  MessageSquare, Truck, Bell, Paperclip, Send, Clock, MapPinIcon
+} from 'lucide-react';
 
 // Fix Leaflet default marker icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -31,6 +34,22 @@ export default function DriverPortal() {
   const intervalRef = useRef(null);
   const isTrackingRef = useRef(false);
 
+  // Tab management
+  const [activeTab, setActiveTab] = useState('tracking');
+
+  // Delivery state
+  const [deliveries, setDeliveries] = useState([]);
+  const [loadingDeliveries, setLoadingDeliveries] = useState(false);
+
+  // Messaging state
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+
+  // Notification state
+  const [notifications, setNotifications] = useState(0);
+
   // Keep isTrackingRef in sync with state
   useEffect(() => {
     isTrackingRef.current = isTracking;
@@ -39,9 +58,17 @@ export default function DriverPortal() {
   useEffect(() => {
     ensureAuth();
     loadLatestLocation();
+    loadDeliveries();
+    loadMessages();
+    
+    // Poll for notifications every 10 seconds
+    const notificationInterval = setInterval(() => {
+      loadNotificationCount();
+    }, 10000);
 
     return () => {
       cleanup();
+      clearInterval(notificationInterval);
     };
   }, []);
 
@@ -172,6 +199,73 @@ export default function DriverPortal() {
       setError('Failed to load latest location. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadDeliveries = async () => {
+    setLoadingDeliveries(true);
+    try {
+      // Driver gets their assigned deliveries
+      const response = await api.get('/driver/deliveries');
+      setDeliveries(response.data?.deliveries || []);
+      console.log(`✓ Loaded ${response.data?.deliveries?.length || 0} deliveries`);
+    } catch (error) {
+      console.error('Failed to load deliveries:', error);
+      setDeliveries([]);
+    } finally {
+      setLoadingDeliveries(false);
+    }
+  };
+
+  const loadMessages = async () => {
+    setLoadingMessages(true);
+    try {
+      const response = await api.get('/driver/messages');
+      setMessages(response.data?.messages || []);
+      console.log(`✓ Loaded ${response.data?.messages?.length || 0} messages`);
+    } catch (error) {
+      console.error('Failed to load messages:', error);
+      setMessages([]);
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
+
+  const loadNotificationCount = async () => {
+    try {
+      const response = await api.get('/driver/notifications/count');
+      setNotifications(response.data?.count || 0);
+    } catch (error) {
+      console.error('Failed to load notification count:', error);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim()) return;
+
+    const messageText = newMessage.trim();
+    setSendingMessage(true);
+
+    try {
+      const response = await api.post('/driver/messages/send', {
+        content: messageText
+      });
+
+      if (response.data?.message) {
+        setMessages(prev => [...prev, {
+          ...response.data.message,
+          from: 'driver',
+          text: response.data.message.content
+        }]);
+        console.log('✓ Message sent successfully');
+      }
+
+      setNewMessage('');
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      alert(`Failed to send message: ${error.response?.data?.error || error.message}`);
+    } finally {
+      setSendingMessage(false);
     }
   };
 
@@ -337,22 +431,65 @@ export default function DriverPortal() {
               }`}></div>
               <span className="text-sm font-semibold">{isTracking ? 'Tracking Active' : 'Tracking Off'}</span>
             </div>
+            {notifications > 0 && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-red-50 text-red-700 rounded-lg border border-red-200">
+                <Bell className="w-4 h-4" />
+                <span className="text-sm font-semibold">{notifications}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Error Message */}
-      {error && (
-        <div className="bg-red-50 border-l-4 border-red-400 rounded-lg p-4 shadow-sm">
-          <div className="flex items-start">
-            <AlertCircle className="w-5 h-5 text-red-400 mt-0.5 mr-3 flex-shrink-0" />
-            <div className="flex-1">
-              <div className="text-red-800 font-semibold mb-1">Error</div>
-              <div className="text-red-700 text-sm">{error}</div>
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-200">
+        <nav className="flex space-x-8">
+          {[
+            { id: 'tracking', label: 'Tracking', icon: Navigation },
+            { id: 'deliveries', label: 'Deliveries', icon: Truck },
+            { id: 'messages', label: 'Messages', icon: MessageSquare }
+          ].map(tab => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`
+                  flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm
+                  ${activeTab === tab.id
+                    ? 'border-primary-600 text-primary-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }
+                `}
+              >
+                <Icon className="w-5 h-5" />
+                {tab.label}
+                {tab.id === 'messages' && notifications > 0 && (
+                  <span className="ml-2 bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
+                    {notifications}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Tracking Tab */}
+      {activeTab === 'tracking' && (
+        <div className="space-y-6">
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-50 border-l-4 border-red-400 rounded-lg p-4 shadow-sm">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <div className="text-red-800 font-semibold mb-1">Error</div>
+                  <div className="text-red-700 text-sm">{error}</div>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
 
       {/* Control Panel */}
       <div className="bg-white rounded-lg shadow-sm p-6">
@@ -492,6 +629,183 @@ export default function DriverPortal() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+        </div>
+      )}
+
+      {/* Deliveries Tab */}
+      {activeTab === 'deliveries' && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold text-gray-900">My Deliveries</h2>
+              <button
+                onClick={loadDeliveries}
+                disabled={loadingDeliveries}
+                className="px-3 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 flex items-center gap-2 text-sm"
+              >
+                <RefreshCw className={`w-4 h-4 ${loadingDeliveries ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+            </div>
+
+            {loadingDeliveries ? (
+              <div className="flex justify-center py-8">
+                <div className="text-center">
+                  <RefreshCw className="w-8 h-8 animate-spin text-primary-600 mx-auto mb-2" />
+                  <p className="text-gray-600">Loading deliveries...</p>
+                </div>
+              </div>
+            ) : deliveries.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <Truck className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>No deliveries assigned yet</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Delivery ID</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">PO Number</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Customer</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Address</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Assigned</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {deliveries.map(delivery => (
+                      <tr key={delivery.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {delivery.id?.slice(0, 8)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {delivery.poNumber || '—'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {delivery.customer || 'Unknown'}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
+                          {delivery.address || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            delivery.status === 'delivered' ? 'bg-green-100 text-green-800' :
+                            delivery.status === 'out-for-delivery' || delivery.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {delivery.status || 'pending'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(delivery.assignedAt).toLocaleDateString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Messages Tab */}
+      {activeTab === 'messages' && (
+        <div className="bg-white rounded-lg shadow-sm overflow-hidden flex flex-col h-[calc(100vh-350px)]">
+          <div className="p-4 bg-gray-50 border-b flex justify-between items-center">
+            <h2 className="text-lg font-semibold text-gray-900">Messages from Admin</h2>
+            <button
+              onClick={loadMessages}
+              disabled={loadingMessages}
+              className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm flex items-center gap-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${loadingMessages ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+            {loadingMessages ? (
+              <div className="flex justify-center py-8">
+                <div className="text-center text-gray-500">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto mb-2"></div>
+                  <p>Loading messages...</p>
+                </div>
+              </div>
+            ) : messages.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>No messages yet</p>
+                <p className="text-sm mt-1">Check back for updates from admin</p>
+              </div>
+            ) : (
+              messages.map((msg, idx) => {
+                const isAdmin = msg.adminId && !msg.from;
+                const messageText = msg.text || msg.content || '';
+                const messageTime = msg.timestamp || msg.createdAt;
+                
+                return (
+                  <div
+                    key={idx}
+                    className={`flex ${isAdmin ? 'justify-start' : 'justify-end'}`}
+                  >
+                    <div
+                      className={`max-w-[70%] rounded-lg p-3 ${
+                        isAdmin
+                          ? 'bg-white text-gray-900 border border-gray-200'
+                          : 'bg-primary-600 text-white'
+                      }`}
+                    >
+                      {isAdmin && (
+                        <p className="text-xs font-semibold text-gray-600 mb-1">Admin</p>
+                      )}
+                      <p className="text-sm">{messageText}</p>
+                      <p className={`text-xs mt-1 ${isAdmin ? 'text-gray-500' : 'text-primary-100'}`}>
+                        {new Date(messageTime).toLocaleTimeString()}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          <div className="p-4 bg-white border-t">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && newMessage.trim() && !sendingMessage) {
+                    handleSendMessage();
+                  }
+                }}
+                placeholder="Reply to admin..."
+                disabled={sendingMessage}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50"
+              />
+              <button
+                onClick={handleSendMessage}
+                disabled={!newMessage.trim() || sendingMessage}
+                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {sendingMessage ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    Send
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

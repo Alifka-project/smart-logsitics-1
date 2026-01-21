@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const prisma = require('../db/prisma');
 
 const { authenticate } = require('../auth');
 
@@ -67,6 +68,86 @@ router.get('/:id/live', async (req, res) => {
   } catch (err) {
     console.error('GET /api/driver/:id/live', err);
     res.status(500).json({ error: 'db_error' });
+  }
+});
+
+/**
+ * GET /api/driver/deliveries - Get driver's assigned deliveries
+ */
+router.get('/deliveries', authenticate, async (req, res) => {
+  try {
+    const driverId = req.user?.id;
+    if (!driverId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const deliveries = await prisma.delivery.findMany({
+      where: {
+        assignments: {
+          some: {
+            driverId
+          }
+        }
+      },
+      include: {
+        assignments: {
+          where: { driverId },
+          include: {
+            driver: {
+              select: { id: true, fullName: true, username: true }
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.json({
+      success: true,
+      deliveries: deliveries.map(d => ({
+        id: d.id,
+        customer: d.customer,
+        address: d.address,
+        phone: d.phone,
+        poNumber: d.poNumber,
+        status: d.status,
+        createdAt: d.createdAt,
+        updatedAt: d.updatedAt,
+        assignedAt: d.assignments[0]?.assignedAt,
+        eta: d.assignments[0]?.eta
+      }))
+    });
+  } catch (error) {
+    console.error('Error fetching driver deliveries:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/driver/notifications/count - Get unread notification count for driver
+ */
+router.get('/notifications/count', authenticate, async (req, res) => {
+  try {
+    const driverId = req.user?.id;
+    if (!driverId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Count unread messages
+    const unreadMessages = await prisma.message.count({
+      where: {
+        driverId,
+        isRead: false
+      }
+    });
+
+    res.json({
+      success: true,
+      count: unreadMessages
+    });
+  } catch (error) {
+    console.error('Error fetching notification count:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
