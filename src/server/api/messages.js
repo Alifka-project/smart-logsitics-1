@@ -14,7 +14,7 @@ const prisma = require('../db/prisma');
 router.get('/conversations/:driverId', authenticate, requireRole('admin'), async (req, res) => {
   try {
     const { driverId } = req.params;
-    const adminId = req.user?.id;
+    const adminId = req.user?.sub;
     const limit = Math.min(parseInt(req.query.limit) || 50, 500);
     const offset = parseInt(req.query.offset) || 0;
 
@@ -72,7 +72,7 @@ router.get('/conversations/:driverId', authenticate, requireRole('admin'), async
  */
 router.get('/unread', authenticate, requireRole('admin'), async (req, res) => {
   try {
-    const adminId = req.user?.id;
+    const adminId = req.user?.sub;
 
     if (!adminId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -105,7 +105,7 @@ router.get('/unread', authenticate, requireRole('admin'), async (req, res) => {
 router.post('/send', authenticate, requireRole('admin'), async (req, res) => {
   try {
     const { driverId, content } = req.body;
-    const adminId = req.user?.id;
+    const adminId = req.user?.sub;
 
     if (!adminId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -155,7 +155,7 @@ router.post('/send', authenticate, requireRole('admin'), async (req, res) => {
 router.delete('/conversation/:driverId', authenticate, requireRole('admin'), async (req, res) => {
   try {
     const { driverId } = req.params;
-    const adminId = req.user?.id;
+    const adminId = req.user?.sub;
 
     if (!adminId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -184,7 +184,7 @@ router.delete('/conversation/:driverId', authenticate, requireRole('admin'), asy
 router.post('/driver/send', authenticate, requireRole('driver'), async (req, res) => {
   try {
     const { content } = req.body;
-    const driverId = req.user?.id;
+    const driverId = req.user?.sub;
 
     if (!driverId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -235,7 +235,7 @@ router.post('/driver/send', authenticate, requireRole('driver'), async (req, res
  */
 router.get('/driver', authenticate, requireRole('driver'), async (req, res) => {
   try {
-    const driverId = req.user?.id;
+    const driverId = req.user?.sub;
 
     if (!driverId) {
       return res.status(401).json({ error: 'Unauthorized' });

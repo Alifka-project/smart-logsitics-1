@@ -76,7 +76,7 @@ router.get('/:id/live', async (req, res) => {
  */
 router.get('/deliveries', authenticate, async (req, res) => {
   try {
-    const driverId = req.user?.id;
+    const driverId = req.user?.sub;
     if (!driverId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -128,7 +128,7 @@ router.get('/deliveries', authenticate, async (req, res) => {
  */
 router.get('/notifications/count', authenticate, async (req, res) => {
   try {
-    const driverId = req.user?.id;
+    const driverId = req.user?.sub;
     if (!driverId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
