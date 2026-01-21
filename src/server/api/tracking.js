@@ -42,12 +42,14 @@ router.get('/deliveries', authenticate, requireRole('admin'), async (req, res) =
       status: d.status,
       items: d.items,
       metadata: d.metadata,
+      poNumber: d.poNumber,
       created_at: d.createdAt,
       createdAt: d.createdAt,
       created: d.createdAt,
-      assignedDriverId: d.assignments?.[0]?.driverId || null,
-      driverName: d.assignments?.[0]?.driver?.fullName || null,
-      assignmentStatus: d.assignments?.[0]?.status || 'unassigned'
+      // Get driver info from assignments (ordered by most recent)
+      assignedDriverId: d.assignments && d.assignments.length > 0 ? d.assignments[0].driverId : null,
+      driverName: d.assignments && d.assignments.length > 0 ? d.assignments[0].driver?.fullName : null,
+      assignmentStatus: d.assignments && d.assignments.length > 0 ? d.assignments[0].status : 'unassigned'
     }));
 
     // Try to fetch from SAP as well (fallback/additional data)
@@ -98,16 +100,28 @@ router.get('/deliveries', authenticate, requireRole('admin'), async (req, res) =
 
     // Enrich deliveries with tracking info
     const trackedDeliveries = deliveries.map(delivery => {
-      const assignment = assignments.find(a => a.delivery_id === delivery.id || a.delivery_id === delivery.ID);
-      const location = assignment ? locations.find(l => l.driver_id === assignment.driver_id) : null;
+      // Use already-extracted assignedDriverId from the formatted delivery
+      // Fallback to looking up in assignments if needed
+      let driverId = delivery.assignedDriverId;
+      let status = delivery.assignmentStatus;
+      let assignedAt = null;
+      
+      if (!driverId) {
+        const assignment = assignments.find(a => a.delivery_id === delivery.id || a.delivery_id === delivery.ID);
+        driverId = assignment?.driver_id || null;
+        status = assignment?.status || 'unassigned';
+        assignedAt = assignment?.assigned_at || null;
+      }
+      
+      const location = driverId ? locations.find(l => l.driver_id === driverId) : null;
 
       return {
         ...delivery,
         tracking: {
-          assigned: !!assignment,
-          driverId: assignment?.driver_id || null,
-          status: assignment?.status || 'unassigned',
-          assignedAt: assignment?.assigned_at || null,
+          assigned: !!driverId,
+          driverId: driverId,
+          status: status,
+          assignedAt: assignedAt,
           lastLocation: location ? {
             lat: location.latitude,
             lng: location.longitude,
