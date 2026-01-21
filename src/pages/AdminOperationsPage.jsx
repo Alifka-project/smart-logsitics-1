@@ -373,165 +373,134 @@ export default function AdminOperationsPage() {
 
       {activeTab === 'control' && (
         <div className="space-y-6">
-          {/* Quick Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 transition-colors">
-              <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Unassigned Deliveries</div>
-              <div className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-                {deliveries.filter(d => !d.tracking?.assigned).length}
-              </div>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 transition-colors">
-              <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Available Drivers</div>
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                {onlineDrivers.filter(d => d.tracking?.status === 'available').length}
-              </div>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 transition-colors">
-              <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Pending Actions</div>
-              <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-                {alerts.filter(a => a.type === 'warning').length}
-              </div>
-            </div>
-          </div>
-
-          {/* Control Actions */}
+          {/* Control Header */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
-            <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Control Actions</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Route Management */}
-              <div>
-                <h3 className="font-medium mb-3 text-gray-700 dark:text-gray-300">Route Management</h3>
-                <div className="space-y-2">
-                  <button 
-                    onClick={() => alert('Route optimization feature - Coming soon')}
-                    className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-left flex items-center justify-between"
-                  >
-                    <span>Optimize Routes</span>
-                    <NavigationIcon className="w-4 h-4" />
-                  </button>
-                  <button 
-                    onClick={() => alert('Reassign delivery feature - Coming soon')}
-                    className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-left"
-                  >
-                    Reassign Delivery
-                  </button>
-                  <button 
-                    onClick={() => alert('Update status feature - Coming soon')}
-                    className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-left"
-                  >
-                    Update Status
-                  </button>
-                  <button 
-                    onClick={() => alert('Create route template feature - Coming soon')}
-                    className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-left"
-                  >
-                    Save Route Template
-                  </button>
+            <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100">
+              Delivery Assignment Control
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              Assign and reassign deliveries to drivers. Click on a driver cell to change the assignment.
+            </p>
+
+            {/* Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="bg-primary-50 dark:bg-primary-900/20 rounded p-4">
+                <div className="text-sm text-gray-600 dark:text-gray-400">Total Deliveries</div>
+                <div className="text-2xl font-bold text-primary-600 dark:text-primary-400">{deliveries.length}</div>
+              </div>
+              <div className="bg-green-50 dark:bg-green-900/20 rounded p-4">
+                <div className="text-sm text-gray-600 dark:text-gray-400">Assigned</div>
+                <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                  {deliveries.filter(d => d.tracking?.driverId).length}
                 </div>
               </div>
-
-              {/* Driver Assignment */}
-              <div>
-                <h3 className="font-medium mb-3 text-gray-700 dark:text-gray-300">Driver Assignment</h3>
-                <div className="space-y-2">
-                  <button 
-                    onClick={() => alert('Assign driver feature - Coming soon')}
-                    className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-left flex items-center justify-between"
-                  >
-                    <span>Assign Driver</span>
-                    <Users className="w-4 h-4" />
-                  </button>
-                  <button 
-                    onClick={() => alert('Bulk assign feature - Coming soon')}
-                    className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-left"
-                  >
-                    Bulk Assign
-                  </button>
-                  <button 
-                    onClick={() => alert('Reassign delivery feature - Coming soon')}
-                    className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-left"
-                  >
-                    Reassign Delivery
-                  </button>
-                  <button 
-                    onClick={() => alert('Auto-assign feature - Coming soon')}
-                    className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-left"
-                  >
-                    Auto-Assign (AI)
-                  </button>
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded p-4">
+                <div className="text-sm text-gray-600 dark:text-gray-400">Unassigned</div>
+                <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+                  {deliveries.filter(d => !d.tracking?.driverId).length}
                 </div>
               </div>
-
-              {/* Delivery Actions */}
-              <div>
-                <h3 className="font-medium mb-3 text-gray-700 dark:text-gray-300">Delivery Actions</h3>
-                <div className="space-y-2">
-                  <button 
-                    onClick={() => alert('Change priority feature - Coming soon')}
-                    className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-left flex items-center justify-between"
-                  >
-                    <span>Change Priority</span>
-                    <AlertCircle className="w-4 h-4" />
-                  </button>
-                  <button 
-                    onClick={() => alert('Reschedule delivery feature - Coming soon')}
-                    className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-left"
-                  >
-                    Reschedule Delivery
-                  </button>
-                  <button 
-                    onClick={() => alert('Cancel delivery feature - Coming soon')}
-                    className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-left"
-                  >
-                    Cancel Delivery
-                  </button>
-                  <button 
-                    onClick={() => alert('Add delivery notes feature - Coming soon')}
-                    className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-left"
-                  >
-                    Add Notes
-                  </button>
+              <div className="bg-blue-50 dark:bg-blue-900/20 rounded p-4">
+                <div className="text-sm text-gray-600 dark:text-gray-400">Available Drivers</div>
+                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                  {drivers.length}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Active Deliveries for Quick Actions */}
-          {activeDeliveries.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
-              <h3 className="font-semibold mb-4 text-gray-900 dark:text-gray-100">Active Deliveries - Quick Actions</h3>
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {activeDeliveries.slice(0, 10).map(delivery => (
-                  <div key={delivery.id} className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                    <div className="flex-1">
-                      <div className="font-medium text-sm text-gray-900 dark:text-gray-100">
-                        #{delivery.id?.slice(0, 8) || 'N/A'} - {delivery.customer || delivery.Customer || 'Unknown'}
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        Driver: {delivery.tracking?.driverId || 'Unassigned'} • 
-                        Status: {delivery.status || delivery.tracking?.status || 'Pending'}
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button 
-                        onClick={() => alert(`View details for delivery ${delivery.id}`)}
-                        className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
-                      >
-                        View
-                      </button>
-                      <button 
-                        onClick={() => alert(`Reassign delivery ${delivery.id}`)}
-                        className="px-3 py-1 text-xs bg-primary-100 text-primary-700 rounded hover:bg-primary-200"
-                      >
-                        Reassign
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+          {/* Deliveries Assignment Table */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden transition-colors">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Delivery ID</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">PO Number</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Customer</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Address</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Assigned Driver</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {deliveries && deliveries.length > 0 ? (
+                    deliveries.map(delivery => (
+                      <tr key={delivery.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
+                          {delivery.id?.slice(0, 8) || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {delivery.poNumber || delivery.metadata?.originalPONumber || '—'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                          {delivery.customer || delivery.Customer || 'Unknown'}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate">
+                          {delivery.address || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            delivery.status === 'delivered' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' :
+                            delivery.status === 'pending' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300' :
+                            'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
+                          }`}>
+                            {delivery.status || 'pending'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          {delivery.tracking?.driverId && drivers.find(d => d.id === delivery.tracking.driverId) ? (
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                              <span className="text-gray-900 dark:text-gray-100">
+                                {drivers.find(d => d.id === delivery.tracking.driverId)?.fullName || 
+                                 drivers.find(d => d.id === delivery.tracking.driverId)?.full_name || 
+                                 delivery.tracking.driverId.slice(0, 8)}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">Unassigned</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                          <select
+                            defaultValue={delivery.tracking?.driverId || ''}
+                            onChange={async (e) => {
+                              const driverId = e.target.value;
+                              if (!driverId) return;
+                              try {
+                                await api.put(`/admin/deliveries/${delivery.id}/assign`, { driverId });
+                                console.log(`Reassigned delivery ${delivery.id} to driver ${driverId}`);
+                                loadData();
+                              } catch (err) {
+                                console.error('Failed to reassign delivery:', err);
+                                alert('Failed to reassign delivery');
+                              }
+                            }}
+                            className="px-3 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600"
+                          >
+                            <option value="">Select Driver...</option>
+                            {drivers.map(driver => (
+                              <option key={driver.id} value={driver.id}>
+                                {driver.fullName || driver.full_name || driver.username}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={7} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                        No deliveries found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
-          )}
+          </div>
         </div>
       )}
 

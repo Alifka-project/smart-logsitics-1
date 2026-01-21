@@ -432,4 +432,72 @@ router.get('/', authenticate, async (req, res) => {
   }
 });
 
+// PUT /api/admin/deliveries/:id/assign - Assign delivery to driver
+router.put('/admin/:id/assign', authenticate, requireRole('admin'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { driverId } = req.body;
+
+    if (!driverId) {
+      return res.status(400).json({ error: 'driverId_required' });
+    }
+
+    console.log(`[Deliveries] Assigning delivery ${id} to driver ${driverId}`);
+
+    // Verify delivery exists
+    const delivery = await prisma.delivery.findUnique({
+      where: { id },
+      include: { assignments: true }
+    });
+
+    if (!delivery) {
+      return res.status(404).json({ error: 'delivery_not_found' });
+    }
+
+    // Remove old assignments for this delivery
+    if (delivery.assignments && delivery.assignments.length > 0) {
+      await prisma.deliveryAssignment.deleteMany({
+        where: { deliveryId: id }
+      });
+      console.log(`[Deliveries] Removed old assignments for delivery ${id}`);
+    }
+
+    // Create new assignment
+    const assignment = await prisma.deliveryAssignment.create({
+      data: {
+        deliveryId: id,
+        driverId: driverId,
+        assignedAt: new Date(),
+        status: 'assigned'
+      },
+      include: {
+        driver: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            phone: true
+          }
+        }
+      }
+    });
+
+    console.log(`[Deliveries] ✓ Successfully assigned delivery ${id} to driver ${driverId}`);
+
+    res.json({
+      ok: true,
+      assignment: {
+        deliveryId: assignment.deliveryId,
+        driverId: assignment.driverId,
+        driverName: assignment.driver.fullName,
+        status: assignment.status,
+        assignedAt: assignment.assignedAt
+      }
+    });
+  } catch (err) {
+    console.error('PUT /api/admin/deliveries/:id/assign error:', err);
+    res.status(500).json({ error: 'assignment_failed', detail: err.message });
+  }
+});
+
 module.exports = router;
