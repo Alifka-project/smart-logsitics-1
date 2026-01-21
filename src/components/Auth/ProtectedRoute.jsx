@@ -11,20 +11,36 @@ export default function ProtectedRoute({ children }) {
   const [isValid, setIsValid] = React.useState(false);
 
   useEffect(() => {
-    // Validate session - check local storage only (don't call /api/auth/me)
+    // Validate session with server to ensure tokens are valid and not expired
     async function validateSession() {
-      // Check if we have authentication tokens at all
+      // First check if we have authentication tokens at all
       const token = localStorage.getItem('auth_token');
       const user = localStorage.getItem('client_user');
       const clientKey = localStorage.getItem('client_key');
       
-      // If we have all required tokens, we're good
-      if (token && user && clientKey) {
-        console.log('[ProtectedRoute] ✓ User authenticated with valid tokens');
-        setIsValid(true);
-      } else {
-        // Missing tokens - not authenticated
+      // If we don't have all required tokens, redirect to login
+      if (!token || !user || !clientKey) {
         console.log('[ProtectedRoute] No valid tokens found, redirecting to login');
+        clearAuth();
+        setIsValid(false);
+        setIsValidating(false);
+        return;
+      }
+
+      // Validate tokens with server to ensure they're still valid
+      try {
+        const response = await api.get('/auth/me');
+        if (response.data && response.data.user) {
+          console.log('[ProtectedRoute] ✓ User authenticated with valid session');
+          setIsValid(true);
+        } else {
+          console.log('[ProtectedRoute] Invalid session response, redirecting to login');
+          clearAuth();
+          setIsValid(false);
+        }
+      } catch (error) {
+        // Server rejected the authentication (401, 403, etc.)
+        console.log('[ProtectedRoute] Session validation failed:', error.response?.status || error.message);
         clearAuth();
         setIsValid(false);
       }
