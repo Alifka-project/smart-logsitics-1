@@ -36,6 +36,8 @@ export default function AdminOperationsPage() {
   const [selectedDriver, setSelectedDriver] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [sendingMessage, setSendingMessage] = useState(false);
   const [messageTemplates] = useState([
     'Please update delivery status',
     'New delivery assigned',
@@ -58,6 +60,29 @@ export default function AdminOperationsPage() {
       if (interval) clearInterval(interval);
     };
   }, [autoRefresh]);
+
+  // Load messages when driver is selected
+  useEffect(() => {
+    if (selectedDriver?.id) {
+      loadMessages(selectedDriver.id);
+    }
+  }, [selectedDriver]);
+
+  const loadMessages = async (driverId) => {
+    if (!driverId) return;
+    
+    setLoadingMessages(true);
+    try {
+      const response = await api.get(`/admin/messages/conversations/${driverId}`);
+      setMessages(response.data?.messages || []);
+      console.log(`✓ Loaded ${response.data?.messages?.length || 0} messages with driver`);
+    } catch (error) {
+      console.error('Failed to load messages:', error);
+      setMessages([]);
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -90,30 +115,31 @@ export default function AdminOperationsPage() {
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedDriver) return;
 
-    const message = {
-      id: Date.now(),
-      from: 'admin',
-      to: selectedDriver.id,
-      text: newMessage,
-      timestamp: new Date().toISOString(),
-      read: false
-    };
+    const messageText = newMessage.trim();
+    setSendingMessage(true);
 
-    // Add to local state immediately for instant feedback
-    setMessages(prev => [...prev, message]);
-    setNewMessage('');
-
-    // TODO: Send to backend API
     try {
-      // await api.post('/admin/messages/send', {
-      //   driverId: selectedDriver.id,
-      //   message: newMessage
-      // });
-      console.log('Message sent:', message);
+      const response = await api.post('/admin/messages/send', {
+        driverId: selectedDriver.id,
+        content: messageText
+      });
+
+      // Add message to state
+      if (response.data?.message) {
+        setMessages(prev => [...prev, {
+          ...response.data.message,
+          from: 'admin',
+          text: response.data.message.content
+        }]);
+        console.log('✓ Message sent successfully');
+      }
+      
+      setNewMessage('');
     } catch (error) {
       console.error('Failed to send message:', error);
-      // Remove from local state if failed
-      setMessages(prev => prev.filter(m => m.id !== message.id));
+      alert(`Failed to send message: ${error.response?.data?.error || error.message}`);
+    } finally {
+      setSendingMessage(false);
     }
   };
 
@@ -653,32 +679,46 @@ export default function AdminOperationsPage() {
 
                 {/* Messages Area */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
-                  {messages.length === 0 ? (
+                  {loadingMessages ? (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-center text-gray-500">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto mb-2"></div>
+                        <p>Loading messages...</p>
+                      </div>
+                    </div>
+                  ) : messages.length === 0 ? (
                     <div className="text-center py-12 text-gray-500">
                       <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
                       <p>No messages yet</p>
                       <p className="text-sm mt-1">Start a conversation with {selectedDriver.full_name || selectedDriver.username}</p>
                     </div>
                   ) : (
-                    messages.map((msg, idx) => (
-                      <div
-                        key={idx}
-                        className={`flex ${msg.from === 'admin' ? 'justify-end' : 'justify-start'}`}
-                      >
+                    messages.map((msg, idx) => {
+                      // Handle both API message format and local message format
+                      const isAdminMessage = msg.from === 'admin' || (msg.adminId === msg.adminId && msg.adminId);
+                      const messageText = msg.text || msg.content || '';
+                      const messageTime = msg.timestamp || msg.createdAt;
+                      
+                      return (
                         <div
-                          className={`max-w-[70%] rounded-lg p-3 ${
-                            msg.from === 'admin'
-                              ? 'bg-primary-600 text-white'
-                              : 'bg-white text-gray-900 border border-gray-200'
-                          }`}
+                          key={idx}
+                          className={`flex ${isAdminMessage ? 'justify-end' : 'justify-start'}`}
                         >
-                          <p className="text-sm">{msg.text}</p>
-                          <p className={`text-xs mt-1 ${msg.from === 'admin' ? 'text-primary-100' : 'text-gray-500'}`}>
-                            {new Date(msg.timestamp).toLocaleTimeString()}
-                          </p>
+                          <div
+                            className={`max-w-[70%] rounded-lg p-3 ${
+                              isAdminMessage
+                                ? 'bg-primary-600 text-white'
+                                : 'bg-white text-gray-900 border border-gray-200'
+                            }`}
+                          >
+                            <p className="text-sm">{messageText}</p>
+                            <p className={`text-xs mt-1 ${isAdminMessage ? 'text-primary-100' : 'text-gray-500'}`}>
+                              {new Date(messageTime).toLocaleTimeString()}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
 
@@ -711,20 +751,30 @@ export default function AdminOperationsPage() {
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
                       onKeyPress={(e) => {
-                        if (e.key === 'Enter' && newMessage.trim()) {
+                        if (e.key === 'Enter' && newMessage.trim() && !sendingMessage) {
                           handleSendMessage();
                         }
                       }}
                       placeholder="Type a message..."
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      disabled={sendingMessage}
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50"
                     />
                     <button
                       onClick={handleSendMessage}
-                      disabled={!newMessage.trim()}
+                      disabled={!newMessage.trim() || sendingMessage}
                       className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
-                      <Send className="w-4 h-4" />
-                      Send
+                      {sendingMessage ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4" />
+                          Send
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>

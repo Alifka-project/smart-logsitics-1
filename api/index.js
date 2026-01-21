@@ -148,6 +148,8 @@ app.use('/api/driver', require('../src/server/api/locations'));
 app.use('/api/admin/dashboard', require('../src/server/api/adminDashboard'));
 app.use('/api/admin/reports', require('../src/server/api/reports'));
 app.use('/api/admin/tracking', require('../src/server/api/tracking'));
+app.use('/api/admin/messages', require('../src/server/api/messages'));
+app.use('/api/driver/messages', require('../src/server/api/messages'));
 app.use('/api/ai', require('../src/server/api/ai'));
 app.use('/api/deliveries', require('../src/server/api/deliveries'));
 app.use('/api/sms', require('../src/server/api/sms'));
