@@ -73,7 +73,7 @@ export default function AdminOperationsPage() {
     
     setLoadingMessages(true);
     try {
-      const response = await api.get(`/admin/messages/conversations/${driverId}`);
+      const response = await api.get(`/messages/conversations/${driverId}`);
       setMessages(response.data?.messages || []);
       console.log(`✓ Loaded ${response.data?.messages?.length || 0} messages with driver`);
     } catch (error) {
@@ -119,7 +119,7 @@ export default function AdminOperationsPage() {
     setSendingMessage(true);
 
     try {
-      const response = await api.post('/admin/messages/send', {
+      const response = await api.post('/messages/send', {
         driverId: selectedDriver.id,
         content: messageText
       });

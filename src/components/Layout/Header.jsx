@@ -113,7 +113,7 @@ export default function Header() {
       if (userRole === 'admin') {
         // Admin: get unread messages count
         try {
-          const response = await api.get('/admin/messages/unread');
+          const response = await api.get('/messages/unread');
           // Count total unread messages across all drivers
           const counts = Object.values(response.data || {});
           unreadCount = counts.reduce((sum, count) => sum + count, 0);

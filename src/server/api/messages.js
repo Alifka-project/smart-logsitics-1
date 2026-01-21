@@ -195,23 +195,25 @@ router.post('/driver/send', authenticate, requireRole('driver'), async (req, res
     }
 
     // Get the admin user (first admin account)
-    const adminDriver = await prisma.driver.findFirst({
+    const adminAccount = await prisma.account.findFirst({
       where: {
-        account: {
-          role: 'admin'
-        }
+        role: 'admin'
       },
-      include: { account: true }
+      include: {
+        driver: true
+      }
     });
 
-    if (!adminDriver) {
+    if (!adminAccount || !adminAccount.driver) {
       return res.status(404).json({ error: 'No admin found' });
     }
+
+    const adminId = adminAccount.driver.id;
 
     // Create message from driver to admin
     const message = await prisma.message.create({
       data: {
-        adminId: adminDriver.id,
+        adminId: adminId,
         driverId,
         content: content.trim(),
         isRead: false
