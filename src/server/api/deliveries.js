@@ -178,7 +178,17 @@ router.post('/upload', authenticate, async (req, res) => {
   try {
     const { deliveries } = req.body;
 
+    console.log(`[Deliveries/Upload] *** UPLOAD ENDPOINT RECEIVED ***`);
     console.log(`[Deliveries/Upload] Received ${deliveries?.length || 0} deliveries to save`);
+    
+    // Log the FIRST delivery in full detail
+    if (deliveries && deliveries.length > 0) {
+      console.log(`[Deliveries/Upload] *** FIRST DELIVERY IN REQUEST ***`);
+      console.log(`[Deliveries/Upload] First delivery keys:`, Object.keys(deliveries[0]));
+      console.log(`[Deliveries/Upload] First delivery._originalPONumber:`, deliveries[0]._originalPONumber);
+      console.log(`[Deliveries/Upload] First delivery:`, JSON.stringify(deliveries[0], null, 2).substring(0, 500));
+      console.log(`[Deliveries/Upload] *** END FIRST DELIVERY ***`);
+    }
 
     if (!deliveries || !Array.isArray(deliveries)) {
       return res.status(400).json({ error: 'deliveries_array_required' });
@@ -203,13 +213,19 @@ router.post('/upload', authenticate, async (req, res) => {
       
       console.log(`[Deliveries/Upload] Saving delivery ${i + 1}/${deliveries.length}: ${deliveryId}`);
       console.log(`[Deliveries/Upload] Data: customer="${delivery.customer}", address="${delivery.address?.substring(0, 50)}", phone="${delivery.phone}", status="${delivery.status}"`);
-      console.log(`[Deliveries/Upload] DEBUG: delivery._originalPONumber = "${delivery._originalPONumber}"`);
-      console.log(`[Deliveries/Upload] DEBUG: delivery object keys = ${Object.keys(delivery).join(', ')}`);
+      console.log(`[Deliveries/Upload] *** CRITICAL DEBUG ***`);
+      console.log(`[Deliveries/Upload] delivery object type:`, typeof delivery);
+      console.log(`[Deliveries/Upload] delivery object keys:`, Object.keys(delivery));
+      console.log(`[Deliveries/Upload] delivery._originalPONumber:`, delivery._originalPONumber);
+      console.log(`[Deliveries/Upload] delivery._originalDeliveryNumber:`, delivery._originalDeliveryNumber);
+      console.log(`[Deliveries/Upload] *** END CRITICAL DEBUG ***`);
       
       try {
         // Save full delivery data to database
         const poNumberToSave = delivery._originalPONumber || null;
-        console.log(`[Deliveries/Upload] DEBUG: About to save poNumber = "${poNumberToSave}"`);
+        console.log(`[Deliveries/Upload] *** ABOUT TO UPSERT ***`);
+        console.log(`[Deliveries/Upload] poNumberToSave = "${poNumberToSave}"`);
+        console.log(`[Deliveries/Upload] typeof poNumberToSave = ${typeof poNumberToSave}`);
         
         const savedDelivery = await prisma.delivery.upsert({
           where: { id: deliveryId },
@@ -252,6 +268,12 @@ router.post('/upload', authenticate, async (req, res) => {
         });
 
         console.log(`[Deliveries/Upload] ✓ Successfully saved delivery ${deliveryId} to database`);
+        console.log(`[Deliveries/Upload] *** AFTER SAVE - WHAT WAS SAVED ***`);
+        console.log(`[Deliveries/Upload] savedDelivery.poNumber = "${savedDelivery.poNumber}"`);
+        console.log(`[Deliveries/Upload] savedDelivery.customer = "${savedDelivery.customer}"`);
+        console.log(`[Deliveries/Upload] typeof savedDelivery.poNumber = ${typeof savedDelivery.poNumber}`);
+        console.log(`[Deliveries/Upload] savedDelivery.poNumber === null:`, savedDelivery.poNumber === null);
+        console.log(`[Deliveries/Upload] *** END AFTER SAVE ***`);
         console.log(`[Deliveries/Upload] Saved delivery: customer="${savedDelivery.customer}", address="${savedDelivery.address?.substring(0, 50)}"`);
         if (savedDelivery.poNumber) {
           console.log(`[Deliveries/Upload] ✓ PO Number saved: "${savedDelivery.poNumber}"`);
