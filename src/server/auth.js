@@ -135,13 +135,20 @@ function authenticate(req, res, next) {
   // First try Authorization header (JWT access token)
   const authHeader = req.headers.authorization || '';
   const parts = authHeader.split(' ');
+  
+  console.log(`[Auth] authenticate() called for ${req.method} ${req.path}`);
+  console.log(`[Auth] Authorization header: ${authHeader ? authHeader.substring(0, 30) + '...' : 'NOT PROVIDED'}`);
+  
   if (parts.length === 2 && parts[0] === 'Bearer') {
     const token = parts[1];
     const decoded = verifyAccessToken(token);
     if (decoded) {
+      console.log(`[Auth] ✓ Valid JWT token for user: ${decoded.sub}`);
       req.user = decoded;
       req.authMethod = 'jwt';
       return next();
+    } else {
+      console.log(`[Auth] ✗ Invalid/expired JWT token`);
     }
   }
 
@@ -150,14 +157,18 @@ function authenticate(req, res, next) {
   const sid = cookies[SESSION_COOKIE];
   
   if (!sid) {
+    console.log(`[Auth] ✗ No session cookie found`);
     return res.status(401).json({ error: 'unauthorized', code: 'NO_SESSION' });
   }
   
+  console.log(`[Auth] Checking session: ${sid.substring(0, 20)}...`);
   const sessionData = getSession(req, sid);
   if (!sessionData) {
+    console.log(`[Auth] ✗ Session not found or expired`);
     return res.status(401).json({ error: 'invalid_session', code: 'SESSION_EXPIRED' });
   }
   
+  console.log(`[Auth] ✓ Valid session for user: ${sessionData.payload.sub}`);
   req.user = sessionData.payload;
   req.sessionId = sid;
   req.csrfToken = sessionData.csrfToken;
