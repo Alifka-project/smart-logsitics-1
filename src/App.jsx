@@ -90,8 +90,10 @@ function ProtectedLayout() {
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
-        <Header />
-        {showNavigation && <Navigation />}
+        <div className="sticky top-0 z-50">
+          <Header />
+          {showNavigation && <Navigation />}
+        </div>
         <main className="container mx-auto px-4 py-6">
           <Routes>
             {/* Unified Delivery Management - replaces Home, Deliveries, and Map */}

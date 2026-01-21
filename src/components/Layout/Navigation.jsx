@@ -31,9 +31,9 @@ export default function Navigation() {
   ];
 
   return (
-    <nav className="fixed top-14 left-0 right-0 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 transition-colors z-40">
-      <div className="h-full flex">
-        <div className="mx-auto w-full px-4 sm:px-6 flex gap-1.5 overflow-x-auto py-1.5">
+    <nav className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 transition-colors">
+      <div className="container mx-auto px-4 sm:px-6">
+        <div className="flex gap-1.5 overflow-x-auto py-1.5">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = item.exact 
