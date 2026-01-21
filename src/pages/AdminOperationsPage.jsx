@@ -28,6 +28,10 @@ export default function AdminOperationsPage() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdate, setLastUpdate] = useState(new Date());
   
+  // Control tab state
+  const [assigningDelivery, setAssigningDelivery] = useState(null);
+  const [assignmentMessage, setAssignmentMessage] = useState(null);
+  
   // Communication tab state
   const [selectedDriver, setSelectedDriver] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -379,8 +383,19 @@ export default function AdminOperationsPage() {
               Delivery Assignment Control
             </h2>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
-              Assign and reassign deliveries to drivers. Click on a driver cell to change the assignment.
+              Assign and reassign deliveries to drivers. Select a driver from the dropdown to assign.
             </p>
+
+            {/* Assignment Message */}
+            {assignmentMessage && (
+              <div className={`mb-4 p-4 rounded-lg ${
+                assignmentMessage.type === 'success' 
+                  ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                  : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
+              }`}>
+                {assignmentMessage.text}
+              </div>
+            )}
 
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -391,13 +406,13 @@ export default function AdminOperationsPage() {
               <div className="bg-green-50 dark:bg-green-900/20 rounded p-4">
                 <div className="text-sm text-gray-600 dark:text-gray-400">Assigned</div>
                 <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                  {deliveries.filter(d => d.tracking?.driverId).length}
+                  {deliveries.filter(d => d.tracking?.driverId || d.assignedDriverId).length}
                 </div>
               </div>
               <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded p-4">
                 <div className="text-sm text-gray-600 dark:text-gray-400">Unassigned</div>
                 <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-                  {deliveries.filter(d => !d.tracking?.driverId).length}
+                  {deliveries.filter(d => !d.tracking?.driverId && !d.assignedDriverId).length}
                 </div>
               </div>
               <div className="bg-blue-50 dark:bg-blue-900/20 rounded p-4">
@@ -421,75 +436,101 @@ export default function AdminOperationsPage() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Address</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Assigned Driver</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Change Assignment</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {deliveries && deliveries.length > 0 ? (
-                    deliveries.map(delivery => (
-                      <tr key={delivery.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
-                          {delivery.id?.slice(0, 8) || 'N/A'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                          {delivery.poNumber || delivery.metadata?.originalPONumber || '—'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                          {delivery.customer || delivery.Customer || 'Unknown'}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate">
-                          {delivery.address || 'N/A'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                            delivery.status === 'delivered' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' :
-                            delivery.status === 'pending' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300' :
-                            'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
-                          }`}>
-                            {delivery.status || 'pending'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          {delivery.tracking?.driverId && drivers.find(d => d.id === delivery.tracking.driverId) ? (
-                            <div className="flex items-center gap-2">
-                              <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                              <span className="text-gray-900 dark:text-gray-100">
-                                {drivers.find(d => d.id === delivery.tracking.driverId)?.fullName || 
-                                 drivers.find(d => d.id === delivery.tracking.driverId)?.full_name || 
-                                 delivery.tracking.driverId.slice(0, 8)}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-gray-400">Unassigned</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
-                          <select
-                            defaultValue={delivery.tracking?.driverId || ''}
-                            onChange={async (e) => {
-                              const driverId = e.target.value;
-                              if (!driverId) return;
-                              try {
-                                await api.put(`/admin/deliveries/${delivery.id}/assign`, { driverId });
-                                console.log(`Reassigned delivery ${delivery.id} to driver ${driverId}`);
-                                loadData();
-                              } catch (err) {
-                                console.error('Failed to reassign delivery:', err);
-                                alert('Failed to reassign delivery');
-                              }
-                            }}
-                            className="px-3 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600"
-                          >
-                            <option value="">Select Driver...</option>
-                            {drivers.map(driver => (
-                              <option key={driver.id} value={driver.id}>
-                                {driver.fullName || driver.full_name || driver.username}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                      </tr>
-                    ))
+                    deliveries.map(delivery => {
+                      const currentDriverId = delivery.tracking?.driverId || delivery.assignedDriverId;
+                      const currentDriver = drivers.find(d => d.id === currentDriverId);
+                      
+                      return (
+                        <tr key={delivery.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
+                            {delivery.id?.slice(0, 8) || 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                            {delivery.poNumber || delivery.metadata?.originalPONumber || '—'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                            {delivery.customer || delivery.Customer || 'Unknown'}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate">
+                            {delivery.address || 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                              delivery.status === 'delivered' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' :
+                              delivery.status === 'pending' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300' :
+                              'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
+                            }`}>
+                              {delivery.status || 'pending'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            {currentDriver ? (
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                <span className="text-gray-900 dark:text-gray-100 font-medium">
+                                  {currentDriver.fullName || currentDriver.full_name || currentDriver.username}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-gray-400 italic">Not assigned</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <select
+                              value={currentDriverId || ''}
+                              onChange={async (e) => {
+                                const newDriverId = e.target.value;
+                                if (!newDriverId) return;
+                                
+                                setAssigningDelivery(delivery.id);
+                                setAssignmentMessage(null);
+                                
+                                try {
+                                  const response = await api.put(`/deliveries/admin/${delivery.id}/assign`, { driverId: newDriverId });
+                                  console.log(`✓ Assigned delivery ${delivery.id} to driver ${newDriverId}`);
+                                  
+                                  setAssignmentMessage({
+                                    type: 'success',
+                                    text: `✓ Delivery assigned to ${drivers.find(d => d.id === newDriverId)?.fullName || 'driver'}`
+                                  });
+                                  
+                                  // Reload data after short delay
+                                  setTimeout(() => {
+                                    loadData();
+                                  }, 500);
+                                } catch (err) {
+                                  console.error('Failed to assign delivery:', err);
+                                  setAssignmentMessage({
+                                    type: 'error',
+                                    text: `✗ Failed to assign delivery: ${err.response?.data?.error || err.message}`
+                                  });
+                                } finally {
+                                  setAssigningDelivery(null);
+                                  // Clear message after 3 seconds
+                                  setTimeout(() => setAssignmentMessage(null), 3000);
+                                }
+                              }}
+                              disabled={assigningDelivery === delivery.id}
+                              className={`px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600 transition ${
+                                assigningDelivery === delivery.id ? 'opacity-50 cursor-not-allowed' : ''
+                              }`}
+                            >
+                              <option value="">Select driver...</option>
+                              {drivers.map(driver => (
+                                <option key={driver.id} value={driver.id}>
+                                  {driver.fullName || driver.full_name || driver.username}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                        </tr>
+                      );
+                    })
                   ) : (
                     <tr>
                       <td colSpan={7} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
