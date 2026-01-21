@@ -47,7 +47,13 @@ export default function AdminDashboardPage() {
       }
 
       if (driversResp.status === 'fulfilled') {
-        setDrivers(driversResp.value.data?.data || []);
+        // Filter to only show drivers (not admin accounts)
+        const allUsers = driversResp.value.data?.data || [];
+        const driversOnly = allUsers.filter(u => {
+          const role = u.account?.role || 'driver';
+          return role === 'driver'; // Only show driver role accounts
+        });
+        setDrivers(driversOnly);
       }
 
       if (deliveriesResp.status === 'fulfilled') {

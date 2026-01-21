@@ -144,16 +144,48 @@ router.get('/deliveries', authenticate, requireRole('admin'), async (req, res) =
 });
 
 // GET /api/admin/tracking/drivers - real-time driver tracking
+// Returns drivers with "driver" role only (excludes admins)
 router.get('/drivers', authenticate, requireRole('admin'), async (req, res) => {
   try {
-    // Get all active drivers
-    const driversResp = await sapService.call('/Drivers', 'get').catch(() => ({ data: { value: [] } }));
-    let drivers = [];
-    if (Array.isArray(driversResp.data?.value)) {
-      drivers = driversResp.data.value;
-    } else if (Array.isArray(driversResp.data)) {
-      drivers = driversResp.data;
+    // Get drivers from Prisma (internal system drivers)
+    let prismaDrivers = [];
+    try {
+      const dbDrivers = await prisma.driver.findMany({
+        where: {
+          account: {
+            role: 'driver'  // Only get drivers, not admins
+          }
+        },
+        include: {
+          account: true,
+          status: true
+        }
+      });
+      prismaDrivers = dbDrivers.map(d => ({
+        id: d.id,
+        username: d.username,
+        email: d.email,
+        phone: d.phone,
+        fullName: d.fullName,
+        full_name: d.fullName,
+        active: d.active,
+        role: d.account?.role || 'driver'
+      }));
+    } catch (e) {
+      console.warn('[Tracking] Could not fetch Prisma drivers:', e.message);
     }
+
+    // Get all active drivers from SAP (fallback)
+    const driversResp = await sapService.call('/Drivers', 'get').catch(() => ({ data: { value: [] } }));
+    let sapDrivers = [];
+    if (Array.isArray(driversResp.data?.value)) {
+      sapDrivers = driversResp.data.value;
+    } else if (Array.isArray(driversResp.data)) {
+      sapDrivers = driversResp.data;
+    }
+
+    // Merge: Use Prisma drivers (with role filtering), fallback to SAP
+    let drivers = prismaDrivers.length > 0 ? prismaDrivers : sapDrivers;
 
     // Get latest location for each driver - simplified for now
     let locations = [];

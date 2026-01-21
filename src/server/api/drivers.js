@@ -12,7 +12,7 @@ if (!prisma) {
 }
 
 // GET /api/admin/drivers - list drivers (with filters)
-// NOTE: Only returns users with "driver" role, not admin accounts
+// NOTE: Returns ALL users (drivers and admins). Frontend filters by role as needed.
 router.get('/', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
     // Check Prisma connection
@@ -23,7 +23,7 @@ router.get('/', authenticate, requireRole('admin'), async (req, res, next) => {
       console.log('Prisma connection check:', connectErr.message || 'already connected');
     }
     
-    // Use Prisma to get drivers with accounts
+    // Use Prisma to get all drivers with accounts
     const drivers = await prisma.driver.findMany({
       include: {
         account: true
@@ -33,14 +33,9 @@ router.get('/', authenticate, requireRole('admin'), async (req, res, next) => {
       }
     });
     
-    // Filter to ONLY include drivers with "driver" role (exclude admins)
-    const driverRoleOnly = drivers.filter(driver => {
-      const role = driver.account?.role || 'driver';
-      return role === 'driver'; // Only include actual drivers, not admins
-    });
-    
     // Transform data to ensure consistent format
-    const formattedDrivers = driverRoleOnly.map(driver => ({
+    // NOTE: Returns all users - frontend will filter if needed
+    const formattedDrivers = drivers.map(driver => ({
       id: driver.id,
       username: driver.username,
       email: driver.email,
