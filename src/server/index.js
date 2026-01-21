@@ -121,7 +121,7 @@ app.use('/api/driver', require('./api/locations'));
 app.use('/api/admin/dashboard', require('./api/adminDashboard'));
 app.use('/api/admin/reports', require('./api/reports'));
 app.use('/api/admin/tracking', require('./api/tracking'));
-app.use('/api/admin/messages', require('./api/messages'));
+app.use('/api/messages', require('./api/messages')); // Mount at /api/messages for both admin and driver routes
 app.use('/api/admin/deliveries', require('./api/adminDeliveries'));
 app.use('/api/ai', require('./api/ai'));
 app.use('/api/deliveries', require('./api/deliveries'));

@@ -268,6 +268,35 @@ router.get('/driver', authenticate, requireRole('driver'), async (req, res) => {
   }
 });
 
+/**
+ * GET /api/messages/driver/notifications/count
+ * Get unread notification count for driver
+ */
+router.get('/driver/notifications/count', authenticate, requireRole('driver'), async (req, res) => {
+  try {
+    const driverId = req.user?.sub;
+    if (!driverId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Count unread messages
+    const unreadMessages = await prisma.message.count({
+      where: {
+        driverId,
+        isRead: false
+      }
+    });
+
+    res.json({
+      success: true,
+      count: unreadMessages
+    });
+  } catch (error) {
+    console.error('Error fetching notification count:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;// GET /api/admin/messages/unread-count - Get unread message count
 router.get('/unread/count', authenticate, requireRole('admin'), async (req, res) => {
   try {

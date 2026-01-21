@@ -220,7 +220,7 @@ export default function DriverPortal() {
   const loadMessages = async () => {
     setLoadingMessages(true);
     try {
-      const response = await api.get('/driver/messages');
+      const response = await api.get('/messages/driver');
       setMessages(response.data?.messages || []);
       console.log(`✓ Loaded ${response.data?.messages?.length || 0} messages`);
     } catch (error) {
@@ -247,7 +247,7 @@ export default function DriverPortal() {
     setSendingMessage(true);
 
     try {
-      const response = await api.post('/driver/messages/send', {
+      const response = await api.post('/messages/driver/send', {
         content: messageText
       });
 
