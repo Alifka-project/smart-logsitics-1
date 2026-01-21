@@ -580,13 +580,13 @@ export default function AdminOperationsPage() {
       {activeTab === 'communication' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-300px)]">
           {/* Driver List Sidebar */}
-          <div className="bg-white rounded-lg shadow-lg overflow-hidden flex flex-col">
-            <div className="p-4 bg-gray-50 border-b">
-              <h2 className="text-lg font-semibold">Drivers</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden flex flex-col transition-colors">
+            <div className="p-4 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Drivers</h2>
               <input
                 type="text"
                 placeholder="Search drivers..."
-                className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                className="mt-2 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               />
             </div>
             <div className="flex-1 overflow-y-auto">
@@ -599,14 +599,14 @@ export default function AdminOperationsPage() {
                   <button
                     key={driver.id}
                     onClick={() => setSelectedDriver(driver)}
-                    className={`w-full p-4 border-b border-gray-200 hover:bg-gray-50 text-left transition ${
-                      isSelected ? 'bg-primary-50 border-l-4 border-l-primary-600' : ''
+                    className={`w-full p-4 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-left transition ${
+                      isSelected ? 'bg-primary-50 dark:bg-primary-900/20 border-l-4 border-l-primary-600 dark:border-l-primary-400' : ''
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-                        <span className="font-medium text-sm">
+                        <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
                           {driver.full_name || driver.fullName || driver.username || 'Unknown'}
                         </span>
                       </div>
@@ -616,7 +616,7 @@ export default function AdminOperationsPage() {
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
                       {isOnline ? 'Online' : 'Offline'}
                       {driver.tracking?.location && (
                         <span className="ml-2">
@@ -628,7 +628,7 @@ export default function AdminOperationsPage() {
                 );
               })}
               {drivers.length === 0 && (
-                <div className="p-8 text-center text-gray-500">
+                <div className="p-8 text-center text-gray-500 dark:text-gray-400">
                   <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
                   <p>No drivers available</p>
                 </div>
@@ -637,18 +637,18 @@ export default function AdminOperationsPage() {
           </div>
 
           {/* Chat Area */}
-          <div className="lg:col-span-2 bg-white rounded-lg shadow-lg overflow-hidden flex flex-col">
+          <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden flex flex-col transition-colors">
             {selectedDriver ? (
               <>
                 {/* Chat Header */}
-                <div className="p-4 bg-gray-50 border-b flex items-center justify-between">
+                <div className="p-4 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className={`w-3 h-3 rounded-full ${selectedDriver.tracking?.online ? 'bg-green-500' : 'bg-gray-400'}`}></div>
                     <div>
-                      <h3 className="font-semibold">
+                      <h3 className="font-semibold text-gray-900 dark:text-gray-100">
                         {selectedDriver.full_name || selectedDriver.fullName || selectedDriver.username || 'Unknown'}
                       </h3>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
                         {selectedDriver.tracking?.online ? 'Online' : 'Offline'}
                         {selectedDriver.phone && ` • ${selectedDriver.phone}`}
                       </p>
@@ -658,7 +658,7 @@ export default function AdminOperationsPage() {
                     {selectedDriver.phone && (
                       <a
                         href={`tel:${selectedDriver.phone}`}
-                        className="p-2 text-gray-600 hover:text-primary-600 hover:bg-gray-100 rounded-lg transition"
+                        className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition"
                         title="Call Driver"
                       >
                         <Phone className="w-5 h-5" />
@@ -669,7 +669,7 @@ export default function AdminOperationsPage() {
                         // TODO: Request location
                         alert('Location request sent');
                       }}
-                      className="p-2 text-gray-600 hover:text-primary-600 hover:bg-gray-100 rounded-lg transition"
+                      className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition"
                       title="Request Location"
                     >
                       <MapPin className="w-5 h-5" />
@@ -678,16 +678,16 @@ export default function AdminOperationsPage() {
                 </div>
 
                 {/* Messages Area */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-900">
                   {loadingMessages ? (
                     <div className="flex items-center justify-center h-full">
-                      <div className="text-center text-gray-500">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto mb-2"></div>
+                      <div className="text-center text-gray-500 dark:text-gray-400">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 dark:border-primary-400 mx-auto mb-2"></div>
                         <p>Loading messages...</p>
                       </div>
                     </div>
                   ) : messages.length === 0 ? (
-                    <div className="text-center py-12 text-gray-500">
+                    <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                       <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
                       <p>No messages yet</p>
                       <p className="text-sm mt-1">Start a conversation with {selectedDriver.full_name || selectedDriver.username}</p>
@@ -707,12 +707,12 @@ export default function AdminOperationsPage() {
                           <div
                             className={`max-w-[70%] rounded-lg p-3 ${
                               isAdminMessage
-                                ? 'bg-primary-600 text-white'
-                                : 'bg-white text-gray-900 border border-gray-200'
+                                ? 'bg-primary-600 dark:bg-primary-500 text-white'
+                                : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-600'
                             }`}
                           >
                             <p className="text-sm">{messageText}</p>
-                            <p className={`text-xs mt-1 ${isAdminMessage ? 'text-primary-100' : 'text-gray-500'}`}>
+                            <p className={`text-xs mt-1 ${isAdminMessage ? 'text-primary-100' : 'text-gray-500 dark:text-gray-400'}`}>
                               {new Date(messageTime).toLocaleTimeString()}
                             </p>
                           </div>
@@ -723,13 +723,13 @@ export default function AdminOperationsPage() {
                 </div>
 
                 {/* Message Templates */}
-                <div className="px-4 py-2 bg-gray-50 border-t border-b">
+                <div className="px-4 py-2 bg-gray-50 dark:bg-gray-700 border-t dark:border-gray-600 border-b dark:border-gray-600">
                   <div className="flex gap-2 overflow-x-auto">
                     {messageTemplates.map((template, idx) => (
                       <button
                         key={idx}
                         onClick={() => setNewMessage(template)}
-                        className="px-3 py-1 bg-white border border-gray-300 rounded-lg text-xs hover:bg-gray-50 whitespace-nowrap"
+                        className="px-3 py-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-xs hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100 whitespace-nowrap transition-colors"
                       >
                         {template}
                       </button>
@@ -738,10 +738,10 @@ export default function AdminOperationsPage() {
                 </div>
 
                 {/* Message Input */}
-                <div className="p-4 bg-white border-t">
+                <div className="p-4 bg-white dark:bg-gray-800 border-t dark:border-gray-600 transition-colors">
                   <div className="flex gap-2">
                     <button
-                      className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition"
+                      className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
                       title="Attach File"
                     >
                       <Paperclip className="w-5 h-5" />
@@ -757,12 +757,12 @@ export default function AdminOperationsPage() {
                       }}
                       placeholder="Type a message..."
                       disabled={sendingMessage}
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50"
+                      className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50"
                     />
                     <button
                       onClick={handleSendMessage}
                       disabled={!newMessage.trim() || sendingMessage}
-                      className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      className="px-4 py-2 bg-primary-600 dark:bg-primary-500 text-white rounded-lg hover:bg-primary-700 dark:hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
                     >
                       {sendingMessage ? (
                         <>
@@ -780,7 +780,7 @@ export default function AdminOperationsPage() {
                 </div>
               </>
             ) : (
-              <div className="flex-1 flex items-center justify-center text-gray-500">
+              <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400">
                 <div className="text-center">
                   <MessageSquare className="w-16 h-16 mx-auto mb-4 opacity-50" />
                   <p className="text-lg">Select a driver to start messaging</p>
