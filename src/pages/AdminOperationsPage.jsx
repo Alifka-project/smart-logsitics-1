@@ -441,43 +441,49 @@ export default function AdminOperationsPage() {
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {deliveries && deliveries.length > 0 ? (
-                    deliveries.map(delivery => {
-                      const currentDriverId = delivery.tracking?.driverId || delivery.assignedDriverId;
-                      const currentDriver = drivers.find(d => d.id === currentDriverId);
-                      
-                      return (
-                        <tr key={delivery.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
-                            {delivery.id?.slice(0, 8) || 'N/A'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                            {delivery.poNumber || delivery.metadata?.originalPONumber || '—'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                            {delivery.customer || delivery.Customer || 'Unknown'}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate">
-                            {delivery.address || 'N/A'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                              delivery.status === 'delivered' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' :
-                              delivery.status === 'pending' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300' :
-                              'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
-                            }`}>
-                              {delivery.status || 'pending'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            {currentDriver ? (
-                              <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                                <span className="text-gray-900 dark:text-gray-100 font-medium">
-                                  {currentDriver.fullName || currentDriver.full_name || currentDriver.username}
-                                </span>
-                              </div>
-                            ) : (
-                              <span className="text-gray-400 italic">Not assigned</span>
+                    deliveries
+                      .filter(delivery => {
+                        // Only show deliveries that have an assigned driver
+                        const currentDriverId = delivery.tracking?.driverId || delivery.assignedDriverId;
+                        return !!currentDriverId;
+                      })
+                      .map(delivery => {
+                        const currentDriverId = delivery.tracking?.driverId || delivery.assignedDriverId;
+                        const currentDriver = drivers.find(d => d.id === currentDriverId);
+                        
+                        return (
+                          <tr key={delivery.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
+                              {delivery.id?.slice(0, 8) || 'N/A'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                              {delivery.poNumber || delivery.metadata?.originalPONumber || '—'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                              {delivery.customer || delivery.Customer || 'Unknown'}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate">
+                              {delivery.address || 'N/A'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                delivery.status === 'delivered' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' :
+                                delivery.status === 'pending' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300' :
+                                'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
+                              }`}>
+                                {delivery.status || 'pending'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              {currentDriver ? (
+                                <div className="flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                  <span className="text-gray-900 dark:text-gray-100 font-medium">
+                                    {currentDriver.fullName || currentDriver.full_name || currentDriver.username}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400 italic">Not assigned</span>
                             )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm">
