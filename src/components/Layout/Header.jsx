@@ -257,7 +257,7 @@ export default function Header() {
   return (
     <>
       <header className="bg-gradient-to-r from-primary-600 to-primary-800 text-white shadow-lg sticky top-0 z-50">
-      <div className="container mx-auto px-4 sm:px-5 md:px-5 lg:px-4 xl:px-6 2xl:px-8 py-2 sm:py-2.5 max-w-7xl">
+      <div className="container mx-auto px-3 sm:px-3 md:px-3 lg:px-3 xl:px-4 2xl:px-5 py-2 sm:py-2.5 max-w-7xl">
         <div className="flex items-center justify-between">
           <Link to="/" className="flex items-center hover:opacity-80 transition-opacity">
             <img 
