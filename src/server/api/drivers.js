@@ -399,4 +399,16 @@ router.post('/:id/activate-gps', authenticate, async (req, res) => {
   }
 });
 
+// GET /api/admin/sessions - Get active sessions for online user detection
+router.get('/sessions', authenticate, requireRole('admin'), async (req, res) => {
+  try {
+    const { getAllActiveSessions } = require('../sessionStore');
+    const activeSessions = getAllActiveSessions();
+    res.json({ sessions: activeSessions });
+  } catch (err) {
+    console.error('GET /api/admin/sessions error:', err);
+    res.json({ sessions: [] }); // Return empty on error, frontend will use fallback
+  }
+});
+
 module.exports = router;

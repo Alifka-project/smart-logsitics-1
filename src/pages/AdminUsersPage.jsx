@@ -52,11 +52,11 @@ export default function AdminUsersPage() {
     }
   }, [activeTab]);
 
-  // Smart real-time refresh - only when tab is visible and with longer intervals
+  // Silent real-time refresh - completely invisible updates
   useEffect(() => {
     if (activeTab === 'logs') {
-      // Load immediately
-      loadActivityLogs();
+      // Load immediately (first load shows loading)
+      loadActivityLogs(false);
       
       // Use visibility API to pause updates when tab is hidden
       let interval = null;
@@ -69,21 +69,29 @@ export default function AdminUsersPage() {
             interval = null;
           }
         } else {
-          // Tab is visible - resume updates with 5 second interval
+          // Tab is visible - resume silent updates
           if (!interval) {
-            loadActivityLogs(); // Load immediately when tab becomes visible
+            loadActivityLogs(true); // Silent update when tab becomes visible
             interval = setInterval(() => {
-              loadActivityLogs();
-            }, 5000); // 5 seconds is less disturbing
+              loadActivityLogs(true); // All subsequent updates are silent
+            }, 5000); // 5 seconds interval
           }
         }
       };
       
-      // Start interval when tab is visible
+      // Start silent interval when tab is visible (skip first update since we already loaded)
       if (!document.hidden) {
-        interval = setInterval(() => {
-          loadActivityLogs();
-        }, 5000); // 5 seconds interval
+        // Wait 5 seconds before starting silent updates
+        const timeout = setTimeout(() => {
+          interval = setInterval(() => {
+            loadActivityLogs(true); // Silent background updates
+          }, 5000);
+        }, 5000);
+        
+        return () => {
+          clearTimeout(timeout);
+          if (interval) clearInterval(interval);
+        };
       }
       
       document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -130,27 +138,51 @@ export default function AdminUsersPage() {
   }
   };
 
-  const loadActivityLogs = async () => {
-    // Don't show loading spinner on background updates to avoid disturbing UX
-    const isInitialLoad = activityLogs.length === 0 && onlineUsers.length === 0;
+  const loadActivityLogs = async (silent = false) => {
+    // Only show loading on initial load, never on background updates
+    const isInitialLoad = !silent && activityLogs.length === 0 && onlineUsers.length === 0;
     if (isInitialLoad) {
       setLogsLoading(true);
     }
     
     try {
+      // Try to get active sessions first, then fallback to time-based detection
+      let activeSessionUserIds = new Set();
+      try {
+        const sessionsResponse = await api.get('/admin/drivers/sessions');
+        if (sessionsResponse.data?.sessions) {
+          activeSessionUserIds = new Set(
+            sessionsResponse.data.sessions
+              .map(s => s.userId?.toString() || s.userId)
+              .filter(Boolean)
+          );
+        }
+      } catch (e) {
+        // Sessions endpoint doesn't exist, will use time-based detection
+        console.debug('Sessions endpoint not available, using time-based detection');
+      }
+
       // Get all users
       const usersResponse = await api.get('/admin/drivers');
       const allUsers = usersResponse.data?.data || [];
       
-      // Determine online users based on recent activity (last 5 minutes = online)
+      // Determine online users: either in active sessions OR logged in within last 2 minutes
       const now = new Date();
-      const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+      const twoMinutesAgo = new Date(now.getTime() - 2 * 60 * 1000); // Reduced to 2 minutes for better accuracy
       
       const online = allUsers.filter(u => {
+        // Check if user has active session
+        if (activeSessionUserIds.size > 0) {
+          const userId = u.id?.toString() || u.id;
+          if (activeSessionUserIds.has(userId?.toString()) || activeSessionUserIds.has(userId)) {
+            return true;
+          }
+        }
+        
+        // Fallback: check if lastLogin is within last 2 minutes
         if (!u.account?.lastLogin) return false;
         const lastLogin = new Date(u.account.lastLogin);
-        // Consider online if lastLogin is within last 5 minutes
-        return lastLogin >= fiveMinutesAgo;
+        return lastLogin >= twoMinutesAgo;
       });
 
       // Create login history from users with lastLogin
@@ -158,7 +190,12 @@ export default function AdminUsersPage() {
         .filter(u => u.account?.lastLogin)
         .map(u => {
           const lastLogin = new Date(u.account.lastLogin);
-          const isOnline = lastLogin >= fiveMinutesAgo;
+          const userId = u.id?.toString() || u.id;
+          
+          // Check online status: active session OR recent login (within 2 minutes)
+          const hasActiveSession = activeSessionUserIds.size > 0 && 
+            (activeSessionUserIds.has(userId?.toString()) || activeSessionUserIds.has(userId));
+          const isOnline = hasActiveSession || lastLogin >= twoMinutesAgo;
           
           return {
             id: u.id,
@@ -167,7 +204,7 @@ export default function AdminUsersPage() {
             email: u.email,
             role: u.account?.role || 'driver',
             lastLogin: u.account.lastLogin,
-            ip: 'N/A', // IP tracking would require backend session endpoint
+            ip: 'N/A',
             isOnline
           };
         })
@@ -182,7 +219,20 @@ export default function AdminUsersPage() {
         return hasChanged ? online : prev;
       });
       
-      setActivityLogs(loginHistory);
+      // Only update logs if there are changes
+      setActivityLogs(prev => {
+        const prevOnlineIds = new Set(prev.filter(l => l.isOnline).map(l => l.id));
+        const newOnlineIds = new Set(loginHistory.filter(l => l.isOnline).map(l => l.id));
+        const onlineChanged = prevOnlineIds.size !== newOnlineIds.size ||
+          ![...prevOnlineIds].every(id => newOnlineIds.has(id));
+        
+        // Check if login times changed (new logins)
+        const prevLatest = prev[0]?.lastLogin;
+        const newLatest = loginHistory[0]?.lastLogin;
+        const hasNewLogins = prevLatest !== newLatest;
+        
+        return (onlineChanged || hasNewLogins) ? loginHistory : prev;
+      });
     } catch (e) {
       console.error('Error loading activity logs:', e);
       // On error, keep previous data instead of clearing
@@ -490,14 +540,10 @@ export default function AdminUsersPage() {
                 <Clock className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                 <div>
                   <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Login History</h2>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">Auto-refresh every 5s (pauses when tab hidden)</span>
-                  </div>
                 </div>
               </div>
               <button
-                onClick={loadActivityLogs}
+                onClick={() => loadActivityLogs(false)}
                 disabled={logsLoading}
                 className="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 flex items-center gap-2"
               >

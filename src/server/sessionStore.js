@@ -193,6 +193,36 @@ function getSessionInfo(sessionId) {
   };
 }
 
+// Get all active sessions for admin monitoring
+function getAllActiveSessions() {
+  const now = Date.now();
+  const activeSessions = [];
+  
+  for (const [id, entry] of SESSIONS.entries()) {
+    // Check if session is still valid
+    if (now <= entry.expiresAt) {
+      const inactivityLimit = process.env.SESSION_INACTIVITY_MS 
+        ? parseInt(process.env.SESSION_INACTIVITY_MS, 10) 
+        : DEFAULT_INACTIVITY;
+      
+      // Check if session is within inactivity limit
+      if (!entry.lastAccess || (now - entry.lastAccess) <= inactivityLimit) {
+        activeSessions.push({
+          id,
+          userId: entry.payload?.sub || entry.payload?.id,
+          username: entry.payload?.username,
+          role: entry.payload?.role,
+          createdAt: entry.createdAt,
+          lastAccess: entry.lastAccess || entry.createdAt,
+          ip: entry.ip
+        });
+      }
+    }
+  }
+  
+  return activeSessions;
+}
+
 module.exports = {
   createSession,
   getSession,
@@ -200,5 +230,6 @@ module.exports = {
   destroyUserSessions,
   verifyCSRF,
   rotateSession,
-  getSessionInfo
+  getSessionInfo,
+  getAllActiveSessions
 };
