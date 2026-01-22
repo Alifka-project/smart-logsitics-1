@@ -45,39 +45,30 @@ export default function Navigation() {
                 key={item.path}
                 to={item.path}
                 className={`
-                  flex items-center gap-2.5 px-5 py-2.5 font-medium transition-all duration-300 ease-out text-xs sm:text-sm whitespace-nowrap relative group rounded-xl
+                  flex items-center gap-2.5 px-4 py-2.5 font-medium transition-all duration-200 ease-out text-xs sm:text-sm whitespace-nowrap relative group rounded-lg
                   ${isActive
-                    ? 'text-primary-600 dark:text-primary-400'
-                    : 'text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400'
+                    ? 'text-primary-600 dark:text-primary-400 bg-white dark:bg-gray-800 shadow-sm'
+                    : 'text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
                   }
                 `}
               >
-                {/* Soft modern web3-style shadow highlight with line for active state */}
+                {/* Google Material Design style - clean and minimal */}
                 {isActive && (
-                  <>
-                    {/* Soft glow background */}
-                    <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-primary-500/12 via-primary-400/15 to-primary-500/12 dark:from-primary-400/12 dark:via-primary-300/15 dark:to-primary-400/12 -z-10"></div>
-                    {/* Soft shadow glow effect */}
-                    <div className="absolute inset-0 rounded-xl shadow-[0_0_15px_rgba(17,74,118,0.25),0_0_30px_rgba(17,74,118,0.15)] dark:shadow-[0_0_15px_rgba(96,165,250,0.25),0_0_30px_rgba(96,165,250,0.15)] -z-10"></div>
-                    {/* Subtle inner glow */}
-                    <div className="absolute inset-[2px] rounded-xl bg-primary-500/5 dark:bg-primary-400/5 -z-10"></div>
-                    {/* Modern bottom line indicator */}
-                    <div className="absolute bottom-0 left-1/4 right-1/4 h-0.5 bg-gradient-to-r from-transparent via-primary-500 to-transparent dark:via-primary-400 rounded-full shadow-[0_0_8px_rgba(17,74,118,0.4)] dark:shadow-[0_0_8px_rgba(96,165,250,0.4)]"></div>
-                  </>
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600 dark:bg-primary-400 rounded-t-full"></div>
                 )}
                 
-                {/* Icon with modern minimal style */}
-                <Icon className={`w-5 h-5 transition-all duration-300 flex-shrink-0 ${
+                {/* Icon - clean Google style */}
+                <Icon className={`w-5 h-5 transition-all duration-200 flex-shrink-0 ${
                   isActive 
-                    ? 'text-primary-600 dark:text-primary-400 drop-shadow-[0_2px_8px_rgba(17,74,118,0.4)]' 
-                    : 'text-gray-600 dark:text-gray-300 group-hover:text-primary-600 dark:group-hover:text-primary-400 group-hover:scale-110 group-hover:rotate-3'
+                    ? 'text-primary-600 dark:text-primary-400' 
+                    : 'text-gray-600 dark:text-gray-400 group-hover:text-primary-600 dark:group-hover:text-primary-400'
                 }`} />
                 
-                {/* Label with modern typography */}
-                <span className={`hidden sm:inline transition-all duration-300 relative z-10 ${
+                {/* Label - clean typography */}
+                <span className={`hidden sm:inline transition-all duration-200 ${
                   isActive 
-                    ? 'font-semibold' 
-                    : 'font-medium group-hover:font-semibold'
+                    ? 'font-medium' 
+                    : 'font-normal group-hover:font-medium'
                 }`}>
                   {item.label}
                 </span>
