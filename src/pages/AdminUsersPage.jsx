@@ -11,7 +11,10 @@ import {
   Check,
   AlertCircle,
   UserCheck,
-  UserX
+  UserX,
+  Activity,
+  Clock,
+  Circle
 } from 'lucide-react';
 
 export default function AdminUsersPage() {
@@ -22,6 +25,9 @@ export default function AdminUsersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [activityLogs, setActivityLogs] = useState([]);
+  const [onlineUsers, setOnlineUsers] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [formData, setFormData] = useState({
@@ -41,7 +47,20 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     loadData();
-  }, []);
+    if (activeTab === 'logs') {
+      loadActivityLogs();
+    }
+  }, [activeTab]);
+
+  // Auto-refresh activity logs every 10 seconds when on logs tab
+  useEffect(() => {
+    if (activeTab === 'logs') {
+      const interval = setInterval(() => {
+        loadActivityLogs();
+      }, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [activeTab]);
 
   const loadData = async () => {
     setLoading(true);
@@ -76,6 +95,75 @@ export default function AdminUsersPage() {
     } finally {
     setLoading(false);
   }
+  };
+
+  const loadActivityLogs = async () => {
+    setLogsLoading(true);
+    try {
+      // Try to get activity logs from API, fallback to using user data with lastLogin
+      try {
+        const [usersResponse, sessionsResponse] = await Promise.allSettled([
+          api.get('/admin/drivers'),
+          api.get('/admin/sessions').catch(() => ({ data: { sessions: [] } }))
+        ]);
+
+        const allUsers = usersResponse.status === 'fulfilled' 
+          ? (usersResponse.value.data?.data || [])
+          : [];
+        
+        const sessions = sessionsResponse.status === 'fulfilled'
+          ? (sessionsResponse.value.data?.sessions || [])
+          : [];
+
+        // Get online users from active sessions
+        const onlineUserIds = new Set(sessions.map(s => s.userId || s.payload?.sub).filter(Boolean));
+        const online = allUsers.filter(u => onlineUserIds.has(u.id?.toString() || u.id));
+
+        // Create login history from users with lastLogin
+        const loginHistory = allUsers
+          .filter(u => u.account?.lastLogin)
+          .map(u => ({
+            id: u.id,
+            username: u.username,
+            fullName: u.fullName || u.full_name,
+            email: u.email,
+            role: u.account?.role || 'driver',
+            lastLogin: u.account.lastLogin,
+            ip: sessions.find(s => (s.userId || s.payload?.sub) === (u.id?.toString() || u.id))?.ip || 'N/A'
+          }))
+          .sort((a, b) => new Date(b.lastLogin) - new Date(a.lastLogin));
+
+        setOnlineUsers(online);
+        setActivityLogs(loginHistory);
+      } catch (err) {
+        console.error('Error loading activity logs:', err);
+        // Fallback: use user data with lastLogin
+        const response = await api.get('/admin/drivers');
+        const allUsers = response.data?.data || [];
+        
+        const loginHistory = allUsers
+          .filter(u => u.account?.lastLogin)
+          .map(u => ({
+            id: u.id,
+            username: u.username,
+            fullName: u.fullName || u.full_name,
+            email: u.email,
+            role: u.account?.role || 'driver',
+            lastLogin: u.account.lastLogin,
+            ip: 'N/A'
+          }))
+          .sort((a, b) => new Date(b.lastLogin) - new Date(a.lastLogin));
+
+        setActivityLogs(loginHistory);
+        setOnlineUsers([]);
+      }
+    } catch (e) {
+      console.error('Error loading activity logs:', e);
+      setActivityLogs([]);
+      setOnlineUsers([]);
+    } finally {
+      setLogsLoading(false);
+    }
   };
 
   const validateForm = () => {
@@ -228,6 +316,20 @@ export default function AdminUsersPage() {
 
   const filteredUsers = getFilteredUsers();
 
+  const getTimeAgo = (date) => {
+    const now = new Date();
+    const diff = now - date;
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) return `${days} day${days > 1 ? 's' : ''} ago`;
+    if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    if (minutes > 0) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+    return 'Just now';
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -236,13 +338,15 @@ export default function AdminUsersPage() {
           <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">User & Account Management</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage accounts, drivers, and permissions</p>
         </div>
-        <button
-          onClick={openAddModal}
-          className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center gap-2"
-        >
-          <UserPlus className="w-5 h-5" />
-          Add New {activeTab === 'accounts' ? 'Account' : 'Driver'}
-        </button>
+        {activeTab !== 'logs' && (
+          <button
+            onClick={openAddModal}
+            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center gap-2"
+          >
+            <UserPlus className="w-5 h-5" />
+            Add New {activeTab === 'accounts' ? 'Account' : 'Driver'}
+          </button>
+        )}
       </div>
 
       {/* Tab Navigation */}
@@ -250,7 +354,8 @@ export default function AdminUsersPage() {
         <nav className="flex space-x-8">
           {[
             { id: 'accounts', label: 'Accounts', icon: Users },
-            { id: 'drivers', label: 'Drivers', icon: UserCheck }
+            { id: 'drivers', label: 'Drivers', icon: UserCheck },
+            { id: 'logs', label: 'Activity Logs', icon: Activity }
           ].map(tab => {
             const Icon = tab.icon;
             return (
@@ -271,7 +376,7 @@ export default function AdminUsersPage() {
                 <Icon className="w-5 h-5" />
                 {tab.label}
                 <span className="ml-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs rounded-full px-2 py-0.5">
-                  {tab.id === 'accounts' ? accounts.length : drivers.length}
+                  {tab.id === 'accounts' ? accounts.length : tab.id === 'drivers' ? drivers.length : onlineUsers.length}
                 </span>
               </button>
             );
@@ -279,39 +384,210 @@ export default function AdminUsersPage() {
         </nav>
       </div>
 
-      {/* Search and Filters */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Search by username, name, or email..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-            />
+      {/* Activity Logs Tab Content */}
+      {activeTab === 'logs' ? (
+        <div className="space-y-6">
+          {/* Currently Online Users */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                  <Circle className="w-5 h-5 text-green-600 dark:text-green-400 fill-current" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Currently Online</h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Users who are currently logged in</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-2xl font-bold text-green-600 dark:text-green-400">{onlineUsers.length}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">Active Sessions</div>
+              </div>
+            </div>
+            {logsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+              </div>
+            ) : onlineUsers.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {onlineUsers.map(user => (
+                  <div key={user.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <div className="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center">
+                          <Users className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+                        </div>
+                        <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full"></div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                          {user.fullName || user.full_name || user.username}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{user.username}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          {user.account?.role || 'driver'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <UserX className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
+                <p className="text-gray-600 dark:text-gray-400">No users currently online</p>
+              </div>
+            )}
           </div>
-          <select
-            value={filterRole}
-            onChange={(e) => setFilterRole(e.target.value)}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
-          >
-            <option value="all">All Roles</option>
-            <option value="admin">Admin</option>
-            <option value="driver">Driver</option>
-          </select>
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
-          >
-            <option value="all">All Status</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
+
+          {/* Login History */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden transition-colors">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Clock className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Login History</h2>
+              </div>
+              <button
+                onClick={loadActivityLogs}
+                disabled={logsLoading}
+                className="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
+              >
+                {logsLoading ? 'Refreshing...' : 'Refresh'}
+              </button>
+            </div>
+            {logsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600 dark:text-gray-400">Loading activity logs...</p>
+                </div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        User
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Role
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Last Login
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        IP Address
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Status
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    {activityLogs.length > 0 ? (
+                      activityLogs.map(log => {
+                        const isOnline = onlineUsers.some(u => u.id === log.id);
+                        const lastLoginDate = new Date(log.lastLogin);
+                        const timeAgo = getTimeAgo(lastLoginDate);
+                        
+                        return (
+                          <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center">
+                                  <Users className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+                                </div>
+                                <div className="ml-4">
+                                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                    {log.fullName || log.username}
+                                  </div>
+                                  <div className="text-sm text-gray-500 dark:text-gray-400">{log.email || log.username}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                                log.role === 'admin'
+                                  ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300'
+                                  : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
+                              }`}>
+                                {log.role}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900 dark:text-gray-100">
+                                {lastLoginDate.toLocaleString()}
+                              </div>
+                              <div className="text-sm text-gray-500 dark:text-gray-400">{timeAgo}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900 dark:text-gray-100 font-mono">{log.ip}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {isOnline ? (
+                                <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-semibold rounded-full bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">
+                                  <Circle className="w-2 h-2 fill-current" />
+                                  Online
+                                </span>
+                              ) : (
+                                <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300">
+                                  Offline
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-12 text-center">
+                          <Clock className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+                          <p className="text-gray-600 dark:text-gray-400">No login history available</p>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      ) : (
+        <>
+          {/* Search and Filters */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Search by username, name, or email..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                />
+              </div>
+              <select
+                value={filterRole}
+                onChange={(e) => setFilterRole(e.target.value)}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="all">All Roles</option>
+                <option value="admin">Admin</option>
+                <option value="driver">Driver</option>
+              </select>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+          </div>
 
       {/* Users Table */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden transition-colors">
