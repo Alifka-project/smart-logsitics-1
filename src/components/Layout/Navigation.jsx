@@ -45,30 +45,34 @@ export default function Navigation() {
                 key={item.path}
                 to={item.path}
                 className={`
-                  flex items-center gap-2.5 px-5 py-2.5 font-medium transition-all duration-300 ease-out text-xs sm:text-sm whitespace-nowrap relative group
+                  flex items-center gap-2.5 px-5 py-2.5 font-medium transition-all duration-300 ease-out text-xs sm:text-sm whitespace-nowrap relative group rounded-xl
                   ${isActive
                     ? 'text-primary-600 dark:text-primary-400'
                     : 'text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400'
                   }
                 `}
               >
-                {/* Shadow highlight effect for active state */}
+                {/* Soft web3-style shadow highlight for active state */}
                 {isActive && (
                   <>
-                    <div className="absolute inset-0 rounded-lg bg-primary-500/10 dark:bg-primary-400/10 blur-md -z-10"></div>
-                    <div className="absolute inset-0 rounded-lg shadow-[0_0_15px_rgba(17,74,118,0.3)] dark:shadow-[0_0_15px_rgba(96,165,250,0.3)] -z-10"></div>
+                    {/* Soft glow background */}
+                    <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-primary-500/15 via-primary-400/20 to-primary-500/15 dark:from-primary-400/15 dark:via-primary-300/20 dark:to-primary-400/15 -z-10"></div>
+                    {/* Soft shadow glow effect */}
+                    <div className="absolute inset-0 rounded-xl shadow-[0_0_20px_rgba(17,74,118,0.4),0_0_40px_rgba(17,74,118,0.2)] dark:shadow-[0_0_20px_rgba(96,165,250,0.4),0_0_40px_rgba(96,165,250,0.2)] -z-10"></div>
+                    {/* Subtle inner glow */}
+                    <div className="absolute inset-[2px] rounded-xl bg-primary-500/5 dark:bg-primary-400/5 -z-10"></div>
                   </>
                 )}
                 
                 {/* Icon with modern minimal style */}
                 <Icon className={`w-5 h-5 transition-all duration-300 flex-shrink-0 ${
                   isActive 
-                    ? 'text-primary-600 dark:text-primary-400 drop-shadow-lg filter' 
+                    ? 'text-primary-600 dark:text-primary-400 drop-shadow-[0_2px_8px_rgba(17,74,118,0.4)]' 
                     : 'text-gray-600 dark:text-gray-300 group-hover:text-primary-600 dark:group-hover:text-primary-400 group-hover:scale-110 group-hover:rotate-3'
                 }`} />
                 
                 {/* Label with modern typography */}
-                <span className={`hidden sm:inline transition-all duration-300 ${
+                <span className={`hidden sm:inline transition-all duration-300 relative z-10 ${
                   isActive 
                     ? 'font-semibold' 
                     : 'font-medium group-hover:font-semibold'
