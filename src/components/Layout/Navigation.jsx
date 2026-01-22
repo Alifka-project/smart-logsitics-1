@@ -52,15 +52,17 @@ export default function Navigation() {
                   }
                 `}
               >
-                {/* Soft web3-style shadow highlight for active state */}
+                {/* Prominent web3-style shadow highlight with line for active state */}
                 {isActive && (
                   <>
-                    {/* Soft glow background */}
-                    <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-primary-500/15 via-primary-400/20 to-primary-500/15 dark:from-primary-400/15 dark:via-primary-300/20 dark:to-primary-400/15 -z-10"></div>
-                    {/* Soft shadow glow effect */}
-                    <div className="absolute inset-0 rounded-xl shadow-[0_0_20px_rgba(17,74,118,0.4),0_0_40px_rgba(17,74,118,0.2)] dark:shadow-[0_0_20px_rgba(96,165,250,0.4),0_0_40px_rgba(96,165,250,0.2)] -z-10"></div>
-                    {/* Subtle inner glow */}
-                    <div className="absolute inset-[2px] rounded-xl bg-primary-500/5 dark:bg-primary-400/5 -z-10"></div>
+                    {/* Strong glow background */}
+                    <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-primary-500/25 via-primary-400/30 to-primary-500/25 dark:from-primary-400/25 dark:via-primary-300/30 dark:to-primary-400/25 -z-10"></div>
+                    {/* Strong shadow glow effect */}
+                    <div className="absolute inset-0 rounded-xl shadow-[0_0_25px_rgba(17,74,118,0.6),0_0_50px_rgba(17,74,118,0.3),0_0_75px_rgba(17,74,118,0.15)] dark:shadow-[0_0_25px_rgba(96,165,250,0.6),0_0_50px_rgba(96,165,250,0.3),0_0_75px_rgba(96,165,250,0.15)] -z-10"></div>
+                    {/* Inner glow */}
+                    <div className="absolute inset-[1px] rounded-xl bg-primary-500/10 dark:bg-primary-400/10 -z-10"></div>
+                    {/* Bottom line indicator */}
+                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-primary-500 via-primary-400 to-primary-500 dark:from-primary-400 dark:via-primary-300 dark:to-primary-400 rounded-b-xl shadow-[0_-2px_10px_rgba(17,74,118,0.5)] dark:shadow-[0_-2px_10px_rgba(96,165,250,0.5)]"></div>
                   </>
                 )}
                 
