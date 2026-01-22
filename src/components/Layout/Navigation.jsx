@@ -45,38 +45,36 @@ export default function Navigation() {
                 key={item.path}
                 to={item.path}
                 className={`
-                  flex items-center gap-2.5 px-5 py-2.5 font-medium transition-all duration-300 ease-out text-xs sm:text-sm whitespace-nowrap relative group rounded-xl
+                  flex items-center gap-2.5 px-5 py-2.5 font-medium transition-all duration-300 ease-out text-xs sm:text-sm whitespace-nowrap relative group
                   ${isActive
-                    ? 'text-white bg-gradient-to-r from-primary-600 via-primary-500 to-primary-600 shadow-lg shadow-primary-500/50 hover:shadow-xl hover:shadow-primary-500/60 scale-105'
-                    : 'text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-primary-50 hover:to-primary-100 dark:hover:from-primary-900/30 dark:hover:to-primary-800/30 hover:scale-[1.02] hover:shadow-md'
+                    ? 'text-primary-600 dark:text-primary-400'
+                    : 'text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400'
                   }
                 `}
               >
-                {/* Glow effect for active state */}
+                {/* Shadow highlight effect for active state */}
                 {isActive && (
-                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-primary-400/20 via-primary-500/30 to-primary-400/20 blur-sm -z-10 animate-pulse"></div>
+                  <>
+                    <div className="absolute inset-0 rounded-lg bg-primary-500/10 dark:bg-primary-400/10 blur-md -z-10"></div>
+                    <div className="absolute inset-0 rounded-lg shadow-[0_0_15px_rgba(17,74,118,0.3)] dark:shadow-[0_0_15px_rgba(96,165,250,0.3)] -z-10"></div>
+                  </>
                 )}
                 
                 {/* Icon with modern minimal style */}
                 <Icon className={`w-5 h-5 transition-all duration-300 flex-shrink-0 ${
                   isActive 
-                    ? 'text-white drop-shadow-lg' 
+                    ? 'text-primary-600 dark:text-primary-400 drop-shadow-lg filter' 
                     : 'text-gray-600 dark:text-gray-300 group-hover:text-primary-600 dark:group-hover:text-primary-400 group-hover:scale-110 group-hover:rotate-3'
                 }`} />
                 
                 {/* Label with modern typography */}
                 <span className={`hidden sm:inline transition-all duration-300 ${
                   isActive 
-                    ? 'font-semibold drop-shadow-sm' 
+                    ? 'font-semibold' 
                     : 'font-medium group-hover:font-semibold'
                 }`}>
                   {item.label}
                 </span>
-                
-                {/* Active indicator line */}
-                {isActive && (
-                  <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-white rounded-full shadow-lg"></div>
-                )}
               </NavLink>
             );
           })}
