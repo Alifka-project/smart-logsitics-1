@@ -3,7 +3,7 @@ import api, { setAuthToken } from '../frontend/apiClient';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, AreaChart, Area } from 'recharts';
 import { 
   Package, CheckCircle, XCircle, Clock, MapPin, TrendingUp, Users, Activity, 
-  Truck, AlertCircle, FileText, Calendar, DollarSign, Target, Zap
+  Truck, AlertCircle, FileText, Calendar, DollarSign, Target, Zap, Circle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import DeliveryDetailModal from '../components/DeliveryDetailModal';
@@ -27,6 +27,7 @@ export default function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedDelivery, setSelectedDelivery] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [onlineUserIds, setOnlineUserIds] = useState(new Set());
   const navigate = useNavigate();
 
   const loadDashboardData = useCallback(async () => {
@@ -760,7 +761,10 @@ export default function AdminDashboardPage() {
             <MetricCard icon={Users} label="Total Drivers" value={drivers.length} color="blue" />
             <MetricCard icon={CheckCircle} label="Active" value={activeDrivers} color="green" />
             <MetricCard icon={Clock} label="On Route" value={drivers.filter(d => d.tracking?.status === 'in_progress').length} color="yellow" />
-            <MetricCard icon={MapPin} label="Online" value={drivers.filter(d => d.tracking?.online).length} color="purple" />
+            <MetricCard icon={MapPin} label="Online" value={drivers.filter(d => {
+              const driverId = d.id?.toString() || d.id;
+              return onlineUserIds.has(driverId) || d.tracking?.online;
+            }).length} color="purple" />
           </div>
 
           {/* Drivers Table */}
@@ -789,16 +793,33 @@ export default function AdminDashboardPage() {
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {drivers.length > 0 ? (
                     drivers.map((driver) => {
-                      const isOnline = driver.tracking?.online;
+                      const driverId = driver.id?.toString() || driver.id;
+                      const isOnline = onlineUserIds.has(driverId) || driver.tracking?.online;
                       const location = driver.tracking?.location;
                       return (
-                        <tr key={driver.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <tr key={driver.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
-                              <div className={`w-3 h-3 rounded-full mr-3 ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-                              <div>
-                                <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                  {driver.fullName || driver.full_name || driver.username || 'Unknown'}
+                              <div className="relative">
+                                <div className={`w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center ${
+                                  isOnline ? 'ring-2 ring-green-500/20' : ''
+                                }`}>
+                                  <Users className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+                                </div>
+                                {isOnline && (
+                                  <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full animate-pulse">
+                                    <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-75"></div>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="ml-4">
+                                <div className="flex items-center gap-2">
+                                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                    {driver.fullName || driver.full_name || driver.username || 'Unknown'}
+                                  </div>
+                                  {isOnline && (
+                                    <span className="text-xs text-green-600 dark:text-green-400 font-medium">• Active</span>
+                                  )}
                                 </div>
                                 <div className="text-sm text-gray-500 dark:text-gray-400">{driver.username}</div>
                               </div>
@@ -809,13 +830,19 @@ export default function AdminDashboardPage() {
                             <div>{driver.phone || 'N/A'}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                              isOnline 
-                                ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
-                                : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
-                            }`}>
-                              {isOnline ? 'Online' : 'Offline'}
-                            </span>
+                            {isOnline ? (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 shadow-sm">
+                                <div className="relative">
+                                  <Circle className="w-2.5 h-2.5 fill-current" />
+                                  <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-75"></div>
+                                </div>
+                                Online
+                              </span>
+                            ) : (
+                              <span className="px-3 py-1.5 text-xs font-semibold rounded-full bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300">
+                                Offline
+                              </span>
+                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                             {location 
