@@ -94,7 +94,7 @@ function ProtectedLayout() {
           <Header />
           {showNavigation && <Navigation />}
         </div>
-        <main className="container mx-auto px-4 py-6">
+        <main className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 py-6 max-w-7xl">
           <Routes>
             {/* Unified Delivery Management - replaces Home, Deliveries, and Map */}
             <Route path="/deliveries" element={<DeliveryManagementPage />} />
