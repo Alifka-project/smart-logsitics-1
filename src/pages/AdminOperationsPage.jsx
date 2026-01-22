@@ -48,51 +48,6 @@ export default function AdminOperationsPage() {
     'Emergency: Return to warehouse'
   ]);
 
-  useEffect(() => {
-    loadData();
-    loadOnlineStatus(false);
-    
-    let interval = null;
-    if (autoRefresh) {
-      interval = setInterval(() => {
-        loadData();
-      }, 5000);
-    }
-
-    // Auto-refresh online status
-    let onlineInterval = setInterval(() => {
-      loadOnlineStatus(true);
-    }, 5000);
-
-    return () => {
-      if (interval) clearInterval(interval);
-      if (onlineInterval) clearInterval(onlineInterval);
-    };
-  }, [autoRefresh, loadOnlineStatus]);
-
-  // Load messages when driver is selected
-  useEffect(() => {
-    if (selectedDriver?.id) {
-      loadMessages(selectedDriver.id);
-    }
-  }, [selectedDriver]);
-
-  const loadMessages = async (driverId) => {
-    if (!driverId) return;
-    
-    setLoadingMessages(true);
-    try {
-      const response = await api.get(`/messages/conversations/${driverId}`);
-      setMessages(response.data?.messages || []);
-      console.log(`✓ Loaded ${response.data?.messages?.length || 0} messages with driver`);
-    } catch (error) {
-      console.error('Failed to load messages:', error);
-      setMessages([]);
-    } finally {
-      setLoadingMessages(false);
-    }
-  };
-
   // Load online status - same logic as User Management and Dashboard pages
   const loadOnlineStatus = useCallback(async (silent = false) => {
     try {
@@ -160,6 +115,51 @@ export default function AdminOperationsPage() {
       console.error('Error loading operations data:', e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+    loadOnlineStatus(false);
+    
+    let interval = null;
+    if (autoRefresh) {
+      interval = setInterval(() => {
+        loadData();
+      }, 5000);
+    }
+
+    // Auto-refresh online status
+    let onlineInterval = setInterval(() => {
+      loadOnlineStatus(true);
+    }, 5000);
+
+    return () => {
+      if (interval) clearInterval(interval);
+      if (onlineInterval) clearInterval(onlineInterval);
+    };
+  }, [autoRefresh, loadOnlineStatus]);
+
+  // Load messages when driver is selected
+  useEffect(() => {
+    if (selectedDriver?.id) {
+      loadMessages(selectedDriver.id);
+    }
+  }, [selectedDriver]);
+
+  const loadMessages = async (driverId) => {
+    if (!driverId) return;
+    
+    setLoadingMessages(true);
+    try {
+      const response = await api.get(`/messages/conversations/${driverId}`);
+      setMessages(response.data?.messages || []);
+      console.log(`✓ Loaded ${response.data?.messages?.length || 0} messages with driver`);
+    } catch (error) {
+      console.error('Failed to load messages:', error);
+      setMessages([]);
+    } finally {
+      setLoadingMessages(false);
     }
   };
 
