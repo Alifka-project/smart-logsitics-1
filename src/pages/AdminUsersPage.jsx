@@ -715,6 +715,8 @@ export default function AdminUsersPage() {
           </>
         )}
       </div>
+        </>
+      )}
 
       {/* Add/Edit Modal */}
       {showModal && (
