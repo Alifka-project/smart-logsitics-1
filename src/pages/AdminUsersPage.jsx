@@ -52,16 +52,46 @@ export default function AdminUsersPage() {
     }
   }, [activeTab]);
 
-  // Real-time refresh activity logs every 2 seconds when on logs tab (social media-like)
+  // Smart real-time refresh - only when tab is visible and with longer intervals
   useEffect(() => {
     if (activeTab === 'logs') {
       // Load immediately
       loadActivityLogs();
-      // Then refresh every 2 seconds for real-time feel
-      const interval = setInterval(() => {
-        loadActivityLogs();
-      }, 2000);
-      return () => clearInterval(interval);
+      
+      // Use visibility API to pause updates when tab is hidden
+      let interval = null;
+      
+      const handleVisibilityChange = () => {
+        if (document.hidden) {
+          // Tab is hidden - pause updates
+          if (interval) {
+            clearInterval(interval);
+            interval = null;
+          }
+        } else {
+          // Tab is visible - resume updates with 5 second interval
+          if (!interval) {
+            loadActivityLogs(); // Load immediately when tab becomes visible
+            interval = setInterval(() => {
+              loadActivityLogs();
+            }, 5000); // 5 seconds is less disturbing
+          }
+        }
+      };
+      
+      // Start interval when tab is visible
+      if (!document.hidden) {
+        interval = setInterval(() => {
+          loadActivityLogs();
+        }, 5000); // 5 seconds interval
+      }
+      
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      
+      return () => {
+        if (interval) clearInterval(interval);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      };
     }
   }, [activeTab]);
 
@@ -101,71 +131,69 @@ export default function AdminUsersPage() {
   };
 
   const loadActivityLogs = async () => {
-    setLogsLoading(true);
+    // Don't show loading spinner on background updates to avoid disturbing UX
+    const isInitialLoad = activityLogs.length === 0 && onlineUsers.length === 0;
+    if (isInitialLoad) {
+      setLogsLoading(true);
+    }
+    
     try {
-      // Try to get activity logs from API, fallback to using user data with lastLogin
-      try {
-        const [usersResponse, sessionsResponse] = await Promise.allSettled([
-          api.get('/admin/drivers'),
-          api.get('/admin/sessions').catch(() => ({ data: { sessions: [] } }))
-        ]);
+      // Get all users
+      const usersResponse = await api.get('/admin/drivers');
+      const allUsers = usersResponse.data?.data || [];
+      
+      // Determine online users based on recent activity (last 5 minutes = online)
+      const now = new Date();
+      const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+      
+      const online = allUsers.filter(u => {
+        if (!u.account?.lastLogin) return false;
+        const lastLogin = new Date(u.account.lastLogin);
+        // Consider online if lastLogin is within last 5 minutes
+        return lastLogin >= fiveMinutesAgo;
+      });
 
-        const allUsers = usersResponse.status === 'fulfilled' 
-          ? (usersResponse.value.data?.data || [])
-          : [];
-        
-        const sessions = sessionsResponse.status === 'fulfilled'
-          ? (sessionsResponse.value.data?.sessions || [])
-          : [];
-
-        // Get online users from active sessions
-        const onlineUserIds = new Set(sessions.map(s => s.userId || s.payload?.sub).filter(Boolean));
-        const online = allUsers.filter(u => onlineUserIds.has(u.id?.toString() || u.id));
-
-        // Create login history from users with lastLogin
-        const loginHistory = allUsers
-          .filter(u => u.account?.lastLogin)
-          .map(u => ({
+      // Create login history from users with lastLogin
+      const loginHistory = allUsers
+        .filter(u => u.account?.lastLogin)
+        .map(u => {
+          const lastLogin = new Date(u.account.lastLogin);
+          const isOnline = lastLogin >= fiveMinutesAgo;
+          
+          return {
             id: u.id,
             username: u.username,
             fullName: u.fullName || u.full_name,
             email: u.email,
             role: u.account?.role || 'driver',
             lastLogin: u.account.lastLogin,
-            ip: sessions.find(s => (s.userId || s.payload?.sub) === (u.id?.toString() || u.id))?.ip || 'N/A'
-          }))
-          .sort((a, b) => new Date(b.lastLogin) - new Date(a.lastLogin));
+            ip: 'N/A', // IP tracking would require backend session endpoint
+            isOnline
+          };
+        })
+        .sort((a, b) => new Date(b.lastLogin) - new Date(a.lastLogin));
 
-        setOnlineUsers(online);
-        setActivityLogs(loginHistory);
-      } catch (err) {
-        console.error('Error loading activity logs:', err);
-        // Fallback: use user data with lastLogin
-        const response = await api.get('/admin/drivers');
-        const allUsers = response.data?.data || [];
-        
-        const loginHistory = allUsers
-          .filter(u => u.account?.lastLogin)
-          .map(u => ({
-            id: u.id,
-            username: u.username,
-            fullName: u.fullName || u.full_name,
-            email: u.email,
-            role: u.account?.role || 'driver',
-            lastLogin: u.account.lastLogin,
-            ip: 'N/A'
-          }))
-          .sort((a, b) => new Date(b.lastLogin) - new Date(a.lastLogin));
-
-        setActivityLogs(loginHistory);
-        setOnlineUsers([]);
-      }
+      // Only update state if there are actual changes to avoid unnecessary re-renders
+      setOnlineUsers(prev => {
+        const prevIds = new Set(prev.map(u => u.id));
+        const newIds = new Set(online.map(u => u.id));
+        const hasChanged = prevIds.size !== newIds.size || 
+          ![...prevIds].every(id => newIds.has(id));
+        return hasChanged ? online : prev;
+      });
+      
+      setActivityLogs(loginHistory);
     } catch (e) {
       console.error('Error loading activity logs:', e);
-      setActivityLogs([]);
-      setOnlineUsers([]);
+      // On error, keep previous data instead of clearing
+      if (isInitialLoad) {
+        setActivityLogs([]);
+        setOnlineUsers([]);
+      }
     } finally {
-      setLogsLoading(false);
+      if (isInitialLoad) {
+        setLogsLoading(false);
+      }
     }
   };
 
@@ -464,7 +492,7 @@ export default function AdminUsersPage() {
                   <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Login History</h2>
                   <div className="flex items-center gap-2 mt-0.5">
                     <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">Live updates every 2s</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">Auto-refresh every 5s (pauses when tab hidden)</span>
                   </div>
                 </div>
               </div>
@@ -518,7 +546,7 @@ export default function AdminUsersPage() {
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {activityLogs.length > 0 ? (
                       activityLogs.map(log => {
-                        const isOnline = onlineUsers.some(u => u.id === log.id);
+                        const isOnline = log.isOnline || onlineUsers.some(u => u.id === log.id);
                         const lastLoginDate = new Date(log.lastLogin);
                         const timeAgo = getTimeAgo(lastLoginDate);
                         
