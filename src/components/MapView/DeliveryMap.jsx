@@ -54,7 +54,7 @@ export default function DeliveryMap({ deliveries, route }) {
     })
       .addTo(mapInstance.current)
       .bindPopup(
-        `<div style="font-family: Arial; font-size: 12px;">
+        `<div style="font-family: 'Montserrat', 'Avenir', -apple-system, sans-serif; font-size: 12px;">
           <b style="font-size: 14px;">🏭 Warehouse (Start)</b><br>
           <strong>Location:</strong> Jebel Ali Free Zone<br>
           <strong>Coordinates:</strong> 25.0053, 55.0760<br>
@@ -107,7 +107,7 @@ export default function DeliveryMap({ deliveries, route }) {
         
         // Create detailed popup with address info
         const popupContent = `
-          <div style="font-family: Arial; font-size: 12px; min-width: 250px;">
+          <div style="font-family: 'Montserrat', 'Avenir', -apple-system, sans-serif; font-size: 12px; min-width: 250px;">
             <b style="font-size: 14px; color: #667eea;">Stop ${index + 1}</b><br>
             <hr style="margin: 4px 0; border: none; border-top: 1px solid #ddd;">
             <div style="margin: 4px 0;">

@@ -44,6 +44,9 @@ export default {
         'xl': '1280px',
         '2xl': '1536px',
       },
+      fontFamily: {
+        'sans': ['Montserrat', 'Avenir', 'Circular', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'sans-serif'],
+      },
     },
   },
   plugins: [],

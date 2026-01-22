@@ -158,7 +158,7 @@ export default function DriverPortal() {
     markerRef.current = L.marker([latitude, longitude], { icon: customIcon })
       .addTo(mapInstance.current)
       .bindPopup(`
-        <div style="font-family: system-ui, -apple-system, sans-serif; font-size: 13px; min-width: 200px;">
+        <div style="font-family: 'Montserrat', 'Avenir', -apple-system, sans-serif; font-size: 13px; min-width: 200px;">
           <div style="font-weight: 600; margin-bottom: 8px; color: #1f2937;">Your Current Location</div>
           <div style="margin-bottom: 4px;"><strong>Coordinates:</strong> ${latitude.toFixed(6)}, ${longitude.toFixed(6)}</div>
           <div style="margin-bottom: 4px;"><strong>Time:</strong> ${new Date(location.timestamp).toLocaleString()}</div>
