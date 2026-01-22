@@ -57,20 +57,12 @@ export default function Navigation() {
                   <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-primary-400/20 via-primary-500/30 to-primary-400/20 blur-sm -z-10 animate-pulse"></div>
                 )}
                 
-                {/* Icon with modern circular background */}
-                <div className={`
-                  flex items-center justify-center w-8 h-8 rounded-xl transition-all duration-300 flex-shrink-0
-                  ${isActive
-                    ? 'bg-white/20 backdrop-blur-sm shadow-inner'
-                    : 'bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 group-hover:from-primary-100 group-hover:to-primary-200 dark:group-hover:from-primary-900/50 dark:group-hover:to-primary-800/50 group-hover:shadow-lg'
-                  }
-                `}>
-                  <Icon className={`w-5 h-5 transition-all duration-300 ${
-                    isActive 
-                      ? 'text-white drop-shadow-sm' 
-                      : 'text-gray-600 dark:text-gray-300 group-hover:text-primary-600 dark:group-hover:text-primary-400 group-hover:scale-110 group-hover:rotate-3'
-                  }`} />
-                </div>
+                {/* Icon with modern minimal style */}
+                <Icon className={`w-5 h-5 transition-all duration-300 flex-shrink-0 ${
+                  isActive 
+                    ? 'text-white drop-shadow-lg' 
+                    : 'text-gray-600 dark:text-gray-300 group-hover:text-primary-600 dark:group-hover:text-primary-400 group-hover:scale-110 group-hover:rotate-3'
+                }`} />
                 
                 {/* Label with modern typography */}
                 <span className={`hidden sm:inline transition-all duration-300 ${
