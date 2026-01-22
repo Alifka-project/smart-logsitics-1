@@ -45,33 +45,43 @@ export default function Navigation() {
                 key={item.path}
                 to={item.path}
                 className={`
-                  flex items-center gap-2.5 px-4 py-2.5 font-medium transition-all duration-200 ease-out text-xs sm:text-sm whitespace-nowrap relative group rounded-lg
+                  flex items-center gap-2.5 px-4 py-2.5 font-medium transition-all duration-300 ease-out text-xs sm:text-sm whitespace-nowrap relative group rounded-lg overflow-hidden
                   ${isActive
                     ? 'text-primary-600 dark:text-primary-400 bg-white dark:bg-gray-800 shadow-[0_1px_2px_rgba(0,0,0,0.05)]'
-                    : 'text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                    : 'text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:scale-[1.02] hover:shadow-sm'
                   }
                 `}
               >
-                {/* Google Material Design style - clean and minimal */}
+                {/* Web3 animated underline - slides in */}
+                <div className={`absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-primary-600 via-primary-400 to-primary-600 dark:from-primary-400 dark:via-primary-300 dark:to-primary-400 rounded-t-full transition-all duration-300 ${
+                  isActive ? 'w-full opacity-100' : 'w-0 opacity-0 group-hover:w-full group-hover:opacity-50'
+                }`}></div>
+                
+                {/* Shimmer effect on active */}
                 {isActive && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600 dark:bg-primary-400 rounded-t-full"></div>
+                  <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
                 )}
                 
-                {/* Icon - clean Google style */}
-                <Icon className={`w-5 h-5 transition-all duration-200 flex-shrink-0 ${
+                {/* Icon with web3 animations */}
+                <Icon className={`w-5 h-5 transition-all duration-300 flex-shrink-0 ${
                   isActive 
-                    ? 'text-primary-600 dark:text-primary-400' 
-                    : 'text-gray-600 dark:text-gray-400 group-hover:text-primary-600 dark:group-hover:text-primary-400'
+                    ? 'text-primary-600 dark:text-primary-400 scale-110' 
+                    : 'text-gray-600 dark:text-gray-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 group-hover:scale-110 group-hover:rotate-12'
                 }`} />
                 
-                {/* Label - clean typography */}
-                <span className={`hidden sm:inline transition-all duration-200 ${
+                {/* Label with smooth transitions */}
+                <span className={`hidden sm:inline transition-all duration-300 relative z-10 ${
                   isActive 
-                    ? 'font-medium' 
-                    : 'font-normal group-hover:font-medium'
+                    ? 'font-medium translate-x-0' 
+                    : 'font-normal group-hover:font-medium group-hover:translate-x-0.5'
                 }`}>
                   {item.label}
                 </span>
+                
+                {/* Subtle glow on hover */}
+                {!isActive && (
+                  <div className="absolute inset-0 rounded-lg bg-primary-500/0 group-hover:bg-primary-500/5 dark:group-hover:bg-primary-400/5 transition-all duration-300 -z-10"></div>
+                )}
               </NavLink>
             );
           })}
