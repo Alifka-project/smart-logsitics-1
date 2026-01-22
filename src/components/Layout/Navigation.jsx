@@ -45,34 +45,46 @@ export default function Navigation() {
                 key={item.path}
                 to={item.path}
                 className={`
-                  flex items-center gap-2 px-4 py-2 font-medium transition-all duration-200 ease-out text-xs sm:text-sm whitespace-nowrap relative group rounded-lg
+                  flex items-center gap-2.5 px-5 py-2.5 font-medium transition-all duration-300 ease-out text-xs sm:text-sm whitespace-nowrap relative group rounded-xl
                   ${isActive
-                    ? 'text-white bg-primary-600 shadow-md'
-                    : 'text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:scale-[1.01]'
+                    ? 'text-white bg-gradient-to-r from-primary-600 via-primary-500 to-primary-600 shadow-lg shadow-primary-500/50 hover:shadow-xl hover:shadow-primary-500/60 scale-105'
+                    : 'text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm hover:bg-gradient-to-r hover:from-primary-50 hover:to-primary-100 dark:hover:from-primary-900/30 dark:hover:to-primary-800/30 hover:scale-[1.02] hover:shadow-md'
                   }
                 `}
               >
-                {/* Icon with circular background */}
+                {/* Glow effect for active state */}
+                {isActive && (
+                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-primary-400/20 via-primary-500/30 to-primary-400/20 blur-sm -z-10 animate-pulse"></div>
+                )}
+                
+                {/* Icon with modern circular background */}
                 <div className={`
-                  flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 flex-shrink-0
+                  flex items-center justify-center w-8 h-8 rounded-xl transition-all duration-300 flex-shrink-0
                   ${isActive
-                    ? 'bg-white/20'
-                    : 'bg-gray-100 dark:bg-gray-700 group-hover:bg-primary-100 dark:group-hover:bg-primary-900'
+                    ? 'bg-white/20 backdrop-blur-sm shadow-inner'
+                    : 'bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 group-hover:from-primary-100 group-hover:to-primary-200 dark:group-hover:from-primary-900/50 dark:group-hover:to-primary-800/50 group-hover:shadow-lg'
                   }
                 `}>
-                  <Icon className={`w-4 h-4 transition-all duration-200 ${
+                  <Icon className={`w-5 h-5 transition-all duration-300 ${
                     isActive 
-                      ? 'text-white' 
-                      : 'text-gray-600 dark:text-gray-300 group-hover:text-primary-600 dark:group-hover:text-primary-400 group-hover:scale-110'
+                      ? 'text-white drop-shadow-sm' 
+                      : 'text-gray-600 dark:text-gray-300 group-hover:text-primary-600 dark:group-hover:text-primary-400 group-hover:scale-110 group-hover:rotate-3'
                   }`} />
                 </div>
                 
-                {/* Label */}
-                <span className={`hidden sm:inline transition-all duration-200 ${
-                  isActive ? 'font-semibold' : 'font-medium group-hover:font-semibold'
+                {/* Label with modern typography */}
+                <span className={`hidden sm:inline transition-all duration-300 ${
+                  isActive 
+                    ? 'font-semibold drop-shadow-sm' 
+                    : 'font-medium group-hover:font-semibold'
                 }`}>
                   {item.label}
                 </span>
+                
+                {/* Active indicator line */}
+                {isActive && (
+                  <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-white rounded-full shadow-lg"></div>
+                )}
               </NavLink>
             );
           })}
