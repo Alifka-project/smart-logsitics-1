@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import api from '../frontend/apiClient';
 import { 
   MapPin, 
@@ -15,7 +15,8 @@ import {
   Phone,
   Send,
   Paperclip,
-  Navigation as NavigationIcon
+  Navigation as NavigationIcon,
+  Circle
 } from 'lucide-react';
 import DriverTrackingMap from '../components/Tracking/DriverTrackingMap';
 
@@ -38,6 +39,7 @@ export default function AdminOperationsPage() {
   const [newMessage, setNewMessage] = useState('');
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [onlineUserIds, setOnlineUserIds] = useState(new Set());
   const [messageTemplates] = useState([
     'Please update delivery status',
     'New delivery assigned',
@@ -48,6 +50,7 @@ export default function AdminOperationsPage() {
 
   useEffect(() => {
     loadData();
+    loadOnlineStatus(false);
     
     let interval = null;
     if (autoRefresh) {
@@ -56,10 +59,16 @@ export default function AdminOperationsPage() {
       }, 5000);
     }
 
+    // Auto-refresh online status
+    let onlineInterval = setInterval(() => {
+      loadOnlineStatus(true);
+    }, 5000);
+
     return () => {
       if (interval) clearInterval(interval);
+      if (onlineInterval) clearInterval(onlineInterval);
     };
-  }, [autoRefresh]);
+  }, [autoRefresh, loadOnlineStatus]);
 
   // Load messages when driver is selected
   useEffect(() => {
@@ -84,6 +93,45 @@ export default function AdminOperationsPage() {
     }
   };
 
+  // Load online status - same logic as User Management and Dashboard pages
+  const loadOnlineStatus = useCallback(async (silent = false) => {
+    try {
+      // Try to get active sessions first
+      let activeSessionUserIds = new Set();
+      try {
+        const sessionsResponse = await api.get('/admin/drivers/sessions');
+        if (sessionsResponse.data?.sessions) {
+          activeSessionUserIds = new Set(
+            sessionsResponse.data.sessions
+              .map(s => s.userId?.toString() || s.userId)
+              .filter(Boolean)
+          );
+        }
+      } catch (e) {
+        // Fallback to time-based detection
+        const usersResponse = await api.get('/admin/drivers');
+        const allUsers = usersResponse.data?.data || [];
+        const now = new Date();
+        const twoMinutesAgo = new Date(now.getTime() - 2 * 60 * 1000);
+        
+        allUsers.forEach(u => {
+          if (u.account?.lastLogin) {
+            const lastLogin = new Date(u.account.lastLogin);
+            if (lastLogin >= twoMinutesAgo) {
+              const userId = u.id?.toString() || u.id;
+              activeSessionUserIds.add(userId);
+            }
+          }
+        });
+      }
+
+      // Always update to ensure sync with other pages
+      setOnlineUserIds(activeSessionUserIds);
+    } catch (e) {
+      console.error('Error loading online status:', e);
+    }
+  }, []);
+
   const loadData = async () => {
     try {
       const [driversResp, deliveriesResp] = await Promise.allSettled([
@@ -105,6 +153,9 @@ export default function AdminOperationsPage() {
       }
 
       setLastUpdate(new Date());
+      
+      // Refresh online status when data loads
+      loadOnlineStatus(true);
     } catch (e) {
       console.error('Error loading operations data:', e);
     } finally {
@@ -186,7 +237,17 @@ export default function AdminOperationsPage() {
     return alertsList;
   };
 
-  const onlineDrivers = drivers.filter(d => d.tracking?.online);
+  // Helper function to check if driver is online
+  const isDriverOnline = (driver) => {
+    const driverIdStr = driver.id?.toString();
+    const driverIdNum = driver.id;
+    return onlineUserIds.has(driverIdStr) || 
+           onlineUserIds.has(driverIdNum) ||
+           onlineUserIds.has(String(driverIdNum)) ||
+           driver.tracking?.online;
+  };
+
+  const onlineDrivers = drivers.filter(d => isDriverOnline(d));
   const activeDeliveries = deliveries.filter(d => 
     d.tracking?.status === 'in_progress' || d.status?.toLowerCase() === 'out-for-delivery'
   );
@@ -371,14 +432,20 @@ export default function AdminOperationsPage() {
             <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Driver Status</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {drivers.map(driver => {
-                const isOnline = driver.tracking?.online;
+                const isOnline = isDriverOnline(driver);
                 const location = driver.tracking?.location;
                 
                 return (
                   <div key={driver.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
-                        <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                        <div className="relative">
+                          <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}>
+                            {isOnline && (
+                              <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-75"></div>
+                            )}
+                          </div>
+                        </div>
                         <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
                           {driver.full_name || driver.username || 'Unknown'}
                         </span>
@@ -591,7 +658,7 @@ export default function AdminOperationsPage() {
             </div>
             <div className="flex-1 overflow-y-auto">
               {drivers.map(driver => {
-                const isOnline = driver.tracking?.online;
+                const isOnline = isDriverOnline(driver);
                 const isSelected = selectedDriver?.id === driver.id;
                 const unreadCount = 0; // TODO: Get from messages API
                 
@@ -605,10 +672,19 @@ export default function AdminOperationsPage() {
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
-                        <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                        <div className="relative">
+                          <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}>
+                            {isOnline && (
+                              <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-75"></div>
+                            )}
+                          </div>
+                        </div>
                         <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
                           {driver.full_name || driver.fullName || driver.username || 'Unknown'}
                         </span>
+                        {isOnline && (
+                          <span className="text-xs text-green-600 dark:text-green-400 font-medium">• Active</span>
+                        )}
                       </div>
                       {unreadCount > 0 && (
                         <span className="bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
@@ -617,7 +693,11 @@ export default function AdminOperationsPage() {
                       )}
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {isOnline ? 'Online' : 'Offline'}
+                      {isOnline ? (
+                        <span className="text-green-600 dark:text-green-400 font-medium">Active now</span>
+                      ) : (
+                        <span>Offline</span>
+                      )}
                       {driver.tracking?.location && (
                         <span className="ml-2">
                           • {driver.tracking.location.speed ? `${(driver.tracking.location.speed * 3.6).toFixed(0)} km/h` : 'Stationary'}
@@ -643,13 +723,40 @@ export default function AdminOperationsPage() {
                 {/* Chat Header */}
                 <div className="p-4 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${selectedDriver.tracking?.online ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                    <div className="relative">
+                      {(() => {
+                        const isOnline = isDriverOnline(selectedDriver);
+                        return (
+                          <>
+                            <div className={`w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center ${
+                              isOnline ? 'ring-2 ring-green-500/20' : ''
+                            }`}>
+                              <Users className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+                            </div>
+                            {isOnline && (
+                              <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full animate-pulse">
+                                <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-75"></div>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                        {selectedDriver.full_name || selectedDriver.fullName || selectedDriver.username || 'Unknown'}
-                      </h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                          {selectedDriver.full_name || selectedDriver.fullName || selectedDriver.username || 'Unknown'}
+                        </h3>
+                        {isDriverOnline(selectedDriver) && (
+                          <span className="text-xs text-green-600 dark:text-green-400 font-medium">• Active</span>
+                        )}
+                      </div>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {selectedDriver.tracking?.online ? 'Online' : 'Offline'}
+                        {isDriverOnline(selectedDriver) ? (
+                          <span className="text-green-600 dark:text-green-400 font-medium">Active now</span>
+                        ) : (
+                          <span>Offline</span>
+                        )}
                         {selectedDriver.phone && ` • ${selectedDriver.phone}`}
                       </p>
                     </div>
