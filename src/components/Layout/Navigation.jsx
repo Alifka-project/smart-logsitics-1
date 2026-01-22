@@ -47,7 +47,7 @@ export default function Navigation() {
                 className={`
                   flex items-center gap-2.5 px-4 py-2.5 font-medium transition-all duration-200 ease-out text-xs sm:text-sm whitespace-nowrap relative group rounded-lg
                   ${isActive
-                    ? 'text-primary-600 dark:text-primary-400 bg-white dark:bg-gray-800 shadow-sm'
+                    ? 'text-primary-600 dark:text-primary-400 bg-white dark:bg-gray-800 shadow-[0_1px_2px_rgba(0,0,0,0.05)]'
                     : 'text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
                   }
                 `}
