@@ -52,12 +52,15 @@ export default function AdminUsersPage() {
     }
   }, [activeTab]);
 
-  // Auto-refresh activity logs every 10 seconds when on logs tab
+  // Real-time refresh activity logs every 2 seconds when on logs tab (social media-like)
   useEffect(() => {
     if (activeTab === 'logs') {
+      // Load immediately
+      loadActivityLogs();
+      // Then refresh every 2 seconds for real-time feel
       const interval = setInterval(() => {
         loadActivityLogs();
-      }, 10000);
+      }, 2000);
       return () => clearInterval(interval);
     }
   }, [activeTab]);
@@ -411,21 +414,33 @@ export default function AdminUsersPage() {
             ) : onlineUsers.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {onlineUsers.map(user => (
-                  <div key={user.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <div key={user.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 hover:shadow-md animate-fade-in">
                     <div className="flex items-center gap-3">
                       <div className="relative">
-                        <div className="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center">
-                          <Users className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+                        <div className="w-12 h-12 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center ring-2 ring-green-500/20">
+                          <Users className="w-6 h-6 text-primary-600 dark:text-primary-400" />
                         </div>
-                        <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full"></div>
+                        {/* Pulsing green dot - social media style */}
+                        <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full animate-pulse">
+                          <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-75"></div>
+                        </div>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                          {user.fullName || user.full_name || user.username}
+                        <div className="flex items-center gap-2">
+                          <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                            {user.fullName || user.full_name || user.username}
+                          </div>
                         </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{user.username}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          {user.account?.role || 'driver'}
+                        <div className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">{user.username}</div>
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <span className="text-xs font-medium text-green-600 dark:text-green-400 flex items-center gap-1">
+                            <Circle className="w-2 h-2 fill-current" />
+                            Active now
+                          </span>
+                          <span className="text-xs text-gray-400 dark:text-gray-500">•</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {user.account?.role || 'driver'}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -445,14 +460,30 @@ export default function AdminUsersPage() {
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Clock className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Login History</h2>
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Login History</h2>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">Live updates every 2s</span>
+                  </div>
+                </div>
               </div>
               <button
                 onClick={loadActivityLogs}
                 disabled={logsLoading}
-                className="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
+                className="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 flex items-center gap-2"
               >
-                {logsLoading ? 'Refreshing...' : 'Refresh'}
+                {logsLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-600"></div>
+                    Refreshing...
+                  </>
+                ) : (
+                  <>
+                    <Circle className="w-3 h-3 text-green-500 fill-current" />
+                    Refresh
+                  </>
+                )}
               </button>
             </div>
             {logsLoading ? (
@@ -492,15 +523,31 @@ export default function AdminUsersPage() {
                         const timeAgo = getTimeAgo(lastLoginDate);
                         
                         return (
-                          <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                          <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200">
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center">
-                                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center">
-                                  <Users className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+                                <div className="relative flex-shrink-0">
+                                  <div className={`h-10 w-10 rounded-full flex items-center justify-center transition-all duration-300 ${
+                                    isOnline 
+                                      ? 'bg-primary-100 dark:bg-primary-900/30 ring-2 ring-green-500/20' 
+                                      : 'bg-primary-100 dark:bg-primary-900/30'
+                                  }`}>
+                                    <Users className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+                                  </div>
+                                  {isOnline && (
+                                    <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full animate-pulse">
+                                      <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-75"></div>
+                                    </div>
+                                  )}
                                 </div>
                                 <div className="ml-4">
-                                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                    {log.fullName || log.username}
+                                  <div className="flex items-center gap-2">
+                                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                      {log.fullName || log.username}
+                                    </div>
+                                    {isOnline && (
+                                      <span className="text-xs text-green-600 dark:text-green-400 font-medium">• Active</span>
+                                    )}
                                   </div>
                                   <div className="text-sm text-gray-500 dark:text-gray-400">{log.email || log.username}</div>
                                 </div>
@@ -519,19 +566,24 @@ export default function AdminUsersPage() {
                               <div className="text-sm text-gray-900 dark:text-gray-100">
                                 {lastLoginDate.toLocaleString()}
                               </div>
-                              <div className="text-sm text-gray-500 dark:text-gray-400">{timeAgo}</div>
+                              <div className={`text-sm ${isOnline ? 'text-green-600 dark:text-green-400 font-medium' : 'text-gray-500 dark:text-gray-400'}`}>
+                                {isOnline ? 'Active now' : timeAgo}
+                              </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="text-sm text-gray-900 dark:text-gray-100 font-mono">{log.ip}</div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               {isOnline ? (
-                                <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-semibold rounded-full bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">
-                                  <Circle className="w-2 h-2 fill-current" />
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 animate-fade-in shadow-sm">
+                                  <div className="relative">
+                                    <Circle className="w-2.5 h-2.5 fill-current" />
+                                    <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-75"></div>
+                                  </div>
                                   Online
                                 </span>
                               ) : (
-                                <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300">
+                                <span className="px-3 py-1.5 text-xs font-semibold rounded-full bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300">
                                   Offline
                                 </span>
                               )}
