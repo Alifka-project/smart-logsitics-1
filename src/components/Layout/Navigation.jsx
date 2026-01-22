@@ -32,7 +32,7 @@ export default function Navigation() {
 
   return (
     <nav className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 transition-colors">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 max-w-7xl">
+      <div className="container mx-auto px-4 sm:px-5 lg:px-6 xl:px-8 2xl:px-10 max-w-7xl">
         <div className="flex gap-1.5 overflow-x-auto py-1.5">
           {navItems.map((item) => {
             const Icon = item.icon;
