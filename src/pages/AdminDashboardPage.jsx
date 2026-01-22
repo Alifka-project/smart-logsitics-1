@@ -30,6 +30,45 @@ export default function AdminDashboardPage() {
   const [onlineUserIds, setOnlineUserIds] = useState(new Set());
   const navigate = useNavigate();
 
+  // Load online status for drivers tab - same logic as User Management page
+  const loadOnlineStatus = useCallback(async (silent = false) => {
+    try {
+      // Try to get active sessions first
+      let activeSessionUserIds = new Set();
+      try {
+        const sessionsResponse = await api.get('/admin/drivers/sessions');
+        if (sessionsResponse.data?.sessions) {
+          activeSessionUserIds = new Set(
+            sessionsResponse.data.sessions
+              .map(s => s.userId?.toString() || s.userId)
+              .filter(Boolean)
+          );
+        }
+      } catch (e) {
+        // Fallback to time-based detection
+        const usersResponse = await api.get('/admin/drivers');
+        const allUsers = usersResponse.data?.data || [];
+        const now = new Date();
+        const twoMinutesAgo = new Date(now.getTime() - 2 * 60 * 1000);
+        
+        allUsers.forEach(u => {
+          if (u.account?.lastLogin) {
+            const lastLogin = new Date(u.account.lastLogin);
+            if (lastLogin >= twoMinutesAgo) {
+              const userId = u.id?.toString() || u.id;
+              activeSessionUserIds.add(userId);
+            }
+          }
+        });
+      }
+
+      // Always update to ensure sync with User Management page
+      setOnlineUserIds(activeSessionUserIds);
+    } catch (e) {
+      console.error('Error loading online status:', e);
+    }
+  }, []);
+
   const loadDashboardData = useCallback(async () => {
     try {
       const [dashboardResp, driversResp, deliveriesResp] = await Promise.allSettled([
@@ -55,6 +94,13 @@ export default function AdminDashboardPage() {
           return role === 'driver'; // Only show driver role accounts
         });
         setDrivers(driversOnly);
+        
+        // Refresh online status after drivers are loaded
+        if (activeTab === 'drivers') {
+          setTimeout(() => {
+            loadOnlineStatus(true);
+          }, 100);
+        }
       }
 
       if (deliveriesResp.status === 'fulfilled') {
@@ -66,7 +112,7 @@ export default function AdminDashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeTab, loadOnlineStatus]);
 
   useEffect(() => {
     ensureAuth();
@@ -116,6 +162,61 @@ export default function AdminDashboardPage() {
       window.removeEventListener('deliveryStatusUpdated', handleDeliveryStatusUpdated);
     };
   }, [loadDashboardData, autoRefresh]);
+
+  // Auto-refresh online status when on drivers tab or when dashboard refreshes
+  useEffect(() => {
+    if (activeTab === 'drivers') {
+      // Load immediately
+      loadOnlineStatus(false);
+      
+      // Use visibility API to pause updates when tab is hidden
+      let interval = null;
+      
+      const handleVisibilityChange = () => {
+        if (document.hidden) {
+          if (interval) {
+            clearInterval(interval);
+            interval = null;
+          }
+        } else {
+          if (!interval) {
+            loadOnlineStatus(true);
+            interval = setInterval(() => {
+              loadOnlineStatus(true);
+            }, 5000);
+          }
+        }
+      };
+      
+      if (!document.hidden) {
+        const timeout = setTimeout(() => {
+          interval = setInterval(() => {
+            loadOnlineStatus(true);
+          }, 5000);
+        }, 5000);
+        
+        return () => {
+          clearTimeout(timeout);
+          if (interval) clearInterval(interval);
+          document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+      }
+      
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      
+      return () => {
+        if (interval) clearInterval(interval);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      };
+    }
+  }, [activeTab, loadOnlineStatus]);
+
+  // Also refresh online status when dashboard data refreshes
+  useEffect(() => {
+    if (activeTab === 'drivers') {
+      loadOnlineStatus(true);
+    }
+  }, [drivers, activeTab, loadOnlineStatus]);
 
   // Safely extract data with defaults - MUST be before any conditional returns (React hooks rule)
   const totals = (data && data.totals) ? { ...data.totals } : { 
@@ -762,8 +863,12 @@ export default function AdminDashboardPage() {
             <MetricCard icon={CheckCircle} label="Active" value={activeDrivers} color="green" />
             <MetricCard icon={Clock} label="On Route" value={drivers.filter(d => d.tracking?.status === 'in_progress').length} color="yellow" />
             <MetricCard icon={MapPin} label="Online" value={drivers.filter(d => {
-              const driverId = d.id?.toString() || d.id;
-              return onlineUserIds.has(driverId) || d.tracking?.online;
+              const driverIdStr = d.id?.toString();
+              const driverIdNum = d.id;
+              return onlineUserIds.has(driverIdStr) || 
+                     onlineUserIds.has(driverIdNum) ||
+                     onlineUserIds.has(String(driverIdNum)) ||
+                     d.tracking?.online;
             }).length} color="purple" />
           </div>
 
@@ -793,8 +898,13 @@ export default function AdminDashboardPage() {
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {drivers.length > 0 ? (
                     drivers.map((driver) => {
-                      const driverId = driver.id?.toString() || driver.id;
-                      const isOnline = onlineUserIds.has(driverId) || driver.tracking?.online;
+                      // Check online status - try both string and number ID formats
+                      const driverIdStr = driver.id?.toString();
+                      const driverIdNum = driver.id;
+                      const isOnline = onlineUserIds.has(driverIdStr) || 
+                                     onlineUserIds.has(driverIdNum) ||
+                                     onlineUserIds.has(String(driverIdNum)) ||
+                                     driver.tracking?.online;
                       const location = driver.tracking?.location;
                       return (
                         <tr key={driver.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200">
