@@ -101,8 +101,8 @@ model Delivery {
 
   assignments DeliveryAssignment[]
   events      DeliveryEvent[]
-  smsConfirmations SmsConfirmation[]
-  smsLogs     SmsLog[]
+  // smsConfirmations SmsConfirmation[] // TODO: uncomment after migration applied
+  // smsLogs     SmsLog[] // TODO: uncomment after migration applied
 
   @@index([status], map: "idx_delivery_status")
   @@index([createdAt], map: "idx_delivery_created")
@@ -155,7 +155,7 @@ model SmsConfirmation {
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   metadata    Json?
 
-  delivery Delivery @relation(fields: [deliveryId], references: [id])
+  // delivery Delivery @relation(fields: [deliveryId], references: [id]) // TODO: uncomment after migration
 
   @@map("sms_confirmations")
 }
@@ -175,7 +175,7 @@ model SmsLog {
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   metadata        Json?
 
-  delivery Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  // delivery Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade) // TODO: uncomment after migration
 
   @@index([deliveryId], map: "idx_sms_log_delivery")
   @@index([phoneNumber], map: "idx_sms_log_phone")
