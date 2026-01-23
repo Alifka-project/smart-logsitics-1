@@ -174,8 +174,19 @@ app.get('/api/diag/status', async (req, res) => {
 });
 
 
-// Protect all other /api routes
-app.use('/api', authenticate);
+// Protect all other /api routes - EXCEPT public endpoints
+app.use('/api', (req, res, next) => {
+  // Allow public routes without authentication
+  if (req.path.startsWith('/customer/') || 
+      req.path.startsWith('/auth/') ||
+      req.path.startsWith('/health') ||
+      req.path.startsWith('/diag/') ||
+      req.path.startsWith('/sms/webhook')) {
+    return next();
+  }
+  // Require authentication for all other routes
+  authenticate(req, res, next);
+});
 
 app.use('/api', (req, res, next) => {
   if (req.path.startsWith('/auth')) {
