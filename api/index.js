@@ -133,6 +133,47 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+// Diagnostic endpoint - check data and database status
+app.get('/api/diag/status', async (req, res) => {
+  try {
+    const prisma = require('../src/server/db/prisma');
+    
+    // Count deliveries
+    const deliveryCount = await prisma.delivery.count();
+    const smsLogCount = await prisma.smsLog.count();
+    const driverCount = await prisma.driver.count();
+    const assignmentCount = await prisma.deliveryAssignment.count();
+    
+    // Get sample delivery if exists
+    const sampleDelivery = await prisma.delivery.findFirst();
+    
+    res.json({
+      ok: true,
+      database: 'connected',
+      data: {
+        deliveries: deliveryCount,
+        smsLogs: smsLogCount,
+        drivers: driverCount,
+        assignments: assignmentCount,
+        sampleDelivery: sampleDelivery ? {
+          id: sampleDelivery.id,
+          customer: sampleDelivery.customer,
+          status: sampleDelivery.status,
+          createdAt: sampleDelivery.createdAt
+        } : null
+      },
+      ts: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      error: error.message,
+      ts: new Date().toISOString()
+    });
+  }
+});
+
+
 // Protect all other /api routes
 app.use('/api', authenticate);
 
