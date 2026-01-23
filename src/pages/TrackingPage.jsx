@@ -36,7 +36,7 @@ export default function TrackingPage() {
     setError(null);
 
     try {
-      const response = await api.post('/api/sms/confirm', {
+      const response = await api.post('/sms/confirm', {
         deliveryId,
         code
       });
