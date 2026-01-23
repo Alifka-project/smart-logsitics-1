@@ -72,27 +72,48 @@ router.get('/conversations/:driverId', authenticate, requireRole('admin'), async
  */
 router.get('/unread', authenticate, requireRole('admin'), async (req, res) => {
   try {
-    const adminId = req.user?.sub;
+    const adminId = req.user?.sub || req.user?.id;
 
     if (!adminId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      console.error('No admin ID found in req.user:', JSON.stringify(req.user || {}));
+      return res.status(401).json({ error: 'Unauthorized - No admin ID' });
     }
 
-    const unreadCounts = await prisma.message.groupBy({
-      by: ['driverId'],
-      where: {
-        adminId,
-        isRead: false
-      },
-      _count: true
-    });
+    // Try to get unread counts using groupBy
+    try {
+      const unreadCounts = await prisma.message.groupBy({
+        by: ['driverId'],
+        where: {
+          adminId,
+          isRead: false
+        },
+        _count: true
+      });
 
-    const result = {};
-    unreadCounts.forEach(item => {
-      result[item.driverId] = item._count;
-    });
+      const result = {};
+      unreadCounts.forEach(item => {
+        result[item.driverId] = item._count;
+      });
 
-    res.json(result);
+      return res.json(result);
+    } catch (groupByErr) {
+      // Fallback: use simple findMany if groupBy fails
+      console.log('groupBy failed, using findMany fallback:', groupByErr.message);
+      const messages = await prisma.message.findMany({
+        where: {
+          adminId,
+          isRead: false
+        },
+        select: { driverId: true }
+      });
+
+      const result = {};
+      messages.forEach(msg => {
+        result[msg.driverId] = (result[msg.driverId] || 0) + 1;
+      });
+
+      return res.json(result);
+    }
   } catch (error) {
     console.error('Error fetching unread counts:', error);
     res.status(500).json({ error: error.message });
