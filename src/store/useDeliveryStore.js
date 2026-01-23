@@ -29,6 +29,34 @@ const useDeliveryStore = create((set, get) => ({
     return [];
   },
 
+  // Fetch deliveries from database
+  fetchFromDatabase: async () => {
+    try {
+      set({ isLoading: true });
+      
+      // Import API client dynamically to avoid circular dependencies
+      const apiClient = (await import('../frontend/apiClient')).default;
+      
+      const response = await apiClient.get('/deliveries');
+      const dbDeliveries = response.data?.deliveries || [];
+      
+      if (dbDeliveries.length > 0) {
+        // Load through the normal flow to add calculations
+        const state = get();
+        state.loadDeliveries(dbDeliveries);
+        return dbDeliveries;
+      }
+      
+      return [];
+    } catch (error) {
+      console.error('Failed to fetch deliveries from database:', error);
+      // Fall back to localStorage if DB fetch fails
+      return get().initializeFromStorage();
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
   // Save to localStorage
   saveToStorage: (deliveries) => {
     try {

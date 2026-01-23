@@ -16,6 +16,7 @@ import { AlertCircle, AlertTriangle } from 'lucide-react';
 
 export default function DeliveryManagementPage() {
   const deliveries = useDeliveryStore((state) => state.deliveries);
+  const fetchFromDatabase = useDeliveryStore((state) => state.fetchFromDatabase);
   const [activeTab, setActiveTab] = useState('overview');
   const [showUpload, setShowUpload] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -25,6 +26,19 @@ export default function DeliveryManagementPage() {
   const [isFallback, setIsFallback] = useState(false);
   const [isOptimized, setIsOptimized] = useState(false);
   const { toasts, removeToast, success, error, warning } = useToast();
+
+  // Load deliveries from database on page load
+  useEffect(() => {
+    const loadInitialData = async () => {
+      // First try to fetch from database
+      const dbDeliveries = await fetchFromDatabase();
+      if (dbDeliveries && dbDeliveries.length > 0) {
+        success(`✓ Loaded ${dbDeliveries.length} deliveries from database`);
+      }
+    };
+    
+    loadInitialData();
+  }, []);
 
   // Load route when deliveries change and Map tab is active
   useEffect(() => {
