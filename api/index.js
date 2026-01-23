@@ -189,7 +189,12 @@ app.use('/api', (req, res, next) => {
 });
 
 app.use('/api', (req, res, next) => {
-  if (req.path.startsWith('/auth')) {
+  // Skip CSRF for public routes
+  if (req.path.startsWith('/auth') ||
+      req.path.startsWith('/customer/') ||
+      req.path.startsWith('/health') ||
+      req.path.startsWith('/diag/') ||
+      req.path.startsWith('/sms/webhook')) {
     return next();
   }
   requireCSRF(req, res, next);
