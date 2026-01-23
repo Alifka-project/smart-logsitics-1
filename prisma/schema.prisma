@@ -79,26 +79,36 @@ model LiveLocation {
 
 // Deliveries - stores full delivery data from uploads
 model Delivery {
-  id        String   @id @default(uuid()) @db.Uuid
-  customer  String?   @db.VarChar(255)
-  address   String?   @db.Text
-  phone     String?   @db.VarChar(32)
-  poNumber  String?   @db.VarChar(100) // Purchase Order Number from uploaded file
-  lat       Float?
-  lng       Float?
-  status    String    @default("pending") @db.VarChar(50)
-  items     String?   @db.Text // JSON string or text description
-  metadata  Json?     // Additional metadata (original delivery number, PO, etc.)
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                        String   @id @default(uuid()) @db.Uuid
+  customer                  String?   @db.VarChar(255)
+  address                   String?   @db.Text
+  phone                     String?   @db.VarChar(32)
+  poNumber                  String?   @db.VarChar(100) // Purchase Order Number from uploaded file
+  lat                       Float?
+  lng                       Float?
+  status                    String    @default("pending") @db.VarChar(50)
+  items                     String?   @db.Text // JSON string or text description
+  metadata                  Json?     // Additional metadata (original delivery number, PO, etc.)
+  // New fields for SMS confirmation flow
+  confirmationToken         String?   @unique @db.VarChar(255) // Token for SMS confirmation link
+  confirmationStatus        String?   @default("pending") @db.VarChar(50) // pending, confirmed, expired
+  customerConfirmedAt       DateTime? @map("customer_confirmed_at") @db.Timestamptz(6) // When customer confirmed
+  availableDeliveryDates    Json?     @map("available_delivery_dates") // JSON array of available dates
+  confirmedDeliveryDate     DateTime? @map("confirmed_delivery_date") @db.Timestamptz(6) // Date selected by customer
+  tokenExpiresAt            DateTime? @map("token_expires_at") @db.Timestamptz(6) // Token expiration
+  createdAt                 DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   assignments DeliveryAssignment[]
   events      DeliveryEvent[]
   smsConfirmations SmsConfirmation[]
+  smsLogs     SmsLog[]
 
   @@index([status], map: "idx_delivery_status")
   @@index([createdAt], map: "idx_delivery_created")
   @@index([poNumber], map: "idx_delivery_po_number")
+  @@index([confirmationToken], map: "idx_delivery_confirmation_token")
+  @@index([confirmationStatus], map: "idx_delivery_confirmation_status")
   @@map("deliveries")
 }
 
@@ -148,6 +158,30 @@ model SmsConfirmation {
   delivery Delivery @relation(fields: [deliveryId], references: [id])
 
   @@map("sms_confirmations")
+}
+
+// SMS Logs - Track all SMS communications
+model SmsLog {
+  id              BigInt    @id @default(autoincrement())
+  deliveryId      String    @map("delivery_id") @db.Uuid
+  phoneNumber     String    @map("phone_number") @db.VarChar(32)
+  messageContent  String    @map("message_content") @db.Text
+  smsProvider     String    @map("sms_provider") @db.VarChar(50) // twilio, aws-sns, mock, etc.
+  externalMessageId String? @map("external_message_id") @db.VarChar(255) // ID from provider
+  status          String    @default("pending") @db.VarChar(32) // pending, sent, failed, delivered
+  failureReason   String?   @map("failure_reason") @db.Text
+  sentAt          DateTime? @map("sent_at") @db.Timestamptz(6)
+  deliveredAt     DateTime? @map("delivered_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  metadata        Json?
+
+  delivery Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  @@index([deliveryId], map: "idx_sms_log_delivery")
+  @@index([phoneNumber], map: "idx_sms_log_phone")
+  @@index([status], map: "idx_sms_log_status")
+  @@index([createdAt], map: "idx_sms_log_created")
+  @@map("sms_logs")
 }
 
 // Chat messages between admin and drivers

@@ -84,6 +84,7 @@ try {
 // Public API routes (all require database)
 app.use('/api/auth', require('../src/server/api/auth'));
 app.use('/api/sms/webhook', require('../src/server/api/smsWebhook'));
+app.use('/api/customer', require('../src/server/api/customerPortal'));
 
 // Migration endpoint (ONE TIME USE - remove after migration)
 app.use('/api/migrate', require('../src/server/api/migrate'));

@@ -500,4 +500,48 @@ router.put('/admin/:id/assign', authenticate, requireRole('admin'), async (req, 
   }
 });
 
+// POST /api/deliveries/:id/send-sms - Send confirmation SMS to customer
+// Admin endpoint to trigger SMS when document is uploaded or SAP process completes
+router.post('/:id/send-sms', authenticate, requireRole('admin'), async (req, res) => {
+  try {
+    const { id: deliveryId } = req.params;
+
+    if (!deliveryId) {
+      return res.status(400).json({ error: 'delivery_id_required' });
+    }
+
+    // Get delivery from database
+    const delivery = await prisma.delivery.findUnique({
+      where: { id: deliveryId }
+    });
+
+    if (!delivery) {
+      return res.status(404).json({ error: 'delivery_not_found' });
+    }
+
+    if (!delivery.phone) {
+      return res.status(400).json({ error: 'no_phone_number' });
+    }
+
+    // Send SMS using SMS service
+    const smsService = require('../sms/smsService');
+    const result = await smsService.sendConfirmationSms(deliveryId, delivery.phone);
+
+    return res.json({
+      ok: true,
+      message: 'SMS sent successfully',
+      token: result.token,
+      messageId: result.messageId,
+      expiresAt: result.expiresAt,
+      confirmationLink: `${process.env.FRONTEND_URL || 'https://smart-logistics-1.vercel.app'}/confirm-delivery/${result.token}`
+    });
+  } catch (error) {
+    console.error('POST /api/deliveries/:id/send-sms error:', error);
+    return res.status(500).json({
+      error: 'send_sms_failed',
+      message: error.message
+    });
+  }
+});
+
 module.exports = router;

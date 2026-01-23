@@ -1,6 +1,7 @@
-import React from 'react';
-import { MapPin, Package, Phone, Navigation, GripVertical } from 'lucide-react';
+import React, { useState } from 'react';
+import { MapPin, Package, Phone, Navigation, GripVertical, MessageCircle } from 'lucide-react';
 import StatusBadge from './StatusBadge';
+import SMSConfirmationModal from './SMSConfirmationModal';
 
 export default function DeliveryCard({ 
   delivery, 
@@ -13,6 +14,14 @@ export default function DeliveryCard({
   isDragging,
   isDragOver
 }) {
+  const [showSMSModal, setShowSMSModal] = useState(false);
+
+  const handleSMSClick = (e) => {
+    e.stopPropagation();
+    if (delivery.phone) {
+      setShowSMSModal(true);
+    }
+  };
   return (
     <div
       draggable
@@ -77,7 +86,31 @@ export default function DeliveryCard({
         }`}>
           P{delivery.priority}
         </div>
+        
+        {/* SMS Button */}
+        {delivery.phone && (
+          <button
+            onClick={handleSMSClick}
+            className="px-2 sm:px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-full text-xs font-semibold flex items-center gap-1 whitespace-nowrap transition-colors"
+            title="Send confirmation SMS"
+          >
+            <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+            <span className="hidden sm:inline">SMS</span>
+          </button>
+        )}
       </div>
+
+      {/* SMS Modal */}
+      {showSMSModal && (
+        <SMSConfirmationModal
+          delivery={delivery}
+          onClose={() => setShowSMSModal(false)}
+          onSuccess={() => {
+            // Optional: refresh delivery status or show notification
+            setTimeout(() => setShowSMSModal(false), 2000);
+          }}
+        />
+      )}
     </div>
   );
 }

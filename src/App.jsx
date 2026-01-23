@@ -19,6 +19,8 @@ import AdminDeliveryTrackingPage from './pages/AdminDeliveryTrackingPage';
 import DriverPortal from './pages/DriverPortal';
 import AdminUsersPage from './pages/AdminUsersPage';
 import TrackingPage from './pages/TrackingPage';
+import CustomerConfirmationPage from './pages/CustomerConfirmationPage';
+import CustomerTrackingPage from './pages/CustomerTrackingPage';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 import useDeliveryStore from './store/useDeliveryStore';
 import { useTokenRefresh } from './hooks/useTokenRefresh';
@@ -74,6 +76,10 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/track/:deliveryId" element={<TrackingPage />} />
+        
+        {/* Customer Portal - Public routes (token-based access) */}
+        <Route path="/confirm-delivery/:token" element={<CustomerConfirmationPage />} />
+        <Route path="/customer-tracking/:token" element={<CustomerTrackingPage />} />
 
         {/* Protected routes - with header and navigation */}
         <Route path="/*" element={<ProtectedLayout />} />
