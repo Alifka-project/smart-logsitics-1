@@ -402,8 +402,36 @@ router.post('/:id/activate-gps', authenticate, async (req, res) => {
 // GET /api/admin/sessions - Get active sessions for online user detection
 router.get('/sessions', authenticate, requireRole('admin'), async (req, res) => {
   try {
-    const { getAllActiveSessions } = require('../sessionStore');
-    const activeSessions = getAllActiveSessions();
+    let activeSessions = [];
+    
+    // Try to load from sessionStore if it exists
+    try {
+      const sessionStore = require('../sessionStore');
+      if (sessionStore && typeof sessionStore.getAllActiveSessions === 'function') {
+        activeSessions = sessionStore.getAllActiveSessions();
+      }
+    } catch (storeErr) {
+      // sessionStore doesn't exist or failed, use time-based fallback
+      console.debug('sessionStore not available, using time-based detection');
+      
+      // Fallback: Get drivers with recent activity (logged in within last 2 minutes)
+      const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+      const recentDrivers = await prisma.driver.findMany({
+        where: {
+          account: {
+            lastLogin: { gte: twoMinutesAgo }
+          }
+        },
+        include: { account: true }
+      });
+      
+      activeSessions = recentDrivers.map(driver => ({
+        userId: driver.id,
+        username: driver.account?.username || driver.fullName,
+        lastSeen: driver.account?.lastLogin
+      }));
+    }
+    
     res.json({ sessions: activeSessions });
   } catch (err) {
     console.error('GET /api/admin/sessions error:', err);
