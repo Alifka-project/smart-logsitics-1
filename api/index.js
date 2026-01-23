@@ -2,6 +2,7 @@
  * Vercel Serverless Function Entry Point
  * Database is REQUIRED - This exports the Express app for Vercel serverless deployment
  * All endpoints require PostgreSQL database connection
+ * Build: 2024-01-25
  */
 
 const express = require('express');
