@@ -13,7 +13,16 @@ export default function SMSConfirmationModal({ delivery, onClose, onSuccess }) {
       setLoading(true);
       setError('');
 
-      const response = await api.post(`/deliveries/${delivery.id}/send-sms`);
+      // Ensure delivery.id is properly formatted
+      const deliveryId = String(delivery.id || delivery.ID).trim();
+      
+      if (!deliveryId) {
+        setError('Delivery ID is missing');
+        setLoading(false);
+        return;
+      }
+
+      const response = await api.post(`/deliveries/${encodeURIComponent(deliveryId)}/send-sms`);
       
       setSmsData(response.data);
       setSuccess(true);

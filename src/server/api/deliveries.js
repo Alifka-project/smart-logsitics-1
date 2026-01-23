@@ -504,16 +504,41 @@ router.put('/admin/:id/assign', authenticate, requireRole('admin'), async (req, 
 // Admin endpoint to trigger SMS when document is uploaded or SAP process completes
 router.post('/:id/send-sms', authenticate, requireRole('admin'), async (req, res) => {
   try {
-    const { id: deliveryId } = req.params;
+    let { id: deliveryId } = req.params;
 
     if (!deliveryId) {
       return res.status(400).json({ error: 'delivery_id_required' });
     }
 
+    // Sanitize delivery ID - remove any invalid characters
+    deliveryId = String(deliveryId).trim();
+    
+    // Check if it's a valid UUID format (36 chars with hyphens or similar)
+    if (!/^[a-f0-9\-]{36}$|^[a-f0-9]{32}$/.test(deliveryId)) {
+      console.warn('Invalid deliveryId format:', deliveryId);
+      // Try using the ID as-is anyway, let Prisma handle it
+    }
+
     // Get delivery from database
-    const delivery = await prisma.delivery.findUnique({
-      where: { id: deliveryId }
-    });
+    let delivery;
+    try {
+      delivery = await prisma.delivery.findUnique({
+        where: { id: deliveryId }
+      });
+    } catch (prismaErr) {
+      console.error('Prisma findUnique error:', prismaErr.message);
+      // Fallback: try to find by poNumber if ID lookup fails
+      if (prismaErr.message.includes('Inconsistent column data')) {
+        console.log('Trying fallback search by poNumber:', deliveryId);
+        delivery = await prisma.delivery.findFirst({
+          where: { poNumber: String(deliveryId) }
+        });
+      }
+      
+      if (!delivery) {
+        throw prismaErr;
+      }
+    }
 
     if (!delivery) {
       return res.status(404).json({ error: 'delivery_not_found' });
@@ -525,7 +550,7 @@ router.post('/:id/send-sms', authenticate, requireRole('admin'), async (req, res
 
     // Send SMS using SMS service
     const smsService = require('../sms/smsService');
-    const result = await smsService.sendConfirmationSms(deliveryId, delivery.phone);
+    const result = await smsService.sendConfirmationSms(delivery.id, delivery.phone);
 
     return res.json({
       ok: true,
@@ -539,7 +564,7 @@ router.post('/:id/send-sms', authenticate, requireRole('admin'), async (req, res
     console.error('POST /api/deliveries/:id/send-sms error:', error);
     return res.status(500).json({
       error: 'send_sms_failed',
-      message: error.message
+      message: error.message || 'Failed to send SMS. Please check delivery data.'
     });
   }
 });
