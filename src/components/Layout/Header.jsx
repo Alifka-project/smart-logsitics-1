@@ -254,18 +254,33 @@ export default function Header() {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
+  const handleLogoClick = () => {
+    // Redirect to appropriate dashboard based on user role
+    if (user?.role === 'admin') {
+      navigate('/admin');
+    } else if (user?.role === 'driver') {
+      navigate('/driver');
+    } else {
+      navigate('/deliveries');
+    }
+  };
+
   return (
     <>
       <header className="bg-gradient-to-r from-primary-600 to-primary-800 text-white shadow-lg sticky top-0 z-50">
       <div className="container mx-auto px-3 sm:px-3 md:px-3 lg:px-3 xl:px-4 2xl:px-5 py-2 sm:py-2.5 max-w-7xl">
         <div className="flex items-center justify-between">
-          <Link to="/" className="flex items-center hover:opacity-80 transition-opacity">
+          <button 
+            onClick={handleLogoClick}
+            className="flex items-center hover:opacity-80 transition-opacity cursor-pointer bg-none border-none p-0"
+            title="Go to Dashboard"
+          >
             <img 
               src="/elect home.png" 
               alt="Electrolux Logo" 
               className="h-10 sm:h-12 lg:h-14 w-auto object-contain"
             />
-          </Link>
+          </button>
             
             <div className="flex items-center gap-3 sm:gap-4">
               {/* Date Display - Desktop */}
