@@ -131,17 +131,39 @@ router.post('/login', loginLimiter, async (req, res) => {
     let driver;
     try {
       console.log('Executing Prisma query for user:', sanitizedUsername);
+      const startTime = Date.now();
       driver = await prisma.driver.findUnique({
         where: { username: sanitizedUsername },
         include: {
           account: true
         }
       });
-      console.log('Query result:', driver ? 'User found' : 'User not found');
+      const queryTime = Date.now() - startTime;
+      console.log('Query result:', driver ? 'User found' : 'User not found', '(' + queryTime + 'ms)');
     } catch (dbErr) {
       console.error('auth/login: Database query error:', dbErr.message);
       console.error('auth/login: Database error code:', dbErr.code);
       console.error('auth/login: Full error:', dbErr);
+      console.error('auth/login: Error name:', dbErr.name);
+      
+      // Handle specific database connection errors
+      if (dbErr.code === 'P1000' || dbErr.code === 'ECONNREFUSED' || (dbErr.message && dbErr.message.includes('Can\'t reach database'))) {
+        console.error('Database connection issue - unable to reach server');
+        return res.status(503).json({ 
+          error: 'database_unavailable', 
+          message: 'Database service temporarily unavailable. Please try again later.' 
+        });
+      }
+      
+      // Handle timeout errors
+      if ((dbErr.message && dbErr.message.includes('timeout')) || dbErr.code === 'P1008') {
+        console.error('Database connection timeout');
+        return res.status(504).json({ 
+          error: 'database_timeout', 
+          message: 'Database request timeout. Please try again.' 
+        });
+      }
+      
       return res.status(503).json({ error: 'database_error', message: 'Database connection failed. Please try again later.' });
     }
     

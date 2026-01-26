@@ -9,6 +9,14 @@ const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 4000;
 
+// Log startup info
+console.log('=== SERVER STARTUP ===');
+console.log('Node Environment:', process.env.NODE_ENV || 'not set');
+console.log('Port:', port);
+console.log('Vercel:', process.env.VERCEL ? 'yes' : 'no');
+console.log('Database URL:', process.env.DATABASE_URL ? 'SET (' + process.env.DATABASE_URL.substring(0, 40) + '...)' : 'NOT SET');
+console.log('========================\n');
+
 // Security middlewares
 app.use(helmet({
   contentSecurityPolicy: false // CSP may be configured per-deployment
@@ -90,13 +98,34 @@ app.post('/api/sms/confirm', async (req, res) => {
 app.get('/api/health', async (req, res) => {
   try {
     const prisma = require('./db/prisma');
-    await prisma.$queryRaw`SELECT 1`;
-    res.json({ ok: true, database: 'connected', orm: 'prisma', ts: new Date().toISOString() });
+    if (!prisma) {
+      return res.status(503).json({ 
+        ok: false, 
+        database: 'not_initialized', 
+        error: 'Prisma client not initialized',
+        ts: new Date().toISOString() 
+      });
+    }
+    
+    const startTime = Date.now();
+    await prisma.$queryRaw`SELECT 1 as connected`;
+    const queryTime = Date.now() - startTime;
+    
+    res.json({ 
+      ok: true, 
+      database: 'connected', 
+      orm: 'prisma', 
+      responseTime: queryTime + 'ms',
+      ts: new Date().toISOString() 
+    });
   } catch (error) {
-    res.status(503).json({ 
+    console.error('Health check failed:', error.message);
+    const statusCode = (error.message && error.message.includes('Can\'t reach database')) ? 503 : 503;
+    res.status(statusCode).json({ 
       ok: false, 
       database: 'disconnected', 
-      error: 'Database connection required',
+      error: error.message || 'Database connection required',
+      code: error.code,
       ts: new Date().toISOString() 
     });
   }

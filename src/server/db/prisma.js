@@ -19,6 +19,12 @@ if (!process.env.DATABASE_URL && !process.env.PRISMA_DATABASE_URL) {
   }
 }
 
+// Log database connection info for debugging
+console.log('Database Configuration:');
+console.log('- DATABASE_URL:', process.env.DATABASE_URL ? 'SET (' + process.env.DATABASE_URL.substring(0, 40) + '...)' : 'NOT SET');
+console.log('- NODE_ENV:', process.env.NODE_ENV || 'not set');
+console.log('- VERCEL:', process.env.VERCEL ? 'yes' : 'no');
+
 // Singleton pattern for serverless environments (prevents connection pool exhaustion)
 let prisma;
 let initError = null;
@@ -27,17 +33,26 @@ if (global.prisma) {
   prisma = global.prisma;
 } else {
   try {
-    prisma = new PrismaClient({
+    const clientOptions = {
       log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-    });
+      errorFormat: 'pretty',
+    };
+    
+    // Add connection timeout and retry logic for production
+    if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
+      clientOptions.connectionTimeout = 10000; // 10 seconds
+    }
+    
+    prisma = new PrismaClient(clientOptions);
+    console.log('✅ Prisma Client initialized successfully');
     
     // In serverless, store in global to reuse across function invocations
     if (typeof global !== 'undefined') {
       global.prisma = prisma;
     }
   } catch (err) {
-    console.error('CRITICAL: Failed to initialize Prisma Client:', err.message);
-    console.error('Error details:', err.message);
+    console.error('⚠️  CRITICAL: Failed to initialize Prisma Client:', err.message);
+    console.error('Error details:', err);
     initError = err;
     // In development, throw immediately to catch issues
     if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
