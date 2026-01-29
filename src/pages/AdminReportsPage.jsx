@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import api, { setAuthToken } from '../frontend/apiClient';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { Download, Filter, Calendar, FileText, ChevronDown, ChevronUp, Package, MapPin, Phone, User, Clock } from 'lucide-react';
+import { Download, Filter, Calendar, FileText, ChevronDown, ChevronUp, Package, MapPin, Phone, User, Clock, Image, ArrowRight } from 'lucide-react';
 
 function ensureAuth() {
   const token = localStorage.getItem('auth_token');
@@ -218,6 +219,14 @@ export default function AdminReportsPage() {
           </p>
         </div>
         <div className="flex gap-3">
+          <Link
+            to="/admin/reports/pod"
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
+          >
+            <Image className="w-4 h-4" />
+            POD Report
+            <ArrowRight className="w-4 h-4" />
+          </Link>
           <button
             onClick={handleExportCSV}
             disabled={loading}

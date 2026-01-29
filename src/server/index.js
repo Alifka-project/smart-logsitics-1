@@ -156,6 +156,7 @@ app.use('/api/ai', require('./api/ai'));
 app.use('/api/deliveries', require('./api/deliveries'));
 app.use('/api/sms', require('./api/sms'));
 app.use('/api/sap', require('./api/sap'));
+app.use('/api/sap-ingestion', require('./api/sap-ingestion')); // SAP data ingestion with POD support
 
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);

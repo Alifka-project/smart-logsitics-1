@@ -85,23 +85,44 @@ router.put('/admin/:id/status', authenticate, requireRole('admin'), async (req, 
 
     console.log(`[Deliveries] Found delivery: id=${existingDelivery.id}, customer=${existingDelivery.customer}`);
 
+    // Prepare update data - save POD data to dedicated fields
+    const updateData = {
+      status: status,
+      metadata: {
+        ...existingDelivery.metadata || {},
+        statusUpdatedAt: new Date().toISOString(),
+        statusUpdatedBy: req.user?.sub || 'admin',
+        actualTime: actualTime || null
+      },
+      updatedAt: new Date()
+    };
+
+    // Save POD data to dedicated fields for better querying and reporting
+    if (driverSignature) {
+      updateData.driverSignature = driverSignature;
+    }
+    if (customerSignature) {
+      updateData.customerSignature = customerSignature;
+    }
+    if (photos && Array.isArray(photos) && photos.length > 0) {
+      updateData.photos = photos; // Store as JSON array
+    }
+    if (notes) {
+      updateData.deliveryNotes = notes;
+      updateData.conditionNotes = notes; // Also save to conditionNotes for consistency
+    }
+    
+    // Set delivery completion timestamp and delivered by
+    if (['delivered', 'completed', 'delivered-with-installation', 'delivered-without-installation'].includes(status.toLowerCase())) {
+      updateData.deliveredAt = new Date();
+      updateData.deliveredBy = req.user?.username || req.user?.email || req.user?.sub || 'admin';
+      updateData.podCompletedAt = new Date();
+    }
+
     // Update delivery status in database
     const updatedDelivery = await prisma.delivery.update({
       where: { id: existingDelivery.id },
-      data: {
-        status: status,
-        metadata: {
-          ...existingDelivery.metadata || {},
-          notes: notes || null,
-          driverSignature: driverSignature || null,
-          customerSignature: customerSignature || null,
-          photos: photos || null,
-          actualTime: actualTime || null,
-          statusUpdatedAt: new Date().toISOString(),
-          statusUpdatedBy: req.user?.sub || 'admin'
-        },
-        updatedAt: new Date()
-      }
+      data: updateData
     });
 
     // Create delivery event for audit
@@ -114,6 +135,10 @@ router.put('/admin/:id/status', authenticate, requireRole('admin'), async (req, 
           newStatus: status,
           notes: notes,
           actualTime: actualTime,
+          hasPOD: !!(driverSignature || customerSignature || (photos && photos.length > 0)),
+          photoCount: photos ? photos.length : 0,
+          hasDriverSignature: !!driverSignature,
+          hasCustomerSignature: !!customerSignature,
           updatedAt: new Date().toISOString()
         },
         actorType: req.user?.role || 'admin',
@@ -565,6 +590,114 @@ router.post('/:id/send-sms', authenticate, requireRole('admin'), async (req, res
     return res.status(500).json({
       error: 'send_sms_failed',
       message: error.message || 'Failed to send SMS. Please check delivery data.'
+    });
+  }
+});
+
+// GET /api/deliveries/:id/pod - Get Proof of Delivery data for a specific delivery
+router.get('/:id/pod', authenticate, async (req, res) => {
+  try {
+    const deliveryId = req.params.id;
+
+    console.log(`[Deliveries/POD] Fetching POD data for delivery: ${deliveryId}`);
+
+    // Try to find delivery by ID or poNumber
+    let delivery;
+    try {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (uuidRegex.test(deliveryId)) {
+        delivery = await prisma.delivery.findUnique({
+          where: { id: deliveryId },
+          select: {
+            id: true,
+            customer: true,
+            address: true,
+            phone: true,
+            items: true,
+            status: true,
+            driverSignature: true,
+            customerSignature: true,
+            photos: true,
+            conditionNotes: true,
+            deliveryNotes: true,
+            deliveredBy: true,
+            deliveredAt: true,
+            podCompletedAt: true,
+            createdAt: true,
+            updatedAt: true,
+            metadata: true
+          }
+        });
+      } else {
+        // Try by PO number
+        delivery = await prisma.delivery.findFirst({
+          where: { poNumber: deliveryId },
+          select: {
+            id: true,
+            customer: true,
+            address: true,
+            phone: true,
+            items: true,
+            status: true,
+            driverSignature: true,
+            customerSignature: true,
+            photos: true,
+            conditionNotes: true,
+            deliveryNotes: true,
+            deliveredBy: true,
+            deliveredAt: true,
+            podCompletedAt: true,
+            createdAt: true,
+            updatedAt: true,
+            metadata: true
+          }
+        });
+      }
+    } catch (err) {
+      console.error(`[Deliveries/POD] Error fetching delivery:`, err);
+      return res.status(500).json({ error: 'database_error', detail: err.message });
+    }
+
+    if (!delivery) {
+      return res.status(404).json({ error: 'delivery_not_found' });
+    }
+
+    // Check if POD exists
+    const hasPOD = !!(delivery.driverSignature || delivery.customerSignature || 
+                     (delivery.photos && Array.isArray(delivery.photos) && delivery.photos.length > 0));
+
+    // Return POD data
+    res.json({
+      ok: true,
+      deliveryId: delivery.id,
+      customer: delivery.customer,
+      address: delivery.address,
+      items: delivery.items,
+      status: delivery.status,
+      hasPOD: hasPOD,
+      pod: {
+        driverSignature: delivery.driverSignature || null,
+        customerSignature: delivery.customerSignature || null,
+        photos: delivery.photos || [],
+        photoCount: (delivery.photos && Array.isArray(delivery.photos)) ? delivery.photos.length : 0,
+        conditionNotes: delivery.conditionNotes || null,
+        deliveryNotes: delivery.deliveryNotes || null,
+        deliveredBy: delivery.deliveredBy || null,
+        deliveredAt: delivery.deliveredAt || null,
+        podCompletedAt: delivery.podCompletedAt || null
+      },
+      metadata: delivery.metadata,
+      createdAt: delivery.createdAt,
+      updatedAt: delivery.updatedAt
+    });
+
+    console.log(`[Deliveries/POD] ✓ POD data retrieved successfully. Has POD: ${hasPOD}, Photos: ${delivery.photos?.length || 0}`);
+
+  } catch (error) {
+    console.error('[Deliveries/POD] Error:', error);
+    res.status(500).json({ 
+      error: 'pod_retrieval_failed', 
+      detail: error.message 
     });
   }
 });

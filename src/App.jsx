@@ -14,6 +14,7 @@ import ResetPasswordPage from './pages/ResetPasswordPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminOperationsPage from './pages/AdminOperationsPage';
 import AdminReportsPage from './pages/AdminReportsPage';
+import AdminPODReportPage from './pages/AdminPODReportPage';
 import AdminDriverTrackingPage from './pages/AdminDriverTrackingPage';
 import AdminDeliveryTrackingPage from './pages/AdminDeliveryTrackingPage';
 import DriverPortal from './pages/DriverPortal';
@@ -111,6 +112,7 @@ function ProtectedLayout() {
             <Route path="/admin" element={<AdminDashboardPage />} />
             <Route path="/admin/operations" element={<AdminOperationsPage />} />
             <Route path="/admin/reports" element={<AdminReportsPage />} />
+            <Route path="/admin/reports/pod" element={<AdminPODReportPage />} />
             <Route path="/admin/tracking/drivers" element={<AdminDriverTrackingPage />} />
             <Route path="/admin/tracking/deliveries" element={<AdminDeliveryTrackingPage />} />
             <Route path="/admin/users" element={<AdminUsersPage />} />
