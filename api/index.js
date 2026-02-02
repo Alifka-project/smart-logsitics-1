@@ -45,12 +45,11 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // Log all requests for debugging
 app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-  console.log('Environment check:', {
-    DATABASE_URL: process.env.DATABASE_URL ? 'SET' : 'NOT SET',
-    NODE_ENV: process.env.NODE_ENV,
-    VERCEL: process.env.VERCEL ? 'yes' : 'no'
-  });
+  console.log(`[REQUEST] ${req.method} ${req.path}`);
+  console.log('[REQUEST] URL:', req.url);
+  console.log('[REQUEST] Original URL:', req.originalUrl);
+  console.log('[REQUEST] Base URL:', req.baseUrl);
+  console.log('[REQUEST] Headers:', JSON.stringify(req.headers, null, 2));
   next();
 });
 
