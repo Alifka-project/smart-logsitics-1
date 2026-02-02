@@ -34,8 +34,8 @@ module.exports = async (req, res) => {
       return res.status(401).json({ error: 'invalid_credentials' });
     }
 
-    // Check password
-    const isValid = await comparePassword(password, driver.account.hashed_password);
+    // Check password (schema uses passwordHash, not hashed_password)
+    const isValid = await comparePassword(password, driver.account.passwordHash);
     
     if (!isValid) {
       return res.status(401).json({ error: 'invalid_credentials' });
@@ -51,19 +51,28 @@ module.exports = async (req, res) => {
     const accessToken = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
 
+    // Return format matching what the frontend expects
     return res.status(200).json({
       accessToken,
       refreshToken,
-      user: {
+      driver: {
         id: driver.id,
         username: driver.username,
         role: payload.role,
-        full_name: driver.full_name
-      }
+        full_name: driver.fullName,
+        email: driver.email,
+        phone: driver.phone
+      },
+      clientKey: accessToken, // Alias for compatibility
+      csrfToken: 'not-implemented' // Add if needed
     });
 
   } catch (error) {
     console.error('Login error:', error);
-    return res.status(500).json({ error: 'server_error', message: error.message });
+    console.error('Error stack:', error.stack);
+    return res.status(500).json({ 
+      error: 'server_error', 
+      message: process.env.NODE_ENV === 'production' ? 'Server error. Please try again later.' : error.message 
+    });
   }
 };
