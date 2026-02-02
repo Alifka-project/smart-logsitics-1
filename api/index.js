@@ -225,4 +225,11 @@ app.use((req, res) => {
 });
 
 // Export handler for Vercel Serverless - Database is REQUIRED
-module.exports = app;
+// Vercel requires a function export, not the Express app directly
+module.exports = (req, res) => {
+  // Let Express handle the request
+  return app(req, res);
+};
+
+// Also export the app for local development/testing
+module.exports.app = app;
