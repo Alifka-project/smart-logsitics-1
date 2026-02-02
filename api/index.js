@@ -221,7 +221,10 @@ app.use((err, req, res, next) => {
 
 // 404 handler
 app.use((req, res) => {
-  res.status(404).json({ error: 'not_found', message: 'Endpoint not found' });
+  console.log('[404] Path not found:', req.method, req.path);
+  console.log('[404] Full URL:', req.url);
+  console.log('[404] Base URL:', req.baseUrl);
+  res.status(404).json({ error: 'not_found', message: 'Endpoint not found', path: req.path });
 });
 
 // Export handler for Vercel Serverless - Database is REQUIRED
