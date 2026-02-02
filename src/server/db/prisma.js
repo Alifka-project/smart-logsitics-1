@@ -44,16 +44,15 @@ if (global.prisma) {
     console.error('[Prisma Init] Error message:', err.message);
     console.error('[Prisma Init] Error code:', err.code);
     console.error('[Prisma Init] Error name:', err.name);
+    console.error('[Prisma Init] DATABASE_URL:', databaseUrl ? 'SET (first 50 chars: ' + databaseUrl.substring(0, 50) + '...)' : 'NOT SET');
     console.error('[Prisma Init] Full error:', err.toString());
     console.error('[Prisma Init] Stack trace:', err.stack);
     initError = err;
     prisma = null;
     
-    // THROW in development/vercel to see the error
-    if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
-      console.error('[Prisma Init] CRITICAL: Throwing error in production/Vercel');
-      throw err;
-    }
+    // Don't throw in serverless - return null so endpoints can handle gracefully
+    // This allows the API to return proper error responses instead of crashing
+    console.error('[Prisma Init] WARNING: Prisma client is null - endpoints will need to handle this');
   }
 }
 

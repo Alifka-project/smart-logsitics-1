@@ -8,6 +8,32 @@ const prisma = require('../db/prisma');
 // GET /api/admin/dashboard
 router.get('/', authenticate, requireRole('admin'), async (req, res) => {
   try {
+    // Check if Prisma is initialized
+    if (!prisma) {
+      console.error('[Dashboard] CRITICAL: Prisma client is not initialized');
+      console.error('[Dashboard] DATABASE_URL:', process.env.DATABASE_URL ? 'SET (' + process.env.DATABASE_URL.length + ' chars)' : 'NOT SET');
+      return res.status(503).json({ 
+        error: 'database_not_connected', 
+        message: 'Database connection is not available. Please check server configuration.',
+        detail: 'Prisma client failed to initialize'
+      });
+    }
+
+    // Test database connection first
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      console.log('[Dashboard] Database connection verified');
+    } catch (dbError) {
+      console.error('[Dashboard] Database connection test failed:', dbError.message);
+      console.error('[Dashboard] Error code:', dbError.code);
+      return res.status(503).json({ 
+        error: 'database_connection_failed', 
+        message: 'Failed to connect to database. Please check your connection settings.',
+        detail: dbError.message,
+        code: dbError.code
+      });
+    }
+
     // Fetch from database first (uploaded deliveries), then fallback to SAP
     const [dbDeliveries, driversResp, locationsResp, sapDeliveriesResp, smsResp] = await Promise.allSettled([
       prisma.delivery.findMany({
@@ -28,8 +54,11 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
         },
         orderBy: { createdAt: 'desc' }
       }).catch(err => {
-        console.error('[Dashboard] Prisma query error:', err);
-        return []; // Return empty array on error
+        console.error('[Dashboard] Prisma query error:', err.message);
+        console.error('[Dashboard] Error code:', err.code);
+        console.error('[Dashboard] Error stack:', err.stack);
+        // Return empty array on error to allow SAP fallback
+        return []; 
       }),
       sapService.call('/Drivers', 'get').catch(() => ({ data: { value: [] } })),
       sapService.call('/Locations', 'get').catch(() => ({ data: { value: [] } })),
@@ -173,9 +202,33 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
 
     res.json({ drivers, recentLocations, smsRecent, totals, recentCounts });
   } catch (err) {
-    console.error('admin/dashboard error:', err);
-    console.error('Error stack:', err.stack);
-    res.status(500).json({ error: 'server_error', detail: err.message });
+    console.error('[Dashboard] admin/dashboard error:', err.message);
+    console.error('[Dashboard] Error code:', err.code);
+    console.error('[Dashboard] Error stack:', err.stack);
+    console.error('[Dashboard] DATABASE_URL status:', process.env.DATABASE_URL ? 'SET' : 'NOT SET');
+    
+    // Provide more helpful error messages
+    if (err.message && err.message.includes('P1001')) {
+      return res.status(503).json({ 
+        error: 'database_connection_failed', 
+        message: 'Cannot reach database server. Please check your connection string.',
+        detail: err.message 
+      });
+    }
+    
+    if (err.message && err.message.includes('P2021')) {
+      return res.status(503).json({ 
+        error: 'database_schema_missing', 
+        message: 'Database tables are missing. Please run migrations.',
+        detail: err.message 
+      });
+    }
+    
+    res.status(500).json({ 
+      error: 'server_error', 
+      message: 'An unexpected error occurred while loading dashboard data.',
+      detail: err.message 
+    });
   }
 });
 

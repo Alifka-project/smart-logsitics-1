@@ -108,6 +108,31 @@ app.get('/diag/status', async (req, res) => {
   try {
     const prisma = require('../src/server/db/prisma');
     
+    // Check if Prisma is initialized
+    if (!prisma) {
+      return res.status(503).json({
+        ok: false,
+        database: 'not_initialized',
+        error: 'Prisma client not initialized',
+        detail: 'DATABASE_URL may not be set or connection failed',
+        ts: new Date().toISOString()
+      });
+    }
+    
+    // Test connection first
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+    } catch (connError) {
+      return res.status(503).json({
+        ok: false,
+        database: 'connection_failed',
+        error: connError.message,
+        code: connError.code,
+        detail: 'Cannot reach database server',
+        ts: new Date().toISOString()
+      });
+    }
+    
     // Count deliveries
     const deliveryCount = await prisma.delivery.count();
     const smsLogCount = await prisma.smsLog.count();
@@ -135,9 +160,11 @@ app.get('/diag/status', async (req, res) => {
       ts: new Date().toISOString()
     });
   } catch (error) {
+    console.error('[Diag] Error:', error.message);
     res.status(500).json({
       ok: false,
       error: error.message,
+      code: error.code,
       ts: new Date().toISOString()
     });
   }
