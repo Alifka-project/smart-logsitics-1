@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "node scripts/dev.js",
     "dev:frontend": "vite",
-    "build": "prisma generate && vite build",
+    "build": "prisma generate && npx vite build",
     "postinstall": "prisma generate",
     "lint": "eslint .",
     "preview": "vite preview",
