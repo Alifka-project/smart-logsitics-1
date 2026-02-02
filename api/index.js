@@ -43,13 +43,24 @@ app.disable('x-powered-by');
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// Log all requests for debugging
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  console.log('Environment check:', {
+    DATABASE_URL: process.env.DATABASE_URL ? 'SET' : 'NOT SET',
+    NODE_ENV: process.env.NODE_ENV,
+    VERCEL: process.env.VERCEL ? 'yes' : 'no'
+  });
+  next();
+});
+
 // Validate environment - DATABASE IS REQUIRED
 try {
   validateEnv();
   // Verify database connection is configured
-  if (!process.env.DATABASE_URL) {
-    console.error('ERROR: DATABASE_URL environment variable is REQUIRED');
-    throw new Error('DATABASE_URL is required. Database integration is mandatory.');
+  if (!process.env.DATABASE_URL && !process.env.POSTGRES_URL) {
+    console.error('ERROR: DATABASE_URL or POSTGRES_URL environment variable is REQUIRED');
+    console.error('Available env vars:', Object.keys(process.env).filter(k => k.includes('DATABASE') || k.includes('POSTGRES') || k.includes('PRISMA')));
   }
 } catch (e) {
   console.error('Environment validation failed:', e.message);
