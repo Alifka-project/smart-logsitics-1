@@ -4,7 +4,6 @@ const prisma = require('../src/server/db/prisma');
 module.exports = async (req, res) => {
   try {
     const drivers = await prisma.driver.findMany({
-      include: { account: true },
       select: {
         id: true,
         username: true,
@@ -13,8 +12,7 @@ module.exports = async (req, res) => {
         fullName: true,
         account: {
           select: {
-            role: true,
-            passwordHash: { select: {} } // Don't return the hash, just check if it exists
+            role: true
           }
         }
       }
@@ -29,8 +27,7 @@ module.exports = async (req, res) => {
         email: d.email,
         phone: d.phone,
         fullName: d.fullName,
-        role: d.account?.role,
-        hasPassword: !!d.account?.passwordHash
+        role: d.account?.role
       }))
     });
   } catch (error) {
