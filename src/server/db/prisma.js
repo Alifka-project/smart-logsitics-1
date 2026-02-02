@@ -12,14 +12,9 @@ const { PrismaClient } = require('@prisma/client');
 const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 
 console.log('[Prisma Init] Starting initialization...');
-console.log('[Prisma Init] DATABASE_URL is', databaseUrl ? 'SET' : 'NOT SET');
+console.log('[Prisma Init] DATABASE_URL is', databaseUrl ? 'SET (length: ' + databaseUrl.length + ')' : 'NOT SET');
 console.log('[Prisma Init] NODE_ENV:', process.env.NODE_ENV);
 console.log('[Prisma Init] VERCEL:', process.env.VERCEL ? 'yes' : 'no');
-
-if (!databaseUrl) {
-  console.error('❌ CRITICAL: DATABASE_URL is NOT set in environment!');
-  console.error('Available database env vars:', Object.keys(process.env).filter(k => k.includes('DATABASE') || k.includes('POSTGRES')));
-}
 
 // Singleton pattern for serverless environments (prevents connection pool exhaustion)
 let prisma;
@@ -30,19 +25,14 @@ if (global.prisma) {
   prisma = global.prisma;
 } else {
   try {
-    const clientOptions = {
-      log: ['error'],
+    console.log('[Prisma Init] Creating new PrismaClient...');
+    
+    prisma = new PrismaClient({
+      log: ['error', 'warn'],
       errorFormat: 'pretty',
-    };
+    });
     
-    // Add connection timeout for production
-    if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
-      clientOptions.connectionTimeout = 10000; // 10 seconds
-    }
-    
-    console.log('[Prisma Init] Creating new PrismaClient with options:', clientOptions);
-    prisma = new PrismaClient(clientOptions);
-    console.log('✅ Prisma Client created successfully');
+    console.log('✅ [Prisma Init] PrismaClient created successfully');
     
     // In serverless, store in global to reuse across function invocations
     if (typeof global !== 'undefined') {
@@ -50,11 +40,20 @@ if (global.prisma) {
       console.log('[Prisma Init] Stored prisma in global for reuse');
     }
   } catch (err) {
-    console.error('❌ Prisma Client initialization error:', err.message);
+    console.error('❌ [Prisma Init] FAILED TO CREATE PRISMA CLIENT');
+    console.error('[Prisma Init] Error message:', err.message);
     console.error('[Prisma Init] Error code:', err.code);
-    console.error('[Prisma Init] Error:', err.toString());
+    console.error('[Prisma Init] Error name:', err.name);
+    console.error('[Prisma Init] Full error:', err.toString());
+    console.error('[Prisma Init] Stack trace:', err.stack);
     initError = err;
     prisma = null;
+    
+    // THROW in development/vercel to see the error
+    if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+      console.error('[Prisma Init] CRITICAL: Throwing error in production/Vercel');
+      throw err;
+    }
   }
 }
 
@@ -67,14 +66,6 @@ if (!process.env.VERCEL && prisma && typeof prisma.$disconnect === 'function') {
       console.error('Error disconnecting Prisma:', err);
     }
   });
-}
-
-// Export with error info
-if (!prisma) {
-  console.error('⚠️  WARNING: Prisma client is NULL!');
-  if (initError) {
-    console.error('Init error:', initError.message);
-  }
 }
 
 module.exports = prisma;
