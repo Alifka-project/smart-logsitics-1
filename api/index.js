@@ -240,17 +240,23 @@ app.use((req, res) => {
 
 // Export handler for Vercel Serverless - Database is REQUIRED
 // Vercel automatically routes /api/* to this function
-// The path in req.url will NOT include /api prefix (Vercel strips it)
 module.exports = (req, res) => {
   // Log request for debugging
   console.log('[Vercel Handler] Request received:', req.method, req.url);
   console.log('[Vercel Handler] Path:', req.path);
   console.log('[Vercel Handler] Original URL:', req.originalUrl);
-  console.log('[Vercel Handler] Base URL:', req.baseUrl);
   
-  // Vercel automatically strips /api prefix when routing to api/index.js
-  // So /api/admin/dashboard becomes /admin/dashboard in req.url
-  // This matches our Express routes which are registered as /admin/dashboard
+  // Handle path normalization - Vercel may or may not strip /api prefix
+  // Our Express routes are registered without /api prefix (e.g., /admin/dashboard)
+  // So we need to ensure req.url and req.path don't have /api prefix
+  if (req.url && req.url.startsWith('/api/')) {
+    req.url = req.url.replace(/^\/api/, '') || '/';
+    console.log('[Vercel Handler] Stripped /api, new URL:', req.url);
+  }
+  if (req.path && req.path.startsWith('/api/')) {
+    req.path = req.path.replace(/^\/api/, '') || '/';
+    console.log('[Vercel Handler] Stripped /api, new path:', req.path);
+  }
   
   // Let Express handle the request
   return app(req, res);
