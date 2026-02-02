@@ -8,19 +8,19 @@
 
 const { PrismaClient } = require('@prisma/client');
 
-// Verify DATABASE_URL is set - but allow during build with a dummy value
-const databaseUrl = process.env.DATABASE_URL || process.env.PRISMA_DATABASE_URL;
+// Use DATABASE_URL for direct connection (standard Prisma setup)
+const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 
 if (!databaseUrl) {
-  console.warn('⚠️  WARNING: DATABASE_URL or PRISMA_DATABASE_URL environment variable not set');
+  console.warn('⚠️  WARNING: DATABASE_URL environment variable not set');
   console.warn('This is OK during build, but required at runtime');
-  console.warn('Current env vars:', Object.keys(process.env).filter(k => k.includes('DATABASE') || k.includes('PRISMA')));
+  console.warn('Set DATABASE_URL in Vercel Environment Variables to your direct Postgres connection');
   
   // During build or if DATABASE_URL is missing, we'll create a dummy connection
   // This prevents build failures - real errors will occur at runtime
   if (process.env.NODE_ENV !== 'development' && !process.env.npm_lifecycle_event?.includes('build')) {
     console.error('🚨 CRITICAL: DATABASE_URL is required for runtime');
-    console.error('Set DATABASE_URL in Vercel Environment Variables');
+    console.error('Example: postgres://user:password@host:5432/database?sslmode=require');
   }
 }
 
