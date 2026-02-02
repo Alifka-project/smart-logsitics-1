@@ -14,7 +14,7 @@ const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || (() => {
   return 'dev-refresh-secret-change-me-in-production';
 })();
 
-const ACCESS_TOKEN_EXP = '15m'; // Short-lived access token
+const ACCESS_TOKEN_EXP = '1h'; // Access token - increased for serverless cold starts
 const REFRESH_TOKEN_EXP = '7d'; // Longer-lived refresh token
 const SESSION_COOKIE = process.env.SESSION_COOKIE_NAME || 'sid';
 const REFRESH_COOKIE = process.env.REFRESH_COOKIE_NAME || 'rt';
@@ -235,7 +235,7 @@ function refreshAccessToken(req, res) {
   
   return res.json({
     accessToken: newAccessToken,
-    expiresIn: 15 * 60 // 15 minutes in seconds
+    expiresIn: 60 * 60 // 1 hour in seconds
   });
 }
 

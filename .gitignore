@@ -51,3 +51,4 @@ server.pid
 .env.*.local
 
 /src/generated/prisma
+.env*.local
