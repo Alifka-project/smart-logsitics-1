@@ -53,8 +53,8 @@
 ## 🔗 PRODUCTION URLS
 
 ### After Deployment:
-- **Frontend:** https://smart-logsitics-1.vercel.app
-- **API:** https://smart-logsitics-1.vercel.app/api
+- **Frontend:** https://electrolux-smart-portal.vercel.app
+- **API:** https://electrolux-smart-portal.vercel.app/api
 - **Database:** db.prisma.io (Prisma Cloud)
 
 ---
