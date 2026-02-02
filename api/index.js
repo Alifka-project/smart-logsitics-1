@@ -54,6 +54,30 @@ app.use((req, res, next) => {
   next();
 });
 
+// Health check - MUST BE FIRST, before any middleware
+app.get('/health', async (req, res) => {
+  try {
+    if (!process.env.DATABASE_URL) {
+      return res.status(503).json({ 
+        ok: false, 
+        database: 'disconnected', 
+        error: 'DATABASE_URL not set',
+        ts: new Date().toISOString() 
+      });
+    }
+
+    const prisma = require('../src/server/db/prisma');
+    if (!prisma) {
+      return res.status(503).json({ ok: false, database: 'disconnected', error: 'Prisma not initialized' });
+    }
+
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ ok: true, database: 'connected', orm: 'prisma', ts: new Date().toISOString() });
+  } catch (error) {
+    res.status(503).json({ ok: false, database: 'disconnected', error: error.message, ts: new Date().toISOString() });
+  }
+});
+
 // Validate environment - DATABASE IS REQUIRED
 try {
   validateEnv();
@@ -78,45 +102,6 @@ app.use('/migrate', require('../src/server/api/migrate'));
 app.post('/sms/confirm', async (req, res) => {
   const smsRouter = require('../src/server/api/sms');
   return smsRouter.confirm(req, res);
-});
-
-app.get('/health', async (req, res) => {
-  // Health check - verify database connection using Prisma
-  try {
-    // Check if DATABASE_URL is set
-    if (!process.env.DATABASE_URL) {
-      return res.status(503).json({ 
-        ok: false, 
-        database: 'disconnected', 
-        error: 'DATABASE_URL environment variable is not set',
-        ts: new Date().toISOString() 
-      });
-    }
-
-    // Try to load Prisma client
-    let prisma;
-    try {
-      prisma = require('../src/server/db/prisma');
-    } catch (prismaError) {
-      return res.status(503).json({ 
-        ok: false, 
-        database: 'disconnected', 
-        error: `Prisma client error: ${prismaError.message}`,
-        ts: new Date().toISOString() 
-      });
-    }
-
-    // Test database connection
-    await prisma.$queryRaw`SELECT 1`;
-    res.json({ ok: true, database: 'connected', orm: 'prisma', ts: new Date().toISOString() });
-  } catch (error) {
-    res.status(503).json({ 
-      ok: false, 
-      database: 'disconnected', 
-      error: error.message || 'Database connection failed',
-      ts: new Date().toISOString() 
-    });
-  }
 });
 
 // Diagnostic endpoint - check data and database status
