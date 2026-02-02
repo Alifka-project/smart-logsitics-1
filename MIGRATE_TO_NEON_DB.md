@@ -151,7 +151,7 @@ If you see errors about missing tables:
 
 1. **Check if users exist:**
    - You may need to create users in the database
-   - Run: `node create-dummy-data.js` (if available)
+   - Use real data from your production database
 
 2. **Check JWT secrets:**
    - Make sure `JWT_SECRET` and `JWT_REFRESH_SECRET` are set

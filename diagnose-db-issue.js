@@ -117,7 +117,7 @@ console.log('\n4️⃣  Testing Database Connection...');
       
       if (accountCount === 0) {
         console.log('\n⚠️  No accounts found - you need to create a user to login');
-        console.log('   Run: node create-dummy-data.js (if available)');
+        console.log('   Note: Use real data from your production database');
       }
       
     } catch (queryErr) {
