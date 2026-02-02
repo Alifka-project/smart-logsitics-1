@@ -88,7 +88,7 @@ function createLoginSession(req, res, payload) {
   const cookieOptions = {
     httpOnly: true,
     secure: isProduction, // Only send over HTTPS in production
-    sameSite: 'strict', // CSRF protection
+    sameSite: isProduction ? 'none' : 'lax', // 'none' for cross-site in production
     path: '/',
     maxAge: 12 * 3600, // 12 hours in seconds
   };
@@ -116,14 +116,14 @@ function clearLoginSession(res, sessionId = null) {
     cookie.serialize(SESSION_COOKIE, '', {
       httpOnly: true,
       secure: isProduction,
-      sameSite: 'strict',
+      sameSite: isProduction ? 'none' : 'lax',
       path: '/',
       maxAge: 0
     }),
     cookie.serialize(REFRESH_COOKIE, '', {
       httpOnly: true,
       secure: isProduction,
-      sameSite: 'strict',
+      sameSite: isProduction ? 'none' : 'lax',
       path: '/',
       maxAge: 0
     })
