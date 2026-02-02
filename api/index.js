@@ -213,5 +213,5 @@ app.use((req, res) => {
   res.status(404).json({ error: 'not_found', message: 'Endpoint not found' });
 });
 
-// Export for Vercel - Database is REQUIRED
+// Export handler for Vercel Serverless - Database is REQUIRED
 module.exports = app;
