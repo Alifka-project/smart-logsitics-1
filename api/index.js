@@ -2,7 +2,7 @@
  * Vercel Serverless Function Entry Point
  * Database is REQUIRED - This exports the Express app for Vercel serverless deployment
  * All endpoints require PostgreSQL database connection
- * Build: 2024-01-25
+ * Build: 2026-02-02
  */
 
 const express = require('express');
@@ -15,6 +15,18 @@ const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 4000;
 
+// CORS - Allow all origins for Vercel deployment
+app.use(cors({
+  origin: true,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token', 'Cookie'],
+  exposedHeaders: ['Set-Cookie']
+}));
+
+// Handle preflight requests
+app.options('*', cors());
+
 // Security middlewares
 app.use(helmet({
   contentSecurityPolicy: false
@@ -25,45 +37,7 @@ const { validateEnv } = require('../src/server/envCheck');
 const { apiLimiter } = require('../src/server/security/rateLimiter');
 
 // Rate limiting
-app.use('/api', apiLimiter);
-
-// HTTPS redirect (if needed)
-app.use((req, res, next) => {
-  const enforceHttps = process.env.ENFORCE_HTTPS === '1';
-  if (enforceHttps && req.headers['x-forwarded-proto'] && req.headers['x-forwarded-proto'] !== 'https') {
-    return res.redirect(301, `https://${req.headers.host}${req.originalUrl}`);
-  }
-  next();
-});
-
-// CORS - Database integration required, so allow Vercel domains
-const rawOrigins = (process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
-const allowedOriginsFromEnv = rawOrigins.length ? rawOrigins : [];
-
-if (allowedOriginsFromEnv.length) {
-  app.use(cors({
-    origin: function(origin, callback) {
-      if (!origin) return callback(null, true);
-      if (allowedOriginsFromEnv.indexOf(origin) !== -1) return callback(null, true);
-      return callback(new Error('Not allowed by CORS'));
-    },
-    optionsSuccessStatus: 200,
-  }));
-} else {
-  // Production: allow Vercel domains and configured origins
-  app.use(cors({
-    origin: function(origin, callback) {
-      if (!origin) return callback(null, true);
-      const vercelDomain = /\.vercel\.app$/.test(origin);
-      const isAllowed = allowedOriginsFromEnv.length === 0 || allowedOriginsFromEnv.indexOf(origin) !== -1;
-      if (vercelDomain || isAllowed) {
-        return callback(null, true);
-      }
-      return callback(new Error('Not allowed by CORS'));
-    },
-    optionsSuccessStatus: 200,
-  }));
-}
+app.use(apiLimiter);
 
 app.disable('x-powered-by');
 app.use(bodyParser.json());
@@ -83,19 +57,19 @@ try {
 }
 
 // Public API routes (all require database)
-app.use('/api/auth', require('../src/server/api/auth'));
-app.use('/api/sms/webhook', require('../src/server/api/smsWebhook'));
-app.use('/api/customer', require('../src/server/api/customerPortal'));
+app.use('/auth', require('../src/server/api/auth'));
+app.use('/sms/webhook', require('../src/server/api/smsWebhook'));
+app.use('/customer', require('../src/server/api/customerPortal'));
 
 // Migration endpoint (ONE TIME USE - remove after migration)
-app.use('/api/migrate', require('../src/server/api/migrate'));
+app.use('/migrate', require('../src/server/api/migrate'));
 
-app.post('/api/sms/confirm', async (req, res) => {
+app.post('/sms/confirm', async (req, res) => {
   const smsRouter = require('../src/server/api/sms');
   return smsRouter.confirm(req, res);
 });
 
-app.get('/api/health', async (req, res) => {
+app.get('/health', async (req, res) => {
   // Health check - verify database connection using Prisma
   try {
     // Check if DATABASE_URL is set
@@ -135,7 +109,7 @@ app.get('/api/health', async (req, res) => {
 });
 
 // Diagnostic endpoint - check data and database status
-app.get('/api/diag/status', async (req, res) => {
+app.get('/diag/status', async (req, res) => {
   try {
     const prisma = require('../src/server/db/prisma');
     
@@ -175,8 +149,8 @@ app.get('/api/diag/status', async (req, res) => {
 });
 
 
-// Protect all other /api routes - EXCEPT public endpoints
-app.use('/api', (req, res, next) => {
+// Protect all other routes - EXCEPT public endpoints
+app.use((req, res, next) => {
   // Allow public routes without authentication
   if (req.path.startsWith('/customer/') || 
       req.path.startsWith('/auth/') ||
@@ -189,7 +163,7 @@ app.use('/api', (req, res, next) => {
   authenticate(req, res, next);
 });
 
-app.use('/api', (req, res, next) => {
+app.use((req, res, next) => {
   // Skip CSRF for public routes
   if (req.path.startsWith('/auth') ||
       req.path.startsWith('/customer/') ||
@@ -202,17 +176,17 @@ app.use('/api', (req, res, next) => {
 });
 
 // Protected API routes (all require database)
-app.use('/api/admin/drivers', require('../src/server/api/drivers'));
-app.use('/api/driver', require('../src/server/api/locations'));
-app.use('/api/admin/dashboard', require('../src/server/api/adminDashboard'));
-app.use('/api/admin/reports', require('../src/server/api/reports'));
-app.use('/api/admin/tracking', require('../src/server/api/tracking'));
-app.use('/api/admin/messages', require('../src/server/api/messages'));
-app.use('/api/driver/messages', require('../src/server/api/messages'));
-app.use('/api/ai', require('../src/server/api/ai'));
-app.use('/api/deliveries', require('../src/server/api/deliveries'));
-app.use('/api/sms', require('../src/server/api/sms'));
-app.use('/api/sap', require('../src/server/api/sap'));
+app.use('/admin/drivers', require('../src/server/api/drivers'));
+app.use('/driver', require('../src/server/api/locations'));
+app.use('/admin/dashboard', require('../src/server/api/adminDashboard'));
+app.use('/admin/reports', require('../src/server/api/reports'));
+app.use('/admin/tracking', require('../src/server/api/tracking'));
+app.use('/admin/messages', require('../src/server/api/messages'));
+app.use('/driver/messages', require('../src/server/api/messages'));
+app.use('/ai', require('../src/server/api/ai'));
+app.use('/deliveries', require('../src/server/api/deliveries'));
+app.use('/sms', require('../src/server/api/sms'));
+app.use('/sap', require('../src/server/api/sap'));
 
 // Global error handler - catch any unhandled errors
 app.use((err, req, res, next) => {

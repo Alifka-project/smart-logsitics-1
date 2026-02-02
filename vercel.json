@@ -3,20 +3,13 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "installCommand": "npm install",
-  "builds": [
+  "rewrites": [
     {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
+      "source": "/api/:path*",
+      "destination": "/api"
     }
   ],
   "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/index.js"
-    },
     {
       "handle": "filesystem"
     },
