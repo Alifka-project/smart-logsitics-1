@@ -4,7 +4,8 @@ import { clearAuth } from '../../frontend/auth';
 import api from '../../frontend/apiClient';
 import { useAutoSignout } from '../../hooks/useAutoSignout';
 
-const SESSION_VALIDATION_TIMEOUT_MS = 15000; // 15s max — avoid infinite "Validating session..."
+const SESSION_VALIDATION_TIMEOUT_MS = 8000;  // 8s max — fail fast, avoid infinite "Validating session..."
+const AUTH_ME_REQUEST_TIMEOUT_MS = 6000;     // 6s — server must respond quickly
 
 export default function ProtectedRoute({ children }) {
   // Enable auto-signout on inactivity and tab close

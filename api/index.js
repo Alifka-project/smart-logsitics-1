@@ -15,17 +15,23 @@ const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 4000;
 
-// CORS - Allow all origins for Vercel deployment
+// CORS - Allow all origins for Vercel deployment (include x-client-key for auth)
 app.use(cors({
   origin: true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token', 'Cookie'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token', 'X-Client-Key', 'Cookie'],
   exposedHeaders: ['Set-Cookie']
 }));
 
-// Handle preflight requests
-app.options('*', cors());
+// Handle preflight so OPTIONS never returns 405
+app.options('*', (req, res) => {
+  res.set('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-CSRF-Token, X-Client-Key, Cookie');
+  res.set('Access-Control-Allow-Credentials', 'true');
+  res.status(204).end();
+});
 
 // Security middlewares
 app.use(helmet({
@@ -241,11 +247,21 @@ app.use((req, res) => {
 // Export handler for Vercel Serverless - Database is REQUIRED
 // Vercel automatically routes /api/* to this function
 module.exports = (req, res) => {
+  // OPTIONS preflight: respond immediately so browser never gets 405
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-CSRF-Token, X-Client-Key, Cookie');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Max-Age', '86400');
+    return res.status(204).end();
+  }
+
   // Log request for debugging
   console.log('[Vercel Handler] Request received:', req.method, req.url);
   console.log('[Vercel Handler] Path:', req.path);
   console.log('[Vercel Handler] Original URL:', req.originalUrl);
-  
+
   // Handle path normalization - Vercel may or may not strip /api prefix
   // Our Express routes are registered without /api prefix (e.g., /admin/dashboard)
   // So we need to ensure req.url and req.path don't have /api prefix

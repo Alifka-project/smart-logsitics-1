@@ -233,7 +233,7 @@ export default function DriverPortal() {
 
   const loadNotificationCount = async () => {
     try {
-      const response = await api.get('/driver/notifications/count');
+      const response = await api.get('/driver/messages/driver/notifications/count');
       setNotifications(response.data?.count || 0);
     } catch (error) {
       console.error('Failed to load notification count:', error);

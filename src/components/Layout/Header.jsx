@@ -123,7 +123,7 @@ export default function Header() {
       } else if (userRole === 'driver') {
         // Driver: get their unread messages count
         try {
-          const response = await api.get('/driver/notifications/count');
+          const response = await api.get('/driver/messages/driver/notifications/count');
           unreadCount = response.data?.count || 0;
         } catch (e) {
           console.error('Failed to load driver notifications:', e);

@@ -9,16 +9,16 @@ const prisma = require('./prisma');
 // For new code, use prisma directly (e.g., prisma.driver.findUnique())
 module.exports = {
   query: async (text, params) => {
-    // For legacy SQL queries, use prisma.$queryRawUnsafe
-    // NOTE: Prisma uses $1, $2 placeholders, but pg uses $1, $2, $3...
-    // We need to handle both formats
+    // Legacy SQL: return { rows } for compatibility with code that expects pg client shape
     try {
+      let result;
       if (params && params.length > 0) {
-        // Replace $1, $2, $3... with $1, $2, $3... (Prisma uses same format)
-        return await prisma.$queryRawUnsafe(text, ...params);
+        result = await prisma.$queryRawUnsafe(text, ...params);
       } else {
-        return await prisma.$queryRawUnsafe(text);
+        result = await prisma.$queryRawUnsafe(text);
       }
+      const rows = Array.isArray(result) ? result : (result && result.rows ? result.rows : []);
+      return { rows };
     } catch (err) {
       console.error('Database query error:', err);
       throw err;

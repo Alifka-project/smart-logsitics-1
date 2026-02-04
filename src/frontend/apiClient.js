@@ -77,6 +77,11 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
+    // Skip refresh for session check — avoid infinite loop on protected route
+    if (originalRequest?.skipAuthRetry) {
+      return Promise.reject(error);
+    }
+
     // If error is 401 and we haven't tried to refresh yet
     if (error.response?.status === 401 && !originalRequest._retry) {
       // If we're already refreshing, wait for it
