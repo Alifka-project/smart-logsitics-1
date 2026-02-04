@@ -1,54 +1,72 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Navigate } from 'react-router-dom';
-import { isAuthenticated, clearAuth } from '../../frontend/auth';
+import { clearAuth } from '../../frontend/auth';
 import api from '../../frontend/apiClient';
 import { useAutoSignout } from '../../hooks/useAutoSignout';
+
+const SESSION_VALIDATION_TIMEOUT_MS = 15000; // 15s max — avoid infinite "Validating session..."
 
 export default function ProtectedRoute({ children }) {
   // Enable auto-signout on inactivity and tab close
   useAutoSignout();
   const [isValidating, setIsValidating] = React.useState(true);
   const [isValid, setIsValid] = React.useState(false);
+  const mountedRef = useRef(true);
+  const settledRef = useRef(false);
 
   useEffect(() => {
-    // Validate session with server to ensure tokens are valid and not expired
+    mountedRef.current = true;
+    settledRef.current = false;
+
+    function applyResult(valid) {
+      if (!mountedRef.current || settledRef.current) return;
+      settledRef.current = true;
+      setIsValid(valid);
+      setIsValidating(false);
+      if (!valid) clearAuth();
+    }
+
     async function validateSession() {
-      // First check if we have authentication tokens at all
       const token = localStorage.getItem('auth_token');
       const user = localStorage.getItem('client_user');
       const clientKey = localStorage.getItem('client_key');
-      
-      // If we don't have all required tokens, redirect to login
+
       if (!token || !user || !clientKey) {
         console.log('[ProtectedRoute] No valid tokens found, redirecting to login');
-        clearAuth();
-        setIsValid(false);
-        setIsValidating(false);
+        applyResult(false);
         return;
       }
 
-      // Validate tokens with server to ensure they're still valid
+      const timeoutId = setTimeout(() => {
+        console.warn('[ProtectedRoute] Session validation timed out, redirecting to login');
+        applyResult(false);
+      }, SESSION_VALIDATION_TIMEOUT_MS);
+
       try {
-        const response = await api.get('/auth/me');
+        const response = await api.get('/auth/me', { timeout: 12000 });
+        clearTimeout(timeoutId);
+        if (settledRef.current) return;
+        if (!mountedRef.current) return;
         if (response.data && response.data.user) {
           console.log('[ProtectedRoute] ✓ User authenticated with valid session');
-          setIsValid(true);
+          applyResult(true);
         } else {
           console.log('[ProtectedRoute] Invalid session response, redirecting to login');
-          clearAuth();
-          setIsValid(false);
+          applyResult(false);
         }
       } catch (error) {
-        // Server rejected the authentication (401, 403, etc.)
-        console.log('[ProtectedRoute] Session validation failed:', error.response?.status || error.message);
-        clearAuth();
-        setIsValid(false);
+        clearTimeout(timeoutId);
+        if (settledRef.current) return;
+        if (!mountedRef.current) return;
+        console.log('[ProtectedRoute] Session validation failed:', error.response?.status ?? error.code ?? error.message);
+        applyResult(false);
       }
-      
-      setIsValidating(false);
     }
 
     validateSession();
+    return () => {
+      mountedRef.current = false;
+    };
   }, []);
 
   if (isValidating) {
