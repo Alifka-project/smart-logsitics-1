@@ -493,11 +493,11 @@ export default function AdminReportsPage() {
                 <tr>
                   <th 
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                    onClick={() => handleSort('id')}
+                    onClick={() => handleSort('poNumber')}
                   >
                     <div className="flex items-center gap-2">
-                      ID
-                      {sortConfig.key === 'id' && (
+                      PO Number
+                      {sortConfig.key === 'poNumber' && (
                         sortConfig.direction === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
                       )}
                     </div>
@@ -556,7 +556,7 @@ export default function AdminReportsPage() {
                     return (
                       <tr key={delivery.id || delivery.ID} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
-                          #{String(delivery.id || delivery.ID || 'N/A').slice(0, 8)}
+                          {delivery.poNumber || delivery.PONumber || 'N/A'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                           <div className="flex items-center gap-2">

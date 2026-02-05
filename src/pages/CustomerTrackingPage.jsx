@@ -222,16 +222,9 @@ export default function CustomerTrackingPage() {
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <p className="text-sm text-gray-600 mb-1">Order ID</p>
-                  <p className="font-semibold text-lg text-gray-800">{delivery.id}</p>
+                  <p className="text-sm text-gray-600 mb-1">PO Number</p>
+                  <p className="font-semibold text-lg text-gray-800">{delivery.poNumber || delivery.PONumber || 'N/A'}</p>
                 </div>
-
-                {delivery.poNumber && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">PO Number</p>
-                    <p className="font-semibold text-lg text-gray-800">{delivery.poNumber}</p>
-                  </div>
-                )}
 
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Delivery Address</p>

@@ -101,10 +101,10 @@ export default function DeliveryDetailModal({ delivery, isOpen, onClose, onStatu
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
               <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-2">
-                Delivery ID
+                PO Number
               </label>
               <p className="text-gray-900 dark:text-gray-100 font-mono text-lg">
-                #{String(delivery.id || delivery.ID || 'N/A').slice(0, 12)}
+                {delivery.poNumber || delivery.PONumber || 'N/A'}
               </p>
             </div>
 
