@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PO Number Database Check</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        button {
+            background: #0066cc;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+        button:hover {
+            background: #0052a3;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .stat-box {
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #0066cc;
+        }
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+        }
+        tr:hover {
+            background: #f8f9fa;
+        }
+        .po-yes {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .po-no {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 PO Number Database Check</h1>
+        <p style="color: #666; margin-bottom: 20px;">
+            This page checks what PO Numbers are actually stored in the database after file upload.
+        </p>
+        
+        <button onclick="checkDatabase()">Check Database Now</button>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        async function checkDatabase() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="loading">Loading data from database...</div>';
+            
+            try {
+                const response = await fetch('/api/deliveries/debug/check-po-numbers', {
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                displayResults(data);
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <div class="error">
+                        <strong>Error:</strong> ${error.message}<br>
+                        <small>Make sure you're logged in as admin and the server is running.</small>
+                    </div>
+                `;
+            }
+        }
+        
+        function displayResults(data) {
+            const { stats, recentDeliveries } = data;
+            
+            let html = `
+                <div class="stats">
+                    <div class="stat-box">
+                        <div class="stat-label">Total Deliveries</div>
+                        <div class="stat-value">${stats.total}</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">With PO Number</div>
+                        <div class="stat-value po-yes">${stats.withPONumber}</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Without PO Number</div>
+                        <div class="stat-value po-no">${stats.withoutPONumber}</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">PO in Metadata</div>
+                        <div class="stat-value">${stats.withMetadataPO}</div>
+                    </div>
+                </div>
+                
+                <h2>Recent 20 Deliveries</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Customer</th>
+                            <th>PO Number (poNumber field)</th>
+                            <th>PO in Metadata</th>
+                            <th>Created At</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            recentDeliveries.forEach(delivery => {
+                const poClass = delivery.poNumber ? 'po-yes' : 'po-no';
+                const poValue = delivery.poNumber || 'NULL';
+                const metadataPO = delivery.metadataPO || 'NULL';
+                
+                html += `
+                    <tr>
+                        <td>${delivery.id}...</td>
+                        <td>${delivery.customer || 'N/A'}</td>
+                        <td class="${poClass}">${poValue}</td>
+                        <td>${metadataPO}</td>
+                        <td>${new Date(delivery.createdAt).toLocaleString()}</td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                    </tbody>
+                </table>
+                
+                <div style="margin-top: 30px; padding: 15px; background: #e7f3ff; border-radius: 4px;">
+                    <strong>💡 What to look for:</strong>
+                    <ul style="margin: 10px 0; padding-left: 20px;">
+                        <li><strong class="po-yes">Green</strong> = PO Number is stored correctly</li>
+                        <li><strong class="po-no">Red NULL</strong> = PO Number was not captured from Excel</li>
+                        <li>If all show NULL, the Excel column name might not match what we're looking for</li>
+                        <li>Check browser console logs when uploading to see which columns were detected</li>
+                    </ul>
+                </div>
+            `;
+            
+            document.getElementById('results').innerHTML = html;
+        }
+        
+        // Auto-check on page load if logged in
+        window.addEventListener('load', () => {
+            checkDatabase();
+        });
+    </script>
+</body>
+</html>
