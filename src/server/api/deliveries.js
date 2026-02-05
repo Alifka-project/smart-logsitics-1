@@ -198,6 +198,46 @@ router.get('/:id/events', authenticate, requireRole('admin'), async (req, res) =
   }
 });
 
+// GET /api/deliveries/debug/check-po-numbers - Debug endpoint to check PO numbers in database
+router.get('/debug/check-po-numbers', authenticate, requireRole('admin'), async (req, res) => {
+  try {
+    const deliveries = await prisma.delivery.findMany({
+      select: {
+        id: true,
+        customer: true,
+        poNumber: true,
+        metadata: true,
+        createdAt: true
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      take: 20
+    });
+
+    const stats = {
+      total: deliveries.length,
+      withPONumber: deliveries.filter(d => d.poNumber).length,
+      withoutPONumber: deliveries.filter(d => !d.poNumber).length,
+      withMetadataPO: deliveries.filter(d => d.metadata?.originalPONumber).length
+    };
+
+    res.json({
+      stats,
+      recentDeliveries: deliveries.map(d => ({
+        id: d.id.substring(0, 8),
+        customer: d.customer,
+        poNumber: d.poNumber,
+        metadataPO: d.metadata?.originalPONumber,
+        createdAt: d.createdAt
+      }))
+    });
+  } catch (error) {
+    console.error('[Deliveries/Debug] Error checking PO numbers:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // POST /api/deliveries/upload - Save uploaded delivery data and auto-assign
 router.post('/upload', authenticate, async (req, res) => {
   try {

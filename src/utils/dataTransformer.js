@@ -5,28 +5,57 @@
 function extractPONumber(row) {
   if (!row) return null;
   
-  // Try exact column name matches first
+  // Log all available columns for debugging (only for first row)
+  if (!extractPONumber.logged) {
+    console.log('[dataTransformer] Available columns:', Object.keys(row));
+    console.log('[dataTransformer] Looking for PO Number in columns...');
+    extractPONumber.logged = true;
+  }
+  
+  // Try exact column name matches first (with trimmed keys)
   const exactMatches = [
     'PO Number', 'PO#', 'PO', 'Cust. PO Number', 'Purchase Order', 'PONumber',
     'PO Ref', 'PO Reference', 'Purchase Order Number', 'Order Number',
-    'po number', 'po#', 'po', 'order no', 'Order No', 'ORDER NO'
+    'po number', 'po#', 'po', 'order no', 'Order No', 'ORDER NO',
+    'Delivery number', 'Delivery Number', 'DeliveryNumber', 'Delivery'
   ];
   
   for (const colName of exactMatches) {
-    if (colName in row && row[colName]) {
+    if (colName in row && row[colName] !== null && row[colName] !== undefined && row[colName] !== '') {
       const val = String(row[colName]).trim();
-      if (val) return val;
+      if (val && val !== 'null' && val !== 'undefined') {
+        console.log(`[dataTransformer] Found PO Number in column "${colName}": "${val}"`);
+        return val;
+      }
+    }
+  }
+  
+  // Try trimmed keys (Excel sometimes adds spaces)
+  for (const [colName, value] of Object.entries(row)) {
+    const trimmedCol = colName.trim();
+    if (exactMatches.includes(trimmedCol) && value !== null && value !== undefined && value !== '') {
+      const val = String(value).trim();
+      if (val && val !== 'null' && val !== 'undefined') {
+        console.log(`[dataTransformer] Found PO Number in trimmed column "${trimmedCol}": "${val}"`);
+        return val;
+      }
     }
   }
   
   // Try case-insensitive search in all columns
   for (const [colName, value] of Object.entries(row)) {
-    if (colName.toLowerCase().includes('po') && value) {
+    const lowerCol = colName.toLowerCase().trim();
+    if ((lowerCol.includes('po') || lowerCol.includes('order') || lowerCol.includes('delivery')) && 
+        value !== null && value !== undefined && value !== '') {
       const val = String(value).trim();
-      if (val) return val;
+      if (val && val !== 'null' && val !== 'undefined') {
+        console.log(`[dataTransformer] Found PO Number via fuzzy match in column "${colName}": "${val}"`);
+        return val;
+      }
     }
   }
   
+  console.warn('[dataTransformer] No PO Number found in row');
   return null;
 }
 
