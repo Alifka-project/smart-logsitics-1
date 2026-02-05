@@ -247,10 +247,12 @@ router.post('/upload', authenticate, async (req, res) => {
       
       try {
         // Save full delivery data to database
-        const poNumberToSave = delivery._originalPONumber || null;
+        // Extract PO Number from multiple possible sources
+        const poNumberToSave = delivery.poNumber || delivery.PONumber || delivery._originalPONumber || null;
         console.log(`[Deliveries/Upload] *** ABOUT TO UPSERT ***`);
         console.log(`[Deliveries/Upload] poNumberToSave = "${poNumberToSave}"`);
         console.log(`[Deliveries/Upload] typeof poNumberToSave = ${typeof poNumberToSave}`);
+        console.log(`[Deliveries/Upload] Sources checked: delivery.poNumber="${delivery.poNumber}", delivery.PONumber="${delivery.PONumber}", delivery._originalPONumber="${delivery._originalPONumber}"`);
         
         const savedDelivery = await prisma.delivery.upsert({
           where: { id: deliveryId },

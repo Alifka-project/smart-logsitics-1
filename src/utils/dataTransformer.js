@@ -125,6 +125,9 @@ export function transformERPData(data) {
         const lat = !isNaN(latRaw) ? latRaw : 25.1124; // Default to Dubai area
         const lng = !isNaN(lngRaw) ? lngRaw : 55.1980;
 
+    // Extract PO Number for this delivery
+    const poNumber = extractPONumber(row);
+    
     return {
       customer: String(customer).trim(),
       address: String(address).trim(),
@@ -132,11 +135,14 @@ export function transformERPData(data) {
       lng,
       phone: String(phone).trim(),
       items: String(items).trim(),
+      // Map PO Number to the expected field name
+      poNumber: poNumber,
+      PONumber: poNumber, // Also support uppercase variant
       // Indicate whether defaults were applied because parsing failed
       _usedDefaultCoords: isNaN(latRaw) || isNaN(lngRaw),
       // Store original data for reference
       _originalDeliveryNumber: row['Delivery number'] || row['Delivery Number'] || row['DeliveryNumber'],
-      _originalPONumber: extractPONumber(row),
+      _originalPONumber: poNumber,
       _originalQuantity: row['Confirmed quantity'] || row['Confirmed Quantity'] || row['Qty'] || row['Quantity'],
       _originalCity: row['City'] || row['city'],
       _originalRoute: row['Route'] || row['route']
@@ -218,6 +224,9 @@ export function transformGenericData(data) {
     const lng = !isNaN(lngRaw) ? lngRaw : 55.1980;
     const phone = row[phoneKey] || '';
     const items = row[itemsKey] || 'Items not specified';
+    
+    // Extract PO Number
+    const poNumber = extractPONumber(row);
 
     return {
       customer: String(customer).trim(),
@@ -225,9 +234,13 @@ export function transformGenericData(data) {
       lat,
       lng,
       phone: String(phone).trim(),
-      items: String(items).trim()
-      ,
-      _usedDefaultCoords: isNaN(latRaw) || isNaN(lngRaw)
+      items: String(items).trim(),
+      // Map PO Number to the expected field name
+      poNumber: poNumber,
+      PONumber: poNumber, // Also support uppercase variant
+      _usedDefaultCoords: isNaN(latRaw) || isNaN(lngRaw),
+      // Store original data for reference
+      _originalPONumber: poNumber
     };
   });
 }
