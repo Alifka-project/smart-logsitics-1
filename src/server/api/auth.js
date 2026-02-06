@@ -253,7 +253,12 @@ router.post('/login', loginLimiter, async (req, res) => {
         id: driver.id,
         username: driver.username,
         full_name: driver.fullName,
-        role: driver.account.role
+        fullName: driver.fullName,
+        role: driver.account.role,
+        email: driver.email,
+        phone: driver.phone,
+        profile_picture: driver.profilePicture || null,
+        profilePicture: driver.profilePicture || null
       },
       clientKey,
       csrfToken,
@@ -354,14 +359,64 @@ router.get('/me', async (req, res) => {
         id: driver.id,
         username: driver.username,
         full_name: driver.fullName,
+        fullName: driver.fullName,
         role: driver.account.role,
-        email: driver.email
+        email: driver.email,
+        phone: driver.phone,
+        profile_picture: driver.profilePicture || null,
+        profilePicture: driver.profilePicture || null
       },
       csrfToken: req.csrfToken ? req.csrfToken() : 'dev-csrf-token'
     });
   } catch (err) {
     console.error('auth/me', err);
     res.status(500).json({ error: 'db_error' });
+  }
+});
+
+// PATCH /api/auth/profile - Update current user profile (fullName, email, phone, profilePicture)
+router.patch('/profile', async (req, res) => {
+  try {
+    let user = req.user;
+    if (!user) {
+      const authHeader = req.headers.authorization || '';
+      const parts = authHeader.split(' ');
+      if (parts.length === 2 && parts[0] === 'Bearer') {
+        const { verifyAccessToken } = require('../auth');
+        const decoded = verifyAccessToken(parts[1]);
+        if (decoded) user = decoded;
+      }
+    }
+    if (!user) return res.status(401).json({ error: 'unauthorized' });
+    const driverId = user.id || user.sub;
+    const { fullName, email, phone, profilePicture } = req.body || {};
+    const updateData = {};
+    if (fullName !== undefined) updateData.fullName = String(fullName).trim() || null;
+    if (email !== undefined) updateData.email = String(email).trim() || null;
+    if (phone !== undefined) updateData.phone = String(phone).trim() || null;
+    if (profilePicture !== undefined) updateData.profilePicture = profilePicture && String(profilePicture).trim() ? String(profilePicture).trim() : null;
+    if (Object.keys(updateData).length === 0) return res.status(400).json({ error: 'no_updates' });
+    const driver = await prisma.driver.update({
+      where: { id: driverId },
+      data: updateData,
+      include: { account: true }
+    });
+    res.json({
+      user: {
+        id: driver.id,
+        username: driver.username,
+        full_name: driver.fullName,
+        fullName: driver.fullName,
+        role: driver.account.role,
+        email: driver.email,
+        phone: driver.phone,
+        profile_picture: driver.profilePicture || null,
+        profilePicture: driver.profilePicture || null
+      }
+    });
+  } catch (err) {
+    console.error('auth/profile', err);
+    res.status(500).json({ error: 'db_error', message: err.message });
   }
 });
 

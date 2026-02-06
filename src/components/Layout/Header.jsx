@@ -166,15 +166,50 @@ export default function Header() {
     }
   }
 
+  // Compress image to max 400x400, JPEG 0.8, to avoid localStorage quota and keep payload small
+  const compressProfileImage = (dataUrl, maxSize = 400, quality = 0.8) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let { width, height } = img;
+        if (width > maxSize || height > maxSize) {
+          if (width > height) {
+            height = Math.round((height * maxSize) / width);
+            width = maxSize;
+          } else {
+            width = Math.round((width * maxSize) / height);
+            height = maxSize;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        try {
+          const compressed = canvas.toDataURL('image/jpeg', quality);
+          resolve(compressed);
+        } catch (e) {
+          resolve(dataUrl);
+        }
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    });
+  };
+
   const handleProfilePictureChange = (e) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
+      reader.onloadend = async () => {
+        const dataUrl = reader.result;
+        const compressed = await compressProfileImage(dataUrl);
         setProfileData(prev => ({
           ...prev,
           profilePicture: file,
-          profilePicturePreview: reader.result
+          profilePicturePreview: compressed
         }));
       };
       reader.readAsDataURL(file);
@@ -183,34 +218,33 @@ export default function Header() {
 
   const handleSaveProfile = async () => {
     try {
-      // TODO: Implement actual profile update API
-      // const formData = new FormData();
-      // formData.append('fullName', profileData.fullName);
-      // formData.append('email', profileData.email);
-      // formData.append('phone', profileData.phone);
-      // if (profileData.profilePicture) {
-      //   formData.append('profilePicture', profileData.profilePicture);
-      // }
-      // await api.put('/admin/profile', formData);
-      
-      // Update local storage
+      const payload = {
+        fullName: profileData.fullName?.trim() || user?.full_name || user?.fullName || '',
+        email: profileData.email?.trim() || null,
+        phone: profileData.phone?.trim() || null
+      };
+      if (profileData.profilePicturePreview) payload.profilePicture = profileData.profilePicturePreview;
+
+      const { data } = await api.patch('/auth/profile', payload);
+
       const updatedUser = {
         ...user,
-        full_name: profileData.fullName,
-        fullName: profileData.fullName,
-        email: profileData.email,
-        phone: profileData.phone,
-        profile_picture: profileData.profilePicturePreview,
-        profilePicture: profileData.profilePicturePreview
+        ...(data?.user || {}),
+        full_name: data?.user?.full_name ?? profileData.fullName,
+        fullName: data?.user?.fullName ?? profileData.fullName,
+        email: data?.user?.email ?? profileData.email,
+        phone: data?.user?.phone ?? profileData.phone,
+        profile_picture: data?.user?.profile_picture ?? data?.user?.profilePicture ?? profileData.profilePicturePreview,
+        profilePicture: data?.user?.profilePicture ?? data?.user?.profile_picture ?? profileData.profilePicturePreview
       };
       localStorage.setItem('client_user', JSON.stringify(updatedUser));
       setUser(updatedUser);
       setShowProfileModal(false);
-      
       alert('Profile updated successfully!');
     } catch (error) {
       console.error('Failed to update profile:', error);
-      alert('Failed to update profile. Please try again.');
+      const msg = error.response?.data?.message || error.response?.data?.error || error.message;
+      alert(msg || 'Failed to update profile. Please try again.');
     }
   };
 

@@ -13,6 +13,7 @@ model Driver {
   email                String?              @db.VarChar(255)
   phone                String?              @db.VarChar(32)
   fullName             String?              @map("full_name") @db.VarChar(200)
+  profilePicture       String?              @map("profile_picture") @db.Text
   active               Boolean              @default(true)
   gpsEnabled           Boolean              @default(false) @map("gps_enabled")
   gpsPermissionGranted Boolean              @default(false) @map("gps_permission_granted")
