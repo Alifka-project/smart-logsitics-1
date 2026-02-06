@@ -105,7 +105,11 @@ router.put('/admin/:id/status', authenticate, requireRole('admin'), async (req, 
       updateData.customerSignature = customerSignature;
     }
     if (photos && Array.isArray(photos) && photos.length > 0) {
-      updateData.photos = photos; // Store as JSON array
+      // Normalize to [{ data, name? }] so DB stores a clean JSON array (support frontend { id, data, name, type })
+      updateData.photos = photos.map((p) => ({
+        data: typeof p === 'string' ? p : (p.data || p),
+        name: typeof p === 'object' && p != null ? (p.name || null) : null
+      }));
     }
     if (notes) {
       updateData.deliveryNotes = notes;
@@ -579,7 +583,7 @@ router.post('/:id/send-sms', authenticate, requireRole('admin'), async (req, res
     deliveryId = String(deliveryId).trim();
     
     // Check if it's a valid UUID format (36 chars with hyphens or similar)
-    if (!/^[a-f0-9\-]{36}$|^[a-f0-9]{32}$/.test(deliveryId)) {
+    if (!/^[a-f0-9-]{36}$|^[a-f0-9]{32}$/.test(deliveryId)) {
       console.warn('Invalid deliveryId format:', deliveryId);
       // Try using the ID as-is anyway, let Prisma handle it
     }

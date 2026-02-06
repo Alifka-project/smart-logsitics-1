@@ -46,8 +46,9 @@ const { apiLimiter } = require('../src/server/security/rateLimiter');
 app.use(apiLimiter);
 
 app.disable('x-powered-by');
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+// Allow larger payloads for POD (photos as base64)
+app.use(bodyParser.json({ limit: '10mb' }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 
 // Log all requests for debugging
 app.use((req, res, next) => {

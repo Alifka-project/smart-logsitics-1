@@ -7,16 +7,49 @@ export default function DeliveryDetailModal({ delivery, isOpen, onClose, onStatu
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [podImage, setPodImage] = useState(null);
-  const [signature, setSignature] = useState(null);
+  const [podPhotos, setPodPhotos] = useState([]);
+  const [driverSignature, setDriverSignature] = useState(null);
+  const [customerSignature, setCustomerSignature] = useState(null);
+  const [podFetched, setPodFetched] = useState(false);
+  const [podLoading, setPodLoading] = useState(false);
 
   useEffect(() => {
     if (delivery && isOpen) {
       setNewStatus(delivery.status || 'pending');
-      setPodImage(delivery.proofOfDelivery?.image || delivery.podImage || null);
-      setSignature(delivery.signature || delivery.podSignature || null);
       setError('');
       setSuccess('');
+      setPodFetched(false);
+      // Use inline POD if present
+      const photos = delivery.photos && Array.isArray(delivery.photos) ? delivery.photos : [];
+      const firstPhoto = photos[0];
+      const firstPhotoData = typeof firstPhoto === 'string' ? firstPhoto : (firstPhoto?.data || null);
+      if (firstPhotoData || delivery.driverSignature || delivery.customerSignature) {
+        setPodPhotos(photos.map((p) => (typeof p === 'string' ? p : (p?.data || p))).filter(Boolean));
+        setDriverSignature(delivery.driverSignature || null);
+        setCustomerSignature(delivery.customerSignature || null);
+        setPodFetched(true);
+      } else if (delivery.id || delivery.ID) {
+        setPodLoading(true);
+        api.get(`/deliveries/${delivery.id || delivery.ID}/pod`)
+          .then((res) => {
+            if (res.data?.ok && res.data?.pod) {
+              const pod = res.data.pod;
+              const photoList = (pod.photos && Array.isArray(pod.photos))
+                ? pod.photos.map((p) => (typeof p === 'string' ? p : (p?.data || p))).filter(Boolean)
+                : [];
+              setPodPhotos(photoList);
+              setDriverSignature(pod.driverSignature || null);
+              setCustomerSignature(pod.customerSignature || null);
+            }
+          })
+          .catch(() => {})
+          .finally(() => {
+            setPodLoading(false);
+            setPodFetched(true);
+          });
+      } else {
+        setPodFetched(true);
+      }
     }
   }, [delivery, isOpen]);
 
@@ -171,59 +204,94 @@ export default function DeliveryDetailModal({ delivery, isOpen, onClose, onStatu
             </select>
           </div>
 
-          {/* POD Section */}
-          {(podImage || signature) && (
+          {/* POD Section - photos and signatures from DB */}
+          {(podLoading || podPhotos.length > 0 || driverSignature || customerSignature || podFetched) && (
             <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
                 <Signature size={20} className="text-blue-600" />
                 Proof of Delivery
+                {podLoading && <Loader size={18} className="animate-spin text-blue-600" />}
               </h3>
 
+              {podLoading && podPhotos.length === 0 && !driverSignature && !customerSignature && (
+                <p className="text-sm text-gray-500 dark:text-gray-400">Loading POD data...</p>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* POD Image */}
-                {podImage && (
-                  <div>
+                {/* POD Photos (all uploaded images) */}
+                {podPhotos.length > 0 && (
+                  <div className="md:col-span-2">
                     <div className="flex items-center gap-2 mb-3">
                       <Camera size={18} className="text-blue-600 dark:text-blue-400" />
                       <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                        POD Photo
+                        POD Photos ({podPhotos.length})
                       </span>
                     </div>
-                    <div className="relative bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden border-2 border-gray-300 dark:border-gray-600">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {podPhotos.map((src, idx) => (
+                        <div key={idx} className="relative bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden border-2 border-gray-300 dark:border-gray-600">
+                          <img
+                            src={src}
+                            alt={`POD ${idx + 1}`}
+                            className="w-full h-40 object-cover"
+                            onError={(e) => {
+                              e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"%3E%3Crect fill="%23e5e7eb" width="400" height="300"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999" font-size="16"%3EImage not available%3C/text%3E%3C/svg%3E';
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Driver Signature */}
+                {driverSignature && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <Signature size={18} className="text-blue-600 dark:text-blue-400" />
+                      <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                        Driver Signature
+                      </span>
+                    </div>
+                    <div className="bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden border-2 border-gray-300 dark:border-gray-600">
                       <img
-                        src={podImage}
-                        alt="Proof of Delivery"
-                        className="w-full h-auto max-h-96 object-cover"
+                        src={driverSignature}
+                        alt="Driver signature"
+                        className="w-full h-auto max-h-48 object-contain"
                         onError={(e) => {
-                          e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"%3E%3Crect fill="%23e5e7eb" width="400" height="300"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999" font-family="Arial" font-size="20"%3EImage not available%3C/text%3E%3C/svg%3E';
+                          e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200"%3E%3Crect fill="%23e5e7eb" width="400" height="200"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999" font-size="16"%3ESignature not available%3C/text%3E%3C/svg%3E';
                         }}
                       />
                     </div>
                   </div>
                 )}
 
-                {/* Signature */}
-                {signature && (
+                {/* Customer Signature */}
+                {customerSignature && (
                   <div>
                     <div className="flex items-center gap-2 mb-3">
                       <Signature size={18} className="text-blue-600 dark:text-blue-400" />
                       <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                        Signature
+                        Customer Signature
                       </span>
                     </div>
                     <div className="bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden border-2 border-gray-300 dark:border-gray-600">
                       <img
-                        src={signature}
-                        alt="Delivery Signature"
-                        className="w-full h-auto max-h-96 object-cover"
+                        src={customerSignature}
+                        alt="Customer signature"
+                        className="w-full h-auto max-h-48 object-contain"
                         onError={(e) => {
-                          e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"%3E%3Crect fill="%23e5e7eb" width="400" height="300"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999" font-family="Arial" font-size="20"%3ESignature not available%3C/text%3E%3C/svg%3E';
+                          e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200"%3E%3Crect fill="%23e5e7eb" width="400" height="200"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999" font-size="16"%3ESignature not available%3C/text%3E%3C/svg%3E';
                         }}
                       />
                     </div>
                   </div>
                 )}
               </div>
+
+              {!podLoading && podPhotos.length === 0 && !driverSignature && !customerSignature && (
+                <p className="text-sm text-gray-500 dark:text-gray-400 italic">No POD uploaded yet.</p>
+              )}
             </div>
           )}
 

@@ -704,7 +704,14 @@ export default function AdminDashboardPage() {
                         default: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
                       };
                       return (
-                        <tr key={delivery.id || delivery.ID} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <tr
+                          key={delivery.id || delivery.ID}
+                          className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+                          onClick={() => {
+                            setSelectedDelivery(delivery);
+                            setIsModalOpen(true);
+                          }}
+                        >
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600 dark:text-blue-400 font-mono">
                             {delivery.poNumber || String(delivery.id || delivery.ID || 'N/A').slice(0, 8)}
                           </td>
@@ -727,7 +734,7 @@ export default function AdminDashboardPage() {
                               : 'N/A'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                               <select
                                 value={delivery.status || 'pending'}
                                 onChange={async (e) => {
@@ -820,7 +827,14 @@ export default function AdminDashboardPage() {
                   </thead>
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {activeDeliveries.map((delivery) => (
-                      <tr key={delivery.id || delivery.ID} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                      <tr
+                        key={delivery.id || delivery.ID}
+                        className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+                        onClick={() => {
+                          setSelectedDelivery(delivery);
+                          setIsModalOpen(true);
+                        }}
+                      >
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                           {delivery.poNumber || delivery.PONumber || 'N/A'}
                         </td>
@@ -837,7 +851,7 @@ export default function AdminDashboardPage() {
                             ? new Date(delivery.tracking.eta).toLocaleTimeString()
                             : 'N/A'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => navigate(`/deliveries?delivery=${delivery.id || delivery.ID}`)}
                             className="text-primary-600 dark:text-primary-400 hover:underline"
