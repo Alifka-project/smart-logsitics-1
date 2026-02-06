@@ -156,7 +156,15 @@ export function transformERPData(data) {
 
     // Extract PO Number for this delivery
     const poNumber = extractPONumber(row);
-    
+
+    // Preserve all original columns for database storage (delivery format reference)
+    const originalRow = {};
+    if (row && typeof row === 'object') {
+      for (const [k, v] of Object.entries(row)) {
+        if (v !== undefined && v !== null && v !== '') originalRow[k] = v;
+      }
+    }
+
     return {
       customer: String(customer).trim(),
       address: String(address).trim(),
@@ -164,17 +172,15 @@ export function transformERPData(data) {
       lng,
       phone: String(phone).trim(),
       items: String(items).trim(),
-      // Map PO Number to the expected field name
       poNumber: poNumber,
-      PONumber: poNumber, // Also support uppercase variant
-      // Indicate whether defaults were applied because parsing failed
+      PONumber: poNumber,
       _usedDefaultCoords: isNaN(latRaw) || isNaN(lngRaw),
-      // Store original data for reference
       _originalDeliveryNumber: row['Delivery number'] || row['Delivery Number'] || row['DeliveryNumber'],
       _originalPONumber: poNumber,
       _originalQuantity: row['Confirmed quantity'] || row['Confirmed Quantity'] || row['Qty'] || row['Quantity'],
       _originalCity: row['City'] || row['city'],
-      _originalRoute: row['Route'] || row['route']
+      _originalRoute: row['Route'] || row['route'],
+      _originalRow: originalRow
     };
   });
 }
@@ -257,6 +263,13 @@ export function transformGenericData(data) {
     // Extract PO Number
     const poNumber = extractPONumber(row);
 
+    const originalRow = {};
+    if (row && typeof row === 'object') {
+      for (const [k, v] of Object.entries(row)) {
+        if (v !== undefined && v !== null && v !== '') originalRow[k] = v;
+      }
+    }
+
     return {
       customer: String(customer).trim(),
       address: String(address).trim(),
@@ -264,12 +277,11 @@ export function transformGenericData(data) {
       lng,
       phone: String(phone).trim(),
       items: String(items).trim(),
-      // Map PO Number to the expected field name
       poNumber: poNumber,
-      PONumber: poNumber, // Also support uppercase variant
+      PONumber: poNumber,
       _usedDefaultCoords: isNaN(latRaw) || isNaN(lngRaw),
-      // Store original data for reference
-      _originalPONumber: poNumber
+      _originalPONumber: poNumber,
+      _originalRow: originalRow
     };
   });
 }

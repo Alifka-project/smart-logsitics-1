@@ -286,52 +286,50 @@ router.post('/upload', authenticate, async (req, res) => {
       console.log(`[Deliveries/Upload] *** END CRITICAL DEBUG ***`);
       
       try {
-        // Save full delivery data to database
-        // Extract PO Number from multiple possible sources
-        const poNumberToSave = delivery.poNumber || delivery.PONumber || delivery._originalPONumber || null;
-        console.log(`[Deliveries/Upload] *** ABOUT TO UPSERT ***`);
-        console.log(`[Deliveries/Upload] poNumberToSave = "${poNumberToSave}"`);
-        console.log(`[Deliveries/Upload] typeof poNumberToSave = ${typeof poNumberToSave}`);
-        console.log(`[Deliveries/Upload] Sources checked: delivery.poNumber="${delivery.poNumber}", delivery.PONumber="${delivery.PONumber}", delivery._originalPONumber="${delivery._originalPONumber}"`);
-        
+        // PO Number: use transformed fields first, then raw delivery keys (untransformed upload), then _originalRow
+        let poNumberToSave = delivery.poNumber ?? delivery.PONumber ?? delivery._originalPONumber ?? null;
+        if (poNumberToSave == null) {
+          const raw = delivery['PO Number'] ?? delivery['PO#'] ?? delivery['Cust. PO Number'] ?? delivery['PONumber'] ?? delivery['Delivery number'] ?? delivery['Delivery Number'];
+          if (raw != null && raw !== '') poNumberToSave = String(raw).trim();
+        }
+        if (poNumberToSave == null && delivery._originalRow && typeof delivery._originalRow === 'object') {
+          const r = delivery._originalRow;
+          const fromRow = r['PO Number'] ?? r['PO#'] ?? r['Cust. PO Number'] ?? r['PONumber'] ?? r['Delivery number'] ?? r['Delivery Number'] ?? null;
+          if (fromRow != null) poNumberToSave = String(fromRow).trim() || null;
+        }
+        if (poNumberToSave != null && typeof poNumberToSave !== 'string') poNumberToSave = String(poNumberToSave);
+
+        // Metadata: store all original row columns plus mapped fields so nothing is lost
+        const baseMeta = {
+          originalDeliveryNumber: delivery._originalDeliveryNumber ?? delivery._originalRow?.['Delivery number'] ?? delivery._originalRow?.['Delivery Number'],
+          originalPONumber: poNumberToSave ?? delivery._originalPONumber,
+          originalQuantity: delivery._originalQuantity ?? delivery._originalRow?.['Confirmed quantity'],
+          originalCity: delivery._originalCity ?? delivery._originalRow?.['City'],
+          originalRoute: delivery._originalRoute ?? delivery._originalRow?.['Route'],
+        };
+        if (delivery._originalRow && typeof delivery._originalRow === 'object') {
+          baseMeta.originalRow = delivery._originalRow;
+        }
+        const metadataToSave = delivery.metadata && typeof delivery.metadata === 'object'
+          ? { ...baseMeta, ...delivery.metadata }
+          : baseMeta;
+
+        const upsertData = {
+          customer: delivery.customer || delivery.name || null,
+          address: delivery.address || null,
+          phone: delivery.phone ?? null,
+          poNumber: poNumberToSave,
+          lat: delivery.lat != null ? Number(delivery.lat) : null,
+          lng: delivery.lng != null ? Number(delivery.lng) : null,
+          status: delivery.status || 'pending',
+          items: typeof delivery.items === 'string' ? delivery.items : (delivery.items ? JSON.stringify(delivery.items) : null),
+          metadata: metadataToSave,
+        };
+
         const savedDelivery = await prisma.delivery.upsert({
           where: { id: deliveryId },
-          update: {
-            customer: delivery.customer || delivery.name || null,
-            address: delivery.address || null,
-            phone: delivery.phone || null,
-            poNumber: poNumberToSave,
-            lat: delivery.lat || null,
-            lng: delivery.lng || null,
-            status: delivery.status || 'pending',
-            items: typeof delivery.items === 'string' ? delivery.items : (delivery.items ? JSON.stringify(delivery.items) : null),
-            metadata: delivery.metadata || (delivery._originalDeliveryNumber ? {
-              originalDeliveryNumber: delivery._originalDeliveryNumber,
-              originalPONumber: delivery._originalPONumber,
-              originalQuantity: delivery._originalQuantity,
-              originalCity: delivery._originalCity,
-              originalRoute: delivery._originalRoute,
-            } : null),
-            updatedAt: new Date()
-          },
-          create: {
-            id: deliveryId,
-            customer: delivery.customer || delivery.name || null,
-            address: delivery.address || null,
-            phone: delivery.phone || null,
-            poNumber: poNumberToSave,
-            lat: delivery.lat || null,
-            lng: delivery.lng || null,
-            status: delivery.status || 'pending',
-            items: typeof delivery.items === 'string' ? delivery.items : (delivery.items ? JSON.stringify(delivery.items) : null),
-            metadata: delivery.metadata || (delivery._originalDeliveryNumber ? {
-              originalDeliveryNumber: delivery._originalDeliveryNumber,
-              originalPONumber: delivery._originalPONumber,
-              originalQuantity: delivery._originalQuantity,
-              originalCity: delivery._originalCity,
-              originalRoute: delivery._originalRoute,
-            } : null)
-          }
+          update: { ...upsertData, updatedAt: new Date() },
+          create: { id: deliveryId, ...upsertData }
         });
 
         console.log(`[Deliveries/Upload] ✓ Successfully saved delivery ${deliveryId} to database`);

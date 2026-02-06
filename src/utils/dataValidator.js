@@ -69,14 +69,15 @@ export function validateDeliveryData(data) {
         );
       }
 
-      // If row is otherwise valid, add it to validData
+      // If row is otherwise valid, add it to validData — preserve ALL row fields (poNumber, metadata, etc.)
       if (rowErrors.length === 0) {
         validData.push({
+          ...row,
           customer: String(row.customer).trim(),
           address: String(row.address).trim(),
           lat,
           lng,
-          phone: row.phone ? String(row.phone).trim() : '', // Optional phone
+          phone: row.phone != null && row.phone !== '' ? String(row.phone).trim() : (row.phone || ''),
           items: String(row.items).trim()
         });
       }
