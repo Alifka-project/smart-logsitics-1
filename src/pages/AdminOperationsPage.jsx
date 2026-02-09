@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import api from '../frontend/apiClient';
+import { getCurrentUser } from '../frontend/auth';
 import { 
   MapPin, 
   Activity, 
@@ -152,11 +153,14 @@ export default function AdminOperationsPage() {
     
     setLoadingMessages(true);
     try {
-      const response = await api.get(`/admin/messages/conversations/${driverId}`);
-      setMessages(response.data?.messages || []);
-      console.log(`✓ Loaded ${response.data?.messages?.length || 0} messages with driver`);
+      const response = await api.get(`/messages/conversations/${driverId}`);
+      const messagesData = response.data?.messages || [];
+      console.log(`✓ Loaded ${messagesData.length} messages with driver ${driverId}`);
+      console.log('First message sample:', messagesData[0]);
+      setMessages(messagesData);
     } catch (error) {
       console.error('Failed to load messages:', error);
+      console.error('Error details:', error.response?.data);
       setMessages([]);
     } finally {
       setLoadingMessages(false);
@@ -170,7 +174,7 @@ export default function AdminOperationsPage() {
     setSendingMessage(true);
 
     try {
-      const response = await api.post('/admin/messages/send', {
+      const response = await api.post('/messages/send', {
         driverId: selectedDriver.id,
         content: messageText
       });
@@ -798,7 +802,9 @@ export default function AdminOperationsPage() {
                   ) : (
                     messages.map((msg, idx) => {
                       // Handle both API message format and local message format
-                      const isAdminMessage = msg.from === 'admin' || (msg.adminId === msg.adminId && msg.adminId);
+                      // Message is from admin if: msg.from === 'admin' OR msg.adminId matches current admin user
+                      const currentUserId = getCurrentUser()?.id;
+                      const isAdminMessage = msg.from === 'admin' || (msg.admin?.id === currentUserId);
                       const messageText = msg.text || msg.content || '';
                       const messageTime = msg.timestamp || msg.createdAt;
                       

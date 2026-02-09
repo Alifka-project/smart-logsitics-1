@@ -121,7 +121,7 @@ export default function Header() {
       if (userRole === 'admin') {
         // Admin: get unread messages count
         try {
-          const response = await api.get('/admin/messages/unread');
+          const response = await api.get('/messages/unread');
           // Count total unread messages across all drivers
           const counts = Object.values(response.data || {});
           unreadCount = counts.reduce((sum, count) => sum + count, 0);
@@ -131,7 +131,7 @@ export default function Header() {
       } else if (userRole === 'driver') {
         // Driver: get their unread messages count
         try {
-          const response = await api.get('/driver/messages/driver/notifications/count');
+          const response = await api.get('/messages/driver/notifications/count');
           unreadCount = response.data?.count || 0;
         } catch (e) {
           console.error('Failed to load driver notifications:', e);

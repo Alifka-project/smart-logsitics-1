@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import api, { setAuthToken } from '../frontend/apiClient';
+import { getCurrentUser } from '../frontend/auth';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { 
@@ -220,7 +221,7 @@ export default function DriverPortal() {
   const loadMessages = async () => {
     setLoadingMessages(true);
     try {
-      const response = await api.get('/driver/messages/driver');
+      const response = await api.get('/messages/driver');
       setMessages(response.data?.messages || []);
       console.log(`✓ Loaded ${response.data?.messages?.length || 0} messages`);
     } catch (error) {
@@ -233,7 +234,7 @@ export default function DriverPortal() {
 
   const loadNotificationCount = async () => {
     try {
-      const response = await api.get('/driver/messages/driver/notifications/count');
+      const response = await api.get('/messages/driver/notifications/count');
       setNotifications(response.data?.count || 0);
     } catch (error) {
       console.error('Failed to load notification count:', error);
@@ -247,7 +248,7 @@ export default function DriverPortal() {
     setSendingMessage(true);
 
     try {
-      const response = await api.post('/driver/messages/driver/send', {
+      const response = await api.post('/messages/driver/send', {
         content: messageText
       });
 
@@ -739,7 +740,9 @@ export default function DriverPortal() {
               </div>
             ) : (
               messages.map((msg, idx) => {
-                const isAdmin = msg.adminId && !msg.from;
+                // Message is from admin if: msg.from === 'admin' OR driver.id matches current driver
+                const currentUserId = getCurrentUser()?.id;
+                const isAdmin = msg.from === 'admin' || (msg.driver?.id !== currentUserId);
                 const messageText = msg.text || msg.content || '';
                 const messageTime = msg.timestamp || msg.createdAt;
                 
