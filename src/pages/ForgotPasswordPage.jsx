@@ -4,7 +4,6 @@ import api from '../frontend/apiClient';
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate();
-  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -15,17 +14,16 @@ export default function ForgotPasswordPage() {
     setError(null);
     setLoading(true);
 
-    // Validate that at least one field is provided
-    if (!username && !email) {
-      setError('Please enter either username or email address');
+    // Validate email is provided
+    if (!email) {
+      setError('Please enter your email address');
       setLoading(false);
       return;
     }
 
     try {
       const response = await api.post('/auth/forgot-password', { 
-        username: username || undefined, 
-        email: email || undefined 
+        email: email 
       });
       
       setSuccess(true);
@@ -73,7 +71,7 @@ export default function ForgotPasswordPage() {
               </div>
               <h2 className="text-3xl lg:text-4xl font-bold mb-2" style={{ color: '#000000' }}>Check Your Email</h2>
               <p className="mb-8" style={{ color: '#000000' }}>
-                If an account exists with that username/email, a password reset link has been sent.
+                If an account exists with that email address, a password reset link has been sent.
               </p>
               <Link 
                 to="/login" 
@@ -121,7 +119,7 @@ export default function ForgotPasswordPage() {
           <div className="max-w-md mx-auto w-full">
             <h2 className="text-3xl lg:text-4xl font-bold mb-2" style={{ color: '#000000' }}>FORGOT PASSWORD?</h2>
             <p className="mb-8 text-sm" style={{ color: '#000000' }}>
-              Enter your username or email address and we'll send you a link to reset your password.
+              Enter your email address and we'll send you a link to reset your password.
             </p>
           
             {error && (
@@ -132,43 +130,6 @@ export default function ForgotPasswordPage() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Username Field */}
-              <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: '#000000' }}>
-                  Username
-                </label>
-                <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg transition-all outline-none bg-white"
-                  style={{
-                    '--focus-color': '#011E41'
-                  }}
-                  onFocus={(e) => {
-                    e.target.style.borderColor = '#011E41';
-                    e.target.style.boxShadow = '0 0 0 2px rgba(1, 30, 65, 0.2)';
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = '#d1d5db';
-                    e.target.style.boxShadow = 'none';
-                  }}
-                  placeholder="Enter your username"
-                  autoComplete="username"
-                  disabled={loading}
-                />
-              </div>
-
-              {/* OR Divider */}
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white" style={{ color: '#000000' }}>OR</span>
-                </div>
-              </div>
-
               {/* Email Field */}
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: '#000000' }}>
@@ -192,6 +153,7 @@ export default function ForgotPasswordPage() {
                   }}
                   placeholder="Enter your email"
                   autoComplete="email"
+                  required
                   disabled={loading}
                 />
               </div>
@@ -199,10 +161,10 @@ export default function ForgotPasswordPage() {
               {/* Send Reset Link Button */}
               <button
                 type="submit"
-                disabled={loading || (!username && !email)}
+                disabled={loading || !email}
                 className="w-full text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
                 style={{ backgroundColor: '#011E41' }}
-                onMouseEnter={(e) => !loading && !(!username && !email) && (e.target.style.backgroundColor = '#001529')}
+                onMouseEnter={(e) => !loading && email && (e.target.style.backgroundColor = '#001529')}
                 onMouseLeave={(e) => !loading && (e.target.style.backgroundColor = '#011E41')}
               >
                 {loading ? (
