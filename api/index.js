@@ -210,8 +210,7 @@ app.use('/driver', require('../src/server/api/locations'));
 app.use('/admin/dashboard', require('../src/server/api/adminDashboard'));
 app.use('/admin/reports', require('../src/server/api/reports'));
 app.use('/admin/tracking', require('../src/server/api/tracking'));
-app.use('/admin/messages', require('../src/server/api/messages'));
-app.use('/driver/messages', require('../src/server/api/messages'));
+app.use('/messages', require('../src/server/api/messages')); // Mount at /messages for both admin and driver routes
 app.use('/ai', require('../src/server/api/ai'));
 app.use('/deliveries', require('../src/server/api/deliveries'));
 app.use('/sms', require('../src/server/api/sms'));
