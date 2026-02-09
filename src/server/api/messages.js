@@ -320,7 +320,7 @@ router.get('/driver/notifications/count', authenticate, requireRole('driver'), a
   }
 });
 
-module.exports = router;// GET /api/admin/messages/unread-count - Get unread message count
+// GET /api/admin/messages/unread-count - Get unread message count
 router.get('/unread/count', authenticate, requireRole('admin'), async (req, res) => {
   try {
     // TODO: Count unread messages from drivers
