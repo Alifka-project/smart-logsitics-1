@@ -95,6 +95,11 @@ export default function LoginPage() {
         window.location.href = '/driver';
       }
     } catch (err) {
+      console.error('[LoginPage] Login error:', err);
+      console.error('[LoginPage] Error response:', err?.response);
+      console.error('[LoginPage] Error status:', err?.response?.status);
+      console.error('[LoginPage] Error data:', err?.response?.data);
+      
       // Handle timeout/abort
       if (err.name === 'AbortError' || err.code === 'ECONNABORTED') {
         setError('Request timeout. The server is taking too long to respond. Please try again.');
@@ -109,7 +114,7 @@ export default function LoginPage() {
         return;
       }
       
-      const errorMessage = err?.response?.data?.error || err?.message || 'Login failed. Please check your credentials.';
+      const errorMessage = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Login failed';
       const errorDetails = err?.response?.data?.details;
       
       if (errorDetails && Array.isArray(errorDetails)) {
@@ -120,14 +125,18 @@ export default function LoginPage() {
         // Account locked
         setError(err.response.data.message || 'Account locked due to too many failed attempts');
       } else if (err?.response?.status === 401) {
-        setError('Invalid username or password');
+        // Invalid credentials - show clear message
+        setError('Invalid username or password. Please check your credentials and try again.');
       } else if (err?.response?.status >= 500) {
         setError('Server error. Please try again later.');
       } else if (err?.response?.status === 400) {
         setError(errorMessage || 'Invalid request. Please check your input.');
       } else {
-        setError(errorMessage);
+        // Fallback for any other error
+        setError('Login failed. Please check your credentials.');
       }
+      
+      // Always stop loading
       setLoading(false);
     }
   }
