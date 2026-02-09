@@ -30,7 +30,14 @@ router.get('/conversations/:driverId', authenticate, requireRole('admin'), async
           { adminId: driverId, driverId: adminId }
         ]
       },
-      include: {
+      select: {
+        id: true,
+        content: true,
+        senderRole: true,
+        isRead: true,
+        createdAt: true,
+        adminId: true,
+        driverId: true,
         admin: { select: { id: true, fullName: true, username: true } },
         driver: { select: { id: true, fullName: true, username: true } }
       },
@@ -38,6 +45,15 @@ router.get('/conversations/:driverId', authenticate, requireRole('admin'), async
       take: limit,
       skip: offset
     });
+
+    console.log(`[Admin Conversation] Fetched ${messages.length} messages for driver ${driverId}`);
+    if (messages.length > 0) {
+      console.log('[Admin Conversation] Sample message:', {
+        id: messages[0].id,
+        senderRole: messages[0].senderRole,
+        content: messages[0].content?.substring(0, 50)
+      });
+    }
 
     // Mark messages as read for the admin
     await prisma.message.updateMany({

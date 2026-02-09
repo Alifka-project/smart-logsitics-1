@@ -157,6 +157,14 @@ export default function AdminOperationsPage() {
       const messagesData = response.data?.messages || [];
       console.log(`✓ Loaded ${messagesData.length} messages with driver ${driverId}`);
       console.log('First message sample:', messagesData[0]);
+      if (messagesData.length > 0) {
+        console.log('Message fields:', {
+          hasSenderRole: 'senderRole' in messagesData[0],
+          senderRole: messagesData[0].senderRole,
+          hasFrom: 'from' in messagesData[0],
+          from: messagesData[0].from
+        });
+      }
       setMessages(messagesData);
     } catch (error) {
       console.error('Failed to load messages:', error);
@@ -802,10 +810,32 @@ export default function AdminOperationsPage() {
                     </div>
                   ) : (
                     messages.map((msg, idx) => {
-                      // Message is from admin if senderRole is 'admin'
-                      const isAdminMessage = msg.senderRole === 'admin' || msg.from === 'admin';
+                      // Determine if message is from admin
+                      // Priority: 1. senderRole field, 2. from field, 3. fallback to checking adminId
+                      const currentUserId = getCurrentUser()?.id;
+                      let isAdminMessage;
+                      
+                      if (msg.senderRole) {
+                        isAdminMessage = msg.senderRole === 'admin';
+                      } else if (msg.from) {
+                        isAdminMessage = msg.from === 'admin';
+                      } else {
+                        // Fallback: if adminId matches current user, it's from admin
+                        isAdminMessage = msg.adminId === currentUserId;
+                      }
+                      
                       const messageText = msg.text || msg.content || '';
                       const messageTime = msg.timestamp || msg.createdAt;
+                      
+                      // Debug log for first few messages
+                      if (idx < 3) {
+                        console.log(`Message ${idx}:`, {
+                          senderRole: msg.senderRole,
+                          from: msg.from,
+                          isAdminMessage,
+                          content: messageText.substring(0, 30)
+                        });
+                      }
                       
                       return (
                         <div

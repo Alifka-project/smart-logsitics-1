@@ -741,8 +741,20 @@ export default function DriverPortal() {
               </div>
             ) : (
               messages.map((msg, idx) => {
-                // Message is from admin if senderRole is 'admin'
-                const isAdmin = msg.senderRole === 'admin' || msg.from === 'admin';
+                // Determine if message is from admin
+                // Priority: 1. senderRole field, 2. from field, 3. fallback to checking driverId
+                const currentUserId = getCurrentUser()?.id;
+                let isAdmin;
+                
+                if (msg.senderRole) {
+                  isAdmin = msg.senderRole === 'admin';
+                } else if (msg.from) {
+                  isAdmin = msg.from === 'admin';
+                } else {
+                  // Fallback: if driverId does NOT match current user, it's from admin
+                  isAdmin = msg.driverId !== currentUserId;
+                }
+                
                 const messageText = msg.text || msg.content || '';
                 const messageTime = msg.timestamp || msg.createdAt;
                 
