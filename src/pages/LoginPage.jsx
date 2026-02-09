@@ -44,7 +44,16 @@ export default function LoginPage() {
     
     // ALWAYS require proper login - no dev mode bypass
     try {
-      const res = await api.post('/auth/login', { username, password });
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
+      const res = await api.post('/auth/login', 
+        { username, password },
+        { signal: controller.signal }
+      );
+      clearTimeout(timeoutId);
+      
       const { driver, clientKey, csrfToken, accessToken } = res.data;
       
       // Validate response
@@ -86,9 +95,16 @@ export default function LoginPage() {
         window.location.href = '/driver';
       }
     } catch (err) {
+      // Handle timeout/abort
+      if (err.name === 'AbortError' || err.code === 'ECONNABORTED') {
+        setError('Request timeout. The server is taking too long to respond. Please try again.');
+        setLoading(false);
+        return;
+      }
+      
       // Network error or server not available
       if (!err?.response) {
-        setError('Cannot connect to server. Please ensure the backend server is running.');
+        setError('Cannot connect to server. Please check your internet connection or try again later.');
         setLoading(false);
         return;
       }

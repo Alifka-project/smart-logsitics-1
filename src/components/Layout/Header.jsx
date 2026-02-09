@@ -31,6 +31,14 @@ export default function Header() {
     profilePicture: null,
     profilePicturePreview: null
   });
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
   
   const dropdownRef = useRef(null);
   const notificationRef = useRef(null);
@@ -245,6 +253,54 @@ export default function Header() {
       console.error('Failed to update profile:', error);
       const msg = error.response?.data?.message || error.response?.data?.error || error.message;
       alert(msg || 'Failed to update profile. Please try again.');
+    }
+  };
+
+  const handleChangePassword = async () => {
+    setPasswordError('');
+    setPasswordSuccess(false);
+    
+    // Validation
+    if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+      setPasswordError('All password fields are required');
+      return;
+    }
+    
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setPasswordError('New password and confirmation do not match');
+      return;
+    }
+    
+    if (passwordData.newPassword.length < 8) {
+      setPasswordError('New password must be at least 8 characters long');
+      return;
+    }
+    
+    try {
+      await api.post('/auth/change-password', {
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword
+      });
+      
+      setPasswordSuccess(true);
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      
+      // Auto close after 2 seconds and redirect to login
+      setTimeout(() => {
+        setShowChangePassword(false);
+        setShowProfileModal(false);
+        handleLogout();
+      }, 2000);
+    } catch (error) {
+      const errorMsg = error?.response?.data?.error || error?.response?.data?.message || 'Failed to change password';
+      if (errorMsg === 'invalid_current_password') {
+        setPasswordError('Current password is incorrect');
+      } else if (errorMsg === 'password_validation_failed') {
+        const details = error?.response?.data?.details || [];
+        setPasswordError('Password requirements: ' + details.join(', '));
+      } else {
+        setPasswordError(errorMsg);
+      }
     }
   };
 
@@ -615,6 +671,81 @@ export default function Header() {
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
                   />
                 </div>
+
+                {/* Change Password Button */}
+                <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <button
+                    onClick={() => setShowChangePassword(!showChangePassword)}
+                    className="w-full flex items-center justify-between px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  >
+                    <span className="font-medium">Change Password</span>
+                    <Settings className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Change Password Section */}
+                {showChangePassword && (
+                  <div className="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    {passwordSuccess ? (
+                      <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                        <p className="text-green-800 dark:text-green-200 text-sm font-medium">
+                          ✓ Password changed successfully! Redirecting to login...
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        {passwordError && (
+                          <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                            <p className="text-red-800 dark:text-red-200 text-sm">{passwordError}</p>
+                          </div>
+                        )}
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Current Password
+                          </label>
+                          <input
+                            type="password"
+                            value={passwordData.currentPassword}
+                            onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            New Password
+                          </label>
+                          <input
+                            type="password"
+                            value={passwordData.newPassword}
+                            onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Confirm New Password
+                          </label>
+                          <input
+                            type="password"
+                            value={passwordData.confirmPassword}
+                            onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          />
+                        </div>
+
+                        <button
+                          onClick={handleChangePassword}
+                          className="w-full px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium"
+                        >
+                          Update Password
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons */}
