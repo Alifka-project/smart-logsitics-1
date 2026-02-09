@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "node scripts/dev.js",
     "dev:frontend": "vite",
-    "build": "prisma generate && npx vite build",
+    "build": "prisma db push --accept-data-loss && prisma generate && npx vite build",
     "postinstall": "prisma generate",
     "test": "vitest run",
     "test:watch": "vitest",
