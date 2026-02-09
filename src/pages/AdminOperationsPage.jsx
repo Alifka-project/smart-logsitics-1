@@ -184,6 +184,7 @@ export default function AdminOperationsPage() {
         setMessages(prev => [...prev, {
           ...response.data.message,
           from: 'admin',
+          senderRole: 'admin',
           text: response.data.message.content
         }]);
         console.log('✓ Message sent successfully');
@@ -801,10 +802,8 @@ export default function AdminOperationsPage() {
                     </div>
                   ) : (
                     messages.map((msg, idx) => {
-                      // Handle both API message format and local message format
-                      // Message is from admin if: msg.from === 'admin' OR msg.adminId matches current admin user
-                      const currentUserId = getCurrentUser()?.id;
-                      const isAdminMessage = msg.from === 'admin' || (msg.admin?.id === currentUserId);
+                      // Message is from admin if senderRole is 'admin'
+                      const isAdminMessage = msg.senderRole === 'admin' || msg.from === 'admin';
                       const messageText = msg.text || msg.content || '';
                       const messageTime = msg.timestamp || msg.createdAt;
                       

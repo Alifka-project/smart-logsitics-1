@@ -173,14 +173,15 @@ model SmsLog {
 }
 
 model Message {
-  id        String   @id @default(uuid()) @db.Uuid
-  adminId   String   @map("admin_id") @db.Uuid
-  driverId  String   @map("driver_id") @db.Uuid
-  content   String
-  isRead    Boolean  @default(false) @map("is_read")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  admin     Driver   @relation("AdminMessages", fields: [adminId], references: [id], onDelete: Cascade)
-  driver    Driver   @relation("DriverMessages", fields: [driverId], references: [id], onDelete: Cascade)
+  id         String   @id @default(uuid()) @db.Uuid
+  adminId    String   @map("admin_id") @db.Uuid
+  driverId   String   @map("driver_id") @db.Uuid
+  content    String
+  senderRole String   @default("admin") @map("sender_role") @db.VarChar(20) // 'admin' or 'driver'
+  isRead     Boolean  @default(false) @map("is_read")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  admin      Driver   @relation("AdminMessages", fields: [adminId], references: [id], onDelete: Cascade)
+  driver     Driver   @relation("DriverMessages", fields: [driverId], references: [id], onDelete: Cascade)
 
   @@index([adminId, driverId, createdAt(sort: Desc)], map: "idx_messages_conversation")
   @@index([driverId], map: "idx_messages_driver")

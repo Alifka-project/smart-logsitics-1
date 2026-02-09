@@ -256,6 +256,7 @@ export default function DriverPortal() {
         setMessages(prev => [...prev, {
           ...response.data.message,
           from: 'driver',
+          senderRole: 'driver',
           text: response.data.message.content
         }]);
         console.log('✓ Message sent successfully');
@@ -740,9 +741,8 @@ export default function DriverPortal() {
               </div>
             ) : (
               messages.map((msg, idx) => {
-                // Message is from admin if: msg.from === 'admin' OR driver.id matches current driver
-                const currentUserId = getCurrentUser()?.id;
-                const isAdmin = msg.from === 'admin' || (msg.driver?.id !== currentUserId);
+                // Message is from admin if senderRole is 'admin'
+                const isAdmin = msg.senderRole === 'admin' || msg.from === 'admin';
                 const messageText = msg.text || msg.content || '';
                 const messageTime = msg.timestamp || msg.createdAt;
                 

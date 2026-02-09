@@ -151,6 +151,7 @@ router.post('/send', authenticate, requireRole('admin'), async (req, res) => {
         adminId,
         driverId,
         content: content.trim(),
+        senderRole: 'admin',
         isRead: false
       },
       include: {
@@ -237,6 +238,7 @@ router.post('/driver/send', authenticate, requireRole('driver'), async (req, res
         adminId: adminId,
         driverId,
         content: content.trim(),
+        senderRole: 'driver',
         isRead: false
       },
       include: {
