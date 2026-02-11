@@ -810,32 +810,11 @@ export default function AdminOperationsPage() {
                     </div>
                   ) : (
                     messages.map((msg, idx) => {
-                      // Determine if message is from admin
-                      // Priority: 1. senderRole field, 2. from field, 3. fallback to checking adminId
-                      const currentUserId = getCurrentUser()?.id;
-                      let isAdminMessage;
-                      
-                      if (msg.senderRole) {
-                        isAdminMessage = msg.senderRole === 'admin';
-                      } else if (msg.from) {
-                        isAdminMessage = msg.from === 'admin';
-                      } else {
-                        // Fallback: if adminId matches current user, it's from admin
-                        isAdminMessage = msg.adminId === currentUserId;
-                      }
+                      // Determine if message is from admin based on senderRole field
+                      const isAdminMessage = msg.senderRole === 'admin';
                       
                       const messageText = msg.text || msg.content || '';
                       const messageTime = msg.timestamp || msg.createdAt;
-                      
-                      // Debug log for first few messages
-                      if (idx < 3) {
-                        console.log(`Message ${idx}:`, {
-                          senderRole: msg.senderRole,
-                          from: msg.from,
-                          isAdminMessage,
-                          content: messageText.substring(0, 30)
-                        });
-                      }
                       
                       return (
                         <div

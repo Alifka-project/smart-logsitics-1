@@ -23,12 +23,12 @@ router.get('/conversations/:driverId', authenticate, requireRole('admin'), async
     }
 
     // Fetch messages between admin and this driver
+    // Both admin and driver messages use the same adminId/driverId pair
+    // The senderRole field indicates who sent each message
     const messages = await prisma.message.findMany({
       where: {
-        OR: [
-          { adminId, driverId },
-          { adminId: driverId, driverId: adminId }
-        ]
+        adminId,
+        driverId
       },
       select: {
         id: true,
@@ -69,10 +69,8 @@ router.get('/conversations/:driverId', authenticate, requireRole('admin'), async
       messages: messages.reverse(),
       total: await prisma.message.count({
         where: {
-          OR: [
-            { adminId, driverId },
-            { adminId: driverId, driverId: adminId }
-          ]
+          adminId,
+          driverId
         }
       })
     });
@@ -176,6 +174,14 @@ router.post('/send', authenticate, requireRole('admin'), async (req, res) => {
       }
     });
 
+    console.log('[Message Created] Admin→Driver:', {
+      messageId: message.id,
+      from: adminId,
+      to: driverId,
+      senderRole: 'admin',
+      contentPreview: content.substring(0, 30)
+    });
+
     res.json({ 
       success: true, 
       message 
@@ -201,10 +207,8 @@ router.delete('/conversation/:driverId', authenticate, requireRole('admin'), asy
 
     const result = await prisma.message.deleteMany({
       where: {
-        OR: [
-          { adminId, driverId },
-          { adminId: driverId, driverId: adminId }
-        ]
+        adminId,
+        driverId
       }
     });
 
@@ -261,6 +265,14 @@ router.post('/driver/send', authenticate, requireRole('driver'), async (req, res
         admin: { select: { id: true, fullName: true, username: true } },
         driver: { select: { id: true, fullName: true, username: true } }
       }
+    });
+
+    console.log('[Message Created] Driver→Admin:', {
+      messageId: message.id,
+      from: driverId,
+      to: adminId,
+      senderRole: 'driver',
+      contentPreview: content.substring(0, 30)
     });
 
     res.json({ success: true, message });
