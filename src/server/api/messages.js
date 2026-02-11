@@ -55,12 +55,13 @@ router.get('/conversations/:driverId', authenticate, requireRole('admin'), async
       });
     }
 
-    // Mark messages as read for the admin
+    // Mark messages FROM driver as read (not admin's own sent messages)
     await prisma.message.updateMany({
       where: {
         driverId,
         adminId,
-        isRead: false
+        isRead: false,
+        senderRole: 'driver' // Only mark received messages as read
       },
       data: { isRead: true }
     });
@@ -330,11 +331,12 @@ router.get('/driver', authenticate, requireRole('driver'), async (req, res) => {
       take: 100
     });
 
-    // Mark messages as read
+    // Mark messages FROM admin as read (not driver's own sent messages)
     await prisma.message.updateMany({
       where: {
         driverId,
-        isRead: false
+        isRead: false,
+        senderRole: 'admin' // Only mark received messages as read
       },
       data: { isRead: true }
     });
@@ -349,6 +351,7 @@ router.get('/driver', authenticate, requireRole('driver'), async (req, res) => {
 /**
  * GET /api/messages/driver/notifications/count
  * Get unread notification count for driver
+ * Only counts messages RECEIVED from admin, not messages SENT by driver
  */
 router.get('/driver/notifications/count', authenticate, requireRole('driver'), async (req, res) => {
   try {
@@ -357,11 +360,12 @@ router.get('/driver/notifications/count', authenticate, requireRole('driver'), a
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    // Count unread messages
+    // Count unread messages FROM admin TO driver (not messages sent BY driver)
     const unreadMessages = await prisma.message.count({
       where: {
         driverId,
-        isRead: false
+        isRead: false,
+        senderRole: 'admin' // Only messages from admin, not driver's own messages
       }
     });
 
@@ -375,21 +379,27 @@ router.get('/driver/notifications/count', authenticate, requireRole('driver'), a
   }
 });
 
-// GET /api/admin/messages/unread-count - Get unread message count
+// GET /api/admin/messages/unread-count - Get unread message count for admin
 router.get('/unread/count', authenticate, requireRole('admin'), async (req, res) => {
   try {
-    // TODO: Count unread messages from drivers
-    const count = 0;
-    
-    // Future implementation:
-    // const count = await prisma.message.count({
-    //   where: {
-    //     fromRole: 'driver',
-    //     read: false
-    //   }
-    // });
+    const adminId = req.user?.sub;
+    if (!adminId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
 
-    res.json({ count });
+    // Count unread messages FROM drivers TO admin (not messages sent BY admin)
+    const count = await prisma.message.count({
+      where: {
+        adminId,
+        isRead: false,
+        senderRole: 'driver' // Only messages from drivers, not admin's own messages
+      }
+    });
+
+    res.json({ 
+      success: true,
+      count 
+    });
   } catch (err) {
     console.error('GET /api/admin/messages/unread-count', err);
     res.status(500).json({ error: 'db_error', detail: err.message });
@@ -400,15 +410,24 @@ router.get('/unread/count', authenticate, requireRole('admin'), async (req, res)
 router.post('/:messageId/read', authenticate, requireRole('admin'), async (req, res) => {
   try {
     const { messageId } = req.params;
+    const adminId = req.user?.sub;
 
-    // TODO: Update message read status
-    // Future implementation:
-    // await prisma.message.update({
-    //   where: { id: messageId },
-    //   data: { read: true, readAt: new Date() }
-    // });
+    if (!adminId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
 
-    res.json({ success: true });
+    // Update message read status
+    const message = await prisma.message.update({
+      where: { id: messageId },
+      data: { 
+        isRead: true
+      }
+    });
+
+    res.json({ 
+      success: true,
+      message 
+    });
   } catch (err) {
     console.error('POST /api/admin/messages/:messageId/read', err);
     res.status(500).json({ error: 'db_error', detail: err.message });
