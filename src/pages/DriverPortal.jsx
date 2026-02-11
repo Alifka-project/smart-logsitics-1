@@ -476,25 +476,25 @@ export default function DriverPortal() {
   return (
     <div className="space-y-6">
       {/* Header Section */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900">Driver Portal</h1>
-            <p className="text-sm sm:text-base text-gray-600 mt-2">Track your location and manage deliveries in real-time</p>
+            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-gray-100">Driver Portal</h1>
+            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 mt-2">Track your location and manage deliveries in real-time</p>
           </div>
           <div className="flex items-center gap-3">
             <div className={`flex items-center gap-2 px-4 py-2.5 rounded-lg shadow-sm transition-all ${
               isTracking 
-                ? 'bg-green-50 text-green-700 border border-green-200' 
-                : 'bg-gray-50 text-gray-600 border border-gray-200'
+                ? 'bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800'
+                : 'bg-gray-50 text-gray-600 border border-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600'
             }`}>
               <div className={`w-2.5 h-2.5 rounded-full transition-all ${
-                isTracking ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
+                isTracking ? 'bg-green-500 animate-pulse' : 'bg-gray-400 dark:bg-gray-500'
               }`}></div>
               <span className="text-sm font-semibold">{isTracking ? 'Tracking Active' : 'Tracking Off'}</span>
             </div>
             {notifications > 0 && (
-              <div className="flex items-center gap-2 px-3 py-2 bg-red-50 text-red-700 rounded-lg border border-red-200">
+              <div className="flex items-center gap-2 px-3 py-2 bg-red-50 text-red-700 rounded-lg border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800">
                 <Bell className="w-4 h-4" />
                 <span className="text-sm font-semibold">{notifications}</span>
               </div>
@@ -504,7 +504,7 @@ export default function DriverPortal() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-gray-200 dark:border-gray-700">
         <nav className="flex space-x-8">
           {[
             { id: 'tracking', label: 'Tracking', icon: Navigation },
@@ -519,8 +519,8 @@ export default function DriverPortal() {
                 className={`
                   flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm
                   ${activeTab === tab.id
-                    ? 'border-primary-600 text-primary-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-primary-600 text-primary-600 dark:text-primary-400'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-300 dark:hover:text-gray-100 dark:hover:border-gray-600'
                   }
                 `}
               >
@@ -542,20 +542,20 @@ export default function DriverPortal() {
         <div className="space-y-6">
           {/* Error Message */}
           {error && (
-            <div className="bg-red-50 border-l-4 border-red-400 rounded-lg p-4 shadow-sm">
+            <div className="bg-red-50 border-l-4 border-red-400 rounded-lg p-4 shadow-sm dark:bg-red-900/20 dark:border-red-600">
               <div className="flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+                <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-300 mt-0.5 flex-shrink-0" />
                 <div>
-                  <div className="text-red-800 font-semibold mb-1">Error</div>
-                  <div className="text-red-700 text-sm">{error}</div>
+                  <div className="text-red-800 dark:text-red-200 font-semibold mb-1">Error</div>
+                  <div className="text-red-700 dark:text-red-300 text-sm">{error}</div>
                 </div>
               </div>
             </div>
           )}
 
       {/* Control Panel */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Location Controls</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Location Controls</h2>
         <div className="flex flex-wrap gap-3">
           {!isTracking ? (
             <button
@@ -578,7 +578,7 @@ export default function DriverPortal() {
           <button
             onClick={loadLatestLocation}
             disabled={loading}
-            className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 active:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2 font-semibold shadow-sm transition-all transform hover:scale-105 active:scale-95"
+            className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 active:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2 font-semibold shadow-sm transition-all transform hover:scale-105 active:scale-95 dark:bg-gray-700 dark:hover:bg-gray-600 dark:active:bg-gray-700"
           >
             <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
             Refresh Location
@@ -587,34 +587,34 @@ export default function DriverPortal() {
 
         {/* Current Location Info */}
         {location && (
-          <div className="mt-6 p-5 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
+          <div className="mt-6 p-5 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-100 dark:from-blue-900/30 dark:to-indigo-900/30 dark:border-blue-800">
             <div className="flex items-center gap-2 mb-3">
-              <CheckCircle2 className="w-5 h-5 text-green-600" />
-              <h3 className="font-semibold text-gray-900">Current Location</h3>
+              <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100">Current Location</h3>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-              <div className="bg-white rounded p-3 shadow-sm">
-                <div className="text-gray-600 text-xs uppercase tracking-wide mb-1">Latitude</div>
-                <div className="font-mono text-gray-900 font-semibold">{location.latitude.toFixed(6)}</div>
+              <div className="bg-white dark:bg-gray-800 rounded p-3 shadow-sm">
+                <div className="text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide mb-1">Latitude</div>
+                <div className="font-mono text-gray-900 dark:text-gray-100 font-semibold">{location.latitude.toFixed(6)}</div>
               </div>
-              <div className="bg-white rounded p-3 shadow-sm">
-                <div className="text-gray-600 text-xs uppercase tracking-wide mb-1">Longitude</div>
-                <div className="font-mono text-gray-900 font-semibold">{location.longitude.toFixed(6)}</div>
+              <div className="bg-white dark:bg-gray-800 rounded p-3 shadow-sm">
+                <div className="text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide mb-1">Longitude</div>
+                <div className="font-mono text-gray-900 dark:text-gray-100 font-semibold">{location.longitude.toFixed(6)}</div>
               </div>
               {location.accuracy && (
-                <div className="bg-white rounded p-3 shadow-sm">
-                  <div className="text-gray-600 text-xs uppercase tracking-wide mb-1">Accuracy</div>
-                  <div className="font-mono text-gray-900 font-semibold">±{location.accuracy.toFixed(0)}m</div>
+                <div className="bg-white dark:bg-gray-800 rounded p-3 shadow-sm">
+                  <div className="text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide mb-1">Accuracy</div>
+                  <div className="font-mono text-gray-900 dark:text-gray-100 font-semibold">±{location.accuracy.toFixed(0)}m</div>
                 </div>
               )}
-              <div className="bg-white rounded p-3 shadow-sm">
-                <div className="text-gray-600 text-xs uppercase tracking-wide mb-1">Last Update</div>
-                <div className="font-mono text-gray-900 font-semibold">{new Date(location.timestamp).toLocaleTimeString()}</div>
+              <div className="bg-white dark:bg-gray-800 rounded p-3 shadow-sm">
+                <div className="text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide mb-1">Last Update</div>
+                <div className="font-mono text-gray-900 dark:text-gray-100 font-semibold">{new Date(location.timestamp).toLocaleTimeString()}</div>
               </div>
               {location.speed && (
-                <div className="bg-white rounded p-3 shadow-sm">
-                  <div className="text-gray-600 text-xs uppercase tracking-wide mb-1">Speed</div>
-                  <div className="font-mono text-gray-900 font-semibold">{(location.speed * 3.6).toFixed(1)} km/h</div>
+                <div className="bg-white dark:bg-gray-800 rounded p-3 shadow-sm">
+                  <div className="text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide mb-1">Speed</div>
+                  <div className="font-mono text-gray-900 dark:text-gray-100 font-semibold">{(location.speed * 3.6).toFixed(1)} km/h</div>
                 </div>
               )}
             </div>
@@ -623,33 +623,33 @@ export default function DriverPortal() {
       </div>
 
       {/* Map */}
-      <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-        <div className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
+        <div className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 dark:from-gray-800 dark:to-gray-900 dark:border-gray-700">
           <div className="flex items-center gap-2">
-            <MapPin className="w-5 h-5 text-primary-600" />
-            <h2 className="text-xl font-semibold text-gray-900">Location Map</h2>
+            <MapPin className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Location Map</h2>
           </div>
         </div>
         <div className="relative">
           <div 
             ref={mapRef} 
-            className="h-[500px] sm:h-[600px] w-full bg-gray-100"
+            className="h-[500px] sm:h-[600px] w-full bg-gray-100 dark:bg-gray-900"
             style={{ minHeight: '400px' }}
           />
           {!location && mapReady && (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-50 bg-opacity-90 z-[1000]">
-              <div className="text-center p-6 bg-white rounded-lg shadow-lg border border-gray-200 max-w-sm mx-4">
-                <MapPin className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-700 font-medium mb-1">No location data available</p>
-                <p className="text-sm text-gray-500">Click "Start Tracking" to begin location tracking</p>
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-50 bg-opacity-90 z-[1000] dark:bg-gray-900/80">
+              <div className="text-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 max-w-sm mx-4">
+                <MapPin className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
+                <p className="text-gray-700 dark:text-gray-200 font-medium mb-1">No location data available</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Click "Start Tracking" to begin location tracking</p>
               </div>
             </div>
           )}
           {!mapReady && (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
               <div className="text-center">
-                <RefreshCw className="w-8 h-8 text-gray-400 mx-auto mb-2 animate-spin" />
-                <p className="text-gray-600">Loading map...</p>
+                <RefreshCw className="w-8 h-8 text-gray-400 dark:text-gray-500 mx-auto mb-2 animate-spin" />
+                <p className="text-gray-600 dark:text-gray-300">Loading map...</p>
               </div>
             </div>
           )}
@@ -658,33 +658,33 @@ export default function DriverPortal() {
 
       {/* Location History */}
       {locationHistory.length > 0 && (
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
             Recent Locations ({locationHistory.length})
           </h2>
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-900/40">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Time</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Coordinates</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Accuracy</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Speed</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Time</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Coordinates</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Accuracy</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Speed</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {locationHistory.slice(-10).reverse().map((loc, index) => (
-                  <tr key={index} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                  <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-200">
                       {new Date(loc.timestamp).toLocaleTimeString()}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm font-mono text-gray-900">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm font-mono text-gray-900 dark:text-gray-100">
                       {loc.latitude.toFixed(6)}, {loc.longitude.toFixed(6)}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
                       {loc.accuracy ? `±${loc.accuracy.toFixed(0)}m` : 'N/A'}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
                       {loc.speed ? `${(loc.speed * 3.6).toFixed(1)} km/h` : 'N/A'}
                     </td>
                   </tr>
@@ -700,9 +700,9 @@ export default function DriverPortal() {
       {/* Deliveries Tab */}
       {activeTab === 'deliveries' && (
         <div className="space-y-6">
-          <div className="bg-white rounded-lg shadow-sm p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold text-gray-900">My Deliveries</h2>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">My Deliveries</h2>
               <button
                 onClick={loadDeliveries}
                 disabled={loadingDeliveries}
@@ -717,48 +717,48 @@ export default function DriverPortal() {
               <div className="flex justify-center py-8">
                 <div className="text-center">
                   <RefreshCw className="w-8 h-8 animate-spin text-primary-600 mx-auto mb-2" />
-                  <p className="text-gray-600">Loading deliveries...</p>
+                  <p className="text-gray-600 dark:text-gray-300">Loading deliveries...</p>
                 </div>
               </div>
             ) : deliveries.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
+              <div className="text-center py-12 text-gray-500 dark:text-gray-300">
                 <Truck className="w-12 h-12 mx-auto mb-2 opacity-50" />
                 <p>No deliveries assigned yet</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-900/40">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">PO Number</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Customer</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Address</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Assigned</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">PO Number</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Customer</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Address</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Assigned</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {deliveries.map(delivery => (
-                      <tr key={delivery.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <tr key={delivery.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                           {delivery.poNumber || delivery.PONumber || 'N/A'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                           {delivery.customer || 'Unknown'}
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
+                        <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-300 max-w-xs truncate">
                           {delivery.address || 'N/A'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                           <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                            delivery.status === 'delivered' ? 'bg-green-100 text-green-800' :
-                            delivery.status === 'out-for-delivery' || delivery.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-gray-100 text-gray-800'
+                            delivery.status === 'delivered' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
+                            delivery.status === 'out-for-delivery' || delivery.status === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
+                            'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
                           }`}>
                             {delivery.status || 'pending'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
                           {new Date(delivery.assignedAt).toLocaleDateString()}
                         </td>
                       </tr>
@@ -773,31 +773,31 @@ export default function DriverPortal() {
 
       {/* Messages Tab */}
       {activeTab === 'messages' && (
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden flex flex-col h-[calc(100vh-350px)]">
-          <div className="p-4 bg-gray-50 border-b flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-gray-900">Messages from Admin</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden flex flex-col h-[calc(100vh-350px)]">
+          <div className="p-4 bg-gray-50 dark:bg-gray-900/40 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Messages from Admin</h2>
             <button
               onClick={loadMessages}
               disabled={loadingMessages}
-              className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm flex items-center gap-2"
+              className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm flex items-center gap-2 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
             >
               <RefreshCw className={`w-4 h-4 ${loadingMessages ? 'animate-spin' : ''}`} />
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-900/30">
             {loadingMessages ? (
               <div className="flex justify-center py-8">
-                <div className="text-center text-gray-500">
+                <div className="text-center text-gray-500 dark:text-gray-300">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto mb-2"></div>
                   <p>Loading messages...</p>
                 </div>
               </div>
             ) : messages.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
+              <div className="text-center py-12 text-gray-500 dark:text-gray-300">
                 <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
                 <p>No messages yet</p>
-                <p className="text-sm mt-1">Check back for updates from admin</p>
+                <p className="text-sm mt-1 text-gray-500 dark:text-gray-400">Check back for updates from admin</p>
               </div>
             ) : (
               messages.map((msg, idx) => {
@@ -815,15 +815,15 @@ export default function DriverPortal() {
                     <div
                       className={`max-w-[70%] rounded-lg p-3 ${
                         isAdmin
-                          ? 'bg-white text-gray-900 border border-gray-200'
+                          ? 'bg-white text-gray-900 border border-gray-200 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700'
                           : 'bg-primary-600 text-white'
                       }`}
                     >
                       {isAdmin && (
-                        <p className="text-xs font-semibold text-gray-600 mb-1">Admin</p>
+                        <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Admin</p>
                       )}
                       <p className="text-sm">{messageText}</p>
-                      <p className={`text-xs mt-1 ${isAdmin ? 'text-gray-500' : 'text-primary-100'}`}>
+                      <p className={`text-xs mt-1 ${isAdmin ? 'text-gray-500 dark:text-gray-400' : 'text-primary-100'}`}>
                         {formatMessageTimestamp(messageTime)}
                       </p>
                     </div>
@@ -835,7 +835,7 @@ export default function DriverPortal() {
             <div ref={messagesEndRef} />
           </div>
 
-          <div className="p-4 bg-white border-t">
+          <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
             <div className="flex gap-2">
               <input
                 type="text"
@@ -848,7 +848,7 @@ export default function DriverPortal() {
                 }}
                 placeholder="Reply to admin..."
                 disabled={sendingMessage}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50"
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50 dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700"
               />
               <button
                 onClick={handleSendMessage}
