@@ -236,21 +236,46 @@ router.post('/driver/send', authenticate, requireRole('driver'), async (req, res
       return res.status(400).json({ error: 'Message content is required' });
     }
 
-    // Get the admin user (first admin account)
-    const adminAccount = await prisma.account.findFirst({
+    // Find which admin to reply to:
+    // 1. Check if there's an existing conversation with any admin
+    // 2. If yes, reply to that admin
+    // 3. If no, use the first admin account
+    let adminId;
+    
+    const existingConversation = await prisma.message.findFirst({
       where: {
-        role: 'admin'
+        driverId
       },
-      include: {
-        driver: true
+      orderBy: {
+        createdAt: 'desc'
+      },
+      select: {
+        adminId: true
       }
     });
 
-    if (!adminAccount || !adminAccount.driver) {
-      return res.status(404).json({ error: 'No admin found' });
-    }
+    if (existingConversation) {
+      // Reply to the admin who has an existing conversation
+      adminId = existingConversation.adminId;
+      console.log('[Driver Message] Replying to existing conversation with admin:', adminId);
+    } else {
+      // No existing conversation, find first admin
+      const adminAccount = await prisma.account.findFirst({
+        where: {
+          role: 'admin'
+        },
+        include: {
+          driver: true
+        }
+      });
 
-    const adminId = adminAccount.driver.id;
+      if (!adminAccount || !adminAccount.driver) {
+        return res.status(404).json({ error: 'No admin found' });
+      }
+
+      adminId = adminAccount.driver.id;
+      console.log('[Driver Message] Starting new conversation with admin:', adminId);
+    }
 
     // Create message from driver to admin
     const message = await prisma.message.create({
