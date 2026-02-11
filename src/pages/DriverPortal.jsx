@@ -50,6 +50,10 @@ export default function DriverPortal() {
 
   // Notification state
   const [notifications, setNotifications] = useState(0);
+  
+  // Refs for auto-scroll and polling
+  const messagesEndRef = useRef(null);
+  const messagePollingIntervalRef = useRef(null);
 
   // Keep isTrackingRef in sync with state
   useEffect(() => {
@@ -180,6 +184,31 @@ export default function DriverPortal() {
       return newHistory.slice(-50); // Keep last 50 locations
     });
   }, [location, mapReady]);
+  
+  // Auto-refresh messages when on messages tab
+  useEffect(() => {
+    if (activeTab === 'messages') {
+      // Start auto-refresh every 3 seconds for real-time updates
+      messagePollingIntervalRef.current = setInterval(() => {
+        loadMessages(true);
+      }, 3000);
+    }
+    
+    // Cleanup interval when tab changes or component unmounts
+    return () => {
+      if (messagePollingIntervalRef.current) {
+        clearInterval(messagePollingIntervalRef.current);
+        messagePollingIntervalRef.current = null;
+      }
+    };
+  }, [activeTab]);
+  
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
 
   const loadLatestLocation = async () => {
     setLoading(true);
@@ -218,17 +247,17 @@ export default function DriverPortal() {
     }
   };
 
-  const loadMessages = async () => {
-    setLoadingMessages(true);
+  const loadMessages = async (silent = false) => {
+    if (!silent) setLoadingMessages(true);
     try {
       const response = await api.get('/messages/driver');
       setMessages(response.data?.messages || []);
-      console.log(`✓ Loaded ${response.data?.messages?.length || 0} messages`);
+      if (!silent) console.log(`✓ Loaded ${response.data?.messages?.length || 0} messages`);
     } catch (error) {
-      console.error('Failed to load messages:', error);
+      if (!silent) console.error('Failed to load messages:', error);
       setMessages([]);
     } finally {
-      setLoadingMessages(false);
+      if (!silent) setLoadingMessages(false);
     }
   };
 
@@ -771,6 +800,8 @@ export default function DriverPortal() {
                 );
               })
             )}
+            {/* Auto-scroll anchor */}
+            <div ref={messagesEndRef} />
           </div>
 
           <div className="p-4 bg-white border-t">

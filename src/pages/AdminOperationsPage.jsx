@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import api from '../frontend/apiClient';
 import { getCurrentUser } from '../frontend/auth';
 import { 
@@ -48,6 +48,10 @@ export default function AdminOperationsPage() {
     'Delivery rescheduled',
     'Emergency: Return to warehouse'
   ]);
+  
+  // Refs for auto-scroll and polling
+  const messagesEndRef = useRef(null);
+  const messagePollingIntervalRef = useRef(null);
 
   // Load online status - same logic as User Management and Dashboard pages
   const loadOnlineStatus = useCallback(async (silent = false) => {
@@ -144,34 +148,59 @@ export default function AdminOperationsPage() {
   // Load messages when driver is selected
   useEffect(() => {
     if (selectedDriver?.id) {
+      // Load messages immediately
       loadMessages(selectedDriver.id);
+      
+      // Start auto-refresh every 3 seconds for real-time updates
+      messagePollingIntervalRef.current = setInterval(() => {
+        loadMessages(selectedDriver.id, true);
+      }, 3000);
     }
+    
+    // Cleanup interval when driver changes or component unmounts
+    return () => {
+      if (messagePollingIntervalRef.current) {
+        clearInterval(messagePollingIntervalRef.current);
+        messagePollingIntervalRef.current = null;
+      }
+    };
   }, [selectedDriver]);
+  
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
 
-  const loadMessages = async (driverId) => {
+  const loadMessages = async (driverId, silent = false) => {
     if (!driverId) return;
     
-    setLoadingMessages(true);
+    if (!silent) setLoadingMessages(true);
     try {
       const response = await api.get(`/messages/conversations/${driverId}`);
       const messagesData = response.data?.messages || [];
-      console.log(`✓ Loaded ${messagesData.length} messages with driver ${driverId}`);
-      console.log('First message sample:', messagesData[0]);
-      if (messagesData.length > 0) {
-        console.log('Message fields:', {
-          hasSenderRole: 'senderRole' in messagesData[0],
-          senderRole: messagesData[0].senderRole,
-          hasFrom: 'from' in messagesData[0],
-          from: messagesData[0].from
-        });
+      if (!silent) {
+        console.log(`✓ Loaded ${messagesData.length} messages with driver ${driverId}`);
+        console.log('First message sample:', messagesData[0]);
+        if (messagesData.length > 0) {
+          console.log('Message fields:', {
+            hasSenderRole: 'senderRole' in messagesData[0],
+            senderRole: messagesData[0].senderRole,
+            hasFrom: 'from' in messagesData[0],
+            from: messagesData[0].from
+          });
+        }
       }
       setMessages(messagesData);
     } catch (error) {
-      console.error('Failed to load messages:', error);
-      console.error('Error details:', error.response?.data);
+      if (!silent) {
+        console.error('Failed to load messages:', error);
+        console.error('Error details:', error.response?.data);
+      }
       setMessages([]);
     } finally {
-      setLoadingMessages(false);
+      if (!silent) setLoadingMessages(false);
     }
   };
 
@@ -837,6 +866,8 @@ export default function AdminOperationsPage() {
                       );
                     })
                   )}
+                  {/* Auto-scroll anchor */}
+                  <div ref={messagesEndRef} />
                 </div>
 
                 {/* Message Templates */}
