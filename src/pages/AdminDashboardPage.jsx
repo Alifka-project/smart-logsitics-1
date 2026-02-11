@@ -5,7 +5,7 @@ import {
   Package, CheckCircle, XCircle, Clock, MapPin, TrendingUp, Users, Activity, 
   Truck, AlertCircle, FileText, Calendar, DollarSign, Target, Zap, Circle
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import DeliveryDetailModal from '../components/DeliveryDetailModal';
 
 function ensureAuth() {
@@ -29,6 +29,7 @@ export default function AdminDashboardPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [onlineUserIds, setOnlineUserIds] = useState(new Set());
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Load online status for drivers tab - same logic as User Management page
   const loadOnlineStatus = useCallback(async (silent = false) => {
@@ -162,6 +163,26 @@ export default function AdminDashboardPage() {
       window.removeEventListener('deliveryStatusUpdated', handleDeliveryStatusUpdated);
     };
   }, [loadDashboardData, autoRefresh]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    const allowedTabs = new Set(['overview', 'deliveries', 'drivers', 'performance']);
+    if (tab && allowedTabs.has(tab) && tab !== activeTab) {
+      setActiveTab(tab);
+    }
+  }, [location.search, activeTab]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const deliveryId = params.get('delivery');
+    if (!deliveryId || deliveries.length === 0) return;
+    const match = deliveries.find(delivery => String(delivery.id || delivery.ID) === String(deliveryId));
+    if (match) {
+      setSelectedDelivery(match);
+      setIsModalOpen(true);
+    }
+  }, [location.search, deliveries]);
 
   // Auto-refresh online status when on drivers tab or when dashboard refreshes
   useEffect(() => {

@@ -132,15 +132,49 @@ export default function Header() {
       
       let unreadCount = 0;
       let deliveryNotifications = [];
+      let messageNotifications = [];
       
       // Load unread messages based on user role
       if (userRole === 'admin') {
         // Admin: get unread messages count
         try {
           const response = await api.get('/messages/unread');
-          // Count total unread messages across all drivers
-          const counts = Object.values(response.data || {});
-          unreadCount = counts.reduce((sum, count) => sum + (Number(count) || 0), 0);
+          const countsByDriver = response.data || {};
+          const driverEntries = Object.entries(countsByDriver)
+            .map(([driverId, count]) => [driverId, Number(count) || 0])
+            .filter(([, count]) => count > 0);
+
+          unreadCount = driverEntries.reduce((sum, [, count]) => sum + count, 0);
+
+          if (driverEntries.length) {
+            let driverLookup = new Map();
+            try {
+              const driversResponse = await api.get('/admin/drivers');
+              const driversList = driversResponse.data?.data || driversResponse.data?.drivers || [];
+              driversList.forEach((driver) => {
+                if (driver?.id != null) {
+                  driverLookup.set(String(driver.id), driver);
+                }
+              });
+            } catch (driverError) {
+              console.error('Failed to load drivers for notifications:', driverError);
+            }
+
+            messageNotifications = driverEntries.map(([driverId, count]) => {
+              const driver = driverLookup.get(String(driverId));
+              const displayName = driver?.fullName || driver?.full_name || driver?.username || `Driver ${String(driverId).slice(0, 6)}`;
+              return {
+                id: `messages-${driverId}`,
+                type: 'message',
+                count,
+                driverId,
+                title: `${count} unread message${count !== 1 ? 's' : ''} from ${displayName}`,
+                message: `Open chat with ${displayName}`,
+                timestamp: new Date(),
+                read: false
+              };
+            });
+          }
         } catch (e) {
           console.error('Failed to load admin notifications:', e);
         }
@@ -165,32 +199,33 @@ export default function Header() {
         } catch (e) {
           console.error('Failed to load driver notifications:', e);
         }
+
+        if (unreadCount > 0) {
+          messageNotifications = [
+            {
+              id: 'messages',
+              type: 'message',
+              count: unreadCount,
+              title: `${unreadCount} unread message${unreadCount !== 1 ? 's' : ''}`,
+              message: 'You have unread messages from admin',
+              timestamp: new Date(),
+              read: false
+            }
+          ];
+        }
       }
-      
-      // Convert count to notifications array
-      const messageNotification = unreadCount > 0
-        ? {
-            id: 'messages',
-            type: 'message',
-            count: unreadCount,
-            title: `${unreadCount} unread message${unreadCount !== 1 ? 's' : ''}`,
-            message: userRole === 'admin' ? 'You have unread messages from drivers' : 'You have unread messages from admin',
-            timestamp: new Date(),
-            read: false
-          }
-        : null;
 
       setNotifications((prev) => {
         const previousById = new Map(prev.map((item) => [item.id, item]));
         const next = [];
 
-        if (messageNotification) {
-          const existing = previousById.get(messageNotification.id);
+        messageNotifications.forEach((notification) => {
+          const existing = previousById.get(notification.id);
           next.push({
-            ...messageNotification,
+            ...notification,
             read: existing?.read ?? false
           });
-        }
+        });
 
         const newDeliveryIds = new Set();
         if (userRole === 'admin' && deliveryNotifications.length) {
@@ -366,15 +401,15 @@ export default function Header() {
     }
   };
 
-  const markNotificationAsRead = async (notificationId) => {
+  const markNotificationAsRead = async (notification) => {
     try {
-      if (notificationId === 'messages') {
+      if (!notification || notification.type === 'message') {
         return;
       }
       // TODO: Implement API call
-      // await api.post(`/admin/notifications/${notificationId}/read`);
+      // await api.post(`/admin/notifications/${notification.id}/read`);
       setNotifications(prev =>
-        prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
+        prev.map(n => n.id === notification.id ? { ...n, read: true } : n)
       );
     } catch (error) {
       console.error('Failed to mark notification as read:', error);
@@ -383,16 +418,28 @@ export default function Header() {
 
   const handleNotificationClick = (notification) => {
     if (!notification) return;
-    if (notification.id === 'messages') {
-      const currentUser = getCurrentUser();
-      const userRole = currentUser?.account?.role || currentUser?.role || 'driver';
-      if (userRole === 'driver') {
-        setShowNotifications(false);
-        navigate('/driver?tab=messages');
+    const currentUser = getCurrentUser();
+    const userRole = currentUser?.account?.role || currentUser?.role || 'driver';
+
+    if (notification.type === 'message') {
+      setShowNotifications(false);
+      if (userRole === 'admin') {
+        const driverQuery = notification.driverId ? `&driverId=${encodeURIComponent(notification.driverId)}` : '';
+        navigate(`/admin/operations?tab=communication${driverQuery}`);
         return;
       }
+      navigate('/driver?tab=messages');
+      return;
     }
-    markNotificationAsRead(notification.id);
+
+    if (notification.type === 'delivery' && userRole === 'admin') {
+      setShowNotifications(false);
+      const deliveryQuery = notification.deliveryId ? `&delivery=${encodeURIComponent(notification.deliveryId)}` : '';
+      navigate(`/admin?tab=deliveries${deliveryQuery}`);
+      markNotificationAsRead(notification);
+      return;
+    }
+    markNotificationAsRead(notification);
   };
 
   const getInitials = () => {

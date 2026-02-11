@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import api from '../frontend/apiClient';
 import { getCurrentUser } from '../frontend/auth';
 import { 
@@ -52,6 +53,7 @@ export default function AdminOperationsPage() {
   // Refs for auto-scroll and polling
   const messagesEndRef = useRef(null);
   const messagePollingIntervalRef = useRef(null);
+  const location = useLocation();
 
   const formatMessageTimestamp = (value) => {
     if (!value) return 'Unknown time';
@@ -158,6 +160,29 @@ export default function AdminOperationsPage() {
       if (onlineInterval) clearInterval(onlineInterval);
     };
   }, [autoRefresh, loadOnlineStatus]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    const driverId = params.get('driverId');
+    const allowedTabs = new Set(['monitoring', 'control', 'communication', 'alerts']);
+
+    if (tab && allowedTabs.has(tab) && tab !== activeTab) {
+      setActiveTab(tab);
+    } else if (driverId && activeTab !== 'communication') {
+      setActiveTab('communication');
+    }
+  }, [location.search, activeTab]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const driverId = params.get('driverId');
+    if (!driverId || drivers.length === 0) return;
+    const match = drivers.find(driver => String(driver.id) === String(driverId));
+    if (match && String(selectedDriver?.id) !== String(match.id)) {
+      setSelectedDriver(match);
+    }
+  }, [location.search, drivers, selectedDriver]);
 
   // Load messages when driver is selected
   useEffect(() => {
