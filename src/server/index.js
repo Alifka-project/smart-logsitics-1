@@ -5,9 +5,31 @@ dotenv.config();
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const cors = require('cors');
+const prisma = require('./db/prisma');
 
 const app = express();
 const port = process.env.PORT || 4000;
+
+const MESSAGE_RETENTION_DAYS = 30;
+const MESSAGE_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+async function cleanupOldMessages() {
+  try {
+    const cutoff = new Date(Date.now() - MESSAGE_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+    const result = await prisma.message.deleteMany({
+      where: {
+        createdAt: {
+          lt: cutoff
+        }
+      }
+    });
+    if (result.count > 0) {
+      console.log(`[Cleanup] Deleted ${result.count} messages older than ${MESSAGE_RETENTION_DAYS} days.`);
+    }
+  } catch (error) {
+    console.error('[Cleanup] Failed to delete old messages:', error.message);
+  }
+}
 
 // Log startup info
 console.log('=== SERVER STARTUP ===');
@@ -148,6 +170,7 @@ app.use('/api', (req, res, next) => {
 app.use('/api/admin/drivers', require('./api/drivers'));
 app.use('/api/driver', require('./api/locations'));
 app.use('/api/admin/dashboard', require('./api/adminDashboard'));
+app.use('/api/admin/notifications', require('./api/notifications'));
 app.use('/api/admin/reports', require('./api/reports'));
 app.use('/api/admin/tracking', require('./api/tracking'));
 app.use('/api/messages', require('./api/messages')); // Mount at /api/messages for both admin and driver routes
@@ -160,4 +183,6 @@ app.use('/api/sap-ingestion', require('./api/sap-ingestion')); // SAP data inges
 
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
+  cleanupOldMessages();
+  setInterval(cleanupOldMessages, MESSAGE_CLEANUP_INTERVAL_MS);
 });

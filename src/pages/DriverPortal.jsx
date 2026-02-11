@@ -55,6 +55,20 @@ export default function DriverPortal() {
   const messagesEndRef = useRef(null);
   const messagePollingIntervalRef = useRef(null);
 
+  const formatMessageTimestamp = (value) => {
+    if (!value) return 'Unknown time';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Unknown time';
+    return date.toLocaleString('en-GB', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   // Keep isTrackingRef in sync with state
   useEffect(() => {
     isTrackingRef.current = isTracking;
@@ -793,7 +807,7 @@ export default function DriverPortal() {
                       )}
                       <p className="text-sm">{messageText}</p>
                       <p className={`text-xs mt-1 ${isAdmin ? 'text-gray-500' : 'text-primary-100'}`}>
-                        {new Date(messageTime).toLocaleTimeString()}
+                        {formatMessageTimestamp(messageTime)}
                       </p>
                     </div>
                   </div>

@@ -53,6 +53,20 @@ export default function AdminOperationsPage() {
   const messagesEndRef = useRef(null);
   const messagePollingIntervalRef = useRef(null);
 
+  const formatMessageTimestamp = (value) => {
+    if (!value) return 'Unknown time';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Unknown time';
+    return date.toLocaleString('en-GB', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   // Load online status - same logic as User Management and Dashboard pages
   const loadOnlineStatus = useCallback(async (silent = false) => {
     try {
@@ -859,7 +873,7 @@ export default function AdminOperationsPage() {
                           >
                             <p className="text-sm">{messageText}</p>
                             <p className={`text-xs mt-1 ${isAdminMessage ? 'text-primary-100' : 'text-gray-500 dark:text-gray-400'}`}>
-                              {new Date(messageTime).toLocaleTimeString()}
+                              {formatMessageTimestamp(messageTime)}
                             </p>
                           </div>
                         </div>

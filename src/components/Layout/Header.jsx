@@ -11,6 +11,7 @@ export default function Header() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([]);
+  const adminNotificationFetchKey = 'admin_notification_last_fetch';
   const [theme, setTheme] = useState(() => {
     // Get theme from localStorage, system preference, or default to light
     if (typeof window !== 'undefined') {
@@ -116,6 +117,7 @@ export default function Header() {
       const userRole = currentUser?.account?.role || currentUser?.role || 'driver';
       
       let unreadCount = 0;
+      let deliveryNotifications = [];
       
       // Load unread messages based on user role
       if (userRole === 'admin') {
@@ -124,9 +126,22 @@ export default function Header() {
           const response = await api.get('/messages/unread');
           // Count total unread messages across all drivers
           const counts = Object.values(response.data || {});
-          unreadCount = counts.reduce((sum, count) => sum + count, 0);
+          unreadCount = counts.reduce((sum, count) => sum + (Number(count) || 0), 0);
         } catch (e) {
           console.error('Failed to load admin notifications:', e);
+        }
+
+        // Admin: get delivery status notifications (cancelled/rejected/rescheduled)
+        try {
+          const lastFetch = localStorage.getItem(adminNotificationFetchKey);
+          const query = lastFetch ? `?since=${encodeURIComponent(lastFetch)}` : '';
+          const response = await api.get(`/admin/notifications${query}`);
+          deliveryNotifications = response.data?.notifications || [];
+          if (response.data?.latest) {
+            localStorage.setItem(adminNotificationFetchKey, response.data.latest);
+          }
+        } catch (e) {
+          console.error('Failed to load delivery notifications:', e);
         }
       } else if (userRole === 'driver') {
         // Driver: get their unread messages count
@@ -139,18 +154,51 @@ export default function Header() {
       }
       
       // Convert count to notifications array
-      const notificationsArray = unreadCount > 0 
-        ? [{
+      const messageNotification = unreadCount > 0
+        ? {
             id: 'messages',
             type: 'message',
+            count: unreadCount,
             title: `${unreadCount} unread message${unreadCount !== 1 ? 's' : ''}`,
             message: userRole === 'admin' ? 'You have unread messages from drivers' : 'You have unread messages from admin',
             timestamp: new Date(),
             read: false
-          }]
-        : [];
-      
-      setNotifications(notificationsArray);
+          }
+        : null;
+
+      setNotifications((prev) => {
+        const previousById = new Map(prev.map((item) => [item.id, item]));
+        const next = [];
+
+        if (messageNotification) {
+          const existing = previousById.get(messageNotification.id);
+          next.push({
+            ...messageNotification,
+            read: existing?.read ?? false
+          });
+        }
+
+        const newDeliveryIds = new Set();
+        if (userRole === 'admin' && deliveryNotifications.length) {
+          deliveryNotifications.forEach((notif) => {
+            newDeliveryIds.add(notif.id);
+            const existing = previousById.get(notif.id);
+            next.push({
+              ...notif,
+              read: existing?.read ?? false
+            });
+          });
+        }
+
+        prev.forEach((item) => {
+          if (item.type === 'delivery' && !newDeliveryIds.has(item.id)) {
+            next.push(item);
+          }
+        });
+
+        next.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        return next.slice(0, 50);
+      });
     } catch (error) {
       console.error('Failed to load notifications:', error);
     }
@@ -306,6 +354,9 @@ export default function Header() {
 
   const markNotificationAsRead = async (notificationId) => {
     try {
+      if (notificationId === 'messages') {
+        return;
+      }
       // TODO: Implement API call
       // await api.post(`/admin/notifications/${notificationId}/read`);
       setNotifications(prev =>
@@ -342,7 +393,13 @@ export default function Header() {
     return role.charAt(0).toUpperCase() + role.slice(1);
   };
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.reduce((total, notification) => {
+    if (notification.read) return total;
+    if (notification.type === 'message') {
+      return total + (Number(notification.count) || 0);
+    }
+    return total + 1;
+  }, 0);
 
   const handleLogoClick = () => {
     // Redirect to appropriate dashboard based on user role

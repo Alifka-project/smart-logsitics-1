@@ -102,12 +102,14 @@ router.get('/unread', authenticate, requireRole('admin'), async (req, res) => {
           adminId,
           isRead: false
         },
-        _count: true
+        _count: {
+          _all: true
+        }
       });
 
       const result = {};
       unreadCounts.forEach(item => {
-        result[item.driverId] = item._count;
+        result[item.driverId] = item._count?._all || 0;
       });
 
       return res.json(result);
