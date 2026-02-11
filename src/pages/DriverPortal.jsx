@@ -57,6 +57,13 @@ export default function DriverPortal() {
   const messagesEndRef = useRef(null);
   const messagePollingIntervalRef = useRef(null);
 
+  const scrollMessagesToBottom = useCallback((behavior = 'smooth') => {
+    if (!messagesEndRef.current) return;
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' });
+    });
+  }, []);
+
   const formatMessageTimestamp = (value) => {
     if (!value) return 'Unknown time';
     const date = new Date(value);
@@ -212,6 +219,7 @@ export default function DriverPortal() {
   // Auto-refresh messages when on messages tab
   useEffect(() => {
     if (activeTab === 'messages') {
+      loadMessages(true);
       // Start auto-refresh every 3 seconds for real-time updates
       messagePollingIntervalRef.current = setInterval(() => {
         loadMessages(true);
@@ -227,12 +235,11 @@ export default function DriverPortal() {
     };
   }, [activeTab]);
   
-  // Auto-scroll to bottom when messages change
+  // Auto-scroll to bottom when messages change or tab becomes active
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages]);
+    if (activeTab !== 'messages') return;
+    scrollMessagesToBottom('smooth');
+  }, [messages, activeTab, scrollMessagesToBottom]);
 
   const loadLatestLocation = async () => {
     setLoading(true);
