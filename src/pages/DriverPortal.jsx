@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import api, { setAuthToken } from '../frontend/apiClient';
 import { getCurrentUser } from '../frontend/auth';
 import L from 'leaflet';
@@ -22,6 +23,7 @@ function ensureAuth() {
 }
 
 export default function DriverPortal() {
+  const routeLocation = useLocation();
   const [location, setLocation] = useState(null);
   const [isTracking, setIsTracking] = useState(false);
   const [locationHistory, setLocationHistory] = useState([]);
@@ -90,6 +92,14 @@ export default function DriverPortal() {
       clearInterval(notificationInterval);
     };
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(routeLocation.search);
+    const tab = params.get('tab');
+    if (tab && ['tracking', 'deliveries', 'messages'].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [routeLocation.search]);
 
   const cleanup = useCallback(() => {
     if (watchIdRef.current !== null) {

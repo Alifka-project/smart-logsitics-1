@@ -105,9 +105,23 @@ export default function Header() {
   useEffect(() => {
     if (loggedIn) {
       loadNotifications();
-      // Poll for new notifications every 30 seconds
-      const interval = setInterval(loadNotifications, 30000);
-      return () => clearInterval(interval);
+      // Poll for new notifications every 10 seconds
+      const interval = setInterval(loadNotifications, 10000);
+
+      const handleVisibility = () => {
+        if (!document.hidden) {
+          loadNotifications();
+        }
+      };
+
+      window.addEventListener('focus', loadNotifications);
+      document.addEventListener('visibilitychange', handleVisibility);
+
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener('focus', loadNotifications);
+        document.removeEventListener('visibilitychange', handleVisibility);
+      };
     }
   }, [loggedIn]);
 
@@ -367,6 +381,20 @@ export default function Header() {
     }
   };
 
+  const handleNotificationClick = (notification) => {
+    if (!notification) return;
+    if (notification.id === 'messages') {
+      const currentUser = getCurrentUser();
+      const userRole = currentUser?.account?.role || currentUser?.role || 'driver';
+      if (userRole === 'driver') {
+        setShowNotifications(false);
+        navigate('/driver?tab=messages');
+        return;
+      }
+    }
+    markNotificationAsRead(notification.id);
+  };
+
   const getInitials = () => {
     if (!user) return 'U';
     const fullName = user.full_name || user.fullName || user.username || '';
@@ -492,7 +520,7 @@ export default function Header() {
                           notifications.map(notification => (
                             <div
                               key={notification.id}
-                              onClick={() => markNotificationAsRead(notification.id)}
+                              onClick={() => handleNotificationClick(notification)}
                               className={`px-4 py-3 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors ${
                                 !notification.read ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''
                               }`}
