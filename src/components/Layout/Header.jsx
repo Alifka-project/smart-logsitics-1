@@ -261,15 +261,19 @@ export default function Header() {
       
       if (hasLoadedNotificationsRef.current) {
         const messageDelta = unreadCount - prevMessageUnreadRef.current;
+        console.log('[Notification Check]', { messageDelta, unreadCount, prev: prevMessageUnreadRef.current });
         if (messageDelta > 0) {
+          console.log('[TOAST] Showing new message notification:', messageDelta);
           info(`🔔 ${messageDelta} New message${messageDelta !== 1 ? 's' : ''} received`);
           shouldPlaySound = true;
         }
         if (newDeliveryCount > 0) {
+          console.log('[TOAST] Showing new delivery notification:', newDeliveryCount);
           info(`🔔 ${newDeliveryCount} New delivery update${newDeliveryCount !== 1 ? 's' : ''}`);
           shouldPlaySound = true;
         }
       }
+      console.log('[Notification] Final state - shouldPlaySound:', shouldPlaySound, 'hasLoaded:', hasLoadedNotificationsRef.current);
       prevMessageUnreadRef.current = unreadCount;
       if (!hasLoadedNotificationsRef.current) {
         hasLoadedNotificationsRef.current = true;

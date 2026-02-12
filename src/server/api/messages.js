@@ -95,12 +95,14 @@ router.get('/unread', authenticate, requireRole('admin'), async (req, res) => {
     }
 
     // Try to get unread counts using groupBy
+    // ONLY count messages FROM drivers (senderRole: 'driver'), not admin's own sent messages
     try {
       const unreadCounts = await prisma.message.groupBy({
         by: ['driverId'],
         where: {
           adminId,
-          isRead: false
+          isRead: false,
+          senderRole: 'driver' // ONLY messages FROM driver TO admin
         },
         _count: {
           _all: true
@@ -112,6 +114,7 @@ router.get('/unread', authenticate, requireRole('admin'), async (req, res) => {
         result[item.driverId] = item._count?._all || 0;
       });
 
+      console.log('[Admin Unread] Counts by driver (FROM drivers only):', result);
       return res.json(result);
     } catch (groupByErr) {
       // Fallback: use simple findMany if groupBy fails
@@ -119,7 +122,8 @@ router.get('/unread', authenticate, requireRole('admin'), async (req, res) => {
       const messages = await prisma.message.findMany({
         where: {
           adminId,
-          isRead: false
+          isRead: false,
+          senderRole: 'driver' // ONLY messages FROM driver TO admin
         },
         select: { driverId: true }
       });
@@ -129,6 +133,7 @@ router.get('/unread', authenticate, requireRole('admin'), async (req, res) => {
         result[msg.driverId] = (result[msg.driverId] || 0) + 1;
       });
 
+      console.log('[Admin Unread Fallback] Counts by driver (FROM drivers only):', result);
       return res.json(result);
     }
   } catch (error) {
