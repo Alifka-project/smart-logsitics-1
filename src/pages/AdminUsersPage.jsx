@@ -119,13 +119,8 @@ export default function AdminUsersPage() {
       }
       
       // Separate accounts and drivers based on role
-      // Admin role = accounts tab
-      // Non-admin roles (driver, delivery_team, sales_ops, manager) = drivers/users tab
       const accountsList = allUsers.filter(u => u.account?.role === 'admin');
-      const driversList = allUsers.filter(u => 
-        !u.account || 
-        (u.account?.role !== 'admin')
-      );
+      const driversList = allUsers.filter(u => u.account?.role === 'driver' || !u.account);
       
       setAccounts(accountsList);
       setDrivers(driversList);
@@ -269,8 +264,6 @@ export default function AdminUsersPage() {
     e.preventDefault();
     if (!validateForm()) return;
 
-    console.log('📝 Submitting user form with role:', formData.role);
-
     try {
       if (editingUser) {
         // Update existing user - use PUT for full update
@@ -282,7 +275,6 @@ export default function AdminUsersPage() {
           role: formData.role,
           active: formData.active
         };
-        console.log('🔄 Updating user with data:', updateData);
         if (formData.password) {
           updateData.password = formData.password;
         }
@@ -290,9 +282,7 @@ export default function AdminUsersPage() {
           updateData.license_number = formData.license_number;
           updateData.license_expiry = formData.license_expiry;
         }
-        const response = await api.put(`/admin/drivers/${editingUser.id}`, updateData);
-        console.log('✅ User updated successfully with role:', response.data?.account?.role);
-        alert(`User updated successfully! Role: ${response.data?.account?.role || 'N/A'}`);
+        await api.put(`/admin/drivers/${editingUser.id}`, updateData);
       } else {
         // Create new user
         const createData = {
@@ -304,14 +294,11 @@ export default function AdminUsersPage() {
           role: formData.role,
           active: formData.active
         };
-        console.log('➕ Creating new user with data:', createData);
         if (activeTab === 'drivers') {
           createData.license_number = formData.license_number;
           createData.license_expiry = formData.license_expiry;
         }
-        const response = await api.post('/admin/drivers', createData);
-        console.log('✅ User created successfully with role:', response.data?.account?.role);
-        alert(`User created successfully! Role: ${response.data?.account?.role || 'N/A'}`);
+        await api.post('/admin/drivers', createData);
       }
       setShowModal(false);
       resetForm();
@@ -644,9 +631,19 @@ export default function AdminUsersPage() {
                               <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
                                 log.role === 'admin'
                                   ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300'
-                                  : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
+                                  : log.role === 'driver'
+                                  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
+                                  : log.role === 'delivery_team'
+                                  ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                                  : log.role === 'sales_ops'
+                                  ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300'
+                                  : log.role === 'manager'
+                                  ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300'
+                                  : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
                               }`}>
-                                {log.role}
+                                {log.role === 'delivery_team' ? 'Delivery Team' : 
+                                 log.role === 'sales_ops' ? 'Sales Ops' : 
+                                 log.role && log.role.charAt(0).toUpperCase() + log.role.slice(1)}
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
@@ -715,6 +712,9 @@ export default function AdminUsersPage() {
                 <option value="all">All Roles</option>
                 <option value="admin">Admin</option>
                 <option value="driver">Driver</option>
+                <option value="delivery_team">Delivery Team</option>
+                <option value="sales_ops">Sales Ops</option>
+                <option value="manager">Manager</option>
               </select>
               <select
                 value={filterStatus}
@@ -797,22 +797,23 @@ export default function AdminUsersPage() {
                           </td>
                         )}
                         <td className="px-6 py-4 whitespace-nowrap">
-                          {(() => {
-                            const role = user.account?.role || 'driver';
-                            const roleConfig = {
-                              admin: { label: 'Admin', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300' },
-                              driver: { label: 'Driver', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' },
-                              delivery_team: { label: 'Delivery Team', color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' },
-                              sales_ops: { label: 'Sales Ops', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' },
-                              manager: { label: 'Manager', color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300' }
-                            };
-                            const roleBadge = roleConfig[role] || { label: role, color: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300' };
-                            return (
-                              <span className={`px-2 py-1 text-xs font-semibold rounded-full ${roleBadge.color}`}>
-                                {roleBadge.label}
-                              </span>
-                            );
-                          })()}
+                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                            user.account?.role === 'admin'
+                              ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300'
+                              : user.account?.role === 'driver'
+                              ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
+                              : user.account?.role === 'delivery_team'
+                              ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                              : user.account?.role === 'sales_ops'
+                              ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300'
+                              : user.account?.role === 'manager'
+                              ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300'
+                              : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
+                          }`}>
+                            {user.account?.role === 'delivery_team' ? 'Delivery Team' : 
+                             user.account?.role === 'sales_ops' ? 'Sales Ops' : 
+                             (user.account?.role && user.account.role.charAt(0).toUpperCase() + user.account.role.slice(1)) || 'Driver'}
+                          </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <button
