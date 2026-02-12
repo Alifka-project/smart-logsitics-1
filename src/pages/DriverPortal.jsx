@@ -667,12 +667,12 @@ export default function DriverPortal() {
         setError(errorMessage);
         setLoading(false);
       },
-
-      const deliveryRows = orderedDeliveries.length > 0 ? orderedDeliveries : deliveries;
-      const hasRoute = !!route?.coordinates?.length;
       { enableHighAccuracy: true, timeout: 10000 }
     );
   };
+
+  const deliveryRows = orderedDeliveries.length > 0 ? orderedDeliveries : deliveries;
+  const hasRoute = !!route?.coordinates?.length;
 
   return (
     <div className="space-y-6">
