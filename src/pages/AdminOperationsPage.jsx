@@ -251,7 +251,7 @@ export default function AdminOperationsPage() {
 
     try {
       const response = await api.post('/messages/send', {
-        receiverId: selectedDriver.id,
+        driverId: selectedDriver.id,
         content: messageText
       });
 

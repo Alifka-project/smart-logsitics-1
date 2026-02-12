@@ -201,6 +201,63 @@ router.post('/send', authenticate, requireRole('admin'), async (req, res) => {
 });
 
 /**
+ * GET /api/messages/contacts
+ * Get list of contacts (drivers for admin, admin for driver)
+ */
+router.get('/contacts', authenticate, async (req, res) => {
+  try {
+    const userRole = req.user?.account?.role || req.user?.role || 'driver';
+    
+    if (userRole === 'admin') {
+      // Admin: return all drivers
+      const drivers = await prisma.driver.findMany({
+        where: {
+          account: {
+            role: 'driver'
+          }
+        },
+        select: {
+          id: true,
+          fullName: true,
+          username: true,
+          account: {
+            select: {
+              role: true
+            }
+          }
+        }
+      });
+      
+      return res.json({ contacts: drivers });
+    } else {
+      // Driver: return admins
+      const admins = await prisma.driver.findMany({
+        where: {
+          account: {
+            role: 'admin'
+          }
+        },
+        select: {
+          id: true,
+          fullName: true,
+          username: true,
+          account: {
+            select: {
+              role: true
+            }
+          }
+        }
+      });
+      
+      return res.json({ contacts: admins });
+    }
+  } catch (error) {
+    console.error('Error fetching contacts:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * DELETE /api/admin/messages/conversation/:driverId
  * Clear message history with a driver
  */
