@@ -14,10 +14,11 @@ export default function Header() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const adminNotificationFetchKey = 'admin_notification_last_fetch';
-  const { toasts, removeToast, info } = useToast();
+  const { toasts, removeToast, addToast, info } = useToast();
   const hasLoadedNotificationsRef = useRef(false);
   const prevMessageUnreadRef = useRef(0);
   const prevDeliveryNotificationIdsRef = useRef(new Set());
+  const prevMessageNotificationsRef = useRef([]);
   const [theme, setTheme] = useState(() => {
     // Get theme from localStorage, system preference, or default to light
     if (typeof window !== 'undefined') {
@@ -262,17 +263,64 @@ export default function Header() {
       if (hasLoadedNotificationsRef.current) {
         const messageDelta = unreadCount - prevMessageUnreadRef.current;
         console.log('[Notification Check]', { messageDelta, unreadCount, prev: prevMessageUnreadRef.current });
+        
         if (messageDelta > 0) {
           console.log('[TOAST] Showing new message notification:', messageDelta);
-          info(`🔔 ${messageDelta} New message${messageDelta !== 1 ? 's' : ''} received`);
+          
+          // Show detailed toast based on role and who sent the message
+          if (userRole === 'admin' && messageNotifications.length > 0) {
+            // Admin receiving messages from drivers - show driver name
+            const prevNotifications = prevMessageNotificationsRef.current;
+            const newMessages = messageNotifications.filter(notif => {
+              const prevNotif = prevNotifications.find(p => p.id === notif.id);
+              return !prevNotif || (notif.count > (prevNotif.count || 0));
+            });
+            
+            newMessages.forEach(notif => {
+              const driver = notif.title.match(/from (.+)$/)?.[1] || 'a driver';
+              addToast(
+                `Message from ${driver}`,
+                'message',
+                `You have ${notif.count} unread message${notif.count !== 1 ? 's' : ''}`,
+                'Click notification bell to view',
+                7000
+              );
+            });
+          } else if (userRole === 'driver') {
+            // Driver receiving messages from admin
+            addToast(
+              'New Message from Admin',
+              'message',
+              `You have ${messageDelta} new message${messageDelta !== 1 ? 's' : ''}`,
+              'Check the Messages tab to read',
+              7000
+            );
+          }
+          
           shouldPlaySound = true;
         }
+        
         if (newDeliveryCount > 0) {
           console.log('[TOAST] Showing new delivery notification:', newDeliveryCount);
-          info(`🔔 ${newDeliveryCount} New delivery update${newDeliveryCount !== 1 ? 's' : ''}`);
+          const deliveryTypes = deliveryNotifications
+            .filter(n => !prevDeliveryNotificationIdsRef.current.has(n.id))
+            .map(n => n.status || 'updated')
+            .slice(0, 2);
+          
+          addToast(
+            'Delivery Status Update',
+            'delivery',
+            `${newDeliveryCount} delivery${newDeliveryCount !== 1 ? ' updates' : ' update'}: ${deliveryTypes.join(', ')}`,
+            'Click notification bell to view details',
+            7000
+          );
+          
           shouldPlaySound = true;
         }
       }
+      
+      // Store current message notifications for next comparison
+      prevMessageNotificationsRef.current = messageNotifications;
       console.log('[Notification] Final state - shouldPlaySound:', shouldPlaySound, 'hasLoaded:', hasLoadedNotificationsRef.current);
       prevMessageUnreadRef.current = unreadCount;
       if (!hasLoadedNotificationsRef.current) {

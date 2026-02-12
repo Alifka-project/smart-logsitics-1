@@ -3,9 +3,9 @@ import { useState } from 'react';
 export function useToast() {
   const [toasts, setToasts] = useState([]);
 
-  const addToast = (message, type = 'info', duration = 5000) => {
+const addToast = (title, type = 'info', message = '', metadata = '', duration = 5000) => {
     const id = Date.now();
-    const toast = { id, message, type };
+    const toast = { id, title, message, type, metadata };
     
     setToasts(prev => [...prev, toast]);
     
@@ -22,10 +22,10 @@ export function useToast() {
     setToasts(prev => prev.filter(t => t.id !== id));
   };
 
-  const success = (message, duration = 4000) => addToast(message, 'success', duration);
-  const error = (message, duration = 6000) => addToast(message, 'error', duration);
-  const warning = (message, duration = 5000) => addToast(message, 'warning', duration);
-  const info = (message, duration = 5000) => addToast(message, 'info', duration);
+  const success = (title, message = '', metadata = '', duration = 4000) => addToast(title, 'success', message, metadata, duration);
+  const error = (title, message = '', metadata = '', duration = 6000) => addToast(title, 'error', message, metadata, duration);
+  const warning = (title, message = '', metadata = '', duration = 5000) => addToast(title, 'warning', message, metadata, duration);
+  const info = (title, message = '', metadata = '', duration = 5000) => addToast(title, 'info', message, metadata, duration);
 
   return { toasts, addToast, removeToast, success, error, warning, info };
 }
