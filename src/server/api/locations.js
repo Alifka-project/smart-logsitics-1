@@ -135,16 +135,15 @@ router.get('/notifications/count', authenticate, async (req, res) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    // Count unread messages FROM admin only (not driver's own sent messages)
+    // Count unread messages received by this driver
     const unreadMessages = await prisma.message.count({
       where: {
-        driverId,
-        isRead: false,
-        senderRole: 'admin' // ONLY messages FROM admin TO driver
+        receiverId: driverId,
+        isRead: false
       }
     });
 
-    console.log(`[Driver Notifications] Driver ${driverId} has ${unreadMessages} unread messages FROM admin`);
+    console.log(`[Driver Notifications] Driver ${driverId} has ${unreadMessages} unread messages`);
 
     res.json({
       success: true,

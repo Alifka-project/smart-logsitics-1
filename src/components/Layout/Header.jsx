@@ -163,52 +163,55 @@ export default function Header() {
       let deliveryNotifications = [];
       let messageNotifications = [];
       
-      // Load unread messages based on user role
-      if (userRole === 'admin') {
-        // Admin: get unread messages count
-        try {
-          const response = await api.get('/messages/unread');
-          const countsByDriver = response.data || {};
-          const driverEntries = Object.entries(countsByDriver)
-            .map(([driverId, count]) => [driverId, Number(count) || 0])
-            .filter(([, count]) => count > 0);
+      // Load unread messages for all users (admin and driver)
+      try {
+        const response = await api.get('/messages/unread');
+        const countsBySender = response.data || {};
+        const senderEntries = Object.entries(countsBySender)
+          .map(([senderId, count]) => [senderId, Number(count) || 0])
+          .filter(([, count]) => count > 0);
 
-          unreadCount = driverEntries.reduce((sum, [, count]) => sum + count, 0);
+        unreadCount = senderEntries.reduce((sum, [, count]) => sum + count, 0);
 
-          if (driverEntries.length) {
-            let driverLookup = new Map();
-            try {
-              const driversResponse = await api.get('/admin/drivers');
-              const driversList = driversResponse.data?.data || driversResponse.data?.drivers || [];
-              driversList.forEach((driver) => {
-                if (driver?.id != null) {
-                  driverLookup.set(String(driver.id), driver);
-                }
-              });
-            } catch (driverError) {
-              console.error('Failed to load drivers for notifications:', driverError);
-            }
-
-            messageNotifications = driverEntries.map(([driverId, count]) => {
-              const driver = driverLookup.get(String(driverId));
-              const displayName = driver?.fullName || driver?.full_name || driver?.username || `Driver ${String(driverId).slice(0, 6)}`;
-              return {
-                id: `messages-${driverId}`,
-                type: 'message',
-                count,
-                driverId,
-                title: `${count} unread message${count !== 1 ? 's' : ''} from ${displayName}`,
-                message: `Open chat with ${displayName}`,
-                timestamp: new Date(),
-                read: false
-              };
+        if (senderEntries.length) {
+          // Fetch sender details
+          let userLookup = new Map();
+          try {
+            const usersResponse = await api.get('/messages/contacts');
+            const usersList = usersResponse.data?.contacts || [];
+            usersList.forEach((user) => {
+              if (user?.id != null) {
+                userLookup.set(String(user.id), user);
+              }
             });
+          } catch (userError) {
+            console.error('Failed to load contacts for notifications:', userError);
           }
-        } catch (e) {
-          console.error('Failed to load admin notifications:', e);
-        }
 
-        // Admin: get delivery status notifications (cancelled/rejected/rescheduled)
+          messageNotifications = senderEntries.map(([senderId, count]) => {
+            const sender = userLookup.get(String(senderId));
+            const displayName = sender?.fullName || sender?.full_name || sender?.username || `User ${String(senderId).slice(0, 6)}`;
+            const senderRole = sender?.account?.role || 'user';
+            
+            return {
+              id: `messages-${senderId}`,
+              type: 'message',
+              count,
+              senderId,
+              senderRole,
+              title: `${count} unread message${count !== 1 ? 's' : ''} from ${displayName}`,
+              message: `Open chat with ${displayName}`,
+              timestamp: new Date(),
+              read: false
+            };
+          });
+        }
+      } catch (e) {
+        console.error('Failed to load message notifications:', e);
+      }
+
+      // Admin: get delivery status notifications (cancelled/rejected/rescheduled)
+      if (userRole === 'admin') {
         try {
           const lastFetch = localStorage.getItem(adminNotificationFetchKey);
           const query = lastFetch ? `?since=${encodeURIComponent(lastFetch)}` : '';
@@ -219,28 +222,6 @@ export default function Header() {
           }
         } catch (e) {
           console.error('Failed to load delivery notifications:', e);
-        }
-      } else if (userRole === 'driver') {
-        // Driver: get their unread messages count
-        try {
-          const response = await api.get('/messages/driver/notifications/count');
-          unreadCount = response.data?.count || 0;
-        } catch (e) {
-          console.error('Failed to load driver notifications:', e);
-        }
-
-        if (unreadCount > 0) {
-          messageNotifications = [
-            {
-              id: 'messages',
-              type: 'message',
-              count: unreadCount,
-              title: `${unreadCount} unread message${unreadCount !== 1 ? 's' : ''}`,
-              message: 'You have unread messages from admin',
-              timestamp: new Date(),
-              read: false
-            }
-          ];
         }
       }
 
@@ -539,8 +520,8 @@ export default function Header() {
     if (notification.type === 'message') {
       setShowNotifications(false);
       if (userRole === 'admin') {
-        const driverQuery = notification.driverId ? `&driverId=${encodeURIComponent(notification.driverId)}` : '';
-        navigate(`/admin/operations?tab=communication${driverQuery}`);
+        const userQuery = notification.senderId ? `&userId=${encodeURIComponent(notification.senderId)}` : '';
+        navigate(`/admin/operations?tab=communication${userQuery}`);
         return;
       }
       navigate('/driver?tab=messages');
