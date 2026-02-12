@@ -119,8 +119,13 @@ export default function AdminUsersPage() {
       }
       
       // Separate accounts and drivers based on role
+      // Admin role = accounts tab
+      // Non-admin roles (driver, delivery_team, sales_ops, manager) = drivers/users tab
       const accountsList = allUsers.filter(u => u.account?.role === 'admin');
-      const driversList = allUsers.filter(u => u.account?.role === 'driver' || !u.account);
+      const driversList = allUsers.filter(u => 
+        !u.account || 
+        (u.account?.role !== 'admin')
+      );
       
       setAccounts(accountsList);
       setDrivers(driversList);
@@ -784,13 +789,22 @@ export default function AdminUsersPage() {
                           </td>
                         )}
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                            user.account?.role === 'admin'
-                              ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300'
-                              : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
-                          }`}>
-                            {user.account?.role || 'driver'}
-                          </span>
+                          {(() => {
+                            const role = user.account?.role || 'driver';
+                            const roleConfig = {
+                              admin: { label: 'Admin', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300' },
+                              driver: { label: 'Driver', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' },
+                              delivery_team: { label: 'Delivery Team', color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' },
+                              sales_ops: { label: 'Sales Ops', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' },
+                              manager: { label: 'Manager', color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300' }
+                            };
+                            const roleBadge = roleConfig[role] || { label: role, color: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300' };
+                            return (
+                              <span className={`px-2 py-1 text-xs font-semibold rounded-full ${roleBadge.color}`}>
+                                {roleBadge.label}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <button
@@ -977,8 +991,11 @@ export default function AdminUsersPage() {
                       onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
                     >
-                      <option value="driver">Driver</option>
                       <option value="admin">Admin</option>
+                      <option value="driver">Driver</option>
+                      <option value="delivery_team">Delivery Team</option>
+                      <option value="sales_ops">Sales Ops</option>
+                      <option value="manager">Manager</option>
                     </select>
                   </div>
                   <div>

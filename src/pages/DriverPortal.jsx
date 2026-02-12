@@ -991,7 +991,7 @@ export default function DriverPortal() {
       {activeTab === 'messages' && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden flex flex-col h-[calc(100vh-350px)]">
           <div className="p-4 bg-gray-50 dark:bg-gray-900/40 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Messages from Admin</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Messages</h2>
             <button
               onClick={loadMessages}
               disabled={loadingMessages}
@@ -1017,29 +1017,44 @@ export default function DriverPortal() {
               </div>
             ) : (
               messages.map((msg, idx) => {
-                // Determine if message is from admin based on senderRole field
-                const isAdmin = msg.senderRole === 'admin';
+                // Determine if message is from sender (other user) or driver (self)
+                const isFromOther = msg.senderRole !== 'driver';
                 
                 const messageText = msg.text || msg.content || '';
                 const messageTime = msg.timestamp || msg.createdAt;
                 
+                // Role badge configuration
+                const getRoleBadge = (role) => {
+                  const roleConfig = {
+                    admin: { label: 'Admin', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
+                    delivery_team: { label: 'Delivery Team', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
+                    sales_ops: { label: 'Sales Ops', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' },
+                    manager: { label: 'Manager', color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' }
+                  };
+                  return roleConfig[role] || { label: role, color: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300' };
+                };
+                
+                const roleBadge = getRoleBadge(msg.senderRole);
+                
                 return (
                   <div
                     key={idx}
-                    className={`flex ${isAdmin ? 'justify-start' : 'justify-end'}`}
+                    className={`flex ${isFromOther ? 'justify-start' : 'justify-end'}`}
                   >
                     <div
                       className={`max-w-[70%] rounded-lg p-3 ${
-                        isAdmin
+                        isFromOther
                           ? 'bg-white text-gray-900 border border-gray-200 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700'
                           : 'bg-primary-600 text-white'
                       }`}
                     >
-                      {isAdmin && (
-                        <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Admin</p>
+                      {isFromOther && (
+                        <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium mb-1 ${roleBadge.color}`}>
+                          {roleBadge.label}
+                        </span>
                       )}
                       <p className="text-sm">{messageText}</p>
-                      <p className={`text-xs mt-1 ${isAdmin ? 'text-gray-500 dark:text-gray-400' : 'text-primary-100'}`}>
+                      <p className={`text-xs mt-1 ${isFromOther ? 'text-gray-500 dark:text-gray-400' : 'text-primary-100'}`}>
                         {formatMessageTimestamp(messageTime)}
                       </p>
                     </div>
@@ -1062,7 +1077,7 @@ export default function DriverPortal() {
                     handleSendMessage();
                   }
                 }}
-                placeholder="Reply to admin..."
+                placeholder="Type a message..."
                 disabled={sendingMessage}
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50 dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700"
               />

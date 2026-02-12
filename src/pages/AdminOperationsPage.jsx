@@ -739,6 +739,20 @@ export default function AdminOperationsPage() {
                 const isSelected = selectedDriver?.id === driver.id;
                 const unreadCount = 0; // TODO: Get from messages API
                 
+                // Role badge styling
+                const getRoleBadge = (role) => {
+                  const roleConfig = {
+                    admin: { label: 'Admin', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300' },
+                    driver: { label: 'Driver', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' },
+                    delivery_team: { label: 'Delivery', color: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' },
+                    sales_ops: { label: 'Sales', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' },
+                    manager: { label: 'Manager', color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300' }
+                  };
+                  return roleConfig[role] || { label: role, color: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' };
+                };
+                
+                const roleBadge = getRoleBadge(driver.role);
+                
                 return (
                   <button
                     key={driver.id}
@@ -748,7 +762,7 @@ export default function AdminOperationsPage() {
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <div className="relative">
                           <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}>
                             {isOnline && (
@@ -758,6 +772,9 @@ export default function AdminOperationsPage() {
                         </div>
                         <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
                           {driver.full_name || driver.fullName || driver.username || 'Unknown'}
+                        </span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${roleBadge.color}`}>
+                          {roleBadge.label}
                         </span>
                         {isOnline && (
                           <span className="text-xs text-green-600 dark:text-green-400 font-medium">• Active</span>
@@ -820,10 +837,25 @@ export default function AdminOperationsPage() {
                       })()}
                     </div>
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-semibold text-gray-900 dark:text-gray-100">
                           {selectedDriver.full_name || selectedDriver.fullName || selectedDriver.username || 'Unknown'}
                         </h3>
+                        {(() => {
+                          const roleConfig = {
+                            admin: { label: 'Admin', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300' },
+                            driver: { label: 'Driver', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' },
+                            delivery_team: { label: 'Delivery', color: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' },
+                            sales_ops: { label: 'Sales', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' },
+                            manager: { label: 'Manager', color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300' }
+                          };
+                          const roleBadge = roleConfig[selectedDriver.role] || { label: selectedDriver.role, color: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' };
+                          return (
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${roleBadge.color}`}>
+                              {roleBadge.label}
+                            </span>
+                          );
+                        })()}
                         {isDriverOnline(selectedDriver) && (
                           <span className="text-xs text-green-600 dark:text-green-400 font-medium">• Active</span>
                         )}
