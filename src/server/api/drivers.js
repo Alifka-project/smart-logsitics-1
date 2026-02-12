@@ -96,6 +96,9 @@ router.post('/', authenticate, requireRole('admin'), async (req, res) => {
     const passwordHash = await hashPassword(body.password);
 
     // Create driver with account in transaction
+    const role = body.role || 'driver';
+    console.log(`[Create User] Creating user with role: ${role}`);
+    
     const driver = await prisma.$transaction(async (tx) => {
       const newDriver = await tx.driver.create({
         data: {
@@ -109,7 +112,7 @@ router.post('/', authenticate, requireRole('admin'), async (req, res) => {
           account: {
             create: {
               passwordHash: passwordHash,
-              role: body.role || 'driver'
+              role: role
             }
           },
           status: {
@@ -126,6 +129,7 @@ router.post('/', authenticate, requireRole('admin'), async (req, res) => {
       return newDriver;
     });
 
+    console.log(`✅ User created successfully: ${driver.username}, role: ${driver.account?.role}`);
     res.status(201).json(driver);
   } catch (err) {
     console.error('POST /api/admin/drivers', err);
@@ -210,6 +214,7 @@ router.put('/:id', authenticate, requireRole('admin'), async (req, res) => {
       });
     });
 
+    console.log(`✅ User updated successfully: ${updated.username}, role: ${updated.account?.role}`);
     res.json(updated);
   } catch (err) {
     console.error('PUT /api/admin/drivers/:id', err);

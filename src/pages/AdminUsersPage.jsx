@@ -269,6 +269,8 @@ export default function AdminUsersPage() {
     e.preventDefault();
     if (!validateForm()) return;
 
+    console.log('📝 Submitting user form with role:', formData.role);
+
     try {
       if (editingUser) {
         // Update existing user - use PUT for full update
@@ -280,6 +282,7 @@ export default function AdminUsersPage() {
           role: formData.role,
           active: formData.active
         };
+        console.log('🔄 Updating user with data:', updateData);
         if (formData.password) {
           updateData.password = formData.password;
         }
@@ -287,7 +290,9 @@ export default function AdminUsersPage() {
           updateData.license_number = formData.license_number;
           updateData.license_expiry = formData.license_expiry;
         }
-        await api.put(`/admin/drivers/${editingUser.id}`, updateData);
+        const response = await api.put(`/admin/drivers/${editingUser.id}`, updateData);
+        console.log('✅ User updated successfully with role:', response.data?.account?.role);
+        alert(`User updated successfully! Role: ${response.data?.account?.role || 'N/A'}`);
       } else {
         // Create new user
         const createData = {
@@ -299,11 +304,14 @@ export default function AdminUsersPage() {
           role: formData.role,
           active: formData.active
         };
+        console.log('➕ Creating new user with data:', createData);
         if (activeTab === 'drivers') {
           createData.license_number = formData.license_number;
           createData.license_expiry = formData.license_expiry;
         }
-        await api.post('/admin/drivers', createData);
+        const response = await api.post('/admin/drivers', createData);
+        console.log('✅ User created successfully with role:', response.data?.account?.role);
+        alert(`User created successfully! Role: ${response.data?.account?.role || 'N/A'}`);
       }
       setShowModal(false);
       resetForm();
