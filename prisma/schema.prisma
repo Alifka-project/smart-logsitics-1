@@ -23,8 +23,8 @@ model Driver {
   assignments          DeliveryAssignment[]
   status               DriverStatus?
   locations            LiveLocation[]
-  sentMessages         Message[]            @relation("SentMessages")
-  receivedMessages     Message[]            @relation("ReceivedMessages")
+  adminMessages        Message[]            @relation("AdminMessages")
+  driverMessages       Message[]            @relation("DriverMessages")
 
   @@map("drivers")
 }
@@ -174,17 +174,17 @@ model SmsLog {
 
 model Message {
   id         String   @id @default(uuid()) @db.Uuid
-  senderId   String   @map("sender_id") @db.Uuid
-  receiverId String   @map("receiver_id") @db.Uuid
+  adminId    String   @map("admin_id") @db.Uuid
+  driverId   String   @map("driver_id") @db.Uuid
+  senderRole String   @map("sender_role") @db.VarChar(50)
   content    String
   isRead     Boolean  @default(false) @map("is_read")
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  sender     Driver   @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
-  receiver   Driver   @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  admin      Driver   @relation("AdminMessages", fields: [adminId], references: [id], onDelete: Cascade)
+  driver     Driver   @relation("DriverMessages", fields: [driverId], references: [id], onDelete: Cascade)
 
-  @@index([senderId, receiverId, createdAt(sort: Desc)], map: "idx_messages_conversation")
-  @@index([receiverId], map: "idx_messages_receiver")
-  @@index([createdAt], map: "idx_messages_created")
+  @@index([adminId, driverId, createdAt(sort: Desc)], map: "idx_messages_conversation")
+  @@index([driverId], map: "idx_messages_driver")
   @@map("messages")
 }
 
