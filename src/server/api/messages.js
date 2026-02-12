@@ -1,13 +1,23 @@
 /**
  * Messages API - Flexible messaging system
- * - Drivers can only chat with admins
- * - Admins can chat with anyone (other admins, drivers, any account)
+ * - All roles can chat with admins
+ * - Admins can chat with anyone (including other admins)
+ * - Supported roles: admin, driver, delivery_team, sales_ops, manager
  */
 
 const express = require('express');
 const router = express.Router();
 const { authenticate, requireRole } = require('../auth');
 const prisma = require('../db/prisma');
+
+// Supported roles in the system
+const ROLES = {
+  ADMIN: 'admin',
+  DRIVER: 'driver',
+  DELIVERY_TEAM: 'delivery_team',
+  SALES_OPS: 'sales_ops',
+  MANAGER: 'manager'
+};
 
 /**
  * Helper: Get user role
@@ -22,18 +32,21 @@ async function getUserRole(userId) {
 
 /**
  * Helper: Check if user can send message to recipient
+ * Rules:
+ * - Admin can send to anyone (including other admins)
+ * - All other roles can only send to admins
  */
 async function canSendMessage(senderId, receiverId) {
   const senderRole = await getUserRole(senderId);
   const receiverRole = await getUserRole(receiverId);
   
-  // Admin can send to anyone
-  if (senderRole === 'admin') {
+  // Admin can send to anyone (including other admins)
+  if (senderRole === ROLES.ADMIN) {
     return true;
   }
   
-  // Driver can only send to admin
-  if (senderRole === 'driver' && receiverRole === 'admin') {
+  // All other roles (driver, delivery_team, sales_ops, manager) can only send to admins
+  if (receiverRole === ROLES.ADMIN) {
     return true;
   }
   
@@ -213,8 +226,8 @@ router.post('/send', authenticate, async (req, res) => {
 /**
  * GET /api/messages/contacts
  * Get list of users that current user can chat with
- * - Driver: only admins
- * - Admin: everyone
+ * - Admin: everyone (including other admins)
+ * - All other roles: only admins
  */
 router.get('/contacts', authenticate, async (req, res) => {
   try {
@@ -228,8 +241,8 @@ router.get('/contacts', authenticate, async (req, res) => {
 
     let contacts = [];
 
-    if (currentUserRole === 'admin') {
-      // Admin can see all users
+    if (currentUserRole === ROLES.ADMIN) {
+      // Admin can see all users (including other admins)
       contacts = await prisma.driver.findMany({
         where: {
           id: { not: currentUserId }, // Exclude self
@@ -247,15 +260,22 @@ router.get('/contacts', authenticate, async (req, res) => {
             }
           }
         },
-        orderBy: {
-          fullName: 'asc'
-        }
+        orderBy: [
+          {
+            account: {
+              role: 'asc'
+            }
+          },
+          {
+            fullName: 'asc'
+          }
+        ]
       });
     } else {
-      // Driver can only see admins
+      // All other roles (driver, delivery_team, sales_ops, manager) can only see admins
       const adminAccounts = await prisma.account.findMany({
         where: {
-          role: 'admin'
+          role: ROLES.ADMIN
         },
         include: {
           driver: {
@@ -274,7 +294,7 @@ router.get('/contacts', authenticate, async (req, res) => {
         .filter(acc => acc.driver && acc.driver.id !== currentUserId)
         .map(acc => ({
           ...acc.driver,
-          account: { role: 'admin' }
+          account: { role: ROLES.ADMIN }
         }));
     }
 
