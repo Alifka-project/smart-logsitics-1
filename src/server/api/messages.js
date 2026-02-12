@@ -103,8 +103,23 @@ router.get('/conversations/:userId', authenticate, async (req, res) => {
       data: { isRead: true }
     });
 
+    // Add role information to each message
+    const messagesWithRoles = await Promise.all(
+      messages.map(async (msg) => {
+        const senderRole = await getUserRole(msg.senderId);
+        const receiverRole = await getUserRole(msg.receiverId);
+        return {
+          ...msg,
+          senderRole,
+          receiverRole,
+          text: msg.content, // Add text field for backward compatibility
+          timestamp: msg.createdAt
+        };
+      })
+    );
+
     res.json({
-      messages: messages.reverse(),
+      messages: messagesWithRoles.reverse(),
       total: await prisma.message.count({
         where: {
           OR: [
@@ -311,6 +326,7 @@ router.get('/contacts', authenticate, async (req, res) => {
 
         return {
           ...contact,
+          role: contact.account?.role || 'driver', // Add role for easier access
           unreadCount
         };
       })
@@ -382,6 +398,187 @@ router.delete('/conversation/:userId', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Error deleting messages:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/messages/driver
+ * Convenience endpoint for drivers to get their conversation with admin
+ * Returns messages with the first available admin
+ */
+router.get('/driver', authenticate, async (req, res) => {
+  try {
+    const currentUserId = req.user?.sub;
+    if (!currentUserId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Find first admin
+    const adminAccount = await prisma.account.findFirst({
+      where: { role: ROLES.ADMIN },
+      include: {
+        driver: { select: { id: true } }
+      },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    if (!adminAccount || !adminAccount.driver) {
+      return res.json({ messages: [] });
+    }
+
+    const adminId = adminAccount.driver.id;
+
+    // Fetch messages between driver and admin
+    const messages = await prisma.message.findMany({
+      where: {
+        OR: [
+          { senderId: currentUserId, receiverId: adminId },
+          { senderId: adminId, receiverId: currentUserId }
+        ]
+      },
+      select: {
+        id: true,
+        content: true,
+        isRead: true,
+        createdAt: true,
+        senderId: true,
+        receiverId: true,
+        sender: { select: { id: true, fullName: true, username: true } },
+        receiver: { select: { id: true, fullName: true, username: true } }
+      },
+      orderBy: { createdAt: 'asc' },
+      take: 100
+    });
+
+    // Mark messages from admin to driver as read
+    await prisma.message.updateMany({
+      where: {
+        senderId: adminId,
+        receiverId: currentUserId,
+        isRead: false
+      },
+      data: { isRead: true }
+    });
+
+    // Add role information and backward-compatible fields
+    const messagesWithRoles = await Promise.all(
+      messages.map(async (msg) => {
+        const senderRole = await getUserRole(msg.senderId);
+        const receiverRole = await getUserRole(msg.receiverId);
+        return {
+          ...msg,
+          senderRole,
+          receiverRole,
+          text: msg.content,
+          timestamp: msg.createdAt
+        };
+      })
+    );
+
+    res.json({ messages: messagesWithRoles });
+  } catch (error) {
+    console.error('Error fetching driver messages:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/messages/driver/notifications/count
+ * Get unread message count for driver (from admins)
+ */
+router.get('/driver/notifications/count', authenticate, async (req, res) => {
+  try {
+    const currentUserId = req.user?.sub;
+    if (!currentUserId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const count = await prisma.message.count({
+      where: {
+        receiverId: currentUserId,
+        isRead: false
+      }
+    });
+
+    res.json({ success: true, count });
+  } catch (error) {
+    console.error('Error fetching driver notification count:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/messages/driver/send
+ * Convenience endpoint for drivers to send message to an admin
+ * Automatically finds an active admin to receive the message
+ */
+router.post('/driver/send', authenticate, async (req, res) => {
+  try {
+    const { content } = req.body;
+    const senderId = req.user?.sub;
+
+    if (!senderId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    if (!content || !content.trim()) {
+      return res.status(400).json({ error: 'Missing required field: content' });
+    }
+
+    // Find an active admin to receive the message
+    const adminAccount = await prisma.account.findFirst({
+      where: {
+        role: ROLES.ADMIN
+      },
+      include: {
+        driver: {
+          select: {
+            id: true,
+            active: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'asc' // Get the first admin created (usually main admin)
+      }
+    });
+
+    if (!adminAccount || !adminAccount.driver) {
+      return res.status(404).json({ error: 'No admin available to receive messages' });
+    }
+
+    const receiverId = adminAccount.driver.id;
+
+    // Create message
+    const message = await prisma.message.create({
+      data: {
+        senderId,
+        receiverId,
+        content: content.trim(),
+        isRead: false
+      },
+      include: {
+        sender: { select: { id: true, fullName: true, username: true } },
+        receiver: { select: { id: true, fullName: true, username: true } }
+      }
+    });
+
+    const senderRole = await getUserRole(senderId);
+    
+    console.log(`[Driver Message] ${senderRole}→admin:`, {
+      messageId: message.id,
+      from: senderId,
+      to: receiverId,
+      contentPreview: content.substring(0, 30)
+    });
+
+    res.json({ 
+      success: true, 
+      message 
+    });
+  } catch (err) {
+    console.error('POST /api/messages/driver/send', err);
+    res.status(500).json({ error: 'db_error', detail: err.message });
   }
 });
 
