@@ -34,7 +34,7 @@ model Account {
   driverId       String          @unique @map("driver_id") @db.Uuid
   passwordHash   String?         @map("password_hash")
   lastLogin      DateTime?       @map("last_login") @db.Timestamptz(6)
-  role           String          @default("driver") @db.VarChar(50)
+  role           String          @default("driver") @db.VarChar(50) // admin, driver, delivery_team, sales_ops, manager
   createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
   driver         Driver          @relation(fields: [driverId], references: [id], onDelete: Cascade)
   passwordResets PasswordReset[]
@@ -177,7 +177,7 @@ model Message {
   adminId    String   @map("admin_id") @db.Uuid
   driverId   String   @map("driver_id") @db.Uuid
   content    String
-  senderRole String   @default("admin") @map("sender_role") @db.VarChar(20) // 'admin' or 'driver'
+  senderRole String   @default("admin") @map("sender_role") @db.VarChar(20) // 'admin', 'driver', 'delivery_team', 'sales_ops', 'manager'
   isRead     Boolean  @default(false) @map("is_read")
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   admin      Driver   @relation("AdminMessages", fields: [adminId], references: [id], onDelete: Cascade)

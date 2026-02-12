@@ -631,9 +631,19 @@ export default function AdminUsersPage() {
                               <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
                                 log.role === 'admin'
                                   ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300'
-                                  : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
+                                  : log.role === 'driver'
+                                  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
+                                  : log.role === 'delivery_team'
+                                  ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                                  : log.role === 'sales_ops'
+                                  ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300'
+                                  : log.role === 'manager'
+                                  ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300'
+                                  : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
                               }`}>
-                                {log.role}
+                                {log.role === 'delivery_team' ? 'Delivery Team' : 
+                                 log.role === 'sales_ops' ? 'Sales Ops' : 
+                                 log.role && log.role.charAt(0).toUpperCase() + log.role.slice(1)}
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
@@ -702,6 +712,9 @@ export default function AdminUsersPage() {
                 <option value="all">All Roles</option>
                 <option value="admin">Admin</option>
                 <option value="driver">Driver</option>
+                <option value="delivery_team">Delivery Team</option>
+                <option value="sales_ops">Sales Ops</option>
+                <option value="manager">Manager</option>
               </select>
               <select
                 value={filterStatus}
@@ -787,9 +800,19 @@ export default function AdminUsersPage() {
                           <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
                             user.account?.role === 'admin'
                               ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300'
+                              : user.account?.role === 'driver'
+                              ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
+                              : user.account?.role === 'delivery_team'
+                              ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                              : user.account?.role === 'sales_ops'
+                              ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300'
+                              : user.account?.role === 'manager'
+                              ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300'
                               : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
                           }`}>
-                            {user.account?.role || 'driver'}
+                            {user.account?.role === 'delivery_team' ? 'Delivery Team' : 
+                             user.account?.role === 'sales_ops' ? 'Sales Ops' : 
+                             (user.account?.role && user.account.role.charAt(0).toUpperCase() + user.account.role.slice(1)) || 'Driver'}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -977,8 +1000,11 @@ export default function AdminUsersPage() {
                       onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
                     >
-                      <option value="driver">Driver</option>
                       <option value="admin">Admin</option>
+                      <option value="driver">Driver</option>
+                      <option value="delivery_team">Delivery Team</option>
+                      <option value="sales_ops">Sales Ops</option>
+                      <option value="manager">Manager</option>
                     </select>
                   </div>
                   <div>
