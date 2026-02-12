@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import api, { setAuthToken } from '../frontend/apiClient';
-import { getCurrentUser } from '../frontend/auth';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { calculateRouteWithOSRM } from '../services/osrmRoutingService';
+import { calculateDistance } from '../utils/distanceCalculator';
 import { 
   MapPin, Navigation, Activity, RefreshCw, AlertCircle, CheckCircle2, 
   MessageSquare, Truck, Bell, Paperclip, Send, Clock, MapPinIcon
@@ -21,6 +22,8 @@ function ensureAuth() {
   const token = localStorage.getItem('auth_token');
   if (token) setAuthToken(token);
 }
+
+const WAREHOUSE_LOCATION = { lat: 25.0053, lng: 55.0760 };
 
 export default function DriverPortal() {
   const routeLocation = useLocation();
@@ -50,12 +53,22 @@ export default function DriverPortal() {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
 
+  // Routing state
+  const [route, setRoute] = useState(null);
+  const [orderedDeliveries, setOrderedDeliveries] = useState([]);
+  const [isRouteLoading, setIsRouteLoading] = useState(false);
+  const [routeError, setRouteError] = useState(null);
+
   // Notification state
   const [notifications, setNotifications] = useState(0);
   
   // Refs for auto-scroll and polling
   const messagesEndRef = useRef(null);
   const messagePollingIntervalRef = useRef(null);
+  const routeLayersRef = useRef([]);
+  const deliveryMarkersRef = useRef([]);
+  const lastRouteOriginRef = useRef(null);
+  const lastRouteDeliveriesRef = useRef('');
 
   const scrollMessagesToBottom = useCallback((behavior = 'smooth') => {
     if (!messagesEndRef.current) return;
@@ -76,6 +89,51 @@ export default function DriverPortal() {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+
+  const normalizeDeliveryCoords = (delivery) => {
+    const latRaw = delivery.lat ?? delivery.Lat ?? delivery.latitude ?? delivery.Latitude;
+    const lngRaw = delivery.lng ?? delivery.Lng ?? delivery.longitude ?? delivery.Longitude;
+    const lat = Number.parseFloat(latRaw);
+    const lng = Number.parseFloat(lngRaw);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return { lat, lng };
+  };
+
+  const buildNearestNeighborOrder = (items, start) => {
+    const remaining = [...items];
+    const ordered = [];
+    let current = start;
+
+    while (remaining.length > 0) {
+      let bestIndex = 0;
+      let bestDistance = Infinity;
+
+      for (let i = 0; i < remaining.length; i += 1) {
+        const coords = normalizeDeliveryCoords(remaining[i]);
+        if (!coords) continue;
+        const distance = calculateDistance(current.lat, current.lng, coords.lat, coords.lng);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          bestIndex = i;
+        }
+      }
+
+      const next = remaining.splice(bestIndex, 1)[0];
+      ordered.push(next);
+      const nextCoords = normalizeDeliveryCoords(next);
+      if (nextCoords) current = nextCoords;
+    }
+
+    return ordered;
+  };
+
+  const formatEta = (eta) => {
+    if (!eta) return 'N/A';
+    const date = new Date(eta);
+    if (Number.isNaN(date.getTime())) return 'N/A';
+    return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   };
 
   // Keep isTrackingRef in sync with state
@@ -203,18 +261,85 @@ export default function DriverPortal() {
         </div>
       `);
 
-    // Smoothly pan and zoom to location
-    mapInstance.current.setView([latitude, longitude], 15, {
-      animate: true,
-      duration: 1.0
-    });
+    // Smoothly pan and zoom to location unless routing is active
+    if (!route?.coordinates?.length) {
+      mapInstance.current.setView([latitude, longitude], 15, {
+        animate: true,
+        duration: 1.0
+      });
+    }
 
     // Add location to history
     setLocationHistory(prev => {
       const newHistory = [...prev, location];
       return newHistory.slice(-50); // Keep last 50 locations
     });
-  }, [location, mapReady]);
+  }, [location, mapReady, route]);
+
+  useEffect(() => {
+    if (!mapInstance.current || !mapReady) return;
+
+    deliveryMarkersRef.current.forEach((marker) => {
+      if (mapInstance.current.hasLayer(marker)) {
+        mapInstance.current.removeLayer(marker);
+      }
+    });
+    deliveryMarkersRef.current = [];
+
+    const list = orderedDeliveries.length > 0 ? orderedDeliveries : deliveries;
+    list.forEach((delivery, index) => {
+      const coords = normalizeDeliveryCoords(delivery);
+      if (!coords) return;
+
+      const marker = L.marker([coords.lat, coords.lng], {
+        title: `Stop ${index + 1}: ${delivery.customer || 'Delivery'}`
+      })
+        .addTo(mapInstance.current)
+        .bindPopup(
+          `<div style="font-family: 'Montserrat', 'Avenir', -apple-system, sans-serif; font-size: 12px;">
+            <strong>Stop ${index + 1}</strong><br />
+            <strong>Customer:</strong> ${delivery.customer || 'N/A'}<br />
+            <strong>Address:</strong> ${delivery.address || 'N/A'}<br />
+            <strong>ETA:</strong> ${formatEta(delivery.eta || delivery.estimatedEta)}
+          </div>`,
+          { maxWidth: 260 }
+        );
+
+      deliveryMarkersRef.current.push(marker);
+    });
+  }, [deliveries, orderedDeliveries, mapReady]);
+
+  useEffect(() => {
+    if (!mapInstance.current || !mapReady) return;
+
+    routeLayersRef.current.forEach((layer) => {
+      if (mapInstance.current.hasLayer(layer)) {
+        mapInstance.current.removeLayer(layer);
+      }
+    });
+    routeLayersRef.current = [];
+
+    if (!route?.coordinates?.length) return;
+
+    const routeLine = L.polyline(route.coordinates, {
+      color: '#3b82f6',
+      weight: 5,
+      opacity: 0.85,
+      lineCap: 'round',
+      lineJoin: 'round'
+    }).addTo(mapInstance.current);
+
+    routeLayersRef.current.push(routeLine);
+
+    try {
+      const bounds = routeLine.getBounds();
+      if (bounds.isValid()) {
+        mapInstance.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+      }
+    } catch (e) {
+      console.warn('Unable to fit route bounds:', e);
+    }
+  }, [route, mapReady]);
   
   // Auto-refresh messages when on messages tab
   useEffect(() => {
@@ -240,6 +365,79 @@ export default function DriverPortal() {
     if (activeTab !== 'messages') return;
     scrollMessagesToBottom('smooth');
   }, [messages, activeTab, scrollMessagesToBottom]);
+
+  useEffect(() => {
+    if (deliveries.length === 0) {
+      setRoute(null);
+      setOrderedDeliveries([]);
+      return;
+    }
+
+    const origin = location
+      ? { lat: location.latitude, lng: location.longitude }
+      : WAREHOUSE_LOCATION;
+
+    const deliverySignature = deliveries.map(d => d.id).join('|');
+    const originMovedKm = lastRouteOriginRef.current
+      ? calculateDistance(origin.lat, origin.lng, lastRouteOriginRef.current.lat, lastRouteOriginRef.current.lng)
+      : Infinity;
+    const deliveriesChanged = deliverySignature !== lastRouteDeliveriesRef.current;
+
+    if (!deliveriesChanged && originMovedKm < 0.25 && route) {
+      return;
+    }
+
+    const withCoords = deliveries.filter(d => normalizeDeliveryCoords(d));
+    const withoutCoords = deliveries.filter(d => !normalizeDeliveryCoords(d));
+    const orderedWithCoords = buildNearestNeighborOrder(withCoords, origin);
+    const routeLocations = [origin, ...orderedWithCoords.map(d => normalizeDeliveryCoords(d))];
+
+    if (routeLocations.length < 2) {
+      setRoute(null);
+      setOrderedDeliveries([...orderedWithCoords, ...withoutCoords]);
+      return;
+    }
+
+    setIsRouteLoading(true);
+    setRouteError(null);
+
+    calculateRouteWithOSRM(routeLocations)
+      .then((routeData) => {
+        setRoute(routeData);
+        const legs = routeData.legs || [];
+        let cumulativeSeconds = 0;
+        const baseTime = Date.now();
+
+        const enriched = orderedWithCoords.map((delivery, index) => {
+          cumulativeSeconds += legs[index]?.duration || 0;
+          const computedEta = new Date(baseTime + cumulativeSeconds * 1000).toISOString();
+          return {
+            ...delivery,
+            routeIndex: index + 1,
+            estimatedEta: delivery.eta || computedEta
+          };
+        });
+
+        const trailing = withoutCoords.map((delivery, index) => ({
+          ...delivery,
+          routeIndex: enriched.length + index + 1,
+          estimatedEta: delivery.eta || null
+        }));
+
+        setOrderedDeliveries([...enriched, ...trailing]);
+        lastRouteOriginRef.current = origin;
+        lastRouteDeliveriesRef.current = deliverySignature;
+      })
+      .catch((error) => {
+        console.error('Failed to calculate driver route:', error);
+        setRoute(null);
+        setRouteError('Routing unavailable');
+        setOrderedDeliveries([...orderedWithCoords, ...withoutCoords]);
+      })
+      .finally(() => {
+        setIsRouteLoading(false);
+      });
+  }, [deliveries, location, route]);
 
   const loadLatestLocation = async () => {
     setLoading(true);
@@ -469,6 +667,9 @@ export default function DriverPortal() {
         setError(errorMessage);
         setLoading(false);
       },
+
+      const deliveryRows = orderedDeliveries.length > 0 ? orderedDeliveries : deliveries;
+      const hasRoute = !!route?.coordinates?.length;
       { enableHighAccuracy: true, timeout: 10000 }
     );
   };
@@ -625,9 +826,16 @@ export default function DriverPortal() {
       {/* Map */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
         <div className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 dark:from-gray-800 dark:to-gray-900 dark:border-gray-700">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
             <MapPin className="w-5 h-5 text-primary-600 dark:text-primary-400" />
             <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Location Map</h2>
+            </div>
+            <div className="text-xs text-gray-500 dark:text-gray-300">
+              {isRouteLoading && 'Routing...'}
+              {!isRouteLoading && routeError && routeError}
+              {!isRouteLoading && !routeError && hasRoute && 'Route updated'}
+            </div>
           </div>
         </div>
         <div className="relative">
@@ -720,7 +928,7 @@ export default function DriverPortal() {
                   <p className="text-gray-600 dark:text-gray-300">Loading deliveries...</p>
                 </div>
               </div>
-            ) : deliveries.length === 0 ? (
+            ) : deliveryRows.length === 0 ? (
               <div className="text-center py-12 text-gray-500 dark:text-gray-300">
                 <Truck className="w-12 h-12 mx-auto mb-2 opacity-50" />
                 <p>No deliveries assigned yet</p>
@@ -730,16 +938,21 @@ export default function DriverPortal() {
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-900/40">
                     <tr>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Stop</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">PO Number</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Customer</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Address</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">ETA</th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Assigned</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                    {deliveries.map(delivery => (
+                    {deliveryRows.map((delivery, index) => (
                       <tr key={delivery.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                          {delivery.routeIndex || index + 1}
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                           {delivery.poNumber || delivery.PONumber || 'N/A'}
                         </td>
@@ -758,8 +971,11 @@ export default function DriverPortal() {
                             {delivery.status || 'pending'}
                           </span>
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                          {formatEta(delivery.eta || delivery.estimatedEta)}
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                          {new Date(delivery.assignedAt).toLocaleDateString()}
+                          {delivery.assignedAt ? new Date(delivery.assignedAt).toLocaleDateString() : 'N/A'}
                         </td>
                       </tr>
                     ))}

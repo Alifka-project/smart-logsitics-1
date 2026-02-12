@@ -43,7 +43,7 @@ export async function calculateRouteWithOSRM(locations) {
       distanceKm: route.distance / 1000,
       time: route.duration, // seconds
       timeHours: route.duration / 3600,
-      legs: [],
+      legs: route.legs || [],
       instructions: [],
       locationsCount: locations.length,
       isFallback: false,

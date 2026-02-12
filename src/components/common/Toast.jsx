@@ -29,9 +29,9 @@ export function Toast({ message, type, onClose }) {
   }[type];
 
   return (
-    <div className={`${bgColor} border rounded-lg p-4 flex items-start gap-3 animate-slide-in`}>
+    <div className={`${bgColor} border rounded-lg p-4 flex items-start gap-3 shadow-xl animate-slide-in`}>
       {icon}
-      <div className={`flex-1 ${textColor} text-sm whitespace-pre-wrap`}>
+      <div className={`flex-1 ${textColor} text-sm whitespace-pre-wrap font-medium`}>
         {message}
       </div>
       <button
@@ -46,7 +46,7 @@ export function Toast({ message, type, onClose }) {
 
 export function ToastContainer({ toasts, onRemove }) {
   return (
-    <div className="fixed top-4 right-4 z-50 space-y-2 max-w-md">
+    <div className="fixed top-4 right-4 z-[9999] space-y-2 max-w-md">
       {toasts.map(toast => (
         <Toast
           key={toast.id}

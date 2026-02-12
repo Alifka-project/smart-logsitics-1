@@ -109,6 +109,8 @@ router.get('/deliveries', authenticate, async (req, res) => {
         customer: d.customer,
         address: d.address,
         phone: d.phone,
+        lat: d.lat,
+        lng: d.lng,
         poNumber: d.poNumber,
         status: d.status,
         createdAt: d.createdAt,

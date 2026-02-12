@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { isAuthenticated, getCurrentUser, clearAuth } from '../../frontend/auth';
 import { LogOut, User, Settings, ChevronDown, Bell, Sun, Moon, X, Camera, Save } from 'lucide-react';
 import api from '../../frontend/apiClient';
+import { useToast } from '../../hooks/useToast';
+import { ToastContainer } from '../common/Toast';
 
 export default function Header() {
   const [loggedIn, setLoggedIn] = useState(isAuthenticated());
@@ -12,6 +14,10 @@ export default function Header() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const adminNotificationFetchKey = 'admin_notification_last_fetch';
+  const { toasts, removeToast, info } = useToast();
+  const hasLoadedNotificationsRef = useRef(false);
+  const prevMessageUnreadRef = useRef(0);
+  const prevDeliveryNotificationIdsRef = useRef(new Set());
   const [theme, setTheme] = useState(() => {
     // Get theme from localStorage, system preference, or default to light
     if (typeof window !== 'undefined') {
@@ -44,6 +50,28 @@ export default function Header() {
   const dropdownRef = useRef(null);
   const notificationRef = useRef(null);
   const navigate = useNavigate();
+
+  const playNotificationSound = () => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    if (document.hidden) return;
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      const context = new AudioContext();
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = 'sine';
+      oscillator.frequency.value = 880;
+      gain.gain.value = 0.06;
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+      oscillator.start();
+      oscillator.stop(context.currentTime + 0.18);
+      oscillator.onended = () => context.close();
+    } catch (error) {
+      console.warn('Notification sound blocked:', error);
+    }
+  };
 
   useEffect(() => {
     function refresh() {
@@ -213,6 +241,41 @@ export default function Header() {
             }
           ];
         }
+      }
+
+      let shouldPlaySound = false;
+      let newDeliveryCount = 0;
+      
+      // Check for new delivery notifications
+      if (deliveryNotifications.length > 0) {
+        const newDeliveryIds = new Set(deliveryNotifications.map(n => n.id));
+        if (hasLoadedNotificationsRef.current) {
+          deliveryNotifications.forEach((notif) => {
+            if (!prevDeliveryNotificationIdsRef.current.has(notif.id)) {
+              newDeliveryCount++;
+            }
+          });
+        }
+        prevDeliveryNotificationIdsRef.current = newDeliveryIds;
+      }
+      
+      if (hasLoadedNotificationsRef.current) {
+        const messageDelta = unreadCount - prevMessageUnreadRef.current;
+        if (messageDelta > 0) {
+          info(`🔔 ${messageDelta} New message${messageDelta !== 1 ? 's' : ''} received`);
+          shouldPlaySound = true;
+        }
+        if (newDeliveryCount > 0) {
+          info(`🔔 ${newDeliveryCount} New delivery update${newDeliveryCount !== 1 ? 's' : ''}`);
+          shouldPlaySound = true;
+        }
+      }
+      prevMessageUnreadRef.current = unreadCount;
+      if (!hasLoadedNotificationsRef.current) {
+        hasLoadedNotificationsRef.current = true;
+      }
+      if (shouldPlaySound) {
+        playNotificationSound();
       }
 
       setNotifications((prev) => {
@@ -711,6 +774,7 @@ export default function Header() {
         </div>
       </div>
     </header>
+    <ToastContainer toasts={toasts} onRemove={removeToast} />
 
       {/* Profile Edit Modal */}
       {showProfileModal && (
