@@ -110,6 +110,19 @@ export default function AdminOperationsPage() {
     }
   }, []);
 
+  // Fetch unread message counts per driver (for badge on each driver in Communication tab) - must be defined before useEffect that uses it
+  const loadUnreadCounts = useCallback(async () => {
+    try {
+      const response = await api.get('/messages/unread');
+      const counts = response.data || {};
+      setUnreadByDriverId(typeof counts === 'object' ? counts : {});
+    } catch (err) {
+      if (err?.response?.status !== 403) {
+        console.error('Failed to load unread counts:', err);
+      }
+    }
+  }, []);
+
   const loadData = async () => {
     try {
       const [driversResp, deliveriesResp] = await Promise.allSettled([
@@ -216,19 +229,6 @@ export default function AdminOperationsPage() {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
-
-  // Fetch unread message counts per driver (for badge on each driver in Communication tab)
-  const loadUnreadCounts = useCallback(async () => {
-    try {
-      const response = await api.get('/messages/unread');
-      const counts = response.data || {};
-      setUnreadByDriverId(typeof counts === 'object' ? counts : {});
-    } catch (err) {
-      if (err?.response?.status !== 403) {
-        console.error('Failed to load unread counts:', err);
-      }
-    }
-  }, []);
 
   const loadMessages = async (driverId, silent = false) => {
     if (!driverId) return;
