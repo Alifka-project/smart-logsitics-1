@@ -195,9 +195,27 @@ export default function DriverPortal() {
       minZoom: 10
     }).addTo(mapInstance.current);
 
+    // Invalidate map size to ensure it fills container properly
+    const invalidateMap = () => {
+      if (mapInstance.current) {
+        mapInstance.current.invalidateSize();
+      }
+    };
+    
+    // Invalidate after initial render
+    setTimeout(invalidateMap, 100);
+    setTimeout(invalidateMap, 500);
+
+    // Handle window resize
+    const handleResize = () => {
+      invalidateMap();
+    };
+    window.addEventListener('resize', handleResize);
+
     setMapReady(true);
 
     return () => {
+      window.removeEventListener('resize', handleResize);
       if (mapInstance.current) {
         mapInstance.current.remove();
         mapInstance.current = null;
@@ -205,6 +223,17 @@ export default function DriverPortal() {
       }
     };
   }, []);
+
+  // Invalidate map size when tracking tab becomes active
+  useEffect(() => {
+    if (activeTab === 'tracking' && mapInstance.current && mapReady) {
+      setTimeout(() => {
+        if (mapInstance.current) {
+          mapInstance.current.invalidateSize();
+        }
+      }, 100);
+    }
+  }, [activeTab, mapReady]);
 
   // Update map when location changes
   useEffect(() => {
@@ -821,7 +850,7 @@ export default function DriverPortal() {
       </div>
 
       {/* Map */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden w-full">
         <div className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 dark:from-gray-800 dark:to-gray-900 dark:border-gray-700">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -835,11 +864,18 @@ export default function DriverPortal() {
             </div>
           </div>
         </div>
-        <div className="relative">
+        <div className="relative w-full" style={{ width: '100%', margin: 0, padding: 0 }}>
           <div 
             ref={mapRef} 
-            className="h-[500px] sm:h-[600px] w-full bg-gray-100 dark:bg-gray-900"
-            style={{ minHeight: '400px' }}
+            className="h-[500px] sm:h-[600px] bg-gray-100 dark:bg-gray-900"
+            style={{ 
+              minHeight: '400px',
+              width: '100%',
+              position: 'relative',
+              zIndex: 1,
+              margin: 0,
+              padding: 0
+            }}
           />
           {!location && mapReady && (
             <div className="absolute inset-0 flex items-center justify-center bg-gray-50 bg-opacity-90 z-[1000] dark:bg-gray-900/80">

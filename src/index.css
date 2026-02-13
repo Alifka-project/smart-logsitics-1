@@ -139,6 +139,18 @@
     background-position: center;
     background-repeat: no-repeat;
     position: relative;
+}
+
+/* Fix Leaflet map container to fill parent properly */
+.leaflet-container {
+    width: 100% !important;
+    height: 100% !important;
+    position: relative !important;
+    z-index: 1;
+}
+
+.leaflet-container .leaflet-control-container {
+    z-index: 2;
     overflow: hidden;
   }
 
@@ -190,4 +202,25 @@
   .animate-fade-in {
     animation: fade-in 0.3s ease-out;
   }
+}
+
+/* Fix Leaflet map container to fill parent properly */
+.leaflet-container {
+  width: 100% !important;
+  height: 100% !important;
+  position: relative !important;
+  z-index: 1;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.leaflet-container .leaflet-control-container {
+  z-index: 2;
+}
+
+/* Ensure map container div fills properly */
+div[ref*="mapRef"],
+div[id*="map"] {
+  width: 100% !important;
+  position: relative !important;
 }
