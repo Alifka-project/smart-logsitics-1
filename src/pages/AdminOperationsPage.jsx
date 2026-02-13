@@ -50,6 +50,8 @@ export default function AdminOperationsPage() {
     'Emergency: Return to warehouse'
   ]);
   
+  // Unread message count per driver (for Communication tab badges)
+  const [unreadByDriverId, setUnreadByDriverId] = useState({});
   // Refs for auto-scroll and polling
   const messagesEndRef = useRef(null);
   const messagePollingIntervalRef = useRef(null);
@@ -187,16 +189,11 @@ export default function AdminOperationsPage() {
   // Load messages when driver is selected
   useEffect(() => {
     if (selectedDriver?.id) {
-      // Load messages immediately
       loadMessages(selectedDriver.id);
-      
-      // Start auto-refresh every 3 seconds for real-time updates
       messagePollingIntervalRef.current = setInterval(() => {
         loadMessages(selectedDriver.id, true);
       }, 3000);
     }
-    
-    // Cleanup interval when driver changes or component unmounts
     return () => {
       if (messagePollingIntervalRef.current) {
         clearInterval(messagePollingIntervalRef.current);
@@ -204,7 +201,15 @@ export default function AdminOperationsPage() {
       }
     };
   }, [selectedDriver]);
-  
+
+  // When on Communication tab, load and poll unread counts per driver for badges
+  useEffect(() => {
+    if (activeTab !== 'communication') return;
+    loadUnreadCounts();
+    const interval = setInterval(loadUnreadCounts, 10000);
+    return () => clearInterval(interval);
+  }, [activeTab, loadUnreadCounts]);
+
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     if (messagesEndRef.current) {
@@ -212,9 +217,22 @@ export default function AdminOperationsPage() {
     }
   }, [messages]);
 
+  // Fetch unread message counts per driver (for badge on each driver in Communication tab)
+  const loadUnreadCounts = useCallback(async () => {
+    try {
+      const response = await api.get('/messages/unread');
+      const counts = response.data || {};
+      setUnreadByDriverId(typeof counts === 'object' ? counts : {});
+    } catch (err) {
+      if (err?.response?.status !== 403) {
+        console.error('Failed to load unread counts:', err);
+      }
+    }
+  }, []);
+
   const loadMessages = async (driverId, silent = false) => {
     if (!driverId) return;
-    
+
     if (!silent) setLoadingMessages(true);
     try {
       const response = await api.get(`/messages/conversations/${driverId}`);
@@ -737,8 +755,7 @@ export default function AdminOperationsPage() {
               {drivers.map(driver => {
                 const isOnline = isDriverOnline(driver);
                 const isSelected = selectedDriver?.id === driver.id;
-                const unreadCount = 0; // TODO: Get from messages API
-                
+                const unreadCount = unreadByDriverId[driver.id] || 0;
                 // Role badge styling
                 const getRoleBadge = (role) => {
                   const roleConfig = {

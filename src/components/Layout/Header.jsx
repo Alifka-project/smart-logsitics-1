@@ -162,52 +162,74 @@ export default function Header() {
       let unreadCount = 0;
       let deliveryNotifications = [];
       let messageNotifications = [];
-      
-      // Load unread messages for all users (admin and driver)
-      try {
-        const response = await api.get('/messages/unread');
-        const countsBySender = response.data || {};
-        const senderEntries = Object.entries(countsBySender)
-          .map(([senderId, count]) => [senderId, Number(count) || 0])
-          .filter(([, count]) => count > 0);
 
-        unreadCount = senderEntries.reduce((sum, [, count]) => sum + count, 0);
-
-        if (senderEntries.length) {
-          // Fetch sender details
-          let userLookup = new Map();
-          try {
-            const usersResponse = await api.get('/messages/contacts');
-            const usersList = usersResponse.data?.contacts || [];
-            usersList.forEach((user) => {
-              if (user?.id != null) {
-                userLookup.set(String(user.id), user);
-              }
-            });
-          } catch (userError) {
-            console.error('Failed to load contacts for notifications:', userError);
-          }
-
-          messageNotifications = senderEntries.map(([senderId, count]) => {
-            const sender = userLookup.get(String(senderId));
-            const displayName = sender?.fullName || sender?.full_name || sender?.username || `User ${String(senderId).slice(0, 6)}`;
-            const senderRole = sender?.account?.role || 'user';
-            
-            return {
-              id: `messages-${senderId}`,
+      // Driver: use driver-specific unread count API (admin /messages/unread is admin-only)
+      if (userRole === 'driver') {
+        try {
+          const response = await api.get('/messages/driver/notifications/count');
+          const count = Number(response.data?.count) || 0;
+          unreadCount = count;
+          if (count > 0) {
+            messageNotifications = [{
+              id: 'messages-driver-admin',
               type: 'message',
               count,
-              senderId,
-              senderRole,
-              title: `${count} unread message${count !== 1 ? 's' : ''} from ${displayName}`,
-              message: `Open chat with ${displayName}`,
+              senderId: 'admin',
+              senderRole: 'admin',
+              title: `${count} unread message${count !== 1 ? 's' : ''} from Admin`,
+              message: 'Open Messages tab to read',
               timestamp: new Date(),
               read: false
-            };
-          });
+            }];
+          }
+        } catch (e) {
+          console.error('Failed to load driver message notifications:', e);
         }
-      } catch (e) {
-        console.error('Failed to load message notifications:', e);
+      } else {
+        // Admin: load unread counts per driver
+        try {
+          const response = await api.get('/messages/unread');
+          const countsBySender = response.data || {};
+          const senderEntries = Object.entries(countsBySender)
+            .map(([senderId, count]) => [senderId, Number(count) || 0])
+            .filter(([, count]) => count > 0);
+
+          unreadCount = senderEntries.reduce((sum, [, count]) => sum + count, 0);
+
+          if (senderEntries.length) {
+            let userLookup = new Map();
+            try {
+              const usersResponse = await api.get('/messages/contacts');
+              const usersList = usersResponse.data?.contacts || [];
+              usersList.forEach((user) => {
+                if (user?.id != null) {
+                  userLookup.set(String(user.id), user);
+                }
+              });
+            } catch (userError) {
+              console.error('Failed to load contacts for notifications:', userError);
+            }
+
+            messageNotifications = senderEntries.map(([senderId, count]) => {
+              const sender = userLookup.get(String(senderId));
+              const displayName = sender?.fullName || sender?.full_name || sender?.username || `User ${String(senderId).slice(0, 6)}`;
+              const senderRole = sender?.account?.role || 'user';
+              return {
+                id: `messages-${senderId}`,
+                type: 'message',
+                count,
+                senderId,
+                senderRole,
+                title: `${count} unread message${count !== 1 ? 's' : ''} from ${displayName}`,
+                message: `Open chat with ${displayName}`,
+                timestamp: new Date(),
+                read: false
+              };
+            });
+          }
+        } catch (e) {
+          console.error('Failed to load message notifications:', e);
+        }
       }
 
       // Admin: get delivery status notifications (cancelled/rejected/rescheduled)
