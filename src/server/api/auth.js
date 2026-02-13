@@ -263,7 +263,7 @@ router.post('/login', loginLimiter, async (req, res) => {
       clientKey,
       csrfToken,
       accessToken,
-      expiresIn: 15 * 60 // 15 minutes in seconds
+      expiresIn: 60 * 60 // 1 hour in seconds (matches ACCESS_TOKEN_EXP)
     });
   } catch (err) {
     console.error('auth/login error:', err);
@@ -314,32 +314,14 @@ router.post('/logout', authenticate, async (req, res) => {
 // POST /api/auth/refresh - Refresh access token
 router.post('/refresh', refreshAccessToken);
 
-// GET /api/auth/me - Return current session user
-router.get('/me', async (req, res) => {
+// GET /api/auth/me - Return current session user (requires authenticate)
+router.get('/me', authenticate, async (req, res) => {
   try {
-    // Try to get user from authenticate middleware first (if it was applied)
-    let user = req.user;
-    
-    // If no user from middleware, try to extract from Authorization header
-    if (!user) {
-      const authHeader = req.headers.authorization || '';
-      const parts = authHeader.split(' ');
-      if (parts.length === 2 && parts[0] === 'Bearer') {
-        const token = parts[1];
-        // Import verifyAccessToken
-        const { verifyAccessToken } = require('../auth');
-        const decoded = verifyAccessToken(token);
-        if (decoded) {
-          user = decoded;
-        }
-      }
-    }
-    
+    const user = req.user;
     if (!user) {
       return res.status(401).json({ error: 'unauthorized' });
     }
-    
-    // Get user info from database using Prisma
+
     const driver = await prisma.driver.findUnique({
       where: { id: user.id || user.sub },
       include: {
@@ -349,11 +331,11 @@ router.get('/me', async (req, res) => {
       console.error('[auth/me] Prisma query error:', err);
       return null;
     });
-    
+
     if (!driver || !driver.account) {
       return res.status(401).json({ error: 'user_not_found' });
     }
-    
+
     res.json({
       user: {
         id: driver.id,
@@ -366,7 +348,7 @@ router.get('/me', async (req, res) => {
         profile_picture: driver.profilePicture || null,
         profilePicture: driver.profilePicture || null
       },
-      csrfToken: req.csrfToken ? req.csrfToken() : 'dev-csrf-token'
+      csrfToken: (typeof req.csrfToken === 'string' ? req.csrfToken : null) ?? 'dev-csrf-token'
     });
   } catch (err) {
     console.error('auth/me', err);
@@ -375,20 +357,11 @@ router.get('/me', async (req, res) => {
 });
 
 // PATCH /api/auth/profile - Update current user profile (fullName, email, phone, profilePicture)
-router.patch('/profile', async (req, res) => {
+router.patch('/profile', authenticate, async (req, res) => {
   try {
-    let user = req.user;
-    if (!user) {
-      const authHeader = req.headers.authorization || '';
-      const parts = authHeader.split(' ');
-      if (parts.length === 2 && parts[0] === 'Bearer') {
-        const { verifyAccessToken } = require('../auth');
-        const decoded = verifyAccessToken(parts[1]);
-        if (decoded) user = decoded;
-      }
-    }
+    const user = req.user;
     if (!user) return res.status(401).json({ error: 'unauthorized' });
-    const driverId = user.id || user.sub;
+    const driverId = user.id ?? user.sub;
     const { fullName, email, phone, profilePicture } = req.body || {};
     const updateData = {};
     if (fullName !== undefined) updateData.fullName = String(fullName).trim() || null;
@@ -454,7 +427,7 @@ router.post('/forgot-password', loginLimiter, async (req, res) => {
         username: driver.username || driver.fullName || 'User',
         resetToken
       });
-    } catch (e) { /* ignore */ }
+    } catch { /* ignore email send failure */ }
     res.json({ success: true, message: 'If an account exists with that username/email, a password reset link has been sent.' });
   } catch (err) {
     console.error('auth/forgot-password', err);
@@ -490,7 +463,7 @@ router.post('/reset-password', loginLimiter, async (req, res) => {
         to: resetRecord.account.driver.email,
         username: resetRecord.account.driver.username || resetRecord.account.driver.fullName || 'User'
       });
-    } catch (e) { /* ignore */ }
+    } catch { /* ignore email send failure */ }
     res.json({ success: true, message: 'Password has been reset successfully. You can now login with your new password.' });
   } catch (err) {
     console.error('auth/reset-password', err);

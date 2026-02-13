@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import api from '../frontend/apiClient';
 
 export default function ForgotPasswordPage() {
-  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -22,10 +21,7 @@ export default function ForgotPasswordPage() {
     }
 
     try {
-      const response = await api.post('/auth/forgot-password', { 
-        email: email 
-      });
-      
+      await api.post('/auth/forgot-password', { email });
       setSuccess(true);
     } catch (err) {
       const errorMessage = err?.response?.data?.error || err?.response?.data?.message || 'Failed to send reset email. Please try again.';

@@ -71,7 +71,7 @@ function parseCoordinate(value) {
   // Replace comma decimal separators with dot
   s = s.replace(/,/g, '.');
   // Remove any characters except digits, dot, minus
-  s = s.replace(/[^0-9.\-]+/g, '');
+  s = s.replace(/[^0-9.-]+/g, '');
   const v = parseFloat(s);
   return isNaN(v) ? NaN : v;
 }

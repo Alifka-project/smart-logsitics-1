@@ -501,23 +501,39 @@ router.post('/:messageId/read', authenticate, requireRole('admin'), async (req, 
 // GET /api/admin/messages/history - Get message history with all drivers
 router.get('/history/all', authenticate, requireRole('admin'), async (req, res) => {
   try {
-    const { limit = 100 } = req.query;
+    const adminId = req.user?.sub;
+    if (!adminId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const limitRaw = req.query.limit;
+    const limit = Math.min(parseInt(limitRaw, 10) || 100, 500);
 
-    // TODO: Get recent messages from all drivers
-    const messages = [];
-    
-    // Future implementation:
-    // const messages = await prisma.message.findMany({
-    //   orderBy: { createdAt: 'desc' },
-    //   take: parseInt(limit),
-    //   include: {
-    //     driver: {
-    //       select: { id: true, username: true, fullName: true }
-    //     }
-    //   }
-    // });
+    const messages = await prisma.message.findMany({
+      where: { adminId },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      include: {
+        driver: {
+          select: { id: true, username: true, fullName: true }
+        },
+        admin: {
+          select: { id: true, username: true, fullName: true }
+        }
+      }
+    });
 
-    res.json({ messages });
+    res.json({
+      success: true,
+      messages: messages.map((m) => ({
+        id: m.id,
+        content: m.content,
+        senderRole: m.senderRole,
+        isRead: m.isRead,
+        createdAt: m.createdAt,
+        driver: m.driver,
+        admin: m.admin
+      }))
+    });
   } catch (err) {
     console.error('GET /api/admin/messages/history/all', err);
     res.status(500).json({ error: 'db_error', detail: err.message });

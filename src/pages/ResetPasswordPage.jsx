@@ -38,11 +38,7 @@ export default function ResetPasswordPage() {
     setLoading(true);
 
     try {
-      const response = await api.post('/auth/reset-password', { 
-        token,
-        newPassword: password 
-      });
-      
+      await api.post('/auth/reset-password', { token, newPassword: password });
       setSuccess(true);
       
       // Redirect to login after 3 seconds

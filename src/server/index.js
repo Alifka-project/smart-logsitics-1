@@ -3,7 +3,6 @@ const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
 dotenv.config();
 const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
 const cors = require('cors');
 const prisma = require('./db/prisma');
 
@@ -83,7 +82,7 @@ if (allowedOriginsFromEnv.length) {
       try {
         const url = new URL(origin);
         if ((url.hostname === 'localhost' || url.hostname === '127.0.0.1')) return callback(null, true);
-      } catch (e) {
+      } catch {
         // fall through
       }
       return callback(new Error('Not allowed by CORS'));
@@ -101,8 +100,8 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // Validate critical environment variables at startup
 try {
   validateEnv();
-} catch (e) {
-  console.error('Environment validation failed:', e.message);
+} catch (err) {
+  console.error('Environment validation failed:', err.message);
   process.exit(1);
 }
 

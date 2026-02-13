@@ -6,7 +6,7 @@ import { CheckCircle, XCircle, Clock, Package } from 'lucide-react';
 export default function TrackingPage() {
   const { deliveryId } = useParams();
   const navigate = useNavigate();
-  const [delivery, setDelivery] = useState(null);
+  const [delivery] = useState(null);
   const [code, setCode] = useState('');
   const [confirming, setConfirming] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
@@ -36,11 +36,7 @@ export default function TrackingPage() {
     setError(null);
 
     try {
-      const response = await api.post('/sms/confirm', {
-        deliveryId,
-        code
-      });
-
+      await api.post('/sms/confirm', { deliveryId, code });
       setConfirmed(true);
     } catch (e) {
       setError(e?.response?.data?.error || 'Invalid confirmation code. Please try again.');

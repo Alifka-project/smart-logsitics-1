@@ -101,7 +101,7 @@ export default function DriverPortal() {
     return { lat, lng };
   };
 
-  const buildNearestNeighborOrder = (items, start) => {
+  const buildNearestNeighborOrder = useCallback((items, start) => {
     const remaining = [...items];
     const ordered = [];
     let current = start;
@@ -127,7 +127,7 @@ export default function DriverPortal() {
     }
 
     return ordered;
-  };
+  }, []);
 
   const formatEta = (eta) => {
     if (!eta) return 'N/A';
@@ -135,36 +135,6 @@ export default function DriverPortal() {
     if (Number.isNaN(date.getTime())) return 'N/A';
     return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   };
-
-  // Keep isTrackingRef in sync with state
-  useEffect(() => {
-    isTrackingRef.current = isTracking;
-  }, [isTracking]);
-
-  useEffect(() => {
-    ensureAuth();
-    loadLatestLocation();
-    loadDeliveries();
-    loadMessages();
-    
-    // Poll for notifications every 10 seconds
-    const notificationInterval = setInterval(() => {
-      loadNotificationCount();
-    }, 10000);
-
-    return () => {
-      cleanup();
-      clearInterval(notificationInterval);
-    };
-  }, []);
-
-  useEffect(() => {
-    const params = new URLSearchParams(routeLocation.search);
-    const tab = params.get('tab');
-    if (tab && ['tracking', 'deliveries', 'messages'].includes(tab)) {
-      setActiveTab(tab);
-    }
-  }, [routeLocation.search]);
 
   const cleanup = useCallback(() => {
     if (watchIdRef.current !== null) {
@@ -180,6 +150,33 @@ export default function DriverPortal() {
       mapInstance.current = null;
     }
   }, []);
+
+  // Keep isTrackingRef in sync with state
+  useEffect(() => {
+    isTrackingRef.current = isTracking;
+  }, [isTracking]);
+
+  useEffect(() => {
+    ensureAuth();
+    loadLatestLocation();
+    loadDeliveries();
+    loadMessages();
+    const notificationInterval = setInterval(() => {
+      loadNotificationCount();
+    }, 10000);
+    return () => {
+      cleanup();
+      clearInterval(notificationInterval);
+    };
+  }, [cleanup]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(routeLocation.search);
+    const tab = params.get('tab');
+    if (tab && ['tracking', 'deliveries', 'messages'].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [routeLocation.search]);
 
   // Initialize map once
   useEffect(() => {
@@ -437,7 +434,7 @@ export default function DriverPortal() {
       .finally(() => {
         setIsRouteLoading(false);
       });
-  }, [deliveries, location, route]);
+  }, [deliveries, location, route, buildNearestNeighborOrder]);
 
   const loadLatestLocation = async () => {
     setLoading(true);

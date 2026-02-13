@@ -102,7 +102,7 @@ router.post('/login', loginLimiter, async (req, res) => {
       clientKey,
       csrfToken,
       accessToken,
-      expiresIn: 15 * 60 // 15 minutes in seconds
+      expiresIn: 60 * 60 // 1 hour in seconds (matches ACCESS_TOKEN_EXP)
     });
   } catch (err) {
     console.error('auth/login', err);
@@ -139,7 +139,7 @@ router.get('/me', async (req, res) => {
         role: driver.account.role,
         email: driver.email
       },
-      csrfToken: req.csrfToken ? req.csrfToken() : 'dev-csrf-token'
+      csrfToken: (typeof req.csrfToken === 'string' ? req.csrfToken : null) ?? 'dev-csrf-token'
     });
   } catch (err) {
     console.error('auth/me', err);

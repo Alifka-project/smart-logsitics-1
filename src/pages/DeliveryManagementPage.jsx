@@ -31,6 +31,7 @@ export default function DeliveryManagementPage() {
     if (activeTab === 'map' && deliveries.length > 0 && !route) {
       loadRoute();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadRoute updates route; avoid loop
   }, [activeTab, deliveries.length]);
 
   const loadRoute = async () => {

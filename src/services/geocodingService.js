@@ -31,7 +31,9 @@ function cleanAddress(raw) {
   if (!raw) return '';
   let s = String(raw);
   s = s.replace(/_x000D_/gi, ' ');
-  s = s.replace(/[\u0000-\u001F]/g, ' ');
+  // Strip ASCII control characters (0x00-0x1F) - intentional for address cleaning
+  // eslint-disable-next-line no-control-regex
+  s = s.replace(/[\x00-\x1F]/g, ' ');
   s = s.replace(/\b0{3,}\b/g, '');
   s = s.replace(/\b\d{5}\b/g, '');
   s = s.replace(/\b\+?\d[\d\s\-()]{6,}\b/g, '');

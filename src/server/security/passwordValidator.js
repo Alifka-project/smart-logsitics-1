@@ -37,7 +37,7 @@ function validatePassword(password) {
   }
 
   // Check for at least one special character
-  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+  if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)) {
     errors.push('password_needs_special_char');
   }
 
