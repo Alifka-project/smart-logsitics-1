@@ -206,6 +206,7 @@ app.use((req, res, next) => {
 
 // Protected API routes (all require database)
 app.use('/admin/drivers', require('../src/server/api/drivers'));
+app.use('/admin/notifications', require('../src/server/api/notifications'));
 app.use('/driver', require('../src/server/api/locations'));
 app.use('/admin/dashboard', require('../src/server/api/adminDashboard'));
 app.use('/admin/reports', require('../src/server/api/reports'));

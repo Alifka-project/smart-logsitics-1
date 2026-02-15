@@ -11,10 +11,11 @@ export default function UnconfirmedDeliveriesNotification() {
   const fetchUnconfirmed = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/notifications/unconfirmed-deliveries');
+      const response = await api.get('/admin/notifications/unconfirmed-deliveries');
       setUnconfirmedDeliveries(response.data.deliveries || []);
     } catch (error) {
       console.error('Failed to fetch unconfirmed deliveries:', error);
+      // Silently fail - don't show error to user
     } finally {
       setLoading(false);
     }
@@ -30,7 +31,7 @@ export default function UnconfirmedDeliveriesNotification() {
   const handleResendSms = async (deliveryId) => {
     try {
       setResendingId(deliveryId);
-      await api.post(`/notifications/resend-sms/${deliveryId}`);
+      await api.post(`/admin/notifications/resend-sms/${deliveryId}`);
       alert('SMS resent successfully!');
       fetchUnconfirmed(); // Refresh list
     } catch (error) {
