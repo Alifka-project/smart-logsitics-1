@@ -108,6 +108,7 @@ try {
 // Public API routes (no auth)
 app.use('/api/auth', require('./api/auth'));
 app.use('/api/sms/webhook', require('./api/smsWebhook'));
+app.use('/api/customer', require('./api/customerPortal')); // Customer confirmation and tracking (token-based)
 
 // Public SMS confirmation endpoint (before auth middleware)
 app.post('/api/sms/confirm', async (req, res) => {
