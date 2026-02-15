@@ -55,7 +55,10 @@ export default function DeliveryListPage() {
 
       {/* Delivery List */}
       {deliveries.length > 0 && (
-        <DeliveryTable onSelectDelivery={() => setShowModal(true)} />
+        <DeliveryTable 
+          onSelectDelivery={() => setShowModal(true)} 
+          onCloseDetailModal={() => setShowModal(false)}
+        />
       )}
 
       {/* Customer Details Modal */}

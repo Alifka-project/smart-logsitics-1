@@ -386,7 +386,10 @@ export default function DeliveryManagementPage() {
 
           {/* Delivery List */}
           {deliveries.length > 0 ? (
-            <DeliveryTable onSelectDelivery={() => setShowModal(true)} />
+            <DeliveryTable 
+              onSelectDelivery={() => setShowModal(true)} 
+              onCloseDetailModal={() => setShowModal(false)}
+            />
           ) : (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 text-center transition-colors">
               <Database className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />

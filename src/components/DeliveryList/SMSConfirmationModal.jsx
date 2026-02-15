@@ -40,8 +40,15 @@ export default function SMSConfirmationModal({ delivery, onClose, onSuccess }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4" style={{ zIndex: 9999 }}>
-      <div className="bg-white rounded-lg shadow-2xl max-w-md w-full relative">
+    <div 
+      className="fixed inset-0 bg-black/60 flex items-center justify-center p-4" 
+      style={{ zIndex: 99999 }}
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white rounded-lg shadow-2xl max-w-md w-full relative"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b">
           <div className="flex items-center gap-3">

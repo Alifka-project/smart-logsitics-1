@@ -579,39 +579,57 @@ router.post('/:id/send-sms', authenticate, requireRole('admin'), async (req, res
       return res.status(400).json({ error: 'delivery_id_required' });
     }
 
-    // Sanitize delivery ID - remove any invalid characters
-    deliveryId = String(deliveryId).trim();
+    // Sanitize delivery ID - remove any invalid characters and decode
+    deliveryId = decodeURIComponent(String(deliveryId).trim());
     
-    // Check if it's a valid UUID format (36 chars with hyphens or similar)
-    if (!/^[a-f0-9-]{36}$|^[a-f0-9]{32}$/.test(deliveryId)) {
-      console.warn('Invalid deliveryId format:', deliveryId);
-      // Try using the ID as-is anyway, let Prisma handle it
-    }
-
-    // Get delivery from database
+    console.log('[SMS] Attempting to send SMS for delivery ID:', deliveryId);
+    
+    // Validate UUID format (standard UUID format: 8-4-4-4-12 hex characters)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    
     let delivery;
-    try {
-      delivery = await prisma.delivery.findUnique({
-        where: { id: deliveryId }
-      });
-    } catch (prismaErr) {
-      console.error('Prisma findUnique error:', prismaErr.message);
-      // Fallback: try to find by poNumber if ID lookup fails
-      if (prismaErr.message.includes('Inconsistent column data')) {
-        console.log('Trying fallback search by poNumber:', deliveryId);
-        delivery = await prisma.delivery.findFirst({
-          where: { poNumber: String(deliveryId) }
+    
+    if (uuidRegex.test(deliveryId)) {
+      // Valid UUID format - use findUnique
+      console.log('[SMS] Valid UUID format, using findUnique');
+      try {
+        delivery = await prisma.delivery.findUnique({
+          where: { id: deliveryId }
+        });
+      } catch (prismaErr) {
+        console.error('[SMS] Prisma findUnique error:', prismaErr.message);
+        return res.status(400).json({ 
+          error: 'invalid_delivery_id',
+          message: 'Invalid delivery ID format',
+          detail: prismaErr.message
         });
       }
-      
-      if (!delivery) {
-        throw prismaErr;
+    } else {
+      // Not a valid UUID - try searching by poNumber or other fields
+      console.log('[SMS] Not a valid UUID, trying fallback search by poNumber');
+      try {
+        delivery = await prisma.delivery.findFirst({
+          where: {
+            OR: [
+              { poNumber: deliveryId },
+              { id: { contains: deliveryId } }
+            ]
+          }
+        });
+      } catch (searchErr) {
+        console.error('[SMS] Fallback search error:', searchErr.message);
       }
     }
 
     if (!delivery) {
-      return res.status(404).json({ error: 'delivery_not_found' });
+      console.error('[SMS] Delivery not found for ID:', deliveryId);
+      return res.status(404).json({ 
+        error: 'delivery_not_found',
+        message: `No delivery found with ID: ${deliveryId}`
+      });
     }
+    
+    console.log('[SMS] Found delivery:', delivery.id, 'Customer:', delivery.customer);
 
     if (!delivery.phone) {
       return res.status(400).json({ error: 'no_phone_number' });

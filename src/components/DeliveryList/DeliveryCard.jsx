@@ -12,14 +12,20 @@ export default function DeliveryCard({
   onDragLeave,
   onDrop,
   isDragging,
-  isDragOver
+  isDragOver,
+  onCloseDetailModal
 }) {
   const [showSMSModal, setShowSMSModal] = useState(false);
 
   const handleSMSClick = (e) => {
     e.stopPropagation();
+    // Close any open detail modal first
+    if (onCloseDetailModal) {
+      onCloseDetailModal();
+    }
     if (delivery.phone) {
-      setShowSMSModal(true);
+      // Small delay to let detail modal close animation complete
+      setTimeout(() => setShowSMSModal(true), 100);
     }
   };
   return (
