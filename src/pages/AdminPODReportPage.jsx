@@ -29,8 +29,8 @@ export default function AdminPODReportPage() {
       if (filters.podStatus && filters.podStatus !== 'all') params.append('podStatus', filters.podStatus);
       if (exportFormat) params.append('format', exportFormat);
 
-      if (exportFormat === 'csv') {
-        // Handle CSV download
+      if (exportFormat === 'csv' || exportFormat === 'html') {
+        // Handle CSV/HTML download
         const token = localStorage.getItem('auth_token');
         const clientKey = localStorage.getItem('client_key');
         const apiUrl = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api/admin/reports/pod` : `/api/admin/reports/pod`;
@@ -41,13 +41,13 @@ export default function AdminPODReportPage() {
           }
         });
         
-        if (!response.ok) throw new Error('Failed to download CSV');
+        if (!response.ok) throw new Error(`Failed to download ${exportFormat.toUpperCase()}`);
         
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `pod-report-${Date.now()}.csv`;
+        a.download = exportFormat === 'csv' ? `pod-report-${Date.now()}.csv` : `pod-report-with-images-${Date.now()}.html`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
@@ -71,6 +71,10 @@ export default function AdminPODReportPage() {
 
   const handleExportCSV = () => {
     loadReport('csv');
+  };
+
+  const handleExportWithImages = () => {
+    loadReport('html');
   };
 
   if (loading && !reportData) {
@@ -123,6 +127,14 @@ export default function AdminPODReportPage() {
           >
             <Download className="w-4 h-4" />
             Export CSV
+          </button>
+          <button
+            onClick={handleExportWithImages}
+            disabled={loading}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+          >
+            <Camera className="w-4 h-4" />
+            Export with Images
           </button>
           <button
             onClick={() => loadReport()}

@@ -289,6 +289,188 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
   }
 });
 
+// Helper function to generate HTML report with embedded images
+function generateHTMLReportWithImages(deliveries, stats, dailyData, driverData) {
+  const timestamp = new Date().toLocaleString();
+  
+  // Fetch full delivery data including photos
+  const deliveriesWithImages = deliveries.map(d => ({
+    ...d,
+    // Fetch photos from the database record (will be populated below)
+  }));
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POD Report with Images - ${timestamp}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .header { background: #003d82; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .stat-card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .stat-value { font-size: 28px; font-weight: bold; color: #003d82; }
+        .stat-label { font-size: 14px; color: #666; margin-top: 5px; }
+        .delivery { background: white; margin-bottom: 20px; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); page-break-inside: avoid; }
+        .delivery-header { border-bottom: 2px solid #003d82; padding-bottom: 10px; margin-bottom: 15px; }
+        .delivery-id { font-size: 18px; font-weight: bold; color: #003d82; }
+        .delivery-info { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 15px; }
+        .info-item { padding: 8px 0; }
+        .info-label { font-weight: bold; color: #666; font-size: 12px; }
+        .info-value { color: #333; font-size: 14px; margin-top: 3px; }
+        .pod-section { margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0; }
+        .pod-title { font-size: 16px; font-weight: bold; margin-bottom: 15px; color: #003d82; }
+        .signatures { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 20px; }
+        .signature-box { text-align: center; }
+        .signature-label { font-weight: bold; margin-bottom: 10px; color: #666; }
+        .signature-img { max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px; background: white; }
+        .photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-top: 15px; }
+        .photo-item { text-align: center; }
+        .photo-img { width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px; max-width: 300px; }
+        .badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+        .badge-success { background: #22c55e; color: white; }
+        .badge-warning { background: #f59e0b; color: white; }
+        .badge-danger { background: #ef4444; color: white; }
+        .no-data { color: #999; font-style: italic; }
+        @media print { .delivery { page-break-inside: avoid; } }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📸 POD Report (Proof of Delivery)</h1>
+        <p>Generated: ${timestamp}</p>
+    </div>
+
+    <div class="stats">
+        <div class="stat-card">
+            <div class="stat-value">${stats.totalDelivered || 0}</div>
+            <div class="stat-label">Total Delivered</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">${stats.withPOD || 0}</div>
+            <div class="stat-label">With POD ✓</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">${stats.withoutPOD || 0}</div>
+            <div class="stat-label">Without POD</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">${stats.totalPhotos || 0}</div>
+            <div class="stat-label">Total Photos</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">${stats.podCompletionRate || 0}%</div>
+            <div class="stat-label">POD Completion Rate</div>
+        </div>
+    </div>
+
+    <h2 style="color: #003d82; margin: 30px 0 20px 0;">Delivery Details</h2>
+
+    ${deliveries.map(d => `
+        <div class="delivery">
+            <div class="delivery-header">
+                <div class="delivery-id">
+                    Delivery #${d.id}
+                    ${d.hasPOD ? '<span class="badge badge-success">With POD</span>' : '<span class="badge badge-danger">No POD</span>'}
+                    ${d.podQuality !== 'None' ? `<span class="badge badge-warning">${d.podQuality}</span>` : ''}
+                </div>
+            </div>
+
+            <div class="delivery-info">
+                <div class="info-item">
+                    <div class="info-label">Customer</div>
+                    <div class="info-value">${d.customer || 'N/A'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">PO Number</div>
+                    <div class="info-value">${d.poNumber || 'N/A'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Address</div>
+                    <div class="info-value">${d.address || 'N/A'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Phone</div>
+                    <div class="info-value">${d.phone || 'N/A'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Driver</div>
+                    <div class="info-value">${d.driverName || d.deliveredBy || 'N/A'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Delivered At</div>
+                    <div class="info-value">${d.deliveredAt ? new Date(d.deliveredAt).toLocaleString() : 'N/A'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Items</div>
+                    <div class="info-value">${d.items || 'N/A'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Status</div>
+                    <div class="info-value">${d.status || 'N/A'}</div>
+                </div>
+            </div>
+
+            ${d.conditionNotes ? `
+                <div class="info-item">
+                    <div class="info-label">Notes</div>
+                    <div class="info-value">${d.conditionNotes}</div>
+                </div>
+            ` : ''}
+
+            ${d.hasPOD ? `
+                <div class="pod-section">
+                    <div class="pod-title">Proof of Delivery</div>
+
+                    ${(d.hasDriverSignature || d.hasCustomerSignature) ? `
+                        <div class="signatures">
+                            ${d.hasDriverSignature ? `
+                                <div class="signature-box">
+                                    <div class="signature-label">Driver Signature</div>
+                                    <img src="${d.driverSignature || ''}" class="signature-img" alt="Driver Signature" />
+                                </div>
+                            ` : ''}
+                            ${d.hasCustomerSignature ? `
+                                <div class="signature-box">
+                                    <div class="signature-label">Customer Signature</div>
+                                    <img src="${d.customerSignature || ''}" class="signature-img" alt="Customer Signature" />
+                                </div>
+                            ` : ''}
+                        </div>
+                    ` : ''}
+
+                    ${d.photoCount > 0 ? `
+                        <div>
+                            <div class="signature-label" style="margin-bottom: 10px;">Photos (${d.photoCount})</div>
+                            <div class="photos">
+                                ${(d.photos || []).map((photo, idx) => {
+                                  const photoData = typeof photo === 'string' ? photo : (photo?.data || photo);
+                                  const photoName = typeof photo === 'object' ? photo?.name : `photo-${idx + 1}`;
+                                  return `
+                                    <div class="photo-item">
+                                        <img src="${photoData}" class="photo-img" alt="${photoName || 'Photo'}" />
+                                        <div style="font-size: 12px; color: #666; margin-top: 5px;">${photoName || `Photo ${idx + 1}`}</div>
+                                    </div>
+                                  `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            ` : '<div class="no-data">No POD data available for this delivery</div>'}
+        </div>
+    `).join('')}
+
+    <div style="margin-top: 40px; padding: 20px; background: white; border-radius: 8px; text-align: center; color: #666;">
+        <p>End of Report - Generated by Electrolux Smart Logistics System</p>
+    </div>
+</body>
+</html>`;
+
+  return html;
+}
+
 // GET /api/admin/reports/pod - Dedicated POD Report
 // Shows delivered orders with POD status, images uploaded count, etc.
 router.get('/pod', authenticate, requireRole('admin'), async (req, res) => {
@@ -298,6 +480,17 @@ router.get('/pod', authenticate, requireRole('admin'), async (req, res) => {
 
     console.log('[POD Report] Generating POD report...');
 
+    // First, check total deliveries count for debugging
+    const totalCount = await prisma.delivery.count();
+    const deliveredCount = await prisma.delivery.count({
+      where: {
+        status: {
+          in: ['delivered', 'completed', 'done', 'delivered-with-installation', 'delivered-without-installation']
+        }
+      }
+    });
+    console.log(`[POD Report] Total deliveries in DB: ${totalCount}, Delivered: ${deliveredCount}`);
+
     // Fetch all delivered deliveries from database
     const deliveries = await prisma.delivery.findMany({
       where: {
@@ -305,10 +498,23 @@ router.get('/pod', authenticate, requireRole('admin'), async (req, res) => {
           in: ['delivered', 'completed', 'done', 'delivered-with-installation', 'delivered-without-installation']
         },
         ...(startDate || endDate ? {
-          deliveredAt: {
-            ...(startDate ? { gte: new Date(startDate) } : {}),
-            ...(endDate ? { lte: new Date(endDate) } : {})
-          }
+          OR: [
+            // Filter by deliveredAt if set
+            {
+              deliveredAt: {
+                ...(startDate ? { gte: new Date(startDate) } : {}),
+                ...(endDate ? { lte: new Date(endDate) } : {})
+              }
+            },
+            // Also include deliveries filtered by createdAt (for orders without deliveredAt)
+            {
+              deliveredAt: null,
+              createdAt: {
+                ...(startDate ? { gte: new Date(startDate) } : {}),
+                ...(endDate ? { lte: new Date(endDate) } : {})
+              }
+            }
+          ]
         } : {})
       },
       include: {
@@ -367,6 +573,11 @@ router.get('/pod', authenticate, requireRole('admin'), async (req, res) => {
         photoCount: photoCount,
         conditionNotes: d.conditionNotes,
         deliveryNotes: d.deliveryNotes,
+        
+        // POD Data (for HTML export with images)
+        driverSignature: d.driverSignature,
+        customerSignature: d.customerSignature,
+        photos: d.photos,
         
         // Delivery Information
         deliveredBy: d.deliveredBy,
@@ -512,6 +723,15 @@ router.get('/pod', authenticate, requireRole('admin'), async (req, res) => {
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', `attachment; filename=pod-report-${Date.now()}.csv`);
       return res.send(csv);
+    }
+
+    // If HTML format requested (with images)
+    if (format === 'html') {
+      // Generate HTML report with embedded POD images
+      const html = generateHTMLReportWithImages(filteredDeliveries, stats, dailyData, driverData);
+      res.setHeader('Content-Type', 'text/html');
+      res.setHeader('Content-Disposition', `attachment; filename=pod-report-with-images-${Date.now()}.html`);
+      return res.send(html);
     }
 
     // Return JSON format
