@@ -3,91 +3,132 @@ const router = express.Router();
 const { authenticate, requireRole } = require('../auth');
 const prisma = require('../db/prisma');
 
-const STATUS_LABELS = {
-  cancelled: 'Cancelled',
-  canceled: 'Cancelled',
-  rejected: 'Rejected',
-  rescheduled: 'Rescheduled'
-};
-
-function normalizeStatus(status) {
-  return String(status || '').toLowerCase();
-}
-
-router.get('/', authenticate, requireRole('admin'), async (req, res) => {
+/**
+ * GET /api/notifications/unconfirmed-deliveries
+ * Returns deliveries with SMS sent but not confirmed within 24 hours
+ * Admin only - for notification system
+ */
+router.get('/unconfirmed-deliveries', authenticate, requireRole('admin'), async (req, res) => {
   try {
-    const sinceRaw = req.query.since;
-    const limitRaw = req.query.limit;
-    const limit = Math.min(parseInt(limitRaw || '20', 10) || 20, 100);
-
-    let since = null;
-    if (sinceRaw) {
-      const parsed = new Date(sinceRaw);
-      if (!Number.isNaN(parsed.getTime())) {
-        since = parsed;
-      }
-    }
-
-    const where = {
-      eventType: 'status_updated'
-    };
-
-    if (since) {
-      where.createdAt = { gt: since };
-    }
-
-    const events = await prisma.deliveryEvent.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      take: limit,
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    
+    // Find deliveries where:
+    // 1. SMS was sent (confirmationToken exists)
+    // 2. Status is still pending (not confirmed)
+    // 3. Token was created more than 24 hours ago
+    // 4. Token hasn't expired yet
+    const unconfirmedDeliveries = await prisma.delivery.findMany({
+      where: {
+        confirmationToken: { not: null },
+        confirmationStatus: 'pending',
+        createdAt: { lt: twentyFourHoursAgo },
+        tokenExpiresAt: { gt: new Date() } // Token still valid
+      },
       include: {
-        delivery: {
-          select: {
-            id: true,
-            customer: true,
-            address: true,
-            status: true
-          }
+        smsLogs: {
+          where: { 
+            status: { in: ['sent', 'delivered'] }
+          },
+          orderBy: { sentAt: 'desc' },
+          take: 1
         }
-      }
+      },
+      orderBy: { createdAt: 'asc' }
     });
 
-    const notifications = events
-      .map((event) => {
-        const payload = event.payload || {};
-        const newStatus = normalizeStatus(payload.newStatus || payload.status || event.delivery?.status);
-        const label = STATUS_LABELS[newStatus];
-        const actorType = String(event.actorType || '').toLowerCase();
-
-        if (!label) return null;
-        if (actorType && actorType !== 'customer') return null;
-
-        const customer = event.delivery?.customer || 'Customer';
-        const address = event.delivery?.address ? ` - ${event.delivery.address}` : '';
-
-        return {
-          id: `delivery-${event.id}`,
-          type: 'delivery',
-          status: newStatus,
-          title: `${label} delivery`,
-          message: `${customer}${address}`,
-          timestamp: event.createdAt,
-          deliveryId: event.delivery?.id || null,
-          read: false
-        };
-      })
-      .filter(Boolean);
-
-    const latest = events.length ? events[0].createdAt : null;
+    // Calculate hours since SMS sent
+    const enrichedDeliveries = unconfirmedDeliveries.map(delivery => {
+      const lastSms = delivery.smsLogs[0];
+      const hoursSinceSms = lastSms 
+        ? Math.floor((Date.now() - new Date(lastSms.sentAt).getTime()) / (60 * 60 * 1000))
+        : null;
+      
+      return {
+        id: delivery.id,
+        customer: delivery.customer,
+        address: delivery.address,
+        phone: delivery.phone,
+        poNumber: delivery.poNumber,
+        createdAt: delivery.createdAt,
+        smsSentAt: lastSms?.sentAt,
+        hoursSinceSms,
+        tokenExpiresAt: delivery.tokenExpiresAt
+      };
+    });
 
     res.json({
-      success: true,
-      notifications,
-      latest
+      ok: true,
+      count: enrichedDeliveries.length,
+      deliveries: enrichedDeliveries
     });
   } catch (error) {
-    console.error('Error fetching admin notifications:', error);
-    res.status(500).json({ error: error.message });
+    console.error('[Notifications] Error fetching unconfirmed deliveries:', error);
+    res.status(500).json({ 
+      error: 'fetch_failed', 
+      detail: error.message 
+    });
+  }
+});
+
+/**
+ * GET /api/notifications/count
+ * Returns count of unconfirmed deliveries for badge display
+ * Admin only
+ */
+router.get('/count', authenticate, requireRole('admin'), async (req, res) => {
+  try {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    
+    const count = await prisma.delivery.count({
+      where: {
+        confirmationToken: { not: null },
+        confirmationStatus: 'pending',
+        createdAt: { lt: twentyFourHoursAgo },
+        tokenExpiresAt: { gt: new Date() }
+      }
+    });
+
+    res.json({ ok: true, count });
+  } catch (error) {
+    console.error('[Notifications] Error fetching count:', error);
+    res.status(500).json({ error: 'fetch_failed', detail: error.message });
+  }
+});
+
+/**
+ * POST /api/notifications/resend-sms/:deliveryId
+ * Resend SMS confirmation to customer
+ * Admin only
+ */
+router.post('/resend-sms/:deliveryId', authenticate, requireRole('admin'), async (req, res) => {
+  try {
+    const { deliveryId } = req.params;
+    
+    const delivery = await prisma.delivery.findUnique({
+      where: { id: deliveryId }
+    });
+
+    if (!delivery) {
+      return res.status(404).json({ error: 'delivery_not_found' });
+    }
+
+    if (!delivery.phone) {
+      return res.status(400).json({ error: 'no_phone_number' });
+    }
+
+    // Use SMS service to resend
+    const smsService = require('../sms/smsService');
+    const result = await smsService.sendConfirmationSms(deliveryId, delivery.phone);
+
+    res.json({ 
+      ok: true, 
+      messageId: result.messageId,
+      token: result.token,
+      expiresAt: result.expiresAt
+    });
+  } catch (error) {
+    console.error('[Notifications] Error resending SMS:', error);
+    res.status(500).json({ error: 'resend_failed', detail: error.message });
   }
 });
 

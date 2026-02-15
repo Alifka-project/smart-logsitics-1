@@ -5,6 +5,9 @@ import FileUpload from '../components/Upload/FileUpload';
 import SyntheticDataButton from '../components/Upload/SyntheticDataButton';
 import useDeliveryStore from '../store/useDeliveryStore';
 
+// Check if running in development mode
+const isDevelopment = import.meta.env.DEV || import.meta.env.MODE === 'development';
+
 export default function HomePage() {
   const navigate = useNavigate();
   const deliveries = useDeliveryStore((state) => state.deliveries);
@@ -35,17 +38,20 @@ export default function HomePage() {
           
           <FileUpload onDataLoaded={handleDataLoaded} />
           
-          <div className="mt-8 pt-8 border-t">
-            <p className="text-gray-600 text-center mb-6">
-              Or try out the system with sample data:
-            </p>
-            <div className="flex justify-center">
-              <SyntheticDataButton
-                onDataLoaded={handleDataLoaded}
-                className="w-full sm:w-auto"
-              />
+          {/* Only show synthetic data in development */}
+          {isDevelopment && (
+            <div className="mt-8 pt-8 border-t">
+              <p className="text-gray-600 text-center mb-6">
+                Or try out the system with sample data:
+              </p>
+              <div className="flex justify-center">
+                <SyntheticDataButton
+                  onDataLoaded={handleDataLoaded}
+                  className="w-full sm:w-auto"
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Quick Info */}
           <div className="mt-10 pt-8 border-t">
@@ -87,15 +93,18 @@ export default function HomePage() {
             <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8 mb-8">
               <h2 className="text-2xl font-bold text-gray-800 mb-6">Upload New Delivery Data</h2>
               <FileUpload onDataLoaded={handleDataLoaded} />
-              <div className="mt-6 pt-6 border-t">
-                <p className="text-gray-600 text-sm mb-4">
-                  Or load sample data:
-                </p>
-                <SyntheticDataButton
-                  onDataLoaded={handleDataLoaded}
-                  className="w-full sm:w-auto"
-                />
-              </div>
+              {/* Only show synthetic data in development */}
+              {isDevelopment && (
+                <div className="mt-6 pt-6 border-t">
+                  <p className="text-gray-600 text-sm mb-4">
+                    Or load sample data:
+                  </p>
+                  <SyntheticDataButton
+                    onDataLoaded={handleDataLoaded}
+                    className="w-full sm:w-auto"
+                  />
+                </div>
+              )}
             </div>
           )}
         </>
