@@ -44,7 +44,7 @@ The standard delivery format includes these columns:
 - **`Description`** - Item description
 - `Description_1` / `Description_2` - Additional descriptions
 - `MODEL ID` - Model identifier
-- **`Material`** - Material code
+- **`Material`** - Material code (PNC = Part Number Code; used in dashboard analytics)
 - `Invoice Price` - Invoice price
 - `Net value` - Net value
 - `Orig Req Del. date` - Original requested delivery date
@@ -66,6 +66,7 @@ The standard delivery format includes these columns:
   
 ### Delivery Details
 - **Items:** `Description` + `Material`
+- **PNC (Part Number Code):** Same as `Material` column
 - **Quantity:** `Confirmed quantity`
 - **Route:** `Route` field
 - **Dates:** `Planned GI date`, `Requested Deliv.date`

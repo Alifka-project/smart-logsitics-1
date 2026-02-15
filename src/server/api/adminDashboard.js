@@ -5,6 +5,123 @@ const { authenticate, requireRole } = require('../auth');
 const sapService = require('../../../services/sapService');
 const prisma = require('../db/prisma');
 
+/**
+ * Compute dashboard analytics from deliveries
+ */
+function computeAnalytics(deliveries) {
+  const list = Array.isArray(deliveries) ? deliveries : [];
+
+  // 1. Top 10 customers by order count
+  // Source: customer field (maps from "Ship to party" in delivery format)
+  const customerCount = {};
+  list.forEach((d) => {
+    const cust = (d.customer || '').trim();
+    if (!cust) return;
+    customerCount[cust] = (customerCount[cust] || 0) + 1;
+  });
+  const topCustomers = Object.entries(customerCount)
+    .map(([customer, orders]) => ({ customer, orders }))
+    .sort((a, b) => b.orders - a.orders)
+    .slice(0, 10);
+
+  // 2. Top 10 items with PNC
+  // Item name = Description, PNC = Material Number (Material column from delivery metadata)
+  // Source: metadata.originalRow from uploaded file
+  const itemCount = {};
+  list.forEach((d) => {
+    const meta = d.metadata || {};
+    const orig = meta.originalRow || meta._originalRow || {};
+    const pnc = String(orig.Material || orig.material || orig['Material Number'] || '').trim();
+    const item = String(orig.Description || orig.description || '').trim();
+    const itemsStr = (d.items || '').trim();
+    const itemDisplay = item || (itemsStr ? itemsStr.split(/\s*-\s*/)[0]?.trim() : '') || 'Unspecified';
+    const pncDisplay = pnc || '-';
+    const key = `${itemDisplay}::${pncDisplay}`;
+    if (!itemCount[key]) {
+      itemCount[key] = { item: itemDisplay, pnc: pncDisplay, count: 0 };
+    }
+    itemCount[key].count++;
+  });
+  const topItems = Object.values(itemCount)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+
+  // 3. Delivery area statistics
+  // Source: address (Ship to Street, City, Postal code) and metadata.originalRow.City
+  const areaCount = {};
+  const areaKeywords = [
+    'Marina', 'Jumeirah', 'Jebel Ali', 'Business Bay', 'Downtown', 'Deira', 'Bur Dubai',
+    'Silicon Oasis', 'Motor City', 'Arabian Ranches', 'The Springs', 'Palm', 'Al Barsha',
+    'Al Quoz', 'JLT', 'DIFC', 'Karama', 'Satwa', 'Oud Metha', 'Mirdif', 'Dubai Hills'
+  ];
+  list.forEach((d) => {
+    const addr = (d.address || '').toLowerCase();
+    const city = ((d.metadata?.originalRow || d.metadata?._originalRow || {}).City || '').toLowerCase();
+    const searchStr = addr + ' ' + city;
+    let area = 'Other';
+    for (const kw of areaKeywords) {
+      if (searchStr.includes(kw.toLowerCase())) {
+        area = kw;
+        break;
+      }
+    }
+    areaCount[area] = (areaCount[area] || 0) + 1;
+  });
+  const deliveryByArea = Object.entries(areaCount)
+    .map(([area, count]) => ({ area, count }))
+    .sort((a, b) => b.count - a.count);
+
+  // 4. Monthly delivery statistics (last 12 months)
+  const monthCount = {};
+  const now = new Date();
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    monthCount[key] = { month: key, label: d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' }), count: 0 };
+  }
+  list.forEach((d) => {
+    const t = d.delivered_at || d.deliveredAt || d.created_at || d.createdAt || d.created;
+    if (!t) return;
+    const dt = new Date(t);
+    const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
+    if (monthCount[key]) {
+      monthCount[key].count++;
+    }
+  });
+  const deliveryByMonth = Object.values(monthCount)
+    .sort((a, b) => a.month.localeCompare(b.month));
+
+  // 5. Weekly delivery quantity (last 7 days)
+  const weekDays = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    weekDays.push({
+      date: key,
+      day: d.toLocaleDateString('en-GB', { weekday: 'short' }),
+      count: 0
+    });
+  }
+  list.forEach((d) => {
+    const t = d.delivered_at || d.deliveredAt || d.created_at || d.createdAt || d.created;
+    if (!t) return;
+    const dt = new Date(t);
+    const key = dt.toISOString().slice(0, 10);
+    const found = weekDays.find((w) => w.date === key);
+    if (found) found.count++;
+  });
+  const deliveryByWeek = weekDays;
+
+  return {
+    topCustomers,
+    topItems,
+    deliveryByArea,
+    deliveryByMonth,
+    deliveryByWeek
+  };
+}
+
 // GET /api/admin/dashboard
 router.get('/', authenticate, requireRole('admin'), async (req, res) => {
   try {
@@ -85,6 +202,8 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
         created_at: d.createdAt,
         createdAt: d.createdAt,
         created: d.createdAt,
+        delivered_at: d.deliveredAt,
+        deliveredAt: d.deliveredAt,
         assignedDriverId: d.assignments?.[0]?.driverId || null,
         driverName: d.assignments?.[0]?.driver?.fullName || null,
         // Include assignment status
@@ -200,7 +319,10 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
       }
     }
 
-    res.json({ drivers, recentLocations, smsRecent, totals, recentCounts });
+    // Analytics: Top 10 customers, Top 10 items, delivery area, monthly, weekly
+    const analytics = computeAnalytics(deliveries);
+
+    res.json({ drivers, recentLocations, smsRecent, totals, recentCounts, analytics });
   } catch (err) {
     console.error('[Dashboard] admin/dashboard error:', err.message);
     console.error('[Dashboard] Error code:', err.code);

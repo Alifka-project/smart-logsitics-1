@@ -668,6 +668,162 @@ export default function AdminDashboardPage() {
           </BarChart>
         </ResponsiveContainer>
       </div>
+
+      {/* Analytics Section */}
+      {data?.analytics && (
+        <div className="space-y-6">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Analytics</h2>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* 1. Top 10 Customers */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                <Users className="w-5 h-5 text-primary-600" />
+                Top 10 Customers by Orders
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">#</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Customer</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Orders</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {(data.analytics.topCustomers || []).map((row, idx) => (
+                      <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">{idx + 1}</td>
+                        <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100">{row.customer}</td>
+                        <td className="px-4 py-2 text-sm text-right font-semibold text-primary-600 dark:text-primary-400">{row.orders}</td>
+                      </tr>
+                    ))}
+                    {(!data.analytics.topCustomers || data.analytics.topCustomers.length === 0) && (
+                      <tr><td colSpan={3} className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">No data yet</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* 2. Top 10 Items and PNC - Table and Chart */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                <Package className="w-5 h-5 text-primary-600" />
+                Top 10 Items and PNC
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Item name and PNC (Material Number) from delivery metadata</p>
+              <div className="overflow-x-auto mb-6">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Rank</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Item Name</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">PNC</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Quantity</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {(data.analytics.topItems || []).map((row, idx) => (
+                      <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">{idx + 1}</td>
+                        <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100 truncate max-w-[180px]" title={row.item}>{row.item}</td>
+                        <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 font-mono">{row.pnc}</td>
+                        <td className="px-4 py-2 text-sm text-right font-semibold text-primary-600 dark:text-primary-400">{row.count}</td>
+                      </tr>
+                    ))}
+                    {(!data.analytics.topItems || data.analytics.topItems.length === 0) && (
+                      <tr><td colSpan={4} className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">No data yet</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              {(data.analytics.topItems || []).length > 0 && (
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Quantity by Item Name and PNC</h4>
+                  <ResponsiveContainer width="100%" height={260}>
+                    <BarChart data={(data.analytics.topItems || []).map(r => ({ ...r, label: `${r.item} [${r.pnc}]` }))} layout="vertical" margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-700" />
+                      <XAxis type="number" stroke="#6b7280" />
+                      <YAxis type="category" dataKey="label" width={140} stroke="#6b7280" tick={{ fontSize: 10 }} />
+                      <Tooltip contentStyle={{ backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: '8px' }} formatter={(val, name, props) => [val, `Item: ${props.payload.item} | PNC: ${props.payload.pnc}`]} />
+                      <Bar dataKey="count" fill="#2563EB" radius={[0, 4, 4, 0]} name="Quantity" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* 3. Delivery Area Statistics */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-primary-600" />
+                Delivery Area Statistics
+              </h3>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={data.analytics.deliveryByArea || []} layout="vertical" margin={{ left: 20, right: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-700" />
+                  <XAxis type="number" stroke="#6b7280" />
+                  <YAxis type="category" dataKey="area" width={100} stroke="#6b7280" tick={{ fontSize: 12 }} />
+                  <Tooltip contentStyle={{ backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: '8px' }} />
+                  <Bar dataKey="count" fill="#2563EB" radius={[0, 4, 4, 0]} name="Deliveries" />
+                </BarChart>
+              </ResponsiveContainer>
+              {(!data.analytics.deliveryByArea || data.analytics.deliveryByArea.length === 0) && (
+                <p className="text-center py-8 text-gray-500 dark:text-gray-400">No area data yet</p>
+              )}
+            </div>
+
+            {/* 4. Monthly Delivery Statistics */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-primary-600" />
+                Monthly Delivery Statistics
+              </h3>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={data.analytics.deliveryByMonth || []}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-700" />
+                  <XAxis dataKey="label" stroke="#6b7280" tick={{ fontSize: 11 }} />
+                  <YAxis stroke="#6b7280" />
+                  <Tooltip contentStyle={{ backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: '8px' }} />
+                  <Bar dataKey="count" fill="#10b981" radius={[4, 4, 0, 0]} name="Deliveries" />
+                </BarChart>
+              </ResponsiveContainer>
+              {(!data.analytics.deliveryByMonth || data.analytics.deliveryByMonth.length === 0) && (
+                <p className="text-center py-8 text-gray-500 dark:text-gray-400">No monthly data yet</p>
+              )}
+            </div>
+          </div>
+
+          {/* 5. Delivery Quantity in a Week */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-primary-600" />
+              Delivery Quantity (Last 7 Days)
+            </h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={data.analytics.deliveryByWeek || []}>
+                <defs>
+                  <linearGradient id="colorWeek" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#2563EB" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#2563EB" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-700" />
+                <XAxis dataKey="day" stroke="#6b7280" />
+                <YAxis stroke="#6b7280" />
+                <Tooltip contentStyle={{ backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: '8px' }} />
+                <Area type="monotone" dataKey="count" stroke="#2563EB" fillOpacity={1} fill="url(#colorWeek)" name="Deliveries" />
+              </AreaChart>
+            </ResponsiveContainer>
+            {(!data.analytics.deliveryByWeek || data.analytics.deliveryByWeek.length === 0) && (
+              <p className="text-center py-8 text-gray-500 dark:text-gray-400">No weekly data yet</p>
+            )}
+          </div>
+        </div>
+      )}
         </div>
       )}
 
