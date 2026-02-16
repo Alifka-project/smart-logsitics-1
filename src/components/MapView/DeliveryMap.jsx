@@ -40,6 +40,13 @@ export default function DeliveryMap({ deliveries, route }) {
       minZoom: 10
     }).addTo(mapInstance.current);
 
+    // Force map to render correctly after initialization
+    setTimeout(() => {
+      if (mapInstance.current) {
+        mapInstance.current.invalidateSize();
+      }
+    }, 100);
+
     // Track all markers for bounds calculation
     const allMarkers = [];
 
@@ -247,8 +254,8 @@ export default function DeliveryMap({ deliveries, route }) {
   return (
     <div 
       ref={mapRef} 
-      className="h-[400px] sm:h-[500px] lg:h-[600px] w-full rounded-lg bg-gray-100"
-      style={{ position: 'relative' }}
+      className="h-[400px] sm:h-[500px] lg:h-[600px] w-full rounded-lg bg-gray-100 dark:bg-gray-700"
+      style={{ position: 'relative', zIndex: 1 }}
     />
   );
 }

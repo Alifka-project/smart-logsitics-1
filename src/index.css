@@ -141,19 +141,6 @@
     position: relative;
 }
 
-/* Fix Leaflet map container to fill parent properly */
-.leaflet-container {
-    width: 100% !important;
-    height: 100% !important;
-    position: relative !important;
-    z-index: 1;
-}
-
-.leaflet-container .leaflet-control-container {
-    z-index: 2;
-    overflow: hidden;
-  }
-
   /* Draggable card styles */
   [draggable="true"] {
     @apply touch-none select-none;
@@ -248,10 +235,31 @@
   z-index: 1;
   margin: 0 !important;
   padding: 0 !important;
+  background-color: #f3f4f6 !important;
+}
+
+/* Dark mode for Leaflet map */
+.dark .leaflet-container {
+  background-color: #374151 !important;
 }
 
 .leaflet-container .leaflet-control-container {
   z-index: 2;
+}
+
+/* Fix Leaflet tiles and layers in dark mode */
+.dark .leaflet-tile-pane {
+  opacity: 0.9;
+}
+
+/* Ensure Leaflet popups are visible in dark mode */
+.dark .leaflet-popup-content-wrapper {
+  background-color: #1e293b;
+  color: #f1f5f9;
+}
+
+.dark .leaflet-popup-tip {
+  background-color: #1e293b;
 }
 
 /* Ensure map container div fills properly */
