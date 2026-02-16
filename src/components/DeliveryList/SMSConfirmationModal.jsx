@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Send, Loader, CheckCircle, AlertCircle, MessageCircle, Link2 } from 'lucide-react';
 import api from '../../frontend/apiClient';
 
@@ -7,6 +7,28 @@ export default function SMSConfirmationModal({ delivery, onClose, onSuccess }) {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
   const [smsData, setSmsData] = useState(null);
+
+  // Prevent body scrolling when modal is open
+  useEffect(() => {
+    // Save current body overflow style
+    const originalOverflow = document.body.style.overflow;
+    const originalPaddingRight = document.body.style.paddingRight;
+    
+    // Get scrollbar width
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+    
+    // Prevent scrolling and add padding to prevent layout shift
+    document.body.style.overflow = 'hidden';
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+    
+    // Restore on cleanup
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.body.style.paddingRight = originalPaddingRight;
+    };
+  }, []);
 
   const handleSendSMS = async () => {
     try {
@@ -41,11 +63,11 @@ export default function SMSConfirmationModal({ delivery, onClose, onSuccess }) {
 
   return (
     <div 
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[9999]" 
+      className="fixed inset-0 bg-black/70 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[9999] overflow-y-auto" 
       onClick={onClose}
     >
       <div 
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-md w-full relative transform transition-all"
+        className="bg-white dark:bg-gray-900 rounded-lg shadow-2xl max-w-md w-full relative transform transition-all border border-gray-200 dark:border-gray-700"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -84,20 +106,20 @@ export default function SMSConfirmationModal({ delivery, onClose, onSuccess }) {
 
               {/* SMS Message Preview */}
               <div>
-                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Message Preview:</p>
-                <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 p-3 rounded-lg text-sm text-gray-700 dark:text-gray-300 space-y-2">
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">Message Preview:</p>
+                <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 p-3 rounded-lg text-sm text-gray-700 dark:text-gray-200 space-y-2">
                   <p>Hi {delivery.customer || 'there'},</p>
                   <p>Your order from Electrolux is ready for delivery confirmation.</p>
                   <p>Click to confirm and select your delivery date:</p>
-                  <p className="text-blue-600 dark:text-blue-400 font-semibold break-all">[Confirmation Link]</p>
+                  <p className="text-blue-600 dark:text-blue-300 font-semibold break-all">[Confirmation Link]</p>
                   <p>This link expires in 48 hours.</p>
                 </div>
               </div>
 
               {error && (
-                <div className="bg-red-50 border border-red-200 p-3 rounded-lg flex items-start gap-2">
-                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                  <p className="text-sm text-red-700">{error}</p>
+                <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 p-3 rounded-lg flex items-start gap-2">
+                  <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
                 </div>
               )}
 
@@ -133,24 +155,24 @@ export default function SMSConfirmationModal({ delivery, onClose, onSuccess }) {
               {/* Success State */}
               <div className="text-center py-4">
                 <div className="flex justify-center mb-4">
-                  <div className="bg-green-100 dark:bg-green-900/30 p-3 rounded-full">
+                  <div className="bg-green-100 dark:bg-green-950 p-3 rounded-full border border-green-200 dark:border-green-800">
                     <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
                   </div>
                 </div>
                 
                 <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-2">SMS Sent Successfully!</h3>
                 
-                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 p-4 rounded-lg space-y-3 mb-4 text-left">
+                <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 p-4 rounded-lg space-y-3 mb-4 text-left">
                   <div>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Confirmation Link Expires:</p>
-                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                    <p className="text-xs text-gray-600 dark:text-gray-300 mb-1">Confirmation Link Expires:</p>
+                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
                       {smsData?.expiresAt ? new Date(smsData.expiresAt).toLocaleString() : '48 hours from now'}
                     </p>
                   </div>
                   
                   {smsData?.token && (
                     <div>
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1 flex items-center gap-1">
+                      <p className="text-xs text-gray-600 dark:text-gray-300 mb-1 flex items-center gap-1">
                         <Link2 className="w-3 h-3" />
                         Share Link (copy-paste):
                       </p>
@@ -158,13 +180,13 @@ export default function SMSConfirmationModal({ delivery, onClose, onSuccess }) {
                         type="text"
                         value={`${window.location.origin}/confirm-delivery/${smsData.token}`}
                         readOnly
-                        className="w-full text-xs px-2 py-1 border border-green-300 dark:border-green-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded font-mono"
+                        className="w-full text-xs px-2 py-1 border border-green-300 dark:border-green-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded font-mono"
                       />
                     </div>
                   )}
                 </div>
 
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
                   Customer will receive the confirmation link via SMS to {delivery.phone}
                 </p>
               </div>
