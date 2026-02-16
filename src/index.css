@@ -220,7 +220,6 @@
   .dark .text-gray-600:not(.no-dark) {
     color: #cbd5e1;
   }
-}
 
   .animate-fade-in {
     animation: fade-in 0.3s ease-out;
