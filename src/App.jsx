@@ -80,6 +80,7 @@ function App() {
         
         {/* Customer Portal - Public routes (token-based access) */}
         <Route path="/confirm-delivery/:token" element={<CustomerConfirmationPage />} />
+        <Route path="/tracking/:token" element={<CustomerTrackingPage />} />
         <Route path="/customer-tracking/:token" element={<CustomerTrackingPage />} />
 
         {/* Protected routes - with header and navigation */}
