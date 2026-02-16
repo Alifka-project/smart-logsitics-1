@@ -157,10 +157,10 @@ function validateLocationsForRouting(locations) {
 }
 
 /**
- * Split large datasets into manageable chunks for Valhalla routing
- * Valhalla typically supports 25-30 waypoints per request
+ * Split large datasets into manageable chunks for routing
+ * OSRM typically supports up to 100 waypoints per request
  */
-function splitLocationsForRouting(locations, maxWaypoints = 25) {
+function splitLocationsForRouting(locations, maxWaypoints = 50) {
   if (locations.length <= maxWaypoints) {
     return [locations];
   }
@@ -178,57 +178,46 @@ function splitLocationsForRouting(locations, maxWaypoints = 25) {
 }
 
 /**
- * Calculate route for a single chunk of locations
+ * Calculate route for a single chunk of locations using OSRM
  */
 async function calculateRouteChunk(locations) {
-  // Use Valhalla routing service with proper road-following parameters
-  // Simplified request to ensure it works
-  const requestBody = {
-    locations: locations.map(loc => ({ 
-      lat: loc.lat, 
-      lon: loc.lng 
-    })),
-    costing: 'auto', // Use 'auto' for driving routes that follow roads
-    directions_options: { 
-      units: 'kilometers',
-      language: 'en'
-    }
-  };
-
-  let response;
+  // Use OSRM routing service (Valhalla has CORS issues)
   try {
-    response = await axios.post(
-      'https://valhalla1.openstreetmap.de/route',
-      requestBody,
-      {
-        timeout: 45000,
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      }
-    );
+    // Format coordinates for OSRM API: "lng,lat;lng,lat;..."
+    const coordinates = locations.map(loc => `${loc.lng},${loc.lat}`).join(';');
+    
+    // Use public OSRM demo server (driving profile)
+    const url = `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson&steps=true`;
+    
+    console.log(`[Routing] Calling OSRM with ${locations.length} waypoints`);
+    
+    const response = await axios.get(url, {
+      timeout: 45000
+    });
+
+    if (!response.data || response.data.code !== 'Ok') {
+      throw new Error(`OSRM routing failed: ${response.data?.code || 'Unknown error'}`);
+    }
+
+    const route = response.data.routes[0];
+    if (!route || !route.geometry || !route.geometry.coordinates) {
+      throw new Error('Invalid OSRM response - no geometry');
+    }
+
+    // Convert GeoJSON coordinates [lng, lat] to [lat, lng] format for Leaflet
+    const coordinates_fixed = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
+
+    // Return in format compatible with the rest of the code
+    return {
+      legs: route.legs || [],
+      coordinates: coordinates_fixed,
+      distance: route.distance, // meters
+      duration: route.duration // seconds
+    };
   } catch (error) {
-    console.error('[Routing] Valhalla API error:', error.response?.data || error.message);
-    throw new Error(`Valhalla routing failed: ${error.response?.data?.error || error.message}`);
+    console.error('[Routing] OSRM API error:', error.response?.data || error.message);
+    throw new Error(`OSRM routing failed: ${error.response?.data?.error || error.message}`);
   }
-
-  if (!response.data || !response.data.trip) {
-    console.error('Invalid Valhalla response:', response.data);
-    throw new Error('Invalid response from routing service - no trip data');
-  }
-
-  // Validate that the trip has legs with shapes (road-following coordinates)
-  if (!response.data.trip.legs || response.data.trip.legs.length === 0) {
-    throw new Error('No route legs returned from routing service');
-  }
-
-  // Verify that legs have shapes (encoded polylines with road coordinates)
-  const hasShapes = response.data.trip.legs.some(leg => leg.shape && leg.shape.length > 0);
-  if (!hasShapes) {
-    console.warn('Warning: Route legs missing shape data - may result in straight lines');
-  }
-
-  return response.data.trip;
 }
 
 /**
@@ -275,61 +264,51 @@ export async function calculateRoute(locations, deliveries = null, useAI = true)
       coordinates: finalLocations.map(l => `(${l.lat.toFixed(4)}, ${l.lng.toFixed(4)})`)
     });
 
-    // Split large datasets into chunks for Valhalla routing
-    const chunks = splitLocationsForRouting(finalLocations, 25);
+    // Split large datasets into chunks for OSRM routing
+    const chunks = splitLocationsForRouting(finalLocations, 50);
     console.log(`[Routing] Split ${finalLocations.length} locations into ${chunks.length} chunks`);
 
     let allCoordinates = [];
     let totalDistance = 0;
     let totalTime = 0;
     const allLegs = [];
-    const allInstructions = [];
 
     // Process each chunk
     for (let i = 0; i < chunks.length; i++) {
       try {
         console.log(`[Routing] Processing chunk ${i + 1}/${chunks.length} (${chunks[i].length} waypoints)`);
-        const trip = await calculateRouteChunk(chunks[i]);
+        const routeData = await calculateRouteChunk(chunks[i]);
 
-        if (trip.legs && trip.legs.length > 0) {
-          trip.legs.forEach((leg, idx) => {
-            if (leg.shape && leg.shape.length > 0) {
-              try {
-                const coords = decodePolyline(leg.shape);
-                if (coords && coords.length > 0) {
-                  // Validate coordinates are valid (lat/lng pairs)
-                  const validCoords = coords.filter(coord => 
-                    Array.isArray(coord) && 
-                    coord.length === 2 && 
-                    !isNaN(coord[0]) && 
-                    !isNaN(coord[1]) &&
-                    coord[0] >= -90 && coord[0] <= 90 &&
-                    coord[1] >= -180 && coord[1] <= 180
-                  );
-                  if (validCoords.length > 0) {
-                    allCoordinates = allCoordinates.concat(validCoords);
-                    console.log(`  Leg ${idx + 1}: ${validCoords.length} road-following coordinates`);
-                  } else {
-                    console.warn(`  Leg ${idx + 1}: No valid coordinates after decoding`);
-                  }
-                }
-              } catch (decodeError) {
-                console.error(`  Leg ${idx + 1}: Failed to decode polyline:`, decodeError);
-              }
-            } else {
-              console.warn(`  Leg ${idx + 1}: No shape data in route leg`);
-            }
-            totalDistance += leg.summary?.length || 0;
-            totalTime += leg.summary?.time || 0;
-          });
-          allLegs.push(...trip.legs);
-          if (trip.legs[0]?.maneuvers) {
-            allInstructions.push(...trip.legs.flatMap(leg => leg.maneuvers || []));
+        // OSRM returns coordinates directly (already converted to [lat, lng])
+        if (routeData.coordinates && routeData.coordinates.length > 0) {
+          const validCoords = routeData.coordinates.filter(coord => 
+            Array.isArray(coord) && 
+            coord.length === 2 && 
+            !isNaN(coord[0]) && 
+            !isNaN(coord[1]) &&
+            coord[0] >= -90 && coord[0] <= 90 &&
+            coord[1] >= -180 && coord[1] <= 180
+          );
+          
+          if (validCoords.length > 0) {
+            allCoordinates = allCoordinates.concat(validCoords);
+            console.log(`  Chunk ${i + 1}: ${validCoords.length} road-following coordinates`);
+          } else {
+            console.warn(`  Chunk ${i + 1}: No valid coordinates`);
           }
+          
+          totalDistance += routeData.distance || 0; // meters
+          totalTime += routeData.duration || 0; // seconds
+          
+          if (routeData.legs) {
+            allLegs.push(...routeData.legs);
+          }
+        } else {
+          console.warn(`  Chunk ${i + 1}: No coordinates in route data`);
         }
       } catch (chunkError) {
         console.error(`[Routing] Chunk ${i + 1} routing failed:`, chunkError.message);
-        // Don't add straight lines - throw to prevent fallback
+        // Don't add straight lines - throw to trigger fallback
         throw chunkError;
       }
     }
@@ -339,7 +318,7 @@ export async function calculateRoute(locations, deliveries = null, useAI = true)
       console.error('[Routing] CRITICAL: No road-following coordinates decoded!');
       throw new Error('Failed to decode road-following route - no coordinates available');
     } else {
-      console.log(`[Routing] Successfully decoded ${allCoordinates.length} road-following coordinates`);
+      console.log(`[Routing] Successfully got ${allCoordinates.length} road-following coordinates`);
     }
 
     const result = {
@@ -349,7 +328,7 @@ export async function calculateRoute(locations, deliveries = null, useAI = true)
       time: totalTime,
       timeHours: totalTime / 3600,
       legs: allLegs,
-      instructions: allInstructions,
+      instructions: [],
       locationsCount: finalLocations.length,
       isFallback: false,
       optimization: optimization,

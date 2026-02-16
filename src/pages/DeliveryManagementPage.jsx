@@ -8,7 +8,6 @@ import StatsCards from '../components/Analytics/StatsCards';
 import DeliveryMap from '../components/MapView/DeliveryMap';
 // import DirectionsPanel from '../components/MapView/DirectionsPanel'; // Hidden for now
 import { calculateRoute, generateFallbackRoute } from '../services/advancedRoutingService';
-import { calculateRouteWithOSRM } from '../services/osrmRoutingService';
 import useDeliveryStore from '../store/useDeliveryStore';
 import { useToast } from '../hooks/useToast';
 import { ToastContainer } from '../components/common/Toast';
@@ -49,31 +48,33 @@ export default function DeliveryManagementPage() {
       ];
       
       try {
+        // Try OSRM-based routing first
         const routeData = await calculateRoute(locations, deliveries, true);
         setRoute(routeData);
         setIsOptimized(routeData.optimized === true);
+        console.log('✅ Route calculated successfully:', { 
+          distance: routeData.distanceKm.toFixed(2),
+          coordinates: routeData.coordinates?.length 
+        });
       } catch (apiError) {
-        console.warn('Advanced route calculation failed, trying OSRM routing:', apiError.message);
+        console.warn('⚠️ Route calculation failed, using fallback:', apiError.message);
         
-        // Try OSRM as backup (road-following)
-        try {
-          const osrmRoute = await calculateRouteWithOSRM(locations);
-          setRoute(osrmRoute);
-          // Don't show error - OSRM is working fine, just a different service
-          setRouteError(null); // OSRM works well, no need to show message
-          setIsFallback(false); // OSRM is still road-following, not a straight-line fallback
-          console.log('OSRM routing successful:', { distance: osrmRoute.distanceKm.toFixed(2) });
-        } catch (osrmError) {
-          console.error('OSRM routing also failed, using fallback:', osrmError.message);
-          setRouteError('Using simplified route (road routing unavailable)');
-          setIsFallback(true);
-          const fallbackRoute = generateFallbackRoute(locations);
-          setRoute(fallbackRoute);
-        }
+        // Use fallback straight-line route so map still displays
+        setRouteError('Using simplified route (road routing unavailable)');
+        setIsFallback(true);
+        const fallbackRoute = generateFallbackRoute(locations);
+        setRoute(fallbackRoute);
+        console.log('📍 Fallback route generated');
       }
     } catch (err) {
-      console.error('Fatal error loading route:', err);
-      setRouteError('Failed to generate route. Please try again.');
+      console.error('❌ Fatal error loading route:', err);
+      setRouteError('Failed to generate route. Showing delivery locations only.');
+      // Set a minimal route so map still shows markers
+      const locations = [
+        { lat: 25.0053, lng: 55.0760 },
+        ...deliveries.map(d => ({ lat: d.lat, lng: d.lng }))
+      ];
+      setRoute(generateFallbackRoute(locations));
     } finally {
       setIsLoadingRoute(false);
     }
