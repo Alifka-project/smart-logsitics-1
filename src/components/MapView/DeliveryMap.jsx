@@ -40,12 +40,23 @@ export default function DeliveryMap({ deliveries, route }) {
       minZoom: 10
     }).addTo(mapInstance.current);
 
-    // Force map to render correctly after initialization
-    setTimeout(() => {
+    // Force map to render correctly after initialization with multiple checks
+    // This ensures the map properly sizes even when switching tabs
+    const invalidateSizeWithRetry = () => {
       if (mapInstance.current) {
         mapInstance.current.invalidateSize();
+        console.log('Map invalidateSize() called');
       }
-    }, 100);
+    };
+
+    // Call immediately
+    setTimeout(invalidateSizeWithRetry, 0);
+    // Call again after short delay
+    setTimeout(invalidateSizeWithRetry, 100);
+    // Call again after longer delay to handle tab switching
+    setTimeout(invalidateSizeWithRetry, 300);
+    // Final call to ensure map is properly sized
+    setTimeout(invalidateSizeWithRetry, 500);
 
     // Track all markers for bounds calculation
     const allMarkers = [];
@@ -210,6 +221,8 @@ export default function DeliveryMap({ deliveries, route }) {
           const bounds = routeLine.getBounds();
           if (bounds.isValid()) {
             mapInstance.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+            // Force resize after fitting bounds
+            setTimeout(() => mapInstance.current?.invalidateSize(), 100);
           }
         } catch (e) {
           console.warn('Could not fit route bounds:', e);
@@ -222,6 +235,8 @@ export default function DeliveryMap({ deliveries, route }) {
           try {
             const group = new L.featureGroup(allMarkers);
             mapInstance.current.fitBounds(group.getBounds(), { padding: [50, 50], maxZoom: 14 });
+            // Force resize after fitting bounds
+            setTimeout(() => mapInstance.current?.invalidateSize(), 100);
           } catch (e) {
             console.warn('Could not fit marker bounds:', e);
           }
@@ -235,12 +250,22 @@ export default function DeliveryMap({ deliveries, route }) {
           const bounds = group.getBounds();
           if (bounds.isValid()) {
             mapInstance.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
+            // Force resize after fitting bounds
+            setTimeout(() => mapInstance.current?.invalidateSize(), 100);
           }
         } catch (e) {
           console.warn('Could not fit marker bounds:', e);
         }
       }
     }
+
+    // Final invalidateSize call to ensure map is visible after all operations
+    setTimeout(() => {
+      if (mapInstance.current) {
+        mapInstance.current.invalidateSize();
+        console.log('Final map invalidateSize() called after all markers/routes added');
+      }
+    }, 600);
 
     return () => {
       routeLayers.current = [];
@@ -255,7 +280,12 @@ export default function DeliveryMap({ deliveries, route }) {
     <div 
       ref={mapRef} 
       className="h-[400px] sm:h-[500px] lg:h-[600px] w-full rounded-lg bg-gray-100 dark:bg-gray-700"
-      style={{ position: 'relative', zIndex: 1 }}
+      style={{ 
+        position: 'relative', 
+        zIndex: 1,
+        minHeight: '400px',
+        overflow: 'hidden'
+      }}
     />
   );
 }
