@@ -129,9 +129,28 @@ export default function SMSConfirmationModal({ delivery, onClose, onSuccess }) {
               </div>
 
               {error && (
-                <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 p-3 rounded-lg flex items-start gap-2">
-                  <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-                  <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+                <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 p-4 rounded-lg space-y-2">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-red-700 dark:text-red-300 mb-1">Error Sending SMS</p>
+                      <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+                    </div>
+                  </div>
+                  
+                  {/* Helpful troubleshooting info */}
+                  <div className="bg-red-100 dark:bg-red-900/30 p-3 rounded border border-red-300 dark:border-red-800">
+                    <p className="text-xs text-red-700 dark:text-red-300 font-semibold mb-2">Troubleshooting:</p>
+                    <ul className="text-xs text-red-600 dark:text-red-400 space-y-1 list-disc list-inside">
+                      <li>Check if this delivery exists in the database</li>
+                      <li>Verify the delivery has a valid phone number</li>
+                      <li>Ensure Twilio credentials are set on Vercel</li>
+                      <li>Check server logs for detailed error</li>
+                    </ul>
+                    <p className="text-xs text-red-700 dark:text-red-300 mt-2">
+                      <strong>Delivery ID:</strong> <code className="bg-red-200 dark:bg-red-900 px-1 py-0.5 rounded">{delivery.id || delivery.ID || 'unknown'}</code>
+                    </p>
+                  </div>
                 </div>
               )}
 
@@ -174,33 +193,77 @@ export default function SMSConfirmationModal({ delivery, onClose, onSuccess }) {
                 
                 <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-2">SMS Sent Successfully!</h3>
                 
-                <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 p-4 rounded-lg space-y-3 mb-4 text-left">
+                <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+                  Customer will receive the confirmation link via SMS to <span className="font-semibold text-gray-800 dark:text-gray-100">{delivery.phone}</span>
+                </p>
+
+                <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 p-4 rounded-lg space-y-4 mb-4 text-left">
+                  {/* Expiration Time */}
                   <div>
-                    <p className="text-xs text-gray-600 dark:text-gray-300 mb-1">Confirmation Link Expires:</p>
-                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-1 font-semibold">Link Expires:</p>
+                    <p className="text-sm text-gray-800 dark:text-gray-100">
                       {smsData?.expiresAt ? new Date(smsData.expiresAt).toLocaleString() : '48 hours from now'}
                     </p>
                   </div>
                   
+                  {/* Confirmation Link */}
                   {smsData?.token && (
-                    <div>
-                      <p className="text-xs text-gray-600 dark:text-gray-300 mb-1 flex items-center gap-1">
-                        <Link2 className="w-3 h-3" />
-                        Share Link (copy-paste):
-                      </p>
-                      <input
-                        type="text"
-                        value={`${window.location.origin}/confirm-delivery/${smsData.token}`}
-                        readOnly
-                        className="w-full text-xs px-2 py-1 border border-green-300 dark:border-green-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded font-mono"
-                      />
-                    </div>
+                    <>
+                      <div className="border-t border-green-200 dark:border-green-800 pt-3">
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 flex items-center gap-1 font-semibold">
+                          <Link2 className="w-3 h-3" />
+                          Customer Confirmation Link:
+                        </p>
+                        <a
+                          href={`${window.location.origin}/confirm-delivery/${smsData.token}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block w-full text-sm px-3 py-2 bg-blue-50 dark:bg-blue-950 border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-300 rounded hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors font-medium break-all text-center"
+                        >
+                          Open Confirmation Page →
+                        </a>
+                        <input
+                          type="text"
+                          value={`${window.location.origin}/confirm-delivery/${smsData.token}`}
+                          readOnly
+                          onClick={(e) => e.target.select()}
+                          className="mt-2 w-full text-xs px-2 py-1.5 border border-green-300 dark:border-green-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded font-mono cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
+                          title="Click to select and copy"
+                        />
+                      </div>
+
+                      {/* Tracking Link */}
+                      <div className="border-t border-green-200 dark:border-green-800 pt-3">
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 flex items-center gap-1 font-semibold">
+                          <Link2 className="w-3 h-3" />
+                          Customer Tracking Link:
+                        </p>
+                        <a
+                          href={`${window.location.origin}/tracking/${smsData.token}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block w-full text-sm px-3 py-2 bg-purple-50 dark:bg-purple-950 border border-purple-300 dark:border-purple-700 text-purple-600 dark:text-purple-300 rounded hover:bg-purple-100 dark:hover:bg-purple-900 transition-colors font-medium break-all text-center"
+                        >
+                          Open Tracking Page →
+                        </a>
+                        <input
+                          type="text"
+                          value={`${window.location.origin}/tracking/${smsData.token}`}
+                          readOnly
+                          onClick={(e) => e.target.select()}
+                          className="mt-2 w-full text-xs px-2 py-1.5 border border-green-300 dark:border-green-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded font-mono cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
+                          title="Click to select and copy"
+                        />
+                      </div>
+                    </>
                   )}
                 </div>
 
-                <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-                  Customer will receive the confirmation link via SMS to {delivery.phone}
-                </p>
+                <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 p-3 rounded-lg">
+                  <p className="text-xs text-blue-700 dark:text-blue-300">
+                    💡 <span className="font-semibold">Tip:</span> You can also share these links directly with the customer via WhatsApp, email, or any messaging app.
+                  </p>
+                </div>
               </div>
 
               {/* Close Button */}
