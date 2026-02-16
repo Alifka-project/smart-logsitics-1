@@ -234,18 +234,11 @@ export default function Header() {
       }
 
       // Admin: get delivery status notifications (cancelled/rejected/rescheduled)
+      // Note: This endpoint is currently not implemented, keeping deliveryNotifications empty
+      // TODO: Implement /admin/notifications endpoint if needed for delivery status changes
       if (userRole === 'admin') {
-        try {
-          const lastFetch = localStorage.getItem(adminNotificationFetchKey);
-          const query = lastFetch ? `?since=${encodeURIComponent(lastFetch)}` : '';
-          const response = await api.get(`/admin/notifications${query}`);
-          deliveryNotifications = response.data?.notifications || [];
-          if (response.data?.latest) {
-            localStorage.setItem(adminNotificationFetchKey, response.data.latest);
-          }
-        } catch (e) {
-          console.error('Failed to load delivery notifications:', e);
-        }
+        // Delivery notifications disabled until endpoint is properly implemented
+        deliveryNotifications = [];
       }
 
       let shouldPlaySound = false;

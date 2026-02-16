@@ -199,6 +199,42 @@
     }
   }
 
+  /* Prevent modal flickering during scroll */
+  .fixed {
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+  }
+
+  /* Smooth scrolling for all scrollable elements */
+  * {
+    scroll-behavior: smooth;
+  }
+
+  /* Prevent layout shifts during scroll */
+  body {
+    overflow-anchor: auto;
+  }
+
+  /* Dark mode improvements for cards and surfaces */
+  .dark .bg-white:not(.no-dark) {
+    background-color: #1e293b;
+  }
+
+  .dark .border-gray-200:not(.no-dark) {
+    border-color: #334155;
+  }
+
+  .dark .text-gray-800:not(.no-dark) {
+    color: #f1f5f9;
+  }
+
+  .dark .text-gray-600:not(.no-dark) {
+    color: #cbd5e1;
+  }
+}
+
   .animate-fade-in {
     animation: fade-in 0.3s ease-out;
   }

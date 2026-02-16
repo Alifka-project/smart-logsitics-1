@@ -41,23 +41,22 @@ export default function SMSConfirmationModal({ delivery, onClose, onSuccess }) {
 
   return (
     <div 
-      className="fixed inset-0 bg-black/60 flex items-center justify-center p-4" 
-      style={{ zIndex: 99999 }}
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[9999]" 
       onClick={onClose}
     >
       <div 
-        className="bg-white rounded-lg shadow-2xl max-w-md w-full relative"
+        className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-md w-full relative transform transition-all"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-3">
-            <MessageCircle className="w-6 h-6 text-blue-600" />
-            <h2 className="text-xl font-bold">Send Confirmation SMS</h2>
+            <MessageCircle className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Send Confirmation SMS</h2>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
           >
             <X className="w-6 h-6" />
           </button>
@@ -68,29 +67,29 @@ export default function SMSConfirmationModal({ delivery, onClose, onSuccess }) {
           {!success ? (
             <>
               {/* Delivery Info */}
-              <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+              <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg space-y-2">
                 <div>
-                  <p className="text-sm text-gray-600">Customer</p>
-                  <p className="font-semibold text-gray-800">{delivery.customer}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Customer</p>
+                  <p className="font-semibold text-gray-800 dark:text-gray-100">{delivery.customer}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Phone</p>
-                  <p className="font-semibold text-gray-800">{delivery.phone}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Phone</p>
+                  <p className="font-semibold text-gray-800 dark:text-gray-100">{delivery.phone}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Address</p>
-                  <p className="font-semibold text-gray-800 text-sm">{delivery.address}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Address</p>
+                  <p className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{delivery.address}</p>
                 </div>
               </div>
 
               {/* SMS Message Preview */}
               <div>
-                <p className="text-sm font-semibold text-gray-700 mb-2">Message Preview:</p>
-                <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg text-sm text-gray-700 space-y-2">
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Message Preview:</p>
+                <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 p-3 rounded-lg text-sm text-gray-700 dark:text-gray-300 space-y-2">
                   <p>Hi {delivery.customer || 'there'},</p>
                   <p>Your order from Electrolux is ready for delivery confirmation.</p>
                   <p>Click to confirm and select your delivery date:</p>
-                  <p className="text-blue-600 font-semibold break-all">[Confirmation Link]</p>
+                  <p className="text-blue-600 dark:text-blue-400 font-semibold break-all">[Confirmation Link]</p>
                   <p>This link expires in 48 hours.</p>
                 </div>
               </div>
@@ -106,14 +105,14 @@ export default function SMSConfirmationModal({ delivery, onClose, onSuccess }) {
               <div className="flex gap-3 pt-2">
                 <button
                   onClick={onClose}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-semibold"
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-semibold"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSendSMS}
                   disabled={loading}
-                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg transition-colors font-semibold flex items-center justify-center gap-2"
+                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 text-white rounded-lg transition-colors font-semibold flex items-center justify-center gap-2"
                 >
                   {loading ? (
                     <>
@@ -134,24 +133,24 @@ export default function SMSConfirmationModal({ delivery, onClose, onSuccess }) {
               {/* Success State */}
               <div className="text-center py-4">
                 <div className="flex justify-center mb-4">
-                  <div className="bg-green-100 p-3 rounded-full">
-                    <CheckCircle className="w-8 h-8 text-green-600" />
+                  <div className="bg-green-100 dark:bg-green-900/30 p-3 rounded-full">
+                    <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
                   </div>
                 </div>
                 
-                <h3 className="text-lg font-bold text-gray-800 mb-2">SMS Sent Successfully!</h3>
+                <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-2">SMS Sent Successfully!</h3>
                 
-                <div className="bg-green-50 border border-green-200 p-4 rounded-lg space-y-3 mb-4 text-left">
+                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 p-4 rounded-lg space-y-3 mb-4 text-left">
                   <div>
-                    <p className="text-xs text-gray-600 mb-1">Confirmation Link Expires:</p>
-                    <p className="text-sm font-semibold text-gray-800">
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Confirmation Link Expires:</p>
+                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
                       {smsData?.expiresAt ? new Date(smsData.expiresAt).toLocaleString() : '48 hours from now'}
                     </p>
                   </div>
                   
                   {smsData?.token && (
                     <div>
-                      <p className="text-xs text-gray-600 mb-1 flex items-center gap-1">
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1 flex items-center gap-1">
                         <Link2 className="w-3 h-3" />
                         Share Link (copy-paste):
                       </p>
@@ -159,13 +158,13 @@ export default function SMSConfirmationModal({ delivery, onClose, onSuccess }) {
                         type="text"
                         value={`${window.location.origin}/confirm-delivery/${smsData.token}`}
                         readOnly
-                        className="w-full text-xs px-2 py-1 border border-green-300 bg-white rounded font-mono"
+                        className="w-full text-xs px-2 py-1 border border-green-300 dark:border-green-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded font-mono"
                       />
                     </div>
                   )}
                 </div>
 
-                <p className="text-sm text-gray-600 mb-4">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                   Customer will receive the confirmation link via SMS to {delivery.phone}
                 </p>
               </div>

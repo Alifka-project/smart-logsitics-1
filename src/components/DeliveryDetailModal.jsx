@@ -100,12 +100,11 @@ export default function DeliveryDetailModal({ delivery, isOpen, onClose, onStatu
 
   return (
     <div 
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4" 
-      style={{ zIndex: 9998 }}
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[9998]" 
       onClick={onClose}
     >
       <div 
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto transform transition-all"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
