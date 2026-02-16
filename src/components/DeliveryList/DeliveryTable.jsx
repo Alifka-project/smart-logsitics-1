@@ -22,7 +22,8 @@ export default function DeliveryTable({ onSelectDelivery, onCloseDetailModal }) 
   // Update local items when deliveries change from store
   useEffect(() => {
     setItems(deliveries);
-  }, [deliveries, setItems]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deliveries]);
 
   const handleCardDrop = (dropIndex) => {
     handleDrop(dropIndex);
