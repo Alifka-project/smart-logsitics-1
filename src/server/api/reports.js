@@ -479,6 +479,7 @@ router.get('/pod', authenticate, requireRole('admin'), async (req, res) => {
     // podStatus can be: 'with-pod', 'without-pod', 'all'
 
     console.log('[POD Report] Generating POD report...');
+    console.log('[POD Report] Raw date params:', { startDate, endDate });
 
     // First, check total deliveries count for debugging
     const totalCount = await prisma.delivery.count();
@@ -491,27 +492,40 @@ router.get('/pod', authenticate, requireRole('admin'), async (req, res) => {
     });
     console.log(`[POD Report] Total deliveries in DB: ${totalCount}, Delivered: ${deliveredCount}`);
 
+    // Parse and adjust dates to handle timezone issues
+    let parsedStartDate, parsedEndDate;
+    if (startDate) {
+      parsedStartDate = new Date(startDate);
+      parsedStartDate.setHours(0, 0, 0, 0); // Start of day
+      console.log('[POD Report] Start date:', parsedStartDate.toISOString());
+    }
+    if (endDate) {
+      parsedEndDate = new Date(endDate);
+      parsedEndDate.setHours(23, 59, 59, 999); // End of day
+      console.log('[POD Report] End date:', parsedEndDate.toISOString());
+    }
+
     // Fetch all delivered deliveries from database
     const deliveries = await prisma.delivery.findMany({
       where: {
         status: {
           in: ['delivered', 'completed', 'done', 'delivered-with-installation', 'delivered-without-installation']
         },
-        ...(startDate || endDate ? {
+        ...(parsedStartDate || parsedEndDate ? {
           OR: [
             // Filter by deliveredAt if set
             {
               deliveredAt: {
-                ...(startDate ? { gte: new Date(startDate) } : {}),
-                ...(endDate ? { lte: new Date(endDate) } : {})
+                ...(parsedStartDate ? { gte: parsedStartDate } : {}),
+                ...(parsedEndDate ? { lte: parsedEndDate } : {})
               }
             },
             // Also include deliveries filtered by createdAt (for orders without deliveredAt)
             {
               deliveredAt: null,
               createdAt: {
-                ...(startDate ? { gte: new Date(startDate) } : {}),
-                ...(endDate ? { lte: new Date(endDate) } : {})
+                ...(parsedStartDate ? { gte: parsedStartDate } : {}),
+                ...(parsedEndDate ? { lte: parsedEndDate } : {})
               }
             }
           ]

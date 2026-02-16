@@ -20,6 +20,23 @@ const useDeliveryStore = create((set, get) => ({
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const deliveries = JSON.parse(stored);
+        
+        // ✅ CHECK: If deliveries have fake IDs (delivery-1, delivery-2), clear them
+        const hasFakeIds = deliveries.some(d => {
+          const id = d.id || '';
+          // Check if ID is in format "delivery-X" (fake ID) instead of UUID
+          return id.match(/^delivery-\d+$/);
+        });
+        
+        if (hasFakeIds) {
+          console.warn('[Store] ⚠️ Detected old fake IDs (delivery-1, etc). Clearing localStorage.');
+          console.warn('[Store] Please re-upload your deliveries to get database UUIDs.');
+          localStorage.removeItem(STORAGE_KEY);
+          set({ deliveries: [] });
+          return [];
+        }
+        
+        console.log(`[Store] ✓ Loaded ${deliveries.length} deliveries from localStorage with valid UUIDs`);
         set({ deliveries });
         return deliveries;
       }
@@ -41,6 +58,15 @@ const useDeliveryStore = create((set, get) => ({
   // Actions
   loadDeliveries: (data) => {
     try {
+      console.log(`[Store] Loading ${data.length} deliveries...`);
+      
+      // Check first delivery ID to see if we have database UUIDs or fake IDs
+      if (data.length > 0) {
+        const firstId = data[0].id || '';
+        const isUUID = firstId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+        console.log(`[Store] First delivery ID: ${firstId} (${isUUID ? 'UUID ✓' : 'NOT UUID ✗'})`);
+      }
+      
       // 1. Calculate distance from warehouse using Haversine
       const deliveriesWithDistance = data.map((delivery, index) => {
         // Try multiple ways to get coordinates (handle different data formats)
@@ -54,9 +80,16 @@ const useDeliveryStore = create((set, get) => ({
         const safeLat = (Number.isFinite(lat) && lat !== 0) ? lat : 25.1124;
         const safeLng = (Number.isFinite(lng) && lng !== 0) ? lng : 55.1980;
 
+        // ⚠️ WARNING: Only generate fake ID if NO ID exists (should not happen with database data)
+        const finalId = delivery.id || `delivery-${index + 1}`;
+        if (!delivery.id) {
+          console.warn(`[Store] ⚠️ Delivery ${index + 1} missing ID! Generating fake ID: ${finalId}`);
+          console.warn('[Store] This should not happen if data came from database!');
+        }
+
         return {
           ...delivery,
-          id: delivery.id || `delivery-${index + 1}`,
+          id: finalId,
           lat: safeLat,
           lng: safeLng,
           // Preserve original coordinates if they exist

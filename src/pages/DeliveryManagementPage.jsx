@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, Database, MapPin, Zap, List, LayoutDashboard, Download } from 'lucide-react';
+import { Upload, Database, MapPin, Zap, List, LayoutDashboard, Download, RefreshCw } from 'lucide-react';
 import FileUpload from '../components/Upload/FileUpload';
 import SyntheticDataButton from '../components/Upload/SyntheticDataButton';
 import DeliveryTable from '../components/DeliveryList/DeliveryTable';
@@ -12,9 +12,12 @@ import useDeliveryStore from '../store/useDeliveryStore';
 import { useToast } from '../hooks/useToast';
 import { ToastContainer } from '../components/common/Toast';
 import { AlertCircle, AlertTriangle } from 'lucide-react';
+import { clearDeliveriesCache, hasFakeDeliveryIds, showCacheWarning } from '../utils/clearCacheAndReload';
+import api from '../frontend/apiClient';
 
 export default function DeliveryManagementPage() {
   const deliveries = useDeliveryStore((state) => state.deliveries);
+  const loadDeliveries = useDeliveryStore((state) => state.loadDeliveries);
   const [activeTab, setActiveTab] = useState('overview');
   const [showUpload, setShowUpload] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -23,7 +26,15 @@ export default function DeliveryManagementPage() {
   const [routeError, setRouteError] = useState(null);
   const [isFallback, setIsFallback] = useState(false);
   const [isOptimized, setIsOptimized] = useState(false);
-  const { toasts, removeToast, success, error, warning } = useToast();
+  const [showCacheAlert, setShowCacheAlert] = useState(false);
+  const [isReloading, setIsReloading] = useState(false);
+  const { toasts, removeToast, success: showSuccess, error, warning } = useToast();
+
+  // Check for cached fake IDs on mount
+  useEffect(() => {
+    const hasFake = showCacheWarning();
+    setShowCacheAlert(hasFake);
+  }, []);
 
   // Load route when deliveries change and Map tab is active
   useEffect(() => {
@@ -81,14 +92,42 @@ export default function DeliveryManagementPage() {
   };
 
   const handleFileSuccess = (result) => {
-    success(`✓ Successfully loaded ${result.count} deliveries`);
+    showSuccess(`✓ Successfully loaded ${result.count} deliveries`);
     if (result.warnings && result.warnings.length > 0) {
       warning(`⚠ ${result.warnings.length} warning(s) found during validation`);
     }
     setShowUpload(false);
+    setShowCacheAlert(false); // Hide cache alert after successful upload
     // Switch to list view after loading
     if (deliveries.length === 0) {
       setTimeout(() => setActiveTab('list'), 500);
+    }
+  };
+
+  const handleReloadFromDatabase = async () => {
+    try {
+      setIsReloading(true);
+      console.log('[DeliveryManagement] Reloading deliveries from database...');
+      
+      // Clear cached data
+      clearDeliveriesCache();
+      
+      // Fetch from database
+      const response = await api.get('/deliveries');
+      
+      if (response.data && response.data.deliveries) {
+        console.log(`[DeliveryManagement] Loaded ${response.data.deliveries.length} deliveries from database`);
+        loadDeliveries(response.data.deliveries);
+        showSuccess(`✓ Reloaded ${response.data.deliveries.length} deliveries from database with real UUIDs!`);
+        setShowCacheAlert(false);
+      } else {
+        error('No deliveries found in database. Please upload deliveries first.');
+      }
+    } catch (err) {
+      console.error('[DeliveryManagement] Error reloading from database:', err);
+      error(`Failed to reload: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setIsReloading(false);
     }
   };
 
@@ -133,6 +172,37 @@ export default function DeliveryManagementPage() {
     <div className="space-y-6">
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
+      {/* Cache Alert - Show if old fake IDs detected */}
+      {showCacheAlert && (
+        <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-red-800 dark:text-red-200">
+                Old Cached Data Detected!
+              </h3>
+              <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                Your browser has old deliveries with fake IDs (delivery-1, delivery-2). These don't exist in the database and will cause SMS to fail.
+              </p>
+              <button
+                onClick={handleReloadFromDatabase}
+                disabled={isReloading}
+                className="mt-3 flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-lg transition-colors text-sm font-medium"
+              >
+                <RefreshCw className={`w-4 h-4 ${isReloading ? 'animate-spin' : ''}`} />
+                {isReloading ? 'Reloading...' : 'Reload from Database (Fix SMS)'}
+              </button>
+            </div>
+            <button
+              onClick={() => setShowCacheAlert(false)}
+              className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -142,6 +212,15 @@ export default function DeliveryManagementPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={handleReloadFromDatabase}
+            disabled={isReloading}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-green-400 flex items-center gap-2 text-sm"
+            title="Reload deliveries from database with real UUIDs - fixes SMS 404 error"
+          >
+            <RefreshCw className={`w-4 h-4 ${isReloading ? 'animate-spin' : ''}`} />
+            {isReloading ? 'Loading...' : 'Reload DB'}
+          </button>
           <button
             onClick={() => setShowUpload(true)}
             className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center gap-2 text-sm"
