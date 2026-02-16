@@ -96,15 +96,24 @@ export default function FileUpload({ onSuccess, onError }) {
               // Save to database and auto-assign drivers (async IIFE to await)
               (async () => {
                 try {
-                  await saveDeliveriesAndAssign(validation.validData);
+                  const saveResult = await saveDeliveriesAndAssign(validation.validData);
                   console.log('[FileUpload] Successfully saved to database');
+                  
+                  // ✅ FIX: Load deliveries with database UUIDs instead of local fake IDs
+                  if (saveResult.success && saveResult.deliveries && saveResult.deliveries.length > 0) {
+                    console.log(`[FileUpload] Loading ${saveResult.deliveries.length} deliveries with database UUIDs`);
+                    loadDeliveries(saveResult.deliveries);
+                  } else {
+                    console.warn('[FileUpload] No deliveries returned from database, using local data');
+                    loadDeliveries(validation.validData);
+                  }
                 } catch (error) {
                   console.error('[FileUpload] Database save failed:', error);
                   console.error('[FileUpload] Error response:', error.response?.data);
-                  // Continue with local load even if database save fails
+                  // Fallback: Continue with local load even if database save fails
+                  loadDeliveries(validation.validData);
                 }
                 
-                loadDeliveries(validation.validData);
                 try { navigate('/deliveries'); } catch (e) { /* ignore */ }
                 
                 if (onSuccess) {
@@ -179,10 +188,16 @@ export default function FileUpload({ onSuccess, onError }) {
 
     try {
       // Save to database and auto-assign drivers - await this to ensure it completes
-      await saveDeliveriesAndAssign(sorted);
+      const saveResult = await saveDeliveriesAndAssign(sorted);
       
-      // Load deliveries into store
-      loadDeliveries(sorted);
+      // ✅ FIX: Load deliveries with database UUIDs instead of local fake IDs
+      if (saveResult.success && saveResult.deliveries && saveResult.deliveries.length > 0) {
+        console.log(`[FileUpload] Loading ${saveResult.deliveries.length} geocoded deliveries with database UUIDs`);
+        loadDeliveries(saveResult.deliveries);
+      } else {
+        console.warn('[FileUpload] No deliveries returned from database after geocoding, using local data');
+        loadDeliveries(sorted);
+      }
       
       // Navigate to list view (route calculation will happen when Map tab is opened)
       try { 

@@ -400,12 +400,34 @@ router.post('/upload', authenticate, async (req, res) => {
 
     console.log(`[Deliveries] Upload complete: ${results.filter(r => r.saved).length} saved, ${assignmentResults.filter(a => a.success).length} assigned`);
     
+    // Fetch the saved deliveries from database to return with full data including UUIDs
+    const savedDeliveries = await prisma.delivery.findMany({
+      where: { id: { in: deliveryIds } },
+      select: {
+        id: true,
+        customer: true,
+        address: true,
+        phone: true,
+        poNumber: true,
+        lat: true,
+        lng: true,
+        status: true,
+        items: true,
+        metadata: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    });
+    
+    console.log(`[Deliveries] Returning ${savedDeliveries.length} deliveries with database IDs to frontend`);
+    
     res.json({
       success: true,
       count: deliveryIds.length,
       saved: results.filter(r => r.saved).length,
       assigned: assignmentResults.filter(a => a.success).length,
-      results: mergedResults
+      results: mergedResults,
+      deliveries: savedDeliveries  // ← ADD THIS: Return full delivery objects with UUIDs
     });
   } catch (err) {
     console.error('deliveries/upload error', err);
