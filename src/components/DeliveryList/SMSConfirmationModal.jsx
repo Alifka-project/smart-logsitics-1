@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { X, Send, Loader, CheckCircle, AlertCircle, MessageCircle, Link2 } from 'lucide-react';
 import api from '../../frontend/apiClient';
 
@@ -36,13 +37,15 @@ export default function SMSConfirmationModal({ delivery, onClose, onSuccess }) {
       setError('');
 
       // Ensure delivery.id is properly formatted
-      const deliveryId = String(delivery.id || delivery.ID).trim();
+      const deliveryId = String(delivery.id || delivery.ID || '').trim();
       
       if (!deliveryId) {
         setError('Delivery ID is missing');
         setLoading(false);
         return;
       }
+
+      console.log('[SMS Modal] Sending SMS for delivery:', deliveryId, 'Customer:', delivery.customer);
 
       const response = await api.post(`/deliveries/${encodeURIComponent(deliveryId)}/send-sms`);
       
@@ -61,13 +64,22 @@ export default function SMSConfirmationModal({ delivery, onClose, onSuccess }) {
     }
   };
 
-  return (
+  const modalContent = (
     <div 
-      className="fixed inset-0 bg-black/70 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[9999] overflow-y-auto" 
+      className="fixed inset-0 bg-black/70 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto" 
+      style={{ 
+        zIndex: 99999,
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0
+      }}
       onClick={onClose}
     >
       <div 
-        className="bg-white dark:bg-gray-900 rounded-lg shadow-2xl max-w-md w-full relative transform transition-all border border-gray-200 dark:border-gray-700"
+        className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl max-w-lg w-full relative my-8 mx-auto border border-gray-200 dark:border-gray-700"
+        style={{ maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -85,7 +97,7 @@ export default function SMSConfirmationModal({ delivery, onClose, onSuccess }) {
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-4">
+        <div className="p-6 space-y-4 overflow-y-auto flex-1">
           {!success ? (
             <>
               {/* Delivery Info */}
@@ -204,4 +216,7 @@ export default function SMSConfirmationModal({ delivery, onClose, onSuccess }) {
       </div>
     </div>
   );
+
+  // Use React Portal to render modal at document root level
+  return ReactDOM.createPortal(modalContent, document.body);
 }

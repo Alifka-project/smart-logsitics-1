@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { X, Camera, Signature, Loader } from 'lucide-react';
 import api from '../frontend/apiClient';
 
@@ -98,9 +99,17 @@ export default function DeliveryDetailModal({ delivery, isOpen, onClose, onStatu
 
   const statusOptions = ['pending', 'out-for-delivery', 'delivered', 'delivered-without-installation', 'cancelled'];
 
-  return (
+  const modalContent = (
     <div 
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[9998]" 
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" 
+      style={{
+        zIndex: 9998,
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0
+      }}
       onClick={onClose}
     >
       <div 
@@ -326,4 +335,8 @@ export default function DeliveryDetailModal({ delivery, isOpen, onClose, onStatu
       </div>
     </div>
   );
+
+  // Use React Portal to render modal at document root level
+  if (!isOpen || !delivery) return null;
+  return ReactDOM.createPortal(modalContent, document.body);
 }
