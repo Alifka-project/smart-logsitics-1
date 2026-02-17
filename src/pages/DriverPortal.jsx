@@ -52,6 +52,10 @@ export default function DriverPortal() {
   const [newMessage, setNewMessage] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [contacts, setContacts] = useState([]);
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [selectedContact, setSelectedContact] = useState(null);
+  const [loadingContacts, setLoadingContacts] = useState(false);
 
   // Routing state
   const [route, setRoute] = useState(null);
@@ -136,6 +140,14 @@ export default function DriverPortal() {
     return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   };
 
+  const isContactOnline = (contact) => {
+    if (!contact?.lastActiveAt) return false;
+    const lastActive = new Date(contact.lastActiveAt);
+    const now = new Date();
+    const diffMinutes = (now - lastActive) / 1000 / 60;
+    return diffMinutes < 5; // Consider online if active within 5 minutes
+  };
+
   const cleanup = useCallback(() => {
     if (watchIdRef.current !== null) {
       navigator.geolocation.clearWatch(watchIdRef.current);
@@ -160,7 +172,7 @@ export default function DriverPortal() {
     ensureAuth();
     loadLatestLocation();
     loadDeliveries();
-    loadMessages();
+    loadContacts(); // Load contacts first, then messages will be loaded when contact is selected
     const notificationInterval = setInterval(() => {
       loadNotificationCount();
     }, 10000);
@@ -369,11 +381,11 @@ export default function DriverPortal() {
   
   // Auto-refresh messages when on messages tab
   useEffect(() => {
-    if (activeTab === 'messages') {
-      loadMessages(true);
+    if (activeTab === 'messages' && selectedContact) {
+      loadMessages(selectedContact.id, true);
       // Start auto-refresh every 3 seconds for real-time updates
       messagePollingIntervalRef.current = setInterval(() => {
-        loadMessages(true);
+        loadMessages(selectedContact.id, true);
       }, 3000);
     }
     
@@ -384,7 +396,7 @@ export default function DriverPortal() {
         messagePollingIntervalRef.current = null;
       }
     };
-  }, [activeTab]);
+  }, [activeTab, selectedContact]);
   
   // Auto-scroll to bottom when messages change or tab becomes active
   useEffect(() => {
@@ -502,10 +514,35 @@ export default function DriverPortal() {
     }
   };
 
-  const loadMessages = async (silent = false) => {
+  const loadContacts = async () => {
+    try {
+      setLoadingContacts(true);
+      const response = await api.get('/messages/contacts');
+      const allContacts = response.data?.contacts || [];
+      // Separate team members (admin, delivery_team) from drivers
+      const team = allContacts.filter(c => c.account?.role === 'admin' || c.account?.role === 'delivery_team');
+      setTeamMembers(team);
+      setContacts(allContacts);
+      // Auto-select first contact if none selected
+      if (!selectedContact && allContacts.length > 0) {
+        setSelectedContact(allContacts[0]);
+      }
+    } catch (error) {
+      console.error('Failed to load contacts:', error);
+      setContacts([]);
+      setTeamMembers([]);
+    } finally {
+      setLoadingContacts(false);
+    }
+  };
+
+  const loadMessages = async (contactId = null, silent = false) => {
+    const targetContactId = contactId || selectedContact?.id;
+    if (!targetContactId) return;
+    
     if (!silent) setLoadingMessages(true);
     try {
-      const response = await api.get('/messages/driver');
+      const response = await api.get(`/messages/driver/${targetContactId}`);
       setMessages(response.data?.messages || []);
       if (!silent) console.log(`✓ Loaded ${response.data?.messages?.length || 0} messages`);
     } catch (error) {
@@ -526,14 +563,15 @@ export default function DriverPortal() {
   };
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim()) return;
+    if (!newMessage.trim() || !selectedContact) return;
 
     const messageText = newMessage.trim();
     setSendingMessage(true);
 
     try {
       const response = await api.post('/messages/driver/send', {
-        content: messageText
+        content: messageText,
+        recipientId: selectedContact.id
       });
 
       if (response.data?.message) {
@@ -1022,116 +1060,185 @@ export default function DriverPortal() {
 
       {/* Messages Tab */}
       {activeTab === 'messages' && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden flex flex-col h-[calc(100vh-350px)]">
-          <div className="p-4 bg-gray-50 dark:bg-gray-900/40 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Messages</h2>
-            <button
-              onClick={loadMessages}
-              disabled={loadingMessages}
-              className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm flex items-center gap-2 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-            >
-              <RefreshCw className={`w-4 h-4 ${loadingMessages ? 'animate-spin' : ''}`} />
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-900/30">
-            {loadingMessages ? (
-              <div className="flex justify-center py-8">
-                <div className="text-center text-gray-500 dark:text-gray-300">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto mb-2"></div>
-                  <p>Loading messages...</p>
-                </div>
-              </div>
-            ) : messages.length === 0 ? (
-              <div className="text-center py-12 text-gray-500 dark:text-gray-300">
-                <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>No messages yet</p>
-                <p className="text-sm mt-1 text-gray-500 dark:text-gray-400">Check back for updates from admin</p>
-              </div>
-            ) : (
-              messages.map((msg, idx) => {
-                // Determine if message is from sender (other user) or driver (self)
-                const isFromOther = msg.senderRole !== 'driver';
-                
-                const messageText = msg.text || msg.content || '';
-                const messageTime = msg.timestamp || msg.createdAt;
-                
-                // Role badge configuration
-                const getRoleBadge = (role) => {
-                  const roleConfig = {
-                    admin: { label: 'Admin', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
-                    delivery_team: { label: 'Delivery Team', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
-                    sales_ops: { label: 'Sales Ops', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' },
-                    manager: { label: 'Manager', color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' }
-                  };
-                  return roleConfig[role] || { label: role, color: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300' };
-                };
-                
-                const roleBadge = getRoleBadge(msg.senderRole);
-                
-                return (
-                  <div
-                    key={idx}
-                    className={`flex ${isFromOther ? 'justify-start' : 'justify-end'}`}
-                  >
-                    <div
-                      className={`max-w-[70%] rounded-lg p-3 ${
-                        isFromOther
-                          ? 'bg-white text-gray-900 border border-gray-200 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700'
-                          : 'bg-primary-600 text-white'
-                      }`}
-                    >
-                      {isFromOther && (
-                        <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium mb-1 ${roleBadge.color}`}>
-                          {roleBadge.label}
-                        </span>
-                      )}
-                      <p className="text-sm">{messageText}</p>
-                      <p className={`text-xs mt-1 ${isFromOther ? 'text-gray-500 dark:text-gray-400' : 'text-primary-100'}`}>
-                        {formatMessageTimestamp(messageTime)}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-            {/* Auto-scroll anchor */}
-            <div ref={messagesEndRef} />
-          </div>
-
-          <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter' && newMessage.trim() && !sendingMessage) {
-                    handleSendMessage();
-                  }
-                }}
-                placeholder="Type a message..."
-                disabled={sendingMessage}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50 dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700"
-              />
-              <button
-                onClick={handleSendMessage}
-                disabled={!newMessage.trim() || sendingMessage}
-                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                {sendingMessage ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    Sending...
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4" />
-                    Send
-                  </>
-                )}
-              </button>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Contacts List */}
+          <div className="lg:col-span-1 bg-white dark:bg-gray-800 rounded-lg shadow">
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100">Contacts</h3>
             </div>
+            <div className="divide-y divide-gray-200 dark:divide-gray-700 max-h-[600px] overflow-y-auto">
+              {loadingContacts ? (
+                <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                  Loading contacts...
+                </div>
+              ) : (
+                <>
+                  {/* Team Members Section */}
+                  {teamMembers.length > 0 && (
+                    <>
+                      <div className="px-4 py-2 bg-gray-50 dark:bg-gray-700/50">
+                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">Team</span>
+                      </div>
+                      {teamMembers.map(member => {
+                        const isOnline = isContactOnline(member);
+                        
+                        return (
+                          <button
+                            key={member.id}
+                            onClick={() => {
+                              setSelectedContact(member);
+                              loadMessages(member.id);
+                            }}
+                            className={`w-full p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${ selectedContact?.id === member.id ? 'bg-primary-50 dark:bg-primary-900/20' : ''
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="font-medium text-gray-900 dark:text-gray-100">
+                                {member.fullName || member.username}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                              <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-300'}`} />
+                              {isOnline ? 'Online' : 'Offline'}
+                              <span className="ml-1">• {member.account?.role || member.role}</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </>
+                  )}
+                  
+                  {contacts.length === 0 && (
+                    <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                      No contacts available
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Chat Area */}
+          <div className="lg:col-span-3 bg-white dark:bg-gray-800 rounded-lg shadow flex flex-col h-[600px]">
+            {selectedContact ? (
+              <>
+                {/* Chat Header */}
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-3 h-3 rounded-full ${isContactOnline(selectedContact) ? 'bg-green-500' : 'bg-gray-300'}`} />
+                      <div>
+                        <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                          {selectedContact.fullName || selectedContact.username}
+                        </h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {isContactOnline(selectedContact) ? 'Online' : 'Offline'}
+                          {selectedContact.account?.role && ` • ${selectedContact.account.role === 'admin' ? 'Admin' : selectedContact.account.role === 'delivery_team' ? 'Delivery Team' : 'Driver'}`}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => loadMessages(selectedContact.id)}
+                      className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                    >
+                      <RefreshCw className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Messages */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  {loadingMessages && messages.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                      Loading messages...
+                    </div>
+                  ) : messages.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                      No messages yet. Start a conversation!
+                    </div>
+                  ) : (
+                    messages.map((msg, idx) => {
+                      const isFromOther = msg.senderRole !== 'driver';
+                      const messageText = msg.text || msg.content || '';
+                      const messageTime = msg.timestamp || msg.createdAt;
+                      
+                      // Role badge configuration
+                      const getRoleBadge = (role) => {
+                        const roleConfig = {
+                          admin: { label: 'Admin', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
+                          delivery_team: { label: 'Delivery Team', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
+                          sales_ops: { label: 'Sales Ops', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' },
+                          manager: { label: 'Manager', color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' }
+                        };
+                        return roleConfig[role] || { label: role, color: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300' };
+                      };
+                      
+                      const roleBadge = getRoleBadge(msg.senderRole);
+                      
+                      return (
+                        <div
+                          key={idx}
+                          className={`flex ${isFromOther ? 'justify-start' : 'justify-end'}`}
+                        >
+                          <div
+                            className={`max-w-[70%] rounded-lg p-3 ${
+                              isFromOther
+                                ? 'bg-white text-gray-900 border border-gray-200 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700'
+                                : 'bg-primary-600 text-white'
+                            }`}
+                          >
+                            {isFromOther && (
+                              <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium mb-1 ${roleBadge.color}`}>
+                                {roleBadge.label}
+                              </span>
+                            )}
+                            <p className="text-sm">{messageText}</p>
+                            <p className={`text-xs mt-1 ${isFromOther ? 'text-gray-500 dark:text-gray-400' : 'text-primary-100'}`}>
+                              {formatMessageTimestamp(messageTime)}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                  {/* Auto-scroll anchor */}
+                  <div ref={messagesEndRef} />
+                </div>
+
+                {/* Message Input */}
+                <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && newMessage.trim() && !sendingMessage) {
+                          handleSendMessage();
+                        }
+                      }}
+                      placeholder="Type a message..."
+                      disabled={sendingMessage}
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50 dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700"
+                    />
+                    <button
+                      onClick={handleSendMessage}
+                      disabled={!newMessage.trim() || sendingMessage}
+                      className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      <Send className="w-5 h-5" />
+                      Send
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400">
+                <div className="text-center">
+                  <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>Select a contact to start messaging</p>
+              </div>
+            )}
           </div>
         </div>
       )}

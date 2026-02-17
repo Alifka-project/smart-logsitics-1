@@ -26,6 +26,8 @@ import DriverTrackingMap from '../components/Tracking/DriverTrackingMap';
 export default function DeliveryTeamPortal() {
   const [activeTab, setActiveTab] = useState('monitoring');
   const [drivers, setDrivers] = useState([]);
+  const [contacts, setContacts] = useState([]); // All contacts (drivers + team members)
+  const [teamMembers, setTeamMembers] = useState([]); // Admin + delivery_team
   const [deliveries, setDeliveries] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -37,7 +39,7 @@ export default function DeliveryTeamPortal() {
   const [assignmentMessage, setAssignmentMessage] = useState(null);
   
   // Communication tab state
-  const [selectedDriver, setSelectedDriver] = useState(null);
+  const [selectedContact, setSelectedContact] = useState(null); // Changed from selectedDriver
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -94,20 +96,20 @@ export default function DeliveryTeamPortal() {
     }
   }, [autoRefresh]);
 
-  // Handle URL-based driver selection for communication
+  // Handle URL-based contact selection for communication
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const driverId = params.get('driver');
+    const contactId = params.get('driver') || params.get('contact');
     
-    if (driverId && drivers.length > 0) {
-      const driver = drivers.find(d => d.id === driverId);
-      if (driver && (!selectedDriver || selectedDriver.id !== driverId)) {
-        setSelectedDriver(driver);
+    if (contactId && contacts.length > 0) {
+      const contact = contacts.find(c => c.id === contactId);
+      if (contact && (!selectedContact || selectedContact.id !== contactId)) {
+        setSelectedContact(contact);
       }
-    } else if (driverId && activeTab !== 'communication') {
+    } else if (contactId && activeTab !== 'communication') {
       setActiveTab('communication');
     }
-  }, [location.search, drivers, selectedDriver, activeTab]);
+  }, [location.search, contacts, selectedContact, activeTab]);
 
   // Load unread counts when in communication tab
   useEffect(() => {
@@ -118,13 +120,13 @@ export default function DeliveryTeamPortal() {
     }
   }, [activeTab]);
 
-  // Load messages when driver is selected
+  // Load messages when contact is selected
   useEffect(() => {
-    if (selectedDriver) {
-      loadMessages(selectedDriver.id);
+    if (selectedContact) {
+      loadMessages(selectedContact.id);
       
       const interval = setInterval(() => {
-        loadMessages(selectedDriver.id, true);
+        loadMessages(selectedContact.id, true);
       }, 5000);
       
       messagePollingIntervalRef.current = interval;
@@ -134,7 +136,7 @@ export default function DeliveryTeamPortal() {
         }
       };
     }
-  }, [selectedDriver]);
+  }, [selectedContact]);
 
   useEffect(() => {
     if (activeTab !== 'communication') return;
@@ -149,14 +151,20 @@ export default function DeliveryTeamPortal() {
 
   const loadData = async () => {
     try {
-      const [driversRes, deliveriesRes] = await Promise.all([
+      const [driversRes, deliveriesRes, contactsRes] = await Promise.all([
         api.get('/admin/drivers'),
-        api.get('/deliveries')
+        api.get('/deliveries'),
+        api.get('/messages/contacts') // Load all contacts
       ]);
 
       const allDrivers = driversRes.data?.data || [];
       const driversList = allDrivers.filter(u => u.account?.role === 'driver');
       setDrivers(driversList);
+      
+      // Set contacts from API response
+      const allContacts = contactsRes.data?.contacts || [];
+      setContacts(allContacts);
+      setTeamMembers(contactsRes.data?.teamMembers || []);
 
       const allDeliveries = deliveriesRes.data?.data || [];
       setDeliveries(allDeliveries);
@@ -223,19 +231,19 @@ export default function DeliveryTeamPortal() {
     }
   };
 
-  const loadMessages = async (driverId, silent = false) => {
+  const loadMessages = async (contactId, silent = false) => {
     if (!silent) setLoadingMessages(true);
     try {
-      const response = await api.get(`/admin/messages/${driverId}`);
+      const response = await api.get(`/admin/messages/${contactId}`);
       setMessages(response.data?.messages || []);
       
       // Mark as read
-      await api.post(`/admin/messages/${driverId}/mark-read`);
+      await api.post(`/admin/messages/${contactId}/mark-read`);
       
       // Update unread count
       setUnreadByDriverId(prev => ({
         ...prev,
-        [driverId]: 0
+        [contactId]: 0
       }));
     } catch (error) {
       if (!silent) console.error('Error loading messages:', error);
@@ -245,16 +253,16 @@ export default function DeliveryTeamPortal() {
   };
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedDriver) return;
+    if (!newMessage.trim() || !selectedContact) return;
 
     setSendingMessage(true);
     try {
-      await api.post(`/admin/messages/${selectedDriver.id}`, {
+      await api.post(`/admin/messages/${selectedContact.id}`, {
         message: newMessage.trim()
       });
       
       setNewMessage('');
-      await loadMessages(selectedDriver.id, true);
+      await loadMessages(selectedContact.id, true);
     } catch (error) {
       console.error('Error sending message:', error);
       alert('Failed to send message');
@@ -263,14 +271,14 @@ export default function DeliveryTeamPortal() {
     }
   };
 
-  const isDriverOnline = (driver) => {
-    const userId = driver.id?.toString() || driver.id;
+  const isContactOnline = (contact) => {
+    const userId = contact.id?.toString() || contact.id;
     if (onlineUserIds.has(userId?.toString()) || onlineUserIds.has(userId)) {
       return true;
     }
     
-    if (!driver.account?.lastLogin) return false;
-    const lastLogin = new Date(driver.account.lastLogin);
+    if (!contact.account?.lastLogin) return false;
+    const lastLogin = new Date(contact.account.lastLogin);
     const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
     return lastLogin >= twoMinutesAgo;
   };
@@ -361,7 +369,7 @@ export default function DeliveryTeamPortal() {
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Active Drivers</p>
                   <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
-                    {drivers.filter(d => isDriverOnline(d)).length}
+                    {drivers.filter(d => isContactOnline(d)).length}
                   </p>
                 </div>
                 <Users className="w-8 h-8 text-primary-600 dark:text-primary-400" />
@@ -464,7 +472,7 @@ export default function DeliveryTeamPortal() {
             <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Driver Status</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {drivers.map(driver => {
-                const isOnline = isDriverOnline(driver);
+                const isOnline = isContactOnline(driver);
                 const location = driver.tracking?.location;
                 
                 return (
@@ -695,44 +703,92 @@ export default function DeliveryTeamPortal() {
       {/* Communication Tab */}
       {activeTab === 'communication' && (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Driver List */}
+          {/* Contacts List */}
           <div className="lg:col-span-1 bg-white dark:bg-gray-800 rounded-lg shadow">
             <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100">Drivers</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100">Contacts</h3>
             </div>
             <div className="divide-y divide-gray-200 dark:divide-gray-700 max-h-[600px] overflow-y-auto">
-              {drivers.map(driver => {
-                const isOnline = isDriverOnline(driver);
-                const unreadCount = unreadByDriverId[driver.id] || 0;
-                
-                return (
-                  <button
-                    key={driver.id}
-                    onClick={() => setSelectedDriver(driver)}
-                    className={`w-full p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
-                      selectedDriver?.id === driver.id ? 'bg-primary-50 dark:bg-primary-900/20' : ''
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-medium text-gray-900 dark:text-gray-100">
-                        {driver.fullName || driver.username}
-                      </span>
-                      {unreadCount > 0 && (
-                        <span className="px-2 py-0.5 bg-red-500 text-white text-xs rounded-full">
-                          {unreadCount}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-                      <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-300'}`} />
-                      {isOnline ? 'Online' : 'Offline'}
-                    </div>
-                  </button>
-                );
-              })}
-              {drivers.length === 0 && (
+              {/* Team Members Section */}
+              {teamMembers.length > 0 && (
+                <>
+                  <div className="px-4 py-2 bg-gray-50 dark:bg-gray-700/50">
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">Team</span>
+                  </div>
+                  {teamMembers.map(member => {
+                    const isOnline = isContactOnline(member);
+                    const unreadCount = unreadByDriverId[member.id] || 0;
+                    
+                    return (
+                      <button
+                        key={member.id}
+                        onClick={() => setSelectedContact(member)}
+                        className={`w-full p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
+                          selectedContact?.id === member.id ? 'bg-primary-50 dark:bg-primary-900/20' : ''
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-medium text-gray-900 dark:text-gray-100">
+                            {member.fullName || member.username}
+                          </span>
+                          {unreadCount > 0 && (
+                            <span className="px-2 py-0.5 bg-red-500 text-white text-xs rounded-full">
+                              {unreadCount}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                          <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-300'}`} />
+                          {isOnline ? 'Online' : 'Offline'}
+                          <span className="ml-1">• {member.role}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </>
+              )}
+              
+              {/* Drivers Section */}
+              {drivers.length > 0 && (
+                <>
+                  <div className="px-4 py-2 bg-gray-50 dark:bg-gray-700/50">
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">Drivers</span>
+                  </div>
+                  {drivers.map(driver => {
+                    const isOnline = isContactOnline(driver);
+                    const unreadCount = unreadByDriverId[driver.id] || 0;
+                    
+                    return (
+                      <button
+                        key={driver.id}
+                        onClick={() => setSelectedContact(driver)}
+                        className={`w-full p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
+                          selectedContact?.id === driver.id ? 'bg-primary-50 dark:bg-primary-900/20' : ''
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-medium text-gray-900 dark:text-gray-100">
+                            {driver.fullName || driver.username}
+                          </span>
+                          {unreadCount > 0 && (
+                            <span className="px-2 py-0.5 bg-red-500 text-white text-xs rounded-full">
+                              {unreadCount}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                          <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-300'}`} />
+                          {isOnline ? 'Online' : 'Offline'}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </>
+              )}
+              
+              {contacts.length === 0 && (
                 <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-                  No drivers available
+                  No contacts available
                 </div>
               )}
             </div>
@@ -740,24 +796,25 @@ export default function DeliveryTeamPortal() {
 
           {/* Chat Area */}
           <div className="lg:col-span-3 bg-white dark:bg-gray-800 rounded-lg shadow flex flex-col h-[600px]">
-            {selectedDriver ? (
+            {selectedContact ? (
               <>
                 {/* Chat Header */}
                 <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className={`w-3 h-3 rounded-full ${isDriverOnline(selectedDriver) ? 'bg-green-500' : 'bg-gray-300'}`} />
+                      <div className={`w-3 h-3 rounded-full ${isContactOnline(selectedContact) ? 'bg-green-500' : 'bg-gray-300'}`} />
                       <div>
                         <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                          {selectedDriver.fullName || selectedDriver.username}
+                          {selectedContact.fullName || selectedContact.username}
                         </h3>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {isDriverOnline(selectedDriver) ? 'Online' : 'Offline'}
+                          {isContactOnline(selectedContact) ? 'Online' : 'Offline'}
+                          {selectedContact.account?.role && ` • ${selectedContact.account.role === 'admin' ? 'Admin' : selectedContact.account.role === 'delivery_team' ? 'Delivery Team' : 'Driver'}`}
                         </p>
                       </div>
                     </div>
                     <button
-                      onClick={() => loadMessages(selectedDriver.id)}
+                      onClick={() => loadMessages(selectedContact.id)}
                       className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                     >
                       <RefreshCw className="w-5 h-5" />
@@ -848,7 +905,7 @@ export default function DeliveryTeamPortal() {
               <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400">
                 <div className="text-center">
                   <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p>Select a driver to start messaging</p>
+                  <p>Select a contact to start messaging</p>
                 </div>
               </div>
             )}

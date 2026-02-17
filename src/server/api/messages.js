@@ -9,9 +9,13 @@ const prisma = require('../db/prisma');
 
 /**
  * GET /api/admin/messages/conversations/:driverId
- * Fetch message history with a specific driver
+ * Fetch message history with a specific driver (admin or delivery_team)
  */
-router.get('/conversations/:driverId', authenticate, requireRole('admin'), async (req, res) => {
+router.get('/conversations/:driverId', authenticate, async (req, res) => {
+  const userRole = req.user?.account?.role || req.user?.role;
+  if (userRole !== 'admin' && userRole !== 'delivery_team') {
+    return res.status(403).json({ error: 'Forbidden - Admin or Delivery Team access required' });
+  }
   try {
     const { driverId } = req.params;
     const adminId = req.user?.sub;
@@ -83,9 +87,13 @@ router.get('/conversations/:driverId', authenticate, requireRole('admin'), async
 
 /**
  * GET /api/admin/messages/unread
- * Get count of unread messages per driver
+ * Get count of unread messages per driver (admin or delivery_team)
  */
-router.get('/unread', authenticate, requireRole('admin'), async (req, res) => {
+router.get('/unread', authenticate, async (req, res) => {
+  const userRole = req.user?.account?.role || req.user?.role;
+  if (userRole !== 'admin' && userRole !== 'delivery_team') {
+    return res.status(403).json({ error: 'Forbidden - Admin or Delivery Team access required' });
+  }
   try {
     const adminId = req.user?.sub || req.user?.id;
 
@@ -143,9 +151,13 @@ router.get('/unread', authenticate, requireRole('admin'), async (req, res) => {
 });
 
 /**
- * POST /api/admin/messages/send - Send message to driver
+ * POST /api/admin/messages/send - Send message to driver (admin or delivery_team)
  */
-router.post('/send', authenticate, requireRole('admin'), async (req, res) => {
+router.post('/send', authenticate, async (req, res) => {
+  const userRole = req.user?.account?.role || req.user?.role;
+  if (userRole !== 'admin' && userRole !== 'delivery_team') {
+    return res.status(403).json({ error: 'Forbidden - Admin or Delivery Team access required' });
+  }
   try {
     const { driverId, content } = req.body;
     const adminId = req.user?.sub;
@@ -173,7 +185,7 @@ router.post('/send', authenticate, requireRole('admin'), async (req, res) => {
         adminId,
         driverId,
         content: content.trim(),
-        senderRole: 'admin',
+        senderRole: userRole, // Use actual role (admin or delivery_team)
         isRead: false
       },
       include: {
@@ -202,14 +214,17 @@ router.post('/send', authenticate, requireRole('admin'), async (req, res) => {
 
 /**
  * GET /api/messages/contacts
- * Get list of contacts (drivers for admin, admin for driver)
+ * Get list of contacts based on role:
+ * - Admin/Delivery Team: return all drivers + admin/delivery_team members
+ * - Driver: return admin and delivery_team members
  */
 router.get('/contacts', authenticate, async (req, res) => {
   try {
     const userRole = req.user?.account?.role || req.user?.role || 'driver';
+    const currentUserId = req.user?.sub;
     
-    if (userRole === 'admin') {
-      // Admin: return all drivers
+    if (userRole === 'admin' || userRole === 'delivery_team') {
+      // Admin/Delivery Team: return all drivers + other admin/delivery_team members
       const drivers = await prisma.driver.findMany({
         where: {
           account: {
@@ -222,19 +237,22 @@ router.get('/contacts', authenticate, async (req, res) => {
           username: true,
           account: {
             select: {
-              role: true
+              role: true,
+              lastLogin: true
             }
           }
+        },
+        orderBy: {
+          fullName: 'asc'
         }
       });
       
-      return res.json({ contacts: drivers });
-    } else {
-      // Driver: return admins
-      const admins = await prisma.driver.findMany({
+      // Also get admin and delivery_team members (for inter-team communication)
+      const teamMembers = await prisma.driver.findMany({
         where: {
+          id: { not: currentUserId }, // Exclude self
           account: {
-            role: 'admin'
+            role: { in: ['admin', 'delivery_team'] }
           }
         },
         select: {
@@ -243,13 +261,46 @@ router.get('/contacts', authenticate, async (req, res) => {
           username: true,
           account: {
             select: {
-              role: true
+              role: true,
+              lastLogin: true
             }
           }
+        },
+        orderBy: {
+          fullName: 'asc'
         }
       });
       
-      return res.json({ contacts: admins });
+      return res.json({ 
+        contacts: [...teamMembers, ...drivers],
+        drivers,
+        teamMembers
+      });
+    } else {
+      // Driver: return admin and delivery_team members
+      const contacts = await prisma.driver.findMany({
+        where: {
+          account: {
+            role: { in: ['admin', 'delivery_team'] }
+          }
+        },
+        select: {
+          id: true,
+          fullName: true,
+          username: true,
+          account: {
+            select: {
+              role: true,
+              lastLogin: true
+            }
+          }
+        },
+        orderBy: {
+          fullName: 'asc'
+        }
+      });
+      
+      return res.json({ contacts });
     }
   } catch (error) {
     console.error('Error fetching contacts:', error);
@@ -259,9 +310,13 @@ router.get('/contacts', authenticate, async (req, res) => {
 
 /**
  * DELETE /api/admin/messages/conversation/:driverId
- * Clear message history with a driver
+ * Clear message history with a driver (admin or delivery_team)
  */
-router.delete('/conversation/:driverId', authenticate, requireRole('admin'), async (req, res) => {
+router.delete('/conversation/:driverId', authenticate, async (req, res) => {
+  const userRole = req.user?.account?.role || req.user?.role;
+  if (userRole !== 'admin' && userRole !== 'delivery_team') {
+    return res.status(403).json({ error: 'Forbidden - Admin or Delivery Team access required' });
+  }
   try {
     const { driverId } = req.params;
     const adminId = req.user?.sub;
@@ -286,11 +341,11 @@ router.delete('/conversation/:driverId', authenticate, requireRole('admin'), asy
 
 /**
  * POST /api/driver/messages/send
- * Driver sending message to admin
+ * Driver sending message to admin or delivery_team
  */
 router.post('/driver/send', authenticate, requireRole('driver'), async (req, res) => {
   try {
-    const { content } = req.body;
+    const { content, recipientId } = req.body; // Add recipientId parameter
     const driverId = req.user?.sub;
 
     if (!driverId) {
@@ -301,45 +356,58 @@ router.post('/driver/send', authenticate, requireRole('driver'), async (req, res
       return res.status(400).json({ error: 'Message content is required' });
     }
 
-    // Find which admin to reply to:
-    // 1. Check if there's an existing conversation with any admin
-    // 2. If yes, reply to that admin
-    // 3. If no, use the first admin account
     let adminId;
     
-    const existingConversation = await prisma.message.findFirst({
-      where: {
-        driverId
-      },
-      orderBy: {
-        createdAt: 'desc'
-      },
-      select: {
-        adminId: true
+    // If recipientId is provided, use it (driver selected specific admin/delivery_team member)
+    if (recipientId) {
+      // Verify recipient exists and has appropriate role
+      const recipient = await prisma.driver.findUnique({
+        where: { id: recipientId },
+        include: { account: true }
+      });
+      
+      if (!recipient || !['admin', 'delivery_team'].includes(recipient.account?.role)) {
+        return res.status(400).json({ error: 'Invalid recipient - must be admin or delivery team member' });
       }
-    });
-
-    if (existingConversation) {
-      // Reply to the admin who has an existing conversation
-      adminId = existingConversation.adminId;
-      console.log('[Driver Message] Replying to existing conversation with admin:', adminId);
+      
+      adminId = recipientId;
+      console.log('[Driver Message] Sending to selected recipient:', adminId, 'role:', recipient.account.role);
     } else {
-      // No existing conversation, find first admin
-      const adminAccount = await prisma.account.findFirst({
+      // No recipient specified - find existing conversation or default admin
+      const existingConversation = await prisma.message.findFirst({
         where: {
-          role: 'admin'
+          driverId
         },
-        include: {
-          driver: true
+        orderBy: {
+          createdAt: 'desc'
+        },
+        select: {
+          adminId: true
         }
       });
 
-      if (!adminAccount || !adminAccount.driver) {
-        return res.status(404).json({ error: 'No admin found' });
-      }
+      if (existingConversation) {
+        // Reply to the most recent conversation
+        adminId = existingConversation.adminId;
+        console.log('[Driver Message] Replying to existing conversation with:', adminId);
+      } else {
+        // No existing conversation, find first admin
+        const adminAccount = await prisma.account.findFirst({
+          where: {
+            role: 'admin'
+          },
+          include: {
+            driver: true
+          }
+        });
 
-      adminId = adminAccount.driver.id;
-      console.log('[Driver Message] Starting new conversation with admin:', adminId);
+        if (!adminAccount || !adminAccount.driver) {
+          return res.status(404).json({ error: 'No admin found' });
+        }
+
+        adminId = adminAccount.driver.id;
+        console.log('[Driver Message] Starting new conversation with admin:', adminId);
+      }
     }
 
     // Create message from driver to admin
@@ -374,7 +442,7 @@ router.post('/driver/send', authenticate, requireRole('driver'), async (req, res
 
 /**
  * GET /api/driver/messages
- * Fetch messages for the logged-in driver
+ * Fetch all messages for the logged-in driver (from all contacts)
  */
 router.get('/driver', authenticate, requireRole('driver'), async (req, res) => {
   try {
@@ -389,18 +457,29 @@ router.get('/driver', authenticate, requireRole('driver'), async (req, res) => {
         driverId
       },
       include: {
-        admin: { select: { id: true, fullName: true, username: true } }
+        admin: { 
+          select: { 
+            id: true, 
+            fullName: true, 
+            username: true,
+            account: {
+              select: {
+                role: true
+              }
+            }
+          } 
+        }
       },
       orderBy: { createdAt: 'desc' },
       take: 100
     });
 
-    // Mark messages FROM admin as read (not driver's own sent messages)
+    // Mark messages FROM admin/delivery_team as read (not driver's own sent messages)
     await prisma.message.updateMany({
       where: {
         driverId,
         isRead: false,
-        senderRole: 'admin' // Only mark received messages as read
+        senderRole: { in: ['admin', 'delivery_team'] } // Only mark received messages as read
       },
       data: { isRead: true }
     });
@@ -408,6 +487,68 @@ router.get('/driver', authenticate, requireRole('driver'), async (req, res) => {
     res.json({ success: true, messages: messages.reverse() });
   } catch (error) {
     console.error('Error fetching driver messages:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/driver/messages/:contactId
+ * Fetch messages for driver with a specific contact (admin or delivery_team member)
+ */
+router.get('/driver/:contactId', authenticate, requireRole('driver'), async (req, res) => {
+  try {
+    const driverId = req.user?.sub;
+    const { contactId } = req.params;
+
+    if (!driverId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Fetch messages between driver and this contact
+    const messages = await prisma.message.findMany({
+      where: {
+        driverId,
+        adminId: contactId // Contact is stored in adminId field
+      },
+      include: {
+        admin: { 
+          select: { 
+            id: true, 
+            fullName: true, 
+            username: true,
+            account: {
+              select: {
+                role: true
+              }
+            }
+          } 
+        },
+        driver: {
+          select: {
+            id: true,
+            fullName: true,
+            username: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'asc' },
+      take: 100
+    });
+
+    // Mark messages FROM contact as read
+    await prisma.message.updateMany({
+      where: {
+        driverId,
+        adminId: contactId,
+        isRead: false,
+        senderRole: { in: ['admin', 'delivery_team'] }
+      },
+      data: { isRead: true }
+    });
+
+    res.json({ success: true, messages });
+  } catch (error) {
+    console.error('Error fetching driver conversation:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -424,12 +565,12 @@ router.get('/driver/notifications/count', authenticate, requireRole('driver'), a
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    // Count unread messages FROM admin TO driver (not messages sent BY driver)
+    // Count unread messages FROM admin/delivery_team TO driver (not messages sent BY driver)
     const unreadMessages = await prisma.message.count({
       where: {
         driverId,
         isRead: false,
-        senderRole: 'admin' // Only messages from admin, not driver's own messages
+        senderRole: { in: ['admin', 'delivery_team'] } // Only messages from admin/delivery_team, not driver's own messages
       }
     });
 
