@@ -222,7 +222,7 @@ export default function DeliveryTeamPortal() {
 
   const loadUnreadCounts = async () => {
     try {
-      const response = await api.get('/admin/messages/unread');
+      const response = await api.get('/messages/unread');
       if (response.data && typeof response.data === 'object') {
         setUnreadByDriverId(response.data);
       }
@@ -234,11 +234,8 @@ export default function DeliveryTeamPortal() {
   const loadMessages = async (contactId, silent = false) => {
     if (!silent) setLoadingMessages(true);
     try {
-      const response = await api.get(`/admin/messages/${contactId}`);
+      const response = await api.get(`/messages/conversations/${contactId}`);
       setMessages(response.data?.messages || []);
-      
-      // Mark as read
-      await api.post(`/admin/messages/${contactId}/mark-read`);
       
       // Update unread count
       setUnreadByDriverId(prev => ({
@@ -257,8 +254,9 @@ export default function DeliveryTeamPortal() {
 
     setSendingMessage(true);
     try {
-      await api.post(`/admin/messages/${selectedContact.id}`, {
-        message: newMessage.trim()
+      await api.post('/messages/send', {
+        content: newMessage.trim(),
+        driverId: selectedContact.id
       });
       
       setNewMessage('');

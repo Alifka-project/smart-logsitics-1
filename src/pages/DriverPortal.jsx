@@ -141,8 +141,8 @@ export default function DriverPortal() {
   };
 
   const isContactOnline = (contact) => {
-    if (!contact?.lastActiveAt) return false;
-    const lastActive = new Date(contact.lastActiveAt);
+    if (!contact?.account?.lastLogin) return false;
+    const lastActive = new Date(contact.account.lastLogin);
     const now = new Date();
     const diffMinutes = (now - lastActive) / 1000 / 60;
     return diffMinutes < 5; // Consider online if active within 5 minutes
