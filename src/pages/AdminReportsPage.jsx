@@ -18,7 +18,7 @@ export default function AdminReportsPage() {
     endDate: new Date().toISOString().split('T')[0],
     status: '',
     customerStatus: '', // New filter for customer response status
-    driverId: ''
+    poNumber: ''
   });
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [currentPage, setCurrentPage] = useState(1);
@@ -35,8 +35,7 @@ export default function AdminReportsPage() {
       const params = new URLSearchParams();
       if (filters.startDate) params.append('startDate', filters.startDate);
       if (filters.endDate) params.append('endDate', filters.endDate);
-      if (filters.status) params.append('status', filters.status);
-      if (filters.driverId) params.append('driverId', filters.driverId);
+      // Note: status, customerStatus, and poNumber filters are applied client-side
       if (exportFormat) params.append('format', exportFormat);
 
       if (exportFormat === 'csv') {
@@ -100,11 +99,19 @@ export default function AdminReportsPage() {
     return 'Pending';
   };
 
-  // Filter deliveries by customer status
+  // Filter deliveries by status, customer response, and PO number
   const filteredDeliveries = useMemo(() => {
     if (!reportData?.deliveries) return [];
     
     let filtered = [...reportData.deliveries];
+    
+    // Apply delivery status filter
+    if (filters.status) {
+      filtered = filtered.filter(delivery => {
+        const deliveryStatus = (delivery.status || '').toLowerCase();
+        return deliveryStatus === filters.status.toLowerCase();
+      });
+    }
     
     // Apply customer status filter
     if (filters.customerStatus) {
@@ -114,8 +121,17 @@ export default function AdminReportsPage() {
       });
     }
     
+    // Apply PO number filter (search/contains)
+    if (filters.poNumber) {
+      const searchTerm = filters.poNumber.toLowerCase().trim();
+      filtered = filtered.filter(delivery => {
+        const poNumber = (delivery.poNumber || delivery.PONumber || '').toLowerCase();
+        return poNumber.includes(searchTerm);
+      });
+    }
+    
     return filtered;
-  }, [reportData?.deliveries, filters.customerStatus]);
+  }, [reportData?.deliveries, filters.status, filters.customerStatus, filters.poNumber]);
 
   // Sort deliveries
   const sortedDeliveries = useMemo(() => {
@@ -306,11 +322,11 @@ export default function AdminReportsPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Driver ID</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">PO Number</label>
             <input
               type="text"
-              value={filters.driverId}
-              onChange={(e) => handleFilterChange('driverId', e.target.value)}
+              value={filters.poNumber}
+              onChange={(e) => handleFilterChange('poNumber', e.target.value)}
               placeholder="Optional"
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500"
             />
