@@ -914,16 +914,25 @@ export default function DeliveryTeamPortal() {
                       const currentUser = getCurrentUser();
                       const currentUserId = currentUser?.sub;
                       // Message is sent by current user if adminId matches current user
-                      const isSent = msg.adminId === currentUserId;
+                      // Ensure both are same type for comparison
+                      const msgAdminId = String(msg.adminId);
+                      const userId = String(currentUserId);
+                      const isSent = msgAdminId === userId;
                       
                       // Debug logging
                       if (messages.indexOf(msg) === 0) {
                         console.log('[DeliveryTeam Message Debug]', {
                           messageId: msg.id,
                           adminId: msg.adminId,
+                          adminIdType: typeof msg.adminId,
                           driverId: msg.driverId,
+                          driverIdType: typeof msg.driverId,
                           currentUserId: currentUserId,
+                          currentUserIdType: typeof currentUserId,
+                          msgAdminId,
+                          userId,
                           isSent: isSent,
+                          comparison: `${msgAdminId} === ${userId}`,
                           senderRole: msg.senderRole,
                           content: msg.content?.substring(0, 20)
                         });
