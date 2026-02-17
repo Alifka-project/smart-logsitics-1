@@ -42,6 +42,8 @@ export default function AdminOperationsPage() {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
   const [onlineUserIds, setOnlineUserIds] = useState(new Set());
+  const [contacts, setContacts] = useState([]);
+  const [teamMembers, setTeamMembers] = useState([]);
   const [messageTemplates] = useState([
     'Please update delivery status',
     'New delivery assigned',
@@ -86,17 +88,16 @@ export default function AdminOperationsPage() {
           );
         }
       } catch (e) {
-        // Fallback to time-based detection
-        const usersResponse = await api.get('/admin/drivers');
-        const allUsers = usersResponse.data?.data || [];
+        // Fallback to time-based detection using contacts
         const now = new Date();
         const twoMinutesAgo = new Date(now.getTime() - 2 * 60 * 1000);
         
-        allUsers.forEach(u => {
-          if (u.account?.lastLogin) {
-            const lastLogin = new Date(u.account.lastLogin);
+        // Check all contacts (which includes all user types)
+        contacts.forEach(contact => {
+          if (contact.account?.lastLogin) {
+            const lastLogin = new Date(contact.account.lastLogin);
             if (lastLogin >= twoMinutesAgo) {
-              const userId = u.id?.toString() || u.id;
+              const userId = contact.id?.toString() || contact.id;
               activeSessionUserIds.add(userId);
             }
           }
@@ -125,13 +126,21 @@ export default function AdminOperationsPage() {
 
   const loadData = async () => {
     try {
-      const [driversResp, deliveriesResp] = await Promise.allSettled([
+      const [driversResp, deliveriesResp, contactsResp] = await Promise.allSettled([
         api.get('/admin/tracking/drivers').catch(() => ({ data: { drivers: [] } })),
-        api.get('/admin/tracking/deliveries').catch(() => ({ data: { deliveries: [] } }))
+        api.get('/admin/tracking/deliveries').catch(() => ({ data: { deliveries: [] } })),
+        api.get('/messages/contacts').catch(() => ({ data: { contacts: [], teamMembers: [], drivers: [] } }))
       ]);
 
       if (driversResp.status === 'fulfilled') {
         setDrivers(driversResp.value.data?.drivers || []);
+      }
+
+      // Load contacts for Communication tab (includes all users - drivers, admin, delivery_team, etc.)
+      if (contactsResp.status === 'fulfilled') {
+        const contactsData = contactsResp.value.data;
+        setContacts(contactsData?.contacts || []);
+        setTeamMembers(contactsData?.teamMembers || []);
       }
 
       if (deliveriesResp.status === 'fulfilled') {
@@ -198,6 +207,13 @@ export default function AdminOperationsPage() {
       setSelectedDriver(match);
     }
   }, [location.search, drivers, selectedDriver]);
+
+  // Refresh online status when contacts are loaded (for fallback detection)
+  useEffect(() => {
+    if (contacts.length > 0) {
+      loadOnlineStatus(true);
+    }
+  }, [contacts.length, loadOnlineStatus]);
 
   // Load messages when driver is selected
   useEffect(() => {
@@ -741,87 +757,162 @@ export default function AdminOperationsPage() {
 
       {activeTab === 'communication' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-300px)]">
-          {/* Driver List Sidebar */}
+          {/* Contacts List Sidebar */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden flex flex-col transition-colors">
             <div className="p-4 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Drivers</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Contacts</h2>
               <input
                 type="text"
-                placeholder="Search drivers..."
+                placeholder="Search contacts..."
                 className="mt-2 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               />
             </div>
             <div className="flex-1 overflow-y-auto">
-              {drivers.map(driver => {
-                const isOnline = isDriverOnline(driver);
-                const isSelected = selectedDriver?.id === driver.id;
-                const unreadCount = unreadByDriverId[driver.id] || 0;
-                // Role badge styling
-                const getRoleBadge = (role) => {
-                  const roleConfig = {
-                    admin: { label: 'Admin', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300' },
-                    driver: { label: 'Driver', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' },
-                    delivery_team: { label: 'Delivery', color: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' },
-                    sales_ops: { label: 'Sales', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' },
-                    manager: { label: 'Manager', color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300' }
-                  };
-                  return roleConfig[role] || { label: role, color: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' };
-                };
-                
-                const roleBadge = getRoleBadge(driver.role);
-                
-                return (
-                  <button
-                    key={driver.id}
-                    onClick={() => setSelectedDriver(driver)}
-                    className={`w-full p-4 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-left transition ${
-                      isSelected ? 'bg-primary-50 dark:bg-primary-900/20 border-l-4 border-l-primary-600 dark:border-l-primary-400' : ''
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <div className="relative">
-                          <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}>
+              {/* Team Members Section */}
+              {teamMembers.length > 0 && (
+                <>
+                  <div className="px-4 py-2 bg-gray-100 dark:bg-gray-700/50">
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">Team</span>
+                  </div>
+                  {teamMembers.map(member => {
+                    const isOnline = isDriverOnline(member);
+                    const isSelected = selectedDriver?.id === member.id;
+                    const unreadCount = unreadByDriverId[member.id] || 0;
+                    const getRoleBadge = (role) => {
+                      const roleConfig = {
+                        admin: { label: 'Admin', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300' },
+                        driver: { label: 'Driver', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' },
+                        delivery_team: { label: 'Delivery', color: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' },
+                        sales_ops: { label: 'Sales', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' },
+                        manager: { label: 'Manager', color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300' }
+                      };
+                      return roleConfig[role] || { label: role, color: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' };
+                    };
+                    const roleBadge = getRoleBadge(member.account?.role || member.role);
+                    
+                    return (
+                      <button
+                        key={member.id}
+                        onClick={() => setSelectedDriver(member)}
+                        className={`w-full p-4 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-left transition ${
+                          isSelected ? 'bg-primary-50 dark:bg-primary-900/20 border-l-4 border-l-primary-600 dark:border-l-primary-400' : ''
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <div className="relative">
+                              <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}>
+                                {isOnline && (
+                                  <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-75"></div>
+                                )}
+                              </div>
+                            </div>
+                            <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
+                              {member.full_name || member.fullName || member.username || 'Unknown'}
+                            </span>
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${roleBadge.color}`}>
+                              {roleBadge.label}
+                            </span>
                             {isOnline && (
-                              <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-75"></div>
+                              <span className="text-xs text-green-600 dark:text-green-400 font-medium">• Active</span>
                             )}
                           </div>
+                          {unreadCount > 0 && (
+                            <span className="bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
+                              {unreadCount}
+                            </span>
+                          )}
                         </div>
-                        <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
-                          {driver.full_name || driver.fullName || driver.username || 'Unknown'}
-                        </span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${roleBadge.color}`}>
-                          {roleBadge.label}
-                        </span>
-                        {isOnline && (
-                          <span className="text-xs text-green-600 dark:text-green-400 font-medium">• Active</span>
-                        )}
-                      </div>
-                      {unreadCount > 0 && (
-                        <span className="bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
-                          {unreadCount}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {isOnline ? (
-                        <span className="text-green-600 dark:text-green-400 font-medium">Active now</span>
-                      ) : (
-                        <span>Offline</span>
-                      )}
-                      {driver.tracking?.location && (
-                        <span className="ml-2">
-                          • {driver.tracking.location.speed ? `${(driver.tracking.location.speed * 3.6).toFixed(0)} km/h` : 'Stationary'}
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-              {drivers.length === 0 && (
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {isOnline ? (
+                            <span className="text-green-600 dark:text-green-400 font-medium">Active now</span>
+                          ) : (
+                            <span>Offline</span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </>
+              )}
+              
+              {/* Drivers Section */}
+              {drivers.length > 0 && (
+                <>
+                  <div className="px-4 py-2 bg-gray-100 dark:bg-gray-700/50">
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">Drivers</span>
+                  </div>
+                  {drivers.map(driver => {
+                    const isOnline = isDriverOnline(driver);
+                    const isSelected = selectedDriver?.id === driver.id;
+                    const unreadCount = unreadByDriverId[driver.id] || 0;
+                    const getRoleBadge = (role) => {
+                      const roleConfig = {
+                        admin: { label: 'Admin', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300' },
+                        driver: { label: 'Driver', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' },
+                        delivery_team: { label: 'Delivery', color: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' },
+                        sales_ops: { label: 'Sales', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' },
+                        manager: { label: 'Manager', color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300' }
+                      };
+                      return roleConfig[role] || { label: role, color: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' };
+                    };
+                    const roleBadge = getRoleBadge(driver.role);
+                    
+                    return (
+                      <button
+                        key={driver.id}
+                        onClick={() => setSelectedDriver(driver)}
+                        className={`w-full p-4 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-left transition ${
+                          isSelected ? 'bg-primary-50 dark:bg-primary-900/20 border-l-4 border-l-primary-600 dark:border-l-primary-400' : ''
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <div className="relative">
+                              <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}>
+                                {isOnline && (
+                                  <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-75"></div>
+                                )}
+                              </div>
+                            </div>
+                            <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
+                              {driver.full_name || driver.fullName || driver.username || 'Unknown'}
+                            </span>
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${roleBadge.color}`}>
+                              {roleBadge.label}
+                            </span>
+                            {isOnline && (
+                              <span className="text-xs text-green-600 dark:text-green-400 font-medium">• Active</span>
+                            )}
+                          </div>
+                          {unreadCount > 0 && (
+                            <span className="bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
+                              {unreadCount}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {isOnline ? (
+                            <span className="text-green-600 dark:text-green-400 font-medium">Active now</span>
+                          ) : (
+                            <span>Offline</span>
+                          )}
+                          {driver.tracking?.location && (
+                            <span className="ml-2">
+                              • {driver.tracking.location.speed ? `${(driver.tracking.location.speed * 3.6).toFixed(0)} km/h` : 'Stationary'}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </>
+              )}
+              
+              {contacts.length === 0 && (
                 <div className="p-8 text-center text-gray-500 dark:text-gray-400">
                   <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p>No drivers available</p>
+                  <p>No contacts available</p>
                 </div>
               )}
             </div>
