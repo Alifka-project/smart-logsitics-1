@@ -1237,6 +1237,7 @@ export default function DriverPortal() {
                 <div className="text-center">
                   <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
                   <p>Select a contact to start messaging</p>
+                </div>
               </div>
             )}
           </div>
