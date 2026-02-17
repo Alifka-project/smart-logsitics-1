@@ -86,22 +86,32 @@ export default function AdminOperationsPage() {
               .map(s => s.userId?.toString() || s.userId)
               .filter(Boolean)
           );
+          if (!silent) {
+            console.debug(`[AdminOps] Loaded ${activeSessionUserIds.size} users from sessions`);
+          }
         }
       } catch (e) {
         // Fallback to time-based detection using contacts
+        if (!silent) {
+          console.debug('[AdminOps] Sessions failed, using lastLogin fallback');
+        }
         const now = new Date();
-        const twoMinutesAgo = new Date(now.getTime() - 2 * 60 * 1000);
+        const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
         
         // Check all contacts (which includes all user types)
         contacts.forEach(contact => {
           if (contact.account?.lastLogin) {
             const lastLogin = new Date(contact.account.lastLogin);
-            if (lastLogin >= twoMinutesAgo) {
+            if (lastLogin >= fiveMinutesAgo) {
               const userId = contact.id?.toString() || contact.id;
               activeSessionUserIds.add(userId);
             }
           }
         });
+        
+        if (!silent) {
+          console.debug(`[AdminOps] Fallback found ${activeSessionUserIds.size} users active in last 5 minutes`);
+        }
       }
 
       // Always update to ensure sync with other pages
@@ -109,7 +119,7 @@ export default function AdminOperationsPage() {
     } catch (e) {
       console.error('Error loading online status:', e);
     }
-  }, []);
+  }, [contacts]);
 
   // Fetch unread message counts per driver (for badge on each driver in Communication tab) - must be defined before useEffect that uses it
   const loadUnreadCounts = useCallback(async () => {
@@ -356,10 +366,23 @@ export default function AdminOperationsPage() {
   const isDriverOnline = (driver) => {
     const driverIdStr = driver.id?.toString();
     const driverIdNum = driver.id;
-    return onlineUserIds.has(driverIdStr) || 
-           onlineUserIds.has(driverIdNum) ||
-           onlineUserIds.has(String(driverIdNum)) ||
-           driver.tracking?.online;
+    
+    // Check session-based online status first
+    if (onlineUserIds.has(driverIdStr) || 
+        onlineUserIds.has(driverIdNum) ||
+        onlineUserIds.has(String(driverIdNum)) ||
+        driver.tracking?.online) {
+      return true;
+    }
+    
+    // Fallback to lastLogin check (5 minutes window)
+    if (driver.account?.lastLogin) {
+      const lastLogin = new Date(driver.account.lastLogin);
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      return lastLogin >= fiveMinutesAgo;
+    }
+    
+    return false;
   };
 
   const onlineDrivers = drivers.filter(d => isDriverOnline(d));

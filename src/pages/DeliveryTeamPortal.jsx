@@ -231,23 +231,23 @@ export default function DeliveryTeamPortal() {
           console.debug(`[DeliveryTeam] Loaded ${activeSessionUserIds.size} online users from sessions`);
         }
       } catch (sessionError) {
-        console.debug('Sessions endpoint error, using time-based fallback:', sessionError.message);
+        console.debug('[DeliveryTeam] Sessions endpoint error, using time-based fallback:', sessionError.message);
         // Fallback to time-based detection using lastLogin from contacts
         const now = new Date();
-        const twoMinutesAgo = new Date(now.getTime() - 2 * 60 * 1000);
+        const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
         
         // Check all contacts (drivers + team members)
         contacts.forEach(contact => {
           if (contact.account?.lastLogin) {
             const lastLogin = new Date(contact.account.lastLogin);
-            if (lastLogin >= twoMinutesAgo) {
+            if (lastLogin >= fiveMinutesAgo) {
               const userId = contact.id?.toString() || contact.id;
               activeSessionUserIds.add(userId);
             }
           }
         });
         
-        console.debug(`[DeliveryTeam] Fallback: ${activeSessionUserIds.size} users active in last 2 minutes`);
+        console.debug(`[DeliveryTeam] Fallback: ${activeSessionUserIds.size} users active in last 5 minutes`);
       }
 
       setOnlineUserIds(activeSessionUserIds);
@@ -313,14 +313,14 @@ export default function DeliveryTeamPortal() {
       return true;
     }
     
-    // Fallback to lastLogin check
+    // Fallback to lastLogin check (5 minutes)
     if (!contact.account?.lastLogin) {
       return false;
     }
     
     const lastLogin = new Date(contact.account.lastLogin);
-    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
-    const isOnline = lastLogin >= twoMinutesAgo;
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const isOnline = lastLogin >= fiveMinutesAgo;
     
     if (isOnline) {
       console.debug(`[DeliveryTeam] User ${contact.fullName || contact.username} online via lastLogin:`, lastLogin);
