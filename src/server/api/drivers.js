@@ -1,7 +1,7 @@
 // Express router for driver admin endpoints
 const express = require('express');
 const router = express.Router();
-const { authenticate, requireRole } = require('../auth');
+const { authenticate, requireRole, requireAnyRole } = require('../auth');
 const sapService = require('../../../services/sapService');
 const prisma = require('../db/prisma');
 const { hashPassword } = require('../auth');
@@ -13,7 +13,8 @@ if (!prisma) {
 
 // GET /api/admin/drivers - list drivers (with filters)
 // NOTE: Returns ALL users (drivers and admins). Frontend filters by role as needed.
-router.get('/', authenticate, requireRole('admin'), async (req, res, next) => {
+// Allows admin and delivery_team roles
+router.get('/', authenticate, requireAnyRole('admin', 'delivery_team'), async (req, res, next) => {
   try {
     // Check Prisma connection
     try {
@@ -138,7 +139,8 @@ router.post('/', authenticate, requireRole('admin'), async (req, res) => {
 });
 
 // GET /api/admin/drivers/:id
-router.get('/:id', authenticate, requireRole('admin'), async (req, res) => {
+// Allows admin and delivery_team roles to view driver details
+router.get('/:id', authenticate, requireAnyRole('admin', 'delivery_team'), async (req, res) => {
   const id = req.params.id;
   try {
     const driver = await prisma.driver.findUnique({

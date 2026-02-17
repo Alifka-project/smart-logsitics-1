@@ -210,6 +210,21 @@ function requireRole(role) {
   };
 }
 
+// Helper to require any of the specified roles
+function requireAnyRole(...roles) {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'unauthorized', code: 'NO_USER' });
+    }
+    const userRole = req.user.account?.role || req.user.role;
+    if (!roles.includes(userRole)) {
+      console.log(`[Auth] User role "${userRole}" not in allowed roles:`, roles);
+      return res.status(403).json({ error: 'forbidden', code: 'INSUFFICIENT_PERMISSIONS' });
+    }
+    return next();
+  };
+}
+
 // Refresh access token using refresh token
 function refreshAccessToken(req, res) {
   const cookies = req.headers.cookie ? cookie.parse(req.headers.cookie || '') : {};
@@ -249,6 +264,7 @@ module.exports = {
   authenticate,
   requireCSRF,
   requireRole,
+  requireAnyRole,
   createLoginSession,
   clearLoginSession,
   refreshAccessToken,
