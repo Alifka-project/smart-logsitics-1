@@ -57,6 +57,9 @@ export default function AdminOperationsPage() {
   // Refs for auto-scroll and polling
   const messagesEndRef = useRef(null);
   const messagePollingIntervalRef = useRef(null);
+  // Refs to prevent duplicate API calls
+  const loadingDataRef = useRef(false);
+  const loadingOnlineStatusRef = useRef(false);
   const location = useLocation();
 
   const formatMessageTimestamp = (value) => {
@@ -75,6 +78,10 @@ export default function AdminOperationsPage() {
 
   // Load online status - same logic as User Management and Dashboard pages
   const loadOnlineStatus = useCallback(async (silent = false) => {
+    // Prevent duplicate calls
+    if (loadingOnlineStatusRef.current) return;
+    loadingOnlineStatusRef.current = true;
+    
     try {
       // Try to get active sessions first
       let activeSessionUserIds = new Set();
@@ -118,6 +125,8 @@ export default function AdminOperationsPage() {
       setOnlineUserIds(activeSessionUserIds);
     } catch (e) {
       console.error('Error loading online status:', e);
+    } finally {
+      loadingOnlineStatusRef.current = false;
     }
   }, [contacts]);
 
@@ -135,6 +144,10 @@ export default function AdminOperationsPage() {
   }, []);
 
   const loadData = async () => {
+    // Prevent duplicate calls
+    if (loadingDataRef.current) return;
+    loadingDataRef.current = true;
+    
     try {
       const [driversResp, deliveriesResp, contactsResp] = await Promise.allSettled([
         api.get('/admin/tracking/drivers').catch(() => ({ data: { drivers: [] } })),
@@ -170,6 +183,7 @@ export default function AdminOperationsPage() {
       console.error('Error loading operations data:', e);
     } finally {
       setLoading(false);
+      loadingDataRef.current = false;
     }
   };
 
@@ -181,19 +195,20 @@ export default function AdminOperationsPage() {
     if (autoRefresh) {
       interval = setInterval(() => {
         loadData();
-      }, 5000);
+      }, 10000); // Increased from 5s to 10s to reduce API load
     }
 
     // Auto-refresh online status
     let onlineInterval = setInterval(() => {
       loadOnlineStatus(true);
-    }, 5000);
+    }, 10000); // Increased from 5s to 10s to reduce API load
 
     return () => {
       if (interval) clearInterval(interval);
       if (onlineInterval) clearInterval(onlineInterval);
     };
-  }, [autoRefresh, loadOnlineStatus]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRefresh]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -223,7 +238,8 @@ export default function AdminOperationsPage() {
     if (contacts.length > 0) {
       loadOnlineStatus(true);
     }
-  }, [contacts.length, loadOnlineStatus]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contacts.length]);
 
   // Load messages when driver is selected
   useEffect(() => {
@@ -231,7 +247,7 @@ export default function AdminOperationsPage() {
       loadMessages(selectedDriver.id);
       messagePollingIntervalRef.current = setInterval(() => {
         loadMessages(selectedDriver.id, true);
-      }, 3000);
+      }, 5000); // Increased from 3s to 5s to reduce API load
     }
     return () => {
       if (messagePollingIntervalRef.current) {
