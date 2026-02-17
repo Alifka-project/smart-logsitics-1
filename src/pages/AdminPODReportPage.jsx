@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../frontend/apiClient';
-import { Download, Filter, Calendar, Image, CheckCircle, XCircle, AlertTriangle, Camera, FileText, User, Clock } from 'lucide-react';
+import { Download, Filter, Calendar, Image, CheckCircle, XCircle, AlertTriangle, Camera, FileText, User, Clock, ArrowLeft } from 'lucide-react';
 
 function ensureAuth() {
   const token = localStorage.getItem('auth_token');
@@ -108,6 +109,13 @@ export default function AdminPODReportPage() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
+          <Link
+            to="/admin/reports"
+            className="inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 mb-3 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Reports
+          </Link>
           <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
             <Image className="w-8 h-8" />
             POD Report (Proof of Delivery)
