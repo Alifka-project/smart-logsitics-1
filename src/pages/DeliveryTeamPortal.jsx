@@ -916,6 +916,19 @@ export default function DeliveryTeamPortal() {
                       // Message is sent by current user if adminId matches current user
                       const isSent = msg.adminId === currentUserId;
                       
+                      // Debug logging
+                      if (messages.indexOf(msg) === 0) {
+                        console.log('[DeliveryTeam Message Debug]', {
+                          messageId: msg.id,
+                          adminId: msg.adminId,
+                          driverId: msg.driverId,
+                          currentUserId: currentUserId,
+                          isSent: isSent,
+                          senderRole: msg.senderRole,
+                          content: msg.content?.substring(0, 20)
+                        });
+                      }
+                      
                       return (
                         <div
                           key={msg.id}
