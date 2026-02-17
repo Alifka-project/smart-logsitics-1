@@ -141,11 +141,20 @@ export default function DriverPortal() {
   };
 
   const isContactOnline = (contact) => {
-    if (!contact?.account?.lastLogin) return false;
+    if (!contact?.account?.lastLogin) {
+      return false;
+    }
+    
     const lastActive = new Date(contact.account.lastLogin);
     const now = new Date();
     const diffMinutes = (now - lastActive) / 1000 / 60;
-    return diffMinutes < 5; // Consider online if active within 5 minutes
+    const isOnline = diffMinutes < 5; // Consider online if active within 5 minutes
+    
+    if (isOnline) {
+      console.debug(`[Driver] Contact ${contact.fullName || contact.username} online (active ${diffMinutes.toFixed(1)}m ago)`);
+    }
+    
+    return isOnline;
   };
 
   const cleanup = useCallback(() => {

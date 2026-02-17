@@ -405,7 +405,13 @@ router.post('/:id/activate-gps', authenticate, async (req, res) => {
 });
 
 // GET /api/admin/sessions - Get active sessions for online user detection
-router.get('/sessions', authenticate, requireRole('admin'), async (req, res) => {
+router.get('/sessions', authenticate, async (req, res) => {
+  // Allow both admin and delivery_team roles
+  const userRole = req.user?.account?.role || req.user?.role;
+  if (userRole !== 'admin' && userRole !== 'delivery_team') {
+    return res.status(403).json({ error: 'Forbidden - Admin or Delivery Team access required' });
+  }
+  
   try {
     let activeSessions = [];
     
@@ -419,9 +425,9 @@ router.get('/sessions', authenticate, requireRole('admin'), async (req, res) => 
       // sessionStore doesn't exist or failed, use time-based fallback
       console.debug('sessionStore not available, using time-based detection');
       
-      // Fallback: Get drivers with recent activity (logged in within last 2 minutes)
+      // Fallback: Get all users with recent activity (logged in within last 2 minutes)
       const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
-      const recentDrivers = await prisma.driver.findMany({
+      const recentUsers = await prisma.driver.findMany({
         where: {
           account: {
             lastLogin: { gte: twoMinutesAgo }
@@ -430,10 +436,11 @@ router.get('/sessions', authenticate, requireRole('admin'), async (req, res) => 
         include: { account: true }
       });
       
-      activeSessions = recentDrivers.map(driver => ({
-        userId: driver.id,
-        username: driver.account?.username || driver.fullName,
-        lastSeen: driver.account?.lastLogin
+      activeSessions = recentUsers.map(user => ({
+        userId: user.id,
+        username: user.account?.username || user.fullName,
+        lastSeen: user.account?.lastLogin,
+        role: user.account?.role
       }));
     }
     

@@ -84,17 +84,29 @@ export default function DeliveryTeamPortal() {
     }
 
     loadData();
-    loadOnlineUsers();
 
     if (autoRefresh) {
       const interval = setInterval(() => {
         loadData();
-        loadOnlineUsers();
       }, 10000);
 
       return () => clearInterval(interval);
     }
   }, [autoRefresh]);
+
+  // Load online users after contacts are loaded
+  useEffect(() => {
+    if (contacts.length > 0) {
+      loadOnlineUsers();
+      
+      // Set up interval for online status refresh
+      const onlineInterval = setInterval(() => {
+        loadOnlineUsers();
+      }, 10000);
+      
+      return () => clearInterval(onlineInterval);
+    }
+  }, [contacts.length]);
 
   // Handle URL-based contact selection for communication
   useEffect(() => {
@@ -206,17 +218,41 @@ export default function DeliveryTeamPortal() {
 
   const loadOnlineUsers = async () => {
     try {
-      const response = await api.get('/admin/drivers/sessions');
-      if (response.data?.sessions) {
-        const online = new Set(
-          response.data.sessions
-            .map(s => s.userId?.toString() || s.userId)
-            .filter(Boolean)
-        );
-        setOnlineUserIds(online);
+      // Try to get active sessions first
+      let activeSessionUserIds = new Set();
+      try {
+        const response = await api.get('/admin/drivers/sessions');
+        if (response.data?.sessions) {
+          activeSessionUserIds = new Set(
+            response.data.sessions
+              .map(s => s.userId?.toString() || s.userId)
+              .filter(Boolean)
+          );
+          console.debug(`[DeliveryTeam] Loaded ${activeSessionUserIds.size} online users from sessions`);
+        }
+      } catch (sessionError) {
+        console.debug('Sessions endpoint error, using time-based fallback:', sessionError.message);
+        // Fallback to time-based detection using lastLogin from contacts
+        const now = new Date();
+        const twoMinutesAgo = new Date(now.getTime() - 2 * 60 * 1000);
+        
+        // Check all contacts (drivers + team members)
+        contacts.forEach(contact => {
+          if (contact.account?.lastLogin) {
+            const lastLogin = new Date(contact.account.lastLogin);
+            if (lastLogin >= twoMinutesAgo) {
+              const userId = contact.id?.toString() || contact.id;
+              activeSessionUserIds.add(userId);
+            }
+          }
+        });
+        
+        console.debug(`[DeliveryTeam] Fallback: ${activeSessionUserIds.size} users active in last 2 minutes`);
       }
+
+      setOnlineUserIds(activeSessionUserIds);
     } catch (error) {
-      console.debug('Sessions endpoint not available');
+      console.error('Error loading online users:', error);
     }
   };
 
@@ -271,14 +307,26 @@ export default function DeliveryTeamPortal() {
 
   const isContactOnline = (contact) => {
     const userId = contact.id?.toString() || contact.id;
+    
+    // Check sessions first
     if (onlineUserIds.has(userId?.toString()) || onlineUserIds.has(userId)) {
       return true;
     }
     
-    if (!contact.account?.lastLogin) return false;
+    // Fallback to lastLogin check
+    if (!contact.account?.lastLogin) {
+      return false;
+    }
+    
     const lastLogin = new Date(contact.account.lastLogin);
     const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
-    return lastLogin >= twoMinutesAgo;
+    const isOnline = lastLogin >= twoMinutesAgo;
+    
+    if (isOnline) {
+      console.debug(`[DeliveryTeam] User ${contact.fullName || contact.username} online via lastLogin:`, lastLogin);
+    }
+    
+    return isOnline;
   };
 
   const activeDeliveries = deliveries.filter(d => 
