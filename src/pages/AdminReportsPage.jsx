@@ -349,14 +349,7 @@ export default function AdminReportsPage() {
           </div>
         </div>
         <div className="flex items-center justify-between mt-4">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => loadReport()}
-              disabled={loading}
-              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
-            >
-              Apply Filters
-            </button>
+          <div>
             {hasActiveFilters() && (
               <button
                 onClick={clearFilters}
