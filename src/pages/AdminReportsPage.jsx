@@ -85,6 +85,22 @@ export default function AdminReportsPage() {
     loadReport('csv');
   };
 
+  // Check if any filters are active (excluding date filters)
+  const hasActiveFilters = () => {
+    return filters.status || filters.customerStatus || filters.poNumber;
+  };
+
+  // Clear all filters except dates
+  const clearFilters = () => {
+    setFilters(prev => ({
+      ...prev,
+      status: '',
+      customerStatus: '',
+      poNumber: ''
+    }));
+    setCurrentPage(1);
+  };
+
   // Get customer status from delivery
   const getCustomerStatus = (delivery) => {
     const status = (delivery.status || '').toLowerCase();
@@ -333,20 +349,32 @@ export default function AdminReportsPage() {
           </div>
         </div>
         <div className="flex items-center justify-between mt-4">
-          <button
-            onClick={() => loadReport()}
-            disabled={loading}
-            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
-          >
-            Apply Filters
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => loadReport()}
+              disabled={loading}
+              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+            >
+              Apply Filters
+            </button>
+            {hasActiveFilters() && (
+              <button
+                onClick={clearFilters}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2"
+              >
+                Clear Filters
+              </button>
+            )}
+          </div>
           <div className="text-sm text-gray-600 dark:text-gray-400">
             Showing {filteredDeliveries.length} delivery{filteredDeliveries.length !== 1 ? 'ies' : ''}
           </div>
         </div>
       </div>
 
-      {/* Summary Statistics */}
+      {/* Summary Statistics - Only show when no filters are applied */}
+      {!hasActiveFilters() && (
+      <>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatCard label="Total Deliveries" value={stats.total} color="blue" />
         <StatCard label="Delivered" value={stats.delivered} color="green" subtitle={`${stats.successRate}% success rate`} />
@@ -490,6 +518,8 @@ export default function AdminReportsPage() {
           </LineChart>
         </ResponsiveContainer>
       </div>
+      </>
+      )}
 
       {/* Detailed Delivery List */}
       {reportData?.deliveries && reportData.deliveries.length > 0 && (
