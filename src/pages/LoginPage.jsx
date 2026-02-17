@@ -91,6 +91,8 @@ export default function LoginPage() {
       // Redirect based on role
       if (driver?.role === 'admin') {
         window.location.href = '/admin';
+      } else if (driver?.role === 'delivery_team') {
+        window.location.href = '/delivery-team';
       } else {
         window.location.href = '/driver';
       }

@@ -164,7 +164,7 @@ export default function Header() {
       let deliveryNotifications = [];
       let messageNotifications = [];
 
-      // Driver: use driver-specific unread count API (admin /messages/unread is admin-only)
+      // Driver: use driver-specific unread count API
       if (userRole === 'driver') {
         try {
           const response = await api.get('/messages/driver/notifications/count');
@@ -233,10 +233,10 @@ export default function Header() {
         }
       }
 
-      // Admin: get delivery status notifications (cancelled/rejected/rescheduled)
+      // Admin and Delivery Team: get delivery status notifications
       // Note: This endpoint is currently not implemented, keeping deliveryNotifications empty
       // TODO: Implement /admin/notifications endpoint if needed for delivery status changes
-      if (userRole === 'admin') {
+      if (userRole === 'admin' || userRole === 'delivery_team') {
         // Delivery notifications disabled until endpoint is properly implemented
         deliveryNotifications = [];
       }
@@ -265,8 +265,8 @@ export default function Header() {
           console.log('[TOAST] Showing new message notification:', messageDelta);
           
           // Show detailed toast based on role and who sent the message
-          if (userRole === 'admin' && messageNotifications.length > 0) {
-            // Admin receiving messages from drivers - show driver name
+          if ((userRole === 'admin' || userRole === 'delivery_team') && messageNotifications.length > 0) {
+            // Admin/Delivery Team receiving messages from drivers - show driver name
             const prevNotifications = prevMessageNotificationsRef.current;
             const newMessages = messageNotifications.filter(notif => {
               const prevNotif = prevNotifications.find(p => p.id === notif.id);
@@ -340,7 +340,7 @@ export default function Header() {
         });
 
         const newDeliveryIds = new Set();
-        if (userRole === 'admin' && deliveryNotifications.length) {
+        if ((userRole === 'admin' || userRole === 'delivery_team') && deliveryNotifications.length) {
           deliveryNotifications.forEach((notif) => {
             newDeliveryIds.add(notif.id);
             const existing = previousById.get(notif.id);
@@ -540,14 +540,23 @@ export default function Header() {
         navigate(`/admin/operations?tab=communication${userQuery}`);
         return;
       }
+      if (userRole === 'delivery_team') {
+        const driverQuery = notification.senderId ? `?driver=${encodeURIComponent(notification.senderId)}` : '';
+        navigate(`/delivery-team${driverQuery}`);
+        return;
+      }
       navigate('/driver?tab=messages');
       return;
     }
 
-    if (notification.type === 'delivery' && userRole === 'admin') {
+    if (notification.type === 'delivery' && (userRole === 'admin' || userRole === 'delivery_team')) {
       setShowNotifications(false);
       const deliveryQuery = notification.deliveryId ? `&delivery=${encodeURIComponent(notification.deliveryId)}` : '';
-      navigate(`/admin?tab=deliveries${deliveryQuery}`);
+      if (userRole === 'delivery_team') {
+        navigate(`/delivery-team?tab=control${deliveryQuery}`);
+      } else {
+        navigate(`/admin?tab=deliveries${deliveryQuery}`);
+      }
       markNotificationAsRead(notification);
       return;
     }
@@ -592,6 +601,8 @@ export default function Header() {
     // Redirect to appropriate dashboard based on user role
     if (user?.role === 'admin') {
       navigate('/admin');
+    } else if (user?.role === 'delivery_team') {
+      navigate('/delivery-team');
     } else if (user?.role === 'driver') {
       navigate('/driver');
     } else {

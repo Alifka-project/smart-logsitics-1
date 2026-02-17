@@ -18,6 +18,7 @@ import AdminPODReportPage from './pages/AdminPODReportPage';
 import AdminDriverTrackingPage from './pages/AdminDriverTrackingPage';
 import AdminDeliveryTrackingPage from './pages/AdminDeliveryTrackingPage';
 import DriverPortal from './pages/DriverPortal';
+import DeliveryTeamPortal from './pages/DeliveryTeamPortal';
 import AdminUsersPage from './pages/AdminUsersPage';
 import TrackingPage from './pages/TrackingPage';
 import CustomerConfirmationPage from './pages/CustomerConfirmationPage';
@@ -119,6 +120,8 @@ function ProtectedLayout() {
             <Route path="/admin/users" element={<AdminUsersPage />} />
             {/* Driver portal */}
             <Route path="/driver" element={<DriverPortal />} />
+            {/* Delivery Team portal */}
+            <Route path="/delivery-team" element={<DeliveryTeamPortal />} />
           </Routes>
         </main>
       </div>
