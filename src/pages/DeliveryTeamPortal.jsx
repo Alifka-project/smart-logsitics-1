@@ -82,6 +82,8 @@ export default function DeliveryTeamPortal() {
       console.error('[DeliveryTeamPortal] No user found');
       return;
     }
+    
+    console.log('[DeliveryTeamPortal] Current user:', currentUser.sub, 'Role:', currentUser.account?.role);
 
     loadData();
 
@@ -163,6 +165,7 @@ export default function DeliveryTeamPortal() {
 
   const loadData = async () => {
     try {
+      console.log('[DeliveryTeam] Loading data...');
       const [driversRes, deliveriesRes, contactsRes] = await Promise.all([
         api.get('/admin/drivers'),
         api.get('/deliveries'),
@@ -175,8 +178,18 @@ export default function DeliveryTeamPortal() {
       
       // Set contacts from API response
       const allContacts = contactsRes.data?.contacts || [];
+      const teamMembersList = contactsRes.data?.teamMembers || [];
+      const driverContacts = contactsRes.data?.drivers || [];
+      
+      console.log('[DeliveryTeam] Contacts loaded:', {
+        allContacts: allContacts.length,
+        teamMembers: teamMembersList.length,
+        drivers: driverContacts.length,
+        driversFiltered: driversList.length
+      });
+      
       setContacts(allContacts);
-      setTeamMembers(contactsRes.data?.teamMembers || []);
+      setTeamMembers(teamMembersList);
 
       const allDeliveries = deliveriesRes.data?.data || [];
       setDeliveries(allDeliveries);
@@ -879,27 +892,34 @@ export default function DeliveryTeamPortal() {
                       No messages yet. Start a conversation!
                     </div>
                   ) : (
-                    messages.map(msg => (
-                      <div
-                        key={msg.id}
-                        className={`flex ${msg.fromRole === 'delivery_team' || msg.fromRole === 'admin' ? 'justify-end' : 'justify-start'}`}
-                      >
-                        <div className={`max-w-[70%] rounded-lg p-3 ${
-                          msg.fromRole === 'delivery_team' || msg.fromRole === 'admin'
-                            ? 'bg-primary-600 text-white'
-                            : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
-                        }`}>
-                          <p className="text-sm">{msg.message}</p>
-                          <p className={`text-xs mt-1 ${
-                            msg.fromRole === 'delivery_team' || msg.fromRole === 'admin'
-                              ? 'text-primary-100'
-                              : 'text-gray-500 dark:text-gray-400'
+                    messages.map(msg => {
+                      const currentUser = getCurrentUser();
+                      const currentUserId = currentUser?.sub;
+                      // Message is sent by current user if adminId matches current user
+                      const isSent = msg.adminId === currentUserId;
+                      
+                      return (
+                        <div
+                          key={msg.id}
+                          className={`flex ${isSent ? 'justify-end' : 'justify-start'}`}
+                        >
+                          <div className={`max-w-[70%] rounded-lg p-3 ${
+                            isSent
+                              ? 'bg-primary-600 text-white'
+                              : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
                           }`}>
-                            {formatMessageTimestamp(msg.createdAt)}
-                          </p>
+                            <p className="text-sm">{msg.content}</p>
+                            <p className={`text-xs mt-1 ${
+                              isSent
+                                ? 'text-primary-100'
+                                : 'text-gray-500 dark:text-gray-400'
+                            }`}>
+                              {formatMessageTimestamp(msg.createdAt)}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                   <div ref={messagesEndRef} />
                 </div>
