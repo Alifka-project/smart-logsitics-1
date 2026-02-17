@@ -541,8 +541,8 @@ export default function Header() {
         return;
       }
       if (userRole === 'delivery_team') {
-        const driverQuery = notification.senderId ? `?driver=${encodeURIComponent(notification.senderId)}` : '';
-        navigate(`/delivery-team${driverQuery}`);
+        const contactQuery = notification.senderId ? `?tab=communication&contact=${encodeURIComponent(notification.senderId)}` : '?tab=communication';
+        navigate(`/delivery-team${contactQuery}`);
         return;
       }
       navigate('/driver?tab=messages');

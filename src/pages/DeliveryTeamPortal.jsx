@@ -113,15 +113,28 @@ export default function DeliveryTeamPortal() {
   // Handle URL-based contact selection for communication
   useEffect(() => {
     const params = new URLSearchParams(location.search);
+    const tabParam = params.get('tab');
     const contactId = params.get('driver') || params.get('contact');
     
-    if (contactId && contacts.length > 0) {
-      const contact = contacts.find(c => c.id === contactId);
-      if (contact && (!selectedContact || selectedContact.id !== contactId)) {
-        setSelectedContact(contact);
+    // Switch to tab specified in URL
+    if (tabParam && tabParam !== activeTab) {
+      setActiveTab(tabParam);
+    }
+    
+    // If contact ID is provided, switch to communication tab and select contact
+    if (contactId) {
+      if (activeTab !== 'communication') {
+        setActiveTab('communication');
       }
-    } else if (contactId && activeTab !== 'communication') {
-      setActiveTab('communication');
+      
+      // Select the contact when contacts are loaded
+      if (contacts.length > 0) {
+        const contact = contacts.find(c => c.id === contactId);
+        if (contact && (!selectedContact || selectedContact.id !== contactId)) {
+          console.log('[DeliveryTeam] Selecting contact from URL:', contact.fullName || contact.username);
+          setSelectedContact(contact);
+        }
+      }
     }
   }, [location.search, contacts, selectedContact, activeTab]);
 
@@ -136,6 +149,7 @@ export default function DeliveryTeamPortal() {
 
   // Load messages when contact is selected
   useEffect(() => {
+    console.log('[DeliveryTeam] selectedContact changed:', selectedContact?.id, selectedContact?.fullName || selectedContact?.username);
     if (selectedContact) {
       loadMessages(selectedContact.id);
       
@@ -281,10 +295,13 @@ export default function DeliveryTeamPortal() {
   };
 
   const loadMessages = async (contactId, silent = false) => {
+    console.log('[DeliveryTeam] loadMessages called with contactId:', contactId, 'silent:', silent);
     if (!silent) setLoadingMessages(true);
     try {
       const response = await api.get(`/messages/conversations/${contactId}`);
-      setMessages(response.data?.messages || []);
+      const messages = response.data?.messages || [];
+      console.log('[DeliveryTeam] Loaded messages:', messages.length, 'messages');
+      setMessages(messages);
       
       // Update unread count
       setUnreadByDriverId(prev => ({
@@ -292,6 +309,7 @@ export default function DeliveryTeamPortal() {
         [contactId]: 0
       }));
     } catch (error) {
+      console.error('[DeliveryTeam] Error loading messages:', error);
       if (!silent) console.error('Error loading messages:', error);
     } finally {
       if (!silent) setLoadingMessages(false);
