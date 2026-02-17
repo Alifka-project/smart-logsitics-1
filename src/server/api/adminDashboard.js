@@ -110,8 +110,8 @@ function computeAnalytics(deliveries) {
     .sort((a, b) => b.orders - a.orders)
     .slice(0, 10);
 
-  // 2. Top 10 items with PNC
-  // Item name = Description, PNC = Material Number (Material column from delivery metadata)
+  // 2. Top 10 items with PNC and Model ID
+  // Item name = Description, PNC = Material Number, Model ID from delivery metadata
   // Source: metadata.originalRow from uploaded file
   const itemCount = {};
   list.forEach((d) => {
@@ -119,12 +119,14 @@ function computeAnalytics(deliveries) {
     const orig = meta.originalRow || meta._originalRow || {};
     const pnc = String(orig.Material || orig.material || orig['Material Number'] || '').trim();
     const item = String(orig.Description || orig.description || '').trim();
+    const modelId = String(orig['MODEL ID'] || orig['Model ID'] || orig['model_id'] || orig.ModelID || '').trim();
     const itemsStr = (d.items || '').trim();
     const itemDisplay = item || (itemsStr ? itemsStr.split(/\s*-\s*/)[0]?.trim() : '') || 'Unspecified';
     const pncDisplay = pnc || '-';
-    const key = `${itemDisplay}::${pncDisplay}`;
+    const modelIdDisplay = modelId || '-';
+    const key = `${itemDisplay}::${pncDisplay}::${modelIdDisplay}`;
     if (!itemCount[key]) {
-      itemCount[key] = { item: itemDisplay, pnc: pncDisplay, count: 0 };
+      itemCount[key] = { item: itemDisplay, pnc: pncDisplay, modelId: modelIdDisplay, count: 0 };
     }
     itemCount[key].count++;
   });

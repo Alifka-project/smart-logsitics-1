@@ -765,7 +765,7 @@ export default function AdminDashboardPage() {
               <Package className="w-5 h-5 text-primary-600" />
               Top 10 Items and PNC
             </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Item name and PNC (Material Number) from delivery metadata</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Item name, PNC (Material Number), and Model ID from delivery metadata</p>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-700">
@@ -773,6 +773,7 @@ export default function AdminDashboardPage() {
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Rank</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Item Name</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">PNC</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Model ID</th>
                     <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Quantity</th>
                   </tr>
                 </thead>
@@ -782,11 +783,12 @@ export default function AdminDashboardPage() {
                       <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">{idx + 1}</td>
                       <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100">{row.item}</td>
                       <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 font-mono">{row.pnc}</td>
+                      <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 font-mono">{row.modelId || '-'}</td>
                       <td className="px-4 py-2 text-sm text-right font-semibold text-primary-600 dark:text-primary-400">{row.count}</td>
                     </tr>
                   ))}
                   {(!data.analytics.topItems || data.analytics.topItems.length === 0) && (
-                    <tr><td colSpan={4} className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">No data yet</td></tr>
+                    <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">No data yet</td></tr>
                   )}
                 </tbody>
               </table>
