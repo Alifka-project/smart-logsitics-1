@@ -11,16 +11,102 @@ const prisma = require('../db/prisma');
 function computeAnalytics(deliveries) {
   const list = Array.isArray(deliveries) ? deliveries : [];
 
-  // 1. Top 10 customers by order count
+  // 1. Top 10 customers by order count with comprehensive metrics
   // Source: customer field (maps from "Ship to party" in delivery format)
-  const customerCount = {};
+  const customerData = {};
+  const areaKeywords = [
+    'Marina', 'Jumeirah', 'Jebel Ali', 'Business Bay', 'Downtown', 'Deira', 'Bur Dubai',
+    'Silicon Oasis', 'Motor City', 'Arabian Ranches', 'The Springs', 'Palm', 'Al Barsha',
+    'Al Quoz', 'JLT', 'DIFC', 'Karama', 'Satwa', 'Oud Metha', 'Mirdif', 'Dubai Hills'
+  ];
+  
   list.forEach((d) => {
     const cust = (d.customer || '').trim();
     if (!cust) return;
-    customerCount[cust] = (customerCount[cust] || 0) + 1;
+    
+    if (!customerData[cust]) {
+      customerData[cust] = {
+        customer: cust,
+        orders: 0,
+        delivered: 0,
+        pending: 0,
+        cancelled: 0,
+        totalQuantity: 0,
+        lastOrderDate: null,
+        areas: {}
+      };
+    }
+    
+    const custData = customerData[cust];
+    custData.orders++;
+    
+    // Count by status
+    const status = (d.status || 'pending').toLowerCase();
+    if (status === 'delivered') {
+      custData.delivered++;
+    } else if (status === 'pending' || status === 'out-for-delivery') {
+      custData.pending++;
+    } else if (status === 'cancelled') {
+      custData.cancelled++;
+    }
+    
+    // Total quantity from metadata
+    const meta = d.metadata || {};
+    const orig = meta.originalRow || meta._originalRow || {};
+    const qty = parseFloat(orig['Confirmed quantity'] || orig['Confirmed Quantity'] || orig['Quantity'] || orig['qty'] || 0);
+    if (!isNaN(qty)) {
+      custData.totalQuantity += qty;
+    }
+    
+    // Track last order date
+    const orderDate = new Date(d.createdAt || d.created_at || d.created || Date.now());
+    if (!custData.lastOrderDate || orderDate > custData.lastOrderDate) {
+      custData.lastOrderDate = orderDate;
+    }
+    
+    // Track delivery areas
+    const addr = (d.address || '').toLowerCase();
+    const city = (orig.City || orig.city || '').toLowerCase();
+    const searchStr = addr + ' ' + city;
+    let area = 'Other';
+    for (const kw of areaKeywords) {
+      if (searchStr.includes(kw.toLowerCase())) {
+        area = kw;
+        break;
+      }
+    }
+    custData.areas[area] = (custData.areas[area] || 0) + 1;
   });
-  const topCustomers = Object.entries(customerCount)
-    .map(([customer, orders]) => ({ customer, orders }))
+  
+  const topCustomers = Object.values(customerData)
+    .map((custData) => {
+      // Calculate success rate
+      const successRate = custData.orders > 0 
+        ? ((custData.delivered / custData.orders) * 100).toFixed(1)
+        : '0.0';
+      
+      // Find primary area (most frequent)
+      let primaryArea = 'N/A';
+      let maxAreaCount = 0;
+      Object.entries(custData.areas).forEach(([area, count]) => {
+        if (count > maxAreaCount) {
+          maxAreaCount = count;
+          primaryArea = area;
+        }
+      });
+      
+      return {
+        customer: custData.customer,
+        orders: custData.orders,
+        delivered: custData.delivered,
+        pending: custData.pending,
+        cancelled: custData.cancelled,
+        successRate: parseFloat(successRate),
+        totalQuantity: Math.round(custData.totalQuantity),
+        lastOrderDate: custData.lastOrderDate ? custData.lastOrderDate.toISOString() : null,
+        primaryArea: primaryArea
+      };
+    })
     .sort((a, b) => b.orders - a.orders)
     .slice(0, 10);
 
@@ -49,11 +135,6 @@ function computeAnalytics(deliveries) {
   // 3. Delivery area statistics
   // Source: address (Ship to Street, City, Postal code) and metadata.originalRow.City
   const areaCount = {};
-  const areaKeywords = [
-    'Marina', 'Jumeirah', 'Jebel Ali', 'Business Bay', 'Downtown', 'Deira', 'Bur Dubai',
-    'Silicon Oasis', 'Motor City', 'Arabian Ranches', 'The Springs', 'Palm', 'Al Barsha',
-    'Al Quoz', 'JLT', 'DIFC', 'Karama', 'Satwa', 'Oud Metha', 'Mirdif', 'Dubai Hills'
-  ];
   list.forEach((d) => {
     const addr = (d.address || '').toLowerCase();
     const city = ((d.metadata?.originalRow || d.metadata?._originalRow || {}).City || '').toLowerCase();

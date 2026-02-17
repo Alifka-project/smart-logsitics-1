@@ -686,19 +686,73 @@ export default function AdminDashboardPage() {
                   <tr>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">#</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Customer</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Orders</th>
+                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Total Orders</th>
+                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Delivered</th>
+                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Pending</th>
+                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Success Rate</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Total Qty</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Last Order</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Primary Area</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {(data.analytics.topCustomers || []).map((row, idx) => (
-                    <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">{idx + 1}</td>
-                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100">{row.customer}</td>
-                      <td className="px-4 py-2 text-sm text-right font-semibold text-primary-600 dark:text-primary-400">{row.orders}</td>
-                    </tr>
-                  ))}
+                  {(data.analytics.topCustomers || []).map((row, idx) => {
+                    const successRate = row.successRate || 0;
+                    const successRateColor = successRate >= 90 
+                      ? 'text-green-600 dark:text-green-400' 
+                      : successRate >= 70 
+                      ? 'text-yellow-600 dark:text-yellow-400' 
+                      : 'text-red-600 dark:text-red-400';
+                    
+                    const lastOrderDate = row.lastOrderDate ? new Date(row.lastOrderDate) : null;
+                    const now = new Date();
+                    let lastOrderDisplay = 'N/A';
+                    
+                    if (lastOrderDate) {
+                      const daysDiff = Math.floor((now - lastOrderDate) / (1000 * 60 * 60 * 24));
+                      if (daysDiff === 0) {
+                        lastOrderDisplay = 'Today';
+                      } else if (daysDiff === 1) {
+                        lastOrderDisplay = 'Yesterday';
+                      } else if (daysDiff < 7) {
+                        lastOrderDisplay = `${daysDiff} days ago`;
+                      } else if (daysDiff < 30) {
+                        const weeks = Math.floor(daysDiff / 7);
+                        lastOrderDisplay = `${weeks} ${weeks === 1 ? 'week' : 'weeks'} ago`;
+                      } else if (daysDiff < 365) {
+                        const months = Math.floor(daysDiff / 30);
+                        lastOrderDisplay = `${months} ${months === 1 ? 'month' : 'months'} ago`;
+                      } else {
+                        const years = Math.floor(daysDiff / 365);
+                        lastOrderDisplay = `${years} ${years === 1 ? 'year' : 'years'} ago`;
+                      }
+                    }
+                    
+                    return (
+                      <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">{idx + 1}</td>
+                        <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100">{row.customer}</td>
+                        <td className="px-4 py-2 text-sm text-center font-semibold text-primary-600 dark:text-primary-400">{row.orders}</td>
+                        <td className="px-4 py-2 text-sm text-center text-green-600 dark:text-green-400">{row.delivered || 0}</td>
+                        <td className="px-4 py-2 text-sm text-center text-yellow-600 dark:text-yellow-400">{row.pending || 0}</td>
+                        <td className="px-4 py-2 text-sm text-center">
+                          <span className={`font-semibold ${successRateColor}`}>
+                            {successRate.toFixed(1)}%
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 text-sm text-right text-gray-900 dark:text-gray-100 font-mono">{row.totalQuantity || 0}</td>
+                        <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">{lastOrderDisplay}</td>
+                        <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">
+                          <span className="inline-flex items-center gap-1">
+                            <MapPin className="w-3 h-3" />
+                            {row.primaryArea || 'N/A'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
                   {(!data.analytics.topCustomers || data.analytics.topCustomers.length === 0) && (
-                    <tr><td colSpan={3} className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">No data yet</td></tr>
+                    <tr><td colSpan={9} className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">No data yet</td></tr>
                   )}
                 </tbody>
               </table>
