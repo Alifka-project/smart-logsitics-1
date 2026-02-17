@@ -913,27 +913,32 @@ export default function DeliveryTeamPortal() {
                     messages.map(msg => {
                       const currentUser = getCurrentUser();
                       const currentUserId = currentUser?.sub;
-                      // Message is sent by current user if adminId matches current user
-                      // Ensure both are same type for comparison
+                      const currentUserRole = currentUser?.account?.role || currentUser?.role;
+                      
+                      // Determine if message is sent by current user
+                      // Method 1: Check if adminId matches current user (for admin/delivery_team sending)
                       const msgAdminId = String(msg.adminId);
                       const userId = String(currentUserId);
-                      const isSent = msgAdminId === userId;
+                      const isSentByAdminId = msgAdminId === userId;
                       
-                      // Debug logging
+                      // Method 2: Check if senderRole matches current user role
+                      const isSentByRole = msg.senderRole === currentUserRole;
+                      
+                      // Use role-based check for delivery_team
+                      const isSent = currentUserRole === 'delivery_team' ? isSentByRole : isSentByAdminId;
+                      
+                      // Debug logging for first message
                       if (messages.indexOf(msg) === 0) {
                         console.log('[DeliveryTeam Message Debug]', {
                           messageId: msg.id,
                           adminId: msg.adminId,
-                          adminIdType: typeof msg.adminId,
                           driverId: msg.driverId,
-                          driverIdType: typeof msg.driverId,
-                          currentUserId: currentUserId,
-                          currentUserIdType: typeof currentUserId,
-                          msgAdminId,
-                          userId,
-                          isSent: isSent,
-                          comparison: `${msgAdminId} === ${userId}`,
                           senderRole: msg.senderRole,
+                          currentUserId: currentUserId,
+                          currentUserRole: currentUserRole,
+                          isSentByAdminId,
+                          isSentByRole,
+                          isSent,
                           content: msg.content?.substring(0, 20)
                         });
                       }
