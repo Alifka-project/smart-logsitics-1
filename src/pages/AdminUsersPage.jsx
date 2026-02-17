@@ -119,7 +119,9 @@ export default function AdminUsersPage() {
       }
       
       // Separate accounts and drivers based on role
-      const accountsList = allUsers.filter(u => u.account?.role === 'admin');
+      // Accounts tab: all non-driver roles (admin, delivery_team, sales_ops, manager)
+      // Drivers tab: only driver role
+      const accountsList = allUsers.filter(u => u.account?.role && u.account?.role !== 'driver');
       const driversList = allUsers.filter(u => u.account?.role === 'driver' || !u.account);
       
       setAccounts(accountsList);
@@ -252,6 +254,7 @@ export default function AdminUsersPage() {
     if (!formData.username) newErrors.username = 'Username is required';
     if (!formData.full_name) newErrors.full_name = 'Full name is required';
     if (!formData.email && activeTab === 'accounts') newErrors.email = 'Email is required';
+    if (!formData.phone) newErrors.phone = 'Phone is required';
     if (!formData.password && !editingUser) newErrors.password = 'Password is required';
     if (activeTab === 'drivers' && !formData.license_number) {
       newErrors.license_number = 'License number is required';
@@ -939,14 +942,19 @@ export default function AdminUsersPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Phone
+                      Phone *
                     </label>
                     <input
                       type="tel"
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
+                      className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 ${
+                        errors.phone ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'
+                      }`}
                     />
+                    {errors.phone && (
+                      <p className="text-red-500 dark:text-red-400 text-xs mt-1">{errors.phone}</p>
+                    )}
                   </div>
                 </div>
               </div>
