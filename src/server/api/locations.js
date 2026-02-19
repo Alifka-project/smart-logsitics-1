@@ -14,12 +14,25 @@ router.post('/:id/location', async (req, res) => {
   if (!latitude || !longitude) return res.status(400).json({ error: 'lat_long_required' });
 
   try {
+    // Insert new location
     const q = `INSERT INTO live_locations(driver_id, latitude, longitude, heading, speed, accuracy, recorded_at)
                VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id, driver_id, latitude, longitude, recorded_at`;
     const vals = [driverId, latitude, longitude, heading || null, speed || null, accuracy || null, recorded_at || new Date().toISOString()];
     const { rows } = await db.query(q, vals);
 
-    // TODO: publish to Redis / pubsub for realtime maps
+    // Cleanup old locations for this driver (keep only last 24 hours) - do this async to not block response
+    setImmediate(async () => {
+      try {
+        await db.query(
+          `DELETE FROM live_locations 
+           WHERE driver_id = $1 
+           AND recorded_at < NOW() - INTERVAL '24 hours'`,
+          [driverId]
+        );
+      } catch (err) {
+        console.error('Location cleanup error:', err);
+      }
+    });
 
     res.json({ ok: true, location: rows[0] });
   } catch (err) {
@@ -34,10 +47,26 @@ router.post('/me/location', authenticate, async (req, res) => {
   const { latitude, longitude, heading, speed, accuracy, recorded_at } = req.body;
   if (!latitude || !longitude) return res.status(400).json({ error: 'lat_long_required' });
   try {
+    // Insert new location
     const q = `INSERT INTO live_locations(driver_id, latitude, longitude, heading, speed, accuracy, recorded_at)
                VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id, driver_id, latitude, longitude, recorded_at`;
     const vals = [driverId, latitude, longitude, heading || null, speed || null, accuracy || null, recorded_at || new Date().toISOString()];
     const { rows } = await db.query(q, vals);
+    
+    // Cleanup old locations for this driver (keep only last 24 hours) - do this async to not block response
+    setImmediate(async () => {
+      try {
+        await db.query(
+          `DELETE FROM live_locations 
+           WHERE driver_id = $1 
+           AND recorded_at < NOW() - INTERVAL '24 hours'`,
+          [driverId]
+        );
+      } catch (err) {
+        console.error('Location cleanup error:', err);
+      }
+    });
+    
     res.json({ ok: true, location: rows[0] });
   } catch (err) {
     console.error('POST /api/driver/me/location', err);

@@ -205,9 +205,21 @@ function computeAnalytics(deliveries) {
   };
 }
 
+// Cache for dashboard data
+let dashboardCache = null;
+let dashboardCacheTime = 0;
+const DASHBOARD_CACHE_TTL = 30000; // 30 seconds cache
+
 // GET /api/admin/dashboard
 router.get('/', authenticate, requireRole('admin'), async (req, res) => {
   try {
+    // Check cache first
+    const now = Date.now();
+    if (dashboardCache && (now - dashboardCacheTime) < DASHBOARD_CACHE_TTL) {
+      console.log('[Dashboard] Returning cached data');
+      return res.json(dashboardCache);
+    }
+
     // Check if Prisma is initialized
     if (!prisma) {
       console.error('[Dashboard] CRITICAL: Prisma client is not initialized');
@@ -234,25 +246,58 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
       });
     }
 
+    // Optimize: Only fetch recent deliveries (last 90 days) with limited fields and relations
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
     // Fetch from database first (uploaded deliveries), then fallback to SAP
     const [dbDeliveries, driversResp, locationsResp, sapDeliveriesResp, smsResp] = await Promise.allSettled([
       prisma.delivery.findMany({
-        include: {
+        where: {
+          createdAt: {
+            gte: ninetyDaysAgo
+          }
+        },
+        select: {
+          id: true,
+          customer: true,
+          address: true,
+          phone: true,
+          poNumber: true,
+          lat: true,
+          lng: true,
+          status: true,
+          items: true,
+          metadata: true,
+          createdAt: true,
+          deliveredAt: true,
+          driverSignature: true,
+          customerSignature: true,
+          photos: true,
           assignments: {
-            include: {
+            take: 1,
+            orderBy: { assignedAt: 'desc' },
+            select: {
+              driverId: true,
+              status: true,
               driver: {
-                include: {
-                  account: true
+                select: {
+                  fullName: true
                 }
               }
             }
           },
           events: {
             orderBy: { createdAt: 'desc' },
-            take: 1
+            take: 1,
+            select: {
+              eventType: true,
+              createdAt: true
+            }
           }
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
+        take: 1000 // Limit to 1000 most recent deliveries
       }).catch(err => {
         console.error('[Dashboard] Prisma query error:', err.message);
         console.error('[Dashboard] Error code:', err.code);
@@ -289,12 +334,15 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
         deliveredAt: d.deliveredAt,
         assignedDriverId: d.assignments?.[0]?.driverId || null,
         driverName: d.assignments?.[0]?.driver?.fullName || null,
+        driverSignature: d.driverSignature,
+        customerSignature: d.customerSignature,
+        photos: d.photos,
         // Include assignment status
         assignmentStatus: d.assignments?.[0]?.status || 'unassigned'
       }));
     }
 
-    // Add SAP deliveries (if any) that don't exist in database
+    // Add SAP deliveries (if any) that don't exist in database - limit to recent
     if (sapDeliveriesResp.status === 'fulfilled') {
       let sapDeliveries = [];
       if (Array.isArray(sapDeliveriesResp.value.data?.value)) {
@@ -308,7 +356,7 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
       const newSapDeliveries = sapDeliveries.filter(d => {
         const sapId = d.id || d.ID;
         return sapId && !dbDeliveryIds.has(sapId);
-      });
+      }).slice(0, 500); // Limit SAP deliveries to 500
       deliveries = deliveries.concat(newSapDeliveries);
     }
 
@@ -405,7 +453,13 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
     // Analytics: Top 10 customers, Top 10 items, delivery area, monthly, weekly
     const analytics = computeAnalytics(deliveries);
 
-    res.json({ drivers, recentLocations, smsRecent, totals, recentCounts, analytics });
+    const responseData = { drivers, recentLocations, smsRecent, totals, recentCounts, analytics };
+    
+    // Cache the response
+    dashboardCache = responseData;
+    dashboardCacheTime = Date.now();
+
+    res.json(responseData);
   } catch (err) {
     console.error('[Dashboard] admin/dashboard error:', err.message);
     console.error('[Dashboard] Error code:', err.code);

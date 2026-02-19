@@ -192,19 +192,45 @@ export default function AdminOperationsPage() {
     loadOnlineStatus(false);
     
     let interval = null;
+    let currentPollInterval = 60000; // Start with 60 seconds
+    let previousDataLength = null;
+    
     if (autoRefresh) {
-      interval = setInterval(() => {
-        loadData();
-      }, 10000); // Increased from 5s to 10s to reduce API load
+      const smartPoll = async () => {
+        await loadData();
+        
+        // Check if data changed by comparing lengths
+        const currentDataLength = `${deliveries.length}-${drivers.length}`;
+        
+        if (previousDataLength !== currentDataLength && previousDataLength !== null) {
+          // Data changed, speed up polling
+          currentPollInterval = Math.max(30000, currentPollInterval * 0.8);
+          console.log('[AdminOps] Data changed, polling faster:', Math.round(currentPollInterval / 1000), 's');
+        } else if (previousDataLength === currentDataLength) {
+          // No change, slow down polling
+          currentPollInterval = Math.min(120000, currentPollInterval * 1.2);
+          console.log('[AdminOps] No changes, polling slower:', Math.round(currentPollInterval / 1000), 's');
+        }
+        
+        previousDataLength = currentDataLength;
+        
+        // Schedule next poll with adaptive interval
+        if (autoRefresh) {
+          interval = setTimeout(smartPoll, currentPollInterval);
+        }
+      };
+      
+      // Start smart polling after initial delay
+      interval = setTimeout(smartPoll, currentPollInterval);
     }
 
-    // Auto-refresh online status
+    // Auto-refresh online status - less frequently
     let onlineInterval = setInterval(() => {
       loadOnlineStatus(true);
-    }, 10000); // Increased from 5s to 10s to reduce API load
+    }, 60000); // Reduced from 10s to 60s
 
     return () => {
-      if (interval) clearInterval(interval);
+      if (interval) clearTimeout(interval);
       if (onlineInterval) clearInterval(onlineInterval);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -247,7 +273,7 @@ export default function AdminOperationsPage() {
       loadMessages(selectedDriver.id);
       messagePollingIntervalRef.current = setInterval(() => {
         loadMessages(selectedDriver.id, true);
-      }, 5000); // Increased from 3s to 5s to reduce API load
+      }, 15000); // Reduced from 5s to 15s to reduce API load
     }
     return () => {
       if (messagePollingIntervalRef.current) {
@@ -261,7 +287,7 @@ export default function AdminOperationsPage() {
   useEffect(() => {
     if (activeTab !== 'communication') return;
     loadUnreadCounts();
-    const interval = setInterval(loadUnreadCounts, 10000);
+    const interval = setInterval(loadUnreadCounts, 30000); // Reduced from 10s to 30s
     return () => clearInterval(interval);
   }, [activeTab, loadUnreadCounts]);
 

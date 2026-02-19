@@ -26,6 +26,8 @@ model Driver {
   adminMessages        Message[]            @relation("AdminMessages")
   driverMessages       Message[]            @relation("DriverMessages")
 
+  @@index([active], map: "idx_drivers_active") // Index for filtering active drivers
+  @@index([username], map: "idx_drivers_username") // Index for username lookups
   @@map("drivers")
 }
 
@@ -39,6 +41,8 @@ model Account {
   driver         Driver          @relation(fields: [driverId], references: [id], onDelete: Cascade)
   passwordResets PasswordReset[]
 
+  @@index([role], map: "idx_accounts_role") // Index for role-based queries
+  @@index([lastLogin], map: "idx_accounts_last_login") // Index for online status checks
   @@map("accounts")
 }
 
@@ -65,6 +69,7 @@ model LiveLocation {
 
   @@index([driverId, recordedAt(sort: Desc)], map: "idx_live_locations_driver_time")
   @@index([recordedAt], map: "idx_live_locations_time")
+  @@index([driverId], map: "idx_live_locations_driver") // Add index for driver lookups
   @@map("live_locations")
 }
 
@@ -118,6 +123,9 @@ model DeliveryAssignment {
   delivery   Delivery  @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
   driver     Driver    @relation(fields: [driverId], references: [id])
 
+  @@index([driverId], map: "idx_assignments_driver") // Index for driver's assignments
+  @@index([status], map: "idx_assignments_status") // Index for status filtering
+  @@index([assignedAt], map: "idx_assignments_assigned_at") // Index for time-based queries
   @@map("delivery_assignments")
 }
 
@@ -186,6 +194,8 @@ model Message {
   @@index([adminId, driverId, createdAt(sort: Desc)], map: "idx_messages_conversation")
   @@index([driverId], map: "idx_messages_driver")
   @@index([createdAt], map: "idx_messages_created")
+  @@index([isRead, driverId], map: "idx_messages_unread") // Index for unread message queries
+  @@index([adminId, isRead], map: "idx_messages_admin_unread") // Index for admin's unread messages
   @@map("messages")
 }
 

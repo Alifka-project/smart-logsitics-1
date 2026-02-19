@@ -110,9 +110,20 @@ app.post('/sms/confirm', async (req, res) => {
   return smsRouter.confirm(req, res);
 });
 
+// Cache for diagnostic status
+let diagCache = null;
+let diagCacheTime = 0;
+const DIAG_CACHE_TTL = 60000; // 1 minute cache
+
 // Diagnostic endpoint - check data and database status
 app.get('/diag/status', async (req, res) => {
   try {
+    // Check cache first for basic health check
+    const now = Date.now();
+    if (diagCache && (now - diagCacheTime) < DIAG_CACHE_TTL && !req.query.detailed) {
+      return res.json({ ...diagCache, cached: true });
+    }
+
     const prisma = require('../src/server/db/prisma');
     
     // Check if Prisma is initialized
@@ -126,7 +137,7 @@ app.get('/diag/status', async (req, res) => {
       });
     }
     
-    // Test connection first
+    // Test connection first (lightweight query)
     try {
       await prisma.$queryRaw`SELECT 1`;
     } catch (connError) {
@@ -140,16 +151,38 @@ app.get('/diag/status', async (req, res) => {
       });
     }
     
-    // Count deliveries
+    // For basic health check, just return connection status
+    if (!req.query.detailed) {
+      const basicResponse = {
+        ok: true,
+        database: 'connected',
+        ts: new Date().toISOString()
+      };
+      
+      // Cache basic response
+      diagCache = basicResponse;
+      diagCacheTime = Date.now();
+      
+      return res.json(basicResponse);
+    }
+    
+    // For detailed check (when ?detailed=true), count records
     const deliveryCount = await prisma.delivery.count();
     const smsLogCount = await prisma.smsLog.count();
     const driverCount = await prisma.driver.count();
     const assignmentCount = await prisma.deliveryAssignment.count();
     
     // Get sample delivery if exists
-    const sampleDelivery = await prisma.delivery.findFirst();
+    const sampleDelivery = await prisma.delivery.findFirst({
+      select: {
+        id: true,
+        customer: true,
+        status: true,
+        createdAt: true
+      }
+    });
     
-    res.json({
+    const detailedResponse = {
       ok: true,
       database: 'connected',
       data: {
@@ -157,15 +190,16 @@ app.get('/diag/status', async (req, res) => {
         smsLogs: smsLogCount,
         drivers: driverCount,
         assignments: assignmentCount,
-        sampleDelivery: sampleDelivery ? {
-          id: sampleDelivery.id,
-          customer: sampleDelivery.customer,
-          status: sampleDelivery.status,
-          createdAt: sampleDelivery.createdAt
-        } : null
+        sampleDelivery: sampleDelivery || null
       },
       ts: new Date().toISOString()
-    });
+    };
+    
+    // Cache detailed response
+    diagCache = detailedResponse;
+    diagCacheTime = Date.now();
+    
+    res.json(detailedResponse);
   } catch (error) {
     console.error('[Diag] Error:', error.message);
     res.status(500).json({
