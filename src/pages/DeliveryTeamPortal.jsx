@@ -82,15 +82,13 @@ export default function DeliveryTeamPortal() {
       console.error('[DeliveryTeamPortal] No user found');
       return;
     }
-    
-    console.log('[DeliveryTeamPortal] Current user:', currentUser.sub, 'Role:', currentUser.account?.role);
 
     loadData();
 
     if (autoRefresh) {
       const interval = setInterval(() => {
-        loadData();
-      }, 10000);
+        if (!document.hidden) loadData();
+      }, 60000); // 60s instead of 10s
 
       return () => clearInterval(interval);
     }
@@ -101,10 +99,10 @@ export default function DeliveryTeamPortal() {
     if (contacts.length > 0) {
       loadOnlineUsers();
       
-      // Set up interval for online status refresh
+      // Set up interval for online status refresh - only when visible
       const onlineInterval = setInterval(() => {
-        loadOnlineUsers();
-      }, 10000);
+        if (!document.hidden) loadOnlineUsers();
+      }, 60000); // 60s instead of 10s
       
       return () => clearInterval(onlineInterval);
     }
@@ -138,24 +136,27 @@ export default function DeliveryTeamPortal() {
     }
   }, [location.search, contacts, selectedContact, activeTab]);
 
-  // Load unread counts when in communication tab
+  // Load unread counts when in communication tab - 60s, pause when hidden
   useEffect(() => {
     if (activeTab === 'communication') {
       loadUnreadCounts();
-      const interval = setInterval(loadUnreadCounts, 5000);
+      const interval = setInterval(() => {
+        if (!document.hidden) loadUnreadCounts();
+      }, 60000); // 60s instead of 5s
       return () => clearInterval(interval);
     }
   }, [activeTab]);
 
-  // Load messages when contact is selected
+  // Load messages when contact is selected - 30s, pause when hidden
   useEffect(() => {
-    console.log('[DeliveryTeam] selectedContact changed:', selectedContact?.id, selectedContact?.fullName || selectedContact?.username);
     if (selectedContact) {
       loadMessages(selectedContact.id);
       
       const interval = setInterval(() => {
-        loadMessages(selectedContact.id, true);
-      }, 5000);
+        if (!document.hidden && activeTab === 'communication') {
+          loadMessages(selectedContact.id, true);
+        }
+      }, 30000); // 30s instead of 5s
       
       messagePollingIntervalRef.current = interval;
       return () => {
@@ -164,7 +165,7 @@ export default function DeliveryTeamPortal() {
         }
       };
     }
-  }, [selectedContact]);
+  }, [selectedContact, activeTab]);
 
   useEffect(() => {
     if (activeTab !== 'communication') return;

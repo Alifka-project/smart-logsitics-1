@@ -131,29 +131,48 @@ export default function Header() {
     };
   }, [showDropdown, showNotifications]);
 
-  // Load notifications
+  // Load notifications - poll every 60 seconds, pause when tab hidden
   useEffect(() => {
-    if (loggedIn) {
+    if (!loggedIn) return;
+
+    let timer = null;
+    let isVisible = !document.hidden;
+
+    const poll = () => {
       loadNotifications();
-      // Poll for new notifications every 10 seconds
-      const interval = setInterval(loadNotifications, 10000);
+      schedulePoll();
+    };
 
-      const handleVisibility = () => {
-        if (!document.hidden) {
-          loadNotifications();
-        }
-      };
+    const schedulePoll = () => {
+      if (timer) clearTimeout(timer);
+      if (!isVisible) return; // Don't poll when tab is hidden
+      timer = setTimeout(poll, 60000); // 60 seconds instead of 10
+    };
 
-      window.addEventListener('focus', loadNotifications);
-      document.addEventListener('visibilitychange', handleVisibility);
+    const handleVisibility = () => {
+      isVisible = !document.hidden;
+      if (isVisible) {
+        loadNotifications(); // Fetch once when tab becomes visible
+        schedulePoll();
+      } else {
+        if (timer) { clearTimeout(timer); timer = null; }
+      }
+    };
 
-      return () => {
-        clearInterval(interval);
-        window.removeEventListener('focus', loadNotifications);
-        document.removeEventListener('visibilitychange', handleVisibility);
-      };
-    }
+    // Initial load + start polling
+    loadNotifications();
+    schedulePoll();
+
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [loggedIn]);
+
+  // Cache contacts list for notification display names (avoid fetching every poll)
+  const contactsCacheRef = React.useRef({ data: null, fetchedAt: 0 });
 
   const loadNotifications = async () => {
     try {
@@ -164,7 +183,7 @@ export default function Header() {
       let deliveryNotifications = [];
       let messageNotifications = [];
 
-      // Driver: use driver-specific unread count API
+      // Driver: use driver-specific unread count API (1 DB query)
       if (userRole === 'driver') {
         try {
           const response = await api.get('/messages/driver/notifications/count');
@@ -187,7 +206,7 @@ export default function Header() {
           console.error('Failed to load driver message notifications:', e);
         }
       } else {
-        // Admin: load unread counts per driver
+        // Admin: load unread counts per driver (1 DB query)
         try {
           const response = await api.get('/messages/unread');
           const countsBySender = response.data || {};
@@ -198,17 +217,24 @@ export default function Header() {
           unreadCount = senderEntries.reduce((sum, [, count]) => sum + count, 0);
 
           if (senderEntries.length) {
+            // Reuse cached contacts for 5 minutes instead of fetching every poll
             let userLookup = new Map();
-            try {
-              const usersResponse = await api.get('/messages/contacts');
-              const usersList = usersResponse.data?.contacts || [];
-              usersList.forEach((user) => {
-                if (user?.id != null) {
-                  userLookup.set(String(user.id), user);
-                }
-              });
-            } catch (userError) {
-              console.error('Failed to load contacts for notifications:', userError);
+            const cacheAge = Date.now() - contactsCacheRef.current.fetchedAt;
+            if (contactsCacheRef.current.data && cacheAge < 5 * 60 * 1000) {
+              userLookup = contactsCacheRef.current.data;
+            } else {
+              try {
+                const usersResponse = await api.get('/messages/contacts');
+                const usersList = usersResponse.data?.contacts || [];
+                usersList.forEach((user) => {
+                  if (user?.id != null) {
+                    userLookup.set(String(user.id), user);
+                  }
+                });
+                contactsCacheRef.current = { data: userLookup, fetchedAt: Date.now() };
+              } catch (userError) {
+                console.error('Failed to load contacts for notifications:', userError);
+              }
             }
 
             messageNotifications = senderEntries.map(([senderId, count]) => {

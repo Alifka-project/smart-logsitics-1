@@ -127,13 +127,20 @@ export default function AdminDashboardPage() {
     loadData();
 
     let interval = null;
+    const handleVisChange = () => {
+      if (document.hidden) {
+        if (interval) { clearInterval(interval); interval = null; }
+      } else if (autoRefresh && mounted) {
+        loadDashboardData();
+        interval = setInterval(() => { if (mounted) loadDashboardData(); }, 60000);
+      }
+    };
     if (autoRefresh) {
       interval = setInterval(() => {
-        if (mounted) {
-          loadDashboardData();
-        }
-      }, 5000);
+        if (mounted && !document.hidden) loadDashboardData();
+      }, 60000); // 60s instead of 5s
     }
+    document.addEventListener('visibilitychange', handleVisChange);
 
     // Listen for delivery updates
     const handleDeliveriesUpdated = () => {
@@ -159,6 +166,7 @@ export default function AdminDashboardPage() {
       if (interval) {
         clearInterval(interval);
       }
+      document.removeEventListener('visibilitychange', handleVisChange);
       window.removeEventListener('deliveriesUpdated', handleDeliveriesUpdated);
       window.removeEventListener('deliveryStatusUpdated', handleDeliveryStatusUpdated);
     };
@@ -204,7 +212,7 @@ export default function AdminDashboardPage() {
             loadOnlineStatus(true);
             interval = setInterval(() => {
               loadOnlineStatus(true);
-            }, 5000);
+            }, 30000); // 30s instead of 5s
           }
         }
       };
@@ -213,7 +221,7 @@ export default function AdminDashboardPage() {
         const timeout = setTimeout(() => {
           interval = setInterval(() => {
             loadOnlineStatus(true);
-          }, 5000);
+          }, 30000); // 30s instead of 5s
         }, 5000);
         
         return () => {

@@ -12,18 +12,45 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
     // Fetch from database first (uploaded deliveries), then fallback to SAP
     const [dbDeliveries, sapDeliveriesResp] = await Promise.allSettled([
       prisma.delivery.findMany({
-        include: {
+        select: {
+          id: true,
+          customer: true,
+          address: true,
+          phone: true,
+          poNumber: true,
+          lat: true,
+          lng: true,
+          status: true,
+          items: true,
+          metadata: true,
+          driverSignature: true,
+          customerSignature: true,
+          photos: true,
+          conditionNotes: true,
+          deliveryNotes: true,
+          deliveredBy: true,
+          deliveredAt: true,
+          podCompletedAt: true,
+          createdAt: true,
+          updatedAt: true,
           assignments: {
-            include: {
+            take: 1,
+            orderBy: { assignedAt: 'desc' },
+            select: {
+              driverId: true,
+              status: true,
               driver: {
-                include: {
-                  account: true
+                select: {
+                  fullName: true,
+                  username: true,
+                  phone: true
                 }
               }
             }
           }
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
+        take: 1000 // Limit to most recent 1000
       }).catch(err => {
         console.error('[Reports] Prisma query error:', err);
         return []; // Return empty array on error
@@ -481,18 +508,6 @@ router.get('/pod', authenticate, requireRole('admin'), async (req, res) => {
     // podStatus can be: 'with-pod', 'without-pod', 'all'
 
     console.log('[POD Report] Generating POD report...');
-    console.log('[POD Report] Raw date params:', { startDate, endDate });
-
-    // First, check total deliveries count for debugging
-    const totalCount = await prisma.delivery.count();
-    const deliveredCount = await prisma.delivery.count({
-      where: {
-        status: {
-          in: ['delivered', 'completed', 'done', 'delivered-with-installation', 'delivered-without-installation']
-        }
-      }
-    });
-    console.log(`[POD Report] Total deliveries in DB: ${totalCount}, Delivered: ${deliveredCount}`);
 
     // Parse and adjust dates to handle timezone issues
     let parsedStartDate, parsedEndDate;
@@ -535,6 +550,8 @@ router.get('/pod', authenticate, requireRole('admin'), async (req, res) => {
       },
       include: {
         assignments: {
+          take: 1,
+          orderBy: { assignedAt: 'desc' },
           include: {
             driver: {
               select: {
@@ -547,7 +564,8 @@ router.get('/pod', authenticate, requireRole('admin'), async (req, res) => {
           }
         }
       },
-      orderBy: { deliveredAt: 'desc' }
+      orderBy: { deliveredAt: 'desc' },
+      take: 500 // Limit results
     });
 
     console.log(`[POD Report] Found ${deliveries.length} delivered orders`);

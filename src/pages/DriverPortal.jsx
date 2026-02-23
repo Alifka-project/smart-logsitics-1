@@ -183,8 +183,8 @@ export default function DriverPortal() {
     loadDeliveries();
     loadContacts(); // Load contacts first, then messages will be loaded when contact is selected
     const notificationInterval = setInterval(() => {
-      loadNotificationCount();
-    }, 10000);
+      if (!document.hidden) loadNotificationCount();
+    }, 60000); // 60s instead of 10s
     return () => {
       cleanup();
       clearInterval(notificationInterval);
@@ -388,14 +388,13 @@ export default function DriverPortal() {
     }
   }, [route, mapReady]);
   
-  // Auto-refresh messages when on messages tab
+  // Auto-refresh messages when on messages tab - 30s, pause when hidden
   useEffect(() => {
     if (activeTab === 'messages' && selectedContact) {
       loadMessages(selectedContact.id, true);
-      // Start auto-refresh every 3 seconds for real-time updates
       messagePollingIntervalRef.current = setInterval(() => {
-        loadMessages(selectedContact.id, true);
-      }, 3000);
+        if (!document.hidden) loadMessages(selectedContact.id, true);
+      }, 30000); // 30s instead of 3s
     }
     
     // Cleanup interval when tab changes or component unmounts

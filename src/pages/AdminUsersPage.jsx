@@ -74,19 +74,19 @@ export default function AdminUsersPage() {
             loadActivityLogs(true); // Silent update when tab becomes visible
             interval = setInterval(() => {
               loadActivityLogs(true); // All subsequent updates are silent
-            }, 5000); // 5 seconds interval
+            }, 30000); // 30s instead of 5s
           }
         }
       };
       
       // Start silent interval when tab is visible (skip first update since we already loaded)
       if (!document.hidden) {
-        // Wait 5 seconds before starting silent updates
+        // Wait 10 seconds before starting silent updates
         const timeout = setTimeout(() => {
           interval = setInterval(() => {
             loadActivityLogs(true); // Silent background updates
-          }, 5000);
-        }, 5000);
+          }, 30000); // 30s instead of 5s
+        }, 10000);
         
         return () => {
           clearTimeout(timeout);

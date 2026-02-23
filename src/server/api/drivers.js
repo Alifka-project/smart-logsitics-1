@@ -5,53 +5,51 @@ const { authenticate, requireRole, requireAnyRole } = require('../auth');
 const sapService = require('../../../services/sapService');
 const prisma = require('../db/prisma');
 const { hashPassword } = require('../auth');
-
-// Ensure Prisma client is initialized
-if (!prisma) {
-  console.error('Prisma client not initialized!');
-}
+const cache = require('../cache');
 
 // GET /api/admin/drivers - list drivers (with filters)
-// NOTE: Returns ALL users (drivers and admins). Frontend filters by role as needed.
-// Allows admin and delivery_team roles
+// Optimized: cached for 30s, uses select instead of include
 router.get('/', authenticate, requireAnyRole('admin', 'delivery_team'), async (req, res, next) => {
   try {
-    // Check Prisma connection
-    try {
-      await prisma.$connect();
-    } catch (connectErr) {
-      // Already connected or connection error - continue anyway
-      console.log('Prisma connection check:', connectErr.message || 'already connected');
-    }
-    
-    // Use Prisma to get all drivers with accounts
-    const drivers = await prisma.driver.findMany({
-      include: {
-        account: true
-      },
-      orderBy: {
-        createdAt: 'desc'
-      }
-    });
-    
-    // Transform data to ensure consistent format
-    // NOTE: Returns all users - frontend will filter if needed
-    const formattedDrivers = drivers.map(driver => ({
-      id: driver.id,
-      username: driver.username,
-      email: driver.email,
-      phone: driver.phone,
-      fullName: driver.fullName,
-      full_name: driver.fullName, // Also include legacy field name for compatibility
-      active: driver.active !== false, // Ensure boolean
-      createdAt: driver.createdAt,
-      updatedAt: driver.updatedAt,
-      account: driver.account ? {
-        id: driver.account.id,
-        role: driver.account.role || 'driver',
-        lastLogin: driver.account.lastLogin
-      } : null
-    }));
+    const formattedDrivers = await cache.getOrFetch('drivers:list', async () => {
+      const drivers = await prisma.driver.findMany({
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          phone: true,
+          fullName: true,
+          active: true,
+          createdAt: true,
+          updatedAt: true,
+          account: {
+            select: {
+              id: true,
+              role: true,
+              lastLogin: true
+            }
+          }
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      return drivers.map(driver => ({
+        id: driver.id,
+        username: driver.username,
+        email: driver.email,
+        phone: driver.phone,
+        fullName: driver.fullName,
+        full_name: driver.fullName,
+        active: driver.active !== false,
+        createdAt: driver.createdAt,
+        updatedAt: driver.updatedAt,
+        account: driver.account ? {
+          id: driver.account.id,
+          role: driver.account.role || 'driver',
+          lastLogin: driver.account.lastLogin
+        } : null
+      }));
+    }, 30000, 120000); // 30s fresh, 2min max
     
     res.json({ data: formattedDrivers, meta: { count: formattedDrivers.length } });
   } catch (err) {
@@ -131,6 +129,10 @@ router.post('/', authenticate, requireRole('admin'), async (req, res) => {
     });
 
     console.log(`✅ User created successfully: ${driver.username}, role: ${driver.account?.role}`);
+    // Invalidate caches
+    cache.delete('drivers:list');
+    cache.invalidatePrefix('contacts:');
+    cache.invalidatePrefix('tracking:');
     res.status(201).json(driver);
   } catch (err) {
     console.error('POST /api/admin/drivers', err);
@@ -217,6 +219,8 @@ router.put('/:id', authenticate, requireRole('admin'), async (req, res) => {
     });
 
     console.log(`✅ User updated successfully: ${updated.username}, role: ${updated.account?.role}`);
+    cache.delete('drivers:list');
+    cache.invalidatePrefix('contacts:');
     res.json(updated);
   } catch (err) {
     console.error('PUT /api/admin/drivers/:id', err);
@@ -279,6 +283,8 @@ router.patch('/:id', authenticate, requireRole('admin'), async (req, res) => {
       });
     });
 
+    cache.delete('drivers:list');
+    cache.invalidatePrefix('contacts:');
     res.json(updated);
   } catch (err) {
     console.error('PATCH /api/admin/drivers/:id', err);
@@ -305,6 +311,9 @@ router.delete('/:id', authenticate, requireRole('admin'), async (req, res) => {
       where: { id }
     });
 
+    cache.delete('drivers:list');
+    cache.invalidatePrefix('contacts:');
+    cache.invalidatePrefix('tracking:');
     res.json({ ok: true, message: 'Driver deleted successfully' });
   } catch (err) {
     console.error('DELETE /api/admin/drivers/:id', err);

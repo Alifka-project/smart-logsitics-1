@@ -1,11 +1,8 @@
-/**
- * Messages API - Real-time chat between admin and drivers
- */
-
 const express = require('express');
 const router = express.Router();
 const { authenticate, requireRole } = require('../auth');
 const prisma = require('../db/prisma');
+const cache = require('../cache');
 
 /**
  * GET /api/admin/messages/conversations/:driverId
@@ -77,14 +74,7 @@ router.get('/conversations/:driverId', authenticate, async (req, res) => {
 
     res.json({
       messages: messages.reverse(),
-      total: await prisma.message.count({
-        where: {
-          OR: [
-            { adminId, driverId },
-            { adminId: driverId, driverId: adminId }
-          ]
-        }
-      })
+      total: messages.length // Use fetched count instead of separate COUNT query
     });
   } catch (error) {
     console.error('Error fetching messages:', error);
@@ -110,26 +100,22 @@ router.get('/unread', authenticate, async (req, res) => {
     }
 
     // Get unread messages where current user is the RECIPIENT
-    // For multi-role: check messages where adminId = other user AND driverId = current user
+    // Optimized: use groupBy instead of findMany + JS loop
     try {
-      // Get all unread messages TO the current user (where they are the recipient)
-      const unreadMessages = await prisma.message.findMany({
+      const unreadMessages = await prisma.message.groupBy({
+        by: ['adminId'],
         where: {
-          driverId: adminId,  // Current user is recipient
+          driverId: adminId,
           isRead: false
         },
-        select: {
-          adminId: true  // The sender is in adminId field
-        }
+        _count: { id: true }
       });
 
       const result = {};
-      unreadMessages.forEach(msg => {
-        const senderId = msg.adminId;  // The person who sent the message
-        result[senderId] = (result[senderId] || 0) + 1;
+      unreadMessages.forEach(group => {
+        result[group.adminId] = group._count.id;
       });
 
-      console.log('[Unread] Counts by sender (TO current user):', result);
       return res.json(result);
     } catch (groupByErr) {
       console.error('Error fetching unread counts:', groupByErr);
@@ -213,86 +199,53 @@ router.get('/contacts', authenticate, async (req, res) => {
   try {
     const userRole = req.user?.account?.role || req.user?.role || 'driver';
     const currentUserId = req.user?.sub;
-    
-    if (userRole === 'admin' || userRole === 'delivery_team') {
-      // Admin/Delivery Team: return all drivers + other admin/delivery_team members
-      const drivers = await prisma.driver.findMany({
-        where: {
-          account: {
-            role: 'driver'
-          }
-        },
-        select: {
-          id: true,
-          fullName: true,
-          username: true,
-          account: {
-            select: {
-              role: true,
-              lastLogin: true
-            }
-          }
-        },
-        orderBy: {
-          fullName: 'asc'
-        }
-      });
-      
-      // Also get admin and delivery_team members (for inter-team communication)
-      const teamMembers = await prisma.driver.findMany({
-        where: {
-          id: { not: currentUserId }, // Exclude self
-          account: {
-            role: { in: ['admin', 'delivery_team'] }
-          }
-        },
-        select: {
-          id: true,
-          fullName: true,
-          username: true,
-          account: {
-            select: {
-              role: true,
-              lastLogin: true
-            }
-          }
-        },
-        orderBy: {
-          fullName: 'asc'
-        }
-      });
-      
-      return res.json({ 
-        contacts: [...teamMembers, ...drivers],
-        drivers,
-        teamMembers
-      });
-    } else {
-      // Driver: return admin and delivery_team members
-      const contacts = await prisma.driver.findMany({
-        where: {
-          account: {
-            role: { in: ['admin', 'delivery_team'] }
-          }
-        },
-        select: {
-          id: true,
-          fullName: true,
-          username: true,
-          account: {
-            select: {
-              role: true,
-              lastLogin: true
-            }
-          }
-        },
-        orderBy: {
-          fullName: 'asc'
-        }
-      });
-      
-      return res.json({ contacts });
-    }
+    const cacheKey = `contacts:${userRole}:${currentUserId}`;
+
+    // Cache contacts for 60 seconds - they rarely change
+    const data = await cache.getOrFetch(cacheKey, async () => {
+      if (userRole === 'admin' || userRole === 'delivery_team') {
+        const drivers = await prisma.driver.findMany({
+          where: { account: { role: 'driver' } },
+          select: {
+            id: true,
+            fullName: true,
+            username: true,
+            account: { select: { role: true, lastLogin: true } }
+          },
+          orderBy: { fullName: 'asc' }
+        });
+
+        const teamMembers = await prisma.driver.findMany({
+          where: {
+            id: { not: currentUserId },
+            account: { role: { in: ['admin', 'delivery_team'] } }
+          },
+          select: {
+            id: true,
+            fullName: true,
+            username: true,
+            account: { select: { role: true, lastLogin: true } }
+          },
+          orderBy: { fullName: 'asc' }
+        });
+
+        return { contacts: [...teamMembers, ...drivers], drivers, teamMembers };
+      } else {
+        const contacts = await prisma.driver.findMany({
+          where: { account: { role: { in: ['admin', 'delivery_team'] } } },
+          select: {
+            id: true,
+            fullName: true,
+            username: true,
+            account: { select: { role: true, lastLogin: true } }
+          },
+          orderBy: { fullName: 'asc' }
+        });
+        return { contacts };
+      }
+    }, 60000, 300000); // 60s fresh, 5min max
+
+    return res.json(data);
   } catch (error) {
     console.error('Error fetching contacts:', error);
     res.status(500).json({ error: error.message });

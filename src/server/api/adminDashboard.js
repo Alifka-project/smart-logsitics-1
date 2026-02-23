@@ -208,7 +208,7 @@ function computeAnalytics(deliveries) {
 // Cache for dashboard data
 let dashboardCache = null;
 let dashboardCacheTime = 0;
-const DASHBOARD_CACHE_TTL = 30000; // 30 seconds cache
+const DASHBOARD_CACHE_TTL = 60000; // 60 seconds cache (increased from 30s)
 
 // GET /api/admin/dashboard
 router.get('/', authenticate, requireRole('admin'), async (req, res) => {
@@ -216,33 +216,15 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
     // Check cache first
     const now = Date.now();
     if (dashboardCache && (now - dashboardCacheTime) < DASHBOARD_CACHE_TTL) {
-      console.log('[Dashboard] Returning cached data');
       return res.json(dashboardCache);
     }
 
     // Check if Prisma is initialized
     if (!prisma) {
-      console.error('[Dashboard] CRITICAL: Prisma client is not initialized');
-      console.error('[Dashboard] DATABASE_URL:', process.env.DATABASE_URL ? 'SET (' + process.env.DATABASE_URL.length + ' chars)' : 'NOT SET');
       return res.status(503).json({ 
         error: 'database_not_connected', 
-        message: 'Database connection is not available. Please check server configuration.',
+        message: 'Database connection is not available.',
         detail: 'Prisma client failed to initialize'
-      });
-    }
-
-    // Test database connection first
-    try {
-      await prisma.$queryRaw`SELECT 1`;
-      console.log('[Dashboard] Database connection verified');
-    } catch (dbError) {
-      console.error('[Dashboard] Database connection test failed:', dbError.message);
-      console.error('[Dashboard] Error code:', dbError.code);
-      return res.status(503).json({ 
-        error: 'database_connection_failed', 
-        message: 'Failed to connect to database. Please check your connection settings.',
-        detail: dbError.message,
-        code: dbError.code
       });
     }
 
@@ -429,13 +411,13 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
     }
 
     // Recent trends (last 24h) if created_at or updated_at available
-    const now = Date.now();
+    const nowMs = Date.now();
     const last24 = (d) => {
       // Check both created_at and updated_at to catch status changes
       const t = d.updated_at || d.updatedAt || d.created_at || d.createdAt || d.created || null;
       if (!t) return false;
       const dt = new Date(t).getTime();
-      return (now - dt) <= 24 * 3600 * 1000;
+      return (nowMs - dt) <= 24 * 3600 * 1000;
     };
     const recentCounts = { delivered: 0, cancelled: 0, rescheduled: 0 };
     for (const d of deliveries.filter(last24)) {

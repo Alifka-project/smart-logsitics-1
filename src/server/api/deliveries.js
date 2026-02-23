@@ -5,6 +5,7 @@ const { authenticate, requireRole } = require('../auth');
 const sapService = require('../../../services/sapService');
 const { autoAssignDeliveries, getAvailableDrivers } = require('../services/autoAssignmentService');
 const prisma = require('../db/prisma');
+const cache = require('../cache');
 
 async function deliveryExists(deliveryId) {
   try {
@@ -152,7 +153,10 @@ router.put('/admin/:id/status', authenticate, requireRole('admin'), async (req, 
       console.warn(`[Deliveries] Failed to create audit event for ${existingDelivery.id}:`, err.message);
     });
 
-    console.log(`[Deliveries] ✓ Successfully updated delivery ${existingDelivery.id} to status ${status}`);
+    // Invalidate caches so tracking/dashboard pick up the change
+    cache.invalidatePrefix('tracking:');
+    cache.invalidatePrefix('dashboard:');
+    cache.delete('deliveries:list');
 
     res.json({
       ok: true,
@@ -336,20 +340,7 @@ router.post('/upload', authenticate, async (req, res) => {
           create: { id: deliveryId, ...upsertData }
         });
 
-        console.log(`[Deliveries/Upload] ✓ Successfully saved delivery ${deliveryId} to database`);
-        console.log(`[Deliveries/Upload] *** AFTER SAVE - WHAT WAS SAVED ***`);
-        console.log(`[Deliveries/Upload] savedDelivery.poNumber = "${savedDelivery.poNumber}"`);
-        console.log(`[Deliveries/Upload] savedDelivery.customer = "${savedDelivery.customer}"`);
-        console.log(`[Deliveries/Upload] typeof savedDelivery.poNumber = ${typeof savedDelivery.poNumber}`);
-        console.log(`[Deliveries/Upload] savedDelivery.poNumber === null:`, savedDelivery.poNumber === null);
-        console.log(`[Deliveries/Upload] *** END AFTER SAVE ***`);
-        console.log(`[Deliveries/Upload] Saved delivery: customer="${savedDelivery.customer}", address="${savedDelivery.address?.substring(0, 50)}"`);
-        if (savedDelivery.poNumber) {
-          console.log(`[Deliveries/Upload] ✓ PO Number saved: "${savedDelivery.poNumber}"`);
-        }
-        if (savedDelivery.metadata?.originalPONumber) {
-          console.log(`[Deliveries/Upload] ✓ PO Number in metadata: "${savedDelivery.metadata.originalPONumber}"`);
-        }
+        console.log(`[Deliveries/Upload] ✓ Saved delivery ${deliveryId}`);
         if (!savedDelivery.poNumber && !savedDelivery.metadata?.originalPONumber) {
           console.log(`[Deliveries/Upload] ⚠ Warning: No PO Number found for delivery ${deliveryId}`);
         }
@@ -397,6 +388,11 @@ router.post('/upload', authenticate, async (req, res) => {
         assignmentError: assignment?.error || null
       };
     });
+
+    // Invalidate caches after bulk upload
+    cache.invalidatePrefix('tracking:');
+    cache.invalidatePrefix('dashboard:');
+    cache.delete('deliveries:list');
 
     console.log(`[Deliveries] Upload complete: ${results.filter(r => r.saved).length} saved, ${assignmentResults.filter(a => a.success).length} assigned`);
     
@@ -447,6 +443,11 @@ router.post('/bulk-assign', authenticate, requireRole('admin'), async (req, res)
 
     const results = await autoAssignDeliveries(deliveryIds);
 
+    // Invalidate caches after bulk assignment
+    cache.invalidatePrefix('tracking:');
+    cache.invalidatePrefix('dashboard:');
+    cache.delete('deliveries:list');
+
     res.json({
       success: true,
       total: deliveryIds.length,
@@ -474,24 +475,38 @@ router.get('/available-drivers', authenticate, requireRole('admin'), async (req,
 // GET /api/deliveries - Get all deliveries from database
 router.get('/', authenticate, async (req, res) => {
   try {
-    const deliveries = await prisma.delivery.findMany({
-      include: {
-        assignments: {
-          include: {
-            driver: {
-              include: {
-                account: true
+    const deliveries = await cache.getOrFetch('deliveries:list', async () => {
+      return prisma.delivery.findMany({
+        select: {
+          id: true,
+          customer: true,
+          address: true,
+          phone: true,
+          lat: true,
+          lng: true,
+          status: true,
+          items: true,
+          metadata: true,
+          createdAt: true,
+          updatedAt: true,
+          assignments: {
+            select: {
+              driverId: true,
+              status: true,
+              driver: {
+                select: {
+                  fullName: true
+                }
               }
-            }
+            },
+            take: 1,
+            orderBy: { assignedAt: 'desc' }
           }
         },
-        events: {
-          orderBy: { createdAt: 'desc' },
-          take: 1
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    });
+        orderBy: { createdAt: 'desc' },
+        take: 500
+      });
+    }, 30000, 120000);
 
     // Format deliveries for frontend
     const formattedDeliveries = deliveries.map(d => ({
@@ -573,7 +588,10 @@ router.put('/admin/:id/assign', authenticate, requireRole('admin'), async (req, 
       }
     });
 
-    console.log(`[Deliveries] ✓ Successfully assigned delivery ${id} to driver ${driverId}`);
+    // Invalidate caches after assignment
+    cache.invalidatePrefix('tracking:');
+    cache.invalidatePrefix('dashboard:');
+    cache.delete('deliveries:list');
 
     res.json({
       ok: true,

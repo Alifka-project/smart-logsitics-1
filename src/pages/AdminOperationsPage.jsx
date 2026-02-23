@@ -197,6 +197,11 @@ export default function AdminOperationsPage() {
     
     if (autoRefresh) {
       const smartPoll = async () => {
+        // Skip polling when tab is hidden
+        if (document.hidden) {
+          interval = setTimeout(smartPoll, currentPollInterval);
+          return;
+        }
         await loadData();
         
         // Check if data changed by comparing lengths
@@ -204,12 +209,10 @@ export default function AdminOperationsPage() {
         
         if (previousDataLength !== currentDataLength && previousDataLength !== null) {
           // Data changed, speed up polling
-          currentPollInterval = Math.max(30000, currentPollInterval * 0.8);
-          console.log('[AdminOps] Data changed, polling faster:', Math.round(currentPollInterval / 1000), 's');
+          currentPollInterval = Math.max(45000, currentPollInterval * 0.8);
         } else if (previousDataLength === currentDataLength) {
           // No change, slow down polling
-          currentPollInterval = Math.min(120000, currentPollInterval * 1.2);
-          console.log('[AdminOps] No changes, polling slower:', Math.round(currentPollInterval / 1000), 's');
+          currentPollInterval = Math.min(180000, currentPollInterval * 1.3);
         }
         
         previousDataLength = currentDataLength;
@@ -224,10 +227,10 @@ export default function AdminOperationsPage() {
       interval = setTimeout(smartPoll, currentPollInterval);
     }
 
-    // Auto-refresh online status - less frequently
+    // Auto-refresh online status - only when tab is visible
     let onlineInterval = setInterval(() => {
-      loadOnlineStatus(true);
-    }, 60000); // Reduced from 10s to 60s
+      if (!document.hidden) loadOnlineStatus(true);
+    }, 90000); // 90s instead of 60s
 
     return () => {
       if (interval) clearTimeout(interval);
@@ -267,13 +270,15 @@ export default function AdminOperationsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contacts.length]);
 
-  // Load messages when driver is selected
+  // Load messages when driver is selected - poll every 30s, pause when hidden
   useEffect(() => {
     if (selectedDriver?.id) {
       loadMessages(selectedDriver.id);
       messagePollingIntervalRef.current = setInterval(() => {
-        loadMessages(selectedDriver.id, true);
-      }, 15000); // Reduced from 5s to 15s to reduce API load
+        if (!document.hidden && activeTab === 'communication') {
+          loadMessages(selectedDriver.id, true);
+        }
+      }, 30000); // 30s instead of 15s
     }
     return () => {
       if (messagePollingIntervalRef.current) {
@@ -281,13 +286,15 @@ export default function AdminOperationsPage() {
         messagePollingIntervalRef.current = null;
       }
     };
-  }, [selectedDriver]);
+  }, [selectedDriver, activeTab]);
 
-  // When on Communication tab, load and poll unread counts per driver for badges
+  // When on Communication tab, load and poll unread counts - 60s, pause when hidden
   useEffect(() => {
     if (activeTab !== 'communication') return;
     loadUnreadCounts();
-    const interval = setInterval(loadUnreadCounts, 30000); // Reduced from 10s to 30s
+    const interval = setInterval(() => {
+      if (!document.hidden) loadUnreadCounts();
+    }, 60000); // 60s instead of 30s
     return () => clearInterval(interval);
   }, [activeTab, loadUnreadCounts]);
 

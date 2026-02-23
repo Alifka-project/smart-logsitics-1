@@ -19,8 +19,8 @@ export default function AdminDeliveryTrackingPage() {
 
     if (autoRefresh) {
       const interval = setInterval(() => {
-        loadTrackingData();
-      }, 5000); // Refresh every 5 seconds
+        if (!document.hidden) loadTrackingData();
+      }, 30000); // 30s instead of 5s - reduces DB load significantly
 
       return () => clearInterval(interval);
     }
