@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import api, { setAuthToken } from '../frontend/apiClient';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, AreaChart, Area } from 'recharts';
 import { 
@@ -31,6 +31,7 @@ export default function AdminDashboardPage() {
   const [deliverySearch, setDeliverySearch] = useState('');
   const [deliveryStatusFilter, setDeliveryStatusFilter] = useState('all');
   const [deliveryPage, setDeliveryPage] = useState(0);
+  const deliveryTableRef = useRef(null);
   const [deliveryDateFrom, setDeliveryDateFrom] = useState('');
   const [deliveryDateTo, setDeliveryDateTo] = useState('');
   const [deliverySortBy, setDeliverySortBy] = useState('date');
@@ -958,7 +959,7 @@ export default function AdminDashboardPage() {
                 </div>
               )}
             </div>
-            <div>
+            <div ref={deliveryTableRef}>
               {(() => {
                 const PAGE_SIZE = 50;
                 const base = (deliveries && Array.isArray(deliveries) ? deliveries : []).slice();
@@ -1146,13 +1147,13 @@ export default function AdminDashboardPage() {
                   <div className="flex items-center gap-2">
                     <button
                       disabled={deliveryPage === 0}
-                      onClick={() => setDeliveryPage(p => p - 1)}
+                      onClick={() => { setDeliveryPage(p => p - 1); deliveryTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
                       className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                     >← Prev</button>
                     <span className="px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400">{deliveryPage + 1} / {totalPages}</span>
                     <button
                       disabled={deliveryPage >= totalPages - 1}
-                      onClick={() => setDeliveryPage(p => p + 1)}
+                      onClick={() => { setDeliveryPage(p => p + 1); deliveryTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
                       className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                     >Next →</button>
                   </div>
