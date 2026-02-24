@@ -5,7 +5,7 @@ import { LogOut, User, Settings, ChevronDown, Bell, Sun, Moon, X, Camera, Save }
 import api from '../../frontend/apiClient';
 import { useToast } from '../../hooks/useToast';
 import { ToastContainer } from '../common/Toast';
-import AdminNotificationBell from '../Notifications/AdminNotificationBell';
+
 
 export default function Header() {
   const [loggedIn, setLoggedIn] = useState(isAuthenticated());
@@ -259,12 +259,49 @@ export default function Header() {
         }
       }
 
-      // Admin and Delivery Team: get delivery status notifications
-      // Note: This endpoint is currently not implemented, keeping deliveryNotifications empty
-      // TODO: Implement /admin/notifications endpoint if needed for delivery status changes
-      if (userRole === 'admin' || userRole === 'delivery_team') {
-        // Delivery notifications disabled until endpoint is properly implemented
-        deliveryNotifications = [];
+      // Admin: fetch real-time alerts (driver_arrived, status_changed) + unconfirmed SMS deliveries
+      if (userRole === 'admin') {
+        try {
+          const [alertsRes, unconfirmedRes] = await Promise.allSettled([
+            api.get('/admin/notifications/alerts'),
+            api.get('/admin/notifications/unconfirmed-deliveries')
+          ]);
+
+          const dbAlerts = alertsRes.status === 'fulfilled'
+            ? (alertsRes.value.data?.notifications || [])
+            : [];
+
+          const unconfirmedDeliveries = unconfirmedRes.status === 'fulfilled'
+            ? (unconfirmedRes.value.data?.deliveries || [])
+            : [];
+
+          const unconfirmedNotifs = unconfirmedDeliveries.map(d => ({
+            id: `sms-unconfirmed-${d.id}`,
+            type: 'delivery',
+            status: 'sms_unconfirmed',
+            title: `SMS Unconfirmed (>24h): ${d.customer || 'Unknown'}`,
+            message: d.address || 'No address',
+            timestamp: d.smsSentAt || d.createdAt,
+            read: false,
+            _smsDeliveryId: d.id
+          }));
+
+          const alertNotifs = dbAlerts.map(n => ({
+            id: `alert-${n.id}`,
+            type: 'delivery',
+            status: n.type,
+            title: n.title,
+            message: n.message,
+            timestamp: n.createdAt,
+            read: false,
+            _adminAlertId: n.id
+          }));
+
+          deliveryNotifications = [...alertNotifs, ...unconfirmedNotifs];
+        } catch (e) {
+          console.error('Failed to load admin alert notifications:', e);
+          deliveryNotifications = [];
+        }
       }
 
       let shouldPlaySound = false;
@@ -544,8 +581,10 @@ export default function Header() {
       if (!notification || notification.type === 'message') {
         return;
       }
-      // TODO: Implement API call
-      // await api.post(`/admin/notifications/${notification.id}/read`);
+      // Mark admin DB alert as read
+      if (notification._adminAlertId) {
+        await api.put(`/admin/notifications/alerts/${notification._adminAlertId}/read`).catch(() => {});
+      }
       setNotifications(prev =>
         prev.map(n => n.id === notification.id ? { ...n, read: true } : n)
       );
@@ -679,11 +718,6 @@ export default function Header() {
                     <Sun className="w-5 h-5 text-white" />
                   )}
                 </button>
-              )}
-
-              {/* Admin Real-Time Alerts: driver arrived + status changes + overdue (Admin Only) */}
-              {loggedIn && user?.role === 'admin' && (
-                <AdminNotificationBell />
               )}
 
               {/* Notifications */}
