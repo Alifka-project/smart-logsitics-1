@@ -159,15 +159,25 @@ export default function Header() {
       }
     };
 
+    const handleStatusUpdated = (e) => {
+      const updatedId = e.detail?.deliveryId;
+      // Remove notifications for this delivery immediately
+      setNotifications(prev => prev.filter(n => !updatedId || String(n.deliveryId) !== String(updatedId)));
+      // Re-fetch to pick up any remaining overdue items
+      loadNotifications();
+    };
+
     // Initial load + start polling
     loadNotifications();
     schedulePoll();
 
     document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('deliveryStatusUpdated', handleStatusUpdated);
 
     return () => {
       if (timer) clearTimeout(timer);
       document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('deliveryStatusUpdated', handleStatusUpdated);
     };
   }, [loggedIn]);
 

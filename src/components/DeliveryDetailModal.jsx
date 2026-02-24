@@ -68,6 +68,9 @@ export default function DeliveryDetailModal({ delivery, isOpen, onClose, onStatu
       if (response.data.success || response.status === 200) {
         setSuccess('Status updated successfully!');
         setTimeout(() => setSuccess(''), 3000);
+        window.dispatchEvent(new CustomEvent('deliveryStatusUpdated', {
+          detail: { deliveryId: delivery.id || delivery.ID, newStatus: newStatusValue }
+        }));
         if (onStatusUpdate) {
           onStatusUpdate(delivery.id || delivery.ID, newStatusValue);
         }
