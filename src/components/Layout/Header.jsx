@@ -259,11 +259,12 @@ export default function Header() {
         }
       }
 
-      // Admin: fetch real-time alerts (driver_arrived, status_changed) + unconfirmed SMS deliveries
+      // Admin: fetch real-time alerts + overdue deliveries (>24h pending) + unconfirmed SMS deliveries
       if (userRole === 'admin') {
         try {
-          const [alertsRes, unconfirmedRes] = await Promise.allSettled([
+          const [alertsRes, overdueRes, unconfirmedRes] = await Promise.allSettled([
             api.get('/admin/notifications/alerts'),
+            api.get('/admin/notifications/overdue-deliveries'),
             api.get('/admin/notifications/unconfirmed-deliveries')
           ]);
 
@@ -271,9 +272,24 @@ export default function Header() {
             ? (alertsRes.value.data?.notifications || [])
             : [];
 
+          const overdueDeliveries = overdueRes.status === 'fulfilled'
+            ? (overdueRes.value.data?.deliveries || [])
+            : [];
+
           const unconfirmedDeliveries = unconfirmedRes.status === 'fulfilled'
             ? (unconfirmedRes.value.data?.deliveries || [])
             : [];
+
+          const overdueNotifs = overdueDeliveries.map(d => ({
+            id: `overdue-${d.id}`,
+            type: 'delivery',
+            status: 'overdue',
+            title: `Overdue (${d.hoursOverdue}h): ${d.customer || 'Unknown'}`,
+            message: `${d.address || 'No address'} — Status: ${d.status}`,
+            timestamp: d.createdAt,
+            read: false,
+            _overdueDeliveryId: d.id
+          }));
 
           const unconfirmedNotifs = unconfirmedDeliveries.map(d => ({
             id: `sms-unconfirmed-${d.id}`,
@@ -297,7 +313,8 @@ export default function Header() {
             _adminAlertId: n.id
           }));
 
-          deliveryNotifications = [...alertNotifs, ...unconfirmedNotifs];
+          // Order: real-time alerts first, then overdue, then SMS unconfirmed
+          deliveryNotifications = [...alertNotifs, ...overdueNotifs, ...unconfirmedNotifs];
         } catch (e) {
           console.error('Failed to load admin alert notifications:', e);
           deliveryNotifications = [];
