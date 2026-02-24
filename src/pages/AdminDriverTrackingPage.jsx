@@ -10,21 +10,30 @@ function ensureAuth() {
 export default function AdminDriverTrackingPage() {
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdate, setLastUpdate] = useState(new Date());
 
   useEffect(() => {
     ensureAuth();
     loadDriverTracking();
 
-    if (autoRefresh) {
-      const interval = setInterval(() => {
-        if (!document.hidden) loadDriverTracking();
-      }, 30000); // 30s instead of 5s - reduces DB load significantly
+    // Refresh once when tab becomes visible again
+    const handleVisChange = () => {
+      if (!document.hidden) loadDriverTracking();
+    };
+    document.addEventListener('visibilitychange', handleVisChange);
 
-      return () => clearInterval(interval);
-    }
-  }, [autoRefresh]);
+    // Refresh when deliveries/drivers are updated via app actions
+    const handleDeliveriesUpdated = () => loadDriverTracking();
+    const handleDeliveryStatusUpdated = () => loadDriverTracking();
+    window.addEventListener('deliveriesUpdated', handleDeliveriesUpdated);
+    window.addEventListener('deliveryStatusUpdated', handleDeliveryStatusUpdated);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisChange);
+      window.removeEventListener('deliveriesUpdated', handleDeliveriesUpdated);
+      window.removeEventListener('deliveryStatusUpdated', handleDeliveryStatusUpdated);
+    };
+  }, []);
 
   const loadDriverTracking = async () => {
     try {
@@ -60,25 +69,8 @@ export default function AdminDriverTrackingPage() {
           <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Real-Time Driver Tracking</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Last updated: {lastUpdate.toLocaleTimeString()}
-            {autoRefresh && <span className="ml-2 text-green-600 dark:text-green-400">● Live</span>}
+            <span className="ml-2 text-green-600 dark:text-green-400">● Live</span>
           </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={autoRefresh}
-              onChange={(e) => setAutoRefresh(e.target.checked)}
-              className="rounded"
-            />
-            <span className="text-sm text-gray-700 dark:text-gray-300">Auto-refresh</span>
-          </label>
-          <button
-            onClick={loadDriverTracking}
-            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm"
-          >
-            Refresh Now
-          </button>
         </div>
       </div>
 

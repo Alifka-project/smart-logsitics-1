@@ -10,7 +10,6 @@ import {
   CheckCircle, 
   XCircle, 
   Clock,
-  RefreshCw,
   Truck,
   Settings,
   MessageSquare,
@@ -28,7 +27,6 @@ export default function AdminOperationsPage() {
   const [deliveries, setDeliveries] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdate, setLastUpdate] = useState(new Date());
   
   // Control tab state
@@ -190,54 +188,35 @@ export default function AdminOperationsPage() {
   useEffect(() => {
     loadData();
     loadOnlineStatus(false);
-    
-    let interval = null;
-    let currentPollInterval = 60000; // Start with 60 seconds
-    let previousDataLength = null;
-    
-    if (autoRefresh) {
-      const smartPoll = async () => {
-        // Skip polling when tab is hidden
-        if (document.hidden) {
-          interval = setTimeout(smartPoll, currentPollInterval);
-          return;
-        }
-        await loadData();
-        
-        // Check if data changed by comparing lengths
-        const currentDataLength = `${deliveries.length}-${drivers.length}`;
-        
-        if (previousDataLength !== currentDataLength && previousDataLength !== null) {
-          // Data changed, speed up polling
-          currentPollInterval = Math.max(45000, currentPollInterval * 0.8);
-        } else if (previousDataLength === currentDataLength) {
-          // No change, slow down polling
-          currentPollInterval = Math.min(180000, currentPollInterval * 1.3);
-        }
-        
-        previousDataLength = currentDataLength;
-        
-        // Schedule next poll with adaptive interval
-        if (autoRefresh) {
-          interval = setTimeout(smartPoll, currentPollInterval);
-        }
-      };
-      
-      // Start smart polling after initial delay
-      interval = setTimeout(smartPoll, currentPollInterval);
-    }
 
-    // Auto-refresh online status - only when tab is visible
-    let onlineInterval = setInterval(() => {
+    // Refresh once when tab becomes visible again
+    const handleVisChange = () => {
+      if (!document.hidden) {
+        loadData();
+        loadOnlineStatus(true);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisChange);
+
+    // Refresh when deliveries are created/updated via app actions
+    const handleDeliveriesUpdated = () => loadData();
+    const handleDeliveryStatusUpdated = () => loadData();
+    window.addEventListener('deliveriesUpdated', handleDeliveriesUpdated);
+    window.addEventListener('deliveryStatusUpdated', handleDeliveryStatusUpdated);
+
+    // Lightweight online-status ping every 90s (just checks driver last-seen timestamps)
+    const onlineInterval = setInterval(() => {
       if (!document.hidden) loadOnlineStatus(true);
-    }, 90000); // 90s instead of 60s
+    }, 90000);
 
     return () => {
-      if (interval) clearTimeout(interval);
-      if (onlineInterval) clearInterval(onlineInterval);
+      document.removeEventListener('visibilitychange', handleVisChange);
+      window.removeEventListener('deliveriesUpdated', handleDeliveriesUpdated);
+      window.removeEventListener('deliveryStatusUpdated', handleDeliveryStatusUpdated);
+      clearInterval(onlineInterval);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoRefresh]);
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -458,26 +437,8 @@ export default function AdminOperationsPage() {
           <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Operations Center</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Last updated: {lastUpdate.toLocaleTimeString()}
-            {autoRefresh && <span className="ml-2 text-green-600 dark:text-green-400">● Live</span>}
+            <span className="ml-2 text-green-600 dark:text-green-400">● Live</span>
           </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={autoRefresh}
-              onChange={(e) => setAutoRefresh(e.target.checked)}
-              className="rounded"
-            />
-            <span className="text-sm text-gray-700 dark:text-gray-300">Auto-refresh</span>
-          </label>
-          <button
-            onClick={loadData}
-            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm flex items-center gap-2"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Refresh Now
-          </button>
         </div>
       </div>
 

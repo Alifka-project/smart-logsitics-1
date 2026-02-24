@@ -22,7 +22,6 @@ export default function AdminDashboardPage() {
   const [drivers, setDrivers] = useState([]);
   const [deliveries, setDeliveries] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedDelivery, setSelectedDelivery] = useState(null);
@@ -118,59 +117,33 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     ensureAuth();
     let mounted = true;
-    
+
     const loadData = async () => {
       if (!mounted) return;
       await loadDashboardData();
     };
-    
+
     loadData();
 
-    let interval = null;
+    // Refresh once when tab becomes visible again
     const handleVisChange = () => {
-      if (document.hidden) {
-        if (interval) { clearInterval(interval); interval = null; }
-      } else if (autoRefresh && mounted) {
-        loadDashboardData();
-        interval = setInterval(() => { if (mounted) loadDashboardData(); }, 60000);
-      }
+      if (!document.hidden && mounted) loadDashboardData();
     };
-    if (autoRefresh) {
-      interval = setInterval(() => {
-        if (mounted && !document.hidden) loadDashboardData();
-      }, 60000); // 60s instead of 5s
-    }
     document.addEventListener('visibilitychange', handleVisChange);
 
-    // Listen for delivery updates
-    const handleDeliveriesUpdated = () => {
-      if (mounted) {
-        console.log('[Dashboard] Deliveries updated, refreshing...');
-        loadDashboardData();
-      }
-    };
-
-    // Listen for delivery status updates
-    const handleDeliveryStatusUpdated = (event) => {
-      if (mounted) {
-        console.log('[Dashboard] 🔄 Delivery status updated event received');
-        loadDashboardData();
-      }
-    };
-
+    // Refresh when deliveries are created/updated via app actions
+    const handleDeliveriesUpdated = () => { if (mounted) loadDashboardData(); };
+    const handleDeliveryStatusUpdated = () => { if (mounted) loadDashboardData(); };
     window.addEventListener('deliveriesUpdated', handleDeliveriesUpdated);
     window.addEventListener('deliveryStatusUpdated', handleDeliveryStatusUpdated);
 
     return () => {
       mounted = false;
-      if (interval) {
-        clearInterval(interval);
-      }
       document.removeEventListener('visibilitychange', handleVisChange);
       window.removeEventListener('deliveriesUpdated', handleDeliveriesUpdated);
       window.removeEventListener('deliveryStatusUpdated', handleDeliveryStatusUpdated);
     };
-  }, [loadDashboardData, autoRefresh]);
+  }, [loadDashboardData]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -432,25 +405,8 @@ export default function AdminDashboardPage() {
           <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Admin Dashboard</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Last updated: {lastUpdate.toLocaleTimeString()}
-            {autoRefresh && <span className="ml-2 text-green-600 dark:text-green-400">● Live</span>}
+            <span className="ml-2 text-green-600 dark:text-green-400">● Live</span>
           </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={autoRefresh}
-              onChange={(e) => setAutoRefresh(e.target.checked)}
-              className="rounded"
-            />
-            <span className="text-sm text-gray-700 dark:text-gray-300">Auto-refresh</span>
-          </label>
-          <button
-            onClick={loadDashboardData}
-            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm"
-          >
-            Refresh Now
-          </button>
         </div>
       </div>
 
