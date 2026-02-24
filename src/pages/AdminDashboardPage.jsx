@@ -27,6 +27,9 @@ export default function AdminDashboardPage() {
   const [selectedDelivery, setSelectedDelivery] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [onlineUserIds, setOnlineUserIds] = useState(new Set());
+  const [showAllDeliveries, setShowAllDeliveries] = useState(false);
+  const [deliverySearch, setDeliverySearch] = useState('');
+  const [deliveryStatusFilter, setDeliveryStatusFilter] = useState('all');
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -869,18 +872,61 @@ export default function AdminDashboardPage() {
             </div>
           )}
 
-          {/* Recent Deliveries Table */}
+          {/* Deliveries Table — recent (10) or all with search/filter */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden transition-colors">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Recent Deliveries</h2>
-              <button
-                onClick={() => navigate('/deliveries')}
-                className="text-sm text-primary-600 dark:text-primary-400 hover:underline"
-              >
-                View All →
-              </button>
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                  {showAllDeliveries ? `All Deliveries (${deliveries.length})` : 'Recent Deliveries'}
+                </h2>
+                <button
+                  onClick={() => { setShowAllDeliveries(v => !v); setDeliverySearch(''); setDeliveryStatusFilter('all'); }}
+                  className="text-sm text-primary-600 dark:text-primary-400 hover:underline font-medium"
+                >
+                  {showAllDeliveries ? '← Show Recent' : `View All (${deliveries.length}) →`}
+                </button>
+              </div>
+              {showAllDeliveries && (
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    placeholder="Search PO, customer, address..."
+                    value={deliverySearch}
+                    onChange={e => setDeliverySearch(e.target.value)}
+                    className="flex-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                  <select
+                    value={deliveryStatusFilter}
+                    onChange={e => setDeliveryStatusFilter(e.target.value)}
+                    className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="out-for-delivery">Out for Delivery</option>
+                    <option value="delivered">Delivered</option>
+                    <option value="delivered-without-installation">Delivered w/o Install</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+              )}
             </div>
             <div className="overflow-x-auto">
+              {(() => {
+                const allSorted = (deliveries && Array.isArray(deliveries) ? deliveries : [])
+                  .slice()
+                  .sort((a, b) => new Date(b.created_at || b.createdAt || 0) - new Date(a.created_at || a.createdAt || 0));
+                const displayList = showAllDeliveries
+                  ? allSorted.filter(d => {
+                      const q = deliverySearch.trim().toLowerCase();
+                      const matchSearch = !q ||
+                        (d.poNumber || '').toLowerCase().includes(q) ||
+                        (d.customer || '').toLowerCase().includes(q) ||
+                        (d.address || '').toLowerCase().includes(q);
+                      const matchStatus = deliveryStatusFilter === 'all' || (d.status || '').toLowerCase() === deliveryStatusFilter;
+                      return matchSearch && matchStatus;
+                    })
+                  : allSorted.slice(0, 10);
+                return (
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
@@ -893,8 +939,8 @@ export default function AdminDashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {recentDeliveries.length > 0 ? (
-                    recentDeliveries.map((delivery) => {
+                  {displayList.length > 0 ? (
+                    displayList.map((delivery) => {
                       const status = (delivery.status || 'pending').toLowerCase();
                       const statusColors = {
                         delivered: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300',
@@ -1005,6 +1051,8 @@ export default function AdminDashboardPage() {
                   )}
                 </tbody>
               </table>
+                );
+              })()}
             </div>
           </div>
 

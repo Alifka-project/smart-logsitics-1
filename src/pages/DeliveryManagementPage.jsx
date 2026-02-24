@@ -30,27 +30,6 @@ export default function DeliveryManagementPage() {
   const [isReloading, setIsReloading] = useState(false);
   const { toasts, removeToast, success: showSuccess, error, warning } = useToast();
 
-  // Auto-load all deliveries from DB on mount (always fresh, never rely on localStorage alone)
-  useEffect(() => {
-    let cancelled = false;
-    const fetchFromDb = async () => {
-      try {
-        const response = await api.get('/deliveries');
-        if (cancelled) return;
-        const dbDeliveries = response.data?.deliveries || [];
-        if (dbDeliveries.length > 0) {
-          loadDeliveries(dbDeliveries);
-        }
-      } catch (err) {
-        // Silent — page still works from localStorage if API fails
-        console.warn('[DeliveryManagement] Could not auto-load from DB:', err.message);
-      }
-    };
-    fetchFromDb();
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // Check for cached fake IDs on mount
   useEffect(() => {
     const hasFake = showCacheWarning();
