@@ -284,11 +284,11 @@ export default function Header() {
             id: `overdue-${d.id}`,
             type: 'delivery',
             status: 'overdue',
+            deliveryId: d.id,
             title: `Overdue (${d.hoursOverdue}h): ${d.customer || 'Unknown'}`,
             message: `${d.address || 'No address'} — Status: ${d.status}`,
             timestamp: d.createdAt,
-            read: false,
-            _overdueDeliveryId: d.id
+            read: false
           }));
 
           const unconfirmedNotifs = unconfirmedDeliveries.map(d => ({
@@ -637,7 +637,7 @@ export default function Header() {
       if (userRole === 'delivery_team') {
         navigate(`/delivery-team?tab=control${deliveryQuery}`);
       } else {
-        navigate(`/admin?tab=deliveries${deliveryQuery}`);
+        navigate(`/admin?tab=deliveries${deliveryQuery}&viewAll=1`);
       }
       markNotificationAsRead(notification);
       return;

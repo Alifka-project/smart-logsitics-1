@@ -161,6 +161,16 @@ export default function AdminDashboardPage() {
     if (tab && allowedTabs.has(tab) && tab !== activeTab) {
       setActiveTab(tab);
     }
+    // viewAll=1: auto-expand the deliveries table and scroll to it
+    if (params.get('viewAll') === '1' && tab === 'deliveries') {
+      setShowAllDeliveries(true);
+      setDeliveryStatusFilter('all');
+      setDeliverySearch('');
+      setDeliveryPage(0);
+      setTimeout(() => {
+        deliveryTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 300);
+    }
   }, [location.search, activeTab]);
 
   useEffect(() => {
