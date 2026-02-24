@@ -54,17 +54,41 @@ export default function AdminNotificationBell() {
   const fetchAlerts = useCallback(async (silent = true) => {
     if (!silent) setLoading(true);
     try {
-      const res = await api.get('/admin/notifications/alerts');
-      const incoming = res.data?.notifications || [];
+      // Fetch real-time alerts (driver_arrived, status_changed) AND unconfirmed SMS deliveries in parallel
+      const [alertsRes, unconfirmedRes] = await Promise.allSettled([
+        api.get('/admin/notifications/alerts'),
+        api.get('/admin/notifications/unconfirmed-deliveries')
+      ]);
+
+      const dbNotifs = alertsRes.status === 'fulfilled'
+        ? (alertsRes.value.data?.notifications || [])
+        : [];
+
+      // Convert unconfirmed SMS deliveries into notification-shaped objects
+      const unconfirmedDeliveries = unconfirmedRes.status === 'fulfilled'
+        ? (unconfirmedRes.value.data?.deliveries || [])
+        : [];
+
+      const unconfirmedNotifs = unconfirmedDeliveries.map(d => ({
+        id: `sms-${d.id}`,
+        type: 'overdue',
+        title: 'SMS Unconfirmed (>24h)',
+        message: `${d.customer || 'Unknown'} — ${d.address || 'No address'} | Sent ${d.hoursSinceSms != null ? d.hoursSinceSms + 'h' : '?'} ago`,
+        createdAt: d.smsSentAt || d.createdAt,
+        isRead: false,
+        _smsDelivery: true  // mark so we don't try to call mark-read API
+      }));
+
+      const all = [...dbNotifs, ...unconfirmedNotifs];
 
       // If new notifications arrived, animate the bell
-      if (incoming.length > prevCountRef.current && prevCountRef.current >= 0) {
+      if (all.length > prevCountRef.current && prevCountRef.current >= 0) {
         setRinging(true);
         setTimeout(() => setRinging(false), 1500);
       }
-      prevCountRef.current = incoming.length;
-      setNotifications(incoming);
-    } catch (_err) {
+      prevCountRef.current = all.length;
+      setNotifications(all);
+    } catch {
       // Silently fail — don't disrupt the admin UI
     } finally {
       if (!silent) setLoading(false);
@@ -110,10 +134,16 @@ export default function AdminNotificationBell() {
     return () => document.removeEventListener('mousedown', handler);
   }, [isOpen]);
 
-  const markRead = async (id) => {
+  const markRead = async (notif) => {
+    // SMS-derived notifications have no DB record — just remove from local state
+    if (notif._smsDelivery) {
+      setNotifications(prev => prev.filter(n => n.id !== notif.id));
+      prevCountRef.current = Math.max(0, prevCountRef.current - 1);
+      return;
+    }
     try {
-      await api.put(`/admin/notifications/alerts/${id}/read`);
-      setNotifications(prev => prev.filter(n => n.id !== id));
+      await api.put(`/admin/notifications/alerts/${notif.id}/read`);
+      setNotifications(prev => prev.filter(n => n.id !== notif.id));
       prevCountRef.current = Math.max(0, prevCountRef.current - 1);
     } catch (err) {
       console.error('[AdminNotificationBell] markRead failed:', err.message);
@@ -225,7 +255,7 @@ export default function AdminNotificationBell() {
                         </p>
                       </div>
                       <button
-                        onClick={() => markRead(notif.id)}
+                        onClick={() => markRead(notif)}
                         className="flex-shrink-0 p-1 text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-400 hover:bg-white dark:hover:bg-gray-700 rounded transition-colors"
                         title="Dismiss"
                       >
