@@ -30,6 +30,7 @@ export default function AdminDashboardPage() {
   const [showAllDeliveries, setShowAllDeliveries] = useState(false);
   const [deliverySearch, setDeliverySearch] = useState('');
   const [deliveryStatusFilter, setDeliveryStatusFilter] = useState('all');
+  const [deliveryPage, setDeliveryPage] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -880,7 +881,7 @@ export default function AdminDashboardPage() {
                   {showAllDeliveries ? `All Deliveries (${deliveries.length})` : 'Recent Deliveries'}
                 </h2>
                 <button
-                  onClick={() => { setShowAllDeliveries(v => !v); setDeliverySearch(''); setDeliveryStatusFilter('all'); }}
+                  onClick={() => { setShowAllDeliveries(v => !v); setDeliverySearch(''); setDeliveryStatusFilter('all'); setDeliveryPage(0); }}
                   className="text-sm text-primary-600 dark:text-primary-400 hover:underline font-medium"
                 >
                   {showAllDeliveries ? '← Show Recent' : `View All (${deliveries.length}) →`}
@@ -892,12 +893,12 @@ export default function AdminDashboardPage() {
                     type="text"
                     placeholder="Search PO, customer, address..."
                     value={deliverySearch}
-                    onChange={e => setDeliverySearch(e.target.value)}
+                    onChange={e => { setDeliverySearch(e.target.value); setDeliveryPage(0); }}
                     className="flex-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                   <select
                     value={deliveryStatusFilter}
-                    onChange={e => setDeliveryStatusFilter(e.target.value)}
+                    onChange={e => { setDeliveryStatusFilter(e.target.value); setDeliveryPage(0); }}
                     className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
                   >
                     <option value="all">All Statuses</option>
@@ -910,12 +911,13 @@ export default function AdminDashboardPage() {
                 </div>
               )}
             </div>
-            <div className="overflow-x-auto">
+            <div>
               {(() => {
+                const PAGE_SIZE = 50;
                 const allSorted = (deliveries && Array.isArray(deliveries) ? deliveries : [])
                   .slice()
                   .sort((a, b) => new Date(b.created_at || b.createdAt || 0) - new Date(a.created_at || a.createdAt || 0));
-                const displayList = showAllDeliveries
+                const filtered = showAllDeliveries
                   ? allSorted.filter(d => {
                       const q = deliverySearch.trim().toLowerCase();
                       const matchSearch = !q ||
@@ -925,17 +927,22 @@ export default function AdminDashboardPage() {
                       const matchStatus = deliveryStatusFilter === 'all' || (d.status || '').toLowerCase() === deliveryStatusFilter;
                       return matchSearch && matchStatus;
                     })
-                  : allSorted.slice(0, 10);
+                  : allSorted;
+                const totalPages = showAllDeliveries ? Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)) : 1;
+                const displayList = showAllDeliveries
+                  ? filtered.slice(deliveryPage * PAGE_SIZE, (deliveryPage + 1) * PAGE_SIZE)
+                  : filtered.slice(0, 10);
                 return (
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <>
+              <table className="w-full table-fixed divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">PO Number</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Customer</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Driver</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
+                    <th className="w-[14%] px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">PO Number</th>
+                    <th className="w-[24%] px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Customer</th>
+                    <th className="w-[16%] px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
+                    <th className="w-[16%] px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Driver</th>
+                    <th className="w-[10%] px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Date</th>
+                    <th className="w-[20%] px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -958,28 +965,28 @@ export default function AdminDashboardPage() {
                             setIsModalOpen(true);
                           }}
                         >
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600 dark:text-blue-400 font-mono">
+                          <td className="px-4 py-4 text-sm font-medium text-blue-600 dark:text-blue-400 font-mono truncate max-w-0">
                             {delivery.poNumber || String(delivery.id || delivery.ID || 'N/A').slice(0, 8)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                          <td className="px-4 py-4 text-sm text-gray-900 dark:text-gray-100 truncate max-w-0">
                             {delivery.customer || delivery.Customer || delivery.customerName || 'N/A'}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-4 py-4">
                             <span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusColors[status] || statusColors.default}`}>
                               {delivery.status || 'Pending'}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-400 truncate max-w-0">
                             {delivery.driverName || delivery.tracking?.driverId ? 
                               (delivery.driverName || `Driver ${String(delivery.tracking?.driverId || delivery.assignedDriverId || '').slice(0, 6)}`) 
                               : 'Unassigned'}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-400">
                             {delivery.created_at || delivery.createdAt || delivery.created 
                               ? new Date(delivery.created_at || delivery.createdAt || delivery.created).toLocaleDateString()
                               : 'N/A'}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-4 py-4">
                             <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                               <select
                                 value={delivery.status || 'pending'}
@@ -1051,6 +1058,27 @@ export default function AdminDashboardPage() {
                   )}
                 </tbody>
               </table>
+              {showAllDeliveries && totalPages > 1 && (
+                <div className="px-6 py-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    Showing {deliveryPage * PAGE_SIZE + 1}–{Math.min((deliveryPage + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      disabled={deliveryPage === 0}
+                      onClick={() => setDeliveryPage(p => p - 1)}
+                      className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                    >← Prev</button>
+                    <span className="px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400">{deliveryPage + 1} / {totalPages}</span>
+                    <button
+                      disabled={deliveryPage >= totalPages - 1}
+                      onClick={() => setDeliveryPage(p => p + 1)}
+                      className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                    >Next →</button>
+                  </div>
+                </div>
+              )}
+              </>
                 );
               })()}
             </div>
