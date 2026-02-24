@@ -1,10 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { X, Camera, Signature, Loader } from 'lucide-react';
+import { X, Camera, Signature, Loader, Upload, Trash2 } from 'lucide-react';
 import api from '../frontend/apiClient';
+
+const POD_REQUIRED_STATUSES = ['delivered', 'delivered-without-installation'];
 
 export default function DeliveryDetailModal({ delivery, isOpen, onClose, onStatusUpdate }) {
   const [newStatus, setNewStatus] = useState(delivery?.status || 'pending');
+  const [pendingStatus, setPendingStatus] = useState(null); // status awaiting POD confirmation
+  const [podUploadFiles, setPodUploadFiles] = useState([]); // [{file, preview, base64}]
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -13,10 +17,13 @@ export default function DeliveryDetailModal({ delivery, isOpen, onClose, onStatu
   const [customerSignature, setCustomerSignature] = useState(null);
   const [podFetched, setPodFetched] = useState(false);
   const [podLoading, setPodLoading] = useState(false);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (delivery && isOpen) {
       setNewStatus(delivery.status || 'pending');
+      setPendingStatus(null);
+      setPodUploadFiles([]);
       setError('');
       setSuccess('');
       setPodFetched(false);
@@ -55,34 +62,71 @@ export default function DeliveryDetailModal({ delivery, isOpen, onClose, onStatu
   }, [delivery, isOpen]);
 
   const handleStatusChange = async (newStatusValue) => {
-    setNewStatus(newStatusValue);
+    // For delivery-completion statuses, require POD photo first
+    if (POD_REQUIRED_STATUSES.includes(newStatusValue)) {
+      setPendingStatus(newStatusValue);
+      setPodUploadFiles([]);
+      setError('');
+      return;
+    }
+    // Non-POD status: save immediately
+    await saveStatus(newStatusValue, []);
+  };
+
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setPodUploadFiles(prev => [...prev, { file, preview: ev.target.result, base64: ev.target.result }]);
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  };
+
+  const removeUploadFile = (idx) => {
+    setPodUploadFiles(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleConfirmWithPod = async () => {
+    if (podUploadFiles.length === 0) {
+      setError('Please attach at least one POD photo before confirming.');
+      return;
+    }
+    await saveStatus(pendingStatus, podUploadFiles.map(f => f.base64));
+    setPendingStatus(null);
+    setPodUploadFiles([]);
+  };
+
+  const saveStatus = async (statusValue, photoBase64Array) => {
     setLoading(true);
     setError('');
     setSuccess('');
-    
     try {
-      const response = await api.put(`/deliveries/admin/${delivery.id || delivery.ID}/status`, {
-        status: newStatusValue
-      });
-      
+      const body = { status: statusValue };
+      if (photoBase64Array && photoBase64Array.length > 0) {
+        body.photos = photoBase64Array;
+      }
+      const response = await api.put(`/deliveries/admin/${delivery.id || delivery.ID}/status`, body);
       if (response.data.success || response.status === 200) {
+        setNewStatus(statusValue);
+        // Refresh POD photos shown in modal
+        if (photoBase64Array && photoBase64Array.length > 0) {
+          setPodPhotos(prev => [...photoBase64Array, ...prev]);
+        }
         setSuccess('Status updated successfully!');
         setTimeout(() => setSuccess(''), 3000);
         window.dispatchEvent(new CustomEvent('deliveryStatusUpdated', {
-          detail: { deliveryId: delivery.id || delivery.ID, newStatus: newStatusValue }
+          detail: { deliveryId: delivery.id || delivery.ID, newStatus: statusValue }
         }));
-        if (onStatusUpdate) {
-          onStatusUpdate(delivery.id || delivery.ID, newStatusValue);
-        }
+        if (onStatusUpdate) onStatusUpdate(delivery.id || delivery.ID, statusValue);
       } else {
         setError(response.data.message || 'Failed to update status');
-        setNewStatus(delivery.status || 'pending');
       }
     } catch (err) {
-      const errorMsg = err.response?.data?.message || err.message || 'Error updating delivery status';
-      setError(errorMsg);
-      setNewStatus(delivery.status || 'pending');
-      console.error('Error updating status:', err);
+      setError(err.response?.data?.message || err.message || 'Error updating delivery status');
     } finally {
       setLoading(false);
     }
@@ -201,7 +245,7 @@ export default function DeliveryDetailModal({ delivery, isOpen, onClose, onStatu
             </div>
           )}
 
-          {/* Status Section - Direct Dropdown */}
+          {/* Status Section */}
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-6 rounded-lg border border-blue-200 dark:border-blue-700">
             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
               <span>📦 Delivery Status</span>
@@ -209,7 +253,7 @@ export default function DeliveryDetailModal({ delivery, isOpen, onClose, onStatu
             </label>
 
             <select
-              value={newStatus}
+              value={pendingStatus || newStatus}
               onChange={(e) => handleStatusChange(e.target.value)}
               disabled={loading}
               className="w-full px-4 py-3 border-2 border-blue-300 dark:border-blue-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-medium focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 transition-colors disabled:opacity-50"
@@ -220,6 +264,65 @@ export default function DeliveryDetailModal({ delivery, isOpen, onClose, onStatu
                 </option>
               ))}
             </select>
+
+            {/* POD required panel */}
+            {pendingStatus && (
+              <div className="mt-4 space-y-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-amber-700 dark:text-amber-400">
+                  <Camera size={16} />
+                  <span>POD Photo Required — attach at least one image to confirm status change</span>
+                </div>
+
+                {/* Upload area */}
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-amber-400 dark:border-amber-600 rounded-lg p-4 text-center cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+                >
+                  <Upload size={22} className="mx-auto mb-1 text-amber-500" />
+                  <p className="text-sm text-amber-700 dark:text-amber-400">Click to select photos</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">JPG, PNG, WEBP (multiple allowed)</p>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
+
+                {/* Previews */}
+                {podUploadFiles.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {podUploadFiles.map((f, idx) => (
+                      <div key={idx} className="relative rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600">
+                        <img src={f.preview} alt={`Upload ${idx + 1}`} className="w-full h-24 object-cover" />
+                        <button
+                          onClick={() => removeUploadFile(idx)}
+                          className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-0.5 hover:bg-red-700 transition-colors"
+                        ><Trash2 size={12} /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleConfirmWithPod}
+                    disabled={loading || podUploadFiles.length === 0}
+                    className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {loading ? <Loader size={16} className="animate-spin" /> : null}
+                    ✓ Confirm — {pendingStatus.replace(/-/g, ' ')}
+                  </button>
+                  <button
+                    onClick={() => { setPendingStatus(null); setPodUploadFiles([]); setError(''); }}
+                    disabled={loading}
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >Cancel</button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* POD Section - photos and signatures from DB */}
