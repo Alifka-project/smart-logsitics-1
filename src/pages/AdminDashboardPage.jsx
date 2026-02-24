@@ -31,6 +31,10 @@ export default function AdminDashboardPage() {
   const [deliverySearch, setDeliverySearch] = useState('');
   const [deliveryStatusFilter, setDeliveryStatusFilter] = useState('all');
   const [deliveryPage, setDeliveryPage] = useState(0);
+  const [deliveryDateFrom, setDeliveryDateFrom] = useState('');
+  const [deliveryDateTo, setDeliveryDateTo] = useState('');
+  const [deliverySortBy, setDeliverySortBy] = useState('date');
+  const [deliverySortDir, setDeliverySortDir] = useState('desc');
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -881,42 +885,106 @@ export default function AdminDashboardPage() {
                   {showAllDeliveries ? `All Deliveries (${deliveries.length})` : 'Recent Deliveries'}
                 </h2>
                 <button
-                  onClick={() => { setShowAllDeliveries(v => !v); setDeliverySearch(''); setDeliveryStatusFilter('all'); setDeliveryPage(0); }}
+                  onClick={() => { setShowAllDeliveries(v => !v); setDeliverySearch(''); setDeliveryStatusFilter('all'); setDeliveryPage(0); setDeliveryDateFrom(''); setDeliveryDateTo(''); setDeliverySortBy('date'); setDeliverySortDir('desc'); }}
                   className="text-sm text-primary-600 dark:text-primary-400 hover:underline font-medium"
                 >
                   {showAllDeliveries ? '← Show Recent' : `View All (${deliveries.length}) →`}
                 </button>
               </div>
               {showAllDeliveries && (
-                <div className="flex flex-col sm:flex-row gap-2">
+                <div className="space-y-2">
+                  {/* Row 1: search */}
                   <input
                     type="text"
-                    placeholder="Search PO, customer, address..."
+                    placeholder="Search PO number, customer, address..."
                     value={deliverySearch}
                     onChange={e => { setDeliverySearch(e.target.value); setDeliveryPage(0); }}
-                    className="flex-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
-                  <select
-                    value={deliveryStatusFilter}
-                    onChange={e => { setDeliveryStatusFilter(e.target.value); setDeliveryPage(0); }}
-                    className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  >
-                    <option value="all">All Statuses</option>
-                    <option value="pending">Pending</option>
-                    <option value="out-for-delivery">Out for Delivery</option>
-                    <option value="delivered">Delivered</option>
-                    <option value="delivered-without-installation">Delivered w/o Install</option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
+                  {/* Row 2: status + date range + sort + clear */}
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <select
+                      value={deliveryStatusFilter}
+                      onChange={e => { setDeliveryStatusFilter(e.target.value); setDeliveryPage(0); }}
+                      className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    >
+                      <option value="all">All Statuses</option>
+                      <option value="pending">Pending</option>
+                      <option value="out-for-delivery">Out for Delivery</option>
+                      <option value="delivered">Delivered</option>
+                      <option value="delivered-without-installation">Delivered w/o Install</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
+                    <div className="flex items-center gap-1">
+                      <label className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">From</label>
+                      <input
+                        type="date"
+                        value={deliveryDateFrom}
+                        onChange={e => { setDeliveryDateFrom(e.target.value); setDeliveryPage(0); }}
+                        className="px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <label className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">To</label>
+                      <input
+                        type="date"
+                        value={deliveryDateTo}
+                        onChange={e => { setDeliveryDateTo(e.target.value); setDeliveryPage(0); }}
+                        className="px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                    </div>
+                    <select
+                      value={deliverySortBy}
+                      onChange={e => { setDeliverySortBy(e.target.value); setDeliveryPage(0); }}
+                      className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    >
+                      <option value="date">Sort: Date</option>
+                      <option value="customer">Sort: Customer</option>
+                      <option value="status">Sort: Status</option>
+                      <option value="poNumber">Sort: PO Number</option>
+                    </select>
+                    <button
+                      onClick={() => { setDeliverySortDir(d => d === 'desc' ? 'asc' : 'desc'); setDeliveryPage(0); }}
+                      title={deliverySortDir === 'desc' ? 'Descending — click for ascending' : 'Ascending — click for descending'}
+                      className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors font-mono"
+                    >{deliverySortDir === 'desc' ? '↓ Desc' : '↑ Asc'}</button>
+                    {(deliverySearch || deliveryStatusFilter !== 'all' || deliveryDateFrom || deliveryDateTo) && (
+                      <button
+                        onClick={() => { setDeliverySearch(''); setDeliveryStatusFilter('all'); setDeliveryDateFrom(''); setDeliveryDateTo(''); setDeliveryPage(0); }}
+                        className="px-3 py-1.5 text-sm rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+                      >✕ Clear</button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
             <div>
               {(() => {
                 const PAGE_SIZE = 50;
-                const allSorted = (deliveries && Array.isArray(deliveries) ? deliveries : [])
-                  .slice()
-                  .sort((a, b) => new Date(b.created_at || b.createdAt || 0) - new Date(a.created_at || a.createdAt || 0));
+                const base = (deliveries && Array.isArray(deliveries) ? deliveries : []).slice();
+                // Dynamic sort
+                base.sort((a, b) => {
+                  let av, bv;
+                  if (deliverySortBy === 'customer') {
+                    av = (a.customer || a.Customer || a.customerName || '').toLowerCase();
+                    bv = (b.customer || b.Customer || b.customerName || '').toLowerCase();
+                    return deliverySortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+                  } else if (deliverySortBy === 'status') {
+                    av = (a.status || '').toLowerCase();
+                    bv = (b.status || '').toLowerCase();
+                    return deliverySortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+                  } else if (deliverySortBy === 'poNumber') {
+                    av = (a.poNumber || '').toLowerCase();
+                    bv = (b.poNumber || '').toLowerCase();
+                    return deliverySortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+                  } else {
+                    // date (default)
+                    av = new Date(a.created_at || a.createdAt || 0).getTime();
+                    bv = new Date(b.created_at || b.createdAt || 0).getTime();
+                    return deliverySortDir === 'asc' ? av - bv : bv - av;
+                  }
+                });
+                const allSorted = base;
                 const filtered = showAllDeliveries
                   ? allSorted.filter(d => {
                       const q = deliverySearch.trim().toLowerCase();
@@ -925,7 +993,11 @@ export default function AdminDashboardPage() {
                         (d.customer || '').toLowerCase().includes(q) ||
                         (d.address || '').toLowerCase().includes(q);
                       const matchStatus = deliveryStatusFilter === 'all' || (d.status || '').toLowerCase() === deliveryStatusFilter;
-                      return matchSearch && matchStatus;
+                      // Date range filter
+                      const dDate = new Date(d.created_at || d.createdAt || 0);
+                      const matchFrom = !deliveryDateFrom || dDate >= new Date(deliveryDateFrom);
+                      const matchTo = !deliveryDateTo || dDate <= new Date(deliveryDateTo + 'T23:59:59');
+                      return matchSearch && matchStatus && matchFrom && matchTo;
                     })
                   : allSorted;
                 const totalPages = showAllDeliveries ? Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)) : 1;
@@ -937,12 +1009,20 @@ export default function AdminDashboardPage() {
               <table className="w-full table-fixed divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
-                    <th className="w-[14%] px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">PO Number</th>
-                    <th className="w-[24%] px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Customer</th>
-                    <th className="w-[16%] px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
-                    <th className="w-[16%] px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Driver</th>
-                    <th className="w-[10%] px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Date</th>
-                    <th className="w-[20%] px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
+                    {[{key:'poNumber',label:'PO Number',w:'w-[14%]'},{key:'customer',label:'Customer',w:'w-[24%]'},{key:'status',label:'Status',w:'w-[16%]'},{key:null,label:'Driver',w:'w-[16%]'},{key:'date',label:'Date',w:'w-[10%]'},{key:null,label:'Actions',w:'w-[20%]'}].map(({key,label,w}) => (
+                      <th
+                        key={label}
+                        onClick={key && showAllDeliveries ? () => { if(deliverySortBy===key){setDeliverySortDir(d=>d==='desc'?'asc':'desc');}else{setDeliverySortBy(key);setDeliverySortDir('desc');} setDeliveryPage(0); } : undefined}
+                        className={`${w} px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider ${key && showAllDeliveries ? 'cursor-pointer select-none hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors' : ''}`}
+                      >
+                        <span className="flex items-center gap-1">
+                          {label}
+                          {key && showAllDeliveries && deliverySortBy===key && (
+                            <span className="text-primary-500">{deliverySortDir==='desc'?'↓':'↑'}</span>
+                          )}
+                        </span>
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
