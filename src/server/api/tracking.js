@@ -6,6 +6,30 @@ const sapService = require('../../../services/sapService');
 const prisma = require('../db/prisma');
 const cache = require('../cache');
 
+/**
+ * Detect addresses that cannot be used for routing (e.g. "call for delivery").
+ * Mirrors src/utils/addressHandler.js isUnrecognizableAddress for server-side use.
+ */
+const UNRECOGNIZABLE_ADDR_PATTERNS = [
+  /^(call|call\s+for\s+(delivery|pickup|address|location)|call\s+customer)$/i,
+  /^(tbd|to\s+be\s+(confirmed|determined|advised)|n\/a|na|none|nil|-)$/i,
+  /^(pickup|warehouse|collect|collection\s+point)$/i,
+  /^(see\s+notes?|as\s+instructed|contact\s+(customer|driver|office))$/i,
+  /^(unknown|unspecified|no\s+address|no\s+delivery\s+address)$/i,
+  /^(refer\s+to|check\s+with|pending|awaiting)$/i,
+];
+
+function isUnrecognizableAddressServer(address) {
+  if (!address || typeof address !== 'string') return true;
+  const trimmed = address.trim();
+  if (trimmed.length < 5) return true;
+  for (const p of UNRECOGNIZABLE_ADDR_PATTERNS) {
+    if (p.test(trimmed)) return true;
+  }
+  if (/^call\b/i.test(trimmed)) return true;
+  return false;
+}
+
 // GET /api/admin/tracking/deliveries - real-time delivery tracking
 // Optimized: uses select instead of include, server-side cache (30s fresh, 2min max)
 router.get('/deliveries', authenticate, requireRole('admin'), async (req, res) => {
@@ -94,6 +118,15 @@ router.get('/deliveries', authenticate, requireRole('admin'), async (req, res) =
       } catch (sapError) {
         // SAP not available, use database only
       }
+
+      // Sort: deliveries with unrecognizable addresses go last
+      deliveries.sort((a, b) => {
+        const aUnresolvable = isUnrecognizableAddressServer(a.address);
+        const bUnresolvable = isUnrecognizableAddressServer(b.address);
+        if (aUnresolvable && !bUnresolvable) return 1;
+        if (!aUnresolvable && bUnresolvable) return -1;
+        return 0;
+      });
 
       return deliveries;
     }, 30000, 120000); // 30s fresh, 2min max cache

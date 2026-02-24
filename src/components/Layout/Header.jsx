@@ -6,6 +6,7 @@ import api from '../../frontend/apiClient';
 import { useToast } from '../../hooks/useToast';
 import { ToastContainer } from '../common/Toast';
 import UnconfirmedDeliveriesNotification from '../Notifications/UnconfirmedDeliveriesNotification';
+import AdminNotificationBell from '../Notifications/AdminNotificationBell';
 
 export default function Header() {
   const [loggedIn, setLoggedIn] = useState(isAuthenticated());
@@ -684,6 +685,11 @@ export default function Header() {
               {/* Unconfirmed Deliveries Alert (Admin Only) */}
               {loggedIn && user?.role === 'admin' && (
                 <UnconfirmedDeliveriesNotification />
+              )}
+
+              {/* Admin Real-Time Alerts: driver arrived + status changes + overdue (Admin Only) */}
+              {loggedIn && user?.role === 'admin' && (
+                <AdminNotificationBell />
               )}
 
               {/* Notifications */}

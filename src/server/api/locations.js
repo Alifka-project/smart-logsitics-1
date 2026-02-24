@@ -6,6 +6,103 @@ const prisma = require('../db/prisma');
 
 const { authenticate } = require('../auth');
 
+// ─────────────────────────────────────────────────────────────
+// Haversine distance helper (returns metres)
+// ─────────────────────────────────────────────────────────────
+function haversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const toRad = (v) => (v * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/**
+ * Check if driver has arrived at any assigned delivery destination and notify admin.
+ * Called asynchronously after each location update (fire-and-forget).
+ */
+async function checkDriverArrival(driverId, driverLat, driverLng) {
+  try {
+    const ARRIVAL_RADIUS_METRES = 200;
+    const COOLDOWN_MINUTES = 30;
+
+    // Find active assigned deliveries with known coordinates
+    const assignments = await prisma.deliveryAssignment.findMany({
+      where: {
+        driverId,
+        status: { notIn: ['completed', 'cancelled'] }
+      },
+      select: {
+        deliveryId: true,
+        delivery: {
+          select: {
+            id: true,
+            customer: true,
+            address: true,
+            lat: true,
+            lng: true,
+            status: true
+          }
+        }
+      }
+    });
+
+    for (const assignment of assignments) {
+      const delivery = assignment.delivery;
+      if (!delivery) continue;
+      // Skip if delivery is already completed/delivered
+      const doneStatuses = ['delivered', 'completed', 'delivered-with-installation', 'delivered-without-installation', 'cancelled'];
+      if (doneStatuses.includes((delivery.status || '').toLowerCase())) continue;
+      if (!delivery.lat || !delivery.lng) continue;
+
+      const distance = haversineDistance(driverLat, driverLng, delivery.lat, delivery.lng);
+      if (distance > ARRIVAL_RADIUS_METRES) continue;
+
+      // Debounce: skip if we already notified for this delivery in the last COOLDOWN_MINUTES
+      const cutoff = new Date(Date.now() - COOLDOWN_MINUTES * 60 * 1000);
+      const recentNotif = await prisma.adminNotification.findFirst({
+        where: {
+          type: 'driver_arrived',
+          createdAt: { gt: cutoff },
+          payload: { path: ['deliveryId'], equals: delivery.id }
+        }
+      });
+      if (recentNotif) continue;
+
+      // Create arrival notification
+      const driver = await prisma.driver.findUnique({
+        where: { id: driverId },
+        select: { fullName: true, username: true }
+      });
+      const driverName = driver?.fullName || driver?.username || 'Driver';
+
+      await prisma.adminNotification.create({
+        data: {
+          type: 'driver_arrived',
+          title: 'Driver Arrived at Delivery Location',
+          message: `${driverName} has arrived at ${delivery.customer || 'customer'} — ${delivery.address || 'address unknown'}`,
+          payload: {
+            driverId,
+            driverName,
+            deliveryId: delivery.id,
+            customer: delivery.customer,
+            address: delivery.address,
+            distanceMetres: Math.round(distance)
+          }
+        }
+      });
+
+      console.log(`[Locations] 🔔 Driver ${driverName} arrived at delivery ${delivery.id} (${Math.round(distance)}m away)`);
+    }
+  } catch (err) {
+    console.error('[Locations] Arrival check error:', err.message);
+  }
+}
+
 // POST /api/driver/:id/location
 router.post('/:id/location', async (req, res) => {
   const driverId = req.params.id;
@@ -33,6 +130,9 @@ router.post('/:id/location', async (req, res) => {
         console.error('Location cleanup error:', err);
       }
     });
+
+    // Async arrival check — non-blocking
+    setImmediate(() => checkDriverArrival(driverId, latitude, longitude));
 
     res.json({ ok: true, location: rows[0] });
   } catch (err) {
@@ -66,7 +166,10 @@ router.post('/me/location', authenticate, async (req, res) => {
         console.error('Location cleanup error:', err);
       }
     });
-    
+
+    // Async arrival check — non-blocking
+    setImmediate(() => checkDriverArrival(driverId, latitude, longitude));
+
     res.json({ ok: true, location: rows[0] });
   } catch (err) {
     console.error('POST /api/driver/me/location', err);

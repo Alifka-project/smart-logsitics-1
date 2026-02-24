@@ -158,6 +158,26 @@ router.put('/admin/:id/status', authenticate, requireRole('admin'), async (req, 
     cache.invalidatePrefix('dashboard:');
     cache.delete('deliveries:list');
 
+    // Create admin notification for status change (fire-and-forget)
+    prisma.adminNotification.create({
+      data: {
+        type: 'status_changed',
+        title: 'Delivery Status Updated',
+        message: `${existingDelivery.customer || 'Unknown customer'} — ${existingDelivery.address || 'Unknown address'}: ${existingDelivery.status} → ${status}`,
+        payload: {
+          deliveryId: existingDelivery.id,
+          customer: existingDelivery.customer,
+          address: existingDelivery.address,
+          poNumber: existingDelivery.poNumber,
+          previousStatus: existingDelivery.status,
+          newStatus: status,
+          updatedBy: req.user?.username || req.user?.sub || 'admin'
+        }
+      }
+    }).catch(err => {
+      console.warn(`[Deliveries] Failed to create status notification for ${existingDelivery.id}:`, err.message);
+    });
+
     res.json({
       ok: true,
       status: status,

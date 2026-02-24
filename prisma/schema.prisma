@@ -212,3 +212,17 @@ model PasswordReset {
   @@index([expiresAt], map: "idx_password_reset_expires")
   @@map("password_resets")
 }
+
+model AdminNotification {
+  id        BigInt   @id @default(autoincrement())
+  type      String   @db.VarChar(64) // 'driver_arrived', 'status_changed', 'overdue'
+  title     String   @db.VarChar(255)
+  message   String
+  payload   Json?
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([isRead, createdAt(sort: Desc)], map: "idx_admin_notif_unread")
+  @@index([createdAt(sort: Desc)], map: "idx_admin_notif_created")
+  @@map("admin_notifications")
+}

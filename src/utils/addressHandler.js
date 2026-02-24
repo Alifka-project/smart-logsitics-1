@@ -52,6 +52,36 @@ export function isValidAddress(address) {
 }
 
 /**
+ * Patterns that indicate an address is not an actual delivery location.
+ * Deliveries with these addresses are sorted to the end of the delivery list.
+ */
+const UNRECOGNIZABLE_PATTERNS = [
+  /^(call|call\s+for\s+(delivery|pickup|address|location)|call\s+customer)$/i,
+  /^(tbd|to\s+be\s+(confirmed|determined|advised)|n\/a|na|none|nil|-)$/i,
+  /^(pickup|warehouse|collect|collection\s+point)$/i,
+  /^(see\s+notes?|as\s+instructed|contact\s+(customer|driver|office))$/i,
+  /^(unknown|unspecified|no\s+address|no\s+delivery\s+address)$/i,
+  /^(refer\s+to|check\s+with|pending|awaiting)$/i,
+];
+
+/**
+ * Returns true when the address string cannot reliably be used for routing/sorting.
+ * These deliveries should be placed at the END of the delivery sequence.
+ */
+export function isUnrecognizableAddress(address) {
+  if (!address || typeof address !== 'string') return true;
+  const trimmed = address.trim();
+  if (trimmed.length < 5) return true;
+  // Match known non-address patterns
+  for (const pattern of UNRECOGNIZABLE_PATTERNS) {
+    if (pattern.test(trimmed)) return true;
+  }
+  // Any address that starts with "call" is likely "call for delivery" style
+  if (/^call\b/i.test(trimmed)) return true;
+  return false;
+}
+
+/**
  * Check if coordinates are present and valid
  */
 export function hasValidCoordinates(lat, lng) {
