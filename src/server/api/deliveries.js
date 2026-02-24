@@ -156,7 +156,7 @@ router.put('/admin/:id/status', authenticate, requireRole('admin'), async (req, 
     // Invalidate caches so tracking/dashboard pick up the change
     cache.invalidatePrefix('tracking:');
     cache.invalidatePrefix('dashboard:');
-    cache.delete('deliveries:list');
+    cache.delete('deliveries:list:v2');
 
     // Create admin notification for status change (fire-and-forget)
     prisma.adminNotification.create({
@@ -412,7 +412,7 @@ router.post('/upload', authenticate, async (req, res) => {
     // Invalidate caches after bulk upload
     cache.invalidatePrefix('tracking:');
     cache.invalidatePrefix('dashboard:');
-    cache.delete('deliveries:list');
+    cache.delete('deliveries:list:v2');
 
     console.log(`[Deliveries] Upload complete: ${results.filter(r => r.saved).length} saved, ${assignmentResults.filter(a => a.success).length} assigned`);
     
@@ -466,7 +466,7 @@ router.post('/bulk-assign', authenticate, requireRole('admin'), async (req, res)
     // Invalidate caches after bulk assignment
     cache.invalidatePrefix('tracking:');
     cache.invalidatePrefix('dashboard:');
-    cache.delete('deliveries:list');
+    cache.delete('deliveries:list:v2');
 
     res.json({
       success: true,
@@ -495,7 +495,7 @@ router.get('/available-drivers', authenticate, requireRole('admin'), async (req,
 // GET /api/deliveries - Get all deliveries from database
 router.get('/', authenticate, async (req, res) => {
   try {
-    const deliveries = await cache.getOrFetch('deliveries:list', async () => {
+    const deliveries = await cache.getOrFetch('deliveries:list:v2', async () => {
       return prisma.delivery.findMany({
         select: {
           id: true,
@@ -507,6 +507,7 @@ router.get('/', authenticate, async (req, res) => {
           status: true,
           items: true,
           metadata: true,
+          poNumber: true,
           createdAt: true,
           updatedAt: true,
           assignments: {
@@ -524,7 +525,7 @@ router.get('/', authenticate, async (req, res) => {
           }
         },
         orderBy: { createdAt: 'desc' },
-        take: 500
+        take: 2000
       });
     }, 30000, 120000);
 
@@ -611,7 +612,7 @@ router.put('/admin/:id/assign', authenticate, requireRole('admin'), async (req, 
     // Invalidate caches after assignment
     cache.invalidatePrefix('tracking:');
     cache.invalidatePrefix('dashboard:');
-    cache.delete('deliveries:list');
+    cache.delete('deliveries:list:v2');
 
     res.json({
       ok: true,

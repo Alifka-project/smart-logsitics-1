@@ -34,7 +34,7 @@ function isUnrecognizableAddressServer(address) {
 // Optimized: uses select instead of include, server-side cache (30s fresh, 2min max)
 router.get('/deliveries', authenticate, requireRole('admin'), async (req, res) => {
   try {
-    const data = await cache.getOrFetch('tracking:deliveries', async () => {
+    const data = await cache.getOrFetch('tracking:deliveries:v2', async () => {
       // Fetch from database - use select for only needed fields
       let dbDeliveries = [];
       try {
@@ -65,7 +65,7 @@ router.get('/deliveries', authenticate, requireRole('admin'), async (req, res) =
             }
           },
           orderBy: { createdAt: 'desc' },
-          take: 500 // Limit to 500 most recent
+          take: 2000
         });
       } catch (err) {
         console.error('[Tracking] Prisma query error:', err.message);
