@@ -28,7 +28,7 @@ export default function DeliveryManagementPage() {
   const [isOptimized, setIsOptimized] = useState(false);
   const [showCacheAlert, setShowCacheAlert] = useState(false);
   const [isReloading, setIsReloading] = useState(false);
-  const { toasts, removeToast, success: showSuccess, error, warning } = useToast();
+  const { toasts, removeToast, success, error, warning } = useToast();
 
   // Check for cached fake IDs on mount
   useEffect(() => {
@@ -92,7 +92,7 @@ export default function DeliveryManagementPage() {
   };
 
   const handleFileSuccess = (result) => {
-    showSuccess(`✓ Successfully loaded ${result.count} deliveries`);
+    success(`✓ Successfully loaded ${result.count} deliveries`);
     if (result.warnings && result.warnings.length > 0) {
       warning(`⚠ ${result.warnings.length} warning(s) found during validation`);
     }
@@ -118,7 +118,7 @@ export default function DeliveryManagementPage() {
       if (response.data && response.data.deliveries) {
         console.log(`[DeliveryManagement] Loaded ${response.data.deliveries.length} deliveries from database`);
         loadDeliveries(response.data.deliveries);
-        showSuccess(`✓ Reloaded ${response.data.deliveries.length} deliveries from database with real UUIDs!`);
+        success(`✓ Reloaded ${response.data.deliveries.length} deliveries from database with real UUIDs!`);
         setShowCacheAlert(false);
       } else {
         error('No deliveries found in database. Please upload deliveries first.');

@@ -149,13 +149,9 @@ class ServerCache {
     }
 
     // No cache - fetch synchronously
-    try {
-      const data = await fetchFn();
-      this.set(key, data, freshMs, maxMs);
-      return data;
-    } catch (err) {
-      throw err;
-    }
+    const data = await fetchFn();
+    this.set(key, data, freshMs, maxMs);
+    return data;
   }
 
   destroy() {

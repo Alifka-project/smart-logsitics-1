@@ -1,30 +1,31 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense, lazy } from 'react';
 import api from './frontend/apiClient';
 import Header from './components/Layout/Header';
 import Sidebar from './components/Layout/Sidebar';
-import DeliveryManagementPage from './pages/DeliveryManagementPage';
-import HomePage from './pages/HomePage';
-import DeliveryListPage from './pages/DeliveryListPage';
-import MapViewPage from './pages/MapViewPage';
-import LoginPage from './pages/LoginPage';
-import ForgotPasswordPage from './pages/ForgotPasswordPage';
-import ResetPasswordPage from './pages/ResetPasswordPage';
-import AdminDashboardPage from './pages/AdminDashboardPage';
-import AdminOperationsPage from './pages/AdminOperationsPage';
-import AdminReportsPage from './pages/AdminReportsPage';
-import AdminPODReportPage from './pages/AdminPODReportPage';
-import AdminDriverTrackingPage from './pages/AdminDriverTrackingPage';
-import AdminDeliveryTrackingPage from './pages/AdminDeliveryTrackingPage';
-import DriverPortal from './pages/DriverPortal';
-import DeliveryTeamPortal from './pages/DeliveryTeamPortal';
-import AdminUsersPage from './pages/AdminUsersPage';
-import TrackingPage from './pages/TrackingPage';
-import CustomerConfirmationPage from './pages/CustomerConfirmationPage';
-import CustomerTrackingPage from './pages/CustomerTrackingPage';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 import useDeliveryStore from './store/useDeliveryStore';
 import { useTokenRefresh } from './hooks/useTokenRefresh';
+
+// Eagerly load auth pages (needed immediately on first load)
+import LoginPage from './pages/LoginPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
+
+// Lazy-load all other pages for better bundle splitting
+const DeliveryManagementPage  = lazy(() => import('./pages/DeliveryManagementPage'));
+const AdminDashboardPage       = lazy(() => import('./pages/AdminDashboardPage'));
+const AdminOperationsPage      = lazy(() => import('./pages/AdminOperationsPage'));
+const AdminReportsPage         = lazy(() => import('./pages/AdminReportsPage'));
+const AdminPODReportPage       = lazy(() => import('./pages/AdminPODReportPage'));
+const AdminDriverTrackingPage  = lazy(() => import('./pages/AdminDriverTrackingPage'));
+const AdminDeliveryTrackingPage= lazy(() => import('./pages/AdminDeliveryTrackingPage'));
+const AdminUsersPage           = lazy(() => import('./pages/AdminUsersPage'));
+const DriverPortal             = lazy(() => import('./pages/DriverPortal'));
+const DeliveryTeamPortal       = lazy(() => import('./pages/DeliveryTeamPortal'));
+const TrackingPage             = lazy(() => import('./pages/TrackingPage'));
+const CustomerConfirmationPage = lazy(() => import('./pages/CustomerConfirmationPage'));
+const CustomerTrackingPage     = lazy(() => import('./pages/CustomerTrackingPage'));
 
 function App() {
   useTokenRefresh();
@@ -70,19 +71,28 @@ function App() {
 
   return (
     <BrowserRouter>
-      <Routes>
-        {/* Public routes */}
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route path="/track/:deliveryId" element={<TrackingPage />} />
-        <Route path="/confirm-delivery/:token" element={<CustomerConfirmationPage />} />
-        <Route path="/tracking/:token" element={<CustomerTrackingPage />} />
-        <Route path="/customer-tracking/:token" element={<CustomerTrackingPage />} />
+      <Suspense fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>
+          </div>
+        </div>
+      }>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/track/:deliveryId" element={<TrackingPage />} />
+          <Route path="/confirm-delivery/:token" element={<CustomerConfirmationPage />} />
+          <Route path="/tracking/:token" element={<CustomerTrackingPage />} />
+          <Route path="/customer-tracking/:token" element={<CustomerTrackingPage />} />
 
-        {/* Protected routes */}
-        <Route path="/*" element={<ProtectedLayout />} />
-      </Routes>
+          {/* Protected routes */}
+          <Route path="/*" element={<ProtectedLayout />} />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }
