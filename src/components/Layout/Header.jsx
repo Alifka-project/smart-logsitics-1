@@ -436,22 +436,27 @@ export default function Header({ isAdmin = false }) {
 
   /* ──────────────────── ADMIN TOP NAV ──────────────────── */
   if (isAdmin) {
-    /* Nav link style — exactly like PolicyPilot reference:
-       full header height, 2px bottom border for active, muted/bright text */
     const NAV_H = '64px';
+    /* Inactive: clearly readable gray (not too faded), active: primary text + 3px blue underline */
+    const INACTIVE_COLOR = theme === 'dark' ? '#9ca3af' : '#6b7280';
+    const ACTIVE_COLOR   = theme === 'dark' ? '#ffffff'  : '#111827';
+    const ACCENT_COLOR   = '#4f70f5';
+
     const navLinkStyle = (active) => ({
       display: 'flex', alignItems: 'center', height: NAV_H,
-      padding: '0 16px', textDecoration: 'none', cursor: 'pointer',
-      color: active ? 'var(--text-primary)' : 'var(--text-muted)',
-      fontWeight: active ? 600 : 400, fontSize: '14px',
-      borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
+      padding: '0 18px', textDecoration: 'none', cursor: 'pointer',
+      color: active ? ACTIVE_COLOR : INACTIVE_COLOR,
+      fontWeight: active ? 700 : 500, fontSize: '14px', letterSpacing: '0.01em',
+      borderBottom: active ? `3px solid ${ACCENT_COLOR}` : '3px solid transparent',
+      borderTop: '3px solid transparent',
       transition: 'color 0.15s, border-color 0.15s',
       whiteSpace: 'nowrap', background: 'none',
     });
     const iconBtn = {
       width: '34px', height: '34px', borderRadius: '8px', display: 'flex',
       alignItems: 'center', justifyContent: 'center', background: 'transparent',
-      border: 'none', cursor: 'pointer', color: 'var(--text-muted)',
+      border: 'none', cursor: 'pointer',
+      color: theme === 'dark' ? '#9ca3af' : '#6b7280',
       transition: 'background 0.15s, color 0.15s', flexShrink: 0,
     };
 
@@ -459,10 +464,11 @@ export default function Header({ isAdmin = false }) {
       <>
         {/* ── Main header bar ── */}
         <header style={{
-          background: 'var(--bg-surface)',
-          borderBottom: '1px solid var(--border)',
+          background: theme === 'dark' ? '#13142a' : '#ffffff',
+          borderBottom: theme === 'dark' ? '1px solid rgba(255,255,255,0.07)' : '1px solid #e5e7eb',
           position: 'sticky', top: 0, zIndex: 40,
           height: NAV_H,
+          boxShadow: theme === 'dark' ? 'none' : '0 1px 3px rgba(0,0,0,0.06)',
         }}>
           <div style={{
             display: 'flex', alignItems: 'center', height: '100%',
@@ -470,10 +476,10 @@ export default function Header({ isAdmin = false }) {
             maxWidth: '1600px', margin: '0 auto',
           }}>
 
-            {/* ── Electrolux Logo — same image, CSS filter inverts for light mode ── */}
+            {/* ── Electrolux Logo ── */}
             <Link
               to="/admin"
-              style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', flexShrink: 0, marginRight: '28px' }}
+              style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', flexShrink: 0, marginRight: '32px' }}
             >
               <img
                 src="/elect home.png"
@@ -485,7 +491,7 @@ export default function Header({ isAdmin = false }) {
               />
             </Link>
 
-            {/* ── Desktop nav links (left-aligned, full height) ── */}
+            {/* ── Desktop nav links ── */}
             <nav
               className="hidden md:flex"
               style={{ alignItems: 'stretch', height: '100%', gap: '0', flex: 1 }}
@@ -504,10 +510,11 @@ export default function Header({ isAdmin = false }) {
                           ...navLinkStyle(isTrackingActive),
                           display: 'flex', alignItems: 'center', gap: '4px',
                           border: 'none',
-                          borderBottom: isTrackingActive ? '2px solid var(--accent)' : '2px solid transparent',
+                          borderBottom: isTrackingActive ? `3px solid ${ACCENT_COLOR}` : '3px solid transparent',
+                          borderTop: '3px solid transparent',
                         }}
-                        onMouseEnter={e => { if (!isTrackingActive) { e.currentTarget.style.color = 'var(--text-primary)'; }}}
-                        onMouseLeave={e => { if (!isTrackingActive) { e.currentTarget.style.color = 'var(--text-muted)'; }}}
+                        onMouseEnter={e => { if (!isTrackingActive) e.currentTarget.style.color = ACTIVE_COLOR; }}
+                        onMouseLeave={e => { if (!isTrackingActive) e.currentTarget.style.color = INACTIVE_COLOR; }}
                       >
                         {item.label}
                         <ChevronDown size={12} style={{ transform: trackingOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', marginTop: '1px' }} />
@@ -545,8 +552,8 @@ export default function Header({ isAdmin = false }) {
                   <NavLink
                     key={item.path} to={item.path} end={item.exact}
                     style={({ isActive }) => navLinkStyle(isActive)}
-                    onMouseEnter={e => { if (!isNavActive(item.path, item.exact)) e.currentTarget.style.color = 'var(--text-primary)'; }}
-                    onMouseLeave={e => { if (!isNavActive(item.path, item.exact)) e.currentTarget.style.color = 'var(--text-muted)'; }}
+                    onMouseEnter={e => { if (!isNavActive(item.path, item.exact)) e.currentTarget.style.color = ACTIVE_COLOR; }}
+                    onMouseLeave={e => { if (!isNavActive(item.path, item.exact)) e.currentTarget.style.color = INACTIVE_COLOR; }}
                   >
                     {item.label}
                   </NavLink>
@@ -573,8 +580,8 @@ export default function Header({ isAdmin = false }) {
                 onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
                 style={iconBtn}
                 title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
-                onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+                onMouseEnter={e => { e.currentTarget.style.background = theme === 'dark' ? 'rgba(255,255,255,0.07)' : '#f3f4f6'; e.currentTarget.style.color = ACTIVE_COLOR; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = INACTIVE_COLOR; }}
               >
                 {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
               </button>
@@ -584,8 +591,8 @@ export default function Header({ isAdmin = false }) {
                 <button
                   onClick={() => setShowNotifications(v => !v)}
                   style={{ ...iconBtn, position: 'relative' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+                  onMouseEnter={e => { e.currentTarget.style.background = theme === 'dark' ? 'rgba(255,255,255,0.07)' : '#f3f4f6'; e.currentTarget.style.color = ACTIVE_COLOR; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = INACTIVE_COLOR; }}
                 >
                   <Bell size={17} />
                   {unreadCount > 0 && (
@@ -603,7 +610,7 @@ export default function Header({ isAdmin = false }) {
                 <NotifPanel />
               </div>
 
-              {/* User button — avatar + name/role (like reference) */}
+              {/* User button — avatar + name/role */}
               <div style={{ position: 'relative' }} ref={dropdownRef}>
                 <button
                   onClick={() => setShowDropdown(v => !v)}
@@ -611,18 +618,18 @@ export default function Header({ isAdmin = false }) {
                     display: 'flex', alignItems: 'center', gap: '10px',
                     padding: '6px 10px', borderRadius: '10px',
                     background: 'transparent', border: 'none', cursor: 'pointer',
-                    marginLeft: '4px',
+                    marginLeft: '6px',
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; }}
+                  onMouseEnter={e => { e.currentTarget.style.background = theme === 'dark' ? 'rgba(255,255,255,0.07)' : '#f3f4f6'; }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
                 >
                   {/* Avatar */}
                   <div style={{
                     width: '34px', height: '34px', borderRadius: '50%',
-                    background: 'var(--accent)', overflow: 'hidden', flexShrink: 0,
+                    background: ACCENT_COLOR, overflow: 'hidden', flexShrink: 0,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     color: 'white', fontWeight: 700, fontSize: '13px',
-                    border: '2px solid var(--border-light)',
+                    border: theme === 'dark' ? '2px solid rgba(255,255,255,0.12)' : '2px solid #e5e7eb',
                   }}>
                     {avatarSrc()
                       ? <img src={avatarSrc()} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -630,12 +637,12 @@ export default function Header({ isAdmin = false }) {
                   </div>
                   {/* Name + role */}
                   <div className="hidden sm:block" style={{ textAlign: 'left', lineHeight: 1 }}>
-                    <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>{displayName()}</p>
-                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px', textTransform: 'capitalize' }}>{userRole()}</p>
+                    <p style={{ fontSize: '13px', fontWeight: 600, color: ACTIVE_COLOR }}>{displayName()}</p>
+                    <p style={{ fontSize: '11px', color: INACTIVE_COLOR, marginTop: '3px', textTransform: 'capitalize' }}>{userRole()}</p>
                   </div>
                   <ChevronDown
                     size={13}
-                    style={{ color: 'var(--text-muted)', transform: showDropdown ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
+                    style={{ color: INACTIVE_COLOR, transform: showDropdown ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
                   />
                 </button>
                 <UserPanel />
