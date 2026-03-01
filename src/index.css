@@ -89,7 +89,7 @@
   html { color-scheme: dark; }
 
   * {
-    font-family: 'Inter', 'Montserrat', -apple-system, BlinkMacSystemFont,
+    font-family: 'DM Sans', 'Inter', -apple-system, BlinkMacSystemFont,
       'Segoe UI', Roboto, sans-serif;
     box-sizing: border-box;
   }

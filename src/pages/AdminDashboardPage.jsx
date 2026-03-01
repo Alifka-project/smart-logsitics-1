@@ -358,8 +358,8 @@ export default function AdminDashboardPage() {
         <p className="text-red-700 dark:text-red-300 font-medium mb-4">Failed to load dashboard data</p>
         <button onClick={() => { setLoading(true); setData(null); loadDashboardData(); }}
           className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm transition-colors">
-          Retry
-        </button>
+            Retry
+          </button>
       </div>
     );
   }
@@ -429,24 +429,24 @@ export default function AdminDashboardPage() {
 
   // ─── RENDER ───
 
-  return (
+    return (
     <div className="space-y-4">
 
       {/* ── Page Header ── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
+          <div>
           <h1 className="pp-page-title">Admin Dashboard</h1>
           <p className="pp-page-subtitle">
             Last updated: {lastUpdate.toLocaleTimeString()} &nbsp;<span className="text-green-500">● Live</span>
-          </p>
-        </div>
-        <button
+            </p>
+          </div>
+          <button
           onClick={() => { setLoading(true); loadDashboardData(); }}
           className="flex items-center gap-2 px-4 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"
         >
           <RefreshCw className="w-4 h-4" /> Refresh
-        </button>
-      </div>
+          </button>
+        </div>
 
       {/* ── KPI Strip ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -458,7 +458,7 @@ export default function AdminDashboardPage() {
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide leading-tight">{card.label}</span>
                 <div className={`p-1.5 rounded-md ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
-              </div>
+        </div>
               <div className={`text-2xl font-bold ${c.val}`}>{card.value}</div>
               {card.delta ? (
                 <div className={`text-xs mt-1 flex items-center gap-0.5 ${card.delta.up ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
@@ -466,8 +466,8 @@ export default function AdminDashboardPage() {
                   {card.delta.pct}% vs yesterday
                 </div>
               ) : <div className="h-4 mt-1" />}
-            </div>
-          );
+      </div>
+    );
         })}
       </div>
 
@@ -478,31 +478,31 @@ export default function AdminDashboardPage() {
           <div className="flex flex-wrap gap-4 text-sm text-amber-800 dark:text-amber-300 flex-1">
             {actionItems.overdue > 0 && <span><strong>{actionItems.overdue}</strong> overdue deliveries (pending &gt; 24 hours)</span>}
             {actionItems.unassigned > 0 && <span><strong>{actionItems.unassigned}</strong> unassigned deliveries</span>}
-          </div>
+        </div>
           <button
             onClick={() => { setActiveTab('deliveries'); setDeliveryStatusFilter('pending'); setDeliveryPage(0); }}
             className="text-xs font-semibold text-amber-700 dark:text-amber-400 underline underline-offset-2"
           >
             View in Deliveries
           </button>
-        </div>
+      </div>
       )}
 
       {/* ── Tab Navigation ── */}
       <div className="border-b border-gray-200 dark:border-gray-700">
         <nav className="flex overflow-x-auto">
           {tabs.map(({ id, label, icon: Icon }) => (
-            <button
+              <button
               key={id}
               onClick={() => { setActiveTab(id); setDeliveryPage(0); }}
               className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
                 activeTab === id
                   ? 'border-blue-500 text-blue-500 dark:border-blue-400 dark:text-blue-400'
-                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
               }`}
-            >
+              >
               <Icon className="w-4 h-4" />{label}
-            </button>
+              </button>
           ))}
         </nav>
       </div>
@@ -517,7 +517,7 @@ export default function AdminDashboardPage() {
               <div>
                 <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Delivery Trend</h2>
                 <p className="pp-page-subtitle">Total dispatched vs delivered — success rate on right axis</p>
-              </div>
+      </div>
               <div className="flex rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden text-xs font-medium">
                 {[['7d', 'Last 7 days'], ['30d', 'Last 30 days'], ['90d', 'Last 90 days']].map(([p, label]) => (
                   <button
@@ -528,8 +528,8 @@ export default function AdminDashboardPage() {
                     {label}
                   </button>
                 ))}
-              </div>
-            </div>
+        </div>
+      </div>
             <ResponsiveContainer width="100%" height={300}>
               <ComposedChart data={heroChartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
@@ -537,7 +537,7 @@ export default function AdminDashboardPage() {
                   interval={heroPeriod === '7d' ? 0 : heroPeriod === '30d' ? 4 : 8} />
                 <YAxis yAxisId="left" tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} />
                 <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#f97316' }} tickLine={false} axisLine={false} unit="%" domain={[0, 100]} />
-                <Tooltip
+                <Tooltip 
                   contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '12px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
                   formatter={(val, name) => name === 'Success Rate %' ? [`${val}%`, name] : [val, name]}
                 />
@@ -546,8 +546,8 @@ export default function AdminDashboardPage() {
                 <Bar yAxisId="left" dataKey="delivered" fill="#2563EB" name="Delivered" radius={[3, 3, 0, 0]} maxBarSize={20} />
                 <Line yAxisId="right" type="monotone" dataKey="rate" stroke="#f97316" name="Success Rate %" dot={false} strokeWidth={2.5} />
               </ComposedChart>
-            </ResponsiveContainer>
-          </div>
+        </ResponsiveContainer>
+      </div>
 
           {/* Three summary panels */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -564,22 +564,22 @@ export default function AdminDashboardPage() {
                   { label: 'Cancelled',    value: totals.cancelled,   color: 'bg-red-500'    },
                 ].map(({ label, value, color }) => {
                   const pct = totals.total > 0 ? ((value / totals.total) * 100).toFixed(1) : 0;
-                  return (
+                    return (
                     <div key={label}>
                       <div className="flex justify-between text-xs mb-1">
                         <span className="text-gray-600 dark:text-gray-400">{label}</span>
                         <span className="font-semibold text-gray-900 dark:text-gray-100">
                           {value} <span className="text-gray-400 font-normal">({pct}%)</span>
-                        </span>
+                          </span>
                       </div>
                       <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                         <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
             </div>
+          </div>
 
             {/* Customer Response */}
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-5">
@@ -595,8 +595,8 @@ export default function AdminDashboardPage() {
                     <span className={`text-xl font-bold ${color}`}>{value}</span>
                   </div>
                 ))}
-              </div>
             </div>
+          </div>
 
             {/* Proof of Delivery */}
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-5">
@@ -606,17 +606,17 @@ export default function AdminDashboardPage() {
                   <div className="flex items-baseline gap-2 mb-4">
                     <span className="text-3xl font-bold text-green-600 dark:text-green-400">{totals.withPOD || 0}</span>
                     <span className="text-sm text-gray-500 dark:text-gray-400">with POD</span>
-                  </div>
+            </div>
                   <div className="w-full h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden mb-3">
                     <div
                       className="h-full bg-green-500 rounded-full transition-all"
                       style={{ width: `${((totals.withPOD || 0) / totals.delivered * 100).toFixed(0)}%` }}
                     />
-                  </div>
+            </div>
                   <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
                     <span>Coverage: {((totals.withPOD || 0) / totals.delivered * 100).toFixed(1)}%</span>
                     <span>Without POD: {totals.withoutPOD || 0}</span>
-                  </div>
+            </div>
                   <button
                     onClick={() => navigate('/admin/reports/pod')}
                     className="mt-4 w-full text-xs text-primary-600 dark:text-primary-400 hover:underline text-center"
@@ -626,9 +626,9 @@ export default function AdminDashboardPage() {
                 </>
               ) : (
                 <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">No delivered items yet</p>
-              )}
-            </div>
+            )}
           </div>
+        </div>
         </div>
       )}
 
@@ -637,36 +637,36 @@ export default function AdminDashboardPage() {
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
           {/* Filter bar */}
           <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex flex-wrap gap-2 items-center">
-            <input
-              type="text"
-              placeholder="Search PO number, customer, address..."
-              value={deliverySearch}
-              onChange={e => { setDeliverySearch(e.target.value); setDeliveryPage(0); }}
+                  <input
+                    type="text"
+                    placeholder="Search PO number, customer, address..."
+                    value={deliverySearch}
+                    onChange={e => { setDeliverySearch(e.target.value); setDeliveryPage(0); }}
               className="flex-1 min-w-[200px] px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
-            />
-            <select
-              value={deliveryStatusFilter}
-              onChange={e => { setDeliveryStatusFilter(e.target.value); setDeliveryPage(0); }}
+                  />
+                    <select
+                      value={deliveryStatusFilter}
+                      onChange={e => { setDeliveryStatusFilter(e.target.value); setDeliveryPage(0); }}
               className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
-            >
-              <option value="all">All Statuses</option>
-              <option value="pending">Pending</option>
+                    >
+                      <option value="all">All Statuses</option>
+                      <option value="pending">Pending</option>
               <option value="scheduled">Scheduled</option>
               <option value="scheduled-confirmed">Confirmed</option>
-              <option value="out-for-delivery">Out for Delivery</option>
-              <option value="delivered">Delivered</option>
+                      <option value="out-for-delivery">Out for Delivery</option>
+                      <option value="delivered">Delivered</option>
               <option value="delivered-without-installation">Delivered (no install)</option>
-              <option value="cancelled">Cancelled</option>
+                      <option value="cancelled">Cancelled</option>
               <option value="rescheduled">Rescheduled</option>
-            </select>
+                    </select>
             <input type="date" value={deliveryDateFrom} onChange={e => { setDeliveryDateFrom(e.target.value); setDeliveryPage(0); }}
               className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" />
             <span className="text-gray-400 text-sm">—</span>
             <input type="date" value={deliveryDateTo} onChange={e => { setDeliveryDateTo(e.target.value); setDeliveryPage(0); }}
               className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" />
-            {(deliverySearch || deliveryStatusFilter !== 'all' || deliveryDateFrom || deliveryDateTo) && (
-              <button
-                onClick={() => { setDeliverySearch(''); setDeliveryStatusFilter('all'); setDeliveryDateFrom(''); setDeliveryDateTo(''); setDeliveryPage(0); }}
+                    {(deliverySearch || deliveryStatusFilter !== 'all' || deliveryDateFrom || deliveryDateTo) && (
+                      <button
+                        onClick={() => { setDeliverySearch(''); setDeliveryStatusFilter('all'); setDeliveryDateFrom(''); setDeliveryDateTo(''); setDeliveryPage(0); }}
                 className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-red-500 transition-colors"
               >Clear</button>
             )}
@@ -687,7 +687,7 @@ export default function AdminDashboardPage() {
             >
               <Download className="w-4 h-4" /> Export CSV
             </button>
-          </div>
+            </div>
 
           {/* Table */}
           <div className="overflow-x-auto" ref={deliveryTableRef}>
@@ -704,38 +704,38 @@ export default function AdminDashboardPage() {
                   <SortTh label="Date" sortKey="date" current={deliverySortBy} dir={deliverySortDir}
                     onSort={k => { if (deliverySortBy === k) setDeliverySortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setDeliverySortBy(k); setDeliverySortDir('desc'); } setDeliveryPage(0); }} />
                   <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-left">Actions</th>
-                </tr>
-              </thead>
+                  </tr>
+                </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                 {pagedDeliveries.length > 0 ? pagedDeliveries.map(delivery => {
                   const statusKey = (delivery.status || 'pending').toLowerCase();
-                  return (
-                    <tr
-                      key={delivery.id || delivery.ID}
+                      return (
+                        <tr
+                          key={delivery.id || delivery.ID}
                       className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
                       onClick={() => { setSelectedDelivery(delivery); setIsModalOpen(true); }}
                     >
                       <td className="px-4 py-3 text-sm font-mono text-primary-600 dark:text-primary-400">
                         {delivery.poNumber || String(delivery.id || delivery.ID || '').slice(0, 8)}
-                      </td>
+                          </td>
                       <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{delivery.customer || 'N/A'}</td>
                       <td className="px-4 py-3">
                         <span className={`inline-block px-2 py-0.5 text-xs font-semibold rounded-full ${STATUS_COLORS[statusKey] || 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>
                           {STATUS_LABELS[statusKey] || delivery.status || 'Pending'}
-                        </span>
-                      </td>
+                            </span>
+                          </td>
                       <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
                         {delivery.driverName || (delivery.tracking?.driverId ? 'Assigned' : 'Unassigned')}
-                      </td>
+                          </td>
                       <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
                         {(delivery.created_at || delivery.createdAt)
                           ? new Date(delivery.created_at || delivery.createdAt).toLocaleDateString('en-GB')
-                          : 'N/A'}
-                      </td>
+                              : 'N/A'}
+                          </td>
                       <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-2">
-                          <select
-                            value={delivery.status || 'pending'}
+                              <select
+                                value={delivery.status || 'pending'}
                             onChange={async e => {
                               const newStatus = e.target.value;
                               try {
@@ -743,7 +743,7 @@ export default function AdminDashboardPage() {
                                 setDeliveries(prev => prev.map(d =>
                                   (d.id === delivery.id || d.ID === delivery.ID) ? { ...d, status: newStatus } : d
                                 ));
-                                loadDashboardData();
+                                      loadDashboardData();
                                 window.dispatchEvent(new CustomEvent('deliveryStatusUpdated', { detail: { deliveryId: delivery.id || delivery.ID, newStatus } }));
                               } catch (err) { console.error('Status update error:', err); }
                             }}
@@ -758,26 +758,26 @@ export default function AdminDashboardPage() {
                             <option value="delivered-without-installation">Delivered (no install)</option>
                             <option value="cancelled">Cancelled</option>
                             <option value="rescheduled">Rescheduled</option>
-                          </select>
-                          <button
+                              </select>
+                              <button
                             onClick={() => { setSelectedDelivery(delivery); setIsModalOpen(true); }}
                             className="px-2 py-1 text-xs text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-primary-700 rounded hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
                           >
                             View
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
                 }) : (
                   <tr>
                     <td colSpan={6} className="px-6 py-12 text-center text-gray-400 dark:text-gray-500 text-sm">
                       No deliveries match the current filters
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
           </div>
 
           {/* Pagination */}
@@ -785,23 +785,23 @@ export default function AdminDashboardPage() {
             <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between text-sm">
               <span className="text-gray-500 dark:text-gray-400">
                 {deliveryPage * PAGE_SIZE + 1}–{Math.min((deliveryPage + 1) * PAGE_SIZE, filteredDeliveries.length)} of {filteredDeliveries.length}
-              </span>
+                  </span>
               <div className="flex items-center gap-1">
-                <button
-                  disabled={deliveryPage === 0}
+                    <button
+                      disabled={deliveryPage === 0}
                   onClick={() => { setDeliveryPage(p => p - 1); deliveryTableRef.current?.scrollIntoView({ behavior: 'smooth' }); }}
                   className="px-3 py-1.5 border border-gray-200 dark:border-gray-600 rounded-md disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
-                >← Prev</button>
+                    >← Prev</button>
                 <span className="px-3 text-gray-600 dark:text-gray-400">{deliveryPage + 1} / {totalPages}</span>
-                <button
-                  disabled={deliveryPage >= totalPages - 1}
+                    <button
+                      disabled={deliveryPage >= totalPages - 1}
                   onClick={() => { setDeliveryPage(p => p + 1); deliveryTableRef.current?.scrollIntoView({ behavior: 'smooth' }); }}
                   className="px-3 py-1.5 border border-gray-200 dark:border-gray-600 rounded-md disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
-                >Next →</button>
-              </div>
+                    >Next →</button>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-        </div>
       )}
 
       {/* ══════════════ BY AREA TAB ══════════════ */}
@@ -860,8 +860,8 @@ export default function AdminDashboardPage() {
                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-left">Area</th>
                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">Deliveries</th>
                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">Share</th>
-                  </tr>
-                </thead>
+                    </tr>
+                  </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                   {deliveryByAreaData.map((row, i) => {
                     const total = deliveryByAreaData.reduce((s, r) => s + (r.count || 0), 0);
@@ -877,8 +877,8 @@ export default function AdminDashboardPage() {
                       </tr>
                     );
                   })}
-                </tbody>
-              </table>
+                  </tbody>
+                </table>
             </div>
           )}
         </div>
@@ -949,8 +949,8 @@ export default function AdminDashboardPage() {
                   <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-left">PNC</th>
                   <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-left">Model ID</th>
                   <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">Qty</th>
-                </tr>
-              </thead>
+                  </tr>
+                </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                 {topItemsData.length > 0 ? topItemsData.map((row, idx) => (
                   <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
@@ -965,9 +965,9 @@ export default function AdminDashboardPage() {
                 )}
               </tbody>
             </table>
-          </div>
-        </div>
-      )}
+                                </div>
+                                  </div>
+                                )}
 
       {/* ══════════════ DRIVERS TAB ══════════════ */}
       {activeTab === 'drivers' && (
@@ -983,9 +983,9 @@ export default function AdminDashboardPage() {
               <div key={label} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-4">
                 <div className="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mb-1 tracking-wide">{label}</div>
                 <div className={`text-2xl font-bold ${color}`}>{value}</div>
-              </div>
+                              </div>
             ))}
-          </div>
+                                  </div>
 
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
             {/* Filter bar */}
@@ -1013,7 +1013,7 @@ export default function AdminDashboardPage() {
                 className="ml-auto text-sm text-primary-600 dark:text-primary-400 hover:underline">
                 Manage drivers →
               </button>
-            </div>
+                                </div>
 
             {/* Table */}
             <table className="min-w-full">
@@ -1044,45 +1044,45 @@ export default function AdminDashboardPage() {
                           <div>
                             <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{displayName}</div>
                             <div className="text-xs text-gray-400 dark:text-gray-500">{driver.username}</div>
-                          </div>
-                        </div>
-                      </td>
+                              </div>
+                            </div>
+                          </td>
                       <td className="px-4 py-3">
                         <div className="text-sm text-gray-600 dark:text-gray-400">{driver.email || '—'}</div>
                         <div className="text-xs text-gray-400 dark:text-gray-500">{driver.phone || '—'}</div>
-                      </td>
+                          </td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full ${isOnline ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}`}>
                           <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
                           {isOnline ? 'Online' : 'Offline'}
-                        </span>
-                      </td>
+                              </span>
+                          </td>
                       <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
                         {lastSeen
                           ? new Date(lastSeen).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
                           : '—'}
-                      </td>
+                          </td>
                       <td className="px-4 py-3">
-                        <button
+                            <button
                           onClick={() => navigate(`/admin/operations?tab=communication&userId=${driver.id}`)}
                           className="text-xs text-primary-600 dark:text-primary-400 hover:underline"
-                        >
+                            >
                           Message
-                        </button>
-                      </td>
-                    </tr>
-                  );
+                            </button>
+                          </td>
+                        </tr>
+                      );
                 }) : (
-                  <tr>
+                    <tr>
                     <td colSpan={5} className="px-6 py-12 text-center text-gray-400 dark:text-gray-500 text-sm">
                       {drivers.length === 0 ? 'No drivers found' : 'No drivers match current filters'}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
         </div>
+      </div>
       )}
 
       {/* Delivery Detail Modal */}

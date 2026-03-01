@@ -82,7 +82,7 @@ export default function DriverTrackingMap({ drivers }) {
         const marker = L.marker([lat, lng], { icon })
           .addTo(mapInstance.current)
           .bindPopup(`
-            <div style="font-family: 'Montserrat', 'Avenir', -apple-system, sans-serif; font-size: 12px; min-width: 200px;">
+            <div style="font-family: 'DM Sans', 'Inter', -apple-system, sans-serif; font-size: 12px; min-width: 200px;">
               <b style="font-size: 14px;">🚚 ${driverName}</b><br>
               <hr style="margin: 4px 0; border: none; border-top: 1px solid #ddd;">
               <div style="margin: 4px 0;">

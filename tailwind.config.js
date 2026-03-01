@@ -40,7 +40,7 @@ export default {
         lg: '1024px', xl: '1280px', '2xl': '1536px',
       },
       fontFamily: {
-        sans: ['Inter', 'Montserrat', '-apple-system', 'BlinkMacSystemFont',
+        sans: ['DM Sans', 'Inter', '-apple-system', 'BlinkMacSystemFont',
                'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'sans-serif'],
       },
       borderRadius: {
