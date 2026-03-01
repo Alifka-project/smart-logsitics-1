@@ -124,17 +124,16 @@ export default function LoginPage() {
         setPasswordErrors(errorDetails);
         setError('Please fix the password requirements');
       } else if (err?.response?.status === 423) {
-        // Account locked
         setError(err.response.data.message || 'Account locked due to too many failed attempts');
+      } else if (err?.response?.status === 429) {
+        setError('Too many login attempts. Please wait 15 minutes and try again.');
       } else if (err?.response?.status === 401) {
-        // Invalid credentials - show clear message
         setError('Invalid username or password. Please check your credentials and try again.');
       } else if (err?.response?.status >= 500) {
         setError('Server error. Please try again later.');
       } else if (err?.response?.status === 400) {
         setError(errorMessage || 'Invalid request. Please check your input.');
       } else {
-        // Fallback for any other error
         setError('Login failed. Please check your credentials.');
       }
       

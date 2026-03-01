@@ -1,14 +1,17 @@
 const rateLimit = require('express-rate-limit');
 
-// Login attempt rate limiter - strict limits to prevent brute force
+// NOTE: Vercel serverless functions are stateless — each invocation may be
+// a fresh process, so in-memory rate limiting resets per cold start.
+// Limits are intentionally relaxed so legitimate users are not locked out.
+// The account-lockout logic in auth.js provides the real brute-force guard.
+
+// Login attempt rate limiter
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 attempts per 15 minutes
-  message: { error: 'too_many_login_attempts', retryAfter: '15 minutes' },
+  max: 20,                    // 20 attempts per window (stateless env)
   standardHeaders: true,
   legacyHeaders: false,
-  skipSuccessfulRequests: true, // Don't count successful logins
-  skipFailedRequests: false,
+  skipSuccessfulRequests: true,
   handler: (req, res) => {
     res.status(429).json({
       error: 'too_many_login_attempts',
