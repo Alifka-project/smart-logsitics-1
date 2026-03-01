@@ -1,8 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useEffect, useState, Suspense, lazy } from 'react';
+import { useEffect, Suspense, lazy } from 'react';
 import api from './frontend/apiClient';
 import Header from './components/Layout/Header';
-import Sidebar from './components/Layout/Sidebar';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 import useDeliveryStore from './store/useDeliveryStore';
 import { useTokenRefresh } from './hooks/useTokenRefresh';
@@ -107,68 +106,27 @@ function ProtectedLayout() {
   })();
   const isAdmin = clientUser?.role === 'admin';
 
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    try { return localStorage.getItem('sidebar_collapsed') === 'true'; } catch { return false; }
-  });
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-
-  const handleSidebarToggle = () => {
-    setSidebarCollapsed(c => {
-      const next = !c;
-      try { localStorage.setItem('sidebar_collapsed', String(next)); } catch {}
-      return next;
-    });
-  };
-
-  const pageRoutes = (
-    <Routes>
-      <Route path="/deliveries" element={<DeliveryManagementPage />} />
-      <Route path="/" element={<Navigate to="/deliveries" replace />} />
-      <Route path="/map" element={<Navigate to="/deliveries?tab=map" replace />} />
-      <Route path="/admin" element={<AdminDashboardPage />} />
-      <Route path="/admin/operations" element={<AdminOperationsPage />} />
-      <Route path="/admin/reports" element={<AdminReportsPage />} />
-      <Route path="/admin/reports/pod" element={<AdminPODReportPage />} />
-      <Route path="/admin/tracking/drivers" element={<AdminDriverTrackingPage />} />
-      <Route path="/admin/tracking/deliveries" element={<AdminDeliveryTrackingPage />} />
-      <Route path="/admin/users" element={<AdminUsersPage />} />
-      <Route path="/driver" element={<DriverPortal />} />
-      <Route path="/delivery-team" element={<DeliveryTeamPortal />} />
-    </Routes>
-  );
-
   return (
     <ProtectedRoute>
-      {isAdmin ? (
-        /* ── Admin: sidebar + slim top-bar ── */
-        <div className="flex min-h-screen" style={{ background: 'var(--bg-base)' }}>
-          <Sidebar
-            collapsed={sidebarCollapsed}
-            onToggle={handleSidebarToggle}
-            mobileOpen={mobileSidebarOpen}
-            onMobileClose={() => setMobileSidebarOpen(false)}
-          />
-          <div
-            className={`flex flex-col flex-1 min-w-0 transition-all duration-300 ${
-              sidebarCollapsed ? 'md:ml-[68px]' : 'md:ml-[240px]'
-            }`}
-            style={{ background: 'var(--bg-base)' }}
-          >
-            <Header isAdmin onMenuOpen={() => setMobileSidebarOpen(true)} />
-            <main className="flex-1 px-4 sm:px-6 py-6 overflow-auto" style={{ color: 'var(--text-primary)' }}>
-              {pageRoutes}
-            </main>
-          </div>
-        </div>
-      ) : (
-        /* ── Non-admin: full-width header ── */
-        <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
-          <Header isAdmin={false} />
-          <main className="container mx-auto px-4 sm:px-6 py-6 max-w-7xl" style={{ color: 'var(--text-primary)' }}>
-            {pageRoutes}
-          </main>
-        </div>
-      )}
+      <div style={{ minHeight: '100vh', background: 'var(--bg-base)', color: 'var(--text-primary)' }}>
+        <Header isAdmin={isAdmin} />
+        <main style={{ maxWidth: '1600px', margin: '0 auto', padding: '28px 24px' }}>
+          <Routes>
+            <Route path="/deliveries" element={<DeliveryManagementPage />} />
+            <Route path="/" element={<Navigate to={isAdmin ? '/admin' : '/deliveries'} replace />} />
+            <Route path="/map" element={<Navigate to="/deliveries?tab=map" replace />} />
+            <Route path="/admin" element={<AdminDashboardPage />} />
+            <Route path="/admin/operations" element={<AdminOperationsPage />} />
+            <Route path="/admin/reports" element={<AdminReportsPage />} />
+            <Route path="/admin/reports/pod" element={<AdminPODReportPage />} />
+            <Route path="/admin/tracking/drivers" element={<AdminDriverTrackingPage />} />
+            <Route path="/admin/tracking/deliveries" element={<AdminDeliveryTrackingPage />} />
+            <Route path="/admin/users" element={<AdminUsersPage />} />
+            <Route path="/driver" element={<DriverPortal />} />
+            <Route path="/delivery-team" element={<DeliveryTeamPortal />} />
+          </Routes>
+        </main>
+      </div>
     </ProtectedRoute>
   );
 }
