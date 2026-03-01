@@ -442,7 +442,7 @@ export default function DeliveryTeamPortal() {
         <div className="space-y-6">
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Active Drivers</p>
@@ -454,7 +454,7 @@ export default function DeliveryTeamPortal() {
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Active Deliveries</p>
@@ -466,7 +466,7 @@ export default function DeliveryTeamPortal() {
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Completed Today</p>
@@ -478,7 +478,7 @@ export default function DeliveryTeamPortal() {
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Alerts</p>
@@ -493,7 +493,7 @@ export default function DeliveryTeamPortal() {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Live Map */}
-            <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+            <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
               <div className="p-4 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Live Map View</h2>
               </div>
@@ -503,7 +503,7 @@ export default function DeliveryTeamPortal() {
             </div>
 
             {/* Active Deliveries List */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-6">
               <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Active Deliveries</h2>
               <div className="space-y-3 max-h-[500px] overflow-y-auto">
                 {activeDeliveries.slice(0, 10).map(delivery => (
@@ -546,7 +546,7 @@ export default function DeliveryTeamPortal() {
           </div>
 
           {/* Driver Status Panel */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-6">
             <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Driver Status</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {drivers.map(driver => {
@@ -586,7 +586,7 @@ export default function DeliveryTeamPortal() {
 
           {/* Alerts Panel */}
           {alerts.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-6">
               <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">System Alerts</h2>
               <div className="space-y-2">
                 {alerts.slice(0, 5).map(alert => (
@@ -616,7 +616,7 @@ export default function DeliveryTeamPortal() {
         <div className="space-y-6">
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-6">
               <div className="text-center">
                 <div className="text-sm text-gray-600 dark:text-gray-400">Total Deliveries</div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
@@ -661,7 +661,7 @@ export default function DeliveryTeamPortal() {
           )}
 
           {/* Deliveries Assignment Table */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
             <div className="p-4 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Assign Deliveries to Drivers</h2>
             </div>

@@ -1,10 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import api from './frontend/apiClient';
 import Header from './components/Layout/Header';
-import Navigation from './components/Layout/Navigation';
+import Sidebar from './components/Layout/Sidebar';
 import DeliveryManagementPage from './pages/DeliveryManagementPage';
-// Keep old imports for backward compatibility (redirects)
 import HomePage from './pages/HomePage';
 import DeliveryListPage from './pages/DeliveryListPage';
 import MapViewPage from './pages/MapViewPage';
@@ -28,17 +27,17 @@ import useDeliveryStore from './store/useDeliveryStore';
 import { useTokenRefresh } from './hooks/useTokenRefresh';
 
 function App() {
-  // Enable automatic token refresh
   useTokenRefresh();
 
   useEffect(() => {
-    // Initialize deliveries from localStorage on app load
     useDeliveryStore.getState().initializeFromStorage();
   }, []);
 
-  // Auto-logout on inactivity (15 minutes) — keep client-side timer in sync with server inactivity
+  // Auto-logout on inactivity
   useEffect(() => {
-    const INACT_MS = import.meta?.env?.VITE_SESSION_INACTIVITY_MS ? parseInt(import.meta.env.VITE_SESSION_INACTIVITY_MS, 10) : 15 * 60 * 1000;
+    const INACT_MS = import.meta?.env?.VITE_SESSION_INACTIVITY_MS
+      ? parseInt(import.meta.env.VITE_SESSION_INACTIVITY_MS, 10)
+      : 15 * 60 * 1000;
     let lastActivity = Date.now();
     let timeout = null;
     function reset() {
@@ -48,24 +47,23 @@ function App() {
     }
     function checkIdle() {
       if (Date.now() - lastActivity >= INACT_MS) {
-        // perform logout call and redirect
         try {
-          api.post('/auth/logout').catch(()=>{}).finally(() => {
-            try { localStorage.removeItem('client_key'); } catch (e) {}
+          api.post('/auth/logout').catch(() => {}).finally(() => {
+            try { localStorage.removeItem('client_key'); } catch {}
             window.location.href = '/login';
           });
-        } catch (e) {
-          try { localStorage.removeItem('client_key'); } catch (e) {}
+        } catch {
+          try { localStorage.removeItem('client_key'); } catch {}
           window.location.href = '/login';
         }
       } else {
         reset();
       }
     }
-    ['click','mousemove','keydown','scroll','touchstart'].forEach(ev => window.addEventListener(ev, reset));
+    ['click', 'mousemove', 'keydown', 'scroll', 'touchstart'].forEach(ev => window.addEventListener(ev, reset));
     reset();
     return () => {
-      ['click','mousemove','keydown','scroll','touchstart'].forEach(ev => window.removeEventListener(ev, reset));
+      ['click', 'mousemove', 'keydown', 'scroll', 'touchstart'].forEach(ev => window.removeEventListener(ev, reset));
       if (timeout) clearTimeout(timeout);
     };
   }, []);
@@ -73,58 +71,92 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public routes - NO header, NO navigation */}
+        {/* Public routes */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/track/:deliveryId" element={<TrackingPage />} />
-        
-        {/* Customer Portal - Public routes (token-based access) */}
         <Route path="/confirm-delivery/:token" element={<CustomerConfirmationPage />} />
         <Route path="/tracking/:token" element={<CustomerTrackingPage />} />
         <Route path="/customer-tracking/:token" element={<CustomerTrackingPage />} />
 
-        {/* Protected routes - with header and navigation */}
+        {/* Protected routes */}
         <Route path="/*" element={<ProtectedLayout />} />
       </Routes>
     </BrowserRouter>
   );
 }
 
-// Protected Layout Component - wraps authenticated pages with header and navigation
 function ProtectedLayout() {
-  const clientUser = (() => { try { return JSON.parse(localStorage.getItem('client_user') || 'null'); } catch(e) { return null; } })();
-  const showNavigation = !!(clientUser && clientUser.role === 'admin');
+  const clientUser = (() => {
+    try { return JSON.parse(localStorage.getItem('client_user') || 'null'); } catch { return null; }
+  })();
+  const isAdmin = clientUser?.role === 'admin';
+
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try { return localStorage.getItem('sidebar_collapsed') === 'true'; } catch { return false; }
+  });
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  const handleSidebarToggle = () => {
+    setSidebarCollapsed(c => {
+      const next = !c;
+      try { localStorage.setItem('sidebar_collapsed', String(next)); } catch {}
+      return next;
+    });
+  };
+
+  const pageRoutes = (
+    <Routes>
+      <Route path="/deliveries" element={<DeliveryManagementPage />} />
+      <Route path="/" element={<Navigate to="/deliveries" replace />} />
+      <Route path="/map" element={<Navigate to="/deliveries?tab=map" replace />} />
+      <Route path="/admin" element={<AdminDashboardPage />} />
+      <Route path="/admin/operations" element={<AdminOperationsPage />} />
+      <Route path="/admin/reports" element={<AdminReportsPage />} />
+      <Route path="/admin/reports/pod" element={<AdminPODReportPage />} />
+      <Route path="/admin/tracking/drivers" element={<AdminDriverTrackingPage />} />
+      <Route path="/admin/tracking/deliveries" element={<AdminDeliveryTrackingPage />} />
+      <Route path="/admin/users" element={<AdminUsersPage />} />
+      <Route path="/driver" element={<DriverPortal />} />
+      <Route path="/delivery-team" element={<DeliveryTeamPortal />} />
+    </Routes>
+  );
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
-        <div className="sticky top-0 z-50">
-          <Header />
-          {showNavigation && <Navigation />}
+      {isAdmin ? (
+        /* ── Admin: sidebar + slim top-bar ── */
+        <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
+          <Sidebar
+            collapsed={sidebarCollapsed}
+            onToggle={handleSidebarToggle}
+            mobileOpen={mobileSidebarOpen}
+            onMobileClose={() => setMobileSidebarOpen(false)}
+          />
+          <div
+            className={`flex flex-col flex-1 min-w-0 transition-all duration-300 ${
+              sidebarCollapsed ? 'md:ml-[68px]' : 'md:ml-[240px]'
+            }`}
+          >
+            <Header
+              isAdmin
+              onMenuOpen={() => setMobileSidebarOpen(true)}
+            />
+            <main className="flex-1 px-4 sm:px-6 py-6 overflow-auto">
+              {pageRoutes}
+            </main>
+          </div>
         </div>
-        <main className="container mx-auto px-3 sm:px-3 md:px-3 lg:px-3 xl:px-4 2xl:px-5 py-6 max-w-7xl">
-          <Routes>
-            {/* Unified Delivery Management - replaces Home, Deliveries, and Map */}
-            <Route path="/deliveries" element={<DeliveryManagementPage />} />
-            {/* Backward compatibility redirects */}
-            <Route path="/" element={<Navigate to="/deliveries" replace />} />
-            <Route path="/map" element={<Navigate to="/deliveries?tab=map" replace />} />
-            {/* Admin routes */}
-            <Route path="/admin" element={<AdminDashboardPage />} />
-            <Route path="/admin/operations" element={<AdminOperationsPage />} />
-            <Route path="/admin/reports" element={<AdminReportsPage />} />
-            <Route path="/admin/reports/pod" element={<AdminPODReportPage />} />
-            <Route path="/admin/tracking/drivers" element={<AdminDriverTrackingPage />} />
-            <Route path="/admin/tracking/deliveries" element={<AdminDeliveryTrackingPage />} />
-            <Route path="/admin/users" element={<AdminUsersPage />} />
-            {/* Driver portal */}
-            <Route path="/driver" element={<DriverPortal />} />
-            {/* Delivery Team portal */}
-            <Route path="/delivery-team" element={<DeliveryTeamPortal />} />
-          </Routes>
-        </main>
-      </div>
+      ) : (
+        /* ── Non-admin: full-width header ── */
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+          <Header isAdmin={false} />
+          <main className="container mx-auto px-4 sm:px-6 py-6 max-w-7xl">
+            {pageRoutes}
+          </main>
+        </div>
+      )}
     </ProtectedRoute>
   );
 }

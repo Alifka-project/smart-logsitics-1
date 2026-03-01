@@ -925,7 +925,7 @@ export default function DriverPortal() {
           />
           {!location && mapReady && (
             <div className="absolute inset-0 flex items-center justify-center bg-gray-50 bg-opacity-90 z-[1000] dark:bg-gray-900/80">
-              <div className="text-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 max-w-sm mx-4">
+              <div className="text-center p-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm border border-gray-200 dark:border-gray-700 max-w-sm mx-4">
                 <MapPin className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
                 <p className="text-gray-700 dark:text-gray-200 font-medium mb-1">No location data available</p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Click "Start Tracking" to begin location tracking</p>

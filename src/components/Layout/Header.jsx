@@ -7,7 +7,7 @@ import { useToast } from '../../hooks/useToast';
 import { ToastContainer } from '../common/Toast';
 
 
-export default function Header() {
+export default function Header({ isAdmin = false, onMenuOpen }) {
   const [loggedIn, setLoggedIn] = useState(isAuthenticated());
   const [user, setUser] = useState(getCurrentUser());
   const [showDropdown, setShowDropdown] = useState(false);
@@ -702,231 +702,209 @@ export default function Header() {
     }
   };
 
-  return (
-    <>
-      <header className="bg-gradient-to-r from-primary-600 to-primary-800 text-white shadow-lg sticky top-0 z-50">
-      <div className="container mx-auto px-3 sm:px-3 md:px-3 lg:px-3 xl:px-4 2xl:px-5 py-2 sm:py-2.5 max-w-7xl">
-        <div className="flex items-center justify-between">
-          <button 
-            onClick={handleLogoClick}
-            className="flex items-center hover:opacity-80 transition-opacity cursor-pointer bg-none border-none p-0"
-            title="Go to Dashboard"
-          >
-            <img 
-              src="/elect home.png" 
-              alt="Electrolux Logo" 
-              className="h-10 sm:h-12 lg:h-14 w-auto object-contain"
-            />
-          </button>
-            
-            <div className="flex items-center gap-3 sm:gap-4">
-              {/* Date Display - Desktop */}
-            <div className="text-right hidden sm:block">
-                <div className="text-sm text-white/90">
-                {new Date().toLocaleDateString('en-GB', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                })}
+  /* ─────────────────────────────────────────────────────
+     Shared notification dropdown markup
+  ───────────────────────────────────────────────────── */
+  const NotificationDropdown = () => (
+    showNotifications && (
+      <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50">
+        <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600 flex items-center justify-between">
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Notifications</h3>
+          {unreadCount > 0 && <span className="text-xs text-gray-500 dark:text-gray-400">{unreadCount} unread</span>}
+        </div>
+        <div className="max-h-96 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700">
+          {notifications.length === 0 ? (
+            <div className="p-8 text-center text-gray-400 dark:text-gray-500">
+              <Bell className="w-10 h-10 mx-auto mb-2 opacity-40" />
+              <p className="text-sm">No notifications</p>
+            </div>
+          ) : (
+            notifications.map(n => (
+              <div
+                key={n.id}
+                onClick={() => handleNotificationClick(n)}
+                className={`px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors ${!n.read ? 'bg-blue-50/40 dark:bg-blue-900/10' : ''}`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${!n.read ? 'bg-blue-500' : 'bg-transparent'}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{n.title}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{n.message}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{new Date(n.timestamp).toLocaleString()}</p>
+                  </div>
+                </div>
               </div>
-            </div>
-
-              {/* Theme Toggle */}
-              {loggedIn && (
-                <button
-                  onClick={toggleTheme}
-                  className="p-2 rounded-lg hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-white/50 text-white"
-                  title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
-                >
-                  {theme === 'light' ? (
-                    <Moon className="w-5 h-5 text-white" />
-                  ) : (
-                    <Sun className="w-5 h-5 text-white" />
-                  )}
-                </button>
-              )}
-
-              {/* Notifications */}
-              {loggedIn && (
-                <div className="relative" ref={notificationRef}>
-                  <button
-                    onClick={() => setShowNotifications(!showNotifications)}
-                    className="relative p-2 rounded-lg hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-white/50 text-white"
-                    title="Notifications"
-                  >
-                    <Bell className="w-5 h-5 text-white" />
-                    {unreadCount > 0 && (
-                      <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-xs font-bold">
-                        {unreadCount > 9 ? '9+' : unreadCount}
-                      </span>
-                    )}
-                  </button>
-
-                  {/* Notifications Dropdown */}
-                  {showNotifications && (
-                    <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50 transition-colors">
-                      <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 flex items-center justify-between">
-                        <h3 className="font-semibold text-gray-900 dark:text-gray-100">Notifications</h3>
-                        {unreadCount > 0 && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400">{unreadCount} unread</span>
-                        )}
-                      </div>
-                      <div className="max-h-96 overflow-y-auto">
-                        {notifications.length === 0 ? (
-                          <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-                            <Bell className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                            <p>No notifications</p>
-                          </div>
-                        ) : (
-                          notifications.map(notification => (
-                            <div
-                              key={notification.id}
-                              onClick={() => handleNotificationClick(notification)}
-                              className={`px-4 py-3 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors ${
-                                !notification.read ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''
-                              }`}
-                            >
-                              <div className="flex items-start gap-3">
-                                <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
-                                  !notification.read ? 'bg-primary-600' : 'bg-transparent'
-                                }`}></div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="font-medium text-gray-900 dark:text-gray-100 text-sm">
-                                    {notification.title}
-                                  </div>
-                                  <div className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                                    {notification.message}
-                                  </div>
-                                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                                    {new Date(notification.timestamp).toLocaleString()}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* User Profile Dropdown */}
-              {loggedIn && user ? (
-                <div className="relative" ref={dropdownRef}>
-                  <button
-                    onClick={() => setShowDropdown(!showDropdown)}
-                    className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-white/50"
-                  >
-                    {/* Profile Picture - Circle */}
-                    <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white font-semibold text-sm border-2 border-white/30 overflow-hidden">
-                      {profileData.profilePicturePreview || user.profile_picture || user.profilePicture ? (
-                        <img
-                          src={profileData.profilePicturePreview || user.profile_picture || user.profilePicture}
-                          alt={getUserDisplayName()}
-                          className="w-full h-full rounded-full object-cover"
-                        />
-                      ) : (
-                        <span>{getInitials()}</span>
-                      )}
-                    </div>
-                    
-                    {/* User Info - Desktop */}
-                    <div className="hidden md:block text-left">
-                      <div className="text-sm font-semibold text-white">{getUserDisplayName()}</div>
-                      <div className="text-xs text-white/90">{getUserRole()}</div>
-                    </div>
-                    
-                    <ChevronDown 
-                      className={`w-4 h-4 transition-transform text-white ${showDropdown ? 'rotate-180' : ''}`}
-                    />
-                  </button>
-
-                  {/* Dropdown Menu */}
-                  {showDropdown && (
-                    <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50 transition-colors">
-                      {/* User Info Section */}
-                      <div className="px-4 py-4 bg-gradient-to-r from-primary-50 to-primary-100 dark:from-primary-900/30 dark:to-primary-800/30 border-b border-gray-200 dark:border-gray-700">
-                        <div className="flex items-center gap-3">
-                          <div className="relative">
-                            <div className="w-16 h-16 rounded-full bg-primary-600 flex items-center justify-center text-white font-semibold text-lg border-4 border-white dark:border-gray-800 shadow-lg overflow-hidden">
-                              {profileData.profilePicturePreview || user.profile_picture || user.profilePicture ? (
-                                <img
-                                  src={profileData.profilePicturePreview || user.profile_picture || user.profilePicture}
-                                  alt={getUserDisplayName()}
-                                  className="w-full h-full rounded-full object-cover"
-                                />
-                              ) : (
-                                <span>{getInitials()}</span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-bold text-gray-900 dark:text-gray-100 truncate text-base">
-                              {getUserDisplayName()}
-                            </div>
-                            {getUserEmail() && (
-                              <div className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                                {getUserEmail()}
-                              </div>
-                            )}
-                            <div className="text-xs text-primary-700 dark:text-primary-400 font-medium mt-1">
-                              {getUserRole()}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Menu Items */}
-                      <div className="py-2">
-                        <button
-                          onClick={() => {
-                            setShowProfileModal(true);
-                            setShowDropdown(false);
-                          }}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
-                        >
-                          <User className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                          <span className="font-medium">Edit Profile</span>
-                        </button>
-                        
-                        <div className="border-t border-gray-200 dark:border-gray-700 my-2"></div>
-                        
-                        <button
-                          onClick={handleLogout}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left"
-                        >
-                          <LogOut className="w-5 h-5" />
-                          <span className="font-medium">Sign Out</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <Link 
-                  to="/login" 
-                  className="bg-white text-primary-900 px-4 py-2 rounded-lg font-medium hover:bg-gray-100 transition-colors shadow-sm"
-                >
-                  Sign in
-                </Link>
-              )}
-            </div>
-
-            {/* Date Display - Mobile */}
-          <div className="text-right sm:hidden">
-              <div className="text-xs text-white/90">
-              {new Date().toLocaleDateString('en-GB', {
-                day: 'numeric',
-                month: 'short'
-              })}
-            </div>
-          </div>
+            ))
+          )}
         </div>
       </div>
-    </header>
-    <ToastContainer toasts={toasts} onRemove={removeToast} />
+    )
+  );
+
+  /* ─────────────────────────────────────────────────────
+     Shared user dropdown markup
+  ───────────────────────────────────────────────────── */
+  const UserDropdown = ({ dark = false }) => (
+    showDropdown && (
+      <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50">
+        <div className="px-4 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center gap-3">
+          <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold text-base overflow-hidden flex-shrink-0">
+            {(profileData.profilePicturePreview || user?.profile_picture || user?.profilePicture)
+              ? <img src={profileData.profilePicturePreview || user.profile_picture || user.profilePicture} alt={getUserDisplayName()} className="w-full h-full object-cover" />
+              : <span>{getInitials()}</span>}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">{getUserDisplayName()}</p>
+            {getUserEmail() && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{getUserEmail()}</p>}
+            <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mt-0.5 capitalize">{getUserRole()}</p>
+          </div>
+        </div>
+        <div className="py-1">
+          <button onClick={() => { setShowProfileModal(true); setShowDropdown(false); }}
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left">
+            <User className="w-4 h-4 text-gray-400" /> Edit Profile
+          </button>
+          <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
+          <button onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left">
+            <LogOut className="w-4 h-4" /> Sign Out
+          </button>
+        </div>
+      </div>
+    )
+  );
+
+  return (
+    <>
+      {isAdmin ? (
+        /* ── Admin slim top-bar ── */
+        <header className="sticky top-0 z-30 h-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center px-4 gap-3 shadow-sm">
+          {/* Mobile hamburger */}
+          <button
+            onClick={onMenuOpen}
+            className="md:hidden p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            title="Open menu"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+
+          {/* Date */}
+          <span className="hidden sm:block text-sm text-gray-500 dark:text-gray-400">
+            {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+          </span>
+
+          <div className="flex-1" />
+
+          {/* Theme toggle */}
+          {loggedIn && (
+            <button onClick={toggleTheme}
+              className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              title={theme === 'light' ? 'Dark mode' : 'Light mode'}>
+              {theme === 'light' ? <Moon className="w-4.5 h-4.5 w-5 h-5" /> : <Sun className="w-5 h-5" />}
+            </button>
+          )}
+
+          {/* Notifications */}
+          {loggedIn && (
+            <div className="relative" ref={notificationRef}>
+              <button onClick={() => setShowNotifications(!showNotifications)}
+                className="relative p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                <Bell className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 min-w-[16px] h-4 bg-red-500 rounded-full flex items-center justify-center text-[10px] font-bold text-white px-0.5">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+              <NotificationDropdown />
+            </div>
+          )}
+
+          {/* User avatar */}
+          {loggedIn && user && (
+            <div className="relative" ref={dropdownRef}>
+              <button onClick={() => setShowDropdown(!showDropdown)}
+                className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold overflow-hidden">
+                  {(profileData.profilePicturePreview || user.profile_picture || user.profilePicture)
+                    ? <img src={profileData.profilePicturePreview || user.profile_picture || user.profilePicture} alt="" className="w-full h-full object-cover" />
+                    : <span>{getInitials()}</span>}
+                </div>
+                <span className="hidden sm:block text-sm font-medium text-gray-700 dark:text-gray-300">{getUserDisplayName()}</span>
+                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
+              </button>
+              <UserDropdown />
+            </div>
+          )}
+        </header>
+      ) : (
+        /* ── Non-admin full header ── */
+        <header className="bg-gradient-to-r from-primary-600 to-primary-800 text-white shadow-lg sticky top-0 z-50">
+          <div className="container mx-auto px-4 sm:px-6 py-2.5 max-w-7xl">
+            <div className="flex items-center justify-between">
+              <button onClick={handleLogoClick} className="flex items-center hover:opacity-80 transition-opacity" title="Go to Dashboard">
+                <img src="/elect home.png" alt="Electrolux Logo" className="h-10 sm:h-12 lg:h-14 w-auto object-contain" />
+              </button>
+
+              <div className="flex items-center gap-3">
+                <div className="text-right hidden sm:block">
+                  <div className="text-sm text-white/90">
+                    {new Date().toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                  </div>
+                </div>
+
+                {loggedIn && (
+                  <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-white/10 transition-colors text-white"
+                    title={theme === 'light' ? 'Dark mode' : 'Light mode'}>
+                    {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+                  </button>
+                )}
+
+                {loggedIn && (
+                  <div className="relative" ref={notificationRef}>
+                    <button onClick={() => setShowNotifications(!showNotifications)}
+                      className="relative p-2 rounded-lg hover:bg-white/10 transition-colors text-white">
+                      <Bell className="w-5 h-5" />
+                      {unreadCount > 0 && (
+                        <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-xs font-bold">
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </span>
+                      )}
+                    </button>
+                    <NotificationDropdown />
+                  </div>
+                )}
+
+                {loggedIn && user ? (
+                  <div className="relative" ref={dropdownRef}>
+                    <button onClick={() => setShowDropdown(!showDropdown)}
+                      className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors">
+                      <div className="w-9 h-9 rounded-full bg-white/20 border-2 border-white/30 overflow-hidden flex items-center justify-center text-white font-semibold text-sm">
+                        {(profileData.profilePicturePreview || user.profile_picture || user.profilePicture)
+                          ? <img src={profileData.profilePicturePreview || user.profile_picture || user.profilePicture} alt="" className="w-full h-full object-cover" />
+                          : <span>{getInitials()}</span>}
+                      </div>
+                      <div className="hidden md:block text-left">
+                        <div className="text-sm font-semibold text-white">{getUserDisplayName()}</div>
+                        <div className="text-xs text-white/80">{getUserRole()}</div>
+                      </div>
+                      <ChevronDown className={`w-4 h-4 text-white transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
+                    </button>
+                    <UserDropdown />
+                  </div>
+                ) : (
+                  <Link to="/login" className="bg-white text-primary-900 px-4 py-2 rounded-lg font-medium hover:bg-gray-100 transition-colors shadow-sm">
+                    Sign in
+                  </Link>
+                )}
+              </div>
+            </div>
+          </div>
+        </header>
+      )}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
 
       {/* Profile Edit Modal */}
       {showProfileModal && (

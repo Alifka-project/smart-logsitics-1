@@ -1,77 +1,28 @@
 import React from 'react';
-import { CheckCircle, XCircle, Clock, RotateCcw, Truck, Package, AlertCircle, Wrench, CheckCircle2 } from 'lucide-react';
+
+const STATUS_CONFIG = {
+  'scheduled':                    { dot: 'bg-purple-500',  bg: 'bg-purple-50 dark:bg-purple-900/20',  text: 'text-purple-700 dark:text-purple-300',  label: 'Scheduled'              },
+  'scheduled-confirmed':          { dot: 'bg-blue-500',    bg: 'bg-blue-50 dark:bg-blue-900/20',      text: 'text-blue-700 dark:text-blue-300',      label: 'Confirmed'              },
+  'out-for-delivery':             { dot: 'bg-indigo-500',  bg: 'bg-indigo-50 dark:bg-indigo-900/20',  text: 'text-indigo-700 dark:text-indigo-300',  label: 'Out for Delivery'       },
+  'in-progress':                  { dot: 'bg-blue-500',    bg: 'bg-blue-50 dark:bg-blue-900/20',      text: 'text-blue-700 dark:text-blue-300',      label: 'In Progress'            },
+  'pending':                      { dot: 'bg-yellow-500',  bg: 'bg-yellow-50 dark:bg-yellow-900/20',  text: 'text-yellow-700 dark:text-yellow-300',  label: 'Pending'                },
+  'delivered':                    { dot: 'bg-green-500',   bg: 'bg-green-50 dark:bg-green-900/20',    text: 'text-green-700 dark:text-green-300',    label: 'Delivered'              },
+  'delivered-with-installation':  { dot: 'bg-green-500',   bg: 'bg-green-50 dark:bg-green-900/20',    text: 'text-green-700 dark:text-green-300',    label: 'Delivered + Install'    },
+  'delivered-without-installation':{ dot: 'bg-green-500',  bg: 'bg-green-50 dark:bg-green-900/20',    text: 'text-green-700 dark:text-green-300',    label: 'Delivered'              },
+  'cancelled':                    { dot: 'bg-red-500',     bg: 'bg-red-50 dark:bg-red-900/20',        text: 'text-red-700 dark:text-red-300',        label: 'Cancelled'              },
+  'rejected':                     { dot: 'bg-red-500',     bg: 'bg-red-50 dark:bg-red-900/20',        text: 'text-red-700 dark:text-red-300',        label: 'Rejected'               },
+  'rescheduled':                  { dot: 'bg-orange-500',  bg: 'bg-orange-50 dark:bg-orange-900/20',  text: 'text-orange-700 dark:text-orange-300',  label: 'Rescheduled'            },
+  'returned':                     { dot: 'bg-orange-500',  bg: 'bg-orange-50 dark:bg-orange-900/20',  text: 'text-orange-700 dark:text-orange-300',  label: 'Returned'               },
+};
 
 export default function StatusBadge({ status }) {
-  const configs = {
-    'scheduled': {
-      icon: Clock,
-      text: 'Scheduled',
-      className: 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300',
-    },
-    'scheduled-confirmed': {
-      icon: CheckCircle2,
-      text: 'Confirmed',
-      className: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300',
-    },
-    'out-for-delivery': {
-      icon: Truck,
-      text: 'Out for Delivery',
-      className: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300',
-    },
-    'delivered-with-installation': {
-      icon: Wrench,
-      text: 'Delivered (With Installation)',
-      className: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300',
-    },
-    'delivered-without-installation': {
-      icon: CheckCircle,
-      text: 'Delivered (No Installation)',
-      className: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300',
-    },
-    'pending': {
-      icon: Clock,
-      text: 'Pending',
-      className: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300',
-    },
-    'in-progress': {
-      icon: Truck,
-      text: 'In Progress',
-      className: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300',
-    },
-    'delivered': {
-      icon: CheckCircle,
-      text: 'Delivered',
-      className: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300',
-    },
-    'cancelled': {
-      icon: XCircle,
-      text: 'Cancelled',
-      className: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300',
-    },
-    'rejected': {
-      icon: AlertCircle,
-      text: 'Rejected',
-      className: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300',
-    },
-    'rescheduled': {
-      icon: RotateCcw,
-      text: 'Rescheduled',
-      className: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300',
-    },
-    'returned': {
-      icon: RotateCcw,
-      text: 'Returned',
-      className: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300',
-    },
-  };
-
-  const config = configs[status] || configs.pending;
-  const Icon = config.icon;
+  const key = (status || 'pending').toLowerCase();
+  const cfg = STATUS_CONFIG[key] || STATUS_CONFIG['pending'];
 
   return (
-    <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold ${config.className}`}>
-      <Icon className="w-4 h-4" />
-      {config.text}
-    </div>
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${cfg.bg} ${cfg.text}`}>
+      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${cfg.dot}`} />
+      {cfg.label}
+    </span>
   );
 }

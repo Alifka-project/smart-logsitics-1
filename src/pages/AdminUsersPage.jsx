@@ -472,7 +472,7 @@ export default function AdminUsersPage() {
       {activeTab === 'logs' ? (
         <div className="space-y-6">
           {/* Currently Online Users */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
@@ -537,7 +537,7 @@ export default function AdminUsersPage() {
           </div>
 
           {/* Login History */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden transition-colors">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden transition-colors">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Clock className="w-5 h-5 text-gray-600 dark:text-gray-400" />
@@ -695,7 +695,7 @@ export default function AdminUsersPage() {
       ) : (
         <>
           {/* Search and Filters */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
@@ -732,7 +732,7 @@ export default function AdminUsersPage() {
           </div>
 
       {/* Users Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden transition-colors">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden transition-colors">
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="text-center">

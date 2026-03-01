@@ -481,57 +481,27 @@ export default function AdminOperationsPage() {
       {activeTab === 'monitoring' && (
         <div className="space-y-6">
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Active Deliveries</div>
-                  <div className="text-3xl font-bold text-gray-800 dark:text-gray-100">{activeDeliveries.length}</div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[
+              { label: 'Active Deliveries', value: activeDeliveries.length,   icon: Truck,        bg: 'bg-blue-50 dark:bg-blue-900/20',   ic: 'text-blue-600 dark:text-blue-400',   val: 'text-blue-700 dark:text-blue-300'   },
+              { label: 'Online Drivers',    value: onlineDrivers.length,       icon: Users,        bg: 'bg-green-50 dark:bg-green-900/20', ic: 'text-green-600 dark:text-green-400', val: 'text-green-700 dark:text-green-300' },
+              { label: 'Active Alerts',     value: alerts.length,              icon: AlertCircle,  bg: 'bg-red-50 dark:bg-red-900/20',     ic: 'text-red-600 dark:text-red-400',     val: 'text-red-700 dark:text-red-300'     },
+              { label: 'Total Drivers',     value: drivers.length,             icon: Activity,     bg: 'bg-purple-50 dark:bg-purple-900/20',ic: 'text-purple-600 dark:text-purple-400',val: 'text-purple-700 dark:text-purple-300'},
+            ].map(({ label, value, icon: Icon, bg, ic, val }) => (
+              <div key={label} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">{label}</span>
+                  <div className={`p-1.5 rounded-lg ${bg}`}><Icon className={`w-4 h-4 ${ic}`} /></div>
                 </div>
-                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <Truck className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                </div>
+                <div className={`text-2xl font-bold ${val}`}>{value}</div>
               </div>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Online Drivers</div>
-                  <div className="text-3xl font-bold text-green-600 dark:text-green-400">{onlineDrivers.length}</div>
-                </div>
-                <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                  <Users className="w-6 h-6 text-green-600 dark:text-green-400" />
-                </div>
-              </div>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Drivers</div>
-                  <div className="text-3xl font-bold text-gray-800 dark:text-gray-100">{drivers.length}</div>
-                </div>
-                <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                  <Users className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-                </div>
-              </div>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Active Alerts</div>
-                  <div className="text-3xl font-bold text-red-600 dark:text-red-400">{alerts.length}</div>
-                </div>
-                <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                  <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
 
           {/* Map and Lists */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Map */}
-            <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden transition-colors">
+            <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden transition-colors">
               <div className="p-4 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Live Map View</h2>
               </div>
@@ -541,7 +511,7 @@ export default function AdminOperationsPage() {
             </div>
 
             {/* Active Deliveries List */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
               <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Active Deliveries</h2>
               <div className="space-y-3 max-h-[500px] overflow-y-auto">
                 {activeDeliveries.slice(0, 10).map(delivery => (
@@ -576,7 +546,7 @@ export default function AdminOperationsPage() {
           </div>
 
           {/* Driver Status Panel */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
             <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Driver Status</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {drivers.map(driver => {
@@ -619,7 +589,7 @@ export default function AdminOperationsPage() {
       {activeTab === 'control' && (
         <div className="space-y-6">
           {/* Control Header */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
             <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100">
               Delivery Assignment Control
             </h2>
@@ -666,7 +636,7 @@ export default function AdminOperationsPage() {
           </div>
 
           {/* Deliveries Assignment Table */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden transition-colors">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden transition-colors">
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-700">
@@ -791,7 +761,7 @@ export default function AdminOperationsPage() {
       {activeTab === 'communication' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-300px)]">
           {/* Contacts List Sidebar */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden flex flex-col transition-colors">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden flex flex-col transition-colors">
             <div className="p-4 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Contacts</h2>
               <input
@@ -952,7 +922,7 @@ export default function AdminOperationsPage() {
           </div>
 
           {/* Chat Area */}
-          <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden flex flex-col transition-colors">
+          <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden flex flex-col transition-colors">
             {selectedDriver ? (
               <>
                 {/* Chat Header */}
@@ -1191,7 +1161,7 @@ export default function AdminOperationsPage() {
           </div>
 
           {/* Alerts List */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow transition-colors">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm transition-colors">
             <div className="p-4 border-b dark:border-gray-700 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Active Alerts</h2>
               <div className="flex gap-2">

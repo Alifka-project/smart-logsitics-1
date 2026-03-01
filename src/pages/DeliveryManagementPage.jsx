@@ -275,7 +275,7 @@ export default function DeliveryManagementPage() {
         <div className="space-y-6">
           {/* Upload Section - Show if no deliveries or if explicitly opened */}
           {(showUpload || deliveries.length === 0) && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 sm:p-8 transition-colors">
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-6 sm:p-8 transition-colors">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
                   {deliveries.length === 0 ? 'Upload Delivery Data' : 'Upload New Data'}
@@ -309,7 +309,7 @@ export default function DeliveryManagementPage() {
           {deliveries.length > 0 && (
             <>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Deliveries</div>
@@ -320,7 +320,7 @@ export default function DeliveryManagementPage() {
                     </div>
                   </div>
                 </div>
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Distance</div>
@@ -333,7 +333,7 @@ export default function DeliveryManagementPage() {
                     </div>
                   </div>
                 </div>
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">High Priority</div>
@@ -346,7 +346,7 @@ export default function DeliveryManagementPage() {
                     </div>
                   </div>
                 </div>
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Quick Actions</div>
@@ -507,7 +507,7 @@ export default function DeliveryManagementPage() {
           ) : (
             <>
               {/* Route Info */}
-              <div className="bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-lg shadow-lg p-4 sm:p-6">
+              <div className="bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-3 sm:mb-4">
                   <h2 className="text-xl sm:text-2xl font-bold">📍 Optimized Delivery Route</h2>
                   {isOptimized && (
@@ -579,7 +579,7 @@ export default function DeliveryManagementPage() {
               )}
 
               {/* Map */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden transition-colors">
+              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden transition-colors">
                 {isLoadingRoute ? (
                   <div className="h-[400px] sm:h-[500px] lg:h-[600px] flex items-center justify-center">
                     <div className="text-center">

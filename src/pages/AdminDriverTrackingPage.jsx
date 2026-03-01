@@ -76,7 +76,7 @@ export default function AdminDriverTrackingPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Drivers</div>
@@ -87,7 +87,7 @@ export default function AdminDriverTrackingPage() {
             </div>
           </div>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Online Drivers</div>
@@ -98,7 +98,7 @@ export default function AdminDriverTrackingPage() {
             </div>
           </div>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">With Location</div>
@@ -112,12 +112,12 @@ export default function AdminDriverTrackingPage() {
       </div>
 
       {/* Map */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden transition-colors">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden transition-colors">
         <DriverTrackingMap drivers={drivers} />
       </div>
 
       {/* Driver List */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
         <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Driver Status</h2>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">

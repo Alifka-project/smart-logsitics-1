@@ -278,7 +278,7 @@ export default function AdminReportsPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
         <div className="flex items-center gap-2 mb-4">
           <Filter className="w-5 h-5 text-gray-600 dark:text-gray-400" />
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Filters</h2>
@@ -376,7 +376,7 @@ export default function AdminReportsPage() {
       </div>
 
       {/* Customer Response Statistics */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
         <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Customer Response Statistics</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <StatCard 
@@ -402,7 +402,7 @@ export default function AdminReportsPage() {
 
       {/* POD (Proof of Delivery) Statistics */}
       {stats.delivered > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
           <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Proof of Delivery (POD) Statistics</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <StatCard 
@@ -429,7 +429,7 @@ export default function AdminReportsPage() {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Daily Breakdown */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
           <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Daily Breakdown</h2>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={dailyBreakdown}>
@@ -455,7 +455,7 @@ export default function AdminReportsPage() {
         </div>
 
         {/* Status Distribution */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
           <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Status Distribution</h2>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
@@ -488,7 +488,7 @@ export default function AdminReportsPage() {
       </div>
 
       {/* Daily Trend */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
         <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Daily Trend</h2>
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={dailyBreakdown}>
@@ -516,7 +516,7 @@ export default function AdminReportsPage() {
 
       {/* Detailed Delivery List */}
       {reportData?.deliveries && reportData.deliveries.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow transition-colors">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm transition-colors">
           <div className="p-6 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Delivery Details</h2>
@@ -715,7 +715,7 @@ function StatCard({ label, value, color, subtitle }) {
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
       <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">{label}</div>
       <div className={`text-3xl font-bold ${textColorClasses[color] || 'text-gray-800 dark:text-gray-100'}`}>{value}</div>
       {subtitle && <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">{subtitle}</div>}

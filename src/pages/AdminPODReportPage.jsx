@@ -159,7 +159,7 @@ export default function AdminPODReportPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
         <div className="flex items-center gap-2 mb-4">
           <Filter className="w-5 h-5 text-gray-600 dark:text-gray-400" />
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Filters</h2>
@@ -212,7 +212,7 @@ export default function AdminPODReportPage() {
 
       {/* Summary Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow p-6 text-white">
+        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-blue-100 text-sm">Total Delivered</p>
@@ -222,7 +222,7 @@ export default function AdminPODReportPage() {
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow p-6 text-white">
+        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-green-100 text-sm">With POD ✓</p>
@@ -233,7 +233,7 @@ export default function AdminPODReportPage() {
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-lg shadow p-6 text-white">
+        <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-red-100 text-sm">Without POD ✗</p>
@@ -244,7 +244,7 @@ export default function AdminPODReportPage() {
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg shadow p-6 text-white">
+        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-purple-100 text-sm">Total Photos</p>
@@ -258,7 +258,7 @@ export default function AdminPODReportPage() {
 
       {/* POD Quality Breakdown */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">POD Quality</h3>
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -285,7 +285,7 @@ export default function AdminPODReportPage() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Signature Status</h3>
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -299,7 +299,7 @@ export default function AdminPODReportPage() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Photo Status</h3>
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -316,7 +316,7 @@ export default function AdminPODReportPage() {
 
       {/* Daily Breakdown */}
       {dailyBreakdown.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Daily POD Completion</h3>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -351,7 +351,7 @@ export default function AdminPODReportPage() {
 
       {/* Driver Performance */}
       {driverBreakdown.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Driver POD Performance</h3>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -385,7 +385,7 @@ export default function AdminPODReportPage() {
       )}
 
       {/* Detailed Delivery List */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
           Delivery Details {deliveries.length > 0 && `(${deliveries.length} orders)`}
         </h3>
