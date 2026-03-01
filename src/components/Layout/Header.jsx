@@ -739,7 +739,7 @@ export default function Header({ isAdmin = false, onMenuOpen }) {
           )}
         </div>
       </div>
-    )));
+    ));
 
   const renderUserDropdown = () => (showDropdown && (
       <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50">
