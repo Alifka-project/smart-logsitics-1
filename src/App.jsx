@@ -72,10 +72,14 @@ function App() {
   return (
     <BrowserRouter>
       <Suspense fallback={
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>
+        <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-base)' }}>
+          <div className="flex flex-col items-center gap-4">
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-sm"
+              style={{ background: 'var(--accent)' }}
+            >E</div>
+            <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading…</p>
           </div>
         </div>
       }>
@@ -137,7 +141,7 @@ function ProtectedLayout() {
     <ProtectedRoute>
       {isAdmin ? (
         /* ── Admin: sidebar + slim top-bar ── */
-        <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="flex min-h-screen" style={{ background: 'var(--bg-base)' }}>
           <Sidebar
             collapsed={sidebarCollapsed}
             onToggle={handleSidebarToggle}
@@ -148,21 +152,19 @@ function ProtectedLayout() {
             className={`flex flex-col flex-1 min-w-0 transition-all duration-300 ${
               sidebarCollapsed ? 'md:ml-[68px]' : 'md:ml-[240px]'
             }`}
+            style={{ background: 'var(--bg-base)' }}
           >
-            <Header
-              isAdmin
-              onMenuOpen={() => setMobileSidebarOpen(true)}
-            />
-            <main className="flex-1 px-4 sm:px-6 py-6 overflow-auto">
+            <Header isAdmin onMenuOpen={() => setMobileSidebarOpen(true)} />
+            <main className="flex-1 px-4 sm:px-6 py-6 overflow-auto" style={{ color: 'var(--text-primary)' }}>
               {pageRoutes}
             </main>
           </div>
         </div>
       ) : (
         /* ── Non-admin: full-width header ── */
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
           <Header isAdmin={false} />
-          <main className="container mx-auto px-4 sm:px-6 py-6 max-w-7xl">
+          <main className="container mx-auto px-4 sm:px-6 py-6 max-w-7xl" style={{ color: 'var(--text-primary)' }}>
             {pageRoutes}
           </main>
         </div>

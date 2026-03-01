@@ -21,17 +21,12 @@ export default function Header({ isAdmin = false, onMenuOpen }) {
   const prevDeliveryNotificationIdsRef = useRef(new Set());
   const prevMessageNotificationsRef = useRef([]);
   const [theme, setTheme] = useState(() => {
-    // Get theme from localStorage, system preference, or default to light
+    // Default to dark theme for modern web3-style design
     if (typeof window !== 'undefined') {
       const savedTheme = localStorage.getItem('theme');
       if (savedTheme) return savedTheme;
-      // Check system preference
-      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        return 'dark';
-      }
-      return 'light';
     }
-    return 'light';
+    return 'dark';
   });
   const [profileData, setProfileData] = useState({
     fullName: '',
@@ -708,15 +703,25 @@ export default function Header({ isAdmin = false, onMenuOpen }) {
      to avoid inner-component remount anti-pattern
   ───────────────────────────────────────────────────── */
   const renderNotifDropdown = () => (showNotifications && (
-      <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50">
-        <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600 flex items-center justify-between">
-          <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Notifications</h3>
-          {unreadCount > 0 && <span className="text-xs text-gray-500 dark:text-gray-400">{unreadCount} unread</span>}
+      <div
+        className="absolute right-0 mt-2 w-80 sm:w-96 rounded-xl shadow-2xl overflow-hidden z-50"
+        style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
+      >
+        <div
+          className="px-4 py-3 flex items-center justify-between"
+          style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-surface)' }}
+        >
+          <h3 className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>Notifications</h3>
+          {unreadCount > 0 && (
+            <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'var(--accent-glow)', color: 'var(--accent)' }}>
+              {unreadCount} unread
+            </span>
+          )}
         </div>
-        <div className="max-h-96 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700">
+        <div className="max-h-96 overflow-y-auto">
           {notifications.length === 0 ? (
-            <div className="p-8 text-center text-gray-400 dark:text-gray-500">
-              <Bell className="w-10 h-10 mx-auto mb-2 opacity-40" />
+            <div className="p-8 text-center" style={{ color: 'var(--text-muted)' }}>
+              <Bell className="w-10 h-10 mx-auto mb-2 opacity-30" />
               <p className="text-sm">No notifications</p>
             </div>
           ) : (
@@ -724,14 +729,23 @@ export default function Header({ isAdmin = false, onMenuOpen }) {
               <div
                 key={n.id}
                 onClick={() => handleNotificationClick(n)}
-                className={`px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors ${!n.read ? 'bg-blue-50/40 dark:bg-blue-900/10' : ''}`}
+                className="px-4 py-3 cursor-pointer transition-colors"
+                style={{
+                  borderBottom: '1px solid var(--border)',
+                  background: !n.read ? 'rgba(79,112,245,0.05)' : 'transparent',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = !n.read ? 'rgba(79,112,245,0.05)' : 'transparent'; }}
               >
                 <div className="flex items-start gap-3">
-                  <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${!n.read ? 'bg-blue-500' : 'bg-transparent'}`} />
+                  <div
+                    className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0"
+                    style={{ background: !n.read ? 'var(--accent)' : 'transparent' }}
+                  />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{n.title}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{n.message}</p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{new Date(n.timestamp).toLocaleString()}</p>
+                    <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{n.title}</p>
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>{n.message}</p>
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{new Date(n.timestamp).toLocaleString()}</p>
                   </div>
                 </div>
               </div>
@@ -742,27 +756,48 @@ export default function Header({ isAdmin = false, onMenuOpen }) {
     ));
 
   const renderUserDropdown = () => (showDropdown && (
-      <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50">
-        <div className="px-4 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold text-base overflow-hidden flex-shrink-0">
+      <div
+        className="absolute right-0 mt-2 w-64 rounded-xl shadow-2xl overflow-hidden z-50"
+        style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
+      >
+        <div
+          className="px-4 py-4 flex items-center gap-3"
+          style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-surface)' }}
+        >
+          <div
+            className="w-11 h-11 rounded-full flex items-center justify-center text-white font-semibold text-sm overflow-hidden flex-shrink-0"
+            style={{ background: 'var(--accent)' }}
+          >
             {(profileData.profilePicturePreview || user?.profile_picture || user?.profilePicture)
               ? <img src={profileData.profilePicturePreview || user.profile_picture || user.profilePicture} alt={getUserDisplayName()} className="w-full h-full object-cover" />
               : <span>{getInitials()}</span>}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">{getUserDisplayName()}</p>
-            {getUserEmail() && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{getUserEmail()}</p>}
-            <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mt-0.5 capitalize">{getUserRole()}</p>
+            <p className="font-semibold text-sm truncate" style={{ color: 'var(--text-primary)' }}>{getUserDisplayName()}</p>
+            {getUserEmail() && <p className="text-xs truncate mt-0.5" style={{ color: 'var(--text-muted)' }}>{getUserEmail()}</p>}
+            <span
+              className="inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded mt-1 capitalize"
+              style={{ background: 'var(--accent-glow)', color: 'var(--accent)' }}
+            >{getUserRole()}</span>
           </div>
         </div>
-        <div className="py-1">
-          <button onClick={() => { setShowProfileModal(true); setShowDropdown(false); }}
-            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left">
-            <User className="w-4 h-4 text-gray-400" /> Edit Profile
+        <div className="py-1.5">
+          <button
+            onClick={() => { setShowProfileModal(true); setShowDropdown(false); }}
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors"
+            style={{ color: 'var(--text-secondary)' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+          >
+            <User className="w-4 h-4" /> Edit Profile
           </button>
-          <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
-          <button onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left">
+          <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors text-red-400"
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+          >
             <LogOut className="w-4 h-4" /> Sign Out
           </button>
         </div>
@@ -773,11 +808,18 @@ export default function Header({ isAdmin = false, onMenuOpen }) {
     <>
       {isAdmin ? (
         /* ── Admin slim top-bar ── */
-        <header className="sticky top-0 z-30 h-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center px-4 gap-3 shadow-sm">
+        <header
+          className="sticky top-0 z-30 h-14 flex items-center px-4 gap-3"
+          style={{
+            background: 'var(--bg-surface)',
+            borderBottom: '1px solid var(--border)',
+          }}
+        >
           {/* Mobile hamburger */}
           <button
             onClick={onMenuOpen}
-            className="md:hidden p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            className="md:hidden p-2 rounded-lg transition-colors"
+            style={{ color: 'var(--text-muted)' }}
             title="Open menu"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -786,7 +828,7 @@ export default function Header({ isAdmin = false, onMenuOpen }) {
           </button>
 
           {/* Date */}
-          <span className="hidden sm:block text-sm text-gray-500 dark:text-gray-400">
+          <span className="hidden sm:block text-sm" style={{ color: 'var(--text-muted)' }}>
             {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </span>
 
@@ -794,18 +836,28 @@ export default function Header({ isAdmin = false, onMenuOpen }) {
 
           {/* Theme toggle */}
           {loggedIn && (
-            <button onClick={toggleTheme}
-              className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              title={theme === 'light' ? 'Dark mode' : 'Light mode'}>
-              {theme === 'light' ? <Moon className="w-4.5 h-4.5 w-5 h-5" /> : <Sun className="w-5 h-5" />}
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-lg transition-colors"
+              style={{ color: 'var(--text-muted)' }}
+              title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+            >
+              {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
           )}
 
           {/* Notifications */}
           {loggedIn && (
             <div className="relative" ref={notificationRef}>
-              <button onClick={() => setShowNotifications(!showNotifications)}
-                className="relative p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+              <button
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="relative p-2 rounded-lg transition-colors"
+                style={{ color: 'var(--text-muted)' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+              >
                 <Bell className="w-5 h-5" />
                 {unreadCount > 0 && (
                   <span className="absolute top-1 right-1 min-w-[16px] h-4 bg-red-500 rounded-full flex items-center justify-center text-[10px] font-bold text-white px-0.5">
@@ -820,15 +872,28 @@ export default function Header({ isAdmin = false, onMenuOpen }) {
           {/* User avatar */}
           {loggedIn && user && (
             <div className="relative" ref={dropdownRef}>
-              <button onClick={() => setShowDropdown(!showDropdown)}
-                className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold overflow-hidden">
+              <button
+                onClick={() => setShowDropdown(!showDropdown)}
+                className="flex items-center gap-2 px-2 py-1 rounded-xl transition-colors"
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+              >
+                <div
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold overflow-hidden"
+                  style={{ background: 'var(--accent)' }}
+                >
                   {(profileData.profilePicturePreview || user.profile_picture || user.profilePicture)
                     ? <img src={profileData.profilePicturePreview || user.profile_picture || user.profilePicture} alt="" className="w-full h-full object-cover" />
                     : <span>{getInitials()}</span>}
                 </div>
-                <span className="hidden sm:block text-sm font-medium text-gray-700 dark:text-gray-300">{getUserDisplayName()}</span>
-                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
+                <div className="hidden sm:block text-left">
+                  <p className="text-sm font-semibold leading-tight" style={{ color: 'var(--text-primary)' }}>{getUserDisplayName()}</p>
+                  <p className="text-[10px] capitalize" style={{ color: 'var(--text-muted)' }}>{getUserRole()}</p>
+                </div>
+                <ChevronDown
+                  className={`w-4 h-4 transition-transform ${showDropdown ? 'rotate-180' : ''}`}
+                  style={{ color: 'var(--text-muted)' }}
+                />
               </button>
               { renderUserDropdown() }
             </div>
