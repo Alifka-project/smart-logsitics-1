@@ -470,13 +470,13 @@ export default function Header({ isAdmin = false }) {
             maxWidth: '1600px', margin: '0 auto',
           }}>
 
-            {/* ── Electrolux Logo (real image) ── */}
+            {/* ── Electrolux Logo — dark mode: elect home.png, light mode: Electrolux-Logo.png ── */}
             <Link
               to="/admin"
               style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', flexShrink: 0, marginRight: '28px' }}
             >
               <img
-                src="/elect home.png"
+                src={theme === 'dark' ? '/elect home.png' : '/Electrolux-Logo.png'}
                 alt="Electrolux"
                 style={{ height: '36px', width: 'auto', objectFit: 'contain', display: 'block' }}
               />
@@ -648,7 +648,11 @@ export default function Header({ isAdmin = false }) {
             <div style={{ position:'fixed', top:0, left:0, bottom:0, width:'260px', background:'var(--bg-surface)', borderRight:'1px solid var(--border)', zIndex:60, display:'flex', flexDirection:'column', padding:'0' }}>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 20px', borderBottom:'1px solid var(--border)' }}>
                 <div style={{ display:'flex', alignItems:'center' }}>
-                  <img src="/elect home.png" alt="Electrolux" style={{ height:'30px', objectFit:'contain', display:'block' }} />
+                  <img
+                    src={theme === 'dark' ? '/elect home.png' : '/Electrolux-Logo.png'}
+                    alt="Electrolux"
+                    style={{ height: '30px', width: 'auto', objectFit: 'contain', display: 'block' }}
+                  />
                 </div>
                 <button onClick={() => setMobileNavOpen(false)} style={{ background:'transparent', border:'none', cursor:'pointer', color:'var(--text-muted)' }}>
                   <X size={18} />
