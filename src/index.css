@@ -415,18 +415,25 @@
   .pp-table tr:last-child td { border-bottom: none; }
   .pp-table tbody tr:hover td { background-color: var(--surface2); }
 
-  /* ── Page heading ── */
+  /* ── Page heading — consistent across every page ── */
   .pp-page-title {
-    font-size: 28px;
+    font-size: 30px;
     font-weight: 700;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.025em;
     color: var(--text);
     line-height: 1.2;
+    margin: 0 0 4px;
   }
   .pp-page-subtitle {
-    font-size: 13px;
+    font-size: 13.5px;
     color: var(--muted);
-    margin-top: 4px;
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  /* ── Page header wrapper — consistent spacing above title ── */
+  .pp-page-header {
+    margin-bottom: 24px;
   }
 
   /* ── Legacy aliases ── */
@@ -446,6 +453,7 @@
   .data-table td { @apply pp-table td; }
   .page-title    { @apply pp-page-title; }
   .page-subtitle { @apply pp-page-subtitle; }
+  .page-header   { @apply pp-page-header; }
 }
 
 /* ═══════════════════════════════════════════════════════════

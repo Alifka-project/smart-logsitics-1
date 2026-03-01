@@ -434,8 +434,8 @@ export default function AdminOperationsPage() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Operations Center</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <h1 className="pp-page-title">Operations Center</h1>
+          <p className="pp-page-subtitle">
             Last updated: {lastUpdate.toLocaleTimeString()}
             <span className="ml-2 text-green-600 dark:text-green-400">● Live</span>
           </p>
@@ -1206,7 +1206,7 @@ export default function AdminOperationsPage() {
                         )}
                         <div className="flex-1">
                           <div className="font-semibold text-gray-900 dark:text-gray-100">{alert.title}</div>
-                          <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">{alert.message}</div>
+                          <div className="pp-page-subtitle">{alert.message}</div>
                           <div className="text-xs text-gray-500 dark:text-gray-500 mt-2">
                             {alert.timestamp.toLocaleTimeString()} • {alert.timestamp.toLocaleDateString()}
                           </div>

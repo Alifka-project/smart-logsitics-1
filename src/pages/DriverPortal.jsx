@@ -752,7 +752,7 @@ export default function DriverPortal() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-gray-100">Driver Portal</h1>
+            <h1 className="pp-page-title">Driver Portal</h1>
             <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 mt-2">Track your location and manage deliveries in real-time</p>
           </div>
           <div className="flex items-center gap-3">

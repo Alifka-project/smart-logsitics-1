@@ -435,8 +435,8 @@ export default function AdminDashboardPage() {
       {/* ── Page Header ── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Admin Dashboard</h1>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+          <h1 className="pp-page-title">Admin Dashboard</h1>
+          <p className="pp-page-subtitle">
             Last updated: {lastUpdate.toLocaleTimeString()} &nbsp;<span className="text-green-500">● Live</span>
           </p>
         </div>
@@ -516,7 +516,7 @@ export default function AdminDashboardPage() {
             <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
               <div>
                 <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Delivery Trend</h2>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Total dispatched vs delivered — success rate on right axis</p>
+                <p className="pp-page-subtitle">Total dispatched vs delivered — success rate on right axis</p>
               </div>
               <div className="flex rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden text-xs font-medium">
                 {[['7d', 'Last 7 days'], ['30d', 'Last 30 days'], ['90d', 'Last 90 days']].map(([p, label]) => (
@@ -812,7 +812,7 @@ export default function AdminDashboardPage() {
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
               <div>
                 <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Deliveries by Area</h2>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Showing top {chartTopN} areas by volume</p>
+                <p className="pp-page-subtitle">Showing top {chartTopN} areas by volume</p>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-gray-500 dark:text-gray-400">Show top</span>

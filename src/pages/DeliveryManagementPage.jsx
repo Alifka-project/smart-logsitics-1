@@ -206,8 +206,8 @@ export default function DeliveryManagementPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Delivery Management</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <h1 className="pp-page-title">Delivery Management</h1>
+          <p className="pp-page-subtitle">
             Manage deliveries, view routes, and track status
           </p>
         </div>
@@ -313,7 +313,7 @@ export default function DeliveryManagementPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Deliveries</div>
-                      <div className="text-3xl font-bold text-gray-800 dark:text-gray-100">{deliveries.length}</div>
+                      <div className="text-3xl font-bold" style={{color:'var(--text)'}}>{deliveries.length}</div>
                     </div>
                     <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                       <Database className="w-6 h-6 text-blue-600 dark:text-blue-400" />
@@ -324,7 +324,7 @@ export default function DeliveryManagementPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Distance</div>
-                      <div className="text-3xl font-bold text-gray-800 dark:text-gray-100">
+                      <div className="text-3xl font-bold" style={{color:'var(--text)'}}>
                         {Math.round(deliveries.reduce((sum, d) => sum + (d.distanceFromWarehouse || 0), 0))} km
                       </div>
                     </div>

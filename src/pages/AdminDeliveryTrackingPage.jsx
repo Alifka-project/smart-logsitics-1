@@ -76,8 +76,8 @@ export default function AdminDeliveryTrackingPage() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Real-Time Delivery Tracking</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <h1 className="pp-page-title">Real-Time Delivery Tracking</h1>
+          <p className="pp-page-subtitle">
             Last updated: {lastUpdate.toLocaleTimeString()}
             <span className="ml-2 text-green-600 dark:text-green-400">● Live</span>
           </p>
@@ -90,7 +90,7 @@ export default function AdminDeliveryTrackingPage() {
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Deliveries</div>
-              <div className="text-3xl font-bold text-gray-800 dark:text-gray-100">{deliveries.length}</div>
+              <div className="text-3xl font-bold" style={{color:'var(--text)'}}>{deliveries.length}</div>
             </div>
             <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
               <Package className="w-6 h-6 text-blue-600 dark:text-blue-400" />

@@ -419,8 +419,8 @@ export default function AdminUsersPage() {
       {/* Header */}
       <div className="flex justify-between items-center">
     <div>
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">User & Account Management</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage accounts, drivers, and permissions</p>
+          <h1 className="pp-page-title">User & Account Management</h1>
+          <p className="pp-page-subtitle">Manage accounts, drivers, and permissions</p>
         </div>
         {activeTab !== 'logs' && (
           <button

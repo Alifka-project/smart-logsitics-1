@@ -124,7 +124,7 @@ export default function AdminPODReportPage() {
             <Image className="w-8 h-8" />
             POD Report (Proof of Delivery)
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p className="pp-page-subtitle">
             Track which deliveries have images and signatures uploaded
           </p>
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
