@@ -376,28 +376,28 @@ export default function Header({ isAdmin = false }) {
 
   /* ──────────────────── Shared dropdown panels ──────────────────── */
   const NotifPanel = () => !showNotifications ? null : (
-    <div style={{ position:'absolute', right:0, top:'calc(100% + 8px)', width:'360px', background:'var(--bg-card)', border:'1px solid var(--border)', borderRadius:'14px', boxShadow:'0 12px 40px rgba(0,0,0,0.4)', overflow:'hidden', zIndex:100 }}>
-      <div style={{ padding:'14px 16px', background:'var(--bg-surface)', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-        <span style={{ fontWeight:700, fontSize:'14px', color:'var(--text-primary)' }}>Notifications</span>
-        {unreadCount>0 && <span style={{ fontSize:'11px', fontWeight:600, padding:'2px 8px', borderRadius:'20px', background:'var(--accent-glow)', color:'var(--accent)' }}>{unreadCount} unread</span>}
+    <div style={{ position:'absolute', right:0, top:'calc(100% + 8px)', width:'360px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', boxShadow:'var(--shadow3)', overflow:'hidden', zIndex:100 }}>
+      <div style={{ padding:'14px 16px', background:'var(--surface2)', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <span style={{ fontWeight:700, fontSize:'14px', color:'var(--text)' }}>Notifications</span>
+        {unreadCount>0 && <span style={{ fontSize:'11px', fontWeight:600, padding:'2px 8px', borderRadius:'20px', background:'var(--primary-glow)', color:'var(--primary)' }}>{unreadCount} unread</span>}
       </div>
       <div style={{ maxHeight:'380px', overflowY:'auto' }}>
         {notifications.length===0 ? (
-          <div style={{ padding:'40px', textAlign:'center', color:'var(--text-muted)' }}>
+          <div style={{ padding:'40px', textAlign:'center', color:'var(--muted)' }}>
             <Bell size={32} style={{ margin:'0 auto 8px', opacity:0.3 }} />
             <p style={{ fontSize:'13px' }}>No notifications</p>
           </div>
         ) : notifications.map(n => (
-          <div key={n.id} onClick={() => handleNotifClick(n)} style={{ padding:'12px 16px', borderBottom:'1px solid var(--border)', cursor:'pointer', background: !n.read ? 'rgba(79,112,245,0.05)' : 'transparent', transition:'background 0.15s' }}
-            onMouseEnter={e=>e.currentTarget.style.background='var(--bg-hover)'}
-            onMouseLeave={e=>e.currentTarget.style.background=!n.read?'rgba(79,112,245,0.05)':'transparent'}
+          <div key={n.id} onClick={() => handleNotifClick(n)} style={{ padding:'12px 16px', borderBottom:'1px solid var(--border)', cursor:'pointer', background: !n.read ? 'rgba(79,112,245,0.04)' : 'transparent', transition:'background 0.15s' }}
+            onMouseEnter={e=>e.currentTarget.style.background='var(--surface2)'}
+            onMouseLeave={e=>e.currentTarget.style.background=!n.read?'rgba(79,112,245,0.04)':'transparent'}
           >
             <div style={{ display:'flex', gap:'10px', alignItems:'flex-start' }}>
-              <div style={{ width:'7px', height:'7px', borderRadius:'50%', background: n.read?'transparent':'var(--accent)', flexShrink:0, marginTop:'5px' }} />
+              <div style={{ width:'7px', height:'7px', borderRadius:'50%', background: n.read?'transparent':'var(--primary)', flexShrink:0, marginTop:'5px' }} />
               <div style={{ flex:1, minWidth:0 }}>
-                <p style={{ fontSize:'13px', fontWeight:600, color:'var(--text-primary)' }}>{n.title}</p>
-                <p style={{ fontSize:'12px', color:'var(--text-secondary)', marginTop:'2px' }}>{n.message}</p>
-                <p style={{ fontSize:'11px', color:'var(--text-muted)', marginTop:'4px' }}>{new Date(n.timestamp).toLocaleString()}</p>
+                <p style={{ fontSize:'13px', fontWeight:600, color:'var(--text)' }}>{n.title}</p>
+                <p style={{ fontSize:'12px', color:'var(--text2)', marginTop:'2px' }}>{n.message}</p>
+                <p style={{ fontSize:'11px', color:'var(--muted)', marginTop:'4px' }}>{new Date(n.timestamp).toLocaleString()}</p>
               </div>
             </div>
           </div>
@@ -407,26 +407,26 @@ export default function Header({ isAdmin = false }) {
   );
 
   const UserPanel = () => !showDropdown ? null : (
-    <div style={{ position:'absolute', right:0, top:'calc(100% + 8px)', width:'240px', background:'var(--bg-card)', border:'1px solid var(--border)', borderRadius:'14px', boxShadow:'0 12px 40px rgba(0,0,0,0.4)', overflow:'hidden', zIndex:100 }}>
-      <div style={{ padding:'16px', background:'var(--bg-surface)', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:'12px' }}>
-        <div style={{ width:'44px', height:'44px', borderRadius:'50%', background:'var(--accent)', display:'flex', alignItems:'center', justifyContent:'center', color:'white', fontWeight:700, fontSize:'14px', overflow:'hidden', flexShrink:0 }}>
+    <div style={{ position:'absolute', right:0, top:'calc(100% + 8px)', width:'240px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', boxShadow:'var(--shadow3)', overflow:'hidden', zIndex:100 }}>
+      <div style={{ padding:'16px', background:'var(--surface2)', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:'12px' }}>
+        <div style={{ width:'44px', height:'44px', borderRadius:'50%', background:'var(--primary)', display:'flex', alignItems:'center', justifyContent:'center', color:'white', fontWeight:700, fontSize:'14px', overflow:'hidden', flexShrink:0 }}>
           {avatarSrc() ? <img src={avatarSrc()} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : getInitials()}
         </div>
         <div style={{ flex:1, minWidth:0 }}>
-          <p style={{ fontWeight:700, fontSize:'13px', color:'var(--text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{displayName()}</p>
-          {userEmail() && <p style={{ fontSize:'11px', color:'var(--text-muted)', marginTop:'2px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{userEmail()}</p>}
-          <span style={{ display:'inline-block', marginTop:'4px', fontSize:'10px', fontWeight:700, padding:'1px 6px', borderRadius:'4px', background:'var(--accent-glow)', color:'var(--accent)', textTransform:'capitalize' }}>{userRole()}</span>
+          <p style={{ fontWeight:700, fontSize:'13px', color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{displayName()}</p>
+          {userEmail() && <p style={{ fontSize:'11px', color:'var(--muted)', marginTop:'2px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{userEmail()}</p>}
+          <span style={{ display:'inline-block', marginTop:'4px', fontSize:'10px', fontWeight:700, padding:'2px 7px', borderRadius:'999px', background:'var(--primary-glow)', color:'var(--primary)', textTransform:'capitalize' }}>{userRole()}</span>
         </div>
       </div>
       <div style={{ padding:'6px' }}>
-        <button onClick={() => { setShowProfileModal(true); setShowDropdown(false); }} style={{ width:'100%', display:'flex', alignItems:'center', gap:'10px', padding:'10px 12px', borderRadius:'8px', fontSize:'13px', color:'var(--text-secondary)', background:'transparent', border:'none', cursor:'pointer', textAlign:'left' }}
-          onMouseEnter={e=>{e.currentTarget.style.background='var(--bg-hover)';e.currentTarget.style.color='var(--text-primary)'}}
-          onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.color='var(--text-secondary)'}}>
+        <button onClick={() => { setShowProfileModal(true); setShowDropdown(false); }} style={{ width:'100%', display:'flex', alignItems:'center', gap:'10px', padding:'10px 12px', borderRadius:'var(--radius-sm)', fontSize:'13px', color:'var(--text2)', background:'transparent', border:'none', cursor:'pointer', textAlign:'left' }}
+          onMouseEnter={e=>{e.currentTarget.style.background='var(--surface2)';e.currentTarget.style.color='var(--text)'}}
+          onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.color='var(--text2)'}}>
           <User size={15} /> Edit Profile
         </button>
         <div style={{ height:'1px', background:'var(--border)', margin:'4px 0' }} />
-        <button onClick={handleLogout} style={{ width:'100%', display:'flex', alignItems:'center', gap:'10px', padding:'10px 12px', borderRadius:'8px', fontSize:'13px', color:'#ef4444', background:'transparent', border:'none', cursor:'pointer', textAlign:'left' }}
-          onMouseEnter={e=>e.currentTarget.style.background='rgba(239,68,68,0.08)'}
+        <button onClick={handleLogout} style={{ width:'100%', display:'flex', alignItems:'center', gap:'10px', padding:'10px 12px', borderRadius:'var(--radius-sm)', fontSize:'13px', color:'#ef4444', background:'transparent', border:'none', cursor:'pointer', textAlign:'left' }}
+          onMouseEnter={e=>e.currentTarget.style.background='rgba(239,68,68,0.07)'}
           onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
           <LogOut size={15} /> Sign Out
         </button>
@@ -434,41 +434,47 @@ export default function Header({ isAdmin = false }) {
     </div>
   );
 
-  /* ──────────────────── ADMIN TOP NAV ──────────────────── */
-  if (isAdmin) {
-    const NAV_H = '64px';
-    /* Inactive: clearly readable gray (not too faded), active: primary text + 3px blue underline */
-    const INACTIVE_COLOR = theme === 'dark' ? '#9ca3af' : '#6b7280';
-    const ACTIVE_COLOR   = theme === 'dark' ? '#ffffff'  : '#111827';
-    const ACCENT_COLOR   = '#4f70f5';
 
-    const navLinkStyle = (active) => ({
-      display: 'flex', alignItems: 'center', height: NAV_H,
-      padding: '0 18px', textDecoration: 'none', cursor: 'pointer',
-      color: active ? ACTIVE_COLOR : INACTIVE_COLOR,
-      fontWeight: active ? 700 : 500, fontSize: '14px', letterSpacing: '0.01em',
-      borderBottom: active ? `3px solid ${ACCENT_COLOR}` : '3px solid transparent',
-      borderTop: '3px solid transparent',
-      transition: 'color 0.15s, border-color 0.15s',
-      whiteSpace: 'nowrap', background: 'none',
+  /* ──────────────────── ADMIN TOP NAV  (PolicyPilot pill style) ──────────────────── */
+  if (isAdmin) {
+    /* Pill nav — active item gets a raised surface, NO underline border */
+    const MUTED   = theme === 'dark' ? '#9CA3C4' : '#6b7280';
+    const PRIMARY = theme === 'dark' ? '#E8EAF6' : '#1A1D3B';
+
+    const pillStyle = (active) => ({
+      display: 'inline-flex', alignItems: 'center', gap: '5px',
+      padding: '7px 16px',
+      borderRadius: '999px',
+      fontSize: '14px',
+      fontWeight: active ? 600 : 500,
+      color: active ? PRIMARY : MUTED,
+      background: active
+        ? (theme === 'dark' ? 'var(--surface2)' : '#ffffff')
+        : 'transparent',
+      boxShadow: active ? 'var(--shadow1)' : 'none',
+      textDecoration: 'none',
+      border: 'none',
+      cursor: 'pointer',
+      transition: 'background 0.15s, color 0.15s, box-shadow 0.15s',
+      whiteSpace: 'nowrap',
     });
+
     const iconBtn = {
       width: '34px', height: '34px', borderRadius: '8px', display: 'flex',
       alignItems: 'center', justifyContent: 'center', background: 'transparent',
-      border: 'none', cursor: 'pointer',
-      color: theme === 'dark' ? '#9ca3af' : '#6b7280',
+      border: 'none', cursor: 'pointer', color: MUTED,
       transition: 'background 0.15s, color 0.15s', flexShrink: 0,
     };
+    const onHover  = { background: theme === 'dark' ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)', color: PRIMARY };
+    const offHover = { background: 'transparent', color: MUTED };
 
     return (
       <>
-        {/* ── Main header bar ── */}
+        {/* Header — same bg as page, NO border line */}
         <header style={{
-          background: theme === 'dark' ? '#13142a' : '#ffffff',
-          borderBottom: theme === 'dark' ? '1px solid rgba(255,255,255,0.07)' : '1px solid #e5e7eb',
+          background: 'var(--bg)',
           position: 'sticky', top: 0, zIndex: 40,
-          height: NAV_H,
-          boxShadow: theme === 'dark' ? 'none' : '0 1px 3px rgba(0,0,0,0.06)',
+          height: '68px',
         }}>
           <div style={{
             display: 'flex', alignItems: 'center', height: '100%',
@@ -476,69 +482,54 @@ export default function Header({ isAdmin = false }) {
             maxWidth: '1600px', margin: '0 auto',
           }}>
 
-            {/* ── Electrolux Logo ── */}
+            {/* Logo */}
             <Link
               to="/admin"
-              style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', flexShrink: 0, marginRight: '32px' }}
+              style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', flexShrink: 0, marginRight: '20px' }}
             >
               <img
                 src="/elect home.png"
                 alt="Electrolux"
                 style={{
-                  height: '36px', width: 'auto', objectFit: 'contain', display: 'block',
+                  height: '34px', width: 'auto', objectFit: 'contain', display: 'block',
                   filter: theme === 'dark' ? 'none' : 'brightness(0) saturate(100%)',
                 }}
               />
             </Link>
 
-            {/* ── Desktop nav links ── */}
-            <nav
-              className="hidden md:flex"
-              style={{ alignItems: 'stretch', height: '100%', gap: '0', flex: 1 }}
-            >
+            {/* Desktop pill nav */}
+            <nav className="hidden md:flex" style={{ alignItems: 'center', height: '100%', gap: '2px', flex: 1 }}>
               {ADMIN_NAV.map(item => {
                 if (item.dropdown) {
                   return (
-                    <div
-                      key={item.label}
-                      style={{ position: 'relative', display: 'flex', alignItems: 'stretch' }}
-                      ref={trackingRef}
-                    >
+                    <div key={item.label} style={{ position: 'relative', display: 'flex', alignItems: 'center' }} ref={trackingRef}>
                       <button
                         onClick={() => setTrackingOpen(v => !v)}
-                        style={{
-                          ...navLinkStyle(isTrackingActive),
-                          display: 'flex', alignItems: 'center', gap: '4px',
-                          border: 'none',
-                          borderBottom: isTrackingActive ? `3px solid ${ACCENT_COLOR}` : '3px solid transparent',
-                          borderTop: '3px solid transparent',
-                        }}
-                        onMouseEnter={e => { if (!isTrackingActive) e.currentTarget.style.color = ACTIVE_COLOR; }}
-                        onMouseLeave={e => { if (!isTrackingActive) e.currentTarget.style.color = INACTIVE_COLOR; }}
+                        style={{ ...pillStyle(isTrackingActive), display: 'flex', alignItems: 'center', gap: '4px' }}
+                        onMouseEnter={e => { if (!isTrackingActive) Object.assign(e.currentTarget.style, onHover); }}
+                        onMouseLeave={e => { if (!isTrackingActive) Object.assign(e.currentTarget.style, offHover); }}
                       >
                         {item.label}
-                        <ChevronDown size={12} style={{ transform: trackingOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', marginTop: '1px' }} />
+                        <ChevronDown size={12} style={{ transform: trackingOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
                       </button>
                       {trackingOpen && (
                         <div style={{
-                          position: 'absolute', top: 'calc(100% + 4px)', left: 0,
-                          background: 'var(--bg-card)', border: '1px solid var(--border)',
-                          borderRadius: '12px', padding: '6px', minWidth: '200px',
-                          boxShadow: '0 12px 30px rgba(0,0,0,0.35)', zIndex: 100,
+                          position: 'absolute', top: 'calc(100% + 8px)', left: 0,
+                          background: 'var(--surface)', border: '1px solid var(--border)',
+                          borderRadius: '14px', padding: '6px', minWidth: '200px',
+                          boxShadow: 'var(--shadow3)', zIndex: 100,
                         }}>
                           {item.dropdown.map(d => (
-                            <NavLink
-                              key={d.path} to={d.path}
-                              onClick={() => setTrackingOpen(false)}
+                            <NavLink key={d.path} to={d.path} onClick={() => setTrackingOpen(false)}
                               style={({ isActive }) => ({
-                                display: 'block', padding: '9px 12px', borderRadius: '8px',
-                                color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
-                                fontWeight: isActive ? 600 : 400, fontSize: '13px',
+                                display: 'block', padding: '9px 14px', borderRadius: '9px',
+                                color: isActive ? 'var(--primary)' : 'var(--text2)',
+                                fontWeight: isActive ? 600 : 400, fontSize: '13.5px',
                                 textDecoration: 'none',
-                                background: isActive ? 'var(--accent-glow)' : 'transparent',
+                                background: isActive ? 'var(--primary-glow)' : 'transparent',
                               })}
-                              onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; }}
-                              onMouseLeave={e => { e.currentTarget.style.background = isNavActive(d.path, false) ? 'var(--accent-glow)' : 'transparent'; }}
+                              onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)'; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = isNavActive(d.path, false) ? 'var(--primary-glow)' : 'transparent'; }}
                             >
                               {d.label}
                             </NavLink>
@@ -549,11 +540,10 @@ export default function Header({ isAdmin = false }) {
                   );
                 }
                 return (
-                  <NavLink
-                    key={item.path} to={item.path} end={item.exact}
-                    style={({ isActive }) => navLinkStyle(isActive)}
-                    onMouseEnter={e => { if (!isNavActive(item.path, item.exact)) e.currentTarget.style.color = ACTIVE_COLOR; }}
-                    onMouseLeave={e => { if (!isNavActive(item.path, item.exact)) e.currentTarget.style.color = INACTIVE_COLOR; }}
+                  <NavLink key={item.path} to={item.path} end={item.exact}
+                    style={({ isActive }) => pillStyle(isActive)}
+                    onMouseEnter={e => { if (!isNavActive(item.path, item.exact)) Object.assign(e.currentTarget.style, onHover); }}
+                    onMouseLeave={e => { if (!isNavActive(item.path, item.exact)) Object.assign(e.currentTarget.style, offHover); }}
                   >
                     {item.label}
                   </NavLink>
@@ -561,38 +551,32 @@ export default function Header({ isAdmin = false }) {
               })}
             </nav>
 
-            {/* ── Mobile: hamburger (left) + spacer ── */}
-            <button
-              className="md:hidden"
-              onClick={() => setMobileNavOpen(true)}
-              style={iconBtn}
-              onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+            {/* Mobile hamburger */}
+            <button className="md:hidden" onClick={() => setMobileNavOpen(true)} style={iconBtn}
+              onMouseEnter={e => Object.assign(e.currentTarget.style, onHover)}
+              onMouseLeave={e => Object.assign(e.currentTarget.style, offHover)}
             >
               <Menu size={18} />
             </button>
             <div className="md:hidden" style={{ flex: 1 }} />
 
-            {/* ── Right controls ── */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+            {/* Right controls */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
+
               {/* Theme toggle */}
-              <button
-                onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
-                style={iconBtn}
+              <button onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} style={iconBtn}
                 title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
-                onMouseEnter={e => { e.currentTarget.style.background = theme === 'dark' ? 'rgba(255,255,255,0.07)' : '#f3f4f6'; e.currentTarget.style.color = ACTIVE_COLOR; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = INACTIVE_COLOR; }}
+                onMouseEnter={e => Object.assign(e.currentTarget.style, onHover)}
+                onMouseLeave={e => Object.assign(e.currentTarget.style, offHover)}
               >
                 {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
               </button>
 
               {/* Bell */}
               <div style={{ position: 'relative' }} ref={notifRef}>
-                <button
-                  onClick={() => setShowNotifications(v => !v)}
-                  style={{ ...iconBtn, position: 'relative' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = theme === 'dark' ? 'rgba(255,255,255,0.07)' : '#f3f4f6'; e.currentTarget.style.color = ACTIVE_COLOR; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = INACTIVE_COLOR; }}
+                <button onClick={() => setShowNotifications(v => !v)} style={{ ...iconBtn, position: 'relative' }}
+                  onMouseEnter={e => Object.assign(e.currentTarget.style, onHover)}
+                  onMouseLeave={e => Object.assign(e.currentTarget.style, offHover)}
                 >
                   <Bell size={17} />
                   {unreadCount > 0 && (
@@ -610,40 +594,30 @@ export default function Header({ isAdmin = false }) {
                 <NotifPanel />
               </div>
 
-              {/* User button — avatar + name/role */}
-              <div style={{ position: 'relative' }} ref={dropdownRef}>
-                <button
-                  onClick={() => setShowDropdown(v => !v)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '10px',
-                    padding: '6px 10px', borderRadius: '10px',
-                    background: 'transparent', border: 'none', cursor: 'pointer',
-                    marginLeft: '6px',
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.background = theme === 'dark' ? 'rgba(255,255,255,0.07)' : '#f3f4f6'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
-                >
-                  {/* Avatar */}
+              {/* User pill button — avatar + name/role */}
+              <div style={{ position: 'relative', marginLeft: '6px' }} ref={dropdownRef}>
+                <button onClick={() => setShowDropdown(v => !v)} style={{
+                  display: 'flex', alignItems: 'center', gap: '9px',
+                  padding: '5px 12px 5px 5px',
+                  borderRadius: '999px',
+                  background: theme === 'dark' ? 'var(--surface2)' : '#ffffff',
+                  border: '1px solid var(--border)',
+                  boxShadow: 'var(--shadow1)',
+                  cursor: 'pointer',
+                }}>
                   <div style={{
-                    width: '34px', height: '34px', borderRadius: '50%',
-                    background: ACCENT_COLOR, overflow: 'hidden', flexShrink: 0,
+                    width: '30px', height: '30px', borderRadius: '50%',
+                    background: 'var(--primary)', overflow: 'hidden', flexShrink: 0,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: 'white', fontWeight: 700, fontSize: '13px',
-                    border: theme === 'dark' ? '2px solid rgba(255,255,255,0.12)' : '2px solid #e5e7eb',
+                    color: 'white', fontWeight: 700, fontSize: '12px',
                   }}>
-                    {avatarSrc()
-                      ? <img src={avatarSrc()} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      : getInitials()}
+                    {avatarSrc() ? <img src={avatarSrc()} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : getInitials()}
                   </div>
-                  {/* Name + role */}
                   <div className="hidden sm:block" style={{ textAlign: 'left', lineHeight: 1 }}>
-                    <p style={{ fontSize: '13px', fontWeight: 600, color: ACTIVE_COLOR }}>{displayName()}</p>
-                    <p style={{ fontSize: '11px', color: INACTIVE_COLOR, marginTop: '3px', textTransform: 'capitalize' }}>{userRole()}</p>
+                    <p style={{ fontSize: '13px', fontWeight: 600, color: PRIMARY }}>{displayName()}</p>
+                    <p style={{ fontSize: '11px', color: MUTED, marginTop: '3px', textTransform: 'capitalize' }}>{userRole()}</p>
                   </div>
-                  <ChevronDown
-                    size={13}
-                    style={{ color: INACTIVE_COLOR, transform: showDropdown ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
-                  />
+                  <ChevronDown size={13} style={{ color: MUTED, transform: showDropdown ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
                 </button>
                 <UserPanel />
               </div>
@@ -651,23 +625,14 @@ export default function Header({ isAdmin = false }) {
           </div>
         </header>
 
-        {/* ── Mobile Nav Drawer ── */}
+        {/* Mobile Nav Drawer */}
         {mobileNavOpen && (
           <>
-            <div onClick={() => setMobileNavOpen(false)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', zIndex:50 }} />
-            <div style={{ position:'fixed', top:0, left:0, bottom:0, width:'260px', background:'var(--bg-surface)', borderRight:'1px solid var(--border)', zIndex:60, display:'flex', flexDirection:'column', padding:'0' }}>
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 20px', borderBottom:'1px solid var(--border)' }}>
-                <div style={{ display:'flex', alignItems:'center' }}>
-                  <img
-                    src="/elect home.png"
-                    alt="Electrolux"
-                    style={{
-                      height: '30px', width: 'auto', objectFit: 'contain', display: 'block',
-                      filter: theme === 'dark' ? 'none' : 'brightness(0) saturate(100%)',
-                    }}
-                  />
-                </div>
-                <button onClick={() => setMobileNavOpen(false)} style={{ background:'transparent', border:'none', cursor:'pointer', color:'var(--text-muted)' }}>
+            <div onClick={() => setMobileNavOpen(false)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', zIndex:50 }} />
+            <div style={{ position:'fixed', top:0, left:0, bottom:0, width:'260px', background:'var(--surface)', boxShadow:'var(--shadow3)', zIndex:60, display:'flex', flexDirection:'column' }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 20px', borderBottom:'1px solid var(--border)' }}>
+                <img src="/elect home.png" alt="Electrolux" style={{ height:'28px', objectFit:'contain', filter: theme==='dark'?'none':'brightness(0) saturate(100%)' }} />
+                <button onClick={() => setMobileNavOpen(false)} style={{ background:'transparent', border:'none', cursor:'pointer', color: MUTED }}>
                   <X size={18} />
                 </button>
               </div>
@@ -676,7 +641,7 @@ export default function Header({ isAdmin = false }) {
                   if (item.dropdown) {
                     return item.dropdown.map(d => (
                       <NavLink key={d.path} to={d.path} onClick={() => setMobileNavOpen(false)}
-                        style={({ isActive }) => ({ display:'block', padding:'11px 14px', borderRadius:'10px', fontSize:'14px', fontWeight: isActive?600:500, color: isActive?'var(--accent)':'var(--text-secondary)', background: isActive?'var(--accent-glow)':'transparent', textDecoration:'none', marginBottom:'2px' })}
+                        style={({ isActive }) => ({ display:'block', padding:'11px 14px', borderRadius:'10px', fontSize:'14px', fontWeight: isActive?600:500, color: isActive?'var(--primary)':MUTED, background: isActive?'var(--primary-glow)':'transparent', textDecoration:'none', marginBottom:'2px' })}
                       >
                         {d.label}
                       </NavLink>
@@ -684,7 +649,7 @@ export default function Header({ isAdmin = false }) {
                   }
                   return (
                     <NavLink key={item.path} to={item.path} end={item.exact} onClick={() => setMobileNavOpen(false)}
-                      style={({ isActive }) => ({ display:'block', padding:'11px 14px', borderRadius:'10px', fontSize:'14px', fontWeight: isActive?600:500, color: isActive?'var(--accent)':'var(--text-secondary)', background: isActive?'var(--accent-glow)':'transparent', textDecoration:'none', marginBottom:'2px' })}
+                      style={({ isActive }) => ({ display:'block', padding:'11px 14px', borderRadius:'10px', fontSize:'14px', fontWeight: isActive?600:500, color: isActive?'var(--primary)':MUTED, background: isActive?'var(--primary-glow)':'transparent', textDecoration:'none', marginBottom:'2px' })}
                     >
                       {item.label}
                     </NavLink>
@@ -700,6 +665,7 @@ export default function Header({ isAdmin = false }) {
       </>
     );
   }
+
 
   /* ──────────────────── NON-ADMIN HEADER ──────────────────── */
   const handleLogoClick = () => {

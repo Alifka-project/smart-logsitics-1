@@ -71,14 +71,10 @@ function App() {
   return (
     <BrowserRouter>
       <Suspense fallback={
-        <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-base)' }}>
-          <div className="flex flex-col items-center gap-4">
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-sm"
-              style={{ background: 'var(--accent)' }}
-            >E</div>
-            <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading…</p>
+        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+            <img src="/elect home.png" alt="Electrolux" style={{ height: '36px', objectFit: 'contain', opacity: 0.9 }} />
+            <div style={{ width: '22px', height: '22px', border: '2.5px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
           </div>
         </div>
       }>
@@ -108,9 +104,9 @@ function ProtectedLayout() {
 
   return (
     <ProtectedRoute>
-      <div style={{ minHeight: '100vh', background: 'var(--bg-base)', color: 'var(--text-primary)' }}>
+      <div style={{ minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)' }}>
         <Header isAdmin={isAdmin} />
-        <main style={{ maxWidth: '1500px', margin: '0 auto', padding: '28px 28px' }}>
+        <main style={{ maxWidth: '1520px', margin: '0 auto', padding: '24px 28px 40px' }}>
           <Routes>
             <Route path="/deliveries" element={<DeliveryManagementPage />} />
             <Route path="/" element={<Navigate to={isAdmin ? '/admin' : '/deliveries'} replace />} />
