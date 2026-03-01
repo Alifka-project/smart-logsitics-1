@@ -436,64 +436,99 @@ export default function Header({ isAdmin = false }) {
 
   /* ──────────────────── ADMIN TOP NAV ──────────────────── */
   if (isAdmin) {
-    /* Shared nav link style fn */
+    /* Nav link style — exactly like PolicyPilot reference:
+       full header height, 2px bottom border for active, muted/bright text */
+    const NAV_H = '64px';
     const navLinkStyle = (active) => ({
-      display: 'flex', alignItems: 'center', height: '60px',
-      padding: '0 14px', textDecoration: 'none', cursor: 'pointer',
+      display: 'flex', alignItems: 'center', height: NAV_H,
+      padding: '0 16px', textDecoration: 'none', cursor: 'pointer',
       color: active ? 'var(--text-primary)' : 'var(--text-muted)',
-      fontWeight: active ? 600 : 500, fontSize: '14px',
+      fontWeight: active ? 600 : 400, fontSize: '14px',
       borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
       transition: 'color 0.15s, border-color 0.15s',
-      whiteSpace: 'nowrap',
+      whiteSpace: 'nowrap', background: 'none',
     });
-    const iconBtnStyle = {
-      width: '36px', height: '36px', borderRadius: '8px', display: 'flex',
+    const iconBtn = {
+      width: '34px', height: '34px', borderRadius: '8px', display: 'flex',
       alignItems: 'center', justifyContent: 'center', background: 'transparent',
       border: 'none', cursor: 'pointer', color: 'var(--text-muted)',
-      transition: 'background 0.15s, color 0.15s',
+      transition: 'background 0.15s, color 0.15s', flexShrink: 0,
     };
 
     return (
       <>
-        <header style={{ background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 40 }}>
-          <div style={{ display: 'flex', alignItems: 'center', height: '60px', padding: '0 24px', gap: '8px', maxWidth: '1600px', margin: '0 auto' }}>
+        {/* ── Main header bar ── */}
+        <header style={{
+          background: 'var(--bg-surface)',
+          borderBottom: '1px solid var(--border)',
+          position: 'sticky', top: 0, zIndex: 40,
+          height: NAV_H,
+        }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', height: '100%',
+            padding: '0 28px', gap: '0',
+            maxWidth: '1600px', margin: '0 auto',
+          }}>
 
-            {/* ── Logo ── */}
-            <Link to="/admin" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', flexShrink: 0, marginRight: '12px' }}>
-              <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 800, fontSize: '13px', boxShadow: '0 0 12px rgba(79,112,245,0.3)' }}>E</div>
-              <div className="hidden sm:block">
-                <p style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: '14px', lineHeight: 1 }}>Electrolux</p>
-                <p style={{ color: 'var(--text-muted)', fontSize: '10px', marginTop: '2px' }}>Smart Portal</p>
-              </div>
+            {/* ── Electrolux Logo (real image) ── */}
+            <Link
+              to="/admin"
+              style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', flexShrink: 0, marginRight: '28px' }}
+            >
+              <img
+                src="/elect home.png"
+                alt="Electrolux"
+                style={{ height: '36px', width: 'auto', objectFit: 'contain', display: 'block' }}
+              />
             </Link>
 
-            {/* ── Desktop nav ── */}
-            <nav className="hidden md:flex" style={{ alignItems: 'center', height: '100%', flex: 1, gap: '0' }}>
+            {/* ── Desktop nav links (left-aligned, full height) ── */}
+            <nav
+              className="hidden md:flex"
+              style={{ alignItems: 'stretch', height: '100%', gap: '0', flex: 1 }}
+            >
               {ADMIN_NAV.map(item => {
                 if (item.dropdown) {
                   return (
-                    <div key={item.label} style={{ position: 'relative', height: '100%', display: 'flex', alignItems: 'center' }} ref={trackingRef}>
+                    <div
+                      key={item.label}
+                      style={{ position: 'relative', display: 'flex', alignItems: 'stretch' }}
+                      ref={trackingRef}
+                    >
                       <button
                         onClick={() => setTrackingOpen(v => !v)}
-                        style={{ ...navLinkStyle(isTrackingActive), display: 'flex', alignItems: 'center', gap: '5px', background: 'transparent', border: 'none', borderBottom: isTrackingActive ? '2px solid var(--accent)' : '2px solid transparent', cursor: 'pointer', height: '60px', padding: '0 14px' }}
-                        onMouseEnter={e => { if (!isTrackingActive) e.currentTarget.style.color = 'var(--text-primary)'; }}
-                        onMouseLeave={e => { if (!isTrackingActive) e.currentTarget.style.color = 'var(--text-muted)'; }}
+                        style={{
+                          ...navLinkStyle(isTrackingActive),
+                          display: 'flex', alignItems: 'center', gap: '4px',
+                          border: 'none',
+                          borderBottom: isTrackingActive ? '2px solid var(--accent)' : '2px solid transparent',
+                        }}
+                        onMouseEnter={e => { if (!isTrackingActive) { e.currentTarget.style.color = 'var(--text-primary)'; }}}
+                        onMouseLeave={e => { if (!isTrackingActive) { e.currentTarget.style.color = 'var(--text-muted)'; }}}
                       >
                         {item.label}
-                        <ChevronDown size={13} style={{ transform: trackingOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                        <ChevronDown size={12} style={{ transform: trackingOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', marginTop: '1px' }} />
                       </button>
                       {trackingOpen && (
-                        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '6px', minWidth: '200px', boxShadow: '0 12px 30px rgba(0,0,0,0.35)', zIndex: 100 }}>
+                        <div style={{
+                          position: 'absolute', top: 'calc(100% + 4px)', left: 0,
+                          background: 'var(--bg-card)', border: '1px solid var(--border)',
+                          borderRadius: '12px', padding: '6px', minWidth: '200px',
+                          boxShadow: '0 12px 30px rgba(0,0,0,0.35)', zIndex: 100,
+                        }}>
                           {item.dropdown.map(d => (
-                            <NavLink key={d.path} to={d.path} onClick={() => setTrackingOpen(false)}
+                            <NavLink
+                              key={d.path} to={d.path}
+                              onClick={() => setTrackingOpen(false)}
                               style={({ isActive }) => ({
                                 display: 'block', padding: '9px 12px', borderRadius: '8px',
                                 color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
-                                fontWeight: isActive ? 600 : 500, fontSize: '13px', textDecoration: 'none',
+                                fontWeight: isActive ? 600 : 400, fontSize: '13px',
+                                textDecoration: 'none',
                                 background: isActive ? 'var(--accent-glow)' : 'transparent',
                               })}
                               onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; }}
-                              onMouseLeave={e => { e.currentTarget.style.background = isNavActive(d.path,false) ? 'var(--accent-glow)' : 'transparent'; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = isNavActive(d.path, false) ? 'var(--accent-glow)' : 'transparent'; }}
                             >
                               {d.label}
                             </NavLink>
@@ -504,9 +539,10 @@ export default function Header({ isAdmin = false }) {
                   );
                 }
                 return (
-                  <NavLink key={item.path} to={item.path} end={item.exact}
+                  <NavLink
+                    key={item.path} to={item.path} end={item.exact}
                     style={({ isActive }) => navLinkStyle(isActive)}
-                    onMouseEnter={e => { if (e.currentTarget.style.color === 'var(--text-muted)') e.currentTarget.style.color = 'var(--text-primary)'; }}
+                    onMouseEnter={e => { if (!isNavActive(item.path, item.exact)) e.currentTarget.style.color = 'var(--text-primary)'; }}
                     onMouseLeave={e => { if (!isNavActive(item.path, item.exact)) e.currentTarget.style.color = 'var(--text-muted)'; }}
                   >
                     {item.label}
@@ -515,56 +551,89 @@ export default function Header({ isAdmin = false }) {
               })}
             </nav>
 
-            {/* ── Mobile hamburger ── */}
-            <button className="md:hidden" onClick={() => setMobileNavOpen(true)} style={iconBtnStyle}
+            {/* ── Mobile: hamburger (left) + spacer ── */}
+            <button
+              className="md:hidden"
+              onClick={() => setMobileNavOpen(true)}
+              style={iconBtn}
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
             >
               <Menu size={18} />
             </button>
-
-            {/* Spacer */}
-            <div style={{ flex: 1 }} className="md:hidden" />
+            <div className="md:hidden" style={{ flex: 1 }} />
 
             {/* ── Right controls ── */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
               {/* Theme toggle */}
-              <button onClick={() => setTheme(t => t==='dark'?'light':'dark')} style={iconBtnStyle}
-                title={theme==='dark'?'Light mode':'Dark mode'}
-                onMouseEnter={e=>{e.currentTarget.style.background='var(--bg-hover)';e.currentTarget.style.color='var(--text-primary)'}}
-                onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.color='var(--text-muted)'}}>
-                {theme==='dark' ? <Sun size={17} /> : <Moon size={17} />}
+              <button
+                onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+                style={iconBtn}
+                title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+              >
+                {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
               </button>
 
               {/* Bell */}
               <div style={{ position: 'relative' }} ref={notifRef}>
-                <button onClick={() => setShowNotifications(v=>!v)} style={{ ...iconBtnStyle, position: 'relative' }}
-                  onMouseEnter={e=>{e.currentTarget.style.background='var(--bg-hover)';e.currentTarget.style.color='var(--text-primary)'}}
-                  onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.color='var(--text-muted)'}}>
+                <button
+                  onClick={() => setShowNotifications(v => !v)}
+                  style={{ ...iconBtn, position: 'relative' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+                >
                   <Bell size={17} />
                   {unreadCount > 0 && (
-                    <span style={{ position:'absolute', top:'4px', right:'4px', minWidth:'15px', height:'15px', background:'#ef4444', borderRadius:'8px', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'9px', fontWeight:700, color:'white', padding:'0 2px' }}>
-                      {unreadCount>9?'9+':unreadCount}
+                    <span style={{
+                      position: 'absolute', top: '4px', right: '4px',
+                      minWidth: '15px', height: '15px',
+                      background: '#ef4444', borderRadius: '8px',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '9px', fontWeight: 700, color: 'white', padding: '0 2px',
+                    }}>
+                      {unreadCount > 9 ? '9+' : unreadCount}
                     </span>
                   )}
                 </button>
                 <NotifPanel />
               </div>
 
-              {/* User menu */}
+              {/* User button — avatar + name/role (like reference) */}
               <div style={{ position: 'relative' }} ref={dropdownRef}>
-                <button onClick={() => setShowDropdown(v=>!v)} style={{ display:'flex', alignItems:'center', gap:'8px', padding:'5px 10px', borderRadius:'10px', background:'transparent', border:'none', cursor:'pointer' }}
-                  onMouseEnter={e=>e.currentTarget.style.background='var(--bg-hover)'}
-                  onMouseLeave={e=>e.currentTarget.style.background='transparent'}
+                <button
+                  onClick={() => setShowDropdown(v => !v)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '10px',
+                    padding: '6px 10px', borderRadius: '10px',
+                    background: 'transparent', border: 'none', cursor: 'pointer',
+                    marginLeft: '4px',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
                 >
-                  <div style={{ width:'32px', height:'32px', borderRadius:'50%', background:'var(--accent)', display:'flex', alignItems:'center', justifyContent:'center', color:'white', fontWeight:700, fontSize:'12px', overflow:'hidden', flexShrink:0 }}>
-                    {avatarSrc() ? <img src={avatarSrc()} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : getInitials()}
+                  {/* Avatar */}
+                  <div style={{
+                    width: '34px', height: '34px', borderRadius: '50%',
+                    background: 'var(--accent)', overflow: 'hidden', flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: 'white', fontWeight: 700, fontSize: '13px',
+                    border: '2px solid var(--border-light)',
+                  }}>
+                    {avatarSrc()
+                      ? <img src={avatarSrc()} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : getInitials()}
                   </div>
-                  <div className="hidden sm:block" style={{ textAlign: 'left' }}>
-                    <p style={{ fontSize:'13px', fontWeight:600, color:'var(--text-primary)', lineHeight:1 }}>{displayName()}</p>
-                    <p style={{ fontSize:'10px', color:'var(--text-muted)', marginTop:'2px', textTransform:'capitalize' }}>{userRole()}</p>
+                  {/* Name + role */}
+                  <div className="hidden sm:block" style={{ textAlign: 'left', lineHeight: 1 }}>
+                    <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>{displayName()}</p>
+                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px', textTransform: 'capitalize' }}>{userRole()}</p>
                   </div>
-                  <ChevronDown size={13} style={{ color:'var(--text-muted)', transform: showDropdown?'rotate(180deg)':'none', transition:'transform 0.2s' }} />
+                  <ChevronDown
+                    size={13}
+                    style={{ color: 'var(--text-muted)', transform: showDropdown ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
+                  />
                 </button>
                 <UserPanel />
               </div>
@@ -577,10 +646,9 @@ export default function Header({ isAdmin = false }) {
           <>
             <div onClick={() => setMobileNavOpen(false)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', zIndex:50 }} />
             <div style={{ position:'fixed', top:0, left:0, bottom:0, width:'260px', background:'var(--bg-surface)', borderRight:'1px solid var(--border)', zIndex:60, display:'flex', flexDirection:'column', padding:'0' }}>
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 20px', borderBottom:'1px solid var(--border)' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
-                  <div style={{ width:'28px', height:'28px', borderRadius:'7px', background:'var(--accent)', display:'flex', alignItems:'center', justifyContent:'center', color:'white', fontWeight:800, fontSize:'12px' }}>E</div>
-                  <span style={{ fontWeight:700, fontSize:'14px', color:'var(--text-primary)' }}>Electrolux</span>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 20px', borderBottom:'1px solid var(--border)' }}>
+                <div style={{ display:'flex', alignItems:'center' }}>
+                  <img src="/elect home.png" alt="Electrolux" style={{ height:'30px', objectFit:'contain', display:'block' }} />
                 </div>
                 <button onClick={() => setMobileNavOpen(false)} style={{ background:'transparent', border:'none', cursor:'pointer', color:'var(--text-muted)' }}>
                   <X size={18} />
