@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import { isAuthenticated, getCurrentUser, clearAuth } from '../../frontend/auth';
 import {
-  LogOut, User, Settings, ChevronDown, Bell, Sun, Moon, X, Camera, Save, Menu
+  LogOut, User, Settings, ChevronDown, Bell, Sun, Moon, X, Camera, Save
 } from 'lucide-react';
 import api from '../../frontend/apiClient';
 import { useToast } from '../../hooks/useToast';
@@ -33,7 +33,7 @@ export default function Header({ isAdmin = false }) {
   const [showDropdown,      setShowDropdown]      = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileModal,  setShowProfileModal]  = useState(false);
-  const [mobileNavOpen,     setMobileNavOpen]     = useState(false);
+  const [mobileNavOpen,     setMobileNavOpen]     = useState(false); // kept for compat, drawer removed
   const [trackingOpen,      setTrackingOpen]      = useState(false);
 
   /* ── Notifications ── */
@@ -551,14 +551,6 @@ export default function Header({ isAdmin = false }) {
               })}
             </nav>
 
-            {/* Mobile hamburger */}
-            <button className="md:hidden" onClick={() => setMobileNavOpen(true)} style={iconBtn}
-              onMouseEnter={e => Object.assign(e.currentTarget.style, onHover)}
-              onMouseLeave={e => Object.assign(e.currentTarget.style, offHover)}
-            >
-              <Menu size={18} />
-            </button>
-            <div className="md:hidden" style={{ flex: 1 }} />
 
             {/* Right controls */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
@@ -624,41 +616,6 @@ export default function Header({ isAdmin = false }) {
             </div>
           </div>
         </header>
-
-        {/* Mobile Nav Drawer */}
-        {mobileNavOpen && (
-          <>
-            <div onClick={() => setMobileNavOpen(false)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', zIndex:50 }} />
-            <div style={{ position:'fixed', top:0, left:0, bottom:0, width:'260px', background:'var(--surface)', boxShadow:'var(--shadow3)', zIndex:60, display:'flex', flexDirection:'column' }}>
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 20px', borderBottom:'1px solid var(--border)' }}>
-                <img src="/elect home.png" alt="Electrolux" style={{ height:'28px', objectFit:'contain', filter: theme==='dark'?'none':'brightness(0) saturate(100%)' }} />
-                <button onClick={() => setMobileNavOpen(false)} style={{ background:'transparent', border:'none', cursor:'pointer', color: MUTED }}>
-                  <X size={18} />
-                </button>
-              </div>
-              <nav style={{ flex:1, padding:'12px', overflowY:'auto' }}>
-                {ADMIN_NAV.map(item => {
-                  if (item.dropdown) {
-                    return item.dropdown.map(d => (
-                      <NavLink key={d.path} to={d.path} onClick={() => setMobileNavOpen(false)}
-                        style={({ isActive }) => ({ display:'block', padding:'11px 14px', borderRadius:'10px', fontSize:'14px', fontWeight: isActive?600:500, color: isActive?'var(--primary)':MUTED, background: isActive?'var(--primary-glow)':'transparent', textDecoration:'none', marginBottom:'2px' })}
-                      >
-                        {d.label}
-                      </NavLink>
-                    ));
-                  }
-                  return (
-                    <NavLink key={item.path} to={item.path} end={item.exact} onClick={() => setMobileNavOpen(false)}
-                      style={({ isActive }) => ({ display:'block', padding:'11px 14px', borderRadius:'10px', fontSize:'14px', fontWeight: isActive?600:500, color: isActive?'var(--primary)':MUTED, background: isActive?'var(--primary-glow)':'transparent', textDecoration:'none', marginBottom:'2px' })}
-                    >
-                      {item.label}
-                    </NavLink>
-                  );
-                })}
-              </nav>
-            </div>
-          </>
-        )}
 
         <ToastContainer toasts={toasts} onRemove={removeToast} />
         <ProfileModal />
