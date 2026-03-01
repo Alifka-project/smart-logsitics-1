@@ -3,7 +3,8 @@ import api, { setAuthToken } from '../frontend/apiClient';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, AreaChart, Area } from 'recharts';
 import { 
   Package, CheckCircle, XCircle, Clock, MapPin, TrendingUp, Users, Activity, 
-  Truck, AlertCircle, FileText, Calendar, DollarSign, Target, Zap, Circle
+  Truck, AlertCircle, FileText, Calendar, DollarSign, Target, Zap, Circle,
+  Filter, ChevronUp, ChevronDown
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import DeliveryDetailModal from '../components/DeliveryDetailModal';
@@ -38,6 +39,39 @@ export default function AdminDashboardPage() {
   const [deliverySortDir, setDeliverySortDir] = useState('desc');
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Overview tab: chart date range filter (for status breakdown, pie, recent activity)
+  const [overviewDateFrom, setOverviewDateFrom] = useState('');
+  const [overviewDateTo, setOverviewDateTo] = useState('');
+
+  // Analytics: Top Customers table filter + sort
+  const [topCustomersSearch, setTopCustomersSearch] = useState('');
+  const [topCustomersAreaFilter, setTopCustomersAreaFilter] = useState('all');
+  const [topCustomersSortBy, setTopCustomersSortBy] = useState('orders');
+  const [topCustomersSortDir, setTopCustomersSortDir] = useState('desc');
+
+  // Analytics: Top Items table filter + sort
+  const [topItemsSearch, setTopItemsSearch] = useState('');
+  const [topItemsSortBy, setTopItemsSortBy] = useState('count');
+  const [topItemsSortDir, setTopItemsSortDir] = useState('desc');
+
+  // Analytics: chart filters (top N, period)
+  const [chartTopN, setChartTopN] = useState(10);
+  const [monthlyMonths, setMonthlyMonths] = useState(12);
+  const [weeklyDays, setWeeklyDays] = useState(7);
+
+  // Active Deliveries table (Deliveries tab): sort
+  const [activeDeliveriesSortBy, setActiveDeliveriesSortBy] = useState('eta');
+  const [activeDeliveriesSortDir, setActiveDeliveriesSortDir] = useState('asc');
+
+  // Drivers table: filter + sort
+  const [driversSearch, setDriversSearch] = useState('');
+  const [driversStatusFilter, setDriversStatusFilter] = useState('all'); // all | online | offline
+  const [driversSortBy, setDriversSortBy] = useState('name');
+  const [driversSortDir, setDriversSortDir] = useState('asc');
+
+  // Performance tab: weekly trend period
+  const [performanceDays, setPerformanceDays] = useState(7);
 
   // Load online status for drivers tab - same logic as User Management page
   const loadOnlineStatus = useCallback(async (silent = false) => {
@@ -333,6 +367,236 @@ export default function AdminDashboardPage() {
     ];
   }, [deliveries]);
 
+  // Overview date filter: compute totals and recent from deliveries when date range is set
+  const overviewFilteredDeliveries = useMemo(() => {
+    const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
+    if (!overviewDateFrom && !overviewDateTo) return list;
+    const from = overviewDateFrom ? new Date(overviewDateFrom) : null;
+    const to = overviewDateTo ? new Date(overviewDateTo + 'T23:59:59') : null;
+    return list.filter(d => {
+      const date = new Date(d.created_at || d.createdAt || d.created || 0);
+      if (from && date < from) return false;
+      if (to && date > to) return false;
+      return true;
+    });
+  }, [deliveries, overviewDateFrom, overviewDateTo]);
+
+  const overviewTotals = useMemo(() => {
+    if (overviewDateFrom || overviewDateTo) {
+      const list = overviewFilteredDeliveries;
+      const statusCount = (s) => list.filter(d => (d.status || '').toLowerCase() === s).length;
+      return {
+        total: list.length,
+        delivered: statusCount('delivered') + statusCount('delivered-with-installation') + statusCount('delivered-without-installation'),
+        cancelled: statusCount('cancelled') + statusCount('rejected'),
+        rescheduled: statusCount('rescheduled'),
+        pending: statusCount('pending') + statusCount('scheduled') + statusCount('scheduled-confirmed') + statusCount('out-for-delivery') + statusCount('in-progress'),
+        customerAccepted: data?.totals?.customerAccepted ?? 0,
+        customerCancelled: data?.totals?.customerCancelled ?? 0,
+        customerRescheduled: data?.totals?.customerRescheduled ?? 0,
+        withPOD: data?.totals?.withPOD ?? 0,
+        withoutPOD: data?.totals?.withoutPOD ?? 0,
+      };
+    }
+    return totals;
+  }, [overviewDateFrom, overviewDateTo, overviewFilteredDeliveries, totals, data?.totals]);
+
+  const overviewRecent = useMemo(() => {
+    if (overviewDateFrom || overviewDateTo) {
+      const now = new Date();
+      const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      const list = overviewFilteredDeliveries.filter(d => {
+        const date = new Date(d.updated_at || d.updatedAt || d.created_at || d.createdAt || d.created || 0);
+        return date >= dayAgo;
+      });
+      const statusCount = (s) => list.filter(d => (d.status || '').toLowerCase() === s).length;
+      return {
+        delivered: statusCount('delivered') + statusCount('delivered-with-installation') + statusCount('delivered-without-installation'),
+        cancelled: statusCount('cancelled') + statusCount('rejected'),
+        rescheduled: statusCount('rescheduled'),
+      };
+    }
+    return recent;
+  }, [overviewDateFrom, overviewDateTo, overviewFilteredDeliveries, recent]);
+
+  const statusChartDataFiltered = useMemo(() => [
+    { name: 'Delivered', value: overviewTotals.delivered, color: '#10b981' },
+    { name: 'Cancelled', value: overviewTotals.cancelled, color: '#ef4444' },
+    { name: 'Rescheduled', value: overviewTotals.rescheduled, color: '#f59e0b' },
+    { name: 'Pending', value: overviewTotals.pending, color: '#6b7280' },
+  ], [overviewTotals]);
+
+  const pieChartDataFiltered = statusChartDataFiltered.filter(d => d.value > 0);
+
+  const recentTrendDataFiltered = useMemo(() => [
+    { name: 'Delivered', value: overviewRecent.delivered || 0 },
+    { name: 'Cancelled', value: overviewRecent.cancelled || 0 },
+    { name: 'Rescheduled', value: overviewRecent.rescheduled || 0 },
+  ], [overviewRecent]);
+
+  // Performance tab: daily performance for last N days
+  const dailyPerformanceFiltered = useMemo(() => {
+    const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const dailyData = {};
+    dayNames.forEach(day => { dailyData[day] = { day, deliveries: 0, success: 0 }; });
+    const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
+    const now = new Date();
+    const start = new Date(now.getTime() - performanceDays * 24 * 60 * 60 * 1000);
+    list.forEach(delivery => {
+      const createdDateStr = delivery.created_at || delivery.createdAt || delivery.created;
+      if (!createdDateStr) return;
+      const createdDate = new Date(createdDateStr);
+      if (createdDate >= start && createdDate <= now) {
+        const dayName = daysOfWeek[createdDate.getDay()];
+        if (dailyData[dayName]) {
+          dailyData[dayName].deliveries++;
+          const status = (delivery.status || '').toLowerCase();
+          if (['delivered', 'delivered-with-installation', 'delivered-without-installation'].includes(status)) {
+            dailyData[dayName].success++;
+          }
+        }
+      }
+    });
+    return dayNames.map(d => dailyData[d]);
+  }, [deliveries, performanceDays]);
+
+  // Analytics: filtered + sorted Top Customers
+  const topCustomersFilteredSorted = useMemo(() => {
+    const rows = data?.analytics?.topCustomers || [];
+    let out = rows.filter(r => {
+      const matchSearch = !topCustomersSearch.trim() ||
+        (r.customer || '').toLowerCase().includes(topCustomersSearch.trim().toLowerCase()) ||
+        (r.primaryArea || '').toLowerCase().includes(topCustomersSearch.trim().toLowerCase());
+      const matchArea = topCustomersAreaFilter === 'all' || (r.primaryArea || '') === topCustomersAreaFilter;
+      return matchSearch && matchArea;
+    });
+    const dir = topCustomersSortDir === 'asc' ? 1 : -1;
+    const key = topCustomersSortBy;
+    out = [...out].sort((a, b) => {
+      let av, bv;
+      if (key === 'orders') { av = a.orders ?? 0; bv = b.orders ?? 0; return dir * (av - bv); }
+      if (key === 'customer') { av = (a.customer || '').toLowerCase(); bv = (b.customer || '').toLowerCase(); return dir * av.localeCompare(bv); }
+      if (key === 'delivered') { av = a.delivered ?? 0; bv = b.delivered ?? 0; return dir * (av - bv); }
+      if (key === 'pending') { av = a.pending ?? 0; bv = b.pending ?? 0; return dir * (av - bv); }
+      if (key === 'successRate') { av = a.successRate ?? 0; bv = b.successRate ?? 0; return dir * (av - bv); }
+      if (key === 'totalQuantity') { av = a.totalQuantity ?? 0; bv = b.totalQuantity ?? 0; return dir * (av - bv); }
+      if (key === 'lastOrderDate') { av = a.lastOrderDate ? new Date(a.lastOrderDate).getTime() : 0; bv = b.lastOrderDate ? new Date(b.lastOrderDate).getTime() : 0; return dir * (av - bv); }
+      if (key === 'primaryArea') { av = (a.primaryArea || '').toLowerCase(); bv = (b.primaryArea || '').toLowerCase(); return dir * av.localeCompare(bv); }
+      return 0;
+    });
+    return out;
+  }, [data?.analytics?.topCustomers, topCustomersSearch, topCustomersAreaFilter, topCustomersSortBy, topCustomersSortDir]);
+
+  const topCustomersAreas = useMemo(() => {
+    const rows = data?.analytics?.topCustomers || [];
+    const set = new Set(rows.map(r => r.primaryArea).filter(Boolean));
+    return Array.from(set).sort();
+  }, [data?.analytics?.topCustomers]);
+
+  // Analytics: filtered + sorted Top Items
+  const topItemsFilteredSorted = useMemo(() => {
+    const rows = data?.analytics?.topItems || [];
+    let out = rows.filter(r => {
+      const q = topItemsSearch.trim().toLowerCase();
+      return !q ||
+        (r.item || '').toLowerCase().includes(q) ||
+        (r.pnc || '').toLowerCase().includes(q) ||
+        (r.modelId || '').toLowerCase().includes(q);
+    });
+    const dir = topItemsSortDir === 'asc' ? 1 : -1;
+    if (topItemsSortBy === 'count') out = [...out].sort((a, b) => dir * ((a.count ?? 0) - (b.count ?? 0)));
+    else if (topItemsSortBy === 'item') out = [...out].sort((a, b) => dir * (a.item || '').toLowerCase().localeCompare((b.item || '').toLowerCase()));
+    else if (topItemsSortBy === 'pnc') out = [...out].sort((a, b) => dir * (a.pnc || '').localeCompare(b.pnc || ''));
+    else if (topItemsSortBy === 'modelId') out = [...out].sort((a, b) => dir * (a.modelId || '').localeCompare(b.modelId || ''));
+    return out;
+  }, [data?.analytics?.topItems, topItemsSearch, topItemsSortBy, topItemsSortDir]);
+
+  // Analytics charts: apply top N
+  const deliveryByAreaFiltered = useMemo(() => {
+    const arr = (data?.analytics?.deliveryByArea || []).slice().sort((a, b) => (b.count ?? 0) - (a.count ?? 0));
+    return arr.slice(0, chartTopN);
+  }, [data?.analytics?.deliveryByArea, chartTopN]);
+
+  const deliveryByMonthFiltered = useMemo(() => {
+    const arr = (data?.analytics?.deliveryByMonth || []).slice(-monthlyMonths);
+    return arr;
+  }, [data?.analytics?.deliveryByMonth, monthlyMonths]);
+
+  const deliveryByWeekFiltered = useMemo(() => {
+    const arr = (data?.analytics?.deliveryByWeek || []).slice(-weeklyDays);
+    return arr;
+  }, [data?.analytics?.deliveryByWeek, weeklyDays]);
+
+  const topItemsForChart = useMemo(() => {
+    const arr = (data?.analytics?.topItems || []).slice().sort((a, b) => (b.count ?? 0) - (a.count ?? 0)).slice(0, chartTopN);
+    return arr.map(r => ({ ...r, label: `${r.item} [${r.pnc}]` }));
+  }, [data?.analytics?.topItems, chartTopN]);
+
+  // Drivers tab: filtered + sorted
+  const driversFilteredSorted = useMemo(() => {
+    let list = drivers.slice();
+    if (driversSearch.trim()) {
+      const q = driversSearch.trim().toLowerCase();
+      list = list.filter(d =>
+        (d.fullName || d.full_name || d.username || '').toLowerCase().includes(q) ||
+        (d.email || '').toLowerCase().includes(q) ||
+        (d.phone || '').toLowerCase().includes(q)
+      );
+    }
+    if (driversStatusFilter === 'online') {
+      list = list.filter(d => onlineUserIds.has(String(d.id)) || onlineUserIds.has(d.id) || d.tracking?.online);
+    } else if (driversStatusFilter === 'offline') {
+      list = list.filter(d => !onlineUserIds.has(String(d.id)) && !onlineUserIds.has(d.id) && !d.tracking?.online);
+    }
+    const dir = driversSortDir === 'asc' ? 1 : -1;
+    list = [...list].sort((a, b) => {
+      if (driversSortBy === 'name') {
+        const av = (a.fullName || a.full_name || a.username || '').toLowerCase();
+        const bv = (b.fullName || b.full_name || b.username || '').toLowerCase();
+        return dir * av.localeCompare(bv);
+      }
+      if (driversSortBy === 'status') {
+        const aOnline = onlineUserIds.has(String(a.id)) || a.tracking?.online ? 1 : 0;
+        const bOnline = onlineUserIds.has(String(b.id)) || b.tracking?.online ? 1 : 0;
+        return dir * (aOnline - bOnline);
+      }
+      if (driversSortBy === 'lastUpdate') {
+        const av = new Date(a.tracking?.lastUpdate || a.account?.lastLogin || 0).getTime();
+        const bv = new Date(b.tracking?.lastUpdate || b.account?.lastLogin || 0).getTime();
+        return dir * (av - bv);
+      }
+      return 0;
+    });
+    return list;
+  }, [drivers, driversSearch, driversStatusFilter, driversSortBy, driversSortDir, onlineUserIds]);
+
+  // Active deliveries sorted
+  const activeDeliveriesSorted = useMemo(() => {
+    const list = (deliveries && Array.isArray(deliveries) ? deliveries : []).filter(d => {
+      const s = (d.status || '').toLowerCase();
+      return ['out-for-delivery', 'in-progress', 'assigned', 'scheduled', 'scheduled-confirmed'].includes(s);
+    });
+    const dir = activeDeliveriesSortDir === 'asc' ? 1 : -1;
+    return [...list].sort((a, b) => {
+      if (activeDeliveriesSortBy === 'eta') {
+        const av = new Date(a.tracking?.eta || 0).getTime();
+        const bv = new Date(b.tracking?.eta || 0).getTime();
+        return dir * (av - bv);
+      }
+      if (activeDeliveriesSortBy === 'customer') {
+        return dir * (a.customer || '').toLowerCase().localeCompare((b.customer || '').toLowerCase());
+      }
+      if (activeDeliveriesSortBy === 'status') {
+        return dir * (a.status || '').localeCompare(b.status || '');
+      }
+      if (activeDeliveriesSortBy === 'poNumber') {
+        return dir * (a.poNumber || '').localeCompare(b.poNumber || '');
+      }
+      return 0;
+    });
+  }, [deliveries, activeDeliveriesSortBy, activeDeliveriesSortDir]);
+
   // Now handle conditional returns AFTER all hooks are defined
   if (loading && !data) {
     return (
@@ -462,30 +726,30 @@ export default function AdminDashboardPage() {
         <MetricCard
           icon={Package}
           label="Total Deliveries"
-          value={totals.total}
+          value={overviewTotals.total}
           color="blue"
-          trend={null}
+          trend={overviewDateFrom || overviewDateTo ? 'Filtered by date range' : null}
         />
         <MetricCard
           icon={CheckCircle}
           label="Delivered"
-          value={totals.delivered}
+          value={overviewTotals.delivered}
           color="green"
-          trend={`${successRate}% success rate`}
+          trend={overviewTotals.total > 0 ? `${((overviewTotals.delivered / overviewTotals.total) * 100).toFixed(1)}% success rate` : null}
         />
         <MetricCard
           icon={Clock}
           label="Pending"
-          value={totals.pending}
+          value={overviewTotals.pending}
           color="yellow"
-          trend={`${totals.total > 0 ? ((totals.pending / totals.total) * 100).toFixed(1) : 0}% of total`}
+          trend={overviewTotals.total > 0 ? `${((overviewTotals.pending / overviewTotals.total) * 100).toFixed(1)}% of total` : null}
         />
         <MetricCard
           icon={XCircle}
           label="Cancelled"
-          value={totals.cancelled}
+          value={overviewTotals.cancelled}
           color="red"
-          trend={`${cancellationRate}% cancellation rate`}
+          trend={overviewTotals.total > 0 ? `${((overviewTotals.cancelled / overviewTotals.total) * 100).toFixed(1)}% cancellation rate` : null}
         />
       </div>
 
@@ -508,11 +772,43 @@ export default function AdminDashboardPage() {
         <MetricCard
           icon={TrendingUp}
           label="Recent Deliveries (24h)"
-          value={recent.delivered + recent.cancelled + recent.rescheduled}
+          value={overviewRecent.delivered + overviewRecent.cancelled + overviewRecent.rescheduled}
           color="pink"
-          trend={`${recent.delivered} delivered`}
+          trend={`${overviewRecent.delivered} delivered`}
         />
       </div>
+
+      {/* Overview chart date filter */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 transition-colors flex flex-wrap items-center gap-3">
+            <Filter className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Charts date range:</span>
+            <input
+              type="date"
+              value={overviewDateFrom}
+              onChange={e => setOverviewDateFrom(e.target.value)}
+              className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            />
+            <span className="text-gray-500 dark:text-gray-400">to</span>
+            <input
+              type="date"
+              value={overviewDateTo}
+              onChange={e => setOverviewDateTo(e.target.value)}
+              className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            />
+            {(overviewDateFrom || overviewDateTo) && (
+              <button
+                onClick={() => { setOverviewDateFrom(''); setOverviewDateTo(''); }}
+                className="px-3 py-1.5 text-sm rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+              >
+                Clear
+              </button>
+            )}
+            {(overviewDateFrom || overviewDateTo) && (
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                Showing {overviewFilteredDeliveries.length} deliveries
+              </span>
+            )}
+          </div>
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -520,7 +816,7 @@ export default function AdminDashboardPage() {
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
               <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Status Breakdown</h2>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={statusChartData}>
+            <BarChart data={statusChartDataFiltered}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-700" />
                   <XAxis dataKey="name" stroke="#6b7280" className="dark:stroke-gray-400" />
                   <YAxis stroke="#6b7280" className="dark:stroke-gray-400" />
@@ -534,7 +830,7 @@ export default function AdminDashboardPage() {
                     wrapperClassName="dark:!bg-gray-800 dark:!border-gray-700 dark:!text-gray-100"
                   />
                   <Bar dataKey="value" fill="#2563EB" radius={[8, 8, 0, 0]}>
-                {statusChartData.map((entry, index) => (
+                {statusChartDataFiltered.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Bar>
@@ -548,7 +844,7 @@ export default function AdminDashboardPage() {
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
-                data={pieChartData}
+                data={pieChartDataFiltered}
                 cx="50%"
                 cy="50%"
                 labelLine={false}
@@ -557,7 +853,7 @@ export default function AdminDashboardPage() {
                 fill="#8884d8"
                 dataKey="value"
               >
-                {pieChartData.map((entry, index) => (
+                {pieChartDataFiltered.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
@@ -584,45 +880,45 @@ export default function AdminDashboardPage() {
                 <MetricCard
                   icon={CheckCircle}
                   label="Customer Accepted"
-                  value={totals.customerAccepted || 0}
+                  value={overviewTotals.customerAccepted || 0}
                   color="green"
-                  trend={`${totals.total > 0 ? ((totals.customerAccepted / totals.total) * 100).toFixed(1) : 0}% acceptance rate`}
+                  trend={`${overviewTotals.total > 0 ? ((overviewTotals.customerAccepted / overviewTotals.total) * 100).toFixed(1) : 0}% acceptance rate`}
                 />
                 <MetricCard
                   icon={XCircle}
                   label="Customer Cancelled"
-                  value={totals.customerCancelled || 0}
+                  value={overviewTotals.customerCancelled || 0}
                   color="red"
-                  trend={`${totals.total > 0 ? ((totals.customerCancelled / totals.total) * 100).toFixed(1) : 0}% cancellation rate`}
+                  trend={`${overviewTotals.total > 0 ? ((overviewTotals.customerCancelled / overviewTotals.total) * 100).toFixed(1) : 0}% cancellation rate`}
                 />
                 <MetricCard
                   icon={Clock}
                   label="Customer Rescheduled"
-                  value={totals.customerRescheduled || 0}
+                  value={overviewTotals.customerRescheduled || 0}
                   color="yellow"
-                  trend={`${totals.total > 0 ? ((totals.customerRescheduled / totals.total) * 100).toFixed(1) : 0}% reschedule rate`}
+                  trend={`${overviewTotals.total > 0 ? ((overviewTotals.customerRescheduled / overviewTotals.total) * 100).toFixed(1) : 0}% reschedule rate`}
                 />
               </div>
             </div>
 
             {/* POD Metrics */}
-            {totals.delivered > 0 && (
+            {overviewTotals.delivered > 0 && (
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
                 <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Proof of Delivery (POD) Status</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <MetricCard
                     icon={CheckCircle}
                     label="Deliveries with POD"
-                    value={totals.withPOD || 0}
+                    value={overviewTotals.withPOD || 0}
                     color="green"
-                    trend={`${totals.delivered > 0 ? ((totals.withPOD / totals.delivered) * 100).toFixed(1) : 0}% of delivered`}
+                    trend={`${overviewTotals.delivered > 0 ? ((overviewTotals.withPOD / overviewTotals.delivered) * 100).toFixed(1) : 0}% of delivered`}
                   />
                   <MetricCard
                     icon={XCircle}
                     label="Deliveries without POD"
-                    value={totals.withoutPOD || 0}
+                    value={overviewTotals.withoutPOD || 0}
                     color="red"
-                    trend={`${totals.delivered > 0 ? ((totals.withoutPOD / totals.delivered) * 100).toFixed(1) : 0}% of delivered`}
+                    trend={`${overviewTotals.delivered > 0 ? ((overviewTotals.withoutPOD / overviewTotals.delivered) * 100).toFixed(1) : 0}% of delivered`}
                   />
                 </div>
               </div>
@@ -633,7 +929,7 @@ export default function AdminDashboardPage() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
             <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Recent Activity (Last 24 Hours)</h2>
         <ResponsiveContainer width="100%" height={250}>
-          <BarChart data={recentTrendData}>
+          <BarChart data={recentTrendDataFiltered}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-700" />
                 <XAxis dataKey="name" stroke="#6b7280" className="dark:stroke-gray-400" />
                 <YAxis stroke="#6b7280" className="dark:stroke-gray-400" />
@@ -659,27 +955,61 @@ export default function AdminDashboardPage() {
 
           {/* 1. Top 10 Customers - Full Width */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
-            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
+            <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-gray-100 flex items-center gap-2">
               <Users className="w-5 h-5 text-primary-600" />
-              Top 10 Customers by Orders
+              Top Customers by Orders
             </h3>
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search customer or area..."
+                value={topCustomersSearch}
+                onChange={e => setTopCustomersSearch(e.target.value)}
+                className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 w-48 max-w-full"
+              />
+              <select
+                value={topCustomersAreaFilter}
+                onChange={e => setTopCustomersAreaFilter(e.target.value)}
+                className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              >
+                <option value="all">All areas</option>
+                {topCustomersAreas.map(area => (
+                  <option key={area} value={area}>{area}</option>
+                ))}
+              </select>
+              <span className="text-xs text-gray-500 dark:text-gray-400">Sort: click column header</span>
+            </div>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">#</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Customer</th>
-                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Total Orders</th>
-                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Delivered</th>
-                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Pending</th>
-                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Success Rate</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Total Qty</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Last Order</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Primary Area</th>
+                    {[
+                      { key: null, label: '#', className: 'text-left' },
+                      { key: 'customer', label: 'Customer', className: 'text-left cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600' },
+                      { key: 'orders', label: 'Total Orders', className: 'text-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600' },
+                      { key: 'delivered', label: 'Delivered', className: 'text-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600' },
+                      { key: 'pending', label: 'Pending', className: 'text-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600' },
+                      { key: 'successRate', label: 'Success Rate', className: 'text-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600' },
+                      { key: 'totalQuantity', label: 'Total Qty', className: 'text-right cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600' },
+                      { key: 'lastOrderDate', label: 'Last Order', className: 'text-left cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600' },
+                      { key: 'primaryArea', label: 'Primary Area', className: 'text-left cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600' },
+                    ].map(({ key, label, className }) => (
+                      <th
+                        key={label}
+                        className={`px-4 py-2 text-xs font-medium text-gray-500 dark:text-gray-300 uppercase ${className}`}
+                        onClick={key ? () => { if (topCustomersSortBy === key) setTopCustomersSortDir(d => d === 'desc' ? 'asc' : 'desc'); else { setTopCustomersSortBy(key); setTopCustomersSortDir('desc'); } } : undefined}
+                      >
+                        <span className="flex items-center gap-1 justify-start">
+                          {label}
+                          {key && topCustomersSortBy === key && (topCustomersSortDir === 'desc' ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />)}
+                        </span>
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {(data.analytics.topCustomers || []).map((row, idx) => {
+                  {topCustomersFilteredSorted.map((row, idx) => {
                     const successRate = row.successRate || 0;
                     const successRateColor = successRate >= 90 
                       ? 'text-green-600 dark:text-green-400' 
@@ -734,7 +1064,7 @@ export default function AdminDashboardPage() {
                       </tr>
                     );
                   })}
-                  {(!data.analytics.topCustomers || data.analytics.topCustomers.length === 0) && (
+                  {topCustomersFilteredSorted.length === 0 && (
                     <tr><td colSpan={9} className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">No data yet</td></tr>
                   )}
                 </tbody>
@@ -742,13 +1072,40 @@ export default function AdminDashboardPage() {
             </div>
           </div>
 
-          {/* 2. Top 10 Items and PNC - Table Only - Full Width */}
+          {/* 2. Top Items and PNC - Table with filter + sort */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
-            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
+            <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-gray-100 flex items-center gap-2">
               <Package className="w-5 h-5 text-primary-600" />
-              Top 10 Items and PNC
+              Top Items and PNC
             </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Item name, PNC (Material Number), and Model ID from delivery metadata</p>
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search item, PNC, or model..."
+                value={topItemsSearch}
+                onChange={e => setTopItemsSearch(e.target.value)}
+                className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 w-56 max-w-full"
+              />
+              <select
+                value={topItemsSortBy}
+                onChange={e => setTopItemsSortBy(e.target.value)}
+                className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              >
+                <option value="count">Sort: Quantity</option>
+                <option value="item">Sort: Item Name</option>
+                <option value="pnc">Sort: PNC</option>
+                <option value="modelId">Sort: Model ID</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => setTopItemsSortDir(d => d === 'desc' ? 'asc' : 'desc')}
+                className="px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+              >
+                {topItemsSortDir === 'desc' ? '↓ Desc' : '↑ Asc'}
+              </button>
+            </div>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-700">
@@ -761,7 +1118,7 @@ export default function AdminDashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {(data.analytics.topItems || []).map((row, idx) => (
+                  {topItemsFilteredSorted.map((row, idx) => (
                     <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                       <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">{idx + 1}</td>
                       <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100">{row.item}</td>
@@ -770,7 +1127,7 @@ export default function AdminDashboardPage() {
                       <td className="px-4 py-2 text-sm text-right font-semibold text-primary-600 dark:text-primary-400">{row.count}</td>
                     </tr>
                   ))}
-                  {(!data.analytics.topItems || data.analytics.topItems.length === 0) && (
+                  {topItemsFilteredSorted.length === 0 && (
                     <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">No data yet</td></tr>
                   )}
                 </tbody>
@@ -778,15 +1135,30 @@ export default function AdminDashboardPage() {
             </div>
           </div>
 
-          {/* Quantity by Item Name and PNC Chart - Separate Full Width Section */}
-          {(data.analytics.topItems || []).length > 0 && (
+          {/* Quantity by Item Name and PNC Chart - with Top N filter */}
+          {topItemsForChart.length > 0 && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                <Package className="w-5 h-5 text-primary-600" />
-                Quantity by Item Name and PNC
-              </h3>
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                  <Package className="w-5 h-5 text-primary-600" />
+                  Quantity by Item Name and PNC
+                </h3>
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                  <label className="text-sm text-gray-600 dark:text-gray-400">Top</label>
+                  <select
+                    value={chartTopN}
+                    onChange={e => setChartTopN(Number(e.target.value))}
+                    className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  >
+                    {[5, 10, 15, 20, 30].map(n => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
               <ResponsiveContainer width="100%" height={400}>
-                <BarChart data={(data.analytics.topItems || []).map(r => ({ ...r, label: `${r.item} [${r.pnc}]` }))} layout="vertical" margin={{ left: 20, right: 30, top: 10, bottom: 10 }}>
+                <BarChart data={topItemsForChart} layout="vertical" margin={{ left: 20, right: 30, top: 10, bottom: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-700" />
                   <XAxis type="number" stroke="#6b7280" />
                   <YAxis type="category" dataKey="label" width={200} stroke="#6b7280" tick={{ fontSize: 11 }} />
@@ -798,14 +1170,29 @@ export default function AdminDashboardPage() {
           )}
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* 3. Delivery Area Statistics */}
+            {/* 3. Delivery Area Statistics - with Top N filter */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                <MapPin className="w-5 h-5 text-primary-600" />
-                Delivery Area Statistics
-              </h3>
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-primary-600" />
+                  Delivery Area Statistics
+                </h3>
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                  <label className="text-sm text-gray-600 dark:text-gray-400">Top</label>
+                  <select
+                    value={chartTopN}
+                    onChange={e => setChartTopN(Number(e.target.value))}
+                    className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  >
+                    {[5, 10, 15, 20, 30].map(n => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
               <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={data.analytics.deliveryByArea || []} layout="vertical" margin={{ left: 20, right: 20 }}>
+                <BarChart data={deliveryByAreaFiltered} layout="vertical" margin={{ left: 20, right: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-700" />
                   <XAxis type="number" stroke="#6b7280" />
                   <YAxis type="category" dataKey="area" width={100} stroke="#6b7280" tick={{ fontSize: 12 }} />
@@ -813,19 +1200,33 @@ export default function AdminDashboardPage() {
                   <Bar dataKey="count" fill="#2563EB" radius={[0, 4, 4, 0]} name="Deliveries" />
                 </BarChart>
               </ResponsiveContainer>
-              {(!data.analytics.deliveryByArea || data.analytics.deliveryByArea.length === 0) && (
+              {deliveryByAreaFiltered.length === 0 && (
                 <p className="text-center py-8 text-gray-500 dark:text-gray-400">No area data yet</p>
               )}
             </div>
 
-            {/* 4. Monthly Delivery Statistics */}
+            {/* 4. Monthly Delivery Statistics - with months filter */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-primary-600" />
-                Monthly Delivery Statistics
-              </h3>
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-primary-600" />
+                  Monthly Delivery Statistics
+                </h3>
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                  <select
+                    value={monthlyMonths}
+                    onChange={e => setMonthlyMonths(Number(e.target.value))}
+                    className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  >
+                    <option value={6}>Last 6 months</option>
+                    <option value={12}>Last 12 months</option>
+                    <option value={24}>Last 24 months</option>
+                  </select>
+                </div>
+              </div>
               <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={data.analytics.deliveryByMonth || []}>
+                <BarChart data={deliveryByMonthFiltered}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-700" />
                   <XAxis dataKey="label" stroke="#6b7280" tick={{ fontSize: 11 }} />
                   <YAxis stroke="#6b7280" />
@@ -833,20 +1234,34 @@ export default function AdminDashboardPage() {
                   <Bar dataKey="count" fill="#10b981" radius={[4, 4, 0, 0]} name="Deliveries" />
                 </BarChart>
               </ResponsiveContainer>
-              {(!data.analytics.deliveryByMonth || data.analytics.deliveryByMonth.length === 0) && (
+              {deliveryByMonthFiltered.length === 0 && (
                 <p className="text-center py-8 text-gray-500 dark:text-gray-400">No monthly data yet</p>
               )}
             </div>
           </div>
 
-          {/* 5. Delivery Quantity in a Week */}
+          {/* 5. Delivery Quantity - with days filter */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
-            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-primary-600" />
-              Delivery Quantity (Last 7 Days)
-            </h3>
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-primary-600" />
+                Delivery Quantity (Last N Days)
+              </h3>
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                <select
+                  value={weeklyDays}
+                  onChange={e => setWeeklyDays(Number(e.target.value))}
+                  className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                >
+                  <option value={7}>Last 7 days</option>
+                  <option value={14}>Last 14 days</option>
+                  <option value={30}>Last 30 days</option>
+                </select>
+              </div>
+            </div>
             <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={data.analytics.deliveryByWeek || []}>
+              <AreaChart data={deliveryByWeekFiltered}>
                 <defs>
                   <linearGradient id="colorWeek" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#2563EB" stopOpacity={0.4} />
@@ -860,7 +1275,7 @@ export default function AdminDashboardPage() {
                 <Area type="monotone" dataKey="count" stroke="#2563EB" fillOpacity={1} fill="url(#colorWeek)" name="Deliveries" />
               </AreaChart>
             </ResponsiveContainer>
-            {(!data.analytics.deliveryByWeek || data.analytics.deliveryByWeek.length === 0) && (
+            {deliveryByWeekFiltered.length === 0 && (
               <p className="text-center py-8 text-gray-500 dark:text-gray-400">No weekly data yet</p>
             )}
           </div>
@@ -1175,11 +1590,31 @@ export default function AdminDashboardPage() {
             </div>
           </div>
 
-          {/* Active Deliveries Table */}
-          {activeDeliveries.length > 0 && (
+          {/* Active Deliveries Table - with sort */}
+          {activeDeliveriesSorted.length > 0 && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden transition-colors">
-              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Active Deliveries</h2>
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                  <select
+                    value={activeDeliveriesSortBy}
+                    onChange={e => setActiveDeliveriesSortBy(e.target.value)}
+                    className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  >
+                    <option value="eta">Sort: ETA</option>
+                    <option value="customer">Sort: Customer</option>
+                    <option value="status">Sort: Status</option>
+                    <option value="poNumber">Sort: PO Number</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setActiveDeliveriesSortDir(d => d === 'asc' ? 'desc' : 'asc')}
+                    className="px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                  >
+                    {activeDeliveriesSortDir === 'asc' ? '↑ Asc' : '↓ Desc'}
+                  </button>
+                </div>
               </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -1193,7 +1628,7 @@ export default function AdminDashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                    {activeDeliveries.map((delivery) => (
+                    {activeDeliveriesSorted.map((delivery) => (
                       <tr
                         key={delivery.id || delivery.ID}
                         className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
@@ -1253,16 +1688,53 @@ export default function AdminDashboardPage() {
             }).length} color="purple" />
           </div>
 
-          {/* Drivers Table */}
+          {/* Drivers Table - filter + sort */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden transition-colors">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">All Drivers</h2>
-              <button
-                onClick={() => navigate('/admin/users')}
-                className="text-sm text-primary-600 dark:text-primary-400 hover:underline"
-              >
-                Manage Drivers →
-              </button>
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">All Drivers</h2>
+                <button
+                  onClick={() => navigate('/admin/users')}
+                  className="text-sm text-primary-600 dark:text-primary-400 hover:underline"
+                >
+                  Manage Drivers →
+                </button>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search name, email, phone..."
+                  value={driversSearch}
+                  onChange={e => setDriversSearch(e.target.value)}
+                  className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 w-52 max-w-full"
+                />
+                <select
+                  value={driversStatusFilter}
+                  onChange={e => setDriversStatusFilter(e.target.value)}
+                  className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                >
+                  <option value="all">All status</option>
+                  <option value="online">Online only</option>
+                  <option value="offline">Offline only</option>
+                </select>
+                <select
+                  value={driversSortBy}
+                  onChange={e => setDriversSortBy(e.target.value)}
+                  className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                >
+                  <option value="name">Sort: Name</option>
+                  <option value="status">Sort: Status</option>
+                  <option value="lastUpdate">Sort: Last Update</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setDriversSortDir(d => d === 'asc' ? 'desc' : 'asc')}
+                  className="px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                >
+                  {driversSortDir === 'asc' ? '↑ Asc' : '↓ Desc'}
+                </button>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -1277,8 +1749,8 @@ export default function AdminDashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {drivers.length > 0 ? (
-                    drivers.map((driver) => {
+                  {driversFilteredSorted.length > 0 ? (
+                    driversFilteredSorted.map((driver) => {
                       // Check online status - try both string and number ID formats
                       const driverIdStr = driver.id?.toString();
                       const driverIdNum = driver.id;
@@ -1359,7 +1831,7 @@ export default function AdminDashboardPage() {
                   ) : (
                     <tr>
                       <td colSpan={6} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                        No drivers found
+                        {drivers.length === 0 ? 'No drivers found' : 'No drivers match filters'}
                       </td>
                     </tr>
                   )}
@@ -1380,11 +1852,25 @@ export default function AdminDashboardPage() {
             <MetricCard icon={DollarSign} label="Efficiency Score" value={totals.total > 0 ? Math.round((totals.delivered / totals.total) * 100) : 0} color="purple" />
           </div>
 
-          {/* Daily Performance Chart */}
+          {/* Daily Performance Chart - with period filter */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 transition-colors">
-            <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Weekly Performance Trend</h2>
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Performance Trend by Day</h2>
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                <select
+                  value={performanceDays}
+                  onChange={e => setPerformanceDays(Number(e.target.value))}
+                  className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                >
+                  <option value={7}>Last 7 days</option>
+                  <option value={14}>Last 14 days</option>
+                  <option value={30}>Last 30 days</option>
+                </select>
+              </div>
+            </div>
             <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={dailyPerformance}>
+              <AreaChart data={dailyPerformanceFiltered}>
                 <defs>
                   <linearGradient id="colorDeliveries" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
