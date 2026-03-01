@@ -470,15 +470,18 @@ export default function Header({ isAdmin = false }) {
             maxWidth: '1600px', margin: '0 auto',
           }}>
 
-            {/* ── Electrolux Logo — dark mode: elect home.png, light mode: Electrolux-Logo.png ── */}
+            {/* ── Electrolux Logo — same image, CSS filter inverts for light mode ── */}
             <Link
               to="/admin"
               style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', flexShrink: 0, marginRight: '28px' }}
             >
               <img
-                src={theme === 'dark' ? '/elect home.png' : '/Electrolux-Logo.png'}
+                src="/elect home.png"
                 alt="Electrolux"
-                style={{ height: '36px', width: 'auto', objectFit: 'contain', display: 'block' }}
+                style={{
+                  height: '36px', width: 'auto', objectFit: 'contain', display: 'block',
+                  filter: theme === 'dark' ? 'none' : 'brightness(0) saturate(100%)',
+                }}
               />
             </Link>
 
@@ -649,9 +652,12 @@ export default function Header({ isAdmin = false }) {
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 20px', borderBottom:'1px solid var(--border)' }}>
                 <div style={{ display:'flex', alignItems:'center' }}>
                   <img
-                    src={theme === 'dark' ? '/elect home.png' : '/Electrolux-Logo.png'}
+                    src="/elect home.png"
                     alt="Electrolux"
-                    style={{ height: '30px', width: 'auto', objectFit: 'contain', display: 'block' }}
+                    style={{
+                      height: '30px', width: 'auto', objectFit: 'contain', display: 'block',
+                      filter: theme === 'dark' ? 'none' : 'brightness(0) saturate(100%)',
+                    }}
                   />
                 </div>
                 <button onClick={() => setMobileNavOpen(false)} style={{ background:'transparent', border:'none', cursor:'pointer', color:'var(--text-muted)' }}>
