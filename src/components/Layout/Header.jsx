@@ -703,10 +703,11 @@ export default function Header({ isAdmin = false, onMenuOpen }) {
   };
 
   /* ─────────────────────────────────────────────────────
-     Shared notification dropdown markup
+     Shared notification / user dropdown JSX helpers
+     Called as {renderNotifDropdown()} not as <Component />
+     to avoid inner-component remount anti-pattern
   ───────────────────────────────────────────────────── */
-  const NotificationDropdown = () => (
-    showNotifications && (
+  const renderNotifDropdown = () => (showNotifications && (
       <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50">
         <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600 flex items-center justify-between">
           <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Notifications</h3>
@@ -738,14 +739,9 @@ export default function Header({ isAdmin = false, onMenuOpen }) {
           )}
         </div>
       </div>
-    )
-  );
+    )));
 
-  /* ─────────────────────────────────────────────────────
-     Shared user dropdown markup
-  ───────────────────────────────────────────────────── */
-  const UserDropdown = ({ dark = false }) => (
-    showDropdown && (
+  const renderUserDropdown = () => (showDropdown && (
       <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50">
         <div className="px-4 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center gap-3">
           <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold text-base overflow-hidden flex-shrink-0">
@@ -771,8 +767,7 @@ export default function Header({ isAdmin = false, onMenuOpen }) {
           </button>
         </div>
       </div>
-    )
-  );
+    ));
 
   return (
     <>
@@ -818,7 +813,7 @@ export default function Header({ isAdmin = false, onMenuOpen }) {
                   </span>
                 )}
               </button>
-              <NotificationDropdown />
+              { renderNotifDropdown() }
             </div>
           )}
 
@@ -835,7 +830,7 @@ export default function Header({ isAdmin = false, onMenuOpen }) {
                 <span className="hidden sm:block text-sm font-medium text-gray-700 dark:text-gray-300">{getUserDisplayName()}</span>
                 <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
               </button>
-              <UserDropdown />
+              { renderUserDropdown() }
             </div>
           )}
         </header>
@@ -873,7 +868,7 @@ export default function Header({ isAdmin = false, onMenuOpen }) {
                         </span>
                       )}
                     </button>
-                    <NotificationDropdown />
+                    { renderNotifDropdown() }
                   </div>
                 )}
 
@@ -892,7 +887,7 @@ export default function Header({ isAdmin = false, onMenuOpen }) {
                       </div>
                       <ChevronDown className={`w-4 h-4 text-white transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
                     </button>
-                    <UserDropdown />
+                    { renderUserDropdown() }
                   </div>
                 ) : (
                   <Link to="/login" className="bg-white text-primary-900 px-4 py-2 rounded-lg font-medium hover:bg-gray-100 transition-colors shadow-sm">
