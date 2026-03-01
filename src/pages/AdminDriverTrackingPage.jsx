@@ -5,6 +5,7 @@ import { MapPin, Activity, Users, Radio } from 'lucide-react';
 
 function ensureAuth() {
   const token = localStorage.getItem('auth_token');
+  if (token) setAuthToken(token);
 }
 
 export default function AdminDriverTrackingPage() {

@@ -6,6 +6,7 @@ import { Download, Filter, Calendar, FileText, ChevronDown, ChevronUp, Package, 
 
 function ensureAuth() {
   const token = localStorage.getItem('auth_token');
+  if (token) setAuthToken(token);
 }
 
 const COLORS = ['#10b981', '#ef4444', '#f59e0b', '#6b7280'];

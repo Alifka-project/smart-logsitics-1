@@ -73,63 +73,144 @@
 
 /* ─── Light mode override ────────────────────────────────── */
 .light {
-  --bg-base:      #f0f2f8;
-  --bg-surface:   #ffffff;
-  --bg-card:      #ffffff;
-  --bg-card-alt:  #f8f9fc;
-  --bg-hover:     #f1f3fa;
-  --border:       #e2e8f0;
-  --border-light: #edf0f7;
-  --text-primary: #1a1e3c;
+  --bg-base:       #f0f2f8;
+  --bg-surface:    #ffffff;
+  --bg-card:       #ffffff;
+  --bg-card-alt:   #f8f9fc;
+  --bg-hover:      #f1f3fa;
+  --border:        #e2e8f0;
+  --border-light:  #edf0f7;
+  --accent:        #4f70f5;
+  --accent-hover:  #3d5ae0;
+  --accent-glow:   rgba(79,112,245,0.1);
+  --text-primary:  #1a1e3c;
   --text-secondary:#475569;
-  --text-muted:   #94a3b8;
+  --text-muted:    #94a3b8;
+}
+/* In light mode, body uses our bg-base */
+.light body,
+body.light {
+  background-color: var(--bg-base);
+  color: var(--text-primary);
 }
 
-/* ─── Global Tailwind dark mode remaps ──────────────────── */
-/* Makes existing dark:bg-gray-* classes use our tokens */
-.dark body,
+/* ─── Global dark mode remaps ──────────────────────────── */
+/* Covers BOTH plain classes (bg-gray-800) and dark-prefixed classes (dark:bg-gray-800) */
+
 body {
   background-color: var(--bg-base);
   color: var(--text-primary);
 }
 
-/* Cards – make bg-white and bg-gray-800 use our dark card */
+/* ── Backgrounds ── */
 .dark .bg-white,
-body:not(.light) .bg-white { background-color: var(--bg-card) !important; }
+.dark .dark\:bg-white               { background-color: var(--bg-card)    !important; }
 
 .dark .bg-gray-50,
-body:not(.light) .bg-gray-50 { background-color: var(--bg-base) !important; }
+.dark .dark\:bg-gray-50             { background-color: var(--bg-base)    !important; }
 
 .dark .bg-gray-100,
-body:not(.light) .bg-gray-100 { background-color: var(--bg-surface) !important; }
+.dark .dark\:bg-gray-100            { background-color: var(--bg-surface) !important; }
+
+.dark .bg-gray-200,
+.dark .dark\:bg-gray-200            { background-color: var(--bg-surface) !important; }
+
+.dark .bg-gray-700,
+.dark .dark\:bg-gray-700            { background-color: var(--bg-card-alt) !important; }
+
+.dark .bg-gray-700\/50,
+.dark .dark\:bg-gray-700\/50        { background-color: rgba(30,31,53,0.5) !important; }
 
 .dark .bg-gray-800,
-body:not(.light) .bg-gray-800 { background-color: var(--bg-card) !important; }
+.dark .dark\:bg-gray-800            { background-color: var(--bg-card)    !important; }
 
 .dark .bg-gray-900,
-body:not(.light) .bg-gray-900 { background-color: var(--bg-base) !important; }
+.dark .dark\:bg-gray-900            { background-color: var(--bg-base)    !important; }
 
-/* Borders */
+.dark .bg-gray-900\/40,
+.dark .dark\:bg-gray-900\/40        { background-color: rgba(13,14,26,0.4) !important; }
+
+/* ── Hover backgrounds ── */
+.dark .hover\:bg-gray-50:hover,
+.dark .dark\:hover\:bg-gray-50:hover   { background-color: var(--bg-hover) !important; }
+
+.dark .hover\:bg-gray-100:hover,
+.dark .dark\:hover\:bg-gray-100:hover  { background-color: var(--bg-hover) !important; }
+
+.dark .hover\:bg-gray-600:hover,
+.dark .dark\:hover\:bg-gray-600:hover  { background-color: var(--bg-hover) !important; }
+
+.dark .hover\:bg-gray-700:hover,
+.dark .dark\:hover\:bg-gray-700:hover  { background-color: var(--bg-hover) !important; }
+
+.dark .hover\:bg-gray-700\/40:hover,
+.dark .dark\:hover\:bg-gray-700\/40:hover { background-color: var(--bg-hover) !important; }
+
+.dark .hover\:bg-gray-700\/50:hover,
+.dark .dark\:hover\:bg-gray-700\/50:hover { background-color: var(--bg-hover) !important; }
+
+/* ── Borders ── */
 .dark .border-gray-100,
-body:not(.light) .border-gray-100 { border-color: var(--border) !important; }
-.dark .border-gray-200,
-body:not(.light) .border-gray-200 { border-color: var(--border) !important; }
-.dark .border-gray-700,
-body:not(.light) .border-gray-700 { border-color: var(--border-light) !important; }
+.dark .dark\:border-gray-100        { border-color: var(--border)       !important; }
 
-/* Text */
-.dark .text-gray-900,
-body:not(.light) .text-gray-900 { color: var(--text-primary) !important; }
-.dark .text-gray-800,
-body:not(.light) .text-gray-800 { color: var(--text-primary) !important; }
-.dark .text-gray-700,
-body:not(.light) .text-gray-700 { color: var(--text-secondary) !important; }
-.dark .text-gray-600,
-body:not(.light) .text-gray-600 { color: var(--text-secondary) !important; }
-.dark .text-gray-500,
-body:not(.light) .text-gray-500 { color: var(--text-muted) !important; }
+.dark .border-gray-200,
+.dark .dark\:border-gray-200        { border-color: var(--border)       !important; }
+
+.dark .border-gray-600,
+.dark .dark\:border-gray-600        { border-color: var(--border)       !important; }
+
+.dark .border-gray-700,
+.dark .dark\:border-gray-700        { border-color: var(--border-light) !important; }
+
+/* ── Dividers ── */
+.dark .divide-gray-200 > * + *,
+.dark .dark\:divide-gray-700 > * + * { border-color: var(--border) !important; }
+
+/* ── Text colors ── */
+.dark .text-gray-100,
+.dark .dark\:text-gray-100          { color: var(--text-primary)   !important; }
+
+.dark .text-gray-200,
+.dark .dark\:text-gray-200          { color: var(--text-primary)   !important; }
+
+.dark .text-gray-300,
+.dark .dark\:text-gray-300          { color: var(--text-secondary) !important; }
+
 .dark .text-gray-400,
-body:not(.light) .text-gray-400 { color: var(--text-muted) !important; }
+.dark .dark\:text-gray-400          { color: var(--text-muted)     !important; }
+
+.dark .text-gray-500,
+.dark .dark\:text-gray-500          { color: var(--text-muted)     !important; }
+
+.dark .text-gray-600,
+.dark .dark\:text-gray-600          { color: var(--text-secondary) !important; }
+
+.dark .text-gray-700,
+.dark .dark\:text-gray-700          { color: var(--text-secondary) !important; }
+
+.dark .text-gray-800,
+.dark .dark\:text-gray-800          { color: var(--text-primary)   !important; }
+
+.dark .text-gray-900,
+.dark .dark\:text-gray-900          { color: var(--text-primary)   !important; }
+
+/* ── Input/form controls in dark mode ── */
+.dark input:not([type="checkbox"]):not([type="radio"]),
+.dark textarea,
+.dark select {
+  background-color: var(--bg-surface) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+}
+.dark input::placeholder,
+.dark textarea::placeholder { color: var(--text-muted) !important; }
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus { border-color: var(--accent) !important; outline: none !important; }
+
+/* ── Placeholders ── */
+.dark .placeholder-gray-400::placeholder,
+.dark .dark\:placeholder-gray-500::placeholder { color: var(--text-muted) !important; }
 
 /* ─── Component Tokens ───────────────────────────────────── */
 @layer components {
