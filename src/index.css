@@ -137,9 +137,9 @@
   .app-main { padding: 24px 28px 40px; }
 }
 
-/* Horizontal scroll for nav on mobile (touch-friendly) */
+/* Horizontal scroll for nav — hidden on mobile, flex on md+ */
 .nav-scroll {
-  display: flex;
+  display: none;
   align-items: center;
   gap: 2px;
   flex: 1;
@@ -151,7 +151,10 @@
 }
 .nav-scroll::-webkit-scrollbar { display: none; }
 @media (min-width: 768px) {
-  .nav-scroll { overflow-x: visible; }
+  .nav-scroll {
+    display: flex;
+    overflow-x: visible;
+  }
 }
 
 /* Header inner: responsive horizontal padding */
