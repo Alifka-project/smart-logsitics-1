@@ -749,7 +749,7 @@ export default function DriverPortal() {
   return (
     <div className="space-y-6">
       {/* Header Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+      <div className="pp-card p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="pp-page-title">Driver Portal</h1>
@@ -777,8 +777,8 @@ export default function DriverPortal() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="border-b border-gray-200 dark:border-gray-700">
-        <nav className="flex space-x-8">
+      <div className="pp-card px-3 py-2">
+        <nav className="flex flex-wrap gap-2">
           {[
             { id: 'tracking', label: 'Tracking', icon: Navigation },
             { id: 'deliveries', label: 'Deliveries', icon: Truck },
@@ -789,13 +789,7 @@ export default function DriverPortal() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`
-                  flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm
-                  ${activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-300 dark:hover:text-gray-100 dark:hover:border-gray-600'
-                  }
-                `}
+                className={`pp-nav-pill ${activeTab === tab.id ? 'active' : ''}`}
               >
                 <Icon className="w-5 h-5" />
                 {tab.label}
@@ -827,7 +821,7 @@ export default function DriverPortal() {
           )}
 
       {/* Control Panel */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+      <div className="pp-card p-6">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Location Controls</h2>
         <div className="flex flex-wrap gap-3">
           {!isTracking ? (
@@ -866,26 +860,26 @@ export default function DriverPortal() {
               <h3 className="font-semibold text-gray-900 dark:text-gray-100">Current Location</h3>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-              <div className="bg-white dark:bg-gray-800 rounded p-3 shadow-sm">
+              <div className="pp-card p-3">
                 <div className="text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide mb-1">Latitude</div>
                 <div className="font-mono text-gray-900 dark:text-gray-100 font-semibold">{location.latitude.toFixed(6)}</div>
               </div>
-              <div className="bg-white dark:bg-gray-800 rounded p-3 shadow-sm">
+              <div className="pp-card p-3">
                 <div className="text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide mb-1">Longitude</div>
                 <div className="font-mono text-gray-900 dark:text-gray-100 font-semibold">{location.longitude.toFixed(6)}</div>
               </div>
               {location.accuracy && (
-                <div className="bg-white dark:bg-gray-800 rounded p-3 shadow-sm">
+                <div className="pp-card p-3">
                   <div className="text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide mb-1">Accuracy</div>
                   <div className="font-mono text-gray-900 dark:text-gray-100 font-semibold">±{location.accuracy.toFixed(0)}m</div>
                 </div>
               )}
-              <div className="bg-white dark:bg-gray-800 rounded p-3 shadow-sm">
+              <div className="pp-card p-3">
                 <div className="text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide mb-1">Last Update</div>
                 <div className="font-mono text-gray-900 dark:text-gray-100 font-semibold">{new Date(location.timestamp).toLocaleTimeString()}</div>
               </div>
               {location.speed && (
-                <div className="bg-white dark:bg-gray-800 rounded p-3 shadow-sm">
+                <div className="pp-card p-3">
                   <div className="text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide mb-1">Speed</div>
                   <div className="font-mono text-gray-900 dark:text-gray-100 font-semibold">{(location.speed * 3.6).toFixed(1)} km/h</div>
                 </div>
@@ -896,7 +890,7 @@ export default function DriverPortal() {
       </div>
 
       {/* Map */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden w-full">
+      <div className="pp-card overflow-hidden w-full">
         <div className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 dark:from-gray-800 dark:to-gray-900 dark:border-gray-700">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -925,7 +919,7 @@ export default function DriverPortal() {
           />
           {!location && mapReady && (
             <div className="absolute inset-0 flex items-center justify-center bg-gray-50 bg-opacity-90 z-[1000] dark:bg-gray-900/80">
-              <div className="text-center p-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm border border-gray-200 dark:border-gray-700 max-w-sm mx-4">
+              <div className="pp-card text-center p-6 max-w-sm mx-4">
                 <MapPin className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
                 <p className="text-gray-700 dark:text-gray-200 font-medium mb-1">No location data available</p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Click "Start Tracking" to begin location tracking</p>
@@ -945,7 +939,7 @@ export default function DriverPortal() {
 
       {/* Location History */}
       {locationHistory.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+        <div className="pp-card p-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
             Recent Locations ({locationHistory.length})
           </h2>
@@ -987,7 +981,7 @@ export default function DriverPortal() {
       {/* Deliveries Tab */}
       {activeTab === 'deliveries' && (
         <div className="space-y-6">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+          <div className="pp-card p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">My Deliveries</h2>
               <button
