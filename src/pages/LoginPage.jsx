@@ -197,6 +197,12 @@ export default function LoginPage() {
           )}
         </button>
       </form>
+
+      {/* Internal access note */}
+      <p className="mt-4 text-center text-[11px] text-gray-400 leading-relaxed">
+        🔒 This portal is for <span className="font-semibold text-gray-500">Electrolux internal use only</span>.<br />
+        Use credentials provided by your administrator.
+      </p>
     </>
   );
 
