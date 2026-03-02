@@ -443,9 +443,9 @@ export default function Header({ isAdmin = false }) {
 
     const pillStyle = (active) => ({
       display: 'inline-flex', alignItems: 'center', gap: '5px',
-      padding: '7px 16px',
+      padding: '7px 14px',
       borderRadius: '999px',
-      fontSize: '14px',
+      fontSize: '13px',
       fontWeight: active ? 600 : 500,
       color: active ? PRIMARY : MUTED,
       background: active
@@ -457,6 +457,7 @@ export default function Header({ isAdmin = false }) {
       cursor: 'pointer',
       transition: 'background 0.15s, color 0.15s, box-shadow 0.15s',
       whiteSpace: 'nowrap',
+      flexShrink: 0,
     });
 
     const iconBtn = {
@@ -470,35 +471,26 @@ export default function Header({ isAdmin = false }) {
 
     return (
       <>
-        {/* Header — same bg as page, NO border line */}
-        <header style={{
-          background: 'var(--bg)',
-          position: 'sticky', top: 0, zIndex: 40,
-          height: '68px',
-        }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', height: '100%',
-            padding: '0 28px', gap: '0',
-            maxWidth: '1600px', margin: '0 auto',
-          }}>
+        {/* Header — same bg as page, responsive for mobile/tablet */}
+        <header className="min-h-[56px] md:min-h-[68px] sticky top-0 z-40 shrink-0" style={{ background: 'var(--bg)' }}>
+          <div className="header-inner">
 
             {/* Logo */}
             <Link
               to="/admin"
-              style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', flexShrink: 0, marginRight: '20px' }}
+              className="flex items-center shrink-0 mr-3 md:mr-5"
+              style={{ textDecoration: 'none' }}
             >
               <img
                 src="/elect home.png"
                 alt="Electrolux"
-                style={{
-                  height: '34px', width: 'auto', objectFit: 'contain', display: 'block',
-                  filter: theme === 'dark' ? 'none' : 'brightness(0) saturate(100%)',
-                }}
+                className="h-8 w-auto md:h-[34px] object-contain block"
+                style={{ filter: theme === 'dark' ? 'none' : 'brightness(0) saturate(100%)' }}
               />
             </Link>
 
-            {/* Desktop pill nav */}
-            <nav className="hidden md:flex" style={{ alignItems: 'center', height: '100%', gap: '2px', flex: 1 }}>
+            {/* Pill nav — visible on all screens, horizontal scroll on mobile */}
+            <nav className="nav-scroll h-full">
               {ADMIN_NAV.map(item => {
                 if (item.dropdown) {
                   return (
@@ -642,45 +634,33 @@ export default function Header({ isAdmin = false }) {
 
   const pillStyle = (active) => ({
     display: 'inline-flex', alignItems: 'center', gap: '5px',
-    padding: '7px 16px', borderRadius: '999px', fontSize: '14px',
+    padding: '7px 14px', borderRadius: '999px', fontSize: '13px',
     fontWeight: active ? 600 : 500, color: active ? PRIMARY : MUTED,
     background: active ? (theme === 'dark' ? 'var(--surface2)' : '#ffffff') : 'transparent',
     boxShadow: active ? 'var(--shadow1)' : 'none',
     textDecoration: 'none', border: 'none', cursor: 'pointer',
     transition: 'background 0.15s, color 0.15s, box-shadow 0.15s', whiteSpace: 'nowrap',
+    flexShrink: 0,
   });
 
   return (
     <>
-      {/* Same header as admin: var(--bg), no border, 68px, logo + pill nav + right controls */}
-      <header style={{
-        background: 'var(--bg)',
-        position: 'sticky', top: 0, zIndex: 40,
-        height: '68px',
-      }}>
-        <div style={{
-          display: 'flex', alignItems: 'center', height: '100%',
-          padding: '0 28px', gap: '0',
-          maxWidth: '1600px', margin: '0 auto',
-        }}>
+      {/* Same header as admin — responsive for mobile/tablet */}
+      <header className="min-h-[56px] md:min-h-[68px] sticky top-0 z-40 shrink-0" style={{ background: 'var(--bg)' }}>
+        <div className="header-inner">
 
-          {/* Logo — same as admin */}
-          <Link
-            to={logoTo}
-            style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', flexShrink: 0, marginRight: '20px' }}
-          >
+          {/* Logo — same as admin, responsive size */}
+          <Link to={logoTo} className="flex items-center shrink-0 mr-3 md:mr-5" style={{ textDecoration: 'none' }}>
             <img
               src="/elect home.png"
               alt="Electrolux"
-              style={{
-                height: '34px', width: 'auto', objectFit: 'contain', display: 'block',
-                filter: theme === 'dark' ? 'none' : 'brightness(0) saturate(100%)',
-              }}
+              className="h-8 w-auto md:h-[34px] object-contain block"
+              style={{ filter: theme === 'dark' ? 'none' : 'brightness(0) saturate(100%)' }}
             />
           </Link>
 
-          {/* Pill nav: one item for Driver Portal or Delivery Team */}
-          <nav className="hidden md:flex" style={{ alignItems: 'center', height: '100%', gap: '2px', flex: 1 }}>
+          {/* Pill nav — visible on all screens, horizontal scroll on mobile */}
+          <nav className="nav-scroll h-full">
             {user?.role === 'delivery_team' ? (
               <>
                 <NavLink

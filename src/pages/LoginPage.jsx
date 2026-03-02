@@ -14,6 +14,26 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [passwordErrors, setPasswordErrors] = useState([]);
 
+  // Force light theme on the login page so it's always readable,
+  // independent from the in-app dark mode styling.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const html = document.documentElement;
+    const previousClasses = Array.from(html.classList);
+    const previousBg = html.style.backgroundColor;
+
+    html.classList.remove('dark');
+    if (!html.classList.contains('light')) {
+      html.classList.add('light');
+    }
+    html.style.backgroundColor = '#F5F6FA';
+
+    return () => {
+      html.className = previousClasses.join(' ');
+      html.style.backgroundColor = previousBg;
+    };
+  }, []);
+
   // Redirect if already authenticated (only after proper validation)
   useEffect(() => {
     if (isAuthenticated()) {
@@ -144,7 +164,7 @@ export default function LoginPage() {
 
   return (
     <div 
-      className="min-h-screen flex items-center justify-center px-4 py-8 light"
+      className="min-h-screen flex items-start sm:items-center justify-center px-4 py-4 sm:py-8 light"
       style={{
         backgroundImage: 'url(/elec%20login.png)',
         backgroundSize: 'cover',
@@ -153,22 +173,21 @@ export default function LoginPage() {
       }}
     >
       {/* Main Container */}
-      <div className="w-full max-w-6xl bg-white rounded-3xl border-4 border-white shadow-2xl overflow-hidden flex flex-col lg:flex-row">
-        {/* Left Section - Promotional */}
+      <div className="w-full max-w-6xl bg-white rounded-2xl sm:rounded-3xl border-2 sm:border-4 border-white shadow-2xl overflow-hidden flex flex-col lg:flex-row">
+        {/* Left Section - Promotional: shorter on mobile/tablet */}
         <div 
-          className="w-full lg:w-1/2 relative overflow-hidden p-4 lg:p-6 flex flex-col justify-between rounded-t-3xl lg:rounded-l-3xl lg:rounded-tr-none"
+          className="w-full lg:w-1/2 relative overflow-hidden p-4 lg:p-6 flex flex-col justify-between rounded-t-2xl sm:rounded-t-3xl lg:rounded-l-3xl lg:rounded-tr-none min-h-[200px] sm:min-h-[280px] lg:min-h-[600px]"
           style={{
             backgroundImage: 'url(/elec%20login.png)',
             backgroundSize: 'cover',
             backgroundPosition: 'top left',
             backgroundRepeat: 'no-repeat',
-            minHeight: '600px'
           }}
         >
         </div>
 
-        {/* Right Section - Login Form */}
-        <div className="w-full lg:w-1/2 bg-white p-8 lg:p-12 flex flex-col justify-center rounded-b-3xl lg:rounded-r-3xl lg:rounded-bl-none">
+        {/* Right Section - Login Form: responsive padding */}
+        <div className="w-full lg:w-1/2 bg-white p-5 sm:p-6 md:p-8 lg:p-12 flex flex-col justify-center rounded-b-2xl sm:rounded-b-3xl lg:rounded-r-3xl lg:rounded-bl-none">
           <div className="max-w-md mx-auto w-full">
             <h2 className="text-3xl lg:text-4xl font-bold text-black mb-2" style={{ color: '#000000' }}>WELCOME BACK!</h2>
             <p className="text-black text-sm mb-8" style={{ color: '#000000' }}>Welcome back! Please enter your details.</p>

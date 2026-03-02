@@ -747,7 +747,7 @@ export default function DriverPortal() {
   const hasRoute = !!route?.coordinates?.length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full min-w-0">
       {/* Header Section */}
       <div className="pp-card p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

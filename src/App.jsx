@@ -106,7 +106,7 @@ function ProtectedLayout() {
     <ProtectedRoute>
       <div style={{ minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)' }}>
         <Header isAdmin={isAdmin} />
-        <main style={{ maxWidth: '1520px', margin: '0 auto', padding: '24px 28px 40px' }}>
+        <main className="app-main">
           <Routes>
             <Route path="/deliveries" element={<DeliveryManagementPage />} />
             <Route path="/" element={<Navigate to={isAdmin ? '/admin' : '/deliveries'} replace />} />
