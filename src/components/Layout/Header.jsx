@@ -624,52 +624,168 @@ export default function Header({ isAdmin = false }) {
   }
 
 
-  /* ──────────────────── NON-ADMIN HEADER ──────────────────── */
-  const handleLogoClick = () => {
-    const role = user?.role;
-    if (role==='delivery_team') navigate('/delivery-team');
-    else if (role==='driver')   navigate('/driver');
-    else                        navigate('/deliveries');
+  /* ──────────────────── NON-ADMIN HEADER — same style as admin (var(--bg), pill nav, same right controls) ──────────────────── */
+  const MUTED   = theme === 'dark' ? '#9CA3C4' : '#6b7280';
+  const PRIMARY = theme === 'dark' ? '#E8EAF6' : '#1A1D3B';
+  const iconBtn = {
+    width: '34px', height: '34px', borderRadius: '8px', display: 'flex',
+    alignItems: 'center', justifyContent: 'center', background: 'transparent',
+    border: 'none', cursor: 'pointer', color: MUTED,
+    transition: 'background 0.15s, color 0.15s', flexShrink: 0,
   };
+  const onHover  = { background: theme === 'dark' ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)', color: PRIMARY };
+  const offHover = { background: 'transparent', color: MUTED };
+
+  const driverHome = '/driver';
+  const deliveryTeamHome = '/delivery-team';
+  const logoTo = user?.role === 'delivery_team' ? deliveryTeamHome : driverHome;
+
+  const pillStyle = (active) => ({
+    display: 'inline-flex', alignItems: 'center', gap: '5px',
+    padding: '7px 16px', borderRadius: '999px', fontSize: '14px',
+    fontWeight: active ? 600 : 500, color: active ? PRIMARY : MUTED,
+    background: active ? (theme === 'dark' ? 'var(--surface2)' : '#ffffff') : 'transparent',
+    boxShadow: active ? 'var(--shadow1)' : 'none',
+    textDecoration: 'none', border: 'none', cursor: 'pointer',
+    transition: 'background 0.15s, color 0.15s, box-shadow 0.15s', whiteSpace: 'nowrap',
+  });
 
   return (
     <>
-      <header style={{ background: 'linear-gradient(135deg, #0a3254, #114a76)', borderBottom: '1px solid rgba(255,255,255,0.1)', position: 'sticky', top: 0, zIndex: 40, boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', height: '60px', padding: '0 24px', maxWidth: '1400px', margin: '0 auto' }}>
-          <button onClick={handleLogoClick} style={{ display:'flex', alignItems:'center', background:'none', border:'none', cursor:'pointer' }}>
-            <img src="/elect home.png" alt="Electrolux" style={{ height: '44px', objectFit: 'contain' }} />
-          </button>
-          <div style={{ flex: 1 }} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span className="hidden sm:block" style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)' }}>
-              {new Date().toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}
-            </span>
-            <button onClick={() => setTheme(t=>t==='dark'?'light':'dark')} style={{ width:'36px', height:'36px', borderRadius:'8px', background:'rgba(255,255,255,0.1)', border:'none', cursor:'pointer', color:'white', display:'flex', alignItems:'center', justifyContent:'center' }}>
-              {theme==='dark' ? <Sun size={17} /> : <Moon size={17} />}
+      {/* Same header as admin: var(--bg), no border, 68px, logo + pill nav + right controls */}
+      <header style={{
+        background: 'var(--bg)',
+        position: 'sticky', top: 0, zIndex: 40,
+        height: '68px',
+      }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', height: '100%',
+          padding: '0 28px', gap: '0',
+          maxWidth: '1600px', margin: '0 auto',
+        }}>
+
+          {/* Logo — same as admin */}
+          <Link
+            to={logoTo}
+            style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', flexShrink: 0, marginRight: '20px' }}
+          >
+            <img
+              src="/elect home.png"
+              alt="Electrolux"
+              style={{
+                height: '34px', width: 'auto', objectFit: 'contain', display: 'block',
+                filter: theme === 'dark' ? 'none' : 'brightness(0) saturate(100%)',
+              }}
+            />
+          </Link>
+
+          {/* Pill nav: one item for Driver Portal or Delivery Team */}
+          <nav className="hidden md:flex" style={{ alignItems: 'center', height: '100%', gap: '2px', flex: 1 }}>
+            {user?.role === 'delivery_team' ? (
+              <>
+                <NavLink
+                  to="/delivery-team"
+                  end
+                  style={({ isActive }) => pillStyle(isActive)}
+                  onMouseEnter={e => { if (!location.pathname.startsWith('/delivery-team')) Object.assign(e.currentTarget.style, onHover); }}
+                  onMouseLeave={e => { if (!location.pathname.startsWith('/delivery-team')) Object.assign(e.currentTarget.style, offHover); }}
+                >
+                  Delivery Team
+                </NavLink>
+                <NavLink
+                  to="/deliveries"
+                  style={({ isActive }) => pillStyle(isActive)}
+                  onMouseEnter={e => { if (!location.pathname.startsWith('/deliveries')) Object.assign(e.currentTarget.style, onHover); }}
+                  onMouseLeave={e => { if (!location.pathname.startsWith('/deliveries')) Object.assign(e.currentTarget.style, offHover); }}
+                >
+                  Deliveries
+                </NavLink>
+              </>
+            ) : (
+              <>
+                <NavLink
+                  to="/driver"
+                  end
+                  style={({ isActive }) => pillStyle(isActive)}
+                  onMouseEnter={e => { if (!location.pathname.startsWith('/driver')) Object.assign(e.currentTarget.style, onHover); }}
+                  onMouseLeave={e => { if (!location.pathname.startsWith('/driver')) Object.assign(e.currentTarget.style, offHover); }}
+                >
+                  Driver Portal
+                </NavLink>
+                <NavLink
+                  to="/deliveries"
+                  style={({ isActive }) => pillStyle(isActive)}
+                  onMouseEnter={e => { if (!location.pathname.startsWith('/deliveries')) Object.assign(e.currentTarget.style, onHover); }}
+                  onMouseLeave={e => { if (!location.pathname.startsWith('/deliveries')) Object.assign(e.currentTarget.style, offHover); }}
+                >
+                  Deliveries
+                </NavLink>
+              </>
+            )}
+          </nav>
+
+          {/* Right controls — same as admin */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
+            <button
+              onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+              style={iconBtn}
+              title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+              onMouseEnter={e => Object.assign(e.currentTarget.style, onHover)}
+              onMouseLeave={e => Object.assign(e.currentTarget.style, offHover)}
+            >
+              {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
             </button>
-            <div style={{ position:'relative' }} ref={notifRef}>
-              <button onClick={() => setShowNotifications(v=>!v)} style={{ width:'36px', height:'36px', borderRadius:'8px', background:'rgba(255,255,255,0.1)', border:'none', cursor:'pointer', color:'white', display:'flex', alignItems:'center', justifyContent:'center', position:'relative' }}>
+            <div style={{ position: 'relative' }} ref={notifRef}>
+              <button
+                onClick={() => setShowNotifications(v => !v)}
+                style={{ ...iconBtn, position: 'relative' }}
+                onMouseEnter={e => Object.assign(e.currentTarget.style, onHover)}
+                onMouseLeave={e => Object.assign(e.currentTarget.style, offHover)}
+              >
                 <Bell size={17} />
-                {unreadCount>0 && <span style={{ position:'absolute', top:'4px', right:'4px', minWidth:'14px', height:'14px', background:'#ef4444', borderRadius:'7px', fontSize:'9px', fontWeight:700, color:'white', display:'flex', alignItems:'center', justifyContent:'center' }}>{unreadCount>9?'9+':unreadCount}</span>}
+                {unreadCount > 0 && (
+                  <span style={{
+                    position: 'absolute', top: '4px', right: '4px',
+                    minWidth: '15px', height: '15px', background: '#ef4444', borderRadius: '8px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '9px', fontWeight: 700, color: 'white', padding: '0 2px',
+                  }}>
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
               </button>
               <NotifPanel />
             </div>
             {loggedIn && user ? (
-              <div style={{ position:'relative' }} ref={dropdownRef}>
-                <button onClick={() => setShowDropdown(v=>!v)} style={{ display:'flex', alignItems:'center', gap:'8px', padding:'6px 10px', borderRadius:'10px', background:'rgba(255,255,255,0.1)', border:'none', cursor:'pointer' }}>
-                  <div style={{ width:'32px', height:'32px', borderRadius:'50%', background:'rgba(255,255,255,0.2)', border:'2px solid rgba(255,255,255,0.3)', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', color:'white', fontWeight:700, fontSize:'12px' }}>
-                    {avatarSrc() ? <img src={avatarSrc()} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : getInitials()}
+              <div style={{ position: 'relative', marginLeft: '6px' }} ref={dropdownRef}>
+                <button
+                  onClick={() => setShowDropdown(v => !v)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '9px',
+                    padding: '5px 12px 5px 5px', borderRadius: '999px',
+                    background: theme === 'dark' ? 'var(--surface2)' : '#ffffff',
+                    border: '1px solid var(--border)', boxShadow: 'var(--shadow1)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div style={{
+                    width: '30px', height: '30px', borderRadius: '50%',
+                    background: 'var(--primary)', overflow: 'hidden', flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: 'white', fontWeight: 700, fontSize: '12px',
+                  }}>
+                    {avatarSrc() ? <img src={avatarSrc()} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : getInitials()}
                   </div>
-                  <div className="hidden md:block" style={{ textAlign:'left' }}>
-                    <p style={{ fontSize:'13px', fontWeight:600, color:'white', lineHeight:1 }}>{displayName()}</p>
-                    <p style={{ fontSize:'10px', color:'rgba(255,255,255,0.7)', marginTop:'2px', textTransform:'capitalize' }}>{userRole()}</p>
+                  <div className="hidden sm:block" style={{ textAlign: 'left', lineHeight: 1 }}>
+                    <p style={{ fontSize: '13px', fontWeight: 600, color: PRIMARY }}>{displayName()}</p>
+                    <p style={{ fontSize: '11px', color: MUTED, marginTop: '3px', textTransform: 'capitalize' }}>{userRole()}</p>
                   </div>
-                  <ChevronDown size={13} style={{ color:'rgba(255,255,255,0.7)' }} />
+                  <ChevronDown size={13} style={{ color: MUTED, transform: showDropdown ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
                 </button>
                 <UserPanel />
               </div>
             ) : (
-              <Link to="/login" style={{ padding:'8px 16px', background:'white', color:'#0a3254', borderRadius:'8px', fontWeight:600, fontSize:'13px', textDecoration:'none' }}>Sign In</Link>
+              <Link to="/login" className="pp-btn-primary" style={{ textDecoration: 'none' }}>Sign In</Link>
             )}
           </div>
         </div>
