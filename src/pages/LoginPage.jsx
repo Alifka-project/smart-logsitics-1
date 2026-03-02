@@ -333,9 +333,9 @@ export default function LoginPage() {
       }}
     >
       <div className="w-full flex flex-col items-center lg:justify-center relative">
-        {/* Mobile-first card layout: floating curved sheet near bottom (reference style) */}
-        <div className="w-full max-w-sm mx-auto lg:hidden mt-auto mb-6">
-          <div className="bg-white rounded-[32px] shadow-2xl px-6 pt-6 pb-7">
+        {/* Mobile-first card layout: floating wide, curved sheet (reference style) */}
+        <div className="w-full max-w-md mx-auto lg:hidden mt-[18vh] mb-10 px-1.5">
+          <div className="bg-white rounded-[36px] shadow-[0_18px_45px_rgba(15,23,42,0.35)] px-6 pt-7 pb-8">
             {loginForm}
           </div>
         </div>
