@@ -211,8 +211,8 @@ export default function LoginPage() {
           className="absolute inset-x-0 top-0 h-[50%]"
           style={{
             backgroundImage: 'url(/elec%20login.png)',
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
+            backgroundSize: '100% auto',
+            backgroundPosition: 'center top',
             backgroundRepeat: 'no-repeat',
           }}
         >
