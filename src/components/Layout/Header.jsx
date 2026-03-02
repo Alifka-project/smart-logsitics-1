@@ -376,7 +376,7 @@ export default function Header({ isAdmin = false }) {
 
   /* ──────────────────── Shared dropdown panels ──────────────────── */
   const NotifPanel = () => !showNotifications ? null : (
-    <div style={{ position:'absolute', right:0, top:'calc(100% + 8px)', width:'360px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', boxShadow:'var(--shadow3)', overflow:'hidden', zIndex:100 }}>
+    <div style={{ position:'absolute', right:0, top:'calc(100% + 8px)', width:'360px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', boxShadow:'var(--shadow3)', overflow:'hidden', zIndex:9999 }}>
       <div style={{ padding:'14px 16px', background:'var(--surface2)', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <span style={{ fontWeight:700, fontSize:'14px', color:'var(--text)' }}>Notifications</span>
         {unreadCount>0 && <span style={{ fontSize:'11px', fontWeight:600, padding:'2px 8px', borderRadius:'20px', background:'var(--primary-glow)', color:'var(--primary)' }}>{unreadCount} unread</span>}
@@ -407,7 +407,7 @@ export default function Header({ isAdmin = false }) {
   );
 
   const UserPanel = () => !showDropdown ? null : (
-    <div style={{ position:'absolute', right:0, top:'calc(100% + 8px)', width:'240px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', boxShadow:'var(--shadow3)', overflow:'hidden', zIndex:100 }}>
+    <div style={{ position:'absolute', right:0, top:'calc(100% + 8px)', width:'240px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', boxShadow:'var(--shadow3)', overflow:'hidden', zIndex:9999 }}>
       <div style={{ padding:'16px', background:'var(--surface2)', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:'12px' }}>
         <div style={{ width:'44px', height:'44px', borderRadius:'50%', background:'var(--primary)', display:'flex', alignItems:'center', justifyContent:'center', color:'white', fontWeight:700, fontSize:'14px', overflow:'hidden', flexShrink:0 }}>
           {avatarSrc() ? <img src={avatarSrc()} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : getInitials()}
@@ -472,7 +472,7 @@ export default function Header({ isAdmin = false }) {
   return (
     <>
         {/* Header — same bg as page, responsive for mobile/tablet */}
-        <header className="min-h-[64px] md:min-h-[76px] sticky top-0 z-40 shrink-0" style={{ background: 'var(--bg)', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+        <header className="min-h-[64px] md:min-h-[76px] sticky top-0 z-[900] shrink-0" style={{ background: 'var(--bg)', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
           <div className="header-inner">
 
             {/* Logo */}
@@ -509,7 +509,7 @@ export default function Header({ isAdmin = false }) {
                           position: 'absolute', top: 'calc(100% + 8px)', left: 0,
                           background: 'var(--surface)', border: '1px solid var(--border)',
                           borderRadius: '14px', padding: '6px', minWidth: '200px',
-                          boxShadow: 'var(--shadow3)', zIndex: 100,
+                          boxShadow: 'var(--shadow3)', zIndex: 9999,
                         }}>
                           {item.dropdown.map(d => (
                             <NavLink key={d.path} to={d.path} onClick={() => setTrackingOpen(false)}
@@ -646,7 +646,7 @@ export default function Header({ isAdmin = false }) {
   return (
     <>
       {/* Same header as admin — responsive for mobile/tablet */}
-      <header className="min-h-[64px] md:min-h-[76px] sticky top-0 z-40 shrink-0" style={{ background: 'var(--bg)', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+      <header className="min-h-[64px] md:min-h-[76px] sticky top-0 z-[900] shrink-0" style={{ background: 'var(--bg)', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <div className="header-inner">
 
           {/* Logo — same as admin, responsive size */}

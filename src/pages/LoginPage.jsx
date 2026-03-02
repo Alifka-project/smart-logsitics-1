@@ -220,7 +220,7 @@ export default function LoginPage() {
         </div>
 
         {/* Form half */}
-        <div className="flex-[0_0_50%] min-h-0 flex flex-col bg-white rounded-t-[30px] -mt-4 relative z-10 shadow-[0_-8px_32px_rgba(15,23,42,0.12)] overflow-y-auto">
+        <div className="flex-1 min-h-0 flex flex-col bg-white rounded-t-[30px] -mt-4 relative z-10 shadow-[0_-8px_32px_rgba(15,23,42,0.12)] overflow-y-auto">
           <div className="flex-1 px-5 pt-6 pb-8">
             <h2 className="text-2xl font-bold text-black mb-1">Welcome back</h2>
             <p className="text-sm text-gray-500 mb-5">Sign in to access your deliveries.</p>
