@@ -22,6 +22,11 @@ router.get('/alerts', authenticate, requireRole('admin'), async (req, res) => {
 
     res.json({ ok: true, count: notifications.length, notifications });
   } catch (error) {
+    // P2021 = table does not exist (migration not yet applied) — return empty gracefully
+    if (error.code === 'P2021' || error.message?.includes('does not exist') || error.message?.includes('relation')) {
+      console.warn('[Notifications/Alerts] Table not found — migration pending. Returning empty.');
+      return res.json({ ok: true, count: 0, notifications: [] });
+    }
     console.error('[Notifications/Alerts] Error:', error);
     res.status(500).json({ error: 'fetch_failed', detail: error.message });
   }
@@ -37,6 +42,9 @@ router.get('/alerts/count', authenticate, requireRole('admin'), async (req, res)
     const count = await prisma.adminNotification.count({ where: { isRead: false } });
     res.json({ ok: true, count });
   } catch (error) {
+    if (error.code === 'P2021' || error.message?.includes('does not exist') || error.message?.includes('relation')) {
+      return res.json({ ok: true, count: 0 });
+    }
     console.error('[Notifications/AlertsCount] Error:', error);
     res.status(500).json({ error: 'fetch_failed', detail: error.message });
   }
@@ -59,6 +67,9 @@ router.put('/alerts/:id/read', authenticate, requireRole('admin'), async (req, r
 
     res.json({ ok: true });
   } catch (error) {
+    if (error.code === 'P2021' || error.message?.includes('does not exist') || error.message?.includes('relation')) {
+      return res.json({ ok: true });
+    }
     console.error('[Notifications/MarkRead] Error:', error);
     res.status(500).json({ error: 'update_failed', detail: error.message });
   }
@@ -77,6 +88,9 @@ router.post('/alerts/mark-all-read', authenticate, requireRole('admin'), async (
     });
     res.json({ ok: true, updated: result.count });
   } catch (error) {
+    if (error.code === 'P2021' || error.message?.includes('does not exist') || error.message?.includes('relation')) {
+      return res.json({ ok: true, updated: 0 });
+    }
     console.error('[Notifications/MarkAllRead] Error:', error);
     res.status(500).json({ error: 'update_failed', detail: error.message });
   }

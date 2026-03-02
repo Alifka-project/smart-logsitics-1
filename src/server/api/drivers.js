@@ -415,50 +415,57 @@ router.post('/:id/activate-gps', authenticate, async (req, res) => {
   }
 });
 
-// GET /api/admin/sessions - Get active sessions for online user detection
-router.get('/sessions', authenticate, async (req, res) => {
+// GET /api/admin/drivers/sessions - Get active sessions for online user detection
+// Note: global authenticate middleware in api/index.js already runs before this route
+router.get('/sessions', async (req, res) => {
   // Allow both admin and delivery_team roles
   const userRole = req.user?.account?.role || req.user?.role;
   if (userRole !== 'admin' && userRole !== 'delivery_team') {
     return res.status(403).json({ error: 'Forbidden - Admin or Delivery Team access required' });
   }
-  
+
   try {
     let activeSessions = [];
-    
-    // Try to load from sessionStore if it exists
+
+    // In serverless (Vercel), the in-memory sessionStore is always fresh per cold start.
+    // Try it first; if empty or unavailable fall back to a DB-based lastLogin query.
     try {
       const sessionStore = require('../sessionStore');
       if (sessionStore && typeof sessionStore.getAllActiveSessions === 'function') {
         activeSessions = sessionStore.getAllActiveSessions();
       }
-    } catch (storeErr) {
-      // sessionStore doesn't exist or failed, use time-based fallback
-      console.debug('sessionStore not available, using time-based detection');
-      
-      // Fallback: Get all users with recent activity (logged in within last 2 minutes)
-      const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
-      const recentUsers = await prisma.driver.findMany({
-        where: {
-          account: {
-            lastLogin: { gte: twoMinutesAgo }
-          }
-        },
-        include: { account: true }
-      });
-      
-      activeSessions = recentUsers.map(user => ({
-        userId: user.id,
-        username: user.account?.username || user.fullName,
-        lastSeen: user.account?.lastLogin,
-        role: user.account?.role
-      }));
+    } catch (_storeErr) {
+      // sessionStore unavailable — silent, fall through to DB fallback below
     }
-    
-    res.json({ sessions: activeSessions });
+
+    // DB fallback: users who logged in within the last 5 minutes
+    if (activeSessions.length === 0) {
+      try {
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+        const recentUsers = await prisma.driver.findMany({
+          where: { account: { lastLogin: { gte: fiveMinutesAgo } } },
+          select: {
+            id: true,
+            fullName: true,
+            account: { select: { username: true, lastLogin: true, role: true } },
+          },
+        });
+        activeSessions = recentUsers.map(u => ({
+          userId: u.id,
+          username: u.account?.username || u.fullName,
+          lastSeen: u.account?.lastLogin,
+          role: u.account?.role,
+        }));
+      } catch (dbErr) {
+        console.warn('GET /api/admin/drivers/sessions DB fallback error:', dbErr.message);
+        // Return empty — frontend has its own fallback
+      }
+    }
+
+    return res.json({ sessions: activeSessions });
   } catch (err) {
-    console.error('GET /api/admin/sessions error:', err);
-    res.json({ sessions: [] }); // Return empty on error, frontend will use fallback
+    console.error('GET /api/admin/drivers/sessions error:', err);
+    return res.json({ sessions: [] });
   }
 });
 

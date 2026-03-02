@@ -105,6 +105,51 @@ app.use('/customer', require('../src/server/api/customerPortal'));
 // Migration endpoint (ONE TIME USE - remove after migration)
 app.use('/migrate', require('../src/server/api/migrate'));
 
+// Safe schema patch — adds any missing tables/columns without dropping data
+// Call POST /api/apply-pending-migrations once after deploy, then it's a no-op
+app.post('/apply-pending-migrations', async (req, res) => {
+  try {
+    const prisma = require('../src/server/db/prisma');
+    const results = [];
+
+    // 1. admin_notifications table
+    try {
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "admin_notifications" (
+          "id"         BIGSERIAL       NOT NULL,
+          "type"       VARCHAR(64)     NOT NULL,
+          "title"      VARCHAR(255)    NOT NULL,
+          "message"    TEXT            NOT NULL,
+          "payload"    JSONB,
+          "is_read"    BOOLEAN         NOT NULL DEFAULT false,
+          "created_at" TIMESTAMPTZ(6)  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT "admin_notifications_pkey" PRIMARY KEY ("id")
+        );
+      `);
+      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "idx_admin_notif_unread" ON "admin_notifications"("is_read", "created_at" DESC);`);
+      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "idx_admin_notif_created" ON "admin_notifications"("created_at" DESC);`);
+      results.push({ migration: 'add_admin_notifications', status: 'ok' });
+    } catch (e) {
+      results.push({ migration: 'add_admin_notifications', status: 'error', detail: e.message });
+    }
+
+    // 2. poNumber column on deliveries
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "deliveries" ADD COLUMN IF NOT EXISTS "poNumber" varchar(100);`);
+      await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "idx_delivery_po_number" ON "deliveries"("poNumber");`);
+      results.push({ migration: 'add_po_number_column', status: 'ok' });
+    } catch (e) {
+      results.push({ migration: 'add_po_number_column', status: 'error', detail: e.message });
+    }
+
+    const allOk = results.every(r => r.status === 'ok');
+    return res.status(allOk ? 200 : 207).json({ ok: allOk, results });
+  } catch (err) {
+    console.error('[apply-pending-migrations] Fatal error:', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 app.post('/sms/confirm', async (req, res) => {
   const smsRouter = require('../src/server/api/sms');
   return smsRouter.confirm(req, res);
