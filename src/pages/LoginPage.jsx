@@ -34,6 +34,166 @@ export default function LoginPage() {
     };
   }, []);
 
+  const loginForm = (
+    <div className="max-w-md mx-auto w-full">
+      <h2 className="text-3xl lg:text-4xl font-bold text-black mb-2" style={{ color: '#000000' }}>
+        WELCOME BACK!
+      </h2>
+      <p className="text-black text-sm mb-6" style={{ color: '#000000' }}>
+        Welcome back! Please enter your details.
+      </p>
+
+      {error && (
+        <div className="bg-red-50 border-l-4 border-red-500 text-red-800 text-sm p-4 rounded mb-4">
+          <div className="font-semibold mb-1">Error</div>
+          <div>{error}</div>
+        </div>
+      )}
+
+      {passwordErrors.length > 0 && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-500 text-yellow-800 text-sm p-4 rounded mb-4">
+          <div className="font-semibold mb-2">Password Requirements:</div>
+          <ul className="list-disc list-inside space-y-1 text-xs">
+            {passwordErrors.map((err, idx) => (
+              <li key={idx}>{err.replace(/_/g, ' ')}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <form onSubmit={submit} className="space-y-5">
+        {/* Username Field */}
+        <div>
+          <label className="block text-sm font-medium text-black mb-2" style={{ color: '#000000' }}>
+            Username
+          </label>
+          <input
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            className="w-full px-4 py-3 border border-gray-300 rounded-full transition-all outline-none bg-white"
+            style={{
+              '--focus-color': '#011E41',
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = '#011E41';
+              e.target.style.boxShadow = '0 0 0 2px rgba(1, 30, 65, 0.2)';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = '#d1d5db';
+              e.target.style.boxShadow = 'none';
+            }}
+            placeholder="Enter your username"
+            required
+            autoComplete="username"
+            disabled={loading}
+          />
+        </div>
+
+        {/* Password Field */}
+        <div>
+          <label className="block text-sm font-medium text-black mb-2" style={{ color: '#000000' }}>
+            Password
+          </label>
+          <div className="relative">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-full transition-all outline-none bg-white"
+              style={{
+                '--focus-color': '#011E41',
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = '#011E41';
+                e.target.style.boxShadow = '0 0 0 2px rgba(1, 30, 65, 0.2)';
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = '#d1d5db';
+                e.target.style.boxShadow = 'none';
+              }}
+              placeholder="Enter your password"
+              required
+              autoComplete="current-password"
+              disabled={loading}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+              tabIndex={-1}
+            >
+              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Remember me */}
+        <div className="flex items-center justify-between text-sm">
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="rounded border-gray-300 focus:ring-2 focus:ring-offset-0"
+              style={{
+                accentColor: '#011E41',
+              }}
+            />
+            <span className="ml-2 text-black" style={{ color: '#000000' }}>
+              Remember me
+            </span>
+          </label>
+          <Link
+            to="/forgot-password"
+            className="text-black hover:underline"
+            style={{ color: '#000000' }}
+          >
+            Forgot password?
+          </Link>
+        </div>
+
+        {/* Sign in Button */}
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full text-white font-semibold py-3 px-4 rounded-full transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed shadow-md"
+          style={{ backgroundColor: '#011E41' }}
+          onMouseEnter={(e) => !loading && (e.target.style.backgroundColor = '#001529')}
+          onMouseLeave={(e) => !loading && (e.target.style.backgroundColor = '#011E41')}
+        >
+          {loading ? (
+            <span className="flex items-center justify-center">
+              <svg
+                className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+              Signing in...
+            </span>
+          ) : (
+            'Sign in'
+          )}
+        </button>
+      </form>
+    </div>
+  );
+
   // Redirect if already authenticated (only after proper validation)
   useEffect(() => {
     if (isAuthenticated()) {
@@ -163,169 +323,40 @@ export default function LoginPage() {
   }
 
   return (
-    <div 
-      className="min-h-screen flex items-start sm:items-center justify-center px-4 py-4 sm:py-8 light"
+    <div
+      className="min-h-screen flex justify-center px-4 py-4 sm:py-8 light"
       style={{
         backgroundImage: 'url(/elec%20login.png)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat'
+        backgroundRepeat: 'no-repeat',
       }}
     >
-      {/* Main Container */}
-      <div className="w-full max-w-6xl bg-white rounded-2xl sm:rounded-3xl border-2 sm:border-4 border-white shadow-2xl overflow-hidden flex flex-col lg:flex-row">
-        {/* Left Section - Promotional: shorter on mobile/tablet */}
-        <div 
-          className="w-full lg:w-1/2 relative overflow-hidden p-4 lg:p-6 flex flex-col justify-between rounded-t-2xl sm:rounded-t-3xl lg:rounded-l-3xl lg:rounded-tr-none min-h-[200px] sm:min-h-[280px] lg:min-h-[600px]"
-          style={{
-            backgroundImage: 'url(/elec%20login.png)',
-            backgroundSize: 'cover',
-            backgroundPosition: 'top left',
-            backgroundRepeat: 'no-repeat',
-          }}
-        >
+      <div className="w-full flex flex-col items-center lg:justify-center relative">
+        {/* Mobile-first card layout: floating curved sheet near bottom (reference style) */}
+        <div className="w-full max-w-sm mx-auto lg:hidden mt-auto mb-6">
+          <div className="bg-white rounded-[32px] shadow-2xl px-6 pt-6 pb-7">
+            {loginForm}
+          </div>
         </div>
 
-        {/* Right Section - Login Form: responsive padding */}
-        <div className="w-full lg:w-1/2 bg-white p-5 sm:p-6 md:p-8 lg:p-12 flex flex-col justify-center rounded-b-2xl sm:rounded-b-3xl lg:rounded-r-3xl lg:rounded-bl-none">
-          <div className="max-w-md mx-auto w-full">
-            <h2 className="text-3xl lg:text-4xl font-bold text-black mb-2" style={{ color: '#000000' }}>WELCOME BACK!</h2>
-            <p className="text-black text-sm mb-8" style={{ color: '#000000' }}>Welcome back! Please enter your details.</p>
-          
-          {error && (
-            <div className="bg-red-50 border-l-4 border-red-500 text-red-800 text-sm p-4 rounded mb-6">
-              <div className="font-semibold mb-1">Error</div>
-              <div>{error}</div>
-            </div>
-          )}
-          
-          {passwordErrors.length > 0 && (
-            <div className="bg-yellow-50 border-l-4 border-yellow-500 text-yellow-800 text-sm p-4 rounded mb-6">
-              <div className="font-semibold mb-2">Password Requirements:</div>
-              <ul className="list-disc list-inside space-y-1 text-xs">
-                {passwordErrors.map((err, idx) => (
-                  <li key={idx}>{err.replace(/_/g, ' ')}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          
-            <form onSubmit={submit} className="space-y-6">
-              {/* Username Field */}
-            <div>
-                <label className="block text-sm font-medium text-black mb-2" style={{ color: '#000000' }}>
-                  Username
-                </label>
-              <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg transition-all outline-none bg-white"
-                  style={{
-                    '--focus-color': '#011E41'
-                  }}
-                  onFocus={(e) => {
-                    e.target.style.borderColor = '#011E41';
-                    e.target.style.boxShadow = '0 0 0 2px rgba(1, 30, 65, 0.2)';
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = '#d1d5db';
-                    e.target.style.boxShadow = 'none';
-                  }}
-                  placeholder="Enter your username"
-                  required
-                  autoComplete="username"
-                  disabled={loading}
-                />
-            </div>
-            
-              {/* Password Field */}
-            <div>
-                <label className="block text-sm font-medium text-black mb-2" style={{ color: '#000000' }}>
-                Password
-              </label>
-                <div className="relative">
-              <input
-                    type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg transition-all outline-none bg-white"
-                style={{
-                  '--focus-color': '#011E41'
-                }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = '#011E41';
-                  e.target.style.boxShadow = '0 0 0 2px rgba(1, 30, 65, 0.2)';
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = '#d1d5db';
-                  e.target.style.boxShadow = 'none';
-                }}
-                placeholder="Enter your password"
-                required
-                autoComplete="current-password"
-                disabled={loading}
-              />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
-                    tabIndex={-1}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="w-5 h-5" />
-                    ) : (
-                      <Eye className="w-5 h-5" />
-                    )}
-                  </button>
-                </div>
-            </div>
-            
-              {/* Remember me */}
-            <div className="flex items-center justify-between text-sm">
-              <label className="flex items-center">
-                  <input 
-                    type="checkbox" 
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="rounded border-gray-300 focus:ring-2 focus:ring-offset-0"
-                    style={{
-                      accentColor: '#011E41'
-                    }}
-                  />
-                  <span className="ml-2 text-black" style={{ color: '#000000' }}>Remember me</span>
-              </label>
-              <Link 
-                to="/forgot-password"
-                className="text-black hover:underline"
-                style={{ color: '#000000' }}
-              >
-                Forgot password?
-              </Link>
-            </div>
-            
-              {/* Sign in Button */}
-            <button
-              type="submit"
-              disabled={loading}
-                className="w-full text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
-                style={{ backgroundColor: '#011E41' }}
-                onMouseEnter={(e) => !loading && (e.target.style.backgroundColor = '#001529')}
-                onMouseLeave={(e) => !loading && (e.target.style.backgroundColor = '#011E41')}
-            >
-              {loading ? (
-                <span className="flex items-center justify-center">
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Signing in...
-                </span>
-              ) : (
-                  'Sign in'
-              )}
-            </button>
-          </form>
+        {/* Desktop / tablet layout: keep existing two-column hero + form */}
+        <div className="hidden lg:flex w-full max-w-6xl bg-white rounded-3xl border-4 border-white shadow-2xl overflow-hidden">
+          {/* Left Section - Promotional */}
+          <div
+            className="w-1/2 relative overflow-hidden p-6 flex flex-col justify-between"
+            style={{
+              backgroundImage: 'url(/elec%20login.png)',
+              backgroundSize: 'cover',
+              backgroundPosition: 'top left',
+              backgroundRepeat: 'no-repeat',
+              minHeight: '520px',
+            }}
+          />
+
+          {/* Right Section - Login Form */}
+          <div className="w-1/2 bg-white p-10 flex flex-col justify-center">
+            {loginForm}
           </div>
         </div>
       </div>
