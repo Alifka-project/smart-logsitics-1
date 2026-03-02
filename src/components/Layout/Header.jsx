@@ -472,7 +472,7 @@ export default function Header({ isAdmin = false }) {
   return (
     <>
         {/* Header — same bg as page, responsive for mobile/tablet */}
-        <header className="min-h-[56px] md:min-h-[68px] sticky top-0 z-40 shrink-0" style={{ background: 'var(--bg)', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+        <header className="min-h-[64px] md:min-h-[76px] sticky top-0 z-40 shrink-0" style={{ background: 'var(--bg)', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
           <div className="header-inner">
 
             {/* Logo */}
@@ -646,7 +646,7 @@ export default function Header({ isAdmin = false }) {
   return (
     <>
       {/* Same header as admin — responsive for mobile/tablet */}
-      <header className="min-h-[56px] md:min-h-[68px] sticky top-0 z-40 shrink-0" style={{ background: 'var(--bg)', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+      <header className="min-h-[64px] md:min-h-[76px] sticky top-0 z-40 shrink-0" style={{ background: 'var(--bg)', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <div className="header-inner">
 
           {/* Logo — same as admin, responsive size */}

@@ -104,7 +104,7 @@ function ProtectedLayout() {
 
   return (
     <ProtectedRoute>
-      <div style={{ minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)' }}>
+      <div style={{ minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)', paddingTop: '14px' }}>
         <Header isAdmin={isAdmin} />
         <main className="app-main">
           <Routes>
