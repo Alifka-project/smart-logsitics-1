@@ -702,22 +702,31 @@ export default function Header({ isAdmin = false }) {
         <MobileDrawer>
           {ADMIN_NAV.map(item => {
             if (item.dropdown) {
-              return item.dropdown.map(d => (
-                <NavLink
-                  key={d.path}
-                  to={d.path}
-                  onClick={() => setMobileNavOpen(false)}
-                  style={({ isActive }) => ({
-                    display: 'flex', alignItems: 'center', padding: '11px 14px',
-                    borderRadius: '10px', fontSize: '14px', fontWeight: isActive ? 600 : 400,
-                    color: isActive ? 'var(--primary)' : 'var(--text2)',
-                    background: isActive ? 'var(--primary-glow)' : 'transparent',
-                    textDecoration: 'none', marginBottom: '2px',
-                  })}
-                >
-                  {d.label}
-                </NavLink>
-              ));
+              // Wrap in Fragment with key so React handles the nested list correctly
+              return (
+                <React.Fragment key={item.label}>
+                  {/* Section label for the group */}
+                  <p style={{ padding: '8px 14px 4px', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)', opacity: 0.7 }}>
+                    {item.label}
+                  </p>
+                  {item.dropdown.map(d => (
+                    <NavLink
+                      key={d.path}
+                      to={d.path}
+                      onClick={() => setMobileNavOpen(false)}
+                      style={({ isActive }) => ({
+                        display: 'flex', alignItems: 'center', padding: '10px 14px 10px 22px',
+                        borderRadius: '10px', fontSize: '14px', fontWeight: isActive ? 600 : 400,
+                        color: isActive ? 'var(--primary)' : 'var(--text2)',
+                        background: isActive ? 'var(--primary-glow)' : 'transparent',
+                        textDecoration: 'none', marginBottom: '2px',
+                      })}
+                    >
+                      {d.label}
+                    </NavLink>
+                  ))}
+                </React.Fragment>
+              );
             }
             return (
               <NavLink

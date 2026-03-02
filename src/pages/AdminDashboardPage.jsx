@@ -1,13 +1,37 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import api, { setAuthToken } from '../frontend/apiClient';
-import { BarChart, Bar, ComposedChart, Cell, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, Line } from 'recharts';
+import { BarChart, Bar, ComposedChart, Cell, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, Line, PieChart, Pie } from 'recharts';
 import { 
   Package, CheckCircle, XCircle, Clock, MapPin, Users, Activity, 
-  Truck, AlertCircle, FileText, Target,
+  Truck, AlertCircle, FileText, Target, TrendingUp,
   ChevronUp, ChevronDown, RefreshCw, Download
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import DeliveryDetailModal from '../components/DeliveryDetailModal';
+import { MapContainer, TileLayer, CircleMarker, Tooltip as MapTooltip, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+
+/* Dubai area → approximate centre [lat, lng] */
+const DUBAI_AREA_COORDS = {
+  'Marina':      [25.0800, 55.1350],
+  'JLT':         [25.0693, 55.1477],
+  'JVC':         [25.0590, 55.2101],
+  'Downtown':    [25.1972, 55.2744],
+  'Jumeirah':    [25.2048, 55.2381],
+  'Al Barsha':   [25.1137, 55.2004],
+  'Deira':       [25.2695, 55.3266],
+  'Bur Dubai':   [25.2582, 55.2988],
+  'Mirdif':      [25.2218, 55.4159],
+  'Silicon':     [25.1275, 55.3842],
+  'Sports':      [25.0438, 55.1888],
+  'Discovery':   [25.0498, 55.1380],
+  'Business Bay':[25.1863, 55.2664],
+  'DIFC':        [25.2123, 55.2797],
+  'Sharjah':     [25.3573, 55.4033],
+  'Abu Dhabi':   [24.4539, 54.3773],
+  'Ajman':       [25.4052, 55.5136],
+  'Other':       [25.2048, 55.2708],
+};
 
 function ensureAuth() {
   const token = localStorage.getItem('auth_token');
@@ -420,11 +444,13 @@ export default function AdminDashboardPage() {
   );
 
   const tabs = [
-    { id: 'overview',   label: 'Overview',                                icon: Activity  },
-    { id: 'deliveries', label: `Deliveries (${filteredDeliveries.length})`, icon: Package   },
-    { id: 'by-area',    label: 'By Area',                                  icon: MapPin    },
-    { id: 'by-product', label: 'By Product',                               icon: FileText  },
-    { id: 'drivers',    label: 'Drivers',                                  icon: Users     },
+    { id: 'overview',   label: 'Overview',                                  icon: Activity    },
+    { id: 'deliveries', label: `Deliveries (${filteredDeliveries.length})`, icon: Package     },
+    { id: 'trends',     label: 'Trends',                                    icon: TrendingUp  },
+    { id: 'customers',  label: 'Top Customers',                             icon: Users       },
+    { id: 'by-area',    label: 'By Area',                                   icon: MapPin      },
+    { id: 'by-product', label: 'By Product',                                icon: FileText    },
+    { id: 'drivers',    label: 'Drivers',                                   icon: Users       },
   ];
 
   // ─── RENDER ───
@@ -629,6 +655,189 @@ export default function AdminDashboardPage() {
             )}
           </div>
         </div>
+        </div>
+      )}
+
+      {/* ══════════════ TRENDS TAB ══════════════ */}
+      {activeTab === 'trends' && (
+        <div className="space-y-6">
+
+          {/* Monthly chart */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-6">
+            <div className="mb-4">
+              <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Delivery Requests — Monthly</h2>
+              <p className="pp-page-subtitle">Number of deliveries created per month (last 12 months)</p>
+            </div>
+            {(data?.analytics?.deliveryByMonth || []).length > 0 ? (
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={data.analytics.deliveryByMonth} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+                  <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '12px' }} />
+                  <Bar dataKey="count" name="Deliveries" radius={[4, 4, 0, 0]}>
+                    {(data.analytics.deliveryByMonth || []).map((_, i, arr) => (
+                      <Cell key={i} fill={i === arr.length - 1 ? '#1d4ed8' : '#93c5fd'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">No monthly data available</p>
+            )}
+          </div>
+
+          {/* Weekly chart */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-6">
+            <div className="mb-4">
+              <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Top Quantity Deliveries — Last 7 Days</h2>
+              <p className="pp-page-subtitle">Daily delivery volume for the current week</p>
+            </div>
+            {(data?.analytics?.deliveryByWeek || []).length > 0 ? (
+              <ResponsiveContainer width="100%" height={240}>
+                <ComposedChart data={data.analytics.deliveryByWeek} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                  <XAxis dataKey="day" tick={{ fontSize: 12, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+                  <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '12px' }} />
+                  <Bar dataKey="count" name="Deliveries" fill="#2563EB" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                  <Line type="monotone" dataKey="count" stroke="#f97316" strokeWidth={2} dot={{ r: 4, fill: '#f97316' }} name="Trend" legendType="none" />
+                </ComposedChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">No weekly data available</p>
+            )}
+          </div>
+
+          {/* Summary stats strip */}
+          {(data?.analytics?.deliveryByMonth || []).length > 0 && (() => {
+            const months = data.analytics.deliveryByMonth;
+            const total = months.reduce((s, m) => s + (m.count || 0), 0);
+            const avg = months.length > 0 ? (total / months.length).toFixed(1) : 0;
+            const peak = months.reduce((best, m) => m.count > best.count ? m : best, months[0]);
+            const current = months[months.length - 1];
+            return (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { label: 'Total (12 mo)', value: total, color: 'text-blue-600 dark:text-blue-400' },
+                  { label: 'Monthly Avg', value: avg, color: 'text-indigo-600 dark:text-indigo-400' },
+                  { label: 'Peak Month', value: `${peak?.label} (${peak?.count})`, color: 'text-emerald-600 dark:text-emerald-400' },
+                  { label: 'This Month', value: current?.count ?? 0, color: 'text-orange-600 dark:text-orange-400' },
+                ].map(({ label, value, color }) => (
+                  <div key={label} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-4">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium tracking-wide mb-1">{label}</p>
+                    <p className={`text-xl font-bold ${color}`}>{value}</p>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* ══════════════ TOP CUSTOMERS TAB ══════════════ */}
+      {activeTab === 'customers' && (
+        <div className="space-y-4">
+
+          {/* Filter bar */}
+          <div className="flex flex-wrap gap-2 items-center">
+            <input
+              type="text"
+              placeholder="Search customer name or area..."
+              value={topCustomersSearch}
+              onChange={e => setTopCustomersSearch(e.target.value)}
+              className="flex-1 min-w-[200px] px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+            <select value={topCustomersAreaFilter} onChange={e => setTopCustomersAreaFilter(e.target.value)}
+              className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+              <option value="all">All Areas</option>
+              {topCustomersAreas.map(a => <option key={a} value={a}>{a}</option>)}
+            </select>
+            <select value={topCustomersSortBy} onChange={e => setTopCustomersSortBy(e.target.value)}
+              className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+              <option value="orders">Sort: Total Orders</option>
+              <option value="delivered">Sort: Delivered</option>
+              <option value="successRate">Sort: Success Rate</option>
+              <option value="customer">Sort: Name</option>
+            </select>
+            <button onClick={() => setTopCustomersSortDir(d => d === 'asc' ? 'desc' : 'asc')}
+              className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+              {topCustomersSortDir === 'asc' ? '↑ Asc' : '↓ Desc'}
+            </button>
+            <button onClick={() => exportCSV(topCustomersData, ['customer', 'orders', 'delivered', 'pending', 'cancelled', 'successRate', 'primaryArea', 'totalQuantity'], 'top-customers')}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors">
+              <Download className="w-3.5 h-3.5" /> Export
+            </button>
+          </div>
+
+          {/* Chart — top customers by order count */}
+          {topCustomersData.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-6">
+              <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Top 10 Customers by Orders</h2>
+              <ResponsiveContainer width="100%" height={Math.max(220, topCustomersData.length * 42)}>
+                <BarChart
+                  data={topCustomersData.map(r => ({ name: r.customer, orders: r.orders, delivered: r.delivered }))}
+                  layout="vertical"
+                  margin={{ left: 10, right: 60, top: 5, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+                  <YAxis type="category" dataKey="name" width={160} tick={{ fontSize: 12, fill: '#374151' }} tickLine={false} axisLine={false} />
+                  <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '12px' }} />
+                  <Legend wrapperStyle={{ fontSize: '12px' }} />
+                  <Bar dataKey="orders" name="Total Orders" fill="#93c5fd" radius={[0, 3, 3, 0]} maxBarSize={18} />
+                  <Bar dataKey="delivered" name="Delivered" fill="#2563EB" radius={[0, 3, 3, 0]} maxBarSize={18} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* Table */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+            <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-700">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Customer Detail — Top {topCustomersData.length}</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <thead className="bg-gray-50 dark:bg-gray-700/50">
+                  <tr>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-left w-10">#</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-left">Customer</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">Orders</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">Delivered</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">Pending</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">Cancelled</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">Success %</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-left">Primary Area</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">Total Qty</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                  {topCustomersData.length > 0 ? topCustomersData.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                      <td className="px-4 py-3 text-sm text-gray-400 dark:text-gray-500">{idx + 1}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{row.customer || '—'}</td>
+                      <td className="px-4 py-3 text-sm text-right font-bold text-blue-600 dark:text-blue-400">{row.orders ?? 0}</td>
+                      <td className="px-4 py-3 text-sm text-right text-green-600 dark:text-green-400 font-semibold">{row.delivered ?? 0}</td>
+                      <td className="px-4 py-3 text-sm text-right text-yellow-600 dark:text-yellow-400">{row.pending ?? 0}</td>
+                      <td className="px-4 py-3 text-sm text-right text-red-500 dark:text-red-400">{row.cancelled ?? 0}</td>
+                      <td className="px-4 py-3 text-sm text-right">
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${(row.successRate ?? 0) >= 80 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : (row.successRate ?? 0) >= 50 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                          {(row.successRate ?? 0).toFixed(1)}%
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                        {row.primaryArea ? <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-gray-400" />{row.primaryArea}</span> : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-400">{row.totalQuantity ?? '—'}</td>
+                    </tr>
+                  )) : (
+                    <tr><td colSpan={9} className="px-6 py-10 text-center text-gray-400 dark:text-gray-500 text-sm">No customer data available</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
@@ -840,6 +1049,65 @@ export default function AdminDashboardPage() {
               <p className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">No area data available</p>
             )}
           </div>
+
+          {/* Dubai area map */}
+          {deliveryByAreaData.length > 0 && (() => {
+            const maxCount = Math.max(...deliveryByAreaData.map(r => r.count || 0), 1);
+            const mapPoints = deliveryByAreaData
+              .map(r => {
+                // Match area name to known coordinates (case-insensitive partial match)
+                const key = Object.keys(DUBAI_AREA_COORDS).find(k =>
+                  r.area?.toLowerCase().includes(k.toLowerCase()) ||
+                  k.toLowerCase().includes((r.area || '').toLowerCase())
+                ) || 'Other';
+                return { ...r, coords: DUBAI_AREA_COORDS[key] || DUBAI_AREA_COORDS['Other'] };
+              })
+              .filter(r => r.coords);
+            return (
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-6 mt-4">
+                <div className="mb-3">
+                  <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Delivery Hotspot Map — Dubai</h2>
+                  <p className="pp-page-subtitle">Circle size = delivery volume for that area</p>
+                </div>
+                <div style={{ height: '420px', borderRadius: '12px', overflow: 'hidden' }}>
+                  <MapContainer center={[25.2, 55.27]} zoom={11} style={{ height: '100%', width: '100%' }} scrollWheelZoom={false}>
+                    <TileLayer
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                    />
+                    {mapPoints.map((r, i) => {
+                      const radius = 8 + (r.count / maxCount) * 32;
+                      const fillColor = r.count === maxCount ? '#1d4ed8' : r.count / maxCount > 0.5 ? '#2563EB' : '#60a5fa';
+                      return (
+                        <CircleMarker
+                          key={r.area || i}
+                          center={r.coords}
+                          radius={radius}
+                          pathOptions={{ fillColor, color: '#fff', weight: 1.5, fillOpacity: 0.8 }}
+                        >
+                          <MapTooltip permanent={false} direction="top" offset={[0, -radius]}>
+                            <span style={{ fontWeight: 600 }}>{r.area}</span>
+                            <br />
+                            <span>{r.count} deliveries</span>
+                          </MapTooltip>
+                          <Popup>
+                            <strong>{r.area}</strong><br />
+                            {r.count} deliveries ({((r.count / deliveryByAreaData.reduce((s, x) => s + (x.count || 0), 0)) * 100).toFixed(1)}% of total)
+                          </Popup>
+                        </CircleMarker>
+                      );
+                    })}
+                  </MapContainer>
+                </div>
+                <div className="flex flex-wrap gap-3 mt-3 text-xs text-gray-500 dark:text-gray-400">
+                  <span className="flex items-center gap-1.5"><span style={{ width: 10, height: 10, borderRadius: '50%', background: '#1d4ed8', display: 'inline-block' }} /> Highest volume</span>
+                  <span className="flex items-center gap-1.5"><span style={{ width: 10, height: 10, borderRadius: '50%', background: '#2563EB', display: 'inline-block' }} /> Medium volume</span>
+                  <span className="flex items-center gap-1.5"><span style={{ width: 10, height: 10, borderRadius: '50%', background: '#60a5fa', display: 'inline-block' }} /> Lower volume</span>
+                  <span className="ml-auto italic">Click a circle for details • Scroll or pinch to zoom</span>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Area table */}
           {deliveryByAreaData.length > 0 && (
