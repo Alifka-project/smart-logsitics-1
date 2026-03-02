@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import { isAuthenticated, getCurrentUser, clearAuth } from '../../frontend/auth';
 import {
-  LogOut, User, Settings, ChevronDown, Bell, Sun, Moon, X, Camera, Save
+  LogOut, User, Settings, ChevronDown, Bell, Sun, Moon, X, Camera, Save, Menu
 } from 'lucide-react';
 import api from '../../frontend/apiClient';
 import { useToast } from '../../hooks/useToast';
@@ -115,6 +115,9 @@ export default function Header({ isAdmin = false }) {
     document.addEventListener('mousedown', onOutside);
     return () => document.removeEventListener('mousedown', onOutside);
   }, []);
+
+  /* Close mobile nav drawer on route change */
+  useEffect(() => { setMobileNavOpen(false); }, [location.pathname]);
 
   /* Notification polling */
   useEffect(() => {
@@ -435,6 +438,82 @@ export default function Header({ isAdmin = false }) {
   );
 
 
+  /* ──────────────────── Mobile side drawer ──────────────────── */
+  function MobileDrawer({ children }) {
+    if (!mobileNavOpen) return null;
+    const drawerBg = { background: 'var(--bg)', boxShadow: '4px 0 40px rgba(0,0,0,0.35)' };
+    const closeBtn = {
+      width: '34px', height: '34px', borderRadius: '8px', display: 'flex',
+      alignItems: 'center', justifyContent: 'center', background: 'transparent',
+      border: 'none', cursor: 'pointer', color: theme === 'dark' ? '#9CA3C4' : '#6b7280',
+      flexShrink: 0,
+    };
+    return (
+      <>
+        {/* Backdrop */}
+        <div
+          className="fixed inset-0 md:hidden"
+          style={{ background: 'rgba(0,0,0,0.55)', zIndex: 9997 }}
+          onClick={() => setMobileNavOpen(false)}
+        />
+        {/* Panel */}
+        <div
+          className="fixed top-0 left-0 h-full md:hidden flex flex-col animate-slide-in-left"
+          style={{ width: 'min(78vw, 290px)', zIndex: 9998, ...drawerBg }}
+        >
+          {/* Drawer header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+            <img
+              src="/elect home.png"
+              alt="Electrolux"
+              style={{ height: '26px', objectFit: 'contain', filter: theme === 'dark' ? 'none' : 'brightness(0) saturate(100%)' }}
+            />
+            <button onClick={() => setMobileNavOpen(false)} style={closeBtn}>
+              <X size={20} />
+            </button>
+          </div>
+
+          {/* Nav links */}
+          <nav style={{ flex: 1, overflowY: 'auto', padding: '10px' }}>
+            {children}
+          </nav>
+
+          {/* User info + sign out */}
+          <div style={{ padding: '14px 16px', borderTop: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+              <div style={{
+                width: '38px', height: '38px', borderRadius: '50%',
+                background: 'var(--primary)', overflow: 'hidden', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: 'white', fontWeight: 700, fontSize: '13px',
+              }}>
+                {avatarSrc()
+                  ? <img src={avatarSrc()} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : getInitials()}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName()}</p>
+                <p style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'capitalize', marginTop: '2px' }}>{userRole()}</p>
+              </div>
+            </div>
+            <button
+              onClick={() => { setMobileNavOpen(false); setShowProfileModal(true); }}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 12px', borderRadius: '8px', background: 'var(--surface2)', border: 'none', cursor: 'pointer', color: 'var(--text2)', fontSize: '13px', fontWeight: 500, marginBottom: '6px' }}
+            >
+              <User size={15} /> Edit Profile
+            </button>
+            <button
+              onClick={() => { setMobileNavOpen(false); handleLogout(); }}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 12px', borderRadius: '8px', background: 'rgba(239,68,68,0.1)', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '13px', fontWeight: 500 }}
+            >
+              <LogOut size={15} /> Sign Out
+            </button>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   /* ──────────────────── ADMIN TOP NAV  (PolicyPilot pill style) ──────────────────── */
   if (isAdmin) {
     /* Pill nav — active item gets a raised surface, NO underline border */
@@ -475,6 +554,16 @@ export default function Header({ isAdmin = false }) {
         <header className="min-h-[64px] md:min-h-[76px] sticky top-0 z-[900] shrink-0" style={{ background: 'var(--bg)', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
           <div className="header-inner">
 
+            {/* Hamburger — mobile only */}
+            <button
+              className="flex md:hidden items-center justify-center shrink-0 mr-2"
+              onClick={() => setMobileNavOpen(v => !v)}
+              style={{ width: '34px', height: '34px', borderRadius: '8px', background: 'transparent', border: 'none', cursor: 'pointer', color: MUTED }}
+              aria-label="Open menu"
+            >
+              <Menu size={20} />
+            </button>
+
             {/* Logo */}
             <Link
               to="/admin"
@@ -489,8 +578,8 @@ export default function Header({ isAdmin = false }) {
               />
             </Link>
 
-            {/* Pill nav — visible on all screens, horizontal scroll on mobile */}
-            <nav className="nav-scroll h-full">
+            {/* Pill nav — hidden on mobile, visible on md+ */}
+            <nav className="nav-scroll h-full hidden md:flex">
               {ADMIN_NAV.map(item => {
                 if (item.dropdown) {
                   return (
@@ -609,6 +698,47 @@ export default function Header({ isAdmin = false }) {
                                   </div>
         </header>
 
+        {/* Mobile side drawer — admin */}
+        <MobileDrawer>
+          {ADMIN_NAV.map(item => {
+            if (item.dropdown) {
+              return item.dropdown.map(d => (
+                <NavLink
+                  key={d.path}
+                  to={d.path}
+                  onClick={() => setMobileNavOpen(false)}
+                  style={({ isActive }) => ({
+                    display: 'flex', alignItems: 'center', padding: '11px 14px',
+                    borderRadius: '10px', fontSize: '14px', fontWeight: isActive ? 600 : 400,
+                    color: isActive ? 'var(--primary)' : 'var(--text2)',
+                    background: isActive ? 'var(--primary-glow)' : 'transparent',
+                    textDecoration: 'none', marginBottom: '2px',
+                  })}
+                >
+                  {d.label}
+                </NavLink>
+              ));
+            }
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                end={item.exact}
+                onClick={() => setMobileNavOpen(false)}
+                style={({ isActive }) => ({
+                  display: 'flex', alignItems: 'center', padding: '11px 14px',
+                  borderRadius: '10px', fontSize: '14px', fontWeight: isActive ? 600 : 400,
+                  color: isActive ? 'var(--primary)' : 'var(--text2)',
+                  background: isActive ? 'var(--primary-glow)' : 'transparent',
+                  textDecoration: 'none', marginBottom: '2px',
+                })}
+              >
+                {item.label}
+              </NavLink>
+            );
+          })}
+        </MobileDrawer>
+
         <ToastContainer toasts={toasts} onRemove={removeToast} />
         <ProfileModal />
       </>
@@ -649,6 +779,16 @@ export default function Header({ isAdmin = false }) {
       <header className="min-h-[64px] md:min-h-[76px] sticky top-0 z-[900] shrink-0" style={{ background: 'var(--bg)', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <div className="header-inner">
 
+          {/* Hamburger — mobile only */}
+          <button
+            className="flex md:hidden items-center justify-center shrink-0 mr-2"
+            onClick={() => setMobileNavOpen(v => !v)}
+            style={{ width: '34px', height: '34px', borderRadius: '8px', background: 'transparent', border: 'none', cursor: 'pointer', color: MUTED }}
+            aria-label="Open menu"
+          >
+            <Menu size={20} />
+          </button>
+
           {/* Logo — same as admin, responsive size */}
           <Link to={logoTo} className="flex items-center shrink-0 mr-3 md:mr-5" style={{ textDecoration: 'none' }}>
             <img
@@ -659,8 +799,8 @@ export default function Header({ isAdmin = false }) {
             />
           </Link>
 
-          {/* Pill nav — visible on all screens, horizontal scroll on mobile */}
-          <nav className="nav-scroll h-full">
+          {/* Pill nav — hidden on mobile, visible on md+ */}
+          <nav className="nav-scroll h-full hidden md:flex">
             {user?.role === 'delivery_team' ? (
               <>
                 <NavLink
@@ -770,6 +910,72 @@ export default function Header({ isAdmin = false }) {
         </div>
       </div>
     </header>
+
+      {/* Mobile side drawer — non-admin */}
+      <MobileDrawer>
+        {user?.role === 'delivery_team' ? (
+          <>
+            <NavLink
+              to="/delivery-team"
+              end
+              onClick={() => setMobileNavOpen(false)}
+              style={({ isActive }) => ({
+                display: 'flex', alignItems: 'center', padding: '11px 14px',
+                borderRadius: '10px', fontSize: '14px', fontWeight: isActive ? 600 : 400,
+                color: isActive ? 'var(--primary)' : 'var(--text2)',
+                background: isActive ? 'var(--primary-glow)' : 'transparent',
+                textDecoration: 'none', marginBottom: '2px',
+              })}
+            >
+              Delivery Team
+            </NavLink>
+            <NavLink
+              to="/deliveries"
+              onClick={() => setMobileNavOpen(false)}
+              style={({ isActive }) => ({
+                display: 'flex', alignItems: 'center', padding: '11px 14px',
+                borderRadius: '10px', fontSize: '14px', fontWeight: isActive ? 600 : 400,
+                color: isActive ? 'var(--primary)' : 'var(--text2)',
+                background: isActive ? 'var(--primary-glow)' : 'transparent',
+                textDecoration: 'none', marginBottom: '2px',
+              })}
+            >
+              Deliveries
+            </NavLink>
+          </>
+        ) : (
+          <>
+            <NavLink
+              to="/driver"
+              end
+              onClick={() => setMobileNavOpen(false)}
+              style={({ isActive }) => ({
+                display: 'flex', alignItems: 'center', padding: '11px 14px',
+                borderRadius: '10px', fontSize: '14px', fontWeight: isActive ? 600 : 400,
+                color: isActive ? 'var(--primary)' : 'var(--text2)',
+                background: isActive ? 'var(--primary-glow)' : 'transparent',
+                textDecoration: 'none', marginBottom: '2px',
+              })}
+            >
+              Driver Portal
+            </NavLink>
+            <NavLink
+              to="/deliveries"
+              onClick={() => setMobileNavOpen(false)}
+              style={({ isActive }) => ({
+                display: 'flex', alignItems: 'center', padding: '11px 14px',
+                borderRadius: '10px', fontSize: '14px', fontWeight: isActive ? 600 : 400,
+                color: isActive ? 'var(--primary)' : 'var(--text2)',
+                background: isActive ? 'var(--primary-glow)' : 'transparent',
+                textDecoration: 'none', marginBottom: '2px',
+              })}
+            >
+              Deliveries
+            </NavLink>
+          </>
+        )}
+      </MobileDrawer>
+
     <ToastContainer toasts={toasts} onRemove={removeToast} />
       <ProfileModal />
     </>
