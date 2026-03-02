@@ -60,7 +60,7 @@ export default function Header({ isAdmin = false }) {
   });
   const [passwordError,   setPasswordError]   = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState(false);
-
+  
   const dropdownRef     = useRef(null);
   const notifRef        = useRef(null);
   const trackingRef     = useRef(null);
@@ -166,7 +166,7 @@ export default function Header({ isAdmin = false }) {
       const cu       = getCurrentUser();
       const userRole = cu?.account?.role || cu?.role || 'driver';
       let unreadCount = 0, deliveryNotifs = [], msgNotifs = [];
-
+      
       if (userRole === 'driver') {
         try {
           const r = await api.get('/messages/driver/notifications/count');
@@ -288,11 +288,11 @@ export default function Header({ isAdmin = false }) {
   };
 
   const compressImage = (dataUrl, maxSize=400, quality=0.8) => new Promise(res => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      let { width, height } = img;
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let { width, height } = img;
       if (width>maxSize||height>maxSize) {
         if (width>height) { height=Math.round(height*maxSize/width); width=maxSize; }
         else              { width=Math.round(width*maxSize/height);  height=maxSize; }
@@ -302,18 +302,18 @@ export default function Header({ isAdmin = false }) {
       try { res(canvas.toDataURL('image/jpeg', quality)); } catch { res(dataUrl); }
     };
     img.onerror = () => res(dataUrl);
-    img.src = dataUrl;
-  });
+      img.src = dataUrl;
+    });
 
   const handlePicChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = async () => {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
       const compressed = await compressImage(reader.result);
       setProfileData(p => ({ ...p, profilePicture: file, profilePicturePreview: compressed }));
-    };
-    reader.readAsDataURL(file);
+      };
+      reader.readAsDataURL(file);
   };
 
   const handleSaveProfile = async () => {
@@ -469,8 +469,8 @@ export default function Header({ isAdmin = false }) {
     const onHover  = { background: theme === 'dark' ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)', color: PRIMARY };
     const offHover = { background: 'transparent', color: MUTED };
 
-    return (
-      <>
+  return (
+    <>
         {/* Header — same bg as page, responsive for mobile/tablet */}
         <header className="min-h-[56px] md:min-h-[68px] sticky top-0 z-40 shrink-0" style={{ background: 'var(--bg)' }}>
           <div className="header-inner">
@@ -480,9 +480,9 @@ export default function Header({ isAdmin = false }) {
               to="/admin"
               className="flex items-center shrink-0 mr-3 md:mr-5"
               style={{ textDecoration: 'none' }}
-            >
-              <img
-                src="/elect home.png"
+          >
+            <img 
+              src="/elect home.png" 
                 alt="Electrolux"
                 className="h-8 w-auto md:h-[34px] object-contain block"
                 style={{ filter: theme === 'dark' ? 'none' : 'brightness(0) saturate(100%)' }}
@@ -526,9 +526,9 @@ export default function Header({ isAdmin = false }) {
                               {d.label}
                             </NavLink>
                           ))}
-                        </div>
+              </div>
                       )}
-                    </div>
+            </div>
                   );
                 }
                 return (
@@ -554,7 +554,7 @@ export default function Header({ isAdmin = false }) {
                 onMouseLeave={e => Object.assign(e.currentTarget.style, offHover)}
               >
                 {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
-              </button>
+                </button>
 
               {/* Bell */}
               <div style={{ position: 'relative' }} ref={notifRef}>
@@ -563,7 +563,7 @@ export default function Header({ isAdmin = false }) {
                   onMouseLeave={e => Object.assign(e.currentTarget.style, offHover)}
                 >
                   <Bell size={17} />
-                  {unreadCount > 0 && (
+                    {unreadCount > 0 && (
                     <span style={{
                       position: 'absolute', top: '4px', right: '4px',
                       minWidth: '15px', height: '15px',
@@ -571,10 +571,10 @@ export default function Header({ isAdmin = false }) {
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontSize: '9px', fontWeight: 700, color: 'white', padding: '0 2px',
                     }}>
-                      {unreadCount > 9 ? '9+' : unreadCount}
-                    </span>
-                  )}
-                </button>
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </button>
                 <NotifPanel />
               </div>
 
@@ -596,17 +596,17 @@ export default function Header({ isAdmin = false }) {
                     color: 'white', fontWeight: 700, fontSize: '12px',
                   }}>
                     {avatarSrc() ? <img src={avatarSrc()} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : getInitials()}
-                  </div>
+                      </div>
                   <div className="hidden sm:block" style={{ textAlign: 'left', lineHeight: 1 }}>
                     <p style={{ fontSize: '13px', fontWeight: 600, color: PRIMARY }}>{displayName()}</p>
                     <p style={{ fontSize: '11px', color: MUTED, marginTop: '3px', textTransform: 'capitalize' }}>{userRole()}</p>
-                  </div>
+                          </div>
                   <ChevronDown size={13} style={{ color: MUTED, transform: showDropdown ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
                 </button>
                 <UserPanel />
-              </div>
-            </div>
-          </div>
+                                  </div>
+                                  </div>
+                                  </div>
         </header>
 
         <ToastContainer toasts={toasts} onRemove={removeToast} />
@@ -706,7 +706,7 @@ export default function Header({ isAdmin = false }) {
 
           {/* Right controls — same as admin */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
-            <button
+                        <button
               onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
               style={iconBtn}
               title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
@@ -714,9 +714,9 @@ export default function Header({ isAdmin = false }) {
               onMouseLeave={e => Object.assign(e.currentTarget.style, offHover)}
             >
               {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
-            </button>
+                        </button>
             <div style={{ position: 'relative' }} ref={notifRef}>
-              <button
+                        <button
                 onClick={() => setShowNotifications(v => !v)}
                 style={{ ...iconBtn, position: 'relative' }}
                 onMouseEnter={e => Object.assign(e.currentTarget.style, onHover)}
@@ -733,9 +733,9 @@ export default function Header({ isAdmin = false }) {
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
-              </button>
+                        </button>
               <NotifPanel />
-            </div>
+                      </div>
             {loggedIn && user ? (
               <div style={{ position: 'relative', marginLeft: '6px' }} ref={dropdownRef}>
                 <button
@@ -755,7 +755,7 @@ export default function Header({ isAdmin = false }) {
                     color: 'white', fontWeight: 700, fontSize: '12px',
                   }}>
                     {avatarSrc() ? <img src={avatarSrc()} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : getInitials()}
-                  </div>
+                    </div>
                   <div className="hidden sm:block" style={{ textAlign: 'left', lineHeight: 1 }}>
                     <p style={{ fontSize: '13px', fontWeight: 600, color: PRIMARY }}>{displayName()}</p>
                     <p style={{ fontSize: '11px', color: MUTED, marginTop: '3px', textTransform: 'capitalize' }}>{userRole()}</p>
@@ -763,14 +763,14 @@ export default function Header({ isAdmin = false }) {
                   <ChevronDown size={13} style={{ color: MUTED, transform: showDropdown ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
                 </button>
                 <UserPanel />
-              </div>
-            ) : (
+                </div>
+              ) : (
               <Link to="/login" className="pp-btn-primary" style={{ textDecoration: 'none' }}>Sign In</Link>
             )}
-          </div>
         </div>
-      </header>
-      <ToastContainer toasts={toasts} onRemove={removeToast} />
+      </div>
+    </header>
+    <ToastContainer toasts={toasts} onRemove={removeToast} />
       <ProfileModal />
     </>
   );
@@ -786,22 +786,22 @@ export default function Header({ isAdmin = false }) {
             <h2 style={{ fontSize:'18px', fontWeight:700, color:'var(--text-primary)' }}>Edit Profile</h2>
             <button onClick={() => setShowProfileModal(false)} style={{ background:'transparent', border:'none', cursor:'pointer', color:'var(--text-muted)', padding:'4px' }}>
               <X size={20} />
-            </button>
-          </div>
+              </button>
+            </div>
           <div style={{ padding:'24px', display:'flex', flexDirection:'column', gap:'20px' }}>
             {/* Avatar */}
             <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'8px' }}>
               <div style={{ position:'relative' }}>
                 <div style={{ width:'80px', height:'80px', borderRadius:'50%', background:'var(--accent)', display:'flex', alignItems:'center', justifyContent:'center', color:'white', fontWeight:700, fontSize:'24px', overflow:'hidden', border:'3px solid var(--bg-hover)' }}>
                   {avatarSrc() ? <img src={avatarSrc()} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : getInitials()}
-                </div>
+                  </div>
                 <label style={{ position:'absolute', bottom:0, right:0, width:'26px', height:'26px', background:'var(--accent)', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
                   <Camera size={13} color="white" />
                   <input type="file" accept="image/*" onChange={handlePicChange} style={{ display:'none' }} />
-                </label>
-              </div>
+                  </label>
+                </div>
               <p style={{ fontSize:'12px', color:'var(--text-muted)' }}>Click camera to change photo</p>
-            </div>
+              </div>
             {/* Fields */}
             {[['Full Name','text',profileData.fullName,'fullName'],['Email','email',profileData.email,'email'],['Phone','tel',profileData.phone,'phone']].map(([label,type,val,key]) => (
               <div key={key}>
@@ -810,26 +810,26 @@ export default function Header({ isAdmin = false }) {
                   style={{ width:'100%', padding:'10px 12px', background:'var(--bg-surface)', border:'1px solid var(--border)', borderRadius:'10px', fontSize:'14px', color:'var(--text-primary)', outline:'none' }}
                   onFocus={e=>e.target.style.borderColor='var(--accent)'}
                   onBlur={e=>e.target.style.borderColor='var(--border)'}
-                />
-              </div>
+                  />
+                </div>
             ))}
-            <div>
+                <div>
               <label style={{ display:'block', fontSize:'12px', fontWeight:600, color:'var(--text-secondary)', marginBottom:'6px' }}>Role</label>
               <input value={userRole()} disabled style={{ width:'100%', padding:'10px 12px', background:'var(--bg-hover)', border:'1px solid var(--border)', borderRadius:'10px', fontSize:'14px', color:'var(--text-muted)' }} />
-            </div>
+                </div>
             {/* Change password */}
             <div style={{ borderTop:'1px solid var(--border)', paddingTop:'16px' }}>
               <button onClick={() => setShowChangePassword(v=>!v)} style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 12px', background:'var(--bg-hover)', border:'1px solid var(--border)', borderRadius:'10px', cursor:'pointer', color:'var(--text-primary)', fontSize:'14px', fontWeight:500 }}>
                 <span>Change Password</span> <Settings size={15} style={{ color:'var(--text-muted)' }} />
-              </button>
-              {showChangePassword && (
+                  </button>
+                {showChangePassword && (
                 <div style={{ marginTop:'12px', display:'flex', flexDirection:'column', gap:'12px' }}>
-                  {passwordSuccess ? (
+                    {passwordSuccess ? (
                     <div style={{ padding:'12px', background:'rgba(34,197,94,0.1)', border:'1px solid rgba(34,197,94,0.3)', borderRadius:'10px' }}>
                       <p style={{ color:'#22c55e', fontSize:'13px', fontWeight:600 }}>✓ Password changed! Redirecting to login…</p>
-                    </div>
-                  ) : (
-                    <>
+                      </div>
+                    ) : (
+                      <>
                       {passwordError && <div style={{ padding:'10px 12px', background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:'10px' }}><p style={{ color:'#ef4444', fontSize:'13px' }}>{passwordError}</p></div>}
                       {[['Current Password','currentPassword'],['New Password','newPassword'],['Confirm New Password','confirmPassword']].map(([lbl,key]) => (
                         <div key={key}>
@@ -842,25 +842,25 @@ export default function Header({ isAdmin = false }) {
                         </div>
                       ))}
                       <button onClick={handleChangePassword} style={{ padding:'11px', background:'#d97706', color:'white', border:'none', borderRadius:'10px', cursor:'pointer', fontSize:'14px', fontWeight:600 }}>
-                        Update Password
-                      </button>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
+                          Update Password
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
             {/* Action buttons */}
             <div style={{ display:'flex', gap:'10px', paddingTop:'4px' }}>
               <button onClick={() => setShowProfileModal(false)} style={{ flex:1, padding:'11px', background:'transparent', border:'1px solid var(--border)', borderRadius:'10px', cursor:'pointer', color:'var(--text-secondary)', fontSize:'14px', fontWeight:500 }}>
-                Cancel
-              </button>
+                  Cancel
+                </button>
               <button onClick={handleSaveProfile} style={{ flex:1, padding:'11px', background:'var(--accent)', color:'white', border:'none', borderRadius:'10px', cursor:'pointer', fontSize:'14px', fontWeight:600, display:'flex', alignItems:'center', justifyContent:'center', gap:'6px' }}>
                 <Save size={14} /> Save Changes
-              </button>
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    );
+  );
   }
 }

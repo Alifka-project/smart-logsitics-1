@@ -4,6 +4,51 @@ import api, { setAuthToken } from '../frontend/apiClient';
 import { setAuthData, isAuthenticated } from '../frontend/auth';
 import { Eye, EyeOff } from 'lucide-react';
 
+function SegmentedTabs({ active, onChange }) {
+  return (
+    <div className="mt-4 mb-6">
+      <div className="inline-flex w-full max-w-xs mx-auto rounded-full border border-gray-200 bg-white p-1 shadow-sm">
+        {['login', 'signup'].map((key) => {
+          const isActive = active === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onChange(key)}
+              className={
+                'flex-1 px-3 py-2 text-sm font-semibold rounded-full transition-colors ' +
+                (isActive
+                  ? 'bg-[#2563EB] text-white'
+                  : 'bg-transparent text-gray-700 hover:bg-gray-50')
+              }
+            >
+              {key === 'login' ? 'Login' : 'Sign up'}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function SocialButton({ label, icon, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-full border border-gray-200 bg-white text-sm font-medium text-gray-800 hover:bg-gray-50 active:bg-gray-100 transition-colors shadow-sm"
+    >
+      <span className="flex items-center gap-3">
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-700">
+          {icon}
+        </span>
+        <span>{label}</span>
+      </span>
+      <span className="text-gray-300 text-xs">›</span>
+    </button>
+  );
+}
+
 export default function LoginPage() {
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
@@ -13,6 +58,7 @@ export default function LoginPage() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [passwordErrors, setPasswordErrors] = useState([]);
+  const [authMode, setAuthMode] = useState('login'); // 'login' | 'signup'
 
   // Force light theme on the login page so it's always readable,
   // independent from the in-app dark mode styling.
@@ -35,162 +81,164 @@ export default function LoginPage() {
   }, []);
 
   const loginForm = (
-    <div className="max-w-md mx-auto w-full">
-      <h2 className="text-3xl lg:text-4xl font-bold text-black mb-2" style={{ color: '#000000' }}>
-        WELCOME BACK!
-      </h2>
-      <p className="text-black text-sm mb-6" style={{ color: '#000000' }}>
-        Welcome back! Please enter your details.
+    <div className="w-full max-w-md mx-auto">
+      {/* Title */}
+      <h1 className="text-[28px] leading-tight font-bold text-center text-black mb-1">
+        Welcome back
+      </h1>
+      <p className="text-sm text-gray-600 text-center mb-4">
+        Sign in to access your deliveries.
       </p>
 
-      {error && (
-        <div className="bg-red-50 border-l-4 border-red-500 text-red-800 text-sm p-4 rounded mb-4">
-          <div className="font-semibold mb-1">Error</div>
-          <div>{error}</div>
-        </div>
-      )}
+      {/* Segmented control: Login / Sign up */}
+      <SegmentedTabs active={authMode} onChange={setAuthMode} />
 
-      {passwordErrors.length > 0 && (
-        <div className="bg-yellow-50 border-l-4 border-yellow-500 text-yellow-800 text-sm p-4 rounded mb-4">
-          <div className="font-semibold mb-2">Password Requirements:</div>
-          <ul className="list-disc list-inside space-y-1 text-xs">
-            {passwordErrors.map((err, idx) => (
-              <li key={idx}>{err.replace(/_/g, ' ')}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      <form onSubmit={submit} className="space-y-5">
-        {/* Username Field */}
-        <div>
-          <label className="block text-sm font-medium text-black mb-2" style={{ color: '#000000' }}>
-            Username
-          </label>
-          <input
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-full transition-all outline-none bg-white"
-            style={{
-              '--focus-color': '#011E41',
-            }}
-            onFocus={(e) => {
-              e.target.style.borderColor = '#011E41';
-              e.target.style.boxShadow = '0 0 0 2px rgba(1, 30, 65, 0.2)';
-            }}
-            onBlur={(e) => {
-              e.target.style.borderColor = '#d1d5db';
-              e.target.style.boxShadow = 'none';
-            }}
-            placeholder="Enter your username"
-            required
-            autoComplete="username"
-            disabled={loading}
-          />
-        </div>
-
-        {/* Password Field */}
-        <div>
-          <label className="block text-sm font-medium text-black mb-2" style={{ color: '#000000' }}>
-            Password
-          </label>
-          <div className="relative">
-            <input
-              type={showPassword ? 'text' : 'password'}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-full transition-all outline-none bg-white"
-              style={{
-                '--focus-color': '#011E41',
-              }}
-              onFocus={(e) => {
-                e.target.style.borderColor = '#011E41';
-                e.target.style.boxShadow = '0 0 0 2px rgba(1, 30, 65, 0.2)';
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = '#d1d5db';
-                e.target.style.boxShadow = 'none';
-              }}
-              placeholder="Enter your password"
-              required
-              autoComplete="current-password"
-              disabled={loading}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
-              tabIndex={-1}
-            >
-              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-            </button>
-          </div>
-        </div>
-
-        {/* Remember me */}
-        <div className="flex items-center justify-between text-sm">
-          <label className="flex items-center">
-            <input
-              type="checkbox"
-              checked={rememberMe}
-              onChange={(e) => setRememberMe(e.target.checked)}
-              className="rounded border-gray-300 focus:ring-2 focus:ring-offset-0"
-              style={{
-                accentColor: '#011E41',
-              }}
-            />
-            <span className="ml-2 text-black" style={{ color: '#000000' }}>
-              Remember me
-            </span>
-          </label>
-          <Link
-            to="/forgot-password"
-            className="text-black hover:underline"
-            style={{ color: '#000000' }}
-          >
-            Forgot password?
-          </Link>
-        </div>
-
-        {/* Sign in Button */}
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full text-white font-semibold py-3 px-4 rounded-full transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed shadow-md"
-          style={{ backgroundColor: '#011E41' }}
-          onMouseEnter={(e) => !loading && (e.target.style.backgroundColor = '#001529')}
-          onMouseLeave={(e) => !loading && (e.target.style.backgroundColor = '#011E41')}
-        >
-          {loading ? (
-            <span className="flex items-center justify-center">
-              <svg
-                className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
-              Signing in...
-            </span>
-          ) : (
-            'Sign in'
+      {authMode === 'login' && (
+        <>
+          {/* Errors */}
+          {error && (
+            <div className="bg-red-50 border-l-4 border-red-500 text-red-800 text-sm p-3 rounded mb-3 text-left">
+              <div className="font-semibold mb-1">Error</div>
+              <div>{error}</div>
+            </div>
           )}
-        </button>
-      </form>
+
+          {passwordErrors.length > 0 && (
+            <div className="bg-yellow-50 border-l-4 border-yellow-500 text-yellow-800 text-xs p-3 rounded mb-3 text-left">
+              <div className="font-semibold mb-1">Password requirements:</div>
+              <ul className="list-disc list-inside space-y-0.5">
+                {passwordErrors.map((err, idx) => (
+                  <li key={idx}>{err.replace(/_/g, ' ')}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Login form */}
+          <form onSubmit={submit} className="space-y-4 mt-1">
+            {/* Username Field */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-800 mb-1.5">
+                Username
+              </label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-[16px] text-sm transition-all outline-none bg-white focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB33]"
+                placeholder="Enter your username"
+                required
+                autoComplete="username"
+                disabled={loading}
+              />
+            </div>
+
+            {/* Password Field */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-800 mb-1.5">
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-3 pr-11 border border-gray-300 rounded-[16px] text-sm transition-all outline-none bg-white focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB33]"
+                  placeholder="Enter your password"
+                  required
+                  autoComplete="current-password"
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Remember me / Forgot password */}
+            <div className="flex items-center justify-between text-xs mt-1">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="rounded border-gray-300 focus:ring-2 focus:ring-offset-0 focus:ring-[#2563EB33]"
+                />
+                <span className="text-gray-800">Remember me</span>
+              </label>
+              <Link
+                to="/forgot-password"
+                className="text-[#2563EB] hover:underline font-medium"
+              >
+                Forgot password?
+              </Link>
+            </div>
+
+            {/* Primary button */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full mt-1 text-white font-semibold py-3 px-4 rounded-full bg-[#011E41] hover:bg-[#001529] transition-colors duration-150 disabled:opacity-60 disabled:cursor-not-allowed shadow-md"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center">
+                  <svg
+                    className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  Signing in...
+                </span>
+              ) : (
+                'Sign in'
+              )}
+            </button>
+          </form>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3 my-5">
+            <div className="h-px flex-1 bg-gray-200" />
+            <span className="text-[11px] uppercase tracking-wide text-gray-400">
+              or login with
+            </span>
+            <div className="h-px flex-1 bg-gray-200" />
+          </div>
+
+          {/* Social buttons */}
+          <div className="space-y-3">
+            <SocialButton label="Continue with Google" icon="G" />
+            <SocialButton label="Continue with Apple" icon="" />
+            <SocialButton label="Continue with Facebook" icon="f" />
+          </div>
+        </>
+      )}
+
+      {authMode === 'signup' && (
+        <div className="mt-4 text-sm text-gray-700 text-center">
+          Sign up is not available in this portal yet. Please use the login tab with the
+          credentials provided by your administrator.
+        </div>
+      )}
     </div>
   );
 
@@ -324,7 +372,7 @@ export default function LoginPage() {
 
   return (
     <div
-      className="min-h-screen flex justify-center px-4 py-4 sm:py-8 light"
+      className="relative min-h-screen light"
       style={{
         backgroundImage: 'url(/elec%20login.png)',
         backgroundSize: 'cover',
@@ -332,30 +380,14 @@ export default function LoginPage() {
         backgroundRepeat: 'no-repeat',
       }}
     >
-      <div className="w-full flex flex-col items-center lg:justify-center relative">
-        {/* Mobile-first card layout: floating wide, curved sheet (reference style) */}
-        <div className="w-full max-w-md mx-auto lg:hidden mt-[18vh] mb-10 px-1.5">
-          <div className="bg-white rounded-[36px] shadow-[0_18px_45px_rgba(15,23,42,0.35)] px-6 pt-7 pb-8">
-            {loginForm}
-          </div>
-        </div>
+      {/* Gradient overlay for readability */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/25 to-transparent" />
 
-        {/* Desktop / tablet layout: keep existing two-column hero + form */}
-        <div className="hidden lg:flex w-full max-w-6xl bg-white rounded-3xl border-4 border-white shadow-2xl overflow-hidden">
-          {/* Left Section - Promotional */}
-          <div
-            className="w-1/2 relative overflow-hidden p-6 flex flex-col justify-between"
-            style={{
-              backgroundImage: 'url(/elec%20login.png)',
-              backgroundSize: 'cover',
-              backgroundPosition: 'top left',
-              backgroundRepeat: 'no-repeat',
-              minHeight: '520px',
-            }}
-          />
-
-          {/* Right Section - Login Form */}
-          <div className="w-1/2 bg-white p-10 flex flex-col justify-center">
+      {/* Content & bottom sheet */}
+      <div className="relative flex h-full flex-col items-center lg:justify-center">
+        {/* Mobile / tablet: bottom-sheet auth container */}
+        <div className="absolute inset-x-0 bottom-0 px-4 pb-6 lg:static lg:pb-0 lg:pt-0">
+          <div className="mx-auto w-full max-w-md bg-white rounded-t-[30px] rounded-b-none shadow-[0_18px_45px_rgba(15,23,42,0.35)] px-6 pt-6 pb-7">
             {loginForm}
           </div>
         </div>
