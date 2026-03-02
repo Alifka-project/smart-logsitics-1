@@ -31,24 +31,6 @@ function SegmentedTabs({ active, onChange }) {
   );
 }
 
-function SocialButton({ label, icon, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-full border border-gray-200 bg-white text-sm font-medium text-gray-800 hover:bg-gray-50 active:bg-gray-100 transition-colors shadow-sm"
-    >
-      <span className="flex items-center gap-3">
-        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-700">
-          {icon}
-        </span>
-        <span>{label}</span>
-      </span>
-      <span className="text-gray-300 text-xs">›</span>
-    </button>
-  );
-}
-
 export default function LoginPage() {
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
@@ -214,22 +196,6 @@ export default function LoginPage() {
               )}
             </button>
           </form>
-
-          {/* Divider */}
-          <div className="flex items-center gap-3 my-5">
-            <div className="h-px flex-1 bg-gray-200" />
-            <span className="text-[11px] uppercase tracking-wide text-gray-400">
-              or login with
-            </span>
-            <div className="h-px flex-1 bg-gray-200" />
-          </div>
-
-          {/* Social buttons */}
-          <div className="space-y-3">
-            <SocialButton label="Continue with Google" icon="G" />
-            <SocialButton label="Continue with Apple" icon="" />
-            <SocialButton label="Continue with Facebook" icon="f" />
-          </div>
         </>
       )}
 
@@ -371,22 +337,26 @@ export default function LoginPage() {
   }
 
   return (
-    <div
-      className="relative min-h-screen flex flex-col items-center justify-end lg:justify-center light"
-      style={{
-        backgroundImage: 'url(/elec%20login.png)',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-      }}
-    >
-      {/* Gradient overlay for readability */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/25 to-transparent" />
+    <div className="h-screen min-h-screen flex flex-col light overflow-hidden">
+      {/* Top 50%: picture */}
+      <div
+        className="flex-[0_0_50%] min-h-0 relative shrink-0"
+        style={{
+          backgroundImage: 'url(/elec%20login.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+        }}
+      >
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-transparent" />
+      </div>
 
-      {/* Floating card, aligned to bottom on mobile and centered on desktop */}
-      <div className="relative z-10 w-full px-4 pb-6 lg:pb-10">
-        <div className="mx-auto w-full max-w-md bg-white rounded-[30px] shadow-[0_18px_45px_rgba(15,23,42,0.35)] px-6 pt-6 pb-7">
-          {loginForm}
+      {/* Bottom 50%: login card */}
+      <div className="flex-[0_0_50%] min-h-0 flex flex-col bg-white rounded-t-[30px] -mt-4 relative z-10 shadow-[0_-8px_32px_rgba(15,23,42,0.12)] overflow-y-auto">
+        <div className="flex-1 flex items-start justify-center px-4 pt-6 pb-8 sm:pb-10">
+          <div className="w-full max-w-md">
+            {loginForm}
+          </div>
         </div>
       </div>
     </div>
