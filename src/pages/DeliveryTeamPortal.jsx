@@ -379,13 +379,10 @@ export default function DeliveryTeamPortal() {
   return (
     <div className="space-y-6 w-full min-w-0">
       {/* Header */}
-      <div className="pp-card p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="pp-page-header flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="pp-page-title">Delivery Team Portal</h1>
-            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 mt-2">
-              Monitor drivers, manage deliveries, and coordinate operations
-            </p>
+            <p className="pp-page-subtitle">Monitor drivers, manage deliveries, and coordinate operations</p>
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -403,7 +400,6 @@ export default function DeliveryTeamPortal() {
               Last update: {lastUpdate.toLocaleTimeString()}
             </div>
           </div>
-        </div>
       </div>
 
       {/* Tab Navigation */}

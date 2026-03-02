@@ -749,11 +749,10 @@ export default function DriverPortal() {
   return (
     <div className="space-y-6 w-full min-w-0">
       {/* Header Section */}
-      <div className="pp-card p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="pp-page-header flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="pp-page-title">Driver Portal</h1>
-            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 mt-2">Track your location and manage deliveries in real-time</p>
+            <p className="pp-page-subtitle">Track your location and manage deliveries in real-time</p>
           </div>
           <div className="flex items-center gap-3">
             <div className={`flex items-center gap-2 px-4 py-2.5 rounded-lg shadow-sm transition-all ${
@@ -773,7 +772,6 @@ export default function DriverPortal() {
               </div>
             )}
           </div>
-        </div>
       </div>
 
       {/* Tab Navigation */}
