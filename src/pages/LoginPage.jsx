@@ -337,10 +337,35 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="h-screen min-h-screen flex flex-col light overflow-hidden">
-      {/* Top 50%: picture */}
+    <>
+      {/* ── MOBILE (< lg): 50 % image / 50 % card ─────────────────── */}
+      <div className="flex flex-col h-screen min-h-screen overflow-hidden light lg:hidden">
+        {/* Top 50%: picture */}
+        <div
+          className="flex-[0_0_50%] min-h-0 relative shrink-0"
+          style={{
+            backgroundImage: 'url(/elec%20login.png)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+          }}
+        >
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-transparent" />
+        </div>
+
+        {/* Bottom 50%: white card */}
+        <div className="flex-[0_0_50%] min-h-0 flex flex-col bg-white rounded-t-[30px] -mt-4 relative z-10 shadow-[0_-8px_32px_rgba(15,23,42,0.12)] overflow-y-auto">
+          <div className="flex-1 flex items-start justify-center px-4 pt-6 pb-8">
+            <div className="w-full max-w-md">
+              {loginForm}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── DESKTOP (lg+): full-screen background + centered floating card ── */}
       <div
-        className="flex-[0_0_50%] min-h-0 relative shrink-0"
+        className="hidden lg:flex relative min-h-screen items-center justify-center light"
         style={{
           backgroundImage: 'url(/elec%20login.png)',
           backgroundSize: 'cover',
@@ -348,17 +373,16 @@ export default function LoginPage() {
           backgroundRepeat: 'no-repeat',
         }}
       >
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-transparent" />
-      </div>
+        {/* Gradient overlay */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/25 to-transparent" />
 
-      {/* Bottom 50%: login card */}
-      <div className="flex-[0_0_50%] min-h-0 flex flex-col bg-white rounded-t-[30px] -mt-4 relative z-10 shadow-[0_-8px_32px_rgba(15,23,42,0.12)] overflow-y-auto">
-        <div className="flex-1 flex items-start justify-center px-4 pt-6 pb-8 sm:pb-10">
-          <div className="w-full max-w-md">
+        {/* Floating card */}
+        <div className="relative z-10 w-full max-w-md mx-auto px-4 py-10">
+          <div className="bg-white rounded-[30px] shadow-[0_18px_45px_rgba(15,23,42,0.35)] px-8 pt-8 pb-9">
             {loginForm}
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
