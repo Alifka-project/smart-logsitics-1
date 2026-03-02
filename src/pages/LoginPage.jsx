@@ -372,7 +372,7 @@ export default function LoginPage() {
 
   return (
     <div
-      className="relative min-h-screen light"
+      className="relative min-h-screen flex flex-col items-center justify-end lg:justify-center light"
       style={{
         backgroundImage: 'url(/elec%20login.png)',
         backgroundSize: 'cover',
@@ -383,13 +383,10 @@ export default function LoginPage() {
       {/* Gradient overlay for readability */}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/25 to-transparent" />
 
-      {/* Content & bottom sheet */}
-      <div className="relative flex h-full flex-col items-center lg:justify-center">
-        {/* Mobile / tablet: bottom-sheet auth container */}
-        <div className="absolute inset-x-0 bottom-0 px-4 pb-6 lg:static lg:pb-0 lg:pt-0">
-          <div className="mx-auto w-full max-w-md bg-white rounded-t-[30px] rounded-b-none shadow-[0_18px_45px_rgba(15,23,42,0.35)] px-6 pt-6 pb-7">
-            {loginForm}
-          </div>
+      {/* Floating card, aligned to bottom on mobile and centered on desktop */}
+      <div className="relative z-10 w-full px-4 pb-6 lg:pb-10">
+        <div className="mx-auto w-full max-w-md bg-white rounded-[30px] shadow-[0_18px_45px_rgba(15,23,42,0.35)] px-6 pt-6 pb-7">
+          {loginForm}
         </div>
       </div>
     </div>
