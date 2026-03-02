@@ -205,10 +205,10 @@ export default function LoginPage() {
       {/* ════════════════════════════════════════
           MOBILE  (< lg) — top 50% image, bottom 50% card
           ════════════════════════════════════════ */}
-      <div className="flex flex-col h-screen min-h-screen overflow-hidden light lg:hidden">
-        {/* Image half */}
+      <div className="relative h-screen min-h-screen overflow-hidden light lg:hidden">
+        {/* Full-screen background image */}
         <div
-          className="flex-[0_0_50%] min-h-0 relative shrink-0"
+          className="absolute inset-0"
           style={{
             backgroundImage: 'url(/elec%20login.png)',
             backgroundSize: 'cover',
@@ -216,12 +216,12 @@ export default function LoginPage() {
             backgroundRepeat: 'no-repeat',
           }}
         >
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-transparent" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/10" />
         </div>
 
-        {/* Form half */}
-        <div className="flex-1 min-h-0 flex flex-col bg-white rounded-t-[30px] -mt-4 relative z-10 shadow-[0_-8px_32px_rgba(15,23,42,0.12)] overflow-y-auto">
-          <div className="flex-1 px-5 pt-6 pb-8">
+        {/* Fixed card — always anchored to bottom, 62% height, no scroll */}
+        <div className="absolute inset-x-0 bottom-0 h-[62%] bg-white rounded-t-[30px] shadow-[0_-8px_40px_rgba(15,23,42,0.18)] z-10 flex flex-col">
+          <div className="flex-1 px-5 pt-6 pb-6 flex flex-col">
             <h2 className="text-2xl font-bold text-black mb-1">Welcome back</h2>
             <p className="text-sm text-gray-500 mb-5">Sign in to access your deliveries.</p>
             {formContent}
