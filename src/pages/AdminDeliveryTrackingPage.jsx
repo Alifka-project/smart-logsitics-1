@@ -74,7 +74,7 @@ export default function AdminDeliveryTrackingPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="pp-page-header flex justify-between items-center">
         <div>
           <h1 className="pp-page-title">Real-Time Delivery Tracking</h1>
           <p className="pp-page-subtitle">

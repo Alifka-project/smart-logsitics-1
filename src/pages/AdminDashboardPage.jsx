@@ -430,10 +430,10 @@ export default function AdminDashboardPage() {
   // ─── RENDER ───
 
     return (
-    <div className="space-y-4 w-full min-w-0">
+    <div className="space-y-6 w-full min-w-0">
 
       {/* ── Page Header ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="pp-page-header flex flex-wrap items-center justify-between gap-3">
           <div>
           <h1 className="pp-page-title">Admin Dashboard</h1>
           <p className="pp-page-subtitle">

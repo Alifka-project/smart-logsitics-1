@@ -204,7 +204,7 @@ export default function DeliveryManagementPage() {
       )}
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="pp-page-header flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="pp-page-title">Delivery Management</h1>
           <p className="pp-page-subtitle">

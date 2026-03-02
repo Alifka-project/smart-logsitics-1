@@ -432,7 +432,7 @@ export default function AdminOperationsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="pp-page-header flex justify-between items-center">
         <div>
           <h1 className="pp-page-title">Operations Center</h1>
           <p className="pp-page-subtitle">

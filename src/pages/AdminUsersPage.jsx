@@ -417,8 +417,8 @@ export default function AdminUsersPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-    <div>
+      <div className="pp-page-header flex justify-between items-center">
+        <div>
           <h1 className="pp-page-title">User & Account Management</h1>
           <p className="pp-page-subtitle">Manage accounts, drivers, and permissions</p>
         </div>

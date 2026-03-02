@@ -118,9 +118,9 @@ export default function AdminPODReportPage() {
       </div>
       
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="pp-page-header flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+          <h1 className="pp-page-title flex items-center gap-2">
             <Image className="w-8 h-8" />
             POD Report (Proof of Delivery)
           </h1>

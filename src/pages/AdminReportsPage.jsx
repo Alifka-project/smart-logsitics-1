@@ -244,7 +244,7 @@ export default function AdminReportsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="pp-page-header flex justify-between items-center">
         <div>
           <h1 className="pp-page-title">Reports & Analytics</h1>
           <p className="pp-page-subtitle">
