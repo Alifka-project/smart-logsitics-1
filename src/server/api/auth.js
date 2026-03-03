@@ -172,7 +172,7 @@ router.post('/login', loginLimiter, async (req, res) => {
       console.log('User not found or no account:', sanitizedUsername);
       recordFailedAttempt(sanitizedUsername);
       // Use generic error to prevent username enumeration
-      return res.status(401).json({ error: 'invalid_credentials' });
+      return res.status(401).json({ error: 'invalid_credentials', message: 'Invalid username or password.' });
     }
     
     console.log('User found. Checking if active...');
@@ -200,7 +200,7 @@ router.post('/login', loginLimiter, async (req, res) => {
       console.log('Password does not match for user:', sanitizedUsername);
       recordFailedAttempt(sanitizedUsername);
       // Use generic error to prevent username enumeration
-      return res.status(401).json({ error: 'invalid_credentials' });
+      return res.status(401).json({ error: 'invalid_credentials', message: 'Invalid username or password.' });
     }
     
     console.log('✅ LOGIN SUCCESSFUL for:', sanitizedUsername);

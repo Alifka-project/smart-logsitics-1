@@ -48,10 +48,18 @@ export default function LoginPage() {
     setError(null);
     setPasswordErrors([]);
     setLoading(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
-      const res = await api.post('/auth/login', { username, password }, { signal: controller.signal });
+      const res = await api.post(
+        '/auth/login',
+        { username, password },
+        {
+          signal: controller.signal,
+          // Skip token refresh logic for the explicit login call; we want a direct 401
+          skipAuthRetry: true,
+        }
+      );
       clearTimeout(timeoutId);
 
       const { driver, clientKey, csrfToken, accessToken } = res.data;
@@ -78,12 +86,10 @@ export default function LoginPage() {
     } catch (err) {
       if (err.name === 'AbortError' || err.code === 'ECONNABORTED') {
         setError('Request timeout. Please try again.');
-        setLoading(false);
         return;
       }
       if (!err?.response) {
         setError('Cannot connect to server. Please check your internet connection.');
-        setLoading(false);
         return;
       }
       const errorMessage = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Login failed';
@@ -104,6 +110,8 @@ export default function LoginPage() {
       } else {
         setError('Login failed. Please check your credentials.');
       }
+    } finally {
+      clearTimeout(timeoutId);
       setLoading(false);
     }
   }
@@ -242,21 +250,21 @@ export default function LoginPage() {
         className="hidden lg:flex min-h-screen items-center justify-center px-4 py-8 light"
         style={{
           backgroundImage: 'url(/elec%20login.png)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
+          backgroundSize: 'contain',
+          backgroundPosition: 'center center',
           backgroundRepeat: 'no-repeat',
         }}
       >
         {/* Outer card — image left | form right */}
         <div className="w-full max-w-6xl bg-white rounded-3xl border-4 border-white shadow-2xl overflow-hidden flex flex-row">
 
-          {/* Left — image panel */}
+          {/* Left — image panel (zoomed out so full image fits) */}
           <div
             className="w-1/2 relative min-h-[600px]"
             style={{
               backgroundImage: 'url(/elec%20login.png)',
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
+              backgroundSize: 'contain',
+              backgroundPosition: 'center center',
               backgroundRepeat: 'no-repeat',
             }}
           />

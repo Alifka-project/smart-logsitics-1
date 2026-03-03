@@ -82,6 +82,11 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    // Don't try refresh on login 401 — let the login page show "Invalid username or password"
+    if (error.response?.status === 401 && originalRequest?.url?.includes('/auth/login')) {
+      return Promise.reject(error);
+    }
+
     // If error is 401 and we haven't tried to refresh yet
     if (error.response?.status === 401 && !originalRequest._retry) {
       // If we're already refreshing, wait for it
