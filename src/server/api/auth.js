@@ -393,6 +393,39 @@ router.patch('/profile', authenticate, async (req, res) => {
   }
 });
 
+// Generate a strong temporary password that passes the password validator
+function generateTemporaryPassword() {
+  const length = 12;
+  const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const lower = 'abcdefghijklmnopqrstuvwxyz';
+  const numbers = '0123456789';
+  const specials = '!@#$%^&*()_+-=[]{};:,.<>?';
+  const all = upper + lower + numbers + specials;
+
+  function pick(chars) {
+    return chars[crypto.randomInt(0, chars.length)];
+  }
+
+  let passwordChars = [
+    pick(upper),
+    pick(lower),
+    pick(numbers),
+    pick(specials),
+  ];
+
+  for (let i = passwordChars.length; i < length; i += 1) {
+    passwordChars.push(pick(all));
+  }
+
+  // Shuffle characters
+  for (let i = passwordChars.length - 1; i > 0; i -= 1) {
+    const j = crypto.randomInt(0, i + 1);
+    [passwordChars[i], passwordChars[j]] = [passwordChars[j], passwordChars[i]];
+  }
+
+  return passwordChars.join('');
+}
+
 // POST /api/auth/forgot-password - Request password reset
 router.post('/forgot-password', loginLimiter, async (req, res) => {
   const { username, email } = req.body;
@@ -408,27 +441,45 @@ router.post('/forgot-password', loginLimiter, async (req, res) => {
       include: { account: true }
     });
     if (!driver || !driver.account) {
-      return res.json({ success: true, message: 'If an account exists with that username/email, a password reset link has been sent.' });
+      // Always return success to avoid revealing whether the account exists
+      return res.json({
+        success: true,
+        message: 'If an account exists with that username/email, new login details have been sent.'
+      });
     }
     if (!driver.email) {
       return res.status(400).json({ error: 'no_email_configured', message: 'This account does not have an email configured. Contact support.' });
     }
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 1);
-    await prisma.passwordReset.deleteMany({ where: { accountId: driver.account.id, used: false } });
-    await prisma.passwordReset.create({
-      data: { accountId: driver.account.id, token: resetToken, expiresAt }
+
+    // Generate a new temporary password and apply it immediately
+    const temporaryPassword = generateTemporaryPassword();
+    const validation = validatePassword(temporaryPassword);
+    if (!validation.valid) {
+      console.error('Generated temporary password did not pass validation', validation.errors);
+      return res.status(500).json({ error: 'password_generation_failed' });
+    }
+
+    const passwordHash = await hashPassword(temporaryPassword);
+    await prisma.account.update({
+      where: { id: driver.account.id },
+      data: { passwordHash }
     });
+
     try {
       const emailService = getEmailService();
       await emailService.sendPasswordResetEmail({
         to: driver.email,
         username: driver.username || driver.fullName || 'User',
-        resetToken
+        temporaryPassword
       });
-    } catch { /* ignore email send failure */ }
-    res.json({ success: true, message: 'If an account exists with that username/email, a password reset link has been sent.' });
+    } catch (emailErr) {
+      console.error('auth/forgot-password: failed to send password email', emailErr);
+      // Still respond success to avoid leaking existence of account
+    }
+    res.json({
+      success: true,
+      message: 'If an account exists with that username/email, new login details have been sent.'
+    });
   } catch (err) {
     console.error('auth/forgot-password', err);
     res.status(500).json({ error: 'db_error' });

@@ -172,9 +172,9 @@ router.post('/forgot-password', loginLimiter, async (req, res) => {
     // Always return success to prevent user enumeration attacks
     if (!driver || !driver.account) {
       // Still return success, but don't send email
-      return res.json({ 
-        success: true, 
-        message: 'If an account exists with that username/email, a password reset link has been sent.' 
+      return res.json({
+        success: true,
+        message: 'If an account exists with that username/email, new login details have been sent.'
       });
     }
     
@@ -185,35 +185,27 @@ router.post('/forgot-password', loginLimiter, async (req, res) => {
       });
     }
     
-    // Generate reset token
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 1); // Token valid for 1 hour
-    
-    // Delete any existing reset tokens for this account
-    await prisma.passwordReset.deleteMany({
-      where: { 
-        accountId: driver.account.id,
-        used: false
-      }
+    // Generate a new temporary password and apply it immediately
+    const temporaryPassword = generateTemporaryPassword();
+    const validation = validatePassword(temporaryPassword);
+    if (!validation.valid && !validation.isValid) {
+      console.error('Generated temporary password did not pass validation', validation.errors);
+      return res.status(500).json({ error: 'password_generation_failed' });
+    }
+
+    const passwordHash = await hashPassword(temporaryPassword);
+    await prisma.account.update({
+      where: { id: driver.account.id },
+      data: { passwordHash }
     });
     
-    // Create new reset token
-    await prisma.passwordReset.create({
-      data: {
-        accountId: driver.account.id,
-        token: resetToken,
-        expiresAt,
-      }
-    });
-    
-    // Send reset email
+    // Send email containing login ID and temporary password
     const emailService = getEmailService();
     try {
       await emailService.sendPasswordResetEmail({
         to: driver.email,
         username: driver.username || driver.fullName || 'User',
-        resetToken,
+        temporaryPassword,
       });
       
       console.log(`[Auth] Password reset email sent to ${driver.email} for username: ${driver.username}`);
@@ -222,9 +214,9 @@ router.post('/forgot-password', loginLimiter, async (req, res) => {
       // Continue even if email fails (return success to prevent enumeration)
     }
     
-    res.json({ 
-      success: true, 
-      message: 'If an account exists with that username/email, a password reset link has been sent.' 
+    res.json({
+      success: true,
+      message: 'If an account exists with that username/email, new login details have been sent.'
     });
   } catch (err) {
     console.error('auth/forgot-password', err);

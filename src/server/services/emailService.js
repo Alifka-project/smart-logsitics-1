@@ -78,10 +78,11 @@ class EmailService {
     }
   }
 
-  async sendPasswordResetEmail({ to, username, resetToken, resetUrl }) {
-    const subject = 'Password Reset Request - Logistics System';
-    
-    const resetLink = resetUrl || `${process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app'}/reset-password?token=${resetToken}`;
+  // Send an email containing the user's login ID and a newly generated temporary password.
+  // NOTE: This flow does NOT use reset links or tokens anymore – the backend directly
+  // updates the password and this email simply informs the user of their new credentials.
+  async sendPasswordResetEmail({ to, username, temporaryPassword }) {
+    const subject = 'Your Electrolux portal login details';
     
     const html = `
       <!DOCTYPE html>
@@ -100,21 +101,19 @@ class EmailService {
       <body>
         <div class="container">
           <div class="header">
-            <h1>Password Reset Request</h1>
+            <h1>Your login details</h1>
           </div>
           <div class="content">
             <p>Hello ${username || 'User'},</p>
-            <p>You have requested to reset your password for the Logistics Management System.</p>
-            <p>Click the button below to reset your password:</p>
-            <div style="text-align: center;">
-              <a href="${resetLink}" class="button">Reset Password</a>
-            </div>
-            <p>Or copy and paste this link into your browser:</p>
-            <p style="word-break: break-all; color: #011E41;">${resetLink}</p>
+            <p>You requested help signing in to the Electrolux Logistics Portal.</p>
+            <p>Here are your temporary login details:</p>
+            <p><strong>Login ID:</strong> ${username || 'User'}</p>
+            <p><strong>Temporary password:</strong> ${temporaryPassword}</p>
             <div class="warning">
-              <strong>⚠️ Security Notice:</strong><br>
-              This link will expire in 1 hour for security reasons.<br>
-              If you did not request this reset, please ignore this email or contact support.
+              <strong>Important:</strong><br>
+              - This temporary password is valid immediately and replaces your previous password.<br>
+              - After logging in, please go to <strong>Change password</strong> and set a new password only you know.<br>
+              - If you did not request this, please contact your administrator.
             </div>
           </div>
           <div class="footer">

@@ -261,7 +261,7 @@ export default function LoginPage() {
         <div className="bg-green-50 border-l-4 border-green-500 text-green-800 text-sm p-4 rounded mb-4 text-left">
           <div className="font-semibold mb-1">Check your email</div>
           <div>
-            If an account exists with that email address, a password reset link has been sent.
+            If an account exists with that email address, your login ID and a new temporary password have been sent.
           </div>
         </div>
       ) : null}
@@ -288,7 +288,7 @@ export default function LoginPage() {
             disabled={forgotLoading || !forgotEmail}
             className="w-full text-white font-semibold py-3 px-4 rounded-xl bg-[#011E41] hover:bg-[#001529] transition-colors duration-150 disabled:opacity-60 disabled:cursor-not-allowed shadow-md"
           >
-            {forgotLoading ? 'Sending reset link...' : 'Send reset link'}
+            {forgotLoading ? 'Sending new password...' : 'Send new password'}
           </button>
         </form>
       )}
@@ -333,11 +333,11 @@ export default function LoginPage() {
         <div className="absolute inset-x-0 bottom-0 h-[60%] bg-white rounded-t-[30px] shadow-[0_-8px_40px_rgba(15,23,42,0.18)] z-10 flex flex-col">
           <div className="px-5 pt-6 pb-6 flex flex-col h-full">
             <h2 className="text-2xl font-bold text-black mb-1">
-              {isForgotMode ? 'Forgot password?' : 'Welcome back'}
+              {isForgotMode ? 'Forgot your ID or password?' : 'Welcome back'}
             </h2>
             <p className="text-sm text-gray-500 mb-5">
               {isForgotMode
-                ? 'Enter your email address and we will send you a link to reset your password.'
+                ? 'Enter your email address and we will email your login ID and a new temporary password.'
                 : 'Sign in to access your deliveries.'}
             </p>
             {isForgotMode ? forgotFormContent : loginFormContent}
@@ -375,11 +375,11 @@ export default function LoginPage() {
           <div className="w-1/2 bg-white px-12 py-14 flex flex-col justify-center">
             <div className="max-w-md w-full mx-auto">
               <h2 className="text-4xl font-bold text-black mb-2">
-                {isForgotMode ? 'Forgot password?' : 'Welcome back'}
+                {isForgotMode ? 'Forgot your ID or password?' : 'Welcome back'}
               </h2>
               <p className="text-gray-500 text-sm mb-8">
                 {isForgotMode
-                  ? 'Enter your email address and we will send you a link to reset your password.'
+                  ? 'Enter your email address and we will email your login ID and a new temporary password.'
                   : 'Sign in to access your deliveries.'}
               </p>
               {isForgotMode ? forgotFormContent : loginFormContent}

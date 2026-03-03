@@ -6,10 +6,8 @@ import ProtectedRoute from './components/Auth/ProtectedRoute';
 import useDeliveryStore from './store/useDeliveryStore';
 import { useTokenRefresh } from './hooks/useTokenRefresh';
 
-// Eagerly load auth pages (needed immediately on first load)
+// Eagerly load auth page (needed immediately on first load)
 import LoginPage from './pages/LoginPage';
-import ForgotPasswordPage from './pages/ForgotPasswordPage';
-import ResetPasswordPage from './pages/ResetPasswordPage';
 
 // Lazy-load all other pages for better bundle splitting
 const DeliveryManagementPage  = lazy(() => import('./pages/DeliveryManagementPage'));
@@ -79,8 +77,6 @@ function App() {
         <Routes>
           {/* Public routes */}
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/track/:deliveryId" element={<TrackingPage />} />
           <Route path="/confirm-delivery/:token" element={<CustomerConfirmationPage />} />
           <Route path="/tracking/:token" element={<CustomerTrackingPage />} />
