@@ -153,6 +153,7 @@
 @media (min-width: 768px) {
   .nav-scroll {
     display: flex;
+    justify-content: center; /* Center nav items between logo and user controls */
     overflow-x: visible;
     overflow-y: visible; /* Allow dropdown panels (e.g. Tracking) to extend below */
   }
