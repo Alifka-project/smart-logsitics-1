@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import api, { setAuthToken } from '../frontend/apiClient';
 import { setAuthData, isAuthenticated } from '../frontend/auth';
 import { Eye, EyeOff } from 'lucide-react';
@@ -13,6 +13,10 @@ export default function LoginPage() {
   const [error, setError]                 = useState(null);
   const [loading, setLoading]             = useState(false);
   const [passwordErrors, setPasswordErrors] = useState([]);
+  const [isForgotMode, setIsForgotMode]   = useState(false);
+  const [forgotEmail, setForgotEmail]     = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSuccess, setForgotSuccess] = useState(false);
 
   // Force light theme on the login page
   useEffect(() => {
@@ -116,8 +120,28 @@ export default function LoginPage() {
     }
   }
 
-  /* ── Shared form content (used in both layouts) ── */
-  const formContent = (
+  async function submitForgot(e) {
+    e.preventDefault();
+    setError(null);
+    setPasswordErrors([]);
+    setForgotLoading(true);
+    try {
+      await api.post('/auth/forgot-password', { email: forgotEmail });
+      setForgotSuccess(true);
+    } catch (err) {
+      const errorMessage =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        'Failed to send reset email. Please try again.';
+      setError(errorMessage);
+    } finally {
+      setForgotLoading(false);
+    }
+  }
+
+  /* ── Login form content ── */
+  const loginFormContent = (
     <>
       {error && (
         <div className="bg-red-50 border-l-4 border-red-500 text-red-800 text-sm p-3 rounded mb-4 text-left">
@@ -183,9 +207,18 @@ export default function LoginPage() {
             />
             <span className="text-gray-700">Remember me</span>
           </label>
-          <Link to="/forgot-password" className="text-[#2563EB] hover:underline font-medium">
+          <button
+            type="button"
+            onClick={() => {
+              setError(null);
+              setPasswordErrors([]);
+              setIsForgotMode(true);
+              setForgotSuccess(false);
+            }}
+            className="text-[#2563EB] hover:underline font-medium"
+          >
             Forgot password?
-          </Link>
+          </button>
         </div>
         <button
           type="submit"
@@ -214,6 +247,69 @@ export default function LoginPage() {
     </>
   );
 
+  /* ── Forgot-password form content ── */
+  const forgotFormContent = (
+    <>
+      {error && (
+        <div className="bg-red-50 border-l-4 border-red-500 text-red-800 text-sm p-3 rounded mb-4 text-left">
+          <div className="font-semibold mb-1">Error</div>
+          <div>{error}</div>
+        </div>
+      )}
+
+      {forgotSuccess ? (
+        <div className="bg-green-50 border-l-4 border-green-500 text-green-800 text-sm p-4 rounded mb-4 text-left">
+          <div className="font-semibold mb-1">Check your email</div>
+          <div>
+            If an account exists with that email address, a password reset link has been sent.
+          </div>
+        </div>
+      ) : null}
+
+      {!forgotSuccess && (
+        <form onSubmit={submitForgot} className="space-y-5">
+          <div>
+            <label className="block text-sm font-medium text-gray-800 mb-1.5">
+              Email address
+            </label>
+            <input
+              type="email"
+              value={forgotEmail}
+              onChange={(e) => setForgotEmail(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm outline-none bg-white transition-all focus:border-[#011E41] focus:ring-2 focus:ring-[#011E4122]"
+              placeholder="Enter your email"
+              required
+              autoComplete="email"
+              disabled={forgotLoading}
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={forgotLoading || !forgotEmail}
+            className="w-full text-white font-semibold py-3 px-4 rounded-xl bg-[#011E41] hover:bg-[#001529] transition-colors duration-150 disabled:opacity-60 disabled:cursor-not-allowed shadow-md"
+          >
+            {forgotLoading ? 'Sending reset link...' : 'Send reset link'}
+          </button>
+        </form>
+      )}
+
+      <p className="mt-4 text-center text-xs text-gray-600">
+        <button
+          type="button"
+          onClick={() => {
+            setIsForgotMode(false);
+            setError(null);
+            setForgotEmail('');
+            setForgotSuccess(false);
+          }}
+          className="font-medium text-[#2563EB] hover:underline"
+        >
+          Back to login
+        </button>
+      </p>
+    </>
+  );
+
   return (
     <>
       {/* ════════════════════════════════════════
@@ -236,9 +332,15 @@ export default function LoginPage() {
         {/* Card — 60% height, anchored to bottom, overlaps image by 10% */}
         <div className="absolute inset-x-0 bottom-0 h-[60%] bg-white rounded-t-[30px] shadow-[0_-8px_40px_rgba(15,23,42,0.18)] z-10 flex flex-col">
           <div className="px-5 pt-6 pb-6 flex flex-col h-full">
-            <h2 className="text-2xl font-bold text-black mb-1">Welcome back</h2>
-            <p className="text-sm text-gray-500 mb-5">Sign in to access your deliveries.</p>
-            {formContent}
+            <h2 className="text-2xl font-bold text-black mb-1">
+              {isForgotMode ? 'Forgot password?' : 'Welcome back'}
+            </h2>
+            <p className="text-sm text-gray-500 mb-5">
+              {isForgotMode
+                ? 'Enter your email address and we will send you a link to reset your password.'
+                : 'Sign in to access your deliveries.'}
+            </p>
+            {isForgotMode ? forgotFormContent : loginFormContent}
           </div>
         </div>
       </div>
@@ -272,9 +374,15 @@ export default function LoginPage() {
           {/* Right — login form */}
           <div className="w-1/2 bg-white px-12 py-14 flex flex-col justify-center">
             <div className="max-w-md w-full mx-auto">
-              <h2 className="text-4xl font-bold text-black mb-2">Welcome back</h2>
-              <p className="text-gray-500 text-sm mb-8">Sign in to access your deliveries.</p>
-              {formContent}
+              <h2 className="text-4xl font-bold text-black mb-2">
+                {isForgotMode ? 'Forgot password?' : 'Welcome back'}
+              </h2>
+              <p className="text-gray-500 text-sm mb-8">
+                {isForgotMode
+                  ? 'Enter your email address and we will send you a link to reset your password.'
+                  : 'Sign in to access your deliveries.'}
+              </p>
+              {isForgotMode ? forgotFormContent : loginFormContent}
             </div>
           </div>
         </div>
