@@ -9,25 +9,31 @@ const crypto = require('crypto');
 class EmailService {
   constructor(config = {}) {
     this.fromEmail = config.FROM_EMAIL || process.env.FROM_EMAIL || 'noreply@logistics.com';
-    this.smtpEnabled = config.SMTP_ENABLED === 'true' || process.env.SMTP_ENABLED === 'true';
+    
+    // Consider SMTP "enabled" if either:
+    // - SMTP_ENABLED is explicitly true, OR
+    // - an SMTP host is provided (common case where flag was forgotten)
+    const smtpHost = process.env.SMTP_HOST || config.SMTP_HOST;
+    const explicitFlag = (config.SMTP_ENABLED || process.env.SMTP_ENABLED || '').toString().toLowerCase() === 'true';
+    this.smtpEnabled = explicitFlag || !!smtpHost;
     
     // Try to use nodemailer if available
     try {
       const nodemailer = require('nodemailer');
       
-      if (this.smtpEnabled && (config.SMTP_HOST || process.env.SMTP_HOST)) {
+      if (this.smtpEnabled && smtpHost) {
         this.transporter = nodemailer.createTransport({
-          host: process.env.SMTP_HOST || config.SMTP_HOST,
-          port: parseInt(process.env.SMTP_PORT || config.SMTP_PORT || '587'),
-          secure: process.env.SMTP_SECURE === 'true' || config.SMTP_SECURE === 'true',
+          host: smtpHost,
+          port: parseInt(process.env.SMTP_PORT || config.SMTP_PORT || '587', 10),
+          secure: (process.env.SMTP_SECURE || config.SMTP_SECURE || '').toString().toLowerCase() === 'true',
           auth: {
             user: process.env.SMTP_USER || config.SMTP_USER,
             pass: process.env.SMTP_PASS || config.SMTP_PASS,
           },
         });
-        console.log('[Email] SMTP transporter initialized');
+        console.log('[Email] SMTP transporter initialized (host:', smtpHost, ')');
       } else {
-        // Use console log in development
+        // Use console log in development / when SMTP is not configured
         this.transporter = null;
         console.log('[Email] Using console log (SMTP not configured)');
       }
@@ -75,7 +81,7 @@ class EmailService {
   async sendPasswordResetEmail({ to, username, resetToken, resetUrl }) {
     const subject = 'Password Reset Request - Logistics System';
     
-    const resetLink = resetUrl || `${process.env.FRONTEND_URL || 'https://smart-logistics-1.vercel.app'}/reset-password?token=${resetToken}`;
+    const resetLink = resetUrl || `${process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app'}/reset-password?token=${resetToken}`;
     
     const html = `
       <!DOCTYPE html>
