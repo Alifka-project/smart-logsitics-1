@@ -33,6 +33,7 @@
     "jsonwebtoken": "^9.0.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.545.0",
+    "nodemailer": "^8.0.1",
     "papaparse": "^5.5.3",
     "pg": "^8.11.2",
     "postcss": "^8.5.6",
