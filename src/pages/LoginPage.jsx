@@ -13,9 +13,9 @@ export default function LoginPage() {
   const [error, setError]                 = useState(null);
   const [loading, setLoading]             = useState(false);
   const [passwordErrors, setPasswordErrors] = useState([]);
-  const [isForgotMode, setIsForgotMode]   = useState(false);
-  const [forgotLoading, setForgotLoading] = useState(false);
-  const [forgotSuccess, setForgotSuccess] = useState(false);
+  // const [isForgotMode, setIsForgotMode]   = useState(false);
+  // const [forgotLoading, setForgotLoading] = useState(false);
+  // const [forgotSuccess, setForgotSuccess] = useState(false);
 
   // Force light theme on the login page
   useEffect(() => {
@@ -119,32 +119,33 @@ export default function LoginPage() {
     }
   }
 
-  async function submitForgot() {
-    if (!username) {
-      setError('Please enter your username first.');
-      return;
-    }
-    setError(null);
-    setPasswordErrors([]);
-    setForgotLoading(true);
-    try {
-      await api.post('/auth/forgot-password', { username });
-      setForgotSuccess(true);
-    } catch (err) {
-      if (err?.response?.status === 404) {
-        setError('Username not found. Please check the ID and try again.');
-      } else {
-        const errorMessage =
-          err?.response?.data?.message ||
-          err?.response?.data?.error ||
-          err?.message ||
-          'Failed to send reset email. Please try again.';
-        setError(errorMessage);
-      }
-    } finally {
-      setForgotLoading(false);
-    }
-  }
+  // NOTE: Forgot-password flow temporarily disabled.
+  // async function submitForgot() {
+  //   if (!username) {
+  //     setError('Please enter your username first.');
+  //     return;
+  //   }
+  //   setError(null);
+  //   setPasswordErrors([]);
+  //   setForgotLoading(true);
+  //   try {
+  //     await api.post('/auth/forgot-password', { username });
+  //     setForgotSuccess(true);
+  //   } catch (err) {
+  //     if (err?.response?.status === 404) {
+  //       setError('Username not found. Please check the ID and try again.');
+  //     } else {
+  //       const errorMessage =
+  //         err?.response?.data?.message ||
+  //         err?.response?.data?.error ||
+  //         err?.message ||
+  //         'Failed to send reset email. Please try again.';
+  //       setError(errorMessage);
+  //     }
+  //   } finally {
+  //     setForgotLoading(false);
+  //   }
+  // }
 
   /* ── Login form content ── */
   const loginFormContent = (
@@ -213,7 +214,8 @@ export default function LoginPage() {
             />
             <span className="text-gray-700">Remember me</span>
           </label>
-          <button
+          {/* Forgot-password temporarily disabled in UI */}
+          {/* <button
             type="button"
             onClick={() => {
               if (!username) {
@@ -228,7 +230,7 @@ export default function LoginPage() {
             className="text-[#2563EB] hover:underline font-medium"
           >
             Forgot password?
-          </button>
+          </button> */}
         </div>
         <button
           type="submit"
@@ -257,72 +259,72 @@ export default function LoginPage() {
     </>
   );
 
-  /* ── Forgot-password form content ── */
-  const forgotFormContent = (
-    <>
-      {error && (
-        <div className="bg-red-50 border-l-4 border-red-500 text-red-800 text-sm p-3 rounded mb-4 text-left">
-          <div className="font-semibold mb-1">Error</div>
-          <div>{error}</div>
-        </div>
-      )}
-
-      {forgotSuccess ? (
-        <div className="bg-green-50 border-l-4 border-green-500 text-green-800 text-sm p-4 rounded mb-4 text-left">
-          <div className="font-semibold mb-1">Check your email</div>
-          <div>
-            If an account exists for username <span className="font-semibold">{username}</span>, your login ID
-            and a new temporary password have been sent to the registered email address.
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-4 text-sm text-gray-700">
-          <p>
-            We will email your login ID and a new temporary password to the registered email
-            for username <span className="font-semibold">{username}</span>. Do you want to continue?
-          </p>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={submitForgot}
-              disabled={forgotLoading}
-              className="px-4 py-2 rounded-xl bg-[#011E41] text-white font-semibold text-sm hover:bg-[#001529] transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-md"
-            >
-              {forgotLoading ? 'Sending new password...' : 'Send new password'}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setIsForgotMode(false);
-                setForgotSuccess(false);
-                setError(null);
-              }}
-              className="px-3 py-2 text-sm text-gray-600 hover:underline"
-            >
-              Cancel
-            </button>
-          </div>
-          <p className="text-xs text-gray-500">
-            Make sure you have entered the correct username above before requesting a new password.
-          </p>
-        </div>
-      )}
-
-      <p className="mt-4 text-center text-xs text-gray-600">
-        <button
-          type="button"
-          onClick={() => {
-            setIsForgotMode(false);
-            setError(null);
-            setForgotSuccess(false);
-          }}
-          className="font-medium text-[#2563EB] hover:underline"
-        >
-          Back to login
-        </button>
-      </p>
-    </>
-  );
+  // /* ── Forgot-password form content (temporarily disabled) ── */
+  // const forgotFormContent = (
+  //   <>
+  //     {error && (
+  //       <div className="bg-red-50 border-l-4 border-red-500 text-red-800 text-sm p-3 rounded mb-4 text-left">
+  //         <div className="font-semibold mb-1">Error</div>
+  //         <div>{error}</div>
+  //       </div>
+  //     )}
+  //
+  //     {forgotSuccess ? (
+  //       <div className="bg-green-50 border-l-4 border-green-500 text-green-800 text-sm p-4 rounded mb-4 text-left">
+  //         <div className="font-semibold mb-1">Check your email</div>
+  //         <div>
+  //           If an account exists for username <span className="font-semibold">{username}</span>, your login ID
+  //           and a new temporary password have been sent to the registered email address.
+  //         </div>
+  //       </div>
+  //     ) : (
+  //       <div className="space-y-4 text-sm text-gray-700">
+  //         <p>
+  //           We will email your login ID and a new temporary password to the registered email
+  //           for username <span className="font-semibold">{username}</span>. Do you want to continue?
+  //         </p>
+  //         <div className="flex gap-3">
+  //           <button
+  //             type="button"
+  //             onClick={submitForgot}
+  //             disabled={forgotLoading}
+  //             className="px-4 py-2 rounded-xl bg-[#011E41] text-white font-semibold text-sm hover:bg-[#001529] transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-md"
+  //           >
+  //             {forgotLoading ? 'Sending new password...' : 'Send new password'}
+  //           </button>
+  //           <button
+  //             type="button"
+  //             onClick={() => {
+  //               setIsForgotMode(false);
+  //               setForgotSuccess(false);
+  //               setError(null);
+  //             }}
+  //             className="px-3 py-2 text-sm text-gray-600 hover:underline"
+  //           >
+  //             Cancel
+  //           </button>
+  //         </div>
+  //         <p className="text-xs text-gray-500">
+  //           Make sure you have entered the correct username above before requesting a new password.
+  //         </p>
+  //       </div>
+  //     )}
+  //
+  //     <p className="mt-4 text-center text-xs text-gray-600">
+  //       <button
+  //         type="button"
+  //         onClick={() => {
+  //           setIsForgotMode(false);
+  //           setError(null);
+  //           setForgotSuccess(false);
+  //         }}
+  //         className="font-medium text-[#2563EB] hover:underline"
+  //       >
+  //         Back to login
+  //       </button>
+  //     </p>
+  //   </>
+  // );
 
   return (
     <>
@@ -346,15 +348,9 @@ export default function LoginPage() {
         {/* Card — 60% height, anchored to bottom, overlaps image by 10% */}
         <div className="absolute inset-x-0 bottom-0 h-[60%] bg-white rounded-t-[30px] shadow-[0_-8px_40px_rgba(15,23,42,0.18)] z-10 flex flex-col">
           <div className="px-5 pt-6 pb-6 flex flex-col h-full">
-            <h2 className="text-2xl font-bold text-black mb-1">
-              {isForgotMode ? 'Forgot your ID or password?' : 'Welcome back'}
-            </h2>
-            <p className="text-sm text-gray-500 mb-5">
-              {isForgotMode
-                ? 'Enter your email address and we will email your login ID and a new temporary password.'
-                : 'Sign in to access your deliveries.'}
-            </p>
-            {isForgotMode ? forgotFormContent : loginFormContent}
+            <h2 className="text-2xl font-bold text-black mb-1">Welcome back</h2>
+            <p className="text-sm text-gray-500 mb-5">Sign in to access your deliveries.</p>
+            {loginFormContent}
           </div>
         </div>
       </div>
@@ -388,15 +384,9 @@ export default function LoginPage() {
           {/* Right — login form */}
           <div className="w-1/2 bg-white px-12 py-14 flex flex-col justify-center">
             <div className="max-w-md w-full mx-auto">
-              <h2 className="text-4xl font-bold text-black mb-2">
-                {isForgotMode ? 'Forgot your ID or password?' : 'Welcome back'}
-              </h2>
-              <p className="text-gray-500 text-sm mb-8">
-                {isForgotMode
-                  ? 'Enter your email address and we will email your login ID and a new temporary password.'
-                  : 'Sign in to access your deliveries.'}
-              </p>
-              {isForgotMode ? forgotFormContent : loginFormContent}
+              <h2 className="text-4xl font-bold text-black mb-2">Welcome back</h2>
+              <p className="text-gray-500 text-sm mb-8">Sign in to access your deliveries.</p>
+              {loginFormContent}
             </div>
           </div>
         </div>

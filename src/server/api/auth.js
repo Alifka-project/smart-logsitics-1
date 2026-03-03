@@ -426,97 +426,98 @@ function generateTemporaryPassword() {
   return passwordChars.join('');
 }
 
-// POST /api/auth/forgot-password - Request password reset
-router.post('/forgot-password', loginLimiter, async (req, res) => {
-  const { username, email } = req.body;
-  if (!username && !email) {
-    return res.status(400).json({ error: 'username_or_email_required' });
-  }
-  try {
-    const where = [];
-    if (username) where.push({ username: sanitizeInput(username) });
-    if (email) where.push({ email: email.toLowerCase().trim() });
-    const driver = await prisma.driver.findFirst({
-      where: where.length ? { OR: where } : {},
-      include: { account: true }
-    });
-    if (!driver || !driver.account) {
-      return res.status(404).json({ error: 'user_not_found', message: 'User not found. Please check the username and try again.' });
-    }
-    if (!driver.email) {
-      return res.status(400).json({ error: 'no_email_configured', message: 'This account does not have an email configured. Contact support.' });
-    }
-
-    // Generate a new temporary password and apply it immediately
-    const temporaryPassword = generateTemporaryPassword();
-    const validation = validatePassword(temporaryPassword);
-    if (!validation.valid) {
-      console.error('Generated temporary password did not pass validation', validation.errors);
-      return res.status(500).json({ error: 'password_generation_failed' });
-    }
-
-    const passwordHash = await hashPassword(temporaryPassword);
-    await prisma.account.update({
-      where: { id: driver.account.id },
-      data: { passwordHash }
-    });
-
-    try {
-      const emailService = getEmailService();
-      await emailService.sendPasswordResetEmail({
-        to: driver.email,
-        username: driver.username || driver.fullName || 'User',
-        temporaryPassword
-      });
-    } catch (emailErr) {
-      console.error('auth/forgot-password: failed to send password email', emailErr);
-      // Still respond success to avoid leaking existence of account
-    }
-    res.json({
-      success: true,
-      message: 'If an account exists with that username/email, new login details have been sent.'
-    });
-  } catch (err) {
-    console.error('auth/forgot-password', err);
-    res.status(500).json({ error: 'db_error' });
-  }
-});
-
-// POST /api/auth/reset-password - Reset password with token
-router.post('/reset-password', loginLimiter, async (req, res) => {
-  const { token, newPassword } = req.body;
-  if (!token || !newPassword) {
-    return res.status(400).json({ error: 'token_and_password_required' });
-  }
-  const passwordValidation = validatePassword(newPassword);
-  if (!passwordValidation.valid) {
-    return res.status(400).json({ error: 'invalid_password', details: passwordValidation.errors });
-  }
-  try {
-    const resetRecord = await prisma.passwordReset.findUnique({
-      where: { token },
-      include: { account: { include: { driver: true } } }
-    });
-    if (!resetRecord) return res.status(400).json({ error: 'invalid_or_expired_token' });
-    if (resetRecord.used) return res.status(400).json({ error: 'token_already_used' });
-    if (new Date() > resetRecord.expiresAt) return res.status(400).json({ error: 'token_expired' });
-    const passwordHash = await hashPassword(newPassword);
-    await prisma.account.update({ where: { id: resetRecord.accountId }, data: { passwordHash } });
-    await prisma.passwordReset.update({ where: { id: resetRecord.id }, data: { used: true } });
-    await prisma.passwordReset.deleteMany({ where: { accountId: resetRecord.accountId, used: false, id: { not: resetRecord.id } } });
-    try {
-      const emailService = getEmailService();
-      await emailService.sendPasswordResetSuccessEmail({
-        to: resetRecord.account.driver.email,
-        username: resetRecord.account.driver.username || resetRecord.account.driver.fullName || 'User'
-      });
-    } catch { /* ignore email send failure */ }
-    res.json({ success: true, message: 'Password has been reset successfully. You can now login with your new password.' });
-  } catch (err) {
-    console.error('auth/reset-password', err);
-    res.status(500).json({ error: 'db_error' });
-  }
-});
+// NOTE: Forgot/reset password endpoints temporarily disabled. Logic kept for future use.
+// // POST /api/auth/forgot-password - Request password reset
+// router.post('/forgot-password', loginLimiter, async (req, res) => {
+//   const { username, email } = req.body;
+//   if (!username && !email) {
+//     return res.status(400).json({ error: 'username_or_email_required' });
+//   }
+//   try {
+//     const where = [];
+//     if (username) where.push({ username: sanitizeInput(username) });
+//     if (email) where.push({ email: email.toLowerCase().trim() });
+//     const driver = await prisma.driver.findFirst({
+//       where: where.length ? { OR: where } : {},
+//       include: { account: true }
+//     });
+//     if (!driver || !driver.account) {
+//       return res.status(404).json({ error: 'user_not_found', message: 'User not found. Please check the username and try again.' });
+//     }
+//     if (!driver.email) {
+//       return res.status(400).json({ error: 'no_email_configured', message: 'This account does not have an email configured. Contact support.' });
+//     }
+//
+//     // Generate a new temporary password and apply it immediately
+//     const temporaryPassword = generateTemporaryPassword();
+//     const validation = validatePassword(temporaryPassword);
+//     if (!validation.valid) {
+//       console.error('Generated temporary password did not pass validation', validation.errors);
+//       return res.status(500).json({ error: 'password_generation_failed' });
+//     }
+//
+//     const passwordHash = await hashPassword(temporaryPassword);
+//     await prisma.account.update({
+//       where: { id: driver.account.id },
+//       data: { passwordHash }
+//     });
+//
+//     try {
+//       const emailService = getEmailService();
+//       await emailService.sendPasswordResetEmail({
+//         to: driver.email,
+//         username: driver.username || driver.fullName || 'User',
+//         temporaryPassword
+//       });
+//     } catch (emailErr) {
+//       console.error('auth/forgot-password: failed to send password email', emailErr);
+//       // Still respond success to avoid leaking existence of account
+//     }
+//     res.json({
+//       success: true,
+//       message: 'If an account exists with that username/email, new login details have been sent.'
+//     });
+//   } catch (err) {
+//     console.error('auth/forgot-password', err);
+//     res.status(500).json({ error: 'db_error' });
+//   }
+// });
+//
+// // POST /api/auth/reset-password - Reset password with token
+// router.post('/reset-password', loginLimiter, async (req, res) => {
+//   const { token, newPassword } = req.body;
+//   if (!token || !newPassword) {
+//     return res.status(400).json({ error: 'token_and_password_required' });
+//   }
+//   const passwordValidation = validatePassword(newPassword);
+//   if (!passwordValidation.valid) {
+//     return res.status(400).json({ error: 'invalid_password', details: passwordValidation.errors });
+//   }
+//   try {
+//     const resetRecord = await prisma.passwordReset.findUnique({
+//       where: { token },
+//       include: { account: { include: { driver: true } } }
+//     });
+//     if (!resetRecord) return res.status(400).json({ error: 'invalid_or_expired_token' });
+//     if (resetRecord.used) return res.status(400).json({ error: 'token_already_used' });
+//     if (new Date() > resetRecord.expiresAt) return res.status(400).json({ error: 'token_expired' });
+//     const passwordHash = await hashPassword(newPassword);
+//     await prisma.account.update({ where: { id: resetRecord.accountId }, data: { passwordHash } });
+//     await prisma.passwordReset.update({ where: { id: resetRecord.id }, data: { used: true } });
+//     await prisma.passwordReset.deleteMany({ where: { accountId: resetRecord.accountId, used: false, id: { not: resetRecord.id } } });
+//     try {
+//       const emailService = getEmailService();
+//       await emailService.sendPasswordResetSuccessEmail({
+//         to: resetRecord.account.driver.email,
+//         username: resetRecord.account.driver.username || resetRecord.account.driver.fullName || 'User'
+//       });
+//     } catch { /* ignore email send failure */ }
+//     res.json({ success: true, message: 'Password has been reset successfully. You can now login with your new password.' });
+//   } catch (err) {
+//     console.error('auth/reset-password', err);
+//     res.status(500).json({ error: 'db_error' });
+//   }
+// });
 
 // POST /api/auth/change-password
 router.post('/change-password', authenticate, async (req, res) => {
