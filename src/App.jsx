@@ -113,7 +113,7 @@ function ProtectedLayout() {
             <Route path="/admin/operations" element={<AdminOperationsPage />} />
             <Route path="/admin/reports" element={<AdminReportsPage />} />
             <Route path="/admin/reports/pod" element={<AdminPODReportPage />} />
-            <Route path="/admin/tracking/drivers" element={<Navigate to="/admin/operations?tab=driver-tracking" replace />} />
+            <Route path="/admin/tracking/drivers" element={<Navigate to="/admin/operations?tab=monitoring" replace />} />
             <Route path="/admin/tracking/deliveries" element={<Navigate to="/admin/operations?tab=delivery-tracking" replace />} />
             <Route path="/admin/users" element={<AdminUsersPage />} />
             <Route path="/driver" element={<DriverPortal />} />
