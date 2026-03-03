@@ -10,17 +10,10 @@ import { ToastContainer } from '../common/Toast';
 
 /* ─── Admin top navigation items ────────────────────────── */
 const ADMIN_NAV = [
-  { label: 'Dashboard',  path: '/admin',                    exact: true  },
-  { label: 'Deliveries', path: '/deliveries',               exact: false },
-  { label: 'Operations', path: '/admin/operations',         exact: false },
-  { label: 'Reports',    path: '/admin/reports',            exact: false },
-  {
-    label: 'Tracking',
-    dropdown: [
-      { label: 'Driver Tracking',   path: '/admin/tracking/drivers'    },
-      { label: 'Delivery Tracking', path: '/admin/tracking/deliveries' },
-    ],
-  },
+  { label: 'Dashboard',  path: '/admin',            exact: true  },
+  { label: 'Deliveries', path: '/deliveries',       exact: false },
+  { label: 'Operations', path: '/admin/operations', exact: false },
+  { label: 'Reports',    path: '/admin/reports',    exact: false },
   { label: 'Users', path: '/admin/users', exact: false },
 ];
 
@@ -33,8 +26,7 @@ export default function Header({ isAdmin = false }) {
   const [showDropdown,      setShowDropdown]      = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileModal,  setShowProfileModal]  = useState(false);
-  const [mobileNavOpen,     setMobileNavOpen]     = useState(false); // kept for compat, drawer removed
-  const [trackingOpen,      setTrackingOpen]      = useState(false);
+  const [mobileNavOpen,     setMobileNavOpen]     = useState(false);
 
   /* ── Notifications ── */
   const [notifications, setNotifications] = useState([]);
@@ -63,7 +55,6 @@ export default function Header({ isAdmin = false }) {
   
   const dropdownRef     = useRef(null);
   const notifRef        = useRef(null);
-  const trackingRef     = useRef(null);
   const navigate        = useNavigate();
   const location        = useLocation();
 
@@ -109,8 +100,6 @@ export default function Header({ isAdmin = false }) {
         setShowDropdown(false);
       if (notifRef.current && !notifRef.current.contains(e.target))
         setShowNotifications(false);
-      if (trackingRef.current && !trackingRef.current.contains(e.target))
-        setTrackingOpen(false);
     }
     document.addEventListener('mousedown', onOutside);
     return () => document.removeEventListener('mousedown', onOutside);
@@ -375,7 +364,6 @@ export default function Header({ isAdmin = false }) {
   }, 0);
 
   const isNavActive = (path, exact) => exact ? location.pathname === path : location.pathname.startsWith(path);
-  const isTrackingActive = ADMIN_NAV.find(i=>i.dropdown)?.dropdown.some(d => location.pathname.startsWith(d.path));
 
   /* ──────────────────── Shared dropdown panels ──────────────────── */
   const NotifPanel = () => !showNotifications ? null : (
@@ -580,56 +568,15 @@ export default function Header({ isAdmin = false }) {
 
             {/* Pill nav — hidden on mobile, visible on md+ */}
             <nav className="nav-scroll h-full hidden md:flex">
-              {ADMIN_NAV.map(item => {
-                if (item.dropdown) {
-                  return (
-                    <div key={item.label} style={{ position: 'relative', display: 'flex', alignItems: 'center' }} ref={trackingRef}>
-                      <button
-                        onClick={() => setTrackingOpen(v => !v)}
-                        style={{ ...pillStyle(isTrackingActive), display: 'flex', alignItems: 'center', gap: '4px' }}
-                        onMouseEnter={e => { if (!isTrackingActive) Object.assign(e.currentTarget.style, onHover); }}
-                        onMouseLeave={e => { if (!isTrackingActive) Object.assign(e.currentTarget.style, offHover); }}
-                      >
-                        {item.label}
-                        <ChevronDown size={12} style={{ transform: trackingOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
-                      </button>
-                      {trackingOpen && (
-                        <div style={{
-                          position: 'absolute', top: 'calc(100% + 8px)', left: 0,
-                          background: 'var(--surface)', border: '1px solid var(--border)',
-                          borderRadius: '14px', padding: '6px', minWidth: '200px',
-                          boxShadow: 'var(--shadow3)', zIndex: 9999,
-                        }}>
-                          {item.dropdown.map(d => (
-                            <NavLink key={d.path} to={d.path} onClick={() => setTrackingOpen(false)}
-                              style={({ isActive }) => ({
-                                display: 'block', padding: '9px 14px', borderRadius: '9px',
-                                color: isActive ? 'var(--primary)' : 'var(--text2)',
-                                fontWeight: isActive ? 600 : 400, fontSize: '13.5px',
-                                textDecoration: 'none',
-                                background: isActive ? 'var(--primary-glow)' : 'transparent',
-                              })}
-                              onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)'; }}
-                              onMouseLeave={e => { e.currentTarget.style.background = isNavActive(d.path, false) ? 'var(--primary-glow)' : 'transparent'; }}
-                            >
-                              {d.label}
-                            </NavLink>
-                          ))}
-              </div>
-                      )}
-            </div>
-                  );
-                }
-                return (
-                  <NavLink key={item.path} to={item.path} end={item.exact}
-                    style={({ isActive }) => pillStyle(isActive)}
-                    onMouseEnter={e => { if (!isNavActive(item.path, item.exact)) Object.assign(e.currentTarget.style, onHover); }}
-                    onMouseLeave={e => { if (!isNavActive(item.path, item.exact)) Object.assign(e.currentTarget.style, offHover); }}
-                  >
-                    {item.label}
-                  </NavLink>
-                );
-              })}
+              {ADMIN_NAV.map(item => (
+                <NavLink key={item.path} to={item.path} end={item.exact}
+                  style={({ isActive }) => pillStyle(isActive)}
+                  onMouseEnter={e => { if (!isNavActive(item.path, item.exact)) Object.assign(e.currentTarget.style, onHover); }}
+                  onMouseLeave={e => { if (!isNavActive(item.path, item.exact)) Object.assign(e.currentTarget.style, offHover); }}
+                >
+                  {item.label}
+                </NavLink>
+              ))}
             </nav>
 
 
@@ -700,35 +647,7 @@ export default function Header({ isAdmin = false }) {
 
         {/* Mobile side drawer — admin */}
         <MobileDrawer>
-          {ADMIN_NAV.map(item => {
-            if (item.dropdown) {
-              // Wrap in Fragment with key so React handles the nested list correctly
-              return (
-                <React.Fragment key={item.label}>
-                  {/* Section label for the group */}
-                  <p style={{ padding: '8px 14px 4px', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)', opacity: 0.7 }}>
-                    {item.label}
-                  </p>
-                  {item.dropdown.map(d => (
-                    <NavLink
-                      key={d.path}
-                      to={d.path}
-                      onClick={() => setMobileNavOpen(false)}
-                      style={({ isActive }) => ({
-                        display: 'flex', alignItems: 'center', padding: '10px 14px 10px 22px',
-                        borderRadius: '10px', fontSize: '14px', fontWeight: isActive ? 600 : 400,
-                        color: isActive ? 'var(--primary)' : 'var(--text2)',
-                        background: isActive ? 'var(--primary-glow)' : 'transparent',
-                        textDecoration: 'none', marginBottom: '2px',
-                      })}
-                    >
-                      {d.label}
-                    </NavLink>
-                  ))}
-                </React.Fragment>
-              );
-            }
-            return (
+          {ADMIN_NAV.map(item => (
               <NavLink
                 key={item.path}
                 to={item.path}
@@ -744,8 +663,7 @@ export default function Header({ isAdmin = false }) {
               >
                 {item.label}
               </NavLink>
-            );
-          })}
+            ))}
         </MobileDrawer>
 
         <ToastContainer toasts={toasts} onRemove={removeToast} />

@@ -17,8 +17,6 @@ const AdminDashboardPage       = lazy(() => import('./pages/AdminDashboardPage')
 const AdminOperationsPage      = lazy(() => import('./pages/AdminOperationsPage'));
 const AdminReportsPage         = lazy(() => import('./pages/AdminReportsPage'));
 const AdminPODReportPage       = lazy(() => import('./pages/AdminPODReportPage'));
-const AdminDriverTrackingPage  = lazy(() => import('./pages/AdminDriverTrackingPage'));
-const AdminDeliveryTrackingPage= lazy(() => import('./pages/AdminDeliveryTrackingPage'));
 const AdminUsersPage           = lazy(() => import('./pages/AdminUsersPage'));
 const DriverPortal             = lazy(() => import('./pages/DriverPortal'));
 const DeliveryTeamPortal       = lazy(() => import('./pages/DeliveryTeamPortal'));
@@ -115,8 +113,8 @@ function ProtectedLayout() {
             <Route path="/admin/operations" element={<AdminOperationsPage />} />
             <Route path="/admin/reports" element={<AdminReportsPage />} />
             <Route path="/admin/reports/pod" element={<AdminPODReportPage />} />
-            <Route path="/admin/tracking/drivers" element={<AdminDriverTrackingPage />} />
-            <Route path="/admin/tracking/deliveries" element={<AdminDeliveryTrackingPage />} />
+            <Route path="/admin/tracking/drivers" element={<Navigate to="/admin/operations?tab=driver-tracking" replace />} />
+            <Route path="/admin/tracking/deliveries" element={<Navigate to="/admin/operations?tab=delivery-tracking" replace />} />
             <Route path="/admin/users" element={<AdminUsersPage />} />
             <Route path="/driver" element={<DriverPortal />} />
             <Route path="/delivery-team" element={<DeliveryTeamPortal />} />
