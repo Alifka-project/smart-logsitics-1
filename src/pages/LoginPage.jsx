@@ -258,7 +258,7 @@ export default function LoginPage() {
         {/* Outer card — image left | form right */}
         <div className="w-full max-w-6xl bg-white rounded-3xl border-4 border-white shadow-2xl overflow-hidden flex flex-row">
 
-          {/* Left — image panel (zoomed out so full image fits) */}
+          {/* Left — image panel */}
           <div
             className="w-1/2 relative min-h-[600px]"
             style={{
