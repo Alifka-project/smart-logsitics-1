@@ -154,6 +154,7 @@
   .nav-scroll {
     display: flex;
     overflow-x: visible;
+    overflow-y: visible; /* Allow dropdown panels (e.g. Tracking) to extend below */
   }
 }
 
