@@ -14,10 +14,8 @@ export default function LoginPage() {
   const [loading, setLoading]             = useState(false);
   const [passwordErrors, setPasswordErrors] = useState([]);
   const [isForgotMode, setIsForgotMode]   = useState(false);
-  const [forgotEmail, setForgotEmail]     = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotSuccess, setForgotSuccess] = useState(false);
-  const [showForgotConfirm, setShowForgotConfirm] = useState(false);
 
   // Force light theme on the login page
   useEffect(() => {
@@ -121,15 +119,17 @@ export default function LoginPage() {
     }
   }
 
-  // Actually send the new password email after user confirms
   async function submitForgot() {
+    if (!username) {
+      setError('Please enter your username first.');
+      return;
+    }
     setError(null);
     setPasswordErrors([]);
     setForgotLoading(true);
     try {
-      await api.post('/auth/forgot-password', { email: forgotEmail });
+      await api.post('/auth/forgot-password', { username });
       setForgotSuccess(true);
-      setShowForgotConfirm(false);
     } catch (err) {
       const errorMessage =
         err?.response?.data?.message ||
@@ -140,17 +140,6 @@ export default function LoginPage() {
     } finally {
       setForgotLoading(false);
     }
-  }
-
-  // First step: user submits email, we show a confirmation panel instead of sending immediately
-  function handleForgotSubmit(e) {
-    e.preventDefault();
-    setError(null);
-    if (!forgotEmail) {
-      setError('Please enter your email address');
-      return;
-    }
-    setShowForgotConfirm(true);
   }
 
   /* ── Login form content ── */
@@ -223,11 +212,14 @@ export default function LoginPage() {
           <button
             type="button"
             onClick={() => {
+              if (!username) {
+                setError('Please enter your username first.');
+                return;
+              }
               setError(null);
               setPasswordErrors([]);
               setIsForgotMode(true);
               setForgotSuccess(false);
-              setShowForgotConfirm(false);
             }}
             className="text-[#2563EB] hover:underline font-medium"
           >
@@ -275,62 +267,41 @@ export default function LoginPage() {
         <div className="bg-green-50 border-l-4 border-green-500 text-green-800 text-sm p-4 rounded mb-4 text-left">
           <div className="font-semibold mb-1">Check your email</div>
           <div>
-            If an account exists with that email address, your login ID and a new temporary password have been sent.
+            If an account exists for username <span className="font-semibold">{username}</span>, your login ID
+            and a new temporary password have been sent to the registered email address.
           </div>
         </div>
-      ) : null}
-
-      {!forgotSuccess && (
-        <>
-        <form onSubmit={handleForgotSubmit} className="space-y-5">
-          <div>
-            <label className="block text-sm font-medium text-gray-800 mb-1.5">
-              Email address
-            </label>
-            <input
-              type="email"
-              value={forgotEmail}
-              onChange={(e) => setForgotEmail(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm outline-none bg-white transition-all focus:border-[#011E41] focus:ring-2 focus:ring-[#011E4122]"
-              placeholder="Enter your email"
-              required
-              autoComplete="email"
+      ) : (
+        <div className="space-y-4 text-sm text-gray-700">
+          <p>
+            We will email your login ID and a new temporary password to the registered email
+            for username <span className="font-semibold">{username}</span>. Do you want to continue?
+          </p>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={submitForgot}
               disabled={forgotLoading}
-            />
+              className="px-4 py-2 rounded-xl bg-[#011E41] text-white font-semibold text-sm hover:bg-[#001529] transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-md"
+            >
+              {forgotLoading ? 'Sending new password...' : 'Send new password'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsForgotMode(false);
+                setForgotSuccess(false);
+                setError(null);
+              }}
+              className="px-3 py-2 text-sm text-gray-600 hover:underline"
+            >
+              Cancel
+            </button>
           </div>
-          <button
-            type="submit"
-            disabled={forgotLoading || !forgotEmail}
-            className="w-full text-white font-semibold py-3 px-4 rounded-xl bg-[#011E41] hover:bg-[#001529] transition-colors duration-150 disabled:opacity-60 disabled:cursor-not-allowed shadow-md"
-          >
-            {forgotLoading ? 'Sending new password...' : 'Send new password'}
-          </button>
-        </form>
-        {showForgotConfirm && !forgotLoading && (
-          <div className="mt-3 p-3 rounded-md bg-yellow-50 border border-yellow-300 text-xs text-yellow-900">
-            <p className="mb-2">
-              We will email your login ID and a new temporary password to the registered email for{' '}
-              <span className="font-semibold">{forgotEmail}</span>. Continue?
-            </p>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={submitForgot}
-                className="px-3 py-1 rounded bg-[#011E41] text-white font-semibold text-xs hover:bg-[#001529] transition-colors"
-              >
-                Yes, send new password
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowForgotConfirm(false)}
-                className="px-3 py-1 rounded text-gray-600 hover:underline text-xs"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-        </>
+          <p className="text-xs text-gray-500">
+            Make sure you have entered the correct username above before requesting a new password.
+          </p>
+        </div>
       )}
 
       <p className="mt-4 text-center text-xs text-gray-600">
@@ -339,9 +310,7 @@ export default function LoginPage() {
           onClick={() => {
             setIsForgotMode(false);
             setError(null);
-            setForgotEmail('');
             setForgotSuccess(false);
-                setShowForgotConfirm(false);
           }}
           className="font-medium text-[#2563EB] hover:underline"
         >
