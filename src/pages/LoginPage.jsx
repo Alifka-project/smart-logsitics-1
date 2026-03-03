@@ -131,12 +131,16 @@ export default function LoginPage() {
       await api.post('/auth/forgot-password', { username });
       setForgotSuccess(true);
     } catch (err) {
-      const errorMessage =
-        err?.response?.data?.message ||
-        err?.response?.data?.error ||
-        err?.message ||
-        'Failed to send reset email. Please try again.';
-      setError(errorMessage);
+      if (err?.response?.status === 404) {
+        setError('Username not found. Please check the ID and try again.');
+      } else {
+        const errorMessage =
+          err?.response?.data?.message ||
+          err?.response?.data?.error ||
+          err?.message ||
+          'Failed to send reset email. Please try again.';
+        setError(errorMessage);
+      }
     } finally {
       setForgotLoading(false);
     }

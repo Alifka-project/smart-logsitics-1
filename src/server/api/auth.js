@@ -441,11 +441,7 @@ router.post('/forgot-password', loginLimiter, async (req, res) => {
       include: { account: true }
     });
     if (!driver || !driver.account) {
-      // Always return success to avoid revealing whether the account exists
-      return res.json({
-        success: true,
-        message: 'If an account exists with that username/email, new login details have been sent.'
-      });
+      return res.status(404).json({ error: 'user_not_found', message: 'User not found. Please check the username and try again.' });
     }
     if (!driver.email) {
       return res.status(400).json({ error: 'no_email_configured', message: 'This account does not have an email configured. Contact support.' });

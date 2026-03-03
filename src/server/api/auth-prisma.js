@@ -169,12 +169,11 @@ router.post('/forgot-password', loginLimiter, async (req, res) => {
       }
     });
     
-    // Always return success to prevent user enumeration attacks
+    // If user not found, return an explicit error so the UI can tell the user
     if (!driver || !driver.account) {
-      // Still return success, but don't send email
-      return res.json({
-        success: true,
-        message: 'If an account exists with that username/email, new login details have been sent.'
+      return res.status(404).json({
+        error: 'user_not_found',
+        message: 'User not found. Please check the username and try again.'
       });
     }
     
