@@ -250,8 +250,8 @@ export default function LoginPage() {
         className="hidden lg:flex min-h-screen items-center justify-center px-4 py-8 light"
         style={{
           backgroundImage: 'url(/elec%20login.png)',
-          backgroundSize: 'contain',
-          backgroundPosition: 'center center',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
         }}
       >
@@ -260,11 +260,11 @@ export default function LoginPage() {
 
           {/* Left — image panel */}
           <div
-            className="w-1/2 relative min-h-[600px]"
+            className="w-1/2 relative min-h-[720px]"
             style={{
               backgroundImage: 'url(/elec%20login.png)',
-              backgroundSize: 'contain',
-              backgroundPosition: 'center center',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
               backgroundRepeat: 'no-repeat',
             }}
           />
