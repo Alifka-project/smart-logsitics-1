@@ -278,6 +278,8 @@ export default function Header({ isAdmin = false }) {
     const role = getCurrentUser()?.account?.role || getCurrentUser()?.role || 'driver';
     setShowNotifications(false);
     if (n.type==='message') {
+      // For admin, deep-link into Operations > Communication, passing the contact ID
+      // as userId so AdminOperationsPage can select the correct contact.
       if (role==='admin') navigate(`/admin/operations?tab=communication${n.senderId?`&userId=${n.senderId}`:''}`);
       else if (role==='delivery_team') navigate(`/delivery-team?tab=communication${n.senderId?`&contact=${n.senderId}`:''}`);
       else navigate('/driver?tab=messages');

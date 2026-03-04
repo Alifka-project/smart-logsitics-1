@@ -224,7 +224,8 @@ export default function AdminOperationsPage() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab');
-    const driverId = params.get('driverId');
+    // Support both legacy "userId" and newer "driverId" parameters for deep links
+    const driverId = params.get('driverId') || params.get('userId');
     const allowedTabs = new Set(['monitoring', 'control', 'delivery-tracking', 'communication', 'alerts']);
 
     if (tab && allowedTabs.has(tab) && tab !== activeTab) {
@@ -236,7 +237,7 @@ export default function AdminOperationsPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const driverId = params.get('driverId');
+    const driverId = params.get('driverId') || params.get('userId');
     if (!driverId || drivers.length === 0) return;
     const match = drivers.find(driver => String(driver.id) === String(driverId));
     if (match && String(selectedDriver?.id) !== String(match.id)) {
