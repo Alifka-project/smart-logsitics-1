@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { randomUUID } = require('crypto');
 const { authenticate, requireRole } = require('../auth');
+const { buildBusinessKey, upsertDeliveryByBusinessKey } = require('../services/deliveryDedupService');
 const prisma = require('../db/prisma');
 
 /**
@@ -69,47 +70,50 @@ router.post('/ingest', authenticate, requireRole('admin'), async (req, res) => {
           sapSyncedAt: new Date().toISOString(),
           ...delivery.metadata || {}
         };
+        const poNumberToSave = delivery._originalPONumber || delivery.poNumber || null;
+        const originalDeliveryNumber =
+          metadata.originalDeliveryNumber ||
+          metadata.sapDeliveryNumber ||
+          null;
 
-        // Save to database with full SAP data
-        const savedDelivery = await prisma.delivery.upsert({
-          where: { id: deliveryId },
-          update: {
-            customer: delivery.customer || delivery.customerName || delivery.name || null,
-            address: delivery.address || delivery.deliveryAddress || null,
-            phone: delivery.phone || delivery.customerPhone || delivery.contactNumber || null,
-            poNumber: delivery._originalPONumber || delivery.poNumber || null,
-            lat: delivery.lat || delivery.latitude || null,
-            lng: delivery.lng || delivery.longitude || null,
-            status: delivery.status || 'pending',
-            items: itemsData,
-            metadata: metadata,
-            updatedAt: new Date()
-          },
-          create: {
-            id: deliveryId,
-            customer: delivery.customer || delivery.customerName || delivery.name || null,
-            address: delivery.address || delivery.deliveryAddress || null,
-            phone: delivery.phone || delivery.customerPhone || delivery.contactNumber || null,
-            poNumber: delivery._originalPONumber || delivery.poNumber || null,
-            lat: delivery.lat || delivery.latitude || null,
-            lng: delivery.lng || delivery.longitude || null,
-            status: delivery.status || 'pending',
-            items: itemsData,
-            metadata: metadata
-          }
+        const businessKey = buildBusinessKey({
+          poNumber: poNumberToSave,
+          originalDeliveryNumber
+        });
+
+        const incoming = {
+          id: deliveryId,
+          customer: delivery.customer || delivery.customerName || delivery.name || null,
+          address: delivery.address || delivery.deliveryAddress || null,
+          phone: delivery.phone || delivery.customerPhone || delivery.contactNumber || null,
+          poNumber: poNumberToSave,
+          lat: delivery.lat || delivery.latitude || null,
+          lng: delivery.lng || delivery.longitude || null,
+          status: delivery.status || 'pending',
+          items: itemsData,
+          metadata,
+          businessKey
+        };
+
+        const { delivery: savedDelivery, existed } = await upsertDeliveryByBusinessKey({
+          prisma,
+          source: 'sap',
+          incoming
         });
 
         // Create event for SAP sync
         await prisma.deliveryEvent.create({
           data: {
             deliveryId: savedDelivery.id,
-            eventType: 'sap_sync',
+            eventType: existed ? 'sap_reimport' : 'sap_sync',
             payload: {
               source: 'SAP',
               customer: savedDelivery.customer,
               address: savedDelivery.address,
               items: itemsData,
-              syncedAt: new Date().toISOString()
+              syncedAt: new Date().toISOString(),
+              businessKey: savedDelivery.businessKey || businessKey || null,
+              deduplicated: !!existed
             },
             actorType: 'system',
             actorId: req.user?.sub || null

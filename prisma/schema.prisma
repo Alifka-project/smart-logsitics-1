@@ -79,6 +79,7 @@ model Delivery {
   address                String?
   phone                  String?              @db.VarChar(32)
   poNumber               String?              @db.VarChar(100)
+  businessKey            String?              @unique @map("business_key") @db.VarChar(255)
   lat                    Float?
   lng                    Float?
   status                 String               @default("pending") @db.VarChar(50)

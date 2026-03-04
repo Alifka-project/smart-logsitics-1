@@ -4,6 +4,7 @@ const { randomUUID } = require('crypto');
 const { authenticate, requireRole } = require('../auth');
 const sapService = require('../../../services/sapService');
 const { autoAssignDeliveries, getAvailableDrivers } = require('../services/autoAssignmentService');
+const { buildBusinessKey, upsertDeliveryByBusinessKey } = require('../services/deliveryDedupService');
 const prisma = require('../db/prisma');
 const cache = require('../cache');
 
@@ -341,8 +342,15 @@ router.post('/upload', authenticate, async (req, res) => {
         const metadataToSave = delivery.metadata && typeof delivery.metadata === 'object'
           ? { ...baseMeta, ...delivery.metadata }
           : baseMeta;
+        const originalDeliveryNumberToSave = baseMeta.originalDeliveryNumber ?? null;
 
-        const upsertData = {
+        const businessKey = buildBusinessKey({
+          poNumber: poNumberToSave,
+          originalDeliveryNumber: originalDeliveryNumberToSave
+        });
+
+        const incoming = {
+          id: deliveryId,
           customer: delivery.customer || delivery.name || null,
           address: delivery.address || null,
           phone: delivery.phone ?? null,
@@ -352,31 +360,34 @@ router.post('/upload', authenticate, async (req, res) => {
           status: delivery.status || 'pending',
           items: typeof delivery.items === 'string' ? delivery.items : (delivery.items ? JSON.stringify(delivery.items) : null),
           metadata: metadataToSave,
+          businessKey
         };
 
-        const savedDelivery = await prisma.delivery.upsert({
-          where: { id: deliveryId },
-          update: { ...upsertData, updatedAt: new Date() },
-          create: { id: deliveryId, ...upsertData }
+        const { delivery: savedDelivery, existed } = await upsertDeliveryByBusinessKey({
+          prisma,
+          source: 'manual_upload',
+          incoming
         });
 
-        console.log(`[Deliveries/Upload] ✓ Saved delivery ${deliveryId}`);
+        console.log(`[Deliveries/Upload] ✓ Saved delivery ${savedDelivery.id} (existed=${!!existed})`);
         if (!savedDelivery.poNumber && !savedDelivery.metadata?.originalPONumber) {
-          console.log(`[Deliveries/Upload] ⚠ Warning: No PO Number found for delivery ${deliveryId}`);
+          console.log(`[Deliveries/Upload] ⚠ Warning: No PO Number found for delivery ${savedDelivery.id}`);
         }
 
         // Save delivery event for audit
         await prisma.deliveryEvent.create({
           data: {
-            deliveryId,
-            eventType: 'uploaded',
+            deliveryId: savedDelivery.id,
+            eventType: existed ? 'duplicate_upload' : 'uploaded',
             payload: {
               customer: delivery.customer || delivery.name,
               address: delivery.address,
               phone: delivery.phone,
               lat: delivery.lat,
               lng: delivery.lng,
-              uploadDate: new Date().toISOString()
+              uploadDate: new Date().toISOString(),
+              businessKey: savedDelivery.businessKey || businessKey || null,
+              deduplicated: !!existed
             },
             actorType: req.user?.role || 'admin',
             actorId: req.user?.sub || null
@@ -386,8 +397,8 @@ router.post('/upload', authenticate, async (req, res) => {
           console.warn(`[Deliveries] Failed to create event for ${deliveryId}:`, err.message);
         });
 
-        deliveryIds.push(deliveryId);
-        results.push({ deliveryId, saved: true });
+        deliveryIds.push(savedDelivery.id);
+        results.push({ deliveryId: savedDelivery.id, saved: true, deduplicated: !!existed });
       } catch (error) {
         console.error(`[Deliveries] Error saving delivery ${deliveryId}:`, error);
         results.push({ deliveryId, saved: false, error: error.message });
