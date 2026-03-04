@@ -25,8 +25,8 @@ router.get('/conversations/:driverId', authenticate, async (req, res) => {
 
     // Fetch messages between current user and contact (bidirectional)
     // Support multi-role communication by checking BOTH directions:
-    // 1. adminId = current user, driverId = contact (outgoing from current user)
-    // 2. adminId = contact, driverId = current user (incoming to current user)
+    // 1. adminId = current user, driverId = contact (common case for admin/delivery_team -> driver or team)
+    // 2. adminId = contact, driverId = current user (messages where current user is stored on driverId side)
     const messages = await prisma.message.findMany({
       where: {
         OR: [
@@ -62,12 +62,31 @@ router.get('/conversations/:driverId', authenticate, async (req, res) => {
     }
 
     // Mark received messages as read (messages where current user is the recipient)
-    // Current user is recipient when: adminId = contact AND driverId = current user
+    // There are two cases for admin/delivery_team users:
+    // 1) Driver → current user:
+    //    - adminId = current user (recipient)
+    //    - driverId = driver (sender)
+    //    - senderRole = 'driver'
+    // 2) Team/Admin → current user:
+    //    - adminId = contact (sender)
+    //    - driverId = current user (recipient)
+    //    - senderRole in ['admin', 'delivery_team']
     await prisma.message.updateMany({
       where: {
-        adminId: driverId,  // Message was sent BY the contact
-        driverId: adminId,  // Message was sent TO current user
-        isRead: false
+        OR: [
+          {
+            adminId,
+            driverId,
+            senderRole: 'driver',
+            isRead: false
+          },
+          {
+            adminId: driverId,
+            driverId: adminId,
+            senderRole: { in: ['admin', 'delivery_team'] },
+            isRead: false
+          }
+        ]
       },
       data: { isRead: true }
     });
@@ -84,7 +103,7 @@ router.get('/conversations/:driverId', authenticate, async (req, res) => {
 
 /**
  * GET /api/admin/messages/unread
- * Get count of unread messages per driver (admin or delivery_team)
+ * Get count of unread messages per contact (admin or delivery_team)
  */
 router.get('/unread', authenticate, async (req, res) => {
   const userRole = req.user?.account?.role || req.user?.role;
@@ -99,21 +118,56 @@ router.get('/unread', authenticate, async (req, res) => {
       return res.status(401).json({ error: 'Unauthorized - No admin ID' });
     }
 
-    // Get unread messages where current user is the RECIPIENT
-    // Optimized: use groupBy instead of findMany + JS loop
+    // Get unread messages where current user (admin or delivery_team) is the RECIPIENT.
+    // There are two patterns based on sender role:
+    //
+    // 1) Driver → current user
+    //    - adminId = current user (recipient)
+    //    - driverId = driver (sender)
+    //    - senderRole = 'driver'
+    //
+    //    We group by driverId so each driver appears as a separate contact.
+    //
+    // 2) Team/Admin → current user
+    //    - adminId = sender (admin/delivery_team)
+    //    - driverId = current user (recipient)
+    //    - senderRole in ['admin', 'delivery_team']
+    //
+    //    We group by adminId so each team/admin sender appears as a separate contact.
     try {
-      const unreadMessages = await prisma.message.groupBy({
-        by: ['adminId'],
-        where: {
-          driverId: adminId,
-          isRead: false
-        },
-        _count: { id: true }
-      });
+      const [fromDrivers, fromStaff] = await Promise.all([
+        prisma.message.groupBy({
+          by: ['driverId'],
+          where: {
+            adminId,
+            isRead: false,
+            senderRole: 'driver'
+          },
+          _count: { id: true }
+        }),
+        prisma.message.groupBy({
+          by: ['adminId'],
+          where: {
+            driverId: adminId,
+            isRead: false,
+            senderRole: { in: ['admin', 'delivery_team'] }
+          },
+          _count: { id: true }
+        })
+      ]);
 
       const result = {};
-      unreadMessages.forEach(group => {
-        result[group.adminId] = group._count.id;
+
+      // Unread from drivers (keyed by driverId)
+      fromDrivers.forEach(group => {
+        if (!group.driverId) return;
+        result[group.driverId] = (result[group.driverId] || 0) + group._count.id;
+      });
+
+      // Unread from admins/delivery_team (keyed by adminId)
+      fromStaff.forEach(group => {
+        if (!group.adminId) return;
+        result[group.adminId] = (result[group.adminId] || 0) + group._count.id;
       });
 
       return res.json(result);

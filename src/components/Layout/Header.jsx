@@ -113,14 +113,24 @@ export default function Header({ isAdmin = false }) {
     if (!loggedIn) return;
     let timer = null;
     let visible = !document.hidden;
-    const poll = () => { loadNotifications(); schedule(); };
+    const poll = () => {
+      loadNotifications();
+      schedule();
+    };
     const schedule = () => {
       if (timer) clearTimeout(timer);
-      if (visible) timer = setTimeout(poll, 60000);
+      // Poll more frequently so message notifications feel responsive
+      if (visible) timer = setTimeout(poll, 15000);
     };
     const onVisibility = () => {
       visible = !document.hidden;
-      if (visible) { loadNotifications(); schedule(); } else { clearTimeout(timer); timer = null; }
+      if (visible) {
+        loadNotifications();
+        schedule();
+      } else {
+        clearTimeout(timer);
+        timer = null;
+      }
     };
     const onStatusUpdate = (e) => {
       const id = e.detail?.deliveryId;
@@ -129,7 +139,9 @@ export default function Header({ isAdmin = false }) {
     };
     loadNotifications();
     schedule();
-    document.addEventListener('visibilitychange', onStatusUpdate);
+    // Visibility changes should trigger a refresh using onVisibility,
+    // while delivery status events use onStatusUpdate to keep badges in sync.
+    document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('deliveryStatusUpdated', onStatusUpdate);
     return () => {
       if (timer) clearTimeout(timer);
