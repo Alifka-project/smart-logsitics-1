@@ -167,6 +167,59 @@ const useDeliveryStore = create((set, get) => ({
     // Save updated deliveries to localStorage
     get().saveToStorage(updated);
   },
+
+  // Update contact details (customer, address, phone, coordinates) for a single delivery
+  // and keep missing-contact deliveries at the bottom.
+  updateDeliveryContact: (id, contactData) => {
+    const deliveries = get().deliveries || [];
+
+    const updatedDeliveries = deliveries.map((delivery) => {
+      if (delivery.id !== id) return delivery;
+
+      const latRaw = contactData.lat ?? delivery.lat;
+      const lngRaw = contactData.lng ?? delivery.lng;
+
+      const lat = Number.parseFloat(latRaw);
+      const lng = Number.parseFloat(lngRaw);
+
+      const safeLat = (Number.isFinite(lat) && lat !== 0) ? lat : 25.1124;
+      const safeLng = (Number.isFinite(lng) && lng !== 0) ? lng : 55.1980;
+
+      return {
+        ...delivery,
+        ...contactData,
+        lat: safeLat,
+        lng: safeLng,
+        distanceFromWarehouse: calculateDistance(
+          WAREHOUSE_LAT,
+          WAREHOUSE_LNG,
+          safeLat,
+          safeLng
+        ),
+      };
+    });
+
+    // Re-apply "missing contact to bottom" rule while preserving relative order inside each group
+    const deliveriesWithContact = [];
+    const deliveriesMissingContact = [];
+
+    updatedDeliveries.forEach((d) => {
+      const phoneStr = d.phone != null ? String(d.phone).trim() : '';
+      const hasPhone = phoneStr.length > 0;
+      const badAddress = isUnrecognizableAddress(d.address);
+
+      if (!hasPhone || badAddress) {
+        deliveriesMissingContact.push(d);
+      } else {
+        deliveriesWithContact.push(d);
+      }
+    });
+
+    const finalDeliveries = [...deliveriesWithContact, ...deliveriesMissingContact];
+
+    set({ deliveries: finalDeliveries });
+    get().saveToStorage(finalDeliveries);
+  },
   
   selectDelivery: (id) => {
     const delivery = get().deliveries.find(d => d.id === id);

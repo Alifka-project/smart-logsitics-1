@@ -560,27 +560,93 @@ router.get('/', authenticate, async (req, res) => {
       assignmentStatus: d.assignments?.[0]?.status || 'unassigned'
     }));
 
-    // Ensure deliveries missing address or phone appear at the bottom of the list
-    const deliveriesWithContact = [];
-    const deliveriesMissingContact = [];
-
-    for (const d of formattedDeliveries) {
-      if (!d.address || !d.phone) {
-        deliveriesMissingContact.push(d);
-      } else {
-        deliveriesWithContact.push(d);
-      }
-    }
-
-    const sortedDeliveries = [...deliveriesWithContact, ...deliveriesMissingContact];
-
     res.json({
-      deliveries: sortedDeliveries,
-      count: sortedDeliveries.length
+      deliveries: formattedDeliveries,
+      count: formattedDeliveries.length
     });
   } catch (err) {
     console.error('GET /api/deliveries error', err);
     res.status(500).json({ error: 'db_error', detail: err.message });
+  }
+});
+
+// PUT /api/deliveries/admin/:id/contact - Update delivery contact details (customer, address, phone, coordinates)
+router.put('/admin/:id/contact', authenticate, requireRole('admin'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { customer, address, phone, lat, lng } = req.body || {};
+
+    if (!customer && !address && !phone && lat == null && lng == null) {
+      return res.status(400).json({ error: 'no_contact_fields_provided' });
+    }
+
+    const existing = await prisma.delivery.findUnique({
+      where: { id }
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: 'delivery_not_found' });
+    }
+
+    const updateData = {
+      customer: customer ?? existing.customer,
+      address: address ?? existing.address,
+      phone: phone ?? existing.phone,
+      lat: lat != null ? Number(lat) : existing.lat,
+      lng: lng != null ? Number(lng) : existing.lng,
+      updatedAt: new Date(),
+      metadata: {
+        ...(existing.metadata || {}),
+        contactUpdatedAt: new Date().toISOString(),
+        contactUpdatedBy: req.user?.username || req.user?.sub || 'admin'
+      }
+    };
+
+    const updated = await prisma.delivery.update({
+      where: { id },
+      data: updateData
+    });
+
+    // Create audit event
+    prisma.deliveryEvent.create({
+      data: {
+        deliveryId: id,
+        eventType: 'contact_updated',
+        payload: {
+          previousCustomer: existing.customer,
+          previousAddress: existing.address,
+          previousPhone: existing.phone,
+          newCustomer: updateData.customer,
+          newAddress: updateData.address,
+          newPhone: updateData.phone,
+          updatedAt: new Date().toISOString()
+        },
+        actorType: req.user?.role || 'admin',
+        actorId: req.user?.sub || null
+      }
+    }).catch(() => {});
+
+    // Invalidate caches so tracking/dashboard pick up the change
+    cache.invalidatePrefix('tracking:');
+    cache.invalidatePrefix('dashboard:');
+    cache.delete('deliveries:list:v2');
+
+    res.json({
+      ok: true,
+      delivery: {
+        id: updated.id,
+        customer: updated.customer,
+        address: updated.address,
+        phone: updated.phone,
+        lat: updated.lat,
+        lng: updated.lng,
+        status: updated.status,
+        updatedAt: updated.updatedAt
+      }
+    });
+  } catch (err) {
+    console.error('PUT /api/deliveries/admin/:id/contact error:', err);
+    res.status(500).json({ error: 'contact_update_failed', detail: err.message });
   }
 });
 

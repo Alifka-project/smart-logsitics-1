@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import api from '../../frontend/apiClient';
 import useDeliveryStore from '../../store/useDeliveryStore';
 import MultipleFileUpload from './MultipleFileUpload';
 import SignaturePad from './SignaturePad';
 import StatusUpdateForm from './StatusUpdateForm';
+import { geocodeAddress } from '../../services/geocodingService';
 
 export default function CustomerModal({ isOpen, onClose }) {
   const selectedDelivery = useDeliveryStore((state) => state.selectedDelivery);
   const updateDeliveryStatus = useDeliveryStore((state) => state.updateDeliveryStatus);
+  const updateDeliveryContact = useDeliveryStore((state) => state.updateDeliveryContact);
   
   const [driverSignature, setDriverSignature] = useState('');
   const [customerSignature, setCustomerSignature] = useState('');
@@ -17,8 +19,76 @@ export default function CustomerModal({ isOpen, onClose }) {
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [isSavingContact, setIsSavingContact] = useState(false);
+  const [contactError, setContactError] = useState('');
+
+  useEffect(() => {
+    if (selectedDelivery) {
+      setEditAddress(selectedDelivery.address || '');
+      setEditPhone(selectedDelivery.phone || '');
+      setContactError('');
+    }
+  }, [selectedDelivery]);
 
   if (!isOpen || !selectedDelivery) return null;
+
+  const handleSaveContact = async () => {
+    if (!editAddress && !editPhone) {
+      setContactError('Please provide at least an address or phone number');
+      return;
+    }
+
+    setIsSavingContact(true);
+    setContactError('');
+
+    try {
+      let geo = null;
+
+      // Only geocode when address actually changed
+      if (editAddress && editAddress.trim() !== (selectedDelivery.address || '').trim()) {
+        geo = await geocodeAddress(editAddress, 'Dubai, UAE');
+      }
+
+      const payload = {
+        customer: selectedDelivery.customer,
+        address: editAddress,
+        phone: editPhone,
+      };
+
+      if (geo && geo.lat != null && geo.lng != null) {
+        payload.lat = geo.lat;
+        payload.lng = geo.lng;
+      }
+
+      const response = await api.put(`/deliveries/admin/${selectedDelivery.id}/contact`, payload);
+      const updated = response.data?.delivery || {};
+
+      updateDeliveryContact(selectedDelivery.id, {
+        customer: updated.customer ?? payload.customer,
+        address: updated.address ?? payload.address,
+        phone: updated.phone ?? payload.phone,
+        lat: updated.lat ?? payload.lat,
+        lng: updated.lng ?? payload.lng,
+      });
+
+      // Notify other dashboards / map views
+      window.dispatchEvent(new CustomEvent('deliveriesUpdated', {
+        detail: { updatedId: selectedDelivery.id }
+      }));
+    } catch (error) {
+      console.error('[CustomerModal] Error updating contact:', error);
+      setContactError(
+        error.response?.data?.detail ||
+        error.response?.data?.error ||
+        error.message ||
+        'Failed to update contact details'
+      );
+    } finally {
+      setIsSavingContact(false);
+    }
+  };
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
@@ -140,15 +210,23 @@ export default function CustomerModal({ isOpen, onClose }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
               <div>
                 <span className="font-semibold text-gray-700 dark:text-gray-200">Address:</span>
-                <p className="text-gray-600 dark:text-gray-300 break-words">{selectedDelivery.address}</p>
+                <textarea
+                  value={editAddress}
+                  onChange={(e) => setEditAddress(e.target.value)}
+                  rows={2}
+                  className="mt-1 w-full px-2 py-1.5 rounded-md border border-primary-200 dark:border-primary-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="Delivery address"
+                />
               </div>
               <div>
                 <span className="font-semibold text-gray-700 dark:text-gray-200">Phone:</span>
-                <p className="text-gray-600 dark:text-gray-300 break-all">
-                  {selectedDelivery.phone && selectedDelivery.phone.trim() 
-                    ? selectedDelivery.phone 
-                    : <span className="text-gray-400 italic">Not available</span>}
-                </p>
+                <input
+                  type="tel"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  className="mt-1 w-full px-2 py-1.5 rounded-md border border-primary-200 dark:border-primary-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="Customer phone number"
+                />
               </div>
               <div>
                 <span className="font-semibold text-gray-700 dark:text-gray-200">Items:</span>
@@ -160,6 +238,23 @@ export default function CustomerModal({ isOpen, onClose }) {
                   {selectedDelivery.distanceFromWarehouse.toFixed(1)} km
                 </p>
               </div>
+            </div>
+
+            {contactError && (
+              <div className="mt-2 text-xs text-red-700 dark:text-red-300">
+                {contactError}
+              </div>
+            )}
+
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                onClick={handleSaveContact}
+                disabled={isSavingContact}
+                className="px-3 py-1.5 text-xs sm:text-sm rounded-md bg-white text-primary-700 border border-primary-300 hover:bg-primary-50 disabled:opacity-60 disabled:cursor-not-allowed dark:bg-gray-800 dark:text-primary-300 dark:border-primary-700 dark:hover:bg-primary-900/30"
+              >
+                {isSavingContact ? 'Saving…' : 'Save Contact & Recalculate Route'}
+              </button>
             </div>
           </div>
 

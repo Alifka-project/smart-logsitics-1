@@ -17,8 +17,12 @@ export function useDragAndDrop(initialItems = []) {
     setDragOverIndex(null);
   };
 
-  const handleDrop = (dropIndex) => {
-    if (draggedIndex === null || draggedIndex === dropIndex) {
+  const handleDrop = (dropIndex, onReorder) => {
+    // Prefer explicit dropIndex if provided, otherwise fall back to
+    // the last dragOverIndex (the card we are hovering on).
+    const targetIndex = typeof dropIndex === 'number' ? dropIndex : (dragOverIndex ?? draggedIndex);
+
+    if (draggedIndex === null || targetIndex === null || draggedIndex === targetIndex) {
       setDraggedIndex(null);
       setDragOverIndex(null);
       return;
@@ -30,9 +34,12 @@ export function useDragAndDrop(initialItems = []) {
     // Remove from old position
     newItems.splice(draggedIndex, 1);
     // Insert at new position
-    newItems.splice(dropIndex, 0, draggedItem);
+    newItems.splice(targetIndex, 0, draggedItem);
     
     setItems(newItems);
+    if (typeof onReorder === 'function') {
+      onReorder(newItems);
+    }
     setDraggedIndex(null);
     setDragOverIndex(null);
   };
@@ -45,9 +52,9 @@ export function useDragAndDrop(initialItems = []) {
     setDragOverIndex(index);
   };
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = (onReorder) => {
     if (draggedIndex !== null && dragOverIndex !== null) {
-      handleDrop(dragOverIndex);
+      handleDrop(dragOverIndex, onReorder);
     } else {
       setDraggedIndex(null);
       setDragOverIndex(null);

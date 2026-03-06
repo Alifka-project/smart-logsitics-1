@@ -36,13 +36,13 @@ export default function DeliveryManagementPage() {
     setShowCacheAlert(hasFake);
   }, []);
 
-  // Load route when deliveries change and Map tab is active
+  // Load or recalculate route whenever deliveries change while Map tab is active
   useEffect(() => {
-    if (activeTab === 'map' && deliveries.length > 0 && !route) {
+    if (activeTab === 'map' && deliveries.length > 0) {
       loadRoute();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadRoute updates route; avoid loop
-  }, [activeTab, deliveries.length]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadRoute uses latest deliveries from closure
+  }, [activeTab, deliveries]);
 
   const loadRoute = async () => {
     if (deliveries.length === 0) return;
@@ -250,7 +250,7 @@ export default function DeliveryManagementPage() {
                 key={tab.id}
                 onClick={() => {
                   setActiveTab(tab.id);
-                  if (tab.id === 'map' && deliveries.length > 0 && !route) {
+                  if (tab.id === 'map' && deliveries.length > 0) {
                     loadRoute();
                   }
                 }}

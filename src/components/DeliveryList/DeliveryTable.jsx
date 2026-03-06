@@ -25,12 +25,15 @@ export default function DeliveryTable({ onSelectDelivery, onCloseDetailModal }) 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deliveries]);
 
-  const handleCardDrop = (dropIndex) => {
-    handleDrop(dropIndex);
-    // Save the new order to the store
-    if (items.length > 0 && items !== deliveries) {
-      updateDeliveryOrder(items);
-    }
+  const handleCardDrop = () => {
+    // Delegate to hook but capture the newly ordered items.
+    // The hook will use its internal dragOverIndex / draggedIndex
+    // to decide the final target index.
+    handleDrop(undefined, (newItems) => {
+      if (Array.isArray(newItems) && newItems.length > 0) {
+        updateDeliveryOrder(newItems);
+      }
+    });
   };
 
   const handleClick = (delivery) => {

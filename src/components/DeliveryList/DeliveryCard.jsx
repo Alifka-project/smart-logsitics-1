@@ -31,10 +31,32 @@ export default function DeliveryCard({
   return (
     <div
       draggable
-      onDragStart={() => onDragStart?.(index)}
-      onDragOver={() => onDragOver?.(index)}
-      onDragLeave={onDragLeave}
-      onDrop={() => onDrop?.(index)}
+      onDragStart={(e) => {
+        // Enable move cursor and drag feedback
+        if (e.dataTransfer) {
+          try {
+            e.dataTransfer.effectAllowed = 'move';
+          } catch {
+            // Ignore dataTransfer issues in some browsers
+          }
+        }
+        onDragStart?.(index);
+      }}
+      onDragOver={(e) => {
+        // Required so drop events fire
+        e.preventDefault();
+        onDragOver?.(index);
+      }}
+      onDragLeave={(e) => {
+        e.preventDefault();
+        onDragLeave?.();
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        // We rely on the internal dragOverIndex in the hook to decide
+        // final target position, so no need to pass index here.
+        onDrop?.();
+      }}
       onClick={onClick}
       className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border-l-4 rounded-lg transition-all cursor-move ${
         isDragging
