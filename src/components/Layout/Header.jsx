@@ -379,14 +379,70 @@ export default function Header({ isAdmin = false }) {
 
   const isNavActive = (path, exact) => exact ? location.pathname === path : location.pathname.startsWith(path);
 
+  const [isMobileViewport, setIsMobileViewport] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth <= 640;
+  });
+
+  useEffect(() => {
+    function handleResize() {
+      if (typeof window === 'undefined') return;
+      setIsMobileViewport(window.innerWidth <= 640);
+    }
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   /* ──────────────────── Shared dropdown panels ──────────────────── */
-  const NotifPanel = () => !showNotifications ? null : (
-    <div style={{ position:'absolute', right:0, top:'calc(100% + 8px)', width:'360px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', boxShadow:'var(--shadow3)', overflow:'hidden', zIndex:9999 }}>
+  const NotifPanel = () => {
+    if (!showNotifications) return null;
+
+    const isMobile = isMobileViewport;
+    const containerStyle = isMobile
+      ? {
+          position: 'fixed',
+          left: '8px',
+          right: '8px',
+          top: '72px',
+          maxHeight: 'calc(100vh - 88px)',
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-lg)',
+          boxShadow: 'var(--shadow3)',
+          overflow: 'hidden',
+          zIndex: 9999,
+        }
+      : {
+          position: 'absolute',
+          right: '8px',
+          top: 'calc(100% + 8px)',
+          width: 'min(360px, calc(100vw - 24px))',
+          maxWidth: 'calc(100vw - 16px)',
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-lg)',
+          boxShadow: 'var(--shadow3)',
+          overflow: 'hidden',
+          zIndex: 9999,
+        };
+
+    const listMaxHeight = isMobile
+      ? 'calc(100vh - 88px - 48px)'
+      : 'min(380px, calc(100vh - 96px))';
+
+    return (
+      <div style={containerStyle}>
       <div style={{ padding:'14px 16px', background:'var(--surface2)', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <span style={{ fontWeight:700, fontSize:'14px', color:'var(--text)' }}>Notifications</span>
         {unreadCount>0 && <span style={{ fontSize:'11px', fontWeight:600, padding:'2px 8px', borderRadius:'20px', background:'var(--primary-glow)', color:'var(--primary)' }}>{unreadCount} unread</span>}
       </div>
-      <div style={{ maxHeight:'380px', overflowY:'auto' }}>
+      <div
+        style={{
+          maxHeight: listMaxHeight,
+          overflowY: 'auto',
+        }}
+      >
         {notifications.length===0 ? (
           <div style={{ padding:'40px', textAlign:'center', color:'var(--muted)' }}>
             <Bell size={32} style={{ margin:'0 auto 8px', opacity:0.3 }} />
@@ -409,7 +465,8 @@ export default function Header({ isAdmin = false }) {
         ))}
       </div>
     </div>
-  );
+    );
+  };
 
   const UserPanel = () => !showDropdown ? null : (
     <div style={{ position:'absolute', right:0, top:'calc(100% + 8px)', width:'240px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', boxShadow:'var(--shadow3)', overflow:'hidden', zIndex:9999 }}>
