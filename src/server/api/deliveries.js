@@ -560,9 +560,23 @@ router.get('/', authenticate, async (req, res) => {
       assignmentStatus: d.assignments?.[0]?.status || 'unassigned'
     }));
 
+    // Ensure deliveries missing address or phone appear at the bottom of the list
+    const deliveriesWithContact = [];
+    const deliveriesMissingContact = [];
+
+    for (const d of formattedDeliveries) {
+      if (!d.address || !d.phone) {
+        deliveriesMissingContact.push(d);
+      } else {
+        deliveriesWithContact.push(d);
+      }
+    }
+
+    const sortedDeliveries = [...deliveriesWithContact, ...deliveriesMissingContact];
+
     res.json({
-      deliveries: formattedDeliveries,
-      count: formattedDeliveries.length
+      deliveries: sortedDeliveries,
+      count: sortedDeliveries.length
     });
   } catch (err) {
     console.error('GET /api/deliveries error', err);

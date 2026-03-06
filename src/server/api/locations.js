@@ -234,22 +234,38 @@ router.get('/deliveries', authenticate, async (req, res) => {
       orderBy: { createdAt: 'desc' }
     });
 
+    // Ensure deliveries missing address or phone appear at the bottom of the list
+    const mapped = deliveries.map(d => ({
+      id: d.id,
+      customer: d.customer,
+      address: d.address,
+      phone: d.phone,
+      lat: d.lat,
+      lng: d.lng,
+      poNumber: d.poNumber,
+      status: d.status,
+      createdAt: d.createdAt,
+      updatedAt: d.updatedAt,
+      assignedAt: d.assignments[0]?.assignedAt,
+      eta: d.assignments[0]?.eta
+    }));
+
+    const withContact = [];
+    const missingContact = [];
+
+    for (const d of mapped) {
+      const hasAddress = d.address != null && String(d.address).trim().length > 0;
+      const hasPhone = d.phone != null && String(d.phone).trim().length > 0;
+      if (hasAddress && hasPhone) {
+        withContact.push(d);
+      } else {
+        missingContact.push(d);
+      }
+    }
+
     res.json({
       success: true,
-      deliveries: deliveries.map(d => ({
-        id: d.id,
-        customer: d.customer,
-        address: d.address,
-        phone: d.phone,
-        lat: d.lat,
-        lng: d.lng,
-        poNumber: d.poNumber,
-        status: d.status,
-        createdAt: d.createdAt,
-        updatedAt: d.updatedAt,
-        assignedAt: d.assignments[0]?.assignedAt,
-        eta: d.assignments[0]?.eta
-      }))
+      deliveries: [...withContact, ...missingContact]
     });
   } catch (error) {
     console.error('Error fetching driver deliveries:', error);

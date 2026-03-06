@@ -119,12 +119,21 @@ router.get('/deliveries', authenticate, requireRole('admin'), async (req, res) =
         // SAP not available, use database only
       }
 
-      // Sort: deliveries with unrecognizable addresses go last
+      // Sort: deliveries missing usable address or phone go last
       deliveries.sort((a, b) => {
-        const aUnresolvable = isUnrecognizableAddressServer(a.address);
-        const bUnresolvable = isUnrecognizableAddressServer(b.address);
-        if (aUnresolvable && !bUnresolvable) return 1;
-        if (!aUnresolvable && bUnresolvable) return -1;
+        const aPhone = a.phone != null ? String(a.phone).trim() : '';
+        const bPhone = b.phone != null ? String(b.phone).trim() : '';
+        const aHasPhone = aPhone.length > 0;
+        const bHasPhone = bPhone.length > 0;
+
+        const aBadAddress = isUnrecognizableAddressServer(a.address);
+        const bBadAddress = isUnrecognizableAddressServer(b.address);
+
+        const aHasContact = aHasPhone && !aBadAddress;
+        const bHasContact = bHasPhone && !bBadAddress;
+
+        if (aHasContact && !bHasContact) return -1;
+        if (!aHasContact && bHasContact) return 1;
         return 0;
       });
 

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { calculateDistance } from '../utils/distanceCalculator';
 import { assignPriorities } from '../utils/priorityCalculator';
+import { isUnrecognizableAddress } from '../utils/addressHandler';
 
 const WAREHOUSE_LAT = 25.0053;
 const WAREHOUSE_LNG = 55.0760;
@@ -68,7 +69,19 @@ const useDeliveryStore = create((set, get) => ({
       }
       
       // 1. Calculate distance from warehouse using Haversine
-      const deliveriesWithDistance = data.map((delivery, index) => {
+      //    and de-duplicate deliveries by stable ID
+      const seenIds = new Set();
+      const deliveriesWithDistance = [];
+
+      data.forEach((delivery, index) => {
+        // ⚠️ WARNING: Only generate fake ID if NO ID exists (should not happen with database data)
+        const finalId = delivery.id || `delivery-${index + 1}`;
+        if (seenIds.has(finalId)) {
+          console.warn(`[Store] ⚠️ Skipping duplicate delivery with ID ${finalId} at index ${index}`);
+          return;
+        }
+        seenIds.add(finalId);
+
         // Try multiple ways to get coordinates (handle different data formats)
         const latRaw = delivery.lat || delivery.Lat || delivery.latitude || delivery.Latitude;
         const lngRaw = delivery.lng || delivery.Lng || delivery.longitude || delivery.Longitude;
@@ -80,14 +93,12 @@ const useDeliveryStore = create((set, get) => ({
         const safeLat = (Number.isFinite(lat) && lat !== 0) ? lat : 25.1124;
         const safeLng = (Number.isFinite(lng) && lng !== 0) ? lng : 55.1980;
 
-        // ⚠️ WARNING: Only generate fake ID if NO ID exists (should not happen with database data)
-        const finalId = delivery.id || `delivery-${index + 1}`;
         if (!delivery.id) {
           console.warn(`[Store] ⚠️ Delivery ${index + 1} missing ID! Generating fake ID: ${finalId}`);
           console.warn('[Store] This should not happen if data came from database!');
         }
 
-        return {
+        deliveriesWithDistance.push({
           ...delivery,
           id: finalId,
           lat: safeLat,
@@ -102,17 +113,35 @@ const useDeliveryStore = create((set, get) => ({
             safeLng
           ),
           status: delivery.status || 'pending',
-          estimatedTime: new Date(Date.now() + (index + 1) * 75 * 60 * 1000), // 75 min per stop
-        };
+          estimatedTime: new Date(Date.now() + (deliveriesWithDistance.length + 1) * 75 * 60 * 1000), // 75 min per stop
+        });
       });
 
       // 2. Sort by distance and assign priorities
       const prioritized = assignPriorities(deliveriesWithDistance);
+
+      // 3. Ensure deliveries missing usable address/phone appear at the bottom
+      const deliveriesWithContact = [];
+      const deliveriesMissingContact = [];
+
+      prioritized.forEach((d) => {
+        const phoneStr = d.phone != null ? String(d.phone).trim() : '';
+        const hasPhone = phoneStr.length > 0;
+        const badAddress = isUnrecognizableAddress(d.address);
+
+        if (!hasPhone || badAddress) {
+          deliveriesMissingContact.push(d);
+        } else {
+          deliveriesWithContact.push(d);
+        }
+      });
+
+      const finalDeliveries = [...deliveriesWithContact, ...deliveriesMissingContact];
       
-      set({ deliveries: prioritized });
+      set({ deliveries: finalDeliveries });
       
       // Save to localStorage
-      get().saveToStorage(prioritized);
+      get().saveToStorage(finalDeliveries);
     } catch (error) {
       console.error('Error loading deliveries:', error);
       throw error;

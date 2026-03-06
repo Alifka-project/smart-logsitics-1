@@ -285,7 +285,13 @@ export default function FileUpload({ onSuccess, onError }) {
           detail: { count: response.data.saved, assigned: response.data.assigned }
         }));
         
-        return { success: true, saved: response.data.saved, assigned: response.data.assigned };
+        // Include the deduplicated deliveries returned by the backend (with database UUIDs)
+        return { 
+          success: true, 
+          saved: response.data.saved, 
+          assigned: response.data.assigned,
+          deliveries: response.data.deliveries || []
+        };
       } else {
         console.error('[FileUpload] Upload response indicates failure:', response.data);
         throw new Error('Upload failed: ' + (response.data?.error || 'Unknown error'));
