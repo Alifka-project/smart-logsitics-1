@@ -4,6 +4,7 @@ const router = express.Router();
 const { authenticate, requireRole } = require('../auth');
 const sapService = require('../../../services/sapService');
 const prisma = require('../db/prisma');
+const { sortDeliveriesIncompleteLast } = require('../utils/deliveryListSort');
 
 /**
  * Compute dashboard analytics from deliveries
@@ -341,6 +342,9 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
       }).slice(0, 500); // Limit SAP deliveries to 500
       deliveries = deliveries.concat(newSapDeliveries);
     }
+
+    // Deliveries with missing address or phone at the bottom; otherwise newest first
+    sortDeliveriesIncompleteLast(deliveries);
 
     const drivers = driversResp.status === 'fulfilled' ? (Array.isArray(driversResp.value.data.value) ? driversResp.value.data.value.length : (Array.isArray(driversResp.value.data) ? driversResp.value.data.length : 0)) : 0;
     const recentLocations = locationsResp.status === 'fulfilled' ? (Array.isArray(locationsResp.value.data.value) ? locationsResp.value.data.value.length : (Array.isArray(locationsResp.value.data) ? locationsResp.value.data.length : 0)) : 0;

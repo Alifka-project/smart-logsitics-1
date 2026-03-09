@@ -3,6 +3,7 @@ const router = express.Router();
 const { authenticate, requireRole } = require('../auth');
 const sapService = require('../../../services/sapService');
 const prisma = require('../db/prisma');
+const { sortDeliveriesIncompleteLast } = require('../utils/deliveryListSort');
 
 // GET /api/admin/reports
 router.get('/', authenticate, requireRole('admin'), async (req, res) => {
@@ -142,6 +143,9 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
         return d.driver_id === driverId || d.driverId === driverId;
       });
     }
+
+    // Incomplete (missing address or phone) at bottom; then newest first
+    sortDeliveriesIncompleteLast(deliveries);
 
     // Calculate statistics
     const deliveredDeliveries = deliveries.filter(d => {

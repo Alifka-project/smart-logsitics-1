@@ -11,8 +11,31 @@ class TwilioAdapter extends SmsAdapter {
   }
 
   async sendSms({ to, from = this.from, body, metadata = {} }) {
-    if (!this.accountSid || !this.authToken) {
-      throw new Error('Twilio credentials not configured');
+    const missing = [];
+
+    if (!this.accountSid) missing.push('TWILIO_ACCOUNT_SID');
+    if (!this.authToken) missing.push('TWILIO_AUTH_TOKEN');
+    if (!from) missing.push('TWILIO_FROM');
+
+    if (missing.length) {
+      const error = new Error(
+        `Twilio credentials not configured: missing ${missing.join(', ')}`
+      );
+      error.code = 'TWILIO_CONFIG_MISSING';
+      error.missing = missing;
+      throw error;
+    }
+
+    if (!to) {
+      const error = new Error('Twilio "To" phone number is required');
+      error.code = 'TWILIO_TO_MISSING';
+      throw error;
+    }
+
+    if (!body) {
+      const error = new Error('Twilio SMS body is required');
+      error.code = 'TWILIO_BODY_MISSING';
+      throw error;
     }
 
     const url = `${this.baseUrl}/Accounts/${this.accountSid}/Messages.json`;
