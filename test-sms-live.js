@@ -6,7 +6,8 @@
 const axios = require('axios');
 
 // Configuration
-const API_URL = process.env.API_URL || 'http://localhost:4000';
+// Default to production API; override with API_URL for local testing
+const API_URL = process.env.API_URL || 'https://smart-logistics-1.vercel.app';
 const TEST_PHONE = '+971588712409'; // Your phone number
 
 // Test admin credentials (update these with your actual credentials)
@@ -63,7 +64,7 @@ async function healthCheck() {
     }
   } catch (error) {
     logError(`Server is not responding: ${error.message}`);
-    logInfo('Please ensure your server is running: npm run dev');
+    logInfo('Please ensure your production API is reachable or override API_URL for local testing (e.g. http://localhost:4000)');
     return false;
   }
 }
