@@ -583,7 +583,12 @@
   }
   .animate-pulse-dot { animation: pulse-dot 1.5s ease-in-out infinite; }
 
-  /* ── Page & tab transition animations ── */
+  /* ── Page & tab transition animations ──
+     IMPORTANT: `to` states must end with `transform: none` (not scale(1)/translateY(0)).
+     Any non-none transform creates a CSS stacking context that traps
+     position:fixed children (modals, dropdowns) inside the animated wrapper.
+     Using `transform: none` as the final state releases the stacking context
+     as soon as the animation finishes. */
   @keyframes page-enter {
     from {
       opacity: 0;
@@ -591,12 +596,11 @@
     }
     to {
       opacity: 1;
-      transform: translateY(0) scale(1);
+      transform: none;
     }
   }
   .page-enter {
     animation: page-enter 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
-    will-change: opacity, transform;
   }
 
   @keyframes tab-enter {
@@ -606,17 +610,16 @@
     }
     to {
       opacity: 1;
-      transform: translateY(0);
+      transform: none;
     }
   }
   .tab-enter {
     animation: tab-enter 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
-    will-change: opacity, transform;
   }
 
   @keyframes card-enter {
     from { opacity: 0; transform: translateY(8px); }
-    to   { opacity: 1; transform: translateY(0); }
+    to   { opacity: 1; transform: none; }
   }
   .card-enter { animation: card-enter 0.3s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
