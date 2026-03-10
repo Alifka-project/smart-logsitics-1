@@ -4,6 +4,7 @@ import api, { setAuthToken } from '../frontend/apiClient';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { calculateRouteWithOSRM } from '../services/osrmRoutingService';
+import DeliveryManagementPage from './DeliveryManagementPage';
 import { calculateDistance } from '../utils/distanceCalculator';
 import { 
   MapPin, Navigation, Activity, RefreshCw, AlertCircle, CheckCircle2, 
@@ -978,84 +979,7 @@ export default function DriverPortal() {
 
       {/* Deliveries Tab */}
       {activeTab === 'deliveries' && (
-        <div className="space-y-6">
-          <div className="pp-card p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">My Deliveries</h2>
-              <button
-                onClick={loadDeliveries}
-                disabled={loadingDeliveries}
-                className="px-3 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 flex items-center gap-2 text-sm"
-              >
-                <RefreshCw className={`w-4 h-4 ${loadingDeliveries ? 'animate-spin' : ''}`} />
-                Refresh
-              </button>
-            </div>
-
-            {loadingDeliveries ? (
-              <div className="flex justify-center py-8">
-                <div className="text-center">
-                  <RefreshCw className="w-8 h-8 animate-spin text-primary-600 mx-auto mb-2" />
-                  <p className="text-gray-600 dark:text-gray-300">Loading deliveries...</p>
-                </div>
-              </div>
-            ) : deliveryRows.length === 0 ? (
-              <div className="text-center py-12 text-gray-500 dark:text-gray-300">
-                <Truck className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>No deliveries assigned yet</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                  <thead className="bg-gray-50 dark:bg-gray-900/40">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Stop</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">PO Number</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Customer</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Address</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Status</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">ETA</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Assigned</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                    {deliveryRows.map((delivery, index) => (
-                      <tr key={delivery.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
-                          {delivery.routeIndex || index + 1}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
-                          {delivery.poNumber || delivery.PONumber || 'N/A'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                          {delivery.customer || 'Unknown'}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-300 max-w-xs truncate">
-                          {delivery.address || 'N/A'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                            delivery.status === 'delivered' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
-                            delivery.status === 'out-for-delivery' || delivery.status === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
-                            'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-                          }`}>
-                            {delivery.status || 'pending'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
-                          {formatEta(delivery.eta || delivery.estimatedEta)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                          {delivery.assignedAt ? new Date(delivery.assignedAt).toLocaleDateString() : 'N/A'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
+        <DeliveryManagementPage />
       )}
 
       {/* Messages Tab */}

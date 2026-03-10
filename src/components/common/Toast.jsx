@@ -24,17 +24,17 @@ export function Toast({ message, type, title, metadata, onClose }) {
       text: 'text-white'
     },
     info: {
-      container: 'bg-gradient-to-r from-primary-600 to-primary-700 border-primary-500',
+      container: 'bg-gradient-to-r from-primary-800 to-primary-900 border-primary-700',
       icon: <Bell className="w-6 h-6 text-white" />,
       text: 'text-white'
     },
     message: {
-      container: 'bg-gradient-to-r from-blue-600 to-blue-700 border-blue-500',
+      container: 'bg-gradient-to-r from-primary-700 to-primary-900 border-primary-600',
       icon: <MessageSquare className="w-6 h-6 text-white" />,
       text: 'text-white'
     },
     delivery: {
-      container: 'bg-gradient-to-r from-purple-600 to-purple-700 border-purple-500',
+      container: 'bg-gradient-to-r from-primary-600 to-primary-800 border-primary-500',
       icon: <Package className="w-6 h-6 text-white" />,
       text: 'text-white'
     }

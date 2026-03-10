@@ -433,7 +433,7 @@ export default function DeliveryDetailModal({ delivery, isOpen, onClose, onStatu
         <div className="border-t border-gray-200 dark:border-gray-700 px-6 py-4 bg-gray-50 dark:bg-gray-700/50 flex justify-end rounded-b-lg">
           <button
             onClick={onClose}
-            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white font-medium rounded-lg transition-colors"
+            className="px-6 py-2 bg-primary-800 hover:bg-primary-900 dark:bg-primary-700 dark:hover:bg-primary-900 text-white font-medium rounded-lg transition-colors"
           >
             Close
           </button>

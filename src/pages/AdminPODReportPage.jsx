@@ -1,7 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../frontend/apiClient';
-import { Download, Filter, Calendar, Image, CheckCircle, XCircle, AlertTriangle, Camera, FileText, User, Clock, ArrowLeft } from 'lucide-react';
+import {
+  Download, Filter, Image, CheckCircle, XCircle, AlertTriangle,
+  Camera, FileText, User, Clock, ArrowLeft, RefreshCw, Search,
+  Award, TrendingUp, Shield, PenLine
+} from 'lucide-react';
 
 function ensureAuth() {
   const token = localStorage.getItem('auth_token');
@@ -11,9 +15,9 @@ export default function AdminPODReportPage() {
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState({
-    startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Last 7 days
+    startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     endDate: new Date().toISOString().split('T')[0],
-    podStatus: 'all' // 'all', 'with-pod', 'without-pod'
+    podStatus: 'all',
   });
 
   useEffect(() => {
@@ -31,37 +35,37 @@ export default function AdminPODReportPage() {
       if (exportFormat) params.append('format', exportFormat);
 
       if (exportFormat === 'csv' || exportFormat === 'html') {
-        // Handle CSV/HTML download
         const token = localStorage.getItem('auth_token');
         const clientKey = localStorage.getItem('client_key');
-        const apiUrl = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api/admin/reports/pod` : `/api/admin/reports/pod`;
+        const apiUrl = import.meta.env.VITE_API_URL
+          ? `${import.meta.env.VITE_API_URL}/api/admin/reports/pod`
+          : `/api/admin/reports/pod`;
         const response = await fetch(`${apiUrl}?${params.toString()}`, {
           headers: {
             'Authorization': token ? `Bearer ${token}` : '',
             'X-Client-Key': clientKey || '',
-          }
+          },
         });
-        
         if (!response.ok) throw new Error(`Failed to download ${exportFormat.toUpperCase()}`);
-        
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = exportFormat === 'csv' ? `pod-report-${Date.now()}.csv` : `pod-report-with-images-${Date.now()}.html`;
+        a.download = exportFormat === 'csv'
+          ? `electrolux-pod-report-${filters.startDate}-to-${filters.endDate}.csv`
+          : `electrolux-pod-report-with-images-${filters.startDate}.html`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-        setLoading(false);
       } else {
         const response = await api.get(`/admin/reports/pod?${params.toString()}`);
         setReportData(response.data);
-        setLoading(false);
       }
     } catch (e) {
       console.error('Error loading POD report:', e);
       alert('Failed to load POD report: ' + (e?.response?.data?.error || e.message));
+    } finally {
       setLoading(false);
     }
   };
@@ -70,20 +74,37 @@ export default function AdminPODReportPage() {
     setFilters(prev => ({ ...prev, [key]: value }));
   };
 
-  const handleExportCSV = () => {
-    loadReport('csv');
+  const formatDate = (val) => {
+    if (!val) return '—';
+    return new Date(val).toLocaleDateString('en-AE', { year: 'numeric', month: 'short', day: 'numeric' });
   };
 
-  const handleExportWithImages = () => {
-    loadReport('html');
+  const formatDateTime = (val) => {
+    if (!val) return '—';
+    return new Date(val).toLocaleString('en-AE', {
+      year: 'numeric', month: 'short', day: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
+  };
+
+  const getCompletionColor = (pct) => {
+    if (pct >= 90) return 'text-green-600 dark:text-green-400';
+    if (pct >= 60) return 'text-amber-600 dark:text-amber-400';
+    return 'text-red-500 dark:text-red-400';
+  };
+
+  const getCompletionBarColor = (pct) => {
+    if (pct >= 90) return 'from-green-500 to-green-600';
+    if (pct >= 60) return 'from-amber-500 to-amber-600';
+    return 'from-red-500 to-red-600';
   };
 
   if (loading && !reportData) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading POD Report...</p>
+          <RefreshCw className="w-10 h-10 text-primary-700 dark:text-primary-300 animate-spin mx-auto mb-3" />
+          <p className="text-gray-600 dark:text-gray-400 font-medium">Loading POD Report…</p>
         </div>
       </div>
     );
@@ -91,10 +112,15 @@ export default function AdminPODReportPage() {
 
   if (!reportData) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <p className="text-gray-600">No POD report data available</p>
-        </div>
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <Image className="w-14 h-14 text-gray-300 dark:text-gray-600" />
+        <p className="text-gray-500 dark:text-gray-400">No POD data available.</p>
+        <button
+          onClick={() => loadReport()}
+          className="px-5 py-2.5 bg-primary-900 text-white rounded-lg hover:bg-primary-800 font-medium"
+        >
+          Load Report
+        </button>
       </div>
     );
   }
@@ -104,46 +130,48 @@ export default function AdminPODReportPage() {
   const dailyBreakdown = reportData?.dailyBreakdown || [];
   const driverBreakdown = reportData?.driverBreakdown || [];
 
+  const overallPct = stats.totalDelivered > 0
+    ? Math.round((stats.withPOD / stats.totalDelivered) * 100)
+    : 0;
+
   return (
-    <div className="space-y-6 p-6">
-      {/* Back Button - Prominent */}
+    <div className="space-y-6">
+
+      {/* ── Back + Header ── */}
       <div>
         <Link
           to="/admin/reports"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors font-medium"
+          className="inline-flex items-center gap-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-primary-900 dark:hover:text-primary-300 font-medium"
         >
-          <ArrowLeft className="w-5 h-5" />
+          <ArrowLeft className="w-4 h-4" />
           Back to Reports
         </Link>
       </div>
-      
-      {/* Header */}
-      <div className="pp-page-header flex justify-between items-center">
+
+      <div className="pp-page-header flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="pp-page-title flex items-center gap-2">
-            <Image className="w-8 h-8" />
-            POD Report (Proof of Delivery)
+            <Shield className="w-7 h-7 text-primary-900 dark:text-primary-300" />
+            Proof of Delivery Report
           </h1>
-          <p className="pp-page-subtitle">
-            Track which deliveries have images and signatures uploaded
-          </p>
+          <p className="pp-page-subtitle">Signature & photo verification for all delivered orders</p>
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-            Generated: {reportData?.generatedAt ? new Date(reportData.generatedAt).toLocaleString() : 'N/A'}
+            Generated: {reportData?.generatedAt ? new Date(reportData.generatedAt).toLocaleString('en-AE') : '—'}
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-2">
           <button
-            onClick={handleExportCSV}
+            onClick={() => loadReport('csv')}
             disabled={loading}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium text-sm"
           >
             <Download className="w-4 h-4" />
             Export CSV
           </button>
           <button
-            onClick={handleExportWithImages}
+            onClick={() => loadReport('html')}
             disabled={loading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-700 text-white rounded-lg hover:bg-primary-900 disabled:opacity-50 font-medium text-sm"
           >
             <Camera className="w-4 h-4" />
             Export with Images
@@ -151,326 +179,539 @@ export default function AdminPODReportPage() {
           <button
             onClick={() => loadReport()}
             disabled={loading}
-            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-900 text-white rounded-lg hover:bg-primary-800 disabled:opacity-50 font-medium text-sm"
           >
-            {loading ? 'Loading...' : 'Refresh'}
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            {loading ? 'Loading…' : 'Refresh'}
           </button>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
+      {/* ── Filters ── */}
+      <div className="pp-card p-5">
         <div className="flex items-center gap-2 mb-4">
-          <Filter className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Filters</h2>
+          <div className="w-8 h-8 rounded-lg bg-primary-900/10 flex items-center justify-center">
+            <Filter className="w-4 h-4 text-primary-900 dark:text-primary-300" />
+          </div>
+          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Filters</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Date</label>
+            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">From</label>
             <input
               type="date"
               value={filters.startDate}
-              onChange={(e) => handleFilterChange('startDate', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
+              onChange={e => handleFilterChange('startDate', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Date</label>
+            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">To</label>
             <input
               type="date"
               value={filters.endDate}
-              onChange={(e) => handleFilterChange('endDate', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
+              onChange={e => handleFilterChange('endDate', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">POD Status</label>
+            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">POD Status</label>
             <select
               value={filters.podStatus}
-              onChange={(e) => handleFilterChange('podStatus', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
+              onChange={e => handleFilterChange('podStatus', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
             >
-              <option value="all">All Deliveries</option>
-              <option value="with-pod">✓ With POD (Has Images)</option>
-              <option value="without-pod">✗ Without POD (Missing Images)</option>
+              <option value="all">All Delivered Orders</option>
+              <option value="with-pod">✓ With POD (Verified)</option>
+              <option value="without-pod">✗ Without POD (Missing)</option>
             </select>
           </div>
         </div>
-        <div className="flex items-center justify-between mt-4">
+        <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
           <button
             onClick={() => loadReport()}
             disabled={loading}
-            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-primary-900 text-white rounded-lg hover:bg-primary-800 disabled:opacity-50 text-sm font-medium"
           >
+            <Search className="w-4 h-4" />
             Apply Filters
           </button>
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            Showing {deliveries.length} delivered order{deliveries.length !== 1 ? 's' : ''}
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            <span className="font-semibold text-gray-900 dark:text-gray-100">{deliveries.length}</span> delivered order{deliveries.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+      </div>
+
+      {/* ── Headline KPI cards ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Delivered */}
+        <div className="bg-gradient-to-br from-primary-900 to-primary-700 rounded-xl p-5 text-white shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-primary-200 uppercase tracking-wide">Total Delivered</span>
+            <div className="w-9 h-9 bg-white/15 rounded-lg flex items-center justify-center">
+              <FileText className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="text-3xl font-bold">{stats.totalDelivered ?? 0}</div>
+          <div className="text-xs text-primary-200 mt-1">Orders in period</div>
+        </div>
+
+        {/* With POD */}
+        <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-xl p-5 text-white shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-green-100 uppercase tracking-wide">With POD</span>
+            <div className="w-9 h-9 bg-white/15 rounded-lg flex items-center justify-center">
+              <CheckCircle className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="text-3xl font-bold">{stats.withPOD ?? 0}</div>
+          <div className="text-xs text-green-100 mt-1">{stats.podCompletionRate ?? overallPct}% completion rate</div>
+        </div>
+
+        {/* Without POD */}
+        <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-xl p-5 text-white shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-red-100 uppercase tracking-wide">Without POD</span>
+            <div className="w-9 h-9 bg-white/15 rounded-lg flex items-center justify-center">
+              <XCircle className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="text-3xl font-bold">{stats.withoutPOD ?? 0}</div>
+          <div className="text-xs text-red-100 mt-1">Missing verification</div>
+        </div>
+
+        {/* Total Photos */}
+        <div className="bg-gradient-to-br from-primary-600 to-primary-800 rounded-xl p-5 text-white shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-primary-200 uppercase tracking-wide">Total Photos</span>
+            <div className="w-9 h-9 bg-white/15 rounded-lg flex items-center justify-center">
+              <Camera className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="text-3xl font-bold">{stats.totalPhotos ?? 0}</div>
+          <div className="text-xs text-primary-200 mt-1">
+            Avg: {stats.totalDelivered > 0 ? ((stats.totalPhotos ?? 0) / stats.totalDelivered).toFixed(1) : '0.0'} per delivery
           </div>
         </div>
       </div>
 
-      {/* Summary Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-blue-100 text-sm">Total Delivered</p>
-              <p className="text-3xl font-bold mt-1">{stats.totalDelivered || 0}</p>
-            </div>
-            <FileText className="w-12 h-12 opacity-30" />
+      {/* ── POD Completion Bar ── */}
+      <div className="pp-card p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Award className="w-5 h-5 text-primary-900 dark:text-primary-300" />
+            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Overall POD Completion</h3>
           </div>
+          <span className={`text-2xl font-bold ${getCompletionColor(overallPct)}`}>{overallPct}%</span>
         </div>
-
-        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-green-100 text-sm">With POD ✓</p>
-              <p className="text-3xl font-bold mt-1">{stats.withPOD || 0}</p>
-              <p className="text-green-100 text-xs mt-1">{stats.podCompletionRate}% completion</p>
-            </div>
-            <CheckCircle className="w-12 h-12 opacity-30" />
-          </div>
+        <div className="h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden mb-2">
+          <div
+            className={`h-full bg-gradient-to-r ${getCompletionBarColor(overallPct)} rounded-full transition-all duration-700`}
+            style={{ width: `${overallPct}%` }}
+          />
         </div>
-
-        <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-red-100 text-sm">Without POD ✗</p>
-              <p className="text-3xl font-bold mt-1">{stats.withoutPOD || 0}</p>
-              <p className="text-red-100 text-xs mt-1">Missing images</p>
-            </div>
-            <XCircle className="w-12 h-12 opacity-30" />
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-purple-100 text-sm">Total Photos</p>
-              <p className="text-3xl font-bold mt-1">{stats.totalPhotos || 0}</p>
-              <p className="text-purple-100 text-xs mt-1">Avg: {stats.totalDelivered > 0 ? (stats.totalPhotos / stats.totalDelivered).toFixed(1) : 0} per delivery</p>
-            </div>
-            <Camera className="w-12 h-12 opacity-30" />
-          </div>
+        <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+          <span>{stats.withPOD ?? 0} verified</span>
+          <span>{stats.withoutPOD ?? 0} missing</span>
         </div>
       </div>
 
-      {/* POD Quality Breakdown */}
+      {/* ── Detail Breakdown Panels ── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">POD Quality</h3>
+        {/* POD Quality */}
+        <div className="pp-card p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-7 h-7 rounded-lg bg-primary-900/10 flex items-center justify-center">
+              <Award className="w-4 h-4 text-primary-900 dark:text-primary-300" />
+            </div>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">POD Quality</h3>
+          </div>
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-green-600" />
-                Complete (Both Sigs + Photos)
-              </span>
-              <span className="font-bold text-gray-900 dark:text-gray-100">{stats.completePOD || 0}</span>
+            <QualityRow
+              icon={<CheckCircle className="w-4 h-4 text-green-600" />}
+              label="Complete"
+              sublabel="Both sigs + photos"
+              value={stats.completePOD ?? 0}
+              total={stats.withPOD || 1}
+              color="green"
+            />
+            <QualityRow
+              icon={<CheckCircle className="w-4 h-4 text-primary-600" />}
+              label="Good"
+              sublabel="Signature + photos"
+              value={stats.goodPOD ?? 0}
+              total={stats.withPOD || 1}
+              color="blue"
+            />
+            <QualityRow
+              icon={<AlertTriangle className="w-4 h-4 text-amber-500" />}
+              label="Partial"
+              sublabel="Missing some data"
+              value={stats.partialPOD ?? 0}
+              total={stats.withPOD || 1}
+              color="amber"
+            />
+          </div>
+        </div>
+
+        {/* Signature Status */}
+        <div className="pp-card p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-7 h-7 rounded-lg bg-primary-900/10 flex items-center justify-center">
+              <PenLine className="w-4 h-4 text-primary-900 dark:text-primary-300" />
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-blue-600" />
-                Good (Sig + Photos)
-              </span>
-              <span className="font-bold text-gray-900 dark:text-gray-100">{stats.goodPOD || 0}</span>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Signatures</h3>
+          </div>
+          <div className="space-y-4">
+            <div>
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-1.5">
+                  <span className="text-xs px-1.5 py-0.5 bg-primary-100 text-primary-800 dark:bg-primary-900/30 dark:text-primary-300 rounded font-bold">D</span>
+                  Driver Signature
+                </span>
+                <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{stats.withDriverSignature ?? 0}</span>
+              </div>
+              <div className="h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary-700 rounded-full"
+                  style={{ width: `${stats.totalDelivered > 0 ? ((stats.withDriverSignature ?? 0) / stats.totalDelivered) * 100 : 0}%` }}
+                />
+              </div>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-yellow-600" />
-                Partial (Missing data)
-              </span>
-              <span className="font-bold text-gray-900 dark:text-gray-100">{stats.partialPOD || 0}</span>
+            <div>
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-1.5">
+                  <span className="text-xs px-1.5 py-0.5 bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 rounded font-bold">C</span>
+                  Customer Signature
+                </span>
+                <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{stats.withCustomerSignature ?? 0}</span>
+              </div>
+              <div className="h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-purple-500 rounded-full"
+                  style={{ width: `${stats.totalDelivered > 0 ? ((stats.withCustomerSignature ?? 0) / stats.totalDelivered) * 100 : 0}%` }}
+                />
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Signature Status</h3>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-300">With Driver Signature</span>
-              <span className="font-bold text-gray-900 dark:text-gray-100">{stats.withDriverSignature || 0}</span>
+        {/* Photo Status */}
+        <div className="pp-card p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-7 h-7 rounded-lg bg-primary-900/10 flex items-center justify-center">
+              <Camera className="w-4 h-4 text-primary-900 dark:text-primary-300" />
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-300">With Customer Signature</span>
-              <span className="font-bold text-gray-900 dark:text-gray-100">{stats.withCustomerSignature || 0}</span>
-            </div>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Photos</h3>
           </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Photo Status</h3>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
+          <div className="space-y-4">
+            <div className="flex justify-between items-start">
               <span className="text-sm text-gray-600 dark:text-gray-300">Deliveries with Photos</span>
-              <span className="font-bold text-gray-900 dark:text-gray-100">{stats.withPhotos || 0}</span>
+              <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{stats.withPhotos ?? 0}</span>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-300">Total Photos Uploaded</span>
-              <span className="font-bold text-gray-900 dark:text-gray-100">{stats.totalPhotos || 0}</span>
+            <div>
+              <div className="h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-primary-600 to-green-500 rounded-full"
+                  style={{ width: `${stats.totalDelivered > 0 ? ((stats.withPhotos ?? 0) / stats.totalDelivered) * 100 : 0}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-1">
+                <span>{stats.withPhotos ?? 0} with photos</span>
+                <span>{(stats.totalDelivered ?? 0) - (stats.withPhotos ?? 0)} without</span>
+              </div>
+            </div>
+            <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600 dark:text-gray-300">Total Photos Uploaded</span>
+                <span className="text-lg font-bold text-primary-900 dark:text-primary-300">{stats.totalPhotos ?? 0}</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Daily Breakdown */}
+      {/* ── Daily Breakdown Table ── */}
       {dailyBreakdown.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Daily POD Completion</h3>
+        <div className="pp-card overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Daily POD Completion</h3>
+          </div>
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-900">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">With POD</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Without POD</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Photos</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Completion %</th>
+            <table className="min-w-full">
+              <thead>
+                <tr className="bg-gray-50 dark:bg-gray-900/40 border-b border-gray-100 dark:border-gray-700">
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Date</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">With POD</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Without POD</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Photos</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-48">Completion</th>
                 </tr>
               </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {dailyBreakdown.map((day) => (
-                  <tr key={day.date}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{day.date}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{day.total}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 dark:text-green-400">{day.withPOD}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 dark:text-red-400">{day.withoutPOD}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{day.totalPhotos}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                      {((day.withPOD / day.total) * 100).toFixed(1)}%
-                    </td>
-                  </tr>
-                ))}
+              <tbody className="divide-y divide-gray-50 dark:divide-gray-700/60">
+                {dailyBreakdown.map((day) => {
+                  const pct = day.total > 0 ? ((day.withPOD / day.total) * 100).toFixed(1) : '0.0';
+                  return (
+                    <tr key={day.date} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                      <td className="px-5 py-3 text-sm font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">{day.date}</td>
+                      <td className="px-5 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">{day.total}</td>
+                      <td className="px-5 py-3 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1 text-sm font-semibold text-green-600 dark:text-green-400">
+                          <CheckCircle className="w-3.5 h-3.5" /> {day.withPOD}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 whitespace-nowrap">
+                        {day.withoutPOD > 0 ? (
+                          <span className="inline-flex items-center gap-1 text-sm font-semibold text-red-500 dark:text-red-400">
+                            <XCircle className="w-3.5 h-3.5" /> {day.withoutPOD}
+                          </span>
+                        ) : (
+                          <span className="text-sm text-gray-400">0</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1">
+                          <Camera className="w-3.5 h-3.5 text-gray-400" />
+                          {day.totalPhotos}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden min-w-[80px]">
+                            <div
+                              className={`h-full rounded-full bg-gradient-to-r ${getCompletionBarColor(parseFloat(pct))}`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                          <span className={`text-xs font-bold ${getCompletionColor(parseFloat(pct))}`}>{pct}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         </div>
       )}
 
-      {/* Driver Performance */}
+      {/* ── Driver POD Performance ── */}
       {driverBreakdown.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Driver POD Performance</h3>
+        <div className="pp-card overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-primary-900 dark:text-primary-300" />
+              <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Driver POD Performance</h3>
+            </div>
+          </div>
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-900">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Driver</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Deliveries</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">With POD</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Without POD</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Photos</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Completion %</th>
+            <table className="min-w-full">
+              <thead>
+                <tr className="bg-gray-50 dark:bg-gray-900/40 border-b border-gray-100 dark:border-gray-700">
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Driver</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">With POD</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Without POD</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Photos</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-52">Completion Rate</th>
                 </tr>
               </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {driverBreakdown.map((driver) => (
-                  <tr key={driver.driverName}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">{driver.driverName}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{driver.total}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 dark:text-green-400">{driver.withPOD}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 dark:text-red-400">{driver.withoutPOD}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{driver.totalPhotos}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                      {((driver.withPOD / driver.total) * 100).toFixed(1)}%
-                    </td>
-                  </tr>
-                ))}
+              <tbody className="divide-y divide-gray-50 dark:divide-gray-700/60">
+                {driverBreakdown.map((driver) => {
+                  const pct = driver.total > 0 ? ((driver.withPOD / driver.total) * 100).toFixed(1) : '0.0';
+                  return (
+                    <tr key={driver.driverName} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                      <td className="px-5 py-3 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-primary-900/10 dark:bg-primary-900/20 flex items-center justify-center">
+                            <User className="w-4 h-4 text-primary-900 dark:text-primary-300" />
+                          </div>
+                          <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{driver.driverName || 'Unknown'}</span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">{driver.total}</td>
+                      <td className="px-5 py-3 whitespace-nowrap">
+                        <span className="text-sm font-semibold text-green-600 dark:text-green-400">{driver.withPOD}</span>
+                      </td>
+                      <td className="px-5 py-3 whitespace-nowrap">
+                        {driver.withoutPOD > 0 ? (
+                          <span className="text-sm font-semibold text-red-500 dark:text-red-400">{driver.withoutPOD}</span>
+                        ) : (
+                          <span className="text-sm text-gray-400">0</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1">
+                          <Camera className="w-3.5 h-3.5 text-gray-400" />
+                          {driver.totalPhotos}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden min-w-[100px]">
+                            <div
+                              className={`h-full rounded-full bg-gradient-to-r ${getCompletionBarColor(parseFloat(pct))}`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                          <span className={`text-xs font-bold w-10 ${getCompletionColor(parseFloat(pct))}`}>{pct}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         </div>
       )}
 
-      {/* Detailed Delivery List */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          Delivery Details {deliveries.length > 0 && `(${deliveries.length} orders)`}
-        </h3>
+      {/* ── Delivery Details Table ── */}
+      <div className="pp-card overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+              Delivery POD Details
+              {deliveries.length > 0 && (
+                <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">({deliveries.length} orders)</span>
+              )}
+            </h3>
+            <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+              <span className="flex items-center gap-1 text-green-600 dark:text-green-400 font-medium">
+                <CheckCircle className="w-3.5 h-3.5" />
+                {deliveries.filter(d => d.hasPOD).length} verified
+              </span>
+              <span className="flex items-center gap-1 text-red-500 dark:text-red-400 font-medium">
+                <XCircle className="w-3.5 h-3.5" />
+                {deliveries.filter(d => !d.hasPOD).length} missing
+              </span>
+            </div>
+          </div>
+        </div>
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-900">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">PO #</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Customer</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">POD Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Photos</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Signatures</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Driver</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Delivered</th>
+          <table className="min-w-full">
+            <thead>
+              <tr className="bg-gray-50 dark:bg-gray-900/40 border-b border-gray-100 dark:border-gray-700">
+                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">PO #</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Customer</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Status</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">POD Status</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Photos</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Signatures</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Driver</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Delivered At</th>
               </tr>
             </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {deliveries.map((delivery) => (
-                <tr key={delivery.id} className={!delivery.hasPOD ? 'bg-red-50 dark:bg-red-900/10' : ''}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                    {delivery.poNumber || 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
-                    <div className="font-medium">{delivery.customer}</div>
-                    <div className="text-gray-500 text-xs truncate max-w-xs">{delivery.address}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
-                      {delivery.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    {delivery.hasPOD ? (
-                      <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
-                        <CheckCircle className="w-4 h-4" />
-                        {delivery.podQuality}
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-red-600 dark:text-red-400">
-                        <XCircle className="w-4 h-4" />
-                        Missing
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                    {delivery.photoCount > 0 ? (
-                      <span className="flex items-center gap-1">
-                        <Camera className="w-4 h-4 text-blue-600" />
-                        {delivery.photoCount}
-                      </span>
-                    ) : (
-                      <span className="text-gray-400">0</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <div className="flex gap-2">
-                      {delivery.hasDriverSignature && (
-                        <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">D</span>
-                      )}
-                      {delivery.hasCustomerSignature && (
-                        <span className="text-xs px-2 py-1 rounded bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300">C</span>
-                      )}
-                      {!delivery.hasDriverSignature && !delivery.hasCustomerSignature && (
-                        <span className="text-gray-400 text-xs">None</span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                    {delivery.driverName || 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {delivery.deliveredAt ? new Date(delivery.deliveredAt).toLocaleDateString() : 'N/A'}
+            <tbody className="divide-y divide-gray-50 dark:divide-gray-700/60">
+              {deliveries.length === 0 ? (
+                <tr>
+                  <td colSpan="8" className="px-6 py-12 text-center text-gray-500 dark:text-gray-400 text-sm">
+                    No deliveries found for the selected filters
                   </td>
                 </tr>
-              ))}
+              ) : (
+                deliveries.map((delivery) => (
+                  <tr
+                    key={delivery.id}
+                    className={`transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/30 ${
+                      !delivery.hasPOD ? 'bg-red-50/50 dark:bg-red-900/5' : ''
+                    }`}
+                  >
+                    <td className="px-5 py-3 whitespace-nowrap">
+                      <span className="text-sm font-semibold text-primary-900 dark:text-primary-300">
+                        {delivery.poNumber || '—'}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3">
+                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                        {delivery.customer || '—'}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[200px]">
+                        {delivery.address}
+                      </div>
+                    </td>
+                    <td className="px-5 py-3 whitespace-nowrap">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                        {delivery.status}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 whitespace-nowrap">
+                      {delivery.hasPOD ? (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="flex items-center gap-1 text-xs font-semibold text-green-600 dark:text-green-400">
+                            <CheckCircle className="w-3.5 h-3.5" />
+                            {delivery.podQuality || 'Uploaded'}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="flex items-center gap-1 text-xs font-semibold text-red-500 dark:text-red-400">
+                          <XCircle className="w-3.5 h-3.5" />
+                          Missing
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-5 py-3 whitespace-nowrap">
+                      {delivery.photoCount > 0 ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary-100 text-primary-800 dark:bg-primary-900/30 dark:text-primary-300 text-xs font-semibold rounded-full">
+                          <Camera className="w-3 h-3" />
+                          {delivery.photoCount}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400 dark:text-gray-500">None</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-3 whitespace-nowrap">
+                      <div className="flex items-center gap-1.5">
+                        {delivery.hasDriverSignature ? (
+                          <span className="text-xs px-1.5 py-0.5 bg-primary-100 text-primary-800 dark:bg-primary-900/30 dark:text-primary-300 rounded font-semibold" title="Driver Signature">D</span>
+                        ) : (
+                          <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500 rounded font-semibold line-through" title="Driver Signature missing">D</span>
+                        )}
+                        {delivery.hasCustomerSignature ? (
+                          <span className="text-xs px-1.5 py-0.5 bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 rounded font-semibold" title="Customer Signature">C</span>
+                        ) : (
+                          <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500 rounded font-semibold line-through" title="Customer Signature missing">C</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-5 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                      {delivery.driverName || '—'}
+                    </td>
+                    <td className="px-5 py-3 whitespace-nowrap">
+                      <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                        <Clock className="w-3 h-3" />
+                        {formatDate(delivery.deliveredAt)}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
-          {deliveries.length === 0 && (
-            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-              No deliveries found for the selected filters
-            </div>
-          )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ─── QualityRow sub-component ─── */
+function QualityRow({ icon, label, sublabel, value, total, color }) {
+  const pct = total > 0 ? Math.round((value / total) * 100) : 0;
+  const barColors = { green: 'bg-green-500', blue: 'bg-primary-600', amber: 'bg-amber-500' };
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+          {icon} {label}
+        </span>
+        <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{value}</span>
+      </div>
+      <div className="h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+        <div className={`h-full ${barColors[color] || 'bg-gray-400'} rounded-full`} style={{ width: `${pct}%` }} />
+      </div>
+      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{sublabel}</p>
     </div>
   );
 }

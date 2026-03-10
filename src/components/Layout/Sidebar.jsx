@@ -84,7 +84,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
                   padding: collapsed ? '10px 12px' : '10px 14px',
                   background: active ? 'var(--accent-glow)' : 'transparent',
                   color: active ? 'var(--accent)' : 'var(--text-muted)',
-                  border: active ? '1px solid rgba(79,112,245,0.2)' : '1px solid transparent',
+                  border: active ? '1px solid rgba(1,30,65,0.25)' : '1px solid transparent',
                 }}
                 onMouseEnter={e => {
                   if (!active) {

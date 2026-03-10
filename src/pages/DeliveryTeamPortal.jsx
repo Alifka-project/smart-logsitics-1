@@ -22,6 +22,7 @@ import {
   Package
 } from 'lucide-react';
 import DriverTrackingMap from '../components/Tracking/DriverTrackingMap';
+import DeliveryManagementPage from './DeliveryManagementPage';
 
 export default function DeliveryTeamPortal() {
   const [activeTab, setActiveTab] = useState('monitoring');
@@ -403,28 +404,27 @@ export default function DeliveryTeamPortal() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="pp-card">
-        <div className="border-b border-gray-200 dark:border-gray-700">
-          <nav className="flex space-x-8 px-6">
-            {[
-              { id: 'monitoring', label: 'Monitoring', icon: Activity },
-              { id: 'control', label: 'Delivery Control', icon: Settings },
-              { id: 'communication', label: 'Communication', icon: MessageSquare }
-            ].map(tab => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`pp-nav-pill ${activeTab === tab.id ? 'active' : ''}`}
-                >
-                  <Icon className="w-5 h-5" />
-                  {tab.label}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
+      <div className="pp-card px-3 py-2">
+        <nav className="flex flex-wrap gap-2">
+          {[
+            { id: 'monitoring', label: 'Monitoring', icon: Activity },
+            { id: 'control', label: 'Delivery Control', icon: Settings },
+            { id: 'deliveries', label: 'Deliveries', icon: Package },
+            { id: 'communication', label: 'Communication', icon: MessageSquare }
+          ].map(tab => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`pp-nav-pill ${activeTab === tab.id ? 'active' : ''}`}
+              >
+                <Icon className="w-5 h-5" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </nav>
       </div>
 
       {/* Monitoring Tab */}
@@ -766,6 +766,11 @@ export default function DeliveryTeamPortal() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Deliveries Tab */}
+      {activeTab === 'deliveries' && (
+        <DeliveryManagementPage />
       )}
 
       {/* Communication Tab */}

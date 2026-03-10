@@ -16,10 +16,10 @@
   --text2:      #4B5280;
   --muted:      #9399B8;
 
-  /* ── Brand / status ── */
-  --primary:    #4F70F5;
-  --primary-h:  #3D5AE0;
-  --primary-glow: rgba(79,112,245,0.12);
+  /* ── Brand / status — Electrolux Blue ── */
+  --primary:    #011E41;
+  --primary-h:  #0a3254;
+  --primary-glow: rgba(1,30,65,0.10);
   --success:    #22c55e;
   --warning:    #f59e0b;
   --danger:     #ef4444;
@@ -54,15 +54,19 @@
   --text-muted:     var(--muted);
 }
 
-/* ── Dark mode tokens ── */
+/* ── Dark mode tokens — Electrolux navy palette ── */
 .dark {
-  --bg:         #0F1117;
-  --surface:    #1A1C2E;
-  --surface2:   #22253A;
+  --bg:         #060d18;
+  --surface:    #091422;
+  --surface2:   #0d1e35;
 
-  --text:       #E8EAF6;
-  --text2:      #9CA3C4;
-  --muted:      #5E6484;
+  --primary:    #4e88b9;
+  --primary-h:  #9fc4df;
+  --primary-glow: rgba(78,136,185,0.18);
+
+  --text:       #e4eef8;
+  --text2:      #9fc4df;
+  --muted:      #4e88b9;
 
   --shadow1:    0 1px 3px rgba(0,0,0,0.3), 0 1px 8px rgba(0,0,0,0.2);
   --shadow2:    0 4px 16px rgba(0,0,0,0.4), 0 1px 4px rgba(0,0,0,0.2);
@@ -204,13 +208,13 @@
 .dark .bg-gray-700,
 .dark .dark\:bg-gray-700                { background-color: var(--surface2)  !important; }
 .dark .bg-gray-700\/50,
-.dark .dark\:bg-gray-700\/50            { background-color: rgba(34,37,58,0.5) !important; }
+.dark .dark\:bg-gray-700\/50            { background-color: rgba(13,30,53,0.5) !important; }
 .dark .bg-gray-800,
 .dark .dark\:bg-gray-800                { background-color: var(--surface)   !important; }
 .dark .bg-gray-900,
 .dark .dark\:bg-gray-900                { background-color: var(--bg)        !important; }
 .dark .bg-gray-900\/40,
-.dark .dark\:bg-gray-900\/40            { background-color: rgba(15,17,23,0.4) !important; }
+.dark .dark\:bg-gray-900\/40            { background-color: rgba(6,13,24,0.4) !important; }
 
 /* Hover backgrounds */
 .dark .hover\:bg-gray-50:hover,
@@ -309,13 +313,13 @@
     gap: 14px;
   }
 
-  /* ── Gradient info card (blue gradient block) ── */
+  /* ── Gradient info card (Electrolux navy gradient block) ── */
   .pp-gradient-card {
     border-radius: var(--radius-lg);
-    background: linear-gradient(135deg, #4F70F5 0%, #6B4FE8 100%);
+    background: linear-gradient(135deg, #011E41 0%, #114a76 100%);
     padding: 20px;
     color: white;
-    box-shadow: 0 4px 20px rgba(79,112,245,0.35);
+    box-shadow: 0 4px 20px rgba(1,30,65,0.35);
   }
 
   /* ── Icon badge (rounded square with tinted bg) ── */
@@ -328,7 +332,7 @@
     border-radius: var(--radius-sm);
     flex-shrink: 0;
   }
-  .pp-icon-badge-blue   { background: rgba(79,112,245,0.12); color: #4F70F5; }
+  .pp-icon-badge-blue   { background: rgba(1,30,65,0.10); color: #114a76; }
   .pp-icon-badge-green  { background: rgba(34,197,94,0.12);  color: #22c55e; }
   .pp-icon-badge-amber  { background: rgba(245,158,11,0.12); color: #f59e0b; }
   .pp-icon-badge-red    { background: rgba(239,68,68,0.12);  color: #ef4444; }
@@ -346,7 +350,7 @@
     font-weight: 600;
     letter-spacing: 0.02em;
   }
-  .pp-badge-blue   { background: rgba(79,112,245,0.12); color: #4F70F5; }
+  .pp-badge-blue   { background: rgba(1,30,65,0.10); color: #114a76; }
   .pp-badge-green  { background: rgba(34,197,94,0.12);  color: #16a34a; }
   .pp-badge-amber  { background: rgba(245,158,11,0.12); color: #d97706; }
   .pp-badge-red    { background: rgba(239,68,68,0.12);  color: #dc2626; }
@@ -356,10 +360,10 @@
   .dark .pp-badge-green  { color: #4ade80; }
   .dark .pp-badge-amber  { color: #fbbf24; }
   .dark .pp-badge-red    { color: #f87171; }
-  .dark .pp-badge-blue   { color: #818cf8; }
+  .dark .pp-badge-blue   { color: #4e88b9; }
   .dark .pp-badge-gray   { color: #94a3b8; }
 
-  /* ── Primary button (soft blue, subtle gradient) ── */
+  /* ── Primary button (Electrolux navy gradient) ── */
   .pp-btn-primary {
     display: inline-flex;
     align-items: center;
@@ -369,14 +373,14 @@
     font-size: 14px;
     font-weight: 600;
     color: #fff;
-    background: linear-gradient(135deg, #4F70F5 0%, #5E7EF6 100%);
-    box-shadow: 0 2px 8px rgba(79,112,245,0.3);
+    background: linear-gradient(135deg, #011E41 0%, #1f5f93 100%);
+    box-shadow: 0 2px 8px rgba(1,30,65,0.35);
     border: none;
     cursor: pointer;
     transition: box-shadow 0.15s, transform 0.1s;
   }
   .pp-btn-primary:hover {
-    box-shadow: 0 4px 16px rgba(79,112,245,0.4);
+    box-shadow: 0 4px 16px rgba(1,30,65,0.45);
     transform: translateY(-1px);
   }
   .pp-btn-primary:active { transform: translateY(0); }
@@ -568,7 +572,7 @@
     background-repeat: no-repeat;
   }
 
-  .glow-blue { box-shadow: 0 0 20px rgba(79,112,245,0.25); }
+  .glow-blue { box-shadow: 0 0 20px rgba(1,30,65,0.30); }
   .overflow-y-auto { -webkit-overflow-scrolling: touch; }
 
   /* Leaflet */

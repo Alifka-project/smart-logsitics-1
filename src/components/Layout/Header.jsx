@@ -449,9 +449,9 @@ export default function Header({ isAdmin = false }) {
             <p style={{ fontSize:'13px' }}>No notifications</p>
           </div>
         ) : notifications.map(n => (
-          <div key={n.id} onClick={() => handleNotifClick(n)} style={{ padding:'12px 16px', borderBottom:'1px solid var(--border)', cursor:'pointer', background: !n.read ? 'rgba(79,112,245,0.04)' : 'transparent', transition:'background 0.15s' }}
+          <div key={n.id} onClick={() => handleNotifClick(n)} style={{ padding:'12px 16px', borderBottom:'1px solid var(--border)', cursor:'pointer', background: !n.read ? 'rgba(1,30,65,0.05)' : 'transparent', transition:'background 0.15s' }}
             onMouseEnter={e=>e.currentTarget.style.background='var(--surface2)'}
-            onMouseLeave={e=>e.currentTarget.style.background=!n.read?'rgba(79,112,245,0.04)':'transparent'}
+            onMouseLeave={e=>e.currentTarget.style.background=!n.read?'rgba(1,30,65,0.05)':'transparent'}
           >
             <div style={{ display:'flex', gap:'10px', alignItems:'flex-start' }}>
               <div style={{ width:'7px', height:'7px', borderRadius:'50%', background: n.read?'transparent':'var(--primary)', flexShrink:0, marginTop:'5px' }} />
@@ -800,45 +800,25 @@ export default function Header({ isAdmin = false }) {
           {/* Pill nav — hidden on mobile, visible on md+ */}
           <nav className="nav-scroll h-full hidden md:flex">
             {user?.role === 'delivery_team' ? (
-              <>
-                <NavLink
-                  to="/delivery-team"
-                  end
-                  style={({ isActive }) => pillStyle(isActive)}
-                  onMouseEnter={e => { if (!location.pathname.startsWith('/delivery-team')) Object.assign(e.currentTarget.style, onHover); }}
-                  onMouseLeave={e => { if (!location.pathname.startsWith('/delivery-team')) Object.assign(e.currentTarget.style, offHover); }}
-                >
-                  Delivery Team
-                </NavLink>
-                <NavLink
-                  to="/deliveries"
-                  style={({ isActive }) => pillStyle(isActive)}
-                  onMouseEnter={e => { if (!location.pathname.startsWith('/deliveries')) Object.assign(e.currentTarget.style, onHover); }}
-                  onMouseLeave={e => { if (!location.pathname.startsWith('/deliveries')) Object.assign(e.currentTarget.style, offHover); }}
-                >
-                  Deliveries
-                </NavLink>
-              </>
+              <NavLink
+                to="/delivery-team"
+                end
+                style={({ isActive }) => pillStyle(isActive)}
+                onMouseEnter={e => { if (!location.pathname.startsWith('/delivery-team')) Object.assign(e.currentTarget.style, onHover); }}
+                onMouseLeave={e => { if (!location.pathname.startsWith('/delivery-team')) Object.assign(e.currentTarget.style, offHover); }}
+              >
+                Delivery Team
+              </NavLink>
             ) : (
-              <>
-                <NavLink
-                  to="/driver"
-                  end
-                  style={({ isActive }) => pillStyle(isActive)}
-                  onMouseEnter={e => { if (!location.pathname.startsWith('/driver')) Object.assign(e.currentTarget.style, onHover); }}
-                  onMouseLeave={e => { if (!location.pathname.startsWith('/driver')) Object.assign(e.currentTarget.style, offHover); }}
-                >
-                  Driver Portal
-                </NavLink>
-                <NavLink
-                  to="/deliveries"
-                  style={({ isActive }) => pillStyle(isActive)}
-                  onMouseEnter={e => { if (!location.pathname.startsWith('/deliveries')) Object.assign(e.currentTarget.style, onHover); }}
-                  onMouseLeave={e => { if (!location.pathname.startsWith('/deliveries')) Object.assign(e.currentTarget.style, offHover); }}
-                >
-                  Deliveries
-                </NavLink>
-              </>
+              <NavLink
+                to="/driver"
+                end
+                style={({ isActive }) => pillStyle(isActive)}
+                onMouseEnter={e => { if (!location.pathname.startsWith('/driver')) Object.assign(e.currentTarget.style, onHover); }}
+                onMouseLeave={e => { if (!location.pathname.startsWith('/driver')) Object.assign(e.currentTarget.style, offHover); }}
+              >
+                Driver Portal
+              </NavLink>
             )}
           </nav>
 
@@ -912,65 +892,35 @@ export default function Header({ isAdmin = false }) {
       {/* Mobile side drawer — non-admin */}
       <MobileDrawer>
         {user?.role === 'delivery_team' ? (
-          <>
-            <NavLink
-              to="/delivery-team"
-              end
-              onClick={() => setMobileNavOpen(false)}
-              style={({ isActive }) => ({
-                display: 'flex', alignItems: 'center', padding: '11px 14px',
-                borderRadius: '10px', fontSize: '14px', fontWeight: isActive ? 600 : 400,
-                color: isActive ? 'var(--primary)' : 'var(--text2)',
-                background: isActive ? 'var(--primary-glow)' : 'transparent',
-                textDecoration: 'none', marginBottom: '2px',
-              })}
-            >
-              Delivery Team
-            </NavLink>
-            <NavLink
-              to="/deliveries"
-              onClick={() => setMobileNavOpen(false)}
-              style={({ isActive }) => ({
-                display: 'flex', alignItems: 'center', padding: '11px 14px',
-                borderRadius: '10px', fontSize: '14px', fontWeight: isActive ? 600 : 400,
-                color: isActive ? 'var(--primary)' : 'var(--text2)',
-                background: isActive ? 'var(--primary-glow)' : 'transparent',
-                textDecoration: 'none', marginBottom: '2px',
-              })}
-            >
-              Deliveries
-            </NavLink>
-          </>
+          <NavLink
+            to="/delivery-team"
+            end
+            onClick={() => setMobileNavOpen(false)}
+            style={({ isActive }) => ({
+              display: 'flex', alignItems: 'center', padding: '11px 14px',
+              borderRadius: '10px', fontSize: '14px', fontWeight: isActive ? 600 : 400,
+              color: isActive ? 'var(--primary)' : 'var(--text2)',
+              background: isActive ? 'var(--primary-glow)' : 'transparent',
+              textDecoration: 'none', marginBottom: '2px',
+            })}
+          >
+            Delivery Team
+          </NavLink>
         ) : (
-          <>
-            <NavLink
-              to="/driver"
-              end
-              onClick={() => setMobileNavOpen(false)}
-              style={({ isActive }) => ({
-                display: 'flex', alignItems: 'center', padding: '11px 14px',
-                borderRadius: '10px', fontSize: '14px', fontWeight: isActive ? 600 : 400,
-                color: isActive ? 'var(--primary)' : 'var(--text2)',
-                background: isActive ? 'var(--primary-glow)' : 'transparent',
-                textDecoration: 'none', marginBottom: '2px',
-              })}
-            >
-              Driver Portal
-            </NavLink>
-            <NavLink
-              to="/deliveries"
-              onClick={() => setMobileNavOpen(false)}
-              style={({ isActive }) => ({
-                display: 'flex', alignItems: 'center', padding: '11px 14px',
-                borderRadius: '10px', fontSize: '14px', fontWeight: isActive ? 600 : 400,
-                color: isActive ? 'var(--primary)' : 'var(--text2)',
-                background: isActive ? 'var(--primary-glow)' : 'transparent',
-                textDecoration: 'none', marginBottom: '2px',
-              })}
-            >
-              Deliveries
-            </NavLink>
-          </>
+          <NavLink
+            to="/driver"
+            end
+            onClick={() => setMobileNavOpen(false)}
+            style={({ isActive }) => ({
+              display: 'flex', alignItems: 'center', padding: '11px 14px',
+              borderRadius: '10px', fontSize: '14px', fontWeight: isActive ? 600 : 400,
+              color: isActive ? 'var(--primary)' : 'var(--text2)',
+              background: isActive ? 'var(--primary-glow)' : 'transparent',
+              textDecoration: 'none', marginBottom: '2px',
+            })}
+          >
+            Driver Portal
+          </NavLink>
         )}
       </MobileDrawer>
 
