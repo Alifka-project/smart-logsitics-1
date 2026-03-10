@@ -803,6 +803,9 @@ export default function DriverPortal() {
         </nav>
       </div>
 
+      {/* Animated tab content — re-mounts on tab change */}
+      <div key={activeTab} className="tab-enter">
+
       {/* Tracking Tab */}
       {activeTab === 'tracking' && (
         <div className="space-y-6">
@@ -1167,6 +1170,8 @@ export default function DriverPortal() {
           </div>
         </div>
       )}
+
+      </div>{/* end tab-enter wrapper */}
     </div>
   );
 }

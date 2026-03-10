@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useEffect, Suspense, lazy } from 'react';
 import api from './frontend/apiClient';
 import Header from './components/Layout/Header';
@@ -90,6 +90,30 @@ function App() {
   );
 }
 
+function AnimatedRoutes({ isAdmin }) {
+  const location = useLocation();
+  return (
+    <main className="app-main">
+      <div key={location.key} className="page-enter">
+        <Routes>
+          <Route path="/deliveries" element={<DeliveryManagementPage />} />
+          <Route path="/" element={<Navigate to={isAdmin ? '/admin' : '/deliveries'} replace />} />
+          <Route path="/map" element={<Navigate to="/deliveries?tab=map" replace />} />
+          <Route path="/admin" element={<AdminDashboardPage />} />
+          <Route path="/admin/operations" element={<AdminOperationsPage />} />
+          <Route path="/admin/reports" element={<AdminReportsPage />} />
+          <Route path="/admin/reports/pod" element={<AdminPODReportPage />} />
+          <Route path="/admin/tracking/drivers" element={<Navigate to="/admin/operations?tab=monitoring" replace />} />
+          <Route path="/admin/tracking/deliveries" element={<Navigate to="/admin/operations?tab=delivery-tracking" replace />} />
+          <Route path="/admin/users" element={<AdminUsersPage />} />
+          <Route path="/driver" element={<DriverPortal />} />
+          <Route path="/delivery-team" element={<DeliveryTeamPortal />} />
+        </Routes>
+      </div>
+    </main>
+  );
+}
+
 function ProtectedLayout() {
   const clientUser = (() => {
     try { return JSON.parse(localStorage.getItem('client_user') || 'null'); } catch { return null; }
@@ -100,22 +124,7 @@ function ProtectedLayout() {
     <ProtectedRoute>
       <div style={{ minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)', paddingTop: '14px' }}>
         <Header isAdmin={isAdmin} />
-        <main className="app-main">
-          <Routes>
-            <Route path="/deliveries" element={<DeliveryManagementPage />} />
-            <Route path="/" element={<Navigate to={isAdmin ? '/admin' : '/deliveries'} replace />} />
-            <Route path="/map" element={<Navigate to="/deliveries?tab=map" replace />} />
-            <Route path="/admin" element={<AdminDashboardPage />} />
-            <Route path="/admin/operations" element={<AdminOperationsPage />} />
-            <Route path="/admin/reports" element={<AdminReportsPage />} />
-            <Route path="/admin/reports/pod" element={<AdminPODReportPage />} />
-            <Route path="/admin/tracking/drivers" element={<Navigate to="/admin/operations?tab=monitoring" replace />} />
-            <Route path="/admin/tracking/deliveries" element={<Navigate to="/admin/operations?tab=delivery-tracking" replace />} />
-            <Route path="/admin/users" element={<AdminUsersPage />} />
-            <Route path="/driver" element={<DriverPortal />} />
-            <Route path="/delivery-team" element={<DeliveryTeamPortal />} />
-          </Routes>
-        </main>
+        <AnimatedRoutes isAdmin={isAdmin} />
       </div>
     </ProtectedRoute>
   );

@@ -427,6 +427,9 @@ export default function DeliveryTeamPortal() {
         </nav>
       </div>
 
+      {/* Animated tab content — re-mounts on tab change */}
+      <div key={activeTab} className="tab-enter">
+
       {/* Monitoring Tab */}
       {activeTab === 'monitoring' && (
         <div className="space-y-6">
@@ -1019,6 +1022,8 @@ export default function DeliveryTeamPortal() {
           </div>
         </div>
       )}
+
+      </div>{/* end tab-enter wrapper */}
     </div>
   );
 }

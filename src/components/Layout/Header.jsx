@@ -797,30 +797,7 @@ export default function Header({ isAdmin = false }) {
             />
           </Link>
 
-          {/* Pill nav — hidden on mobile, visible on md+ */}
-          <nav className="nav-scroll h-full hidden md:flex">
-            {user?.role === 'delivery_team' ? (
-              <NavLink
-                to="/delivery-team"
-                end
-                style={({ isActive }) => pillStyle(isActive)}
-                onMouseEnter={e => { if (!location.pathname.startsWith('/delivery-team')) Object.assign(e.currentTarget.style, onHover); }}
-                onMouseLeave={e => { if (!location.pathname.startsWith('/delivery-team')) Object.assign(e.currentTarget.style, offHover); }}
-              >
-                Delivery Team
-              </NavLink>
-            ) : (
-              <NavLink
-                to="/driver"
-                end
-                style={({ isActive }) => pillStyle(isActive)}
-                onMouseEnter={e => { if (!location.pathname.startsWith('/driver')) Object.assign(e.currentTarget.style, onHover); }}
-                onMouseLeave={e => { if (!location.pathname.startsWith('/driver')) Object.assign(e.currentTarget.style, offHover); }}
-              >
-                Driver Portal
-              </NavLink>
-            )}
-          </nav>
+          {/* No top nav pills for driver/delivery_team — navigation is via in-portal tabs */}
 
           {/* Right controls — same as admin */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
@@ -889,39 +866,11 @@ export default function Header({ isAdmin = false }) {
       </div>
     </header>
 
-      {/* Mobile side drawer — non-admin */}
+      {/* Mobile side drawer — non-admin (no nav links; portal tabs handle navigation) */}
       <MobileDrawer>
-        {user?.role === 'delivery_team' ? (
-          <NavLink
-            to="/delivery-team"
-            end
-            onClick={() => setMobileNavOpen(false)}
-            style={({ isActive }) => ({
-              display: 'flex', alignItems: 'center', padding: '11px 14px',
-              borderRadius: '10px', fontSize: '14px', fontWeight: isActive ? 600 : 400,
-              color: isActive ? 'var(--primary)' : 'var(--text2)',
-              background: isActive ? 'var(--primary-glow)' : 'transparent',
-              textDecoration: 'none', marginBottom: '2px',
-            })}
-          >
-            Delivery Team
-          </NavLink>
-        ) : (
-          <NavLink
-            to="/driver"
-            end
-            onClick={() => setMobileNavOpen(false)}
-            style={({ isActive }) => ({
-              display: 'flex', alignItems: 'center', padding: '11px 14px',
-              borderRadius: '10px', fontSize: '14px', fontWeight: isActive ? 600 : 400,
-              color: isActive ? 'var(--primary)' : 'var(--text2)',
-              background: isActive ? 'var(--primary-glow)' : 'transparent',
-              textDecoration: 'none', marginBottom: '2px',
-            })}
-          >
-            Driver Portal
-          </NavLink>
-        )}
+        <div style={{ padding: '12px 14px', fontSize: '12px', color: 'var(--muted)' }}>
+          Use the tabs inside your portal to navigate.
+        </div>
       </MobileDrawer>
 
     <ToastContainer toasts={toasts} onRemove={removeToast} />

@@ -533,6 +533,9 @@ export default function AdminDashboardPage() {
         </nav>
       </div>
 
+      {/* Animated tab content */}
+      <div key={activeTab} className="tab-enter">
+
       {/* ══════════════ OVERVIEW TAB ══════════════ */}
       {activeTab === 'overview' && (
         <div className="space-y-4">
@@ -1367,6 +1370,7 @@ export default function AdminDashboardPage() {
           loadDashboardData();
         }}
       />
+      </div>{/* end tab-enter wrapper */}
     </div>
   );
 }

@@ -483,6 +483,7 @@ export default function AdminOperationsPage() {
       </div>
 
       {/* Tab Content */}
+      <div key={activeTab} className="tab-enter">
       {activeTab === 'monitoring' && (
         <div className="space-y-6">
           {/* Stats Cards — includes driver tracking stats */}
@@ -1367,6 +1368,7 @@ export default function AdminOperationsPage() {
           </div>
         </div>
       )}
+      </div>{/* end tab-enter wrapper */}
     </div>
   );
 }
