@@ -839,7 +839,8 @@ export default function Header({ isAdmin = false }) {
             />
           </Link>
 
-          {/* No top nav pills for driver/delivery_team — navigation is via in-portal tabs */}
+          {/* No top nav pills for driver/delivery_team — flex spacer pushes controls to the right */}
+          <div style={{ flex: 1 }} />
 
           {/* Right controls — same as admin */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
