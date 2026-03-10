@@ -435,9 +435,10 @@ export default function Header({ isAdmin = false }) {
     const containerStyle = {
       ...baseStyle,
       opacity: showNotifications ? 1 : 0,
-      transform: showNotifications ? 'translateY(0) scale(1)' : 'translateY(-10px) scale(0.96)',
+      transform: showNotifications ? 'translateY(0) scale(1)' : 'translateY(-10px) scale(0.95)',
+      transformOrigin: 'top right',
       pointerEvents: showNotifications ? 'auto' : 'none',
-      transition: 'opacity 0.22s ease, transform 0.22s cubic-bezier(0.22,1,0.36,1)',
+      transition: 'opacity 0.2s ease, transform 0.22s cubic-bezier(0.34,1.56,0.64,1)',
     };
 
     const listMaxHeight = isMobile
@@ -488,9 +489,10 @@ export default function Header({ isAdmin = false }) {
       borderRadius:'var(--radius-lg)', boxShadow:'var(--shadow3)',
       overflow:'hidden', zIndex:9999,
       opacity: showDropdown ? 1 : 0,
-      transform: showDropdown ? 'translateY(0) scale(1)' : 'translateY(-8px) scale(0.96)',
+      transform: showDropdown ? 'translateY(0) scale(1)' : 'translateY(-8px) scale(0.95)',
+      transformOrigin: 'top right',
       pointerEvents: showDropdown ? 'auto' : 'none',
-      transition: 'opacity 0.2s ease, transform 0.2s cubic-bezier(0.22,1,0.36,1)',
+      transition: 'opacity 0.18s ease, transform 0.22s cubic-bezier(0.34,1.56,0.64,1)',
     }}>
       <div style={{ padding:'16px', background:'var(--surface2)', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:'12px' }}>
         <div style={{ width:'44px', height:'44px', borderRadius:'50%', background:'var(--primary)', display:'flex', alignItems:'center', justifyContent:'center', color:'white', fontWeight:700, fontSize:'14px', overflow:'hidden', flexShrink:0 }}>
@@ -704,7 +706,7 @@ export default function Header({ isAdmin = false }) {
                       </span>
                     )}
                   </button>
-                <NotifPanel />
+                {NotifPanel()}
               </div>
 
               {/* User pill button — avatar + name/role */}
@@ -732,7 +734,7 @@ export default function Header({ isAdmin = false }) {
                           </div>
                   <ChevronDown size={13} style={{ color: MUTED, transform: showDropdown ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
                 </button>
-                <UserPanel />
+                {UserPanel()}
                                   </div>
                                   </div>
                                   </div>
@@ -851,7 +853,7 @@ export default function Header({ isAdmin = false }) {
                   </span>
                 )}
                         </button>
-              <NotifPanel />
+              {NotifPanel()}
                       </div>
             {loggedIn && user ? (
               <div style={{ position: 'relative', marginLeft: '6px' }} ref={dropdownRef}>
@@ -879,7 +881,7 @@ export default function Header({ isAdmin = false }) {
                   </div>
                   <ChevronDown size={13} style={{ color: MUTED, transform: showDropdown ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
                 </button>
-                <UserPanel />
+                {UserPanel()}
                 </div>
               ) : (
               <Link to="/login" className="pp-btn-primary" style={{ textDecoration: 'none' }}>Sign In</Link>
