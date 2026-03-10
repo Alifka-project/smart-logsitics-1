@@ -50,6 +50,7 @@ export default function SMSConfirmationModal({ delivery, onClose, onSuccess }) {
       const response = await api.post(`/deliveries/${encodeURIComponent(deliveryId)}/send-sms`);
       
       setSmsData(response.data);
+      // ok:true means the token was generated — treat as success even if SMS itself failed
       setSuccess(true);
 
       // Call onSuccess callback
@@ -186,16 +187,30 @@ export default function SMSConfirmationModal({ delivery, onClose, onSuccess }) {
               {/* Success State */}
               <div className="text-center py-4">
                 <div className="flex justify-center mb-4">
-                  <div className="bg-green-100 dark:bg-green-950 p-3 rounded-full border border-green-200 dark:border-green-800">
-                    <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
+                  <div className={`p-3 rounded-full border ${smsData?.smsSent ? 'bg-green-100 dark:bg-green-950 border-green-200 dark:border-green-800' : 'bg-yellow-100 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-800'}`}>
+                    {smsData?.smsSent
+                      ? <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
+                      : <AlertCircle className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
+                    }
                   </div>
                 </div>
                 
-                <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-2">SMS Sent Successfully!</h3>
+                <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-2">
+                  {smsData?.smsSent ? 'SMS Sent Successfully!' : 'Confirmation Link Ready'}
+                </h3>
                 
-                <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-                  Customer will receive the confirmation link via SMS to <span className="font-semibold text-gray-800 dark:text-gray-100">{delivery.phone}</span>
-                </p>
+                {smsData?.smsWarning && (
+                  <div className="mb-4 bg-yellow-50 dark:bg-yellow-950 border border-yellow-300 dark:border-yellow-700 rounded-lg p-3 text-left">
+                    <p className="text-xs font-semibold text-yellow-800 dark:text-yellow-200 mb-1">SMS could not be delivered</p>
+                    <p className="text-xs text-yellow-700 dark:text-yellow-300">{smsData.smsWarning}</p>
+                  </div>
+                )}
+
+                {!smsData?.smsWarning && (
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+                    Customer will receive the confirmation link via SMS to <span className="font-semibold text-gray-800 dark:text-gray-100">{delivery.phone}</span>
+                  </p>
+                )}
 
                 <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 p-4 rounded-lg space-y-4 mb-4 text-left">
                   {/* Expiration Time */}

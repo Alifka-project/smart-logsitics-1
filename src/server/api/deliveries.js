@@ -711,17 +711,97 @@ router.post('/:id/send-sms', authenticate, requireRole('admin'), async (req, res
       return res.status(400).json({ error: 'no_phone_number' });
     }
 
-    // Send SMS using SMS service
+    // Always generate the token first so the confirmation link is available
+    // even when SMS delivery fails (e.g. Twilio trial geo-restriction).
     const smsService = require('../sms/smsService');
-    const result = await smsService.sendConfirmationSms(delivery.id, delivery.phone);
+    const token = smsService.generateConfirmationToken();
+    const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+    const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
+    const confirmationLink = `${frontendUrl}/confirm-delivery/${token}`;
+
+    // Persist the token to the delivery record immediately
+    await prisma.delivery.update({
+      where: { id: delivery.id },
+      data: {
+        confirmationToken: token,
+        tokenExpiresAt: expiresAt,
+        confirmationStatus: 'pending'
+      }
+    });
+
+    // Attempt to send SMS — but treat SMS failure as a soft error so we
+    // can still return the confirmation link to the admin.
+    let smsSent = false;
+    let smsError = null;
+    let messageId = null;
+
+    try {
+      const smsResult = await smsService.smsAdapter.sendSms({
+        to: delivery.phone,
+        body: `Hi ${delivery.customer || 'there'},\n\nYour order from Electrolux is ready for delivery confirmation.\n\nClick to confirm and select your delivery date:\n${confirmationLink}\n\nThis link expires in 48 hours.\n\nThank you!`,
+        metadata: { deliveryId: delivery.id, type: 'confirmation_request' }
+      });
+
+      messageId = smsResult.messageId;
+      smsSent = true;
+
+      // Log successful SMS
+      await prisma.smsLog.create({
+        data: {
+          deliveryId: delivery.id,
+          phoneNumber: delivery.phone,
+          messageContent: `Confirmation link: ${confirmationLink}`,
+          smsProvider: process.env.SMS_PROVIDER || 'twilio',
+          externalMessageId: messageId,
+          status: 'sent',
+          sentAt: new Date(),
+          metadata: { type: 'confirmation_request', tokenExpiry: expiresAt.toISOString() }
+        }
+      });
+    } catch (twilioErr) {
+      console.error('[SMS] Twilio send failed (soft error):', twilioErr.message);
+      smsError = twilioErr.message;
+
+      // Log the failed attempt so admins can track it
+      try {
+        await prisma.smsLog.create({
+          data: {
+            deliveryId: delivery.id,
+            phoneNumber: delivery.phone,
+            messageContent: `Confirmation link: ${confirmationLink}`,
+            smsProvider: process.env.SMS_PROVIDER || 'twilio',
+            status: 'failed',
+            failureReason: twilioErr.message,
+            sentAt: new Date(),
+            metadata: { type: 'confirmation_request', tokenExpiry: expiresAt.toISOString() }
+          }
+        });
+      } catch (logErr) {
+        console.error('[SMS] Failed to log SMS error:', logErr.message);
+      }
+    }
+
+    // Build a human-readable SMS error hint
+    let smsWarning = null;
+    if (smsError) {
+      if (smsError.includes('21612')) {
+        smsWarning = 'SMS blocked by Twilio (geo-permission or trial account restriction for UAE numbers). You can share the confirmation link below directly with the customer via WhatsApp or email.';
+      } else if (smsError.includes('TWILIO_CONFIG_MISSING') || smsError.includes('not configured')) {
+        smsWarning = 'Twilio credentials not configured. Please set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_FROM on Vercel.';
+      } else {
+        smsWarning = `SMS could not be sent: ${smsError}. You can still share the confirmation link below directly.`;
+      }
+    }
 
     return res.json({
       ok: true,
-      message: 'SMS sent successfully',
-      token: result.token,
-      messageId: result.messageId,
-      expiresAt: result.expiresAt,
-      confirmationLink: `${process.env.FRONTEND_URL || 'https://smart-logistics-1.vercel.app'}/confirm-delivery/${result.token}`
+      smsSent,
+      smsWarning,
+      message: smsSent ? 'SMS sent successfully' : 'Confirmation link generated (SMS could not be sent — see smsWarning)',
+      token,
+      messageId,
+      expiresAt: expiresAt.toISOString(),
+      confirmationLink
     });
   } catch (error) {
     console.error('POST /api/deliveries/:id/send-sms error:', error);
