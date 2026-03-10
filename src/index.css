@@ -86,11 +86,49 @@
   --border-light:  rgba(255,255,255,0.09);
 }
 
+/* ════════════════════════════════════════════════════════════
+   THEME TRANSITION  — View Transitions API (Chrome 111+, Edge 111+)
+   The browser snapshots the page, we swap the .dark/.light class inside
+   the callback, then it smoothly cross-fades old→new automatically.
+   ════════════════════════════════════════════════════════════ */
+
+/* Radial-expand wipe: new theme expands as a circle from the
+   sun/moon toggle button (top-right corner of the header). */
+::view-transition-old(root) {
+  animation: theme-vt-out 0.45s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+::view-transition-new(root) {
+  animation: theme-vt-in  0.45s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes theme-vt-out {
+  to { opacity: 0; }
+}
+@keyframes theme-vt-in {
+  from {
+    clip-path: circle(0% at calc(100% - 80px) 38px);
+  }
+  to {
+    clip-path: circle(160vmax at calc(100% - 80px) 38px);
+  }
+}
+
+/* Respect reduced-motion preference */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 0.01ms !important;
+  }
+}
+
 /* ═══════════════════════════════════════════════════════════
    BASE RESET
    ═══════════════════════════════════════════════════════════ */
 @layer base {
-  html { color-scheme: dark; }
+  /* color-scheme tells the browser which native UI to render */
+  html.dark  { color-scheme: dark; }
+  html.light { color-scheme: light; }
+  html       { color-scheme: dark; } /* default until class is applied */
 
   * {
     font-family: 'DM Sans', 'Inter', -apple-system, BlinkMacSystemFont,
@@ -101,27 +139,26 @@
   body {
     background-color: var(--bg);
     color: var(--text);
-    transition: background-color 0.35s ease, color 0.3s ease;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* ── Smooth theme switch — applied only during the toggle animation ──
-     JS adds `.theme-changing` to <html> for ~450ms then removes it.
-     The !important ensures these override any component-level transitions. */
+  /* ── Fallback theme transition (browsers without View Transitions API) ──
+     JS adds `.theme-changing` to <html> for ~500ms while swapping classes.
+     Because both the class addition AND the theme class swap happen in the
+     same synchronous call, the transition starts at the exact right moment. */
   html.theme-changing,
   html.theme-changing *,
   html.theme-changing *::before,
   html.theme-changing *::after {
     transition:
-      background-color 0.35s ease,
-      background    0.35s ease,
-      color         0.3s  ease,
-      border-color  0.3s  ease,
-      fill          0.3s  ease,
-      stroke        0.3s  ease,
-      box-shadow    0.3s  ease,
-      opacity       0.3s  ease !important;
+      background-color 0.4s ease,
+      background       0.4s ease,
+      color            0.35s ease,
+      border-color     0.35s ease,
+      fill             0.35s ease,
+      stroke           0.35s ease,
+      box-shadow       0.35s ease !important;
   }
 
   /* Light mode body (applied when .light class on html) */

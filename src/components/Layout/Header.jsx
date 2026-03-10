@@ -87,8 +87,8 @@ export default function Header({ isAdmin = false }) {
     try {
       document.documentElement.classList.remove('light', 'dark');
       document.documentElement.classList.add(theme);
-      if (theme === 'dark') document.documentElement.style.backgroundColor = '#0d0e1a';
-      else                  document.documentElement.style.backgroundColor = '#f0f2f8';
+      // Remove any inline backgroundColor override so CSS variables take full control
+      document.documentElement.style.removeProperty('background-color');
       localStorage.setItem('theme', theme);
     } catch {}
   }, [theme]);
@@ -379,11 +379,29 @@ export default function Header({ isAdmin = false }) {
 
   const isNavActive = (path, exact) => exact ? location.pathname === path : location.pathname.startsWith(path);
 
-  /* Smooth theme toggle — temporarily broadcasts transition class to all elements */
+  /* Smooth theme toggle
+     Priority 1 — View Transitions API: browser takes a screenshot, we swap the
+     class synchronously inside the callback, then it cross-fades old→new.
+     Priority 2 — Fallback: add `theme-changing` class and swap class in the
+     same synchronous tick (fixes the React-useEffect delay that caused jank). */
   const toggleTheme = () => {
-    document.documentElement.classList.add('theme-changing');
-    setTheme(t => t === 'dark' ? 'light' : 'dark');
-    setTimeout(() => document.documentElement.classList.remove('theme-changing'), 450);
+    const next = theme === 'dark' ? 'light' : 'dark';
+
+    const applyTheme = () => {
+      document.documentElement.classList.remove('light', 'dark');
+      document.documentElement.classList.add(next);
+      document.documentElement.style.removeProperty('background-color');
+      localStorage.setItem('theme', next);
+      setTheme(next);
+    };
+
+    if (typeof document.startViewTransition === 'function') {
+      document.startViewTransition(applyTheme);
+    } else {
+      document.documentElement.classList.add('theme-changing');
+      applyTheme();
+      setTimeout(() => document.documentElement.classList.remove('theme-changing'), 500);
+    }
   };
 
   const [isMobileViewport, setIsMobileViewport] = useState(() => {
