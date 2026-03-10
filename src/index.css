@@ -101,9 +101,27 @@
   body {
     background-color: var(--bg);
     color: var(--text);
-    transition: background-color 0.2s ease, color 0.2s ease;
+    transition: background-color 0.35s ease, color 0.3s ease;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* ── Smooth theme switch — applied only during the toggle animation ──
+     JS adds `.theme-changing` to <html> for ~450ms then removes it.
+     The !important ensures these override any component-level transitions. */
+  html.theme-changing,
+  html.theme-changing *,
+  html.theme-changing *::before,
+  html.theme-changing *::after {
+    transition:
+      background-color 0.35s ease,
+      background    0.35s ease,
+      color         0.3s  ease,
+      border-color  0.3s  ease,
+      fill          0.3s  ease,
+      stroke        0.3s  ease,
+      box-shadow    0.3s  ease,
+      opacity       0.3s  ease !important;
   }
 
   /* Light mode body (applied when .light class on html) */

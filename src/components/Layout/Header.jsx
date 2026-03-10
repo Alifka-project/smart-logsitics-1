@@ -379,6 +379,13 @@ export default function Header({ isAdmin = false }) {
 
   const isNavActive = (path, exact) => exact ? location.pathname === path : location.pathname.startsWith(path);
 
+  /* Smooth theme toggle — temporarily broadcasts transition class to all elements */
+  const toggleTheme = () => {
+    document.documentElement.classList.add('theme-changing');
+    setTheme(t => t === 'dark' ? 'light' : 'dark');
+    setTimeout(() => document.documentElement.classList.remove('theme-changing'), 450);
+  };
+
   const [isMobileViewport, setIsMobileViewport] = useState(() => {
     if (typeof window === 'undefined') return false;
     return window.innerWidth <= 640;
@@ -396,10 +403,8 @@ export default function Header({ isAdmin = false }) {
 
   /* ──────────────────── Shared dropdown panels ──────────────────── */
   const NotifPanel = () => {
-    if (!showNotifications) return null;
-
     const isMobile = isMobileViewport;
-    const containerStyle = isMobile
+    const baseStyle = isMobile
       ? {
           position: 'fixed',
           left: '8px',
@@ -426,6 +431,14 @@ export default function Header({ isAdmin = false }) {
           overflow: 'hidden',
           zIndex: 9999,
         };
+
+    const containerStyle = {
+      ...baseStyle,
+      opacity: showNotifications ? 1 : 0,
+      transform: showNotifications ? 'translateY(0) scale(1)' : 'translateY(-10px) scale(0.96)',
+      pointerEvents: showNotifications ? 'auto' : 'none',
+      transition: 'opacity 0.22s ease, transform 0.22s cubic-bezier(0.22,1,0.36,1)',
+    };
 
     const listMaxHeight = isMobile
       ? 'calc(100vh - 88px - 48px)'
@@ -468,8 +481,17 @@ export default function Header({ isAdmin = false }) {
     );
   };
 
-  const UserPanel = () => !showDropdown ? null : (
-    <div style={{ position:'absolute', right:0, top:'calc(100% + 8px)', width:'240px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', boxShadow:'var(--shadow3)', overflow:'hidden', zIndex:9999 }}>
+  const UserPanel = () => (
+    <div style={{
+      position:'absolute', right:0, top:'calc(100% + 8px)', width:'240px',
+      background:'var(--surface)', border:'1px solid var(--border)',
+      borderRadius:'var(--radius-lg)', boxShadow:'var(--shadow3)',
+      overflow:'hidden', zIndex:9999,
+      opacity: showDropdown ? 1 : 0,
+      transform: showDropdown ? 'translateY(0) scale(1)' : 'translateY(-8px) scale(0.96)',
+      pointerEvents: showDropdown ? 'auto' : 'none',
+      transition: 'opacity 0.2s ease, transform 0.2s cubic-bezier(0.22,1,0.36,1)',
+    }}>
       <div style={{ padding:'16px', background:'var(--surface2)', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:'12px' }}>
         <div style={{ width:'44px', height:'44px', borderRadius:'50%', background:'var(--primary)', display:'flex', alignItems:'center', justifyContent:'center', color:'white', fontWeight:700, fontSize:'14px', overflow:'hidden', flexShrink:0 }}>
           {avatarSrc() ? <img src={avatarSrc()} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : getInitials()}
@@ -655,7 +677,7 @@ export default function Header({ isAdmin = false }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
 
               {/* Theme toggle */}
-              <button onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} style={iconBtn}
+              <button onClick={toggleTheme} style={iconBtn}
                 title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
                 onMouseEnter={e => Object.assign(e.currentTarget.style, onHover)}
                 onMouseLeave={e => Object.assign(e.currentTarget.style, offHover)}
@@ -802,7 +824,7 @@ export default function Header({ isAdmin = false }) {
           {/* Right controls — same as admin */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
                         <button
-              onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+              onClick={toggleTheme}
               style={iconBtn}
               title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
               onMouseEnter={e => Object.assign(e.currentTarget.style, onHover)}
