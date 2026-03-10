@@ -88,28 +88,27 @@
 
 /* ════════════════════════════════════════════════════════════
    THEME TRANSITION  — View Transitions API (Chrome 111+, Edge 111+)
-   The browser snapshots the page, we swap the .dark/.light class inside
-   the callback, then it smoothly cross-fades old→new automatically.
+   Horizontal Slide + Fade: old theme slides left and fades out,
+   new theme slides in from the right and fades in simultaneously.
    ════════════════════════════════════════════════════════════ */
 
-/* Radial-expand wipe: new theme expands as a circle from the
-   sun/moon toggle button (top-right corner of the header). */
 ::view-transition-old(root) {
-  animation: theme-vt-out 0.45s cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation: theme-slide-out 0.42s cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 ::view-transition-new(root) {
-  animation: theme-vt-in  0.45s cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation: theme-slide-in  0.42s cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
-@keyframes theme-vt-out {
-  to { opacity: 0; }
-}
-@keyframes theme-vt-in {
-  from {
-    clip-path: circle(0% at calc(100% - 80px) 38px);
-  }
+@keyframes theme-slide-out {
   to {
-    clip-path: circle(160vmax at calc(100% - 80px) 38px);
+    opacity: 0;
+    transform: translateX(-48px);
+  }
+}
+@keyframes theme-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(48px);
   }
 }
 
