@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
-import { X, Send, Loader, CheckCircle, AlertCircle, MessageCircle, Link2 } from 'lucide-react';
+import { X, Send, Loader, CheckCircle, AlertCircle, MessageCircle, Link2, Mail } from 'lucide-react';
 import api from '../../frontend/apiClient';
 
 export default function SMSConfirmationModal({ delivery, onClose, onSuccess }) {
@@ -8,6 +8,7 @@ export default function SMSConfirmationModal({ delivery, onClose, onSuccess }) {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
   const [smsData, setSmsData] = useState(null);
+  const [customerEmail, setCustomerEmail] = useState(delivery.email || '');
 
   // Prevent body scrolling when modal is open
   useEffect(() => {
@@ -47,7 +48,9 @@ export default function SMSConfirmationModal({ delivery, onClose, onSuccess }) {
 
       console.log('[SMS Modal] Sending SMS for delivery:', deliveryId, 'Customer:', delivery.customer);
 
-      const response = await api.post(`/deliveries/${encodeURIComponent(deliveryId)}/send-sms`);
+      const response = await api.post(`/deliveries/${encodeURIComponent(deliveryId)}/send-sms`, {
+        email: customerEmail || undefined
+      });
       
       setSmsData(response.data);
       // ok:true means the token was generated — treat as success even if SMS itself failed
@@ -117,7 +120,24 @@ export default function SMSConfirmationModal({ delivery, onClose, onSuccess }) {
                 </div>
               </div>
 
-              {/* SMS Message Preview */}
+              {/* Customer Email (optional fallback) */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">
+                  Customer Email <span className="font-normal text-gray-400">(optional — used if SMS fails)</span>
+                </label>
+                <div className="flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  <input
+                    type="email"
+                    value={customerEmail}
+                    onChange={e => setCustomerEmail(e.target.value)}
+                    placeholder="customer@example.com"
+                    className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* Message Preview */}
               <div>
                 <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">Message Preview:</p>
                 <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 p-3 rounded-lg text-sm text-gray-700 dark:text-gray-200 space-y-2">
@@ -196,20 +216,30 @@ export default function SMSConfirmationModal({ delivery, onClose, onSuccess }) {
                 </div>
                 
                 <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-2">
-                  {smsData?.smsSent ? 'SMS Sent Successfully!' : 'Confirmation Link Ready'}
+                  {smsData?.smsSent
+                    ? 'SMS Sent Successfully!'
+                    : smsData?.emailSent
+                      ? 'Confirmation Email Sent!'
+                      : 'Confirmation Link Ready'}
                 </h3>
-                
-                {smsData?.smsWarning && (
-                  <div className="mb-4 bg-yellow-50 dark:bg-yellow-950 border border-yellow-300 dark:border-yellow-700 rounded-lg p-3 text-left">
-                    <p className="text-xs font-semibold text-yellow-800 dark:text-yellow-200 mb-1">SMS could not be delivered</p>
-                    <p className="text-xs text-yellow-700 dark:text-yellow-300">{smsData.smsWarning}</p>
-                  </div>
+
+                {/* Delivery channel badge */}
+                {(smsData?.smsSent || smsData?.emailSent) && (
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+                    {smsData?.smsSent
+                      ? <>Sent via <strong>SMS</strong> to <span className="font-semibold text-gray-800 dark:text-gray-100">{delivery.phone}</span></>
+                      : <>Sent via <strong>Email</strong> to <span className="font-semibold text-gray-800 dark:text-gray-100">{customerEmail}</span></>
+                    }
+                  </p>
                 )}
 
-                {!smsData?.smsWarning && (
-                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-                    Customer will receive the confirmation link via SMS to <span className="font-semibold text-gray-800 dark:text-gray-100">{delivery.phone}</span>
-                  </p>
+                {smsData?.smsWarning && (
+                  <div className="mb-4 bg-yellow-50 dark:bg-yellow-950 border border-yellow-300 dark:border-yellow-700 rounded-lg p-3 text-left">
+                    <p className="text-xs font-semibold text-yellow-800 dark:text-yellow-200 mb-1">
+                      {smsData?.emailSent ? 'SMS blocked — email sent instead' : 'SMS could not be delivered'}
+                    </p>
+                    <p className="text-xs text-yellow-700 dark:text-yellow-300">{smsData.smsWarning}</p>
+                  </div>
                 )}
 
                 <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 p-4 rounded-lg space-y-4 mb-4 text-left">

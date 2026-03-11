@@ -708,23 +708,29 @@ router.post('/:id/send-sms', authenticate, requireRole('admin'), async (req, res
     
     console.log('[SMS] Found delivery:', delivery.id, 'Customer:', delivery.customer);
 
-    if (!delivery.phone) {
-      return res.status(400).json({ error: 'no_phone_number' });
+    if (!delivery.phone && !delivery.email) {
+      return res.status(400).json({ error: 'no_contact_info', message: 'Delivery has no phone number or email address' });
     }
 
-    // Normalize the phone number to UAE E.164 format (+971XXXXXXXXX)
-    const normalizedPhone = normalizeUAEPhone(delivery.phone) || delivery.phone;
-    if (normalizedPhone !== delivery.phone) {
-      console.log(`[SMS] Phone normalized for delivery ${delivery.id}: "${delivery.phone}" → "${normalizedPhone}"`);
+    // Normalize the phone number to E.164 format if present
+    const normalizedPhone = delivery.phone
+      ? (normalizeUAEPhone(delivery.phone) || delivery.phone)
+      : null;
+    if (normalizedPhone && normalizedPhone !== delivery.phone) {
+      console.log(`[SMS] Phone normalized: "${delivery.phone}" → "${normalizedPhone}"`);
     }
 
-    // Always generate the token first so the confirmation link is available
-    // even when SMS delivery fails (e.g. Twilio trial geo-restriction).
+    // Accept optional customer email override from request body
+    const customerEmail = req.body?.email || delivery.email || null;
+
+    // Always generate the confirmation token first — link is always available
+    // even when both SMS and email fail.
     const smsService = require('../sms/smsService');
     const token = smsService.generateConfirmationToken();
     const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
     const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
     const confirmationLink = `${frontendUrl}/confirm-delivery/${token}`;
+    const smsBody = `Hi ${delivery.customer || 'there'},\n\nYour order from Electrolux is ready for delivery confirmation.\n\nClick to confirm and select your delivery date:\n${confirmationLink}\n\nThis link expires in 48 hours.\n\nThank you!`;
 
     // Persist the token to the delivery record immediately
     await prisma.delivery.update({
@@ -736,75 +742,107 @@ router.post('/:id/send-sms', authenticate, requireRole('admin'), async (req, res
       }
     });
 
-    // Attempt to send SMS — but treat SMS failure as a soft error so we
-    // can still return the confirmation link to the admin.
+    // ── 1. Attempt SMS via Twilio ──────────────────────────────────────────
     let smsSent = false;
     let smsError = null;
     let messageId = null;
 
-    try {
-      const smsResult = await smsService.smsAdapter.sendSms({
-        to: normalizedPhone,
-        body: `Hi ${delivery.customer || 'there'},\n\nYour order from Electrolux is ready for delivery confirmation.\n\nClick to confirm and select your delivery date:\n${confirmationLink}\n\nThis link expires in 48 hours.\n\nThank you!`,
-        metadata: { deliveryId: delivery.id, type: 'confirmation_request' }
-      });
-
-      messageId = smsResult.messageId;
-      smsSent = true;
-
-      // Log successful SMS
-      await prisma.smsLog.create({
-        data: {
-          deliveryId: delivery.id,
-          phoneNumber: normalizedPhone,
-          messageContent: `Confirmation link: ${confirmationLink}`,
-          smsProvider: process.env.SMS_PROVIDER || 'twilio',
-          externalMessageId: messageId,
-          status: 'sent',
-          sentAt: new Date(),
-          metadata: { type: 'confirmation_request', tokenExpiry: expiresAt.toISOString() }
-        }
-      });
-    } catch (twilioErr) {
-      console.error('[SMS] Twilio send failed (soft error):', twilioErr.message);
-      smsError = twilioErr.message;
-
-      // Log the failed attempt so admins can track it
+    if (normalizedPhone) {
       try {
+        const smsResult = await smsService.smsAdapter.sendSms({
+          to: normalizedPhone,
+          body: smsBody,
+          metadata: { deliveryId: delivery.id, type: 'confirmation_request' }
+        });
+        messageId = smsResult.messageId;
+        smsSent = true;
+        console.log('[SMS] SMS sent successfully to', normalizedPhone, 'MID:', messageId);
+
         await prisma.smsLog.create({
           data: {
             deliveryId: delivery.id,
-            phoneNumber: delivery.phone,
-            messageContent: `Confirmation link: ${confirmationLink}`,
+            phoneNumber: normalizedPhone,
+            messageContent: smsBody,
+            smsProvider: process.env.SMS_PROVIDER || 'twilio',
+            externalMessageId: messageId,
+            status: 'sent',
+            sentAt: new Date(),
+            metadata: { type: 'confirmation_request', tokenExpiry: expiresAt.toISOString() }
+          }
+        });
+      } catch (twilioErr) {
+        console.error('[SMS] Twilio send failed:', twilioErr.message);
+        smsError = twilioErr.message;
+
+        await prisma.smsLog.create({
+          data: {
+            deliveryId: delivery.id,
+            phoneNumber: normalizedPhone,
+            messageContent: smsBody,
             smsProvider: process.env.SMS_PROVIDER || 'twilio',
             status: 'failed',
             failureReason: twilioErr.message,
             sentAt: new Date(),
             metadata: { type: 'confirmation_request', tokenExpiry: expiresAt.toISOString() }
           }
-        });
-      } catch (logErr) {
-        console.error('[SMS] Failed to log SMS error:', logErr.message);
+        }).catch(e => console.error('[SMS] Log error:', e.message));
       }
     }
 
-    // Build a human-readable SMS error hint
+    // ── 2. Fallback to Email if SMS failed or no phone ─────────────────────
+    let emailSent = false;
+    let emailError = null;
+
+    if (!smsSent && customerEmail) {
+      console.log('[Email] SMS failed or no phone — attempting email to', customerEmail);
+      try {
+        const { sendConfirmationEmail } = require('../sms/emailNotification');
+        const emailResult = await sendConfirmationEmail({
+          toEmail: customerEmail,
+          customerName: delivery.customer,
+          confirmationLink,
+          deliveryAddress: delivery.address
+        });
+        if (emailResult.ok) {
+          emailSent = true;
+          console.log('[Email] Confirmation email sent:', emailResult.messageId);
+        } else {
+          emailError = emailResult.error;
+          console.error('[Email] Failed:', emailResult.error);
+        }
+      } catch (emailErr) {
+        emailError = emailErr.message;
+        console.error('[Email] Exception:', emailErr.message);
+      }
+    }
+
+    // ── 3. Build response ──────────────────────────────────────────────────
     let smsWarning = null;
     if (smsError) {
       if (smsError.includes('21612')) {
-        smsWarning = 'SMS blocked by Twilio (geo-permission or trial account restriction for UAE numbers). You can share the confirmation link below directly with the customer via WhatsApp or email.';
+        smsWarning = emailSent
+          ? 'SMS was blocked by Twilio (UAE carrier restriction on US numbers). Confirmation link sent via email instead.'
+          : 'SMS blocked by Twilio (UAE carrier restriction). To fix: in your Twilio console go to Messaging → Settings → Geo Permissions and enable United Arab Emirates. The confirmation link is below — you can share it via WhatsApp.';
       } else if (smsError.includes('TWILIO_CONFIG_MISSING') || smsError.includes('not configured')) {
-        smsWarning = 'Twilio credentials not configured. Please set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_FROM on Vercel.';
+        smsWarning = 'Twilio credentials not fully configured. Check TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM on Vercel.';
       } else {
-        smsWarning = `SMS could not be sent: ${smsError}. You can still share the confirmation link below directly.`;
+        smsWarning = `SMS could not be sent: ${smsError}.${emailSent ? ' Confirmation sent via email.' : ' Confirmation link is below.'}`;
       }
     }
+
+    const deliveredVia = smsSent ? 'sms' : emailSent ? 'email' : 'none';
 
     return res.json({
       ok: true,
       smsSent,
+      emailSent,
+      deliveredVia,
       smsWarning,
-      message: smsSent ? 'SMS sent successfully' : 'Confirmation link generated (SMS could not be sent — see smsWarning)',
+      message: smsSent
+        ? 'Confirmation SMS sent successfully'
+        : emailSent
+          ? 'Confirmation email sent successfully (SMS blocked)'
+          : 'Confirmation link generated — share manually (both SMS and email could not be sent)',
       token,
       messageId,
       expiresAt: expiresAt.toISOString(),
