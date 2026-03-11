@@ -802,17 +802,6 @@ export default function Header({ isAdmin = false }) {
   const deliveryTeamHome = '/delivery-team';
   const logoTo = user?.role === 'delivery_team' ? deliveryTeamHome : driverHome;
 
-  const pillStyle = (active) => ({
-    display: 'inline-flex', alignItems: 'center', gap: '5px',
-    padding: '7px 14px', borderRadius: '999px', fontSize: '13px',
-    fontWeight: active ? 600 : 500, color: active ? PRIMARY : MUTED,
-    background: active ? (theme === 'dark' ? 'var(--surface2)' : '#ffffff') : 'transparent',
-    boxShadow: active ? 'var(--shadow1)' : 'none',
-    textDecoration: 'none', border: 'none', cursor: 'pointer',
-    transition: 'background 0.15s, color 0.15s, box-shadow 0.15s', whiteSpace: 'nowrap',
-    flexShrink: 0,
-  });
-
   return (
     <>
       {/* Same header as admin — responsive for mobile/tablet */}

@@ -46,7 +46,7 @@ export default function DriverPortal() {
 
   // Delivery state
   const [deliveries, setDeliveries] = useState([]);
-  const [loadingDeliveries, setLoadingDeliveries] = useState(false);
+  const [, setLoadingDeliveries] = useState(false);
 
   // Messaging state
   const [messages, setMessages] = useState([]);
@@ -190,6 +190,7 @@ export default function DriverPortal() {
       cleanup();
       clearInterval(notificationInterval);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cleanup]);
 
   useEffect(() => {
@@ -405,6 +406,7 @@ export default function DriverPortal() {
         messagePollingIntervalRef.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, selectedContact]);
   
   // Auto-scroll to bottom when messages change or tab becomes active
@@ -744,7 +746,6 @@ export default function DriverPortal() {
     );
   };
 
-  const deliveryRows = orderedDeliveries.length > 0 ? orderedDeliveries : deliveries;
   const hasRoute = !!route?.coordinates?.length;
 
   return (

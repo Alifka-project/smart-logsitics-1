@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import api from '../frontend/apiClient';
 import { getCurrentUser } from '../frontend/auth';
@@ -107,6 +107,7 @@ export default function DeliveryTeamPortal() {
       
       return () => clearInterval(onlineInterval);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contacts.length]);
 
   // Handle URL-based contact selection for communication
@@ -735,7 +736,7 @@ export default function DeliveryTeamPortal() {
                                       loadData();
                                       setAssignmentMessage(null);
                                     }, 2000);
-                                  } catch (err) {
+                                  } catch {
                                     setAssignmentMessage({
                                       type: 'error',
                                       text: 'Failed to assign delivery'
