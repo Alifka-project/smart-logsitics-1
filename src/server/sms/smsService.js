@@ -5,6 +5,7 @@
 
 const crypto = require('crypto');
 const prisma = require('../db/prisma');
+const { normalizeUAEPhone } = require('../utils/phoneUtils');
 
 // Initialize SMS adapter (Twilio or mock)
 let smsAdapter = null;
@@ -42,6 +43,13 @@ async function sendConfirmationSms(deliveryId, phoneNumber, tokenExpiry = null) 
     if (!deliveryId || !phoneNumber) {
       throw new Error('deliveryId and phoneNumber are required');
     }
+
+    // Normalize UAE phone number before sending
+    const normalizedPhone = normalizeUAEPhone(phoneNumber) || phoneNumber;
+    if (normalizedPhone !== phoneNumber) {
+      console.log(`[smsService] Phone normalized: "${phoneNumber}" → "${normalizedPhone}"`);
+    }
+    phoneNumber = normalizedPhone;
 
     // Generate unique token
     const confirmationToken = generateConfirmationToken();

@@ -1,4 +1,5 @@
 // Data transformer to convert actual Excel format to system format
+import { normalizeUAEPhone } from './phoneUtils';
 /**
  * Extract PO Number from row with multiple fallback strategies
  */
@@ -165,12 +166,18 @@ export function transformERPData(data) {
       }
     }
 
+    const rawPhone = String(phone).trim();
+    const normalizedPhone = normalizeUAEPhone(rawPhone) || rawPhone;
+    if (normalizedPhone !== rawPhone) {
+      console.log(`[dataTransformer] Phone normalized: "${rawPhone}" → "${normalizedPhone}"`);
+    }
+
     return {
       customer: String(customer).trim(),
       address: String(address).trim(),
       lat,
       lng,
-      phone: String(phone).trim(),
+      phone: normalizedPhone,
       items: String(items).trim(),
       poNumber: poNumber,
       PONumber: poNumber,
@@ -257,7 +264,11 @@ export function transformGenericData(data) {
     const lngRaw = parseCoordinate(row[lngKey]);
     const lat = !isNaN(latRaw) ? latRaw : 25.1124;
     const lng = !isNaN(lngRaw) ? lngRaw : 55.1980;
-    const phone = row[phoneKey] || '';
+    const rawPhone = String(row[phoneKey] || '').trim();
+    const normalizedPhone = normalizeUAEPhone(rawPhone) || rawPhone;
+    if (normalizedPhone !== rawPhone) {
+      console.log(`[dataTransformer] Phone normalized: "${rawPhone}" → "${normalizedPhone}"`);
+    }
     const items = row[itemsKey] || 'Items not specified';
     
     // Extract PO Number
@@ -275,7 +286,7 @@ export function transformGenericData(data) {
       address: String(address).trim(),
       lat,
       lng,
-      phone: String(phone).trim(),
+      phone: normalizedPhone,
       items: String(items).trim(),
       poNumber: poNumber,
       PONumber: poNumber,

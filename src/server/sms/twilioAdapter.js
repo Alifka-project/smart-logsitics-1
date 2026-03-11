@@ -1,5 +1,6 @@
 const SmsAdapter = require('./adapter');
 const axios = require('axios');
+const { normalizeUAEPhone, isValidUAEPhone } = require('../utils/phoneUtils');
 
 class TwilioAdapter extends SmsAdapter {
   constructor(config) {
@@ -31,6 +32,16 @@ class TwilioAdapter extends SmsAdapter {
       error.code = 'TWILIO_TO_MISSING';
       throw error;
     }
+
+    // Normalize UAE phone number — converts 05X, 5X, 971X, 00971X → +971XXXXXXXXX
+    const normalizedTo = normalizeUAEPhone(to);
+    if (normalizedTo && normalizedTo !== to) {
+      console.log(`[Twilio] Phone normalized: "${to}" → "${normalizedTo}"`);
+    }
+    if (!isValidUAEPhone(normalizedTo)) {
+      console.warn(`[Twilio] Phone "${normalizedTo}" is not a standard UAE E.164 number — sending anyway`);
+    }
+    to = normalizedTo || to;
 
     if (!body) {
       const error = new Error('Twilio SMS body is required');

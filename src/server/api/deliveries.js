@@ -8,6 +8,7 @@ const { buildBusinessKey, upsertDeliveryByBusinessKey } = require('../services/d
 const prisma = require('../db/prisma');
 const cache = require('../cache');
 const { sortDeliveriesIncompleteLast } = require('../utils/deliveryListSort');
+const { normalizeUAEPhone } = require('../utils/phoneUtils');
 
 async function deliveryExists(deliveryId) {
   try {
@@ -711,6 +712,12 @@ router.post('/:id/send-sms', authenticate, requireRole('admin'), async (req, res
       return res.status(400).json({ error: 'no_phone_number' });
     }
 
+    // Normalize the phone number to UAE E.164 format (+971XXXXXXXXX)
+    const normalizedPhone = normalizeUAEPhone(delivery.phone) || delivery.phone;
+    if (normalizedPhone !== delivery.phone) {
+      console.log(`[SMS] Phone normalized for delivery ${delivery.id}: "${delivery.phone}" → "${normalizedPhone}"`);
+    }
+
     // Always generate the token first so the confirmation link is available
     // even when SMS delivery fails (e.g. Twilio trial geo-restriction).
     const smsService = require('../sms/smsService');
@@ -737,7 +744,7 @@ router.post('/:id/send-sms', authenticate, requireRole('admin'), async (req, res
 
     try {
       const smsResult = await smsService.smsAdapter.sendSms({
-        to: delivery.phone,
+        to: normalizedPhone,
         body: `Hi ${delivery.customer || 'there'},\n\nYour order from Electrolux is ready for delivery confirmation.\n\nClick to confirm and select your delivery date:\n${confirmationLink}\n\nThis link expires in 48 hours.\n\nThank you!`,
         metadata: { deliveryId: delivery.id, type: 'confirmation_request' }
       });
@@ -749,7 +756,7 @@ router.post('/:id/send-sms', authenticate, requireRole('admin'), async (req, res
       await prisma.smsLog.create({
         data: {
           deliveryId: delivery.id,
-          phoneNumber: delivery.phone,
+          phoneNumber: normalizedPhone,
           messageContent: `Confirmation link: ${confirmationLink}`,
           smsProvider: process.env.SMS_PROVIDER || 'twilio',
           externalMessageId: messageId,
