@@ -7,7 +7,8 @@ class TwilioAdapter extends SmsAdapter {
     super(config);
     this.accountSid = config.TWILIO_ACCOUNT_SID;
     this.authToken = config.TWILIO_AUTH_TOKEN;
-    this.from = config.TWILIO_FROM; // default sender
+    this.from = config.TWILIO_FROM;
+    this.messagingServiceSid = config.TWILIO_MESSAGING_SERVICE_SID; // preferred for international routing
     this.baseUrl = 'https://api.twilio.com/2010-04-01';
   }
 
@@ -16,7 +17,7 @@ class TwilioAdapter extends SmsAdapter {
 
     if (!this.accountSid) missing.push('TWILIO_ACCOUNT_SID');
     if (!this.authToken) missing.push('TWILIO_AUTH_TOKEN');
-    if (!from) missing.push('TWILIO_FROM');
+    if (!this.messagingServiceSid && !from) missing.push('TWILIO_FROM or TWILIO_MESSAGING_SERVICE_SID');
 
     if (missing.length) {
       const error = new Error(
@@ -52,8 +53,17 @@ class TwilioAdapter extends SmsAdapter {
     const url = `${this.baseUrl}/Accounts/${this.accountSid}/Messages.json`;
     const params = new URLSearchParams();
     params.append('To', to);
-    params.append('From', from);
     params.append('Body', body);
+
+    // Use MessagingServiceSid for better international routing (avoids carrier blocks)
+    // Otherwise fall back to direct From number
+    if (this.messagingServiceSid) {
+      params.append('MessagingServiceSid', this.messagingServiceSid);
+      console.log(`[Twilio] Using MessagingService: ${this.messagingServiceSid}`);
+    } else {
+      params.append('From', from);
+      console.log(`[Twilio] Using direct From: ${from}`);
+    }
 
     const auth = { username: this.accountSid, password: this.authToken };
 

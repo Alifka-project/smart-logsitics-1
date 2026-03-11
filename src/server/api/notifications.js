@@ -20,7 +20,9 @@ router.get('/alerts', authenticate, requireRole('admin'), async (req, res) => {
       take: 50
     });
 
-    res.json({ ok: true, count: notifications.length, notifications });
+    // BigInt id must be serialized as string — JSON.stringify cannot handle BigInt natively
+    const safe = notifications.map(n => ({ ...n, id: String(n.id) }));
+    res.json({ ok: true, count: safe.length, notifications: safe });
   } catch (error) {
     // P2021 = table does not exist (migration not yet applied) — return empty gracefully
     if (error.code === 'P2021' || error.message?.includes('does not exist') || error.message?.includes('relation')) {
@@ -57,8 +59,9 @@ router.get('/alerts/count', authenticate, requireRole('admin'), async (req, res)
  */
 router.put('/alerts/:id/read', authenticate, requireRole('admin'), async (req, res) => {
   try {
-    const id = parseInt(req.params.id, 10);
-    if (isNaN(id)) return res.status(400).json({ error: 'invalid_id' });
+    const idStr = req.params.id;
+    if (!idStr || !/^\d+$/.test(idStr)) return res.status(400).json({ error: 'invalid_id' });
+    const id = BigInt(idStr);
 
     await prisma.adminNotification.update({
       where: { id },
