@@ -809,115 +809,74 @@ router.post('/:id/send-sms', authenticate, requireRole('admin'), async (req, res
       }
     });
 
-    // ── 1. Attempt SMS ─────────────────────────────────────────────────────
-    // UAE (+971) numbers: ALL carriers reject unregistered senders.
-    // Skip SMS for UAE entirely — go straight to email to avoid wasting credits.
-    // Non-UAE numbers: attempt SMS normally.
+    // ── 1. Send SMS via D7 ─────────────────────────────────────────────────
     let smsSent = false;
     let smsError = null;
     let messageId = null;
-    const isUAENumber = normalizedPhone && (normalizedPhone.startsWith('+971') || normalizedPhone.startsWith('971'));
+    let d7Status = null;
 
-    if (normalizedPhone && !isUAENumber) {
-      try {
-        const smsResult = await smsService.smsAdapter.sendSms({
-          to: normalizedPhone,
-          body: smsBody,
-          metadata: { deliveryId: delivery.id, type: 'confirmation_request' }
-        });
-        messageId = smsResult.messageId;
-        smsSent = true;
-        console.log('[SMS] SMS sent successfully to', normalizedPhone, 'MID:', messageId);
-
-        await prisma.smsLog.create({
-          data: {
-            deliveryId: delivery.id,
-            phoneNumber: normalizedPhone,
-            messageContent: smsBody,
-            smsProvider: process.env.SMS_PROVIDER || 'd7',
-            externalMessageId: messageId,
-            status: 'sent',
-            sentAt: new Date(),
-            metadata: { type: 'confirmation_request', tokenExpiry: expiresAt.toISOString() }
-          }
-        });
-      } catch (smsErr) {
-        console.error('[SMS] Send failed:', smsErr.message);
-        smsError = smsErr.message;
-
-        await prisma.smsLog.create({
-          data: {
-            deliveryId: delivery.id,
-            phoneNumber: normalizedPhone,
-            messageContent: smsBody,
-            smsProvider: process.env.SMS_PROVIDER || 'd7',
-            status: 'failed',
-            failureReason: smsErr.message,
-            sentAt: new Date(),
-            metadata: { type: 'confirmation_request', tokenExpiry: expiresAt.toISOString() }
-          }
-        }).catch(e => console.error('[SMS] Log error:', e.message));
-      }
-    } else if (isUAENumber) {
-      // Log skipped — don't burn credits on carrier-rejected UAE SMS
-      console.log('[SMS] UAE number detected — skipping SMS (carrier blocks unregistered senders). Using email fallback.');
-      smsError = 'UAE_CARRIER_BLOCK';
+    if (!normalizedPhone) {
+      return res.status(400).json({ error: 'no_phone', message: 'Delivery has no phone number' });
     }
 
-    // ── 2. Fallback to Email if SMS failed or no phone ─────────────────────
-    let emailSent = false;
-    let emailError = null;
+    try {
+      const smsResult = await smsService.smsAdapter.sendSms({
+        to: normalizedPhone,
+        body: smsBody,
+        metadata: { deliveryId: delivery.id, type: 'confirmation_request' }
+      });
+      messageId = smsResult.messageId;
+      d7Status = smsResult.status;
+      smsSent = true;
+      console.log('[SMS] D7 accepted SMS to', normalizedPhone, 'MID:', messageId, 'Status:', d7Status);
 
-    if (!smsSent && customerEmail) {
-      console.log('[Email] SMS failed or no phone — attempting email to', customerEmail);
-      try {
-        const { sendConfirmationEmail } = require('../sms/emailNotification');
-        const emailResult = await sendConfirmationEmail({
-          toEmail: customerEmail,
-          customerName: delivery.customer,
-          confirmationLink,
-          deliveryAddress: delivery.address
-        });
-        if (emailResult.ok) {
-          emailSent = true;
-          console.log('[Email] Confirmation email sent:', emailResult.messageId);
-        } else {
-          emailError = emailResult.error;
-          console.error('[Email] Failed:', emailResult.error);
+      await prisma.smsLog.create({
+        data: {
+          deliveryId: delivery.id,
+          phoneNumber: normalizedPhone,
+          messageContent: smsBody,
+          smsProvider: 'd7',
+          externalMessageId: messageId,
+          status: 'sent',
+          sentAt: new Date(),
+          metadata: { type: 'confirmation_request', tokenExpiry: expiresAt.toISOString(), d7Status }
         }
-      } catch (emailErr) {
-        emailError = emailErr.message;
-        console.error('[Email] Exception:', emailErr.message);
-      }
+      });
+    } catch (smsErr) {
+      console.error('[SMS] D7 send failed:', smsErr.message);
+      smsError = smsErr.message;
+
+      await prisma.smsLog.create({
+        data: {
+          deliveryId: delivery.id,
+          phoneNumber: normalizedPhone,
+          messageContent: smsBody,
+          smsProvider: 'd7',
+          status: 'failed',
+          failureReason: smsErr.message,
+          sentAt: new Date(),
+          metadata: { type: 'confirmation_request', tokenExpiry: expiresAt.toISOString() }
+        }
+      }).catch(e => console.error('[SMS] Log error:', e.message));
     }
 
-    // ── 3. Build response ──────────────────────────────────────────────────
-    let smsWarning = null;
-    if (smsError) {
-      if (smsError === 'UAE_CARRIER_BLOCK') {
-        smsWarning = emailSent
-          ? 'UAE number — SMS skipped (carrier blocks unregistered senders). Confirmation sent via email instead.'
-          : 'UAE number — SMS skipped. To enable UAE SMS, register sender ID "Electrolux" at app.d7networks.com → Settings → Sender IDs. Confirmation link is ready below — share it via WhatsApp.';
-      } else if (smsError.includes('D7_CONFIG_MISSING') || smsError.includes('D7_API_TOKEN')) {
-        smsWarning = 'D7 Networks not configured. Set D7_API_TOKEN on Vercel.';
-      } else {
-        smsWarning = `SMS could not be sent: ${smsError}.${emailSent ? ' Confirmation sent via email.' : ' Confirmation link is below.'}`;
-      }
+    // ── 2. Build response ──────────────────────────────────────────────────
+    if (!smsSent) {
+      return res.status(500).json({
+        ok: false,
+        error: 'sms_failed',
+        message: `SMS failed: ${smsError}`,
+        token,
+        confirmationLink
+      });
     }
-
-    const deliveredVia = smsSent ? 'sms' : emailSent ? 'email' : 'none';
 
     return res.json({
       ok: true,
-      smsSent,
-      emailSent,
-      deliveredVia,
-      smsWarning,
-      message: smsSent
-        ? 'Confirmation SMS sent successfully'
-        : emailSent
-          ? 'Confirmation email sent successfully (SMS blocked)'
-          : 'Confirmation link generated — share manually (both SMS and email could not be sent)',
+      smsSent: true,
+      deliveredVia: 'sms',
+      d7Status,
+      message: 'SMS sent to D7 Networks successfully',
       token,
       messageId,
       expiresAt: expiresAt.toISOString(),
