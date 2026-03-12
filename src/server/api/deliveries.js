@@ -198,6 +198,72 @@ router.put('/admin/:id/status', authenticate, requireRole('admin'), async (req, 
   }
 });
 
+// PUT /admin/:id/contact - Update delivery contact details (address, phone, lat, lng)
+router.put('/admin/:id/contact', authenticate, requireRole('admin'), async (req, res) => {
+  const deliveryIdParam = req.params.id;
+  const { customer, address, phone, lat, lng } = req.body;
+
+  if (!address && !phone) {
+    return res.status(400).json({ error: 'address_or_phone_required' });
+  }
+
+  try {
+    console.log(`[Deliveries] Updating contact for delivery ${deliveryIdParam}`);
+
+    let existingDelivery;
+
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (uuidRegex.test(deliveryIdParam)) {
+      existingDelivery = await prisma.delivery.findUnique({ where: { id: deliveryIdParam } });
+    }
+
+    if (!existingDelivery && customer && address) {
+      existingDelivery = await prisma.delivery.findFirst({
+        where: { customer, address },
+        orderBy: { createdAt: 'desc' }
+      });
+    }
+
+    if (!existingDelivery) {
+      console.warn(`[Deliveries] Delivery not found for contact update: id=${deliveryIdParam}`);
+      return res.status(404).json({ error: 'delivery_not_found' });
+    }
+
+    const updateData = { updatedAt: new Date() };
+    if (address) updateData.address = address;
+    if (phone)   updateData.phone = phone;
+    if (lat != null && !Number.isNaN(Number(lat)))  updateData.lat = Number(lat);
+    if (lng != null && !Number.isNaN(Number(lng)))  updateData.lng = Number(lng);
+
+    const updatedDelivery = await prisma.delivery.update({
+      where: { id: existingDelivery.id },
+      data: updateData
+    });
+
+    cache.invalidatePrefix('tracking:');
+    cache.invalidatePrefix('dashboard:');
+    cache.delete('deliveries:list:v2');
+
+    console.log(`[Deliveries] Contact updated for delivery ${existingDelivery.id}`);
+
+    res.json({
+      ok: true,
+      delivery: {
+        id: updatedDelivery.id,
+        customer: updatedDelivery.customer,
+        address: updatedDelivery.address,
+        phone: updatedDelivery.phone,
+        lat: updatedDelivery.lat,
+        lng: updatedDelivery.lng,
+        updatedAt: updatedDelivery.updatedAt
+      }
+    });
+  } catch (err) {
+    console.error('[Deliveries] contact update error:', err);
+    res.status(500).json({ error: 'contact_update_failed', detail: err.message });
+  }
+});
+
 // POST /api/deliveries/:id/assign - assign driver
 // body: { driver_id }
 router.post('/:id/assign', authenticate, requireRole('admin'), async (req, res) => {
@@ -743,12 +809,16 @@ router.post('/:id/send-sms', authenticate, requireRole('admin'), async (req, res
       }
     });
 
-    // ── 1. Attempt SMS via Twilio ──────────────────────────────────────────
+    // ── 1. Attempt SMS ─────────────────────────────────────────────────────
+    // UAE (+971) numbers: ALL carriers reject unregistered senders.
+    // Skip SMS for UAE entirely — go straight to email to avoid wasting credits.
+    // Non-UAE numbers: attempt SMS normally.
     let smsSent = false;
     let smsError = null;
     let messageId = null;
+    const isUAENumber = normalizedPhone && (normalizedPhone.startsWith('+971') || normalizedPhone.startsWith('971'));
 
-    if (normalizedPhone) {
+    if (normalizedPhone && !isUAENumber) {
       try {
         const smsResult = await smsService.smsAdapter.sendSms({
           to: normalizedPhone,
@@ -764,30 +834,34 @@ router.post('/:id/send-sms', authenticate, requireRole('admin'), async (req, res
             deliveryId: delivery.id,
             phoneNumber: normalizedPhone,
             messageContent: smsBody,
-            smsProvider: process.env.SMS_PROVIDER || 'twilio',
+            smsProvider: process.env.SMS_PROVIDER || 'd7',
             externalMessageId: messageId,
             status: 'sent',
             sentAt: new Date(),
             metadata: { type: 'confirmation_request', tokenExpiry: expiresAt.toISOString() }
           }
         });
-      } catch (twilioErr) {
-        console.error('[SMS] Twilio send failed:', twilioErr.message);
-        smsError = twilioErr.message;
+      } catch (smsErr) {
+        console.error('[SMS] Send failed:', smsErr.message);
+        smsError = smsErr.message;
 
         await prisma.smsLog.create({
           data: {
             deliveryId: delivery.id,
             phoneNumber: normalizedPhone,
             messageContent: smsBody,
-            smsProvider: process.env.SMS_PROVIDER || 'twilio',
+            smsProvider: process.env.SMS_PROVIDER || 'd7',
             status: 'failed',
-            failureReason: twilioErr.message,
+            failureReason: smsErr.message,
             sentAt: new Date(),
             metadata: { type: 'confirmation_request', tokenExpiry: expiresAt.toISOString() }
           }
         }).catch(e => console.error('[SMS] Log error:', e.message));
       }
+    } else if (isUAENumber) {
+      // Log skipped — don't burn credits on carrier-rejected UAE SMS
+      console.log('[SMS] UAE number detected — skipping SMS (carrier blocks unregistered senders). Using email fallback.');
+      smsError = 'UAE_CARRIER_BLOCK';
     }
 
     // ── 2. Fallback to Email if SMS failed or no phone ─────────────────────
@@ -820,14 +894,12 @@ router.post('/:id/send-sms', authenticate, requireRole('admin'), async (req, res
     // ── 3. Build response ──────────────────────────────────────────────────
     let smsWarning = null;
     if (smsError) {
-      if (smsError.includes('D7_CONFIG_MISSING') || smsError.includes('D7_API_TOKEN')) {
-        smsWarning = 'D7 Networks not configured. Set D7_API_TOKEN on Vercel.';
-      } else if (smsError.includes('21612')) {
+      if (smsError === 'UAE_CARRIER_BLOCK') {
         smsWarning = emailSent
-          ? 'SMS was blocked by carrier. Confirmation link sent via email instead.'
-          : 'SMS blocked by carrier. The confirmation link is below — you can share it via WhatsApp.';
-      } else if (smsError.includes('TWILIO_CONFIG_MISSING') || smsError.includes('not configured')) {
-        smsWarning = 'SMS provider credentials not fully configured. Check environment variables on Vercel.';
+          ? 'UAE number — SMS skipped (carrier blocks unregistered senders). Confirmation sent via email instead.'
+          : 'UAE number — SMS skipped. To enable UAE SMS, register sender ID "Electrolux" at app.d7networks.com → Settings → Sender IDs. Confirmation link is ready below — share it via WhatsApp.';
+      } else if (smsError.includes('D7_CONFIG_MISSING') || smsError.includes('D7_API_TOKEN')) {
+        smsWarning = 'D7 Networks not configured. Set D7_API_TOKEN on Vercel.';
       } else {
         smsWarning = `SMS could not be sent: ${smsError}.${emailSent ? ' Confirmation sent via email.' : ' Confirmation link is below.'}`;
       }
