@@ -730,7 +730,8 @@ router.post('/:id/send-sms', authenticate, requireRole('admin'), async (req, res
     const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
     const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
     const confirmationLink = `${frontendUrl}/confirm-delivery/${token}`;
-    const smsBody = `Hi ${delivery.customer || 'there'},\n\nYour order from Electrolux is ready for delivery confirmation.\n\nClick to confirm and select your delivery date:\n${confirmationLink}\n\nThis link expires in 48 hours.\n\nThank you!`;
+    const customerName = delivery.customer || 'there';
+    const smsBody = `Hi ${customerName},\n\nYour Electrolux order is ready for delivery!\n\nPlease confirm your delivery date by clicking the link below:\n${confirmationLink}\n\nLink expires in 48 hours.\n\n- Electrolux Delivery Team`;
 
     // Persist the token to the delivery record immediately
     await prisma.delivery.update({
