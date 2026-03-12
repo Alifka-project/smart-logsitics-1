@@ -819,12 +819,14 @@ router.post('/:id/send-sms', authenticate, requireRole('admin'), async (req, res
     // ── 3. Build response ──────────────────────────────────────────────────
     let smsWarning = null;
     if (smsError) {
-      if (smsError.includes('21612')) {
+      if (smsError.includes('D7_CONFIG_MISSING') || smsError.includes('D7_API_TOKEN')) {
+        smsWarning = 'D7 Networks not configured. Set D7_API_TOKEN on Vercel.';
+      } else if (smsError.includes('21612')) {
         smsWarning = emailSent
-          ? 'SMS was blocked by Twilio (UAE carrier restriction on US numbers). Confirmation link sent via email instead.'
-          : 'SMS blocked by Twilio (UAE carrier restriction). To fix: in your Twilio console go to Messaging → Settings → Geo Permissions and enable United Arab Emirates. The confirmation link is below — you can share it via WhatsApp.';
+          ? 'SMS was blocked by carrier. Confirmation link sent via email instead.'
+          : 'SMS blocked by carrier. The confirmation link is below — you can share it via WhatsApp.';
       } else if (smsError.includes('TWILIO_CONFIG_MISSING') || smsError.includes('not configured')) {
-        smsWarning = 'Twilio credentials not fully configured. Check TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM on Vercel.';
+        smsWarning = 'SMS provider credentials not fully configured. Check environment variables on Vercel.';
       } else {
         smsWarning = `SMS could not be sent: ${smsError}.${emailSent ? ' Confirmation sent via email.' : ' Confirmation link is below.'}`;
       }
