@@ -13,8 +13,9 @@ const D7_OTP_URL = 'https://api.d7networks.com/verify/v1/otp/send-otp';
 class D7Adapter extends SmsAdapter {
   constructor(config) {
     super(config);
-    this.apiToken = config.D7_API_TOKEN;
-    this.originator = config.D7_ORIGINATOR || 'SignOTP';
+    // Strip any surrounding quotes, newlines, or whitespace that can corrupt the header
+    this.apiToken = (config.D7_API_TOKEN || '').replace(/^["'\s]+|["'\s]+$/g, '');
+    this.originator = (config.D7_ORIGINATOR || 'SignOTP').trim();
   }
 
   async sendSms({ to, body, metadata = {} }) {
