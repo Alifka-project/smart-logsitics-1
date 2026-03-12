@@ -809,70 +809,77 @@ router.post('/:id/send-sms', authenticate, requireRole('admin'), async (req, res
       }
     });
 
-    // ── 1. Send SMS via D7 ─────────────────────────────────────────────────
-    let smsSent = false;
-    let smsError = null;
-    let messageId = null;
-    let d7Status = null;
-
     if (!normalizedPhone) {
       return res.status(400).json({ error: 'no_phone', message: 'Delivery has no phone number' });
     }
 
+    // ── 1. Send message — WhatsApp for UAE (+971), SMS for all other countries ──
+    const isUAE = normalizedPhone.startsWith('+971');
+    let sent = false;
+    let sendError = null;
+    let messageId = null;
+    let d7Status = null;
+    let channel = isUAE ? 'whatsapp' : 'sms';
+
     try {
-      const smsResult = await smsService.smsAdapter.sendSms({
-        to: normalizedPhone,
-        body: smsBody,
-        metadata: { deliveryId: delivery.id, type: 'confirmation_request' }
-      });
-      messageId = smsResult.messageId;
-      d7Status = smsResult.status;
-      smsSent = true;
-      console.log('[SMS] D7 accepted SMS to', normalizedPhone, 'MID:', messageId, 'Status:', d7Status);
+      if (isUAE) {
+        const WhatsAppAdapter = require('../sms/whatsappAdapter');
+        const waAdapter = new WhatsAppAdapter(process.env);
+        const result = await waAdapter.sendMessage({ to: normalizedPhone, body: smsBody });
+        messageId = result.messageId;
+        d7Status = result.status;
+        sent = true;
+        console.log('[WhatsApp] Sent to', normalizedPhone, 'MID:', messageId);
+      } else {
+        const smsResult = await smsService.smsAdapter.sendSms({
+          to: normalizedPhone,
+          body: smsBody,
+          metadata: { deliveryId: delivery.id, type: 'confirmation_request' }
+        });
+        messageId = smsResult.messageId;
+        d7Status = smsResult.status;
+        sent = true;
+        console.log('[SMS] Sent to', normalizedPhone, 'MID:', messageId);
+      }
 
       await prisma.smsLog.create({
         data: {
           deliveryId: delivery.id,
           phoneNumber: normalizedPhone,
           messageContent: smsBody,
-          smsProvider: 'd7',
+          smsProvider: isUAE ? 'd7-whatsapp' : 'd7',
           externalMessageId: messageId,
           status: 'sent',
           sentAt: new Date(),
-          metadata: { type: 'confirmation_request', tokenExpiry: expiresAt.toISOString(), d7Status }
+          metadata: { type: 'confirmation_request', channel, tokenExpiry: expiresAt.toISOString(), d7Status }
         }
       });
-    } catch (smsErr) {
-      console.error('[SMS] D7 send failed:', smsErr.message);
-      // Capture the full Axios response body if available (D7 error details)
-      const d7ResponseData = smsErr.response?.data;
-      const d7Detail = d7ResponseData ? JSON.stringify(d7ResponseData) : null;
-      console.error('[SMS] D7 response body:', d7Detail);
-      smsError = smsErr.message;
+    } catch (err) {
+      console.error(`[${channel.toUpperCase()}] Send failed:`, err.message);
+      sendError = err.message;
+      const d7Detail = err.response?.data ? JSON.stringify(err.response.data) : null;
 
       await prisma.smsLog.create({
         data: {
           deliveryId: delivery.id,
           phoneNumber: normalizedPhone,
           messageContent: smsBody,
-          smsProvider: 'd7',
+          smsProvider: isUAE ? 'd7-whatsapp' : 'd7',
           status: 'failed',
-          failureReason: smsErr.message,
+          failureReason: err.message,
           sentAt: new Date(),
-          metadata: { type: 'confirmation_request', tokenExpiry: expiresAt.toISOString(), d7Detail }
+          metadata: { type: 'confirmation_request', channel, tokenExpiry: expiresAt.toISOString(), d7Detail }
         }
-      }).catch(e => console.error('[SMS] Log error:', e.message));
+      }).catch(e => console.error('[Log] Error:', e.message));
     }
 
     // ── 2. Build response ──────────────────────────────────────────────────
-    if (!smsSent) {
-      // Parse out the D7 rejection detail from the error message for the frontend
-      const d7Detail = smsError?.includes('D7') ? smsError : null;
+    if (!sent) {
       return res.status(500).json({
         ok: false,
-        error: 'sms_failed',
-        message: smsError || 'D7 Networks rejected the SMS request',
-        d7Detail,
+        error: `${channel}_failed`,
+        message: sendError || `${channel} send failed`,
+        d7Detail: sendError,
         token,
         confirmationLink
       });
@@ -881,9 +888,9 @@ router.post('/:id/send-sms', authenticate, requireRole('admin'), async (req, res
     return res.json({
       ok: true,
       smsSent: true,
-      deliveredVia: 'sms',
+      deliveredVia: channel,
       d7Status,
-      message: 'SMS sent to D7 Networks successfully',
+      message: isUAE ? 'WhatsApp message sent successfully' : 'SMS sent successfully',
       token,
       messageId,
       expiresAt: expiresAt.toISOString(),
