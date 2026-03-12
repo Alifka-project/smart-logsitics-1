@@ -24,12 +24,14 @@ export default function CustomerModal({ isOpen, onClose }) {
   const [editPhone, setEditPhone] = useState('');
   const [isSavingContact, setIsSavingContact] = useState(false);
   const [contactError, setContactError] = useState('');
+  const [contactSaved, setContactSaved] = useState(false);
 
   useEffect(() => {
     if (selectedDelivery) {
       setEditAddress(selectedDelivery.address || '');
       setEditPhone(selectedDelivery.phone || '');
       setContactError('');
+      setContactSaved(false);
     }
   }, [selectedDelivery]);
 
@@ -43,6 +45,7 @@ export default function CustomerModal({ isOpen, onClose }) {
 
     setIsSavingContact(true);
     setContactError('');
+    setContactSaved(false);
 
     try {
       let geo = null;
@@ -73,6 +76,8 @@ export default function CustomerModal({ isOpen, onClose }) {
         lat: updated.lat ?? payload.lat,
         lng: updated.lng ?? payload.lng,
       });
+
+      setContactSaved(true);
 
       // Notify other dashboards / map views
       window.dispatchEvent(new CustomEvent('deliveriesUpdated', {
@@ -213,7 +218,7 @@ export default function CustomerModal({ isOpen, onClose }) {
                 <span className="font-semibold text-gray-700 dark:text-gray-200">Address:</span>
                 <textarea
                   value={editAddress}
-                  onChange={(e) => setEditAddress(e.target.value)}
+                  onChange={(e) => { setEditAddress(e.target.value); setContactSaved(false); }}
                   rows={2}
                   className="mt-1 w-full px-2 py-1.5 rounded-md border border-primary-200 dark:border-primary-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary-500"
                   placeholder="Delivery address"
@@ -224,7 +229,7 @@ export default function CustomerModal({ isOpen, onClose }) {
                 <input
                   type="tel"
                   value={editPhone}
-                  onChange={(e) => setEditPhone(e.target.value)}
+                  onChange={(e) => { setEditPhone(e.target.value); setContactSaved(false); }}
                   className="mt-1 w-full px-2 py-1.5 rounded-md border border-primary-200 dark:border-primary-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                   placeholder="Customer phone number"
                 />
@@ -243,7 +248,12 @@ export default function CustomerModal({ isOpen, onClose }) {
 
             {contactError && (
               <div className="mt-2 text-xs text-red-700 dark:text-red-300">
-                {contactError}
+                ⚠ {contactError}
+              </div>
+            )}
+            {contactSaved && !contactError && (
+              <div className="mt-2 text-xs text-green-700 dark:text-green-400 font-medium">
+                ✓ Contact details saved and route updated
               </div>
             )}
 

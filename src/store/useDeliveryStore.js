@@ -217,6 +217,13 @@ const useDeliveryStore = create((set, get) => ({
 
     const finalDeliveries = [...deliveriesWithContact, ...deliveriesMissingContact];
 
+    // Also keep selectedDelivery in sync so the modal reflects the new values immediately
+    const currentSelected = get().selectedDelivery;
+    if (currentSelected && currentSelected.id === id) {
+      const updatedSelected = finalDeliveries.find((d) => d.id === id);
+      if (updatedSelected) set({ selectedDelivery: updatedSelected });
+    }
+
     set({ deliveries: finalDeliveries });
     get().saveToStorage(finalDeliveries);
   },
