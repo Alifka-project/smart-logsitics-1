@@ -8,7 +8,7 @@ const { buildBusinessKey, upsertDeliveryByBusinessKey } = require('../services/d
 const prisma = require('../db/prisma');
 const cache = require('../cache');
 const { sortDeliveriesIncompleteLast } = require('../utils/deliveryListSort');
-const { normalizeUAEPhone } = require('../utils/phoneUtils');
+const { normalizePhone } = require('../utils/phoneUtils');
 
 async function deliveryExists(deliveryId) {
   try {
@@ -780,7 +780,7 @@ router.post('/:id/send-sms', authenticate, requireRole('admin'), async (req, res
 
     // Normalize the phone number to E.164 format if present
     const normalizedPhone = delivery.phone
-      ? (normalizeUAEPhone(delivery.phone) || delivery.phone)
+      ? (normalizePhone(delivery.phone) || delivery.phone)
       : null;
     if (normalizedPhone && normalizedPhone !== delivery.phone) {
       console.log(`[SMS] Phone normalized: "${delivery.phone}" → "${normalizedPhone}"`);

@@ -1,78 +1,82 @@
 /**
- * UAE Phone Number Normalizer
+ * Phone Number Normalizer
  *
- * Converts any common UAE phone format to E.164 (+971XXXXXXXXX).
+ * Default behaviour: treat numbers as UAE (+971) unless they already
+ * carry a full international country code (e.g. +62, +1, +44 …).
  *
- * Handles all real-world variations seen in SAP/ERP exports and manual entry:
- *   0501234567      → +971501234567   (local with leading 0)
- *   501234567       → +971501234567   (local without leading 0, 9 digits)
- *   971501234567    → +971501234567   (country code, no +)
- *   00971501234567  → +971501234567   (international dialling prefix 00)
- *   +971501234567   → +971501234567   (already E.164, passthrough)
- *   +971 50 123 4567 → +971501234567  (spaces/dashes stripped)
- *   0097150-123-4567 → +971501234567  (mixed punctuation)
+ * UAE formats handled:
+ *   058591321       → +97158591321   (local mobile with leading 0)
+ *   58591321        → +97158591321   (local mobile without leading 0)
+ *   0501234567      → +971501234567  (10-digit local with leading 0)
+ *   501234567       → +971501234567  (9-digit local without leading 0)
+ *   971501234567    → +971501234567  (country code without +)
+ *   00971501234567  → +971501234567  (00 international prefix)
+ *   +971501234567   → +971501234567  (already E.164)
  *
- * Returns null for empty/null input.
- * Returns the original string (untouched) if it cannot be identified as UAE.
+ * International numbers (passed through unchanged):
+ *   +6281290202027  → +6281290202027 (Indonesia)
+ *   +44 7911 123456 → +447911123456  (UK, spaces stripped)
+ *   +1 415 555 0100 → +14155550100   (US, spaces stripped)
  */
-function normalizeUAEPhone(raw) {
+function normalizePhone(raw) {
   if (raw === null || raw === undefined || raw === '') return null;
 
-  // Strip whitespace, dashes, dots, parentheses, and other common separators
+  // Strip whitespace, dashes, dots, parentheses
   let s = String(raw).trim().replace(/[\s\-().]/g, '');
 
-  // ── Already E.164 with +971 ──────────────────────────────────────────────
-  if (/^\+971\d{7,9}$/.test(s)) return s;
+  // ── Already valid E.164 with a non-UAE country code ──────────────────────
+  // If it starts with + followed by a digit that is NOT 971, treat as
+  // international and just strip any remaining separators.
+  if (s.startsWith('+')) {
+    const withoutPlus = s.slice(1);
+    // Starts with +971 → fall through to UAE normalisation below
+    if (!withoutPlus.startsWith('971')) {
+      // International number — return as-is (separators already stripped)
+      return s;
+    }
+    // Strip leading + for uniform UAE processing
+    s = withoutPlus;
+  }
 
-  // ── Remove leading + for uniform processing ──────────────────────────────
-  if (s.startsWith('+')) s = s.slice(1);
+  // ── UAE normalisation ─────────────────────────────────────────────────────
 
-  // ── International prefix 00971 ───────────────────────────────────────────
+  // Already E.164 +971...
+  if (s.startsWith('+971')) return s;
+
+  // 00971 international dialling prefix
   if (s.startsWith('00971')) return '+971' + s.slice(5);
 
-  // ── Country code 971 (no + or 00) ────────────────────────────────────────
+  // 971XXXXXXXXX (country code, no + or 00)
   if (s.startsWith('971') && s.length >= 10) return '+' + s;
 
-  // ── Local format starting with 0 (050..., 04..., etc.) ───────────────────
-  if (s.startsWith('0') && s.length >= 9 && s.length <= 11) {
+  // Local format with leading 0 (05X, 04, 02, …)
+  if (s.startsWith('0') && s.length >= 8 && s.length <= 11) {
     return '+971' + s.slice(1);
   }
 
-  // ── 9-digit local number without leading 0 (5XXXXXXXX mobile) ────────────
-  if (/^[5-9]\d{8}$/.test(s)) return '+971' + s;
+  // 8 or 9-digit local number without leading 0
+  // Covers 5XXXXXXXX (9-digit mobile) and 5XXXXXXX (8-digit shortened mobile)
+  if (/^[2-9]\d{7,8}$/.test(s)) return '+971' + s;
 
-  // ── 7-digit landline without area code — too ambiguous, return as-is ─────
-  // Can't safely add +971 without knowing the area code
-
-  // ── Fallback: return original (don't corrupt unknown formats) ────────────
+  // Fallback — return original untouched
   return raw;
 }
 
+// Keep old name as alias so existing imports still work
+const normalizeUAEPhone = normalizePhone;
+
 /**
- * Validate that a phone number looks like a plausible UAE E.164 number.
- * Returns true if the number is in +971XXXXXXXXX format (9–10 local digits).
+ * Returns true if the number looks like a valid UAE E.164 number.
  */
 function isValidUAEPhone(phone) {
   return /^\+971[0-9]{7,9}$/.test(String(phone || ''));
 }
 
 /**
- * Format a phone for display (e.g. +971 50 123 4567).
- * Input can be any format — normalizes first.
+ * Returns true if the number is any valid E.164 international number.
  */
-function formatUAEPhoneDisplay(raw) {
-  const normalized = normalizeUAEPhone(raw);
-  if (!normalized || !normalized.startsWith('+971')) return normalized || raw;
-  const local = normalized.slice(4); // digits after +971
-  if (local.length === 9) {
-    // Mobile: 050 XXX XXXX → 0X XXX XXXX
-    return `+971 ${local.slice(0, 2)} ${local.slice(2, 5)} ${local.slice(5)}`;
-  }
-  if (local.length === 8) {
-    // Landline: 04 XXX XXXX
-    return `+971 ${local.slice(0, 1)} ${local.slice(1, 4)} ${local.slice(4)}`;
-  }
-  return normalized;
+function isValidPhone(phone) {
+  return /^\+[1-9]\d{6,14}$/.test(String(phone || ''));
 }
 
-module.exports = { normalizeUAEPhone, isValidUAEPhone, formatUAEPhoneDisplay };
+module.exports = { normalizePhone, normalizeUAEPhone, isValidUAEPhone, isValidPhone };

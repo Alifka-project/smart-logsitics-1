@@ -1,6 +1,6 @@
 const SmsAdapter = require('./adapter');
 const axios = require('axios');
-const { normalizeUAEPhone, isValidUAEPhone } = require('../utils/phoneUtils');
+const { normalizePhone, isValidPhone } = require('../utils/phoneUtils');
 
 // Regular SMS endpoint — works for most countries but UAE carrier blocks all
 // unregistered senders (requires TRA registration, takes 3-7 business days)
@@ -34,13 +34,13 @@ class D7Adapter extends SmsAdapter {
       throw error;
     }
 
-    // Normalize UAE phone number → +971XXXXXXXXX
-    const normalizedTo = normalizeUAEPhone(to);
+    // Normalize phone: UAE local formats → +971XXXXXXXXX, international → kept as-is
+    const normalizedTo = normalizePhone(to);
     if (normalizedTo && normalizedTo !== to) {
       console.log(`[D7] Phone normalized: "${to}" → "${normalizedTo}"`);
     }
-    if (!isValidUAEPhone(normalizedTo)) {
-      console.warn(`[D7] Phone "${normalizedTo}" is not a standard UAE E.164 number — sending anyway`);
+    if (!isValidPhone(normalizedTo)) {
+      console.warn(`[D7] Phone "${normalizedTo}" does not look like a valid E.164 number — sending anyway`);
     }
     to = normalizedTo || to;
 
@@ -75,6 +75,7 @@ class D7Adapter extends SmsAdapter {
     let res;
     try {
       res = await axios.post(D7_OTP_URL, payload, {
+        timeout: 15000,
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -84,8 +85,10 @@ class D7Adapter extends SmsAdapter {
     } catch (axiosErr) {
       const status = axiosErr.response?.status;
       const body = axiosErr.response?.data;
-      console.error(`[D7] HTTP ${status} from D7 OTP endpoint:`, JSON.stringify(body));
-      const err = new Error(`D7 OTP HTTP ${status}: ${JSON.stringify(body)}`);
+      const errCode = axiosErr.code || 'NO_CODE';
+      const errMsg = axiosErr.message || 'no message';
+      console.error(`[D7] OTP request failed — code: ${errCode}, message: ${errMsg}, HTTP: ${status}, body:`, JSON.stringify(body));
+      const err = new Error(`D7 OTP failed [${errCode}]: ${errMsg} | HTTP ${status} | ${JSON.stringify(body)}`);
       err.code = 'D7_OTP_HTTP_ERROR';
       err.response = axiosErr.response;
       throw err;
@@ -123,6 +126,7 @@ class D7Adapter extends SmsAdapter {
     let res;
     try {
       res = await axios.post(D7_SMS_URL, payload, {
+        timeout: 15000,
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -132,8 +136,10 @@ class D7Adapter extends SmsAdapter {
     } catch (axiosErr) {
       const status = axiosErr.response?.status;
       const body = axiosErr.response?.data;
-      console.error(`[D7] HTTP ${status} from D7 SMS endpoint:`, JSON.stringify(body));
-      const err = new Error(`D7 HTTP ${status}: ${JSON.stringify(body)}`);
+      const errCode = axiosErr.code || 'NO_CODE';
+      const errMsg = axiosErr.message || 'no message';
+      console.error(`[D7] SMS request failed — code: ${errCode}, message: ${errMsg}, HTTP: ${status}, body:`, JSON.stringify(body));
+      const err = new Error(`D7 SMS failed [${errCode}]: ${errMsg} | HTTP ${status} | ${JSON.stringify(body)}`);
       err.code = 'D7_HTTP_ERROR';
       err.response = axiosErr.response;
       throw err;
