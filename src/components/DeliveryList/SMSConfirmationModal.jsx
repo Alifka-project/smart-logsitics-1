@@ -179,7 +179,10 @@ export default function SMSConfirmationModal({ delivery, onClose, onSuccess }) {
                   </div>
                 </div>
                 <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-2">SMS Failed</h3>
-                <p className="text-sm text-red-600 dark:text-red-400 mb-4">{result.error || result.message}</p>
+                <p className="text-sm text-red-600 dark:text-red-400 mb-2">{result.message || result.error}</p>
+                {result.d7Detail && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 break-all font-mono bg-gray-100 dark:bg-gray-800 p-2 rounded">{result.d7Detail}</p>
+                )}
 
                 {result.token && (
                   <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-3 rounded-lg text-left">

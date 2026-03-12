@@ -72,15 +72,27 @@ class D7Adapter extends SmsAdapter {
 
     console.log(`[D7] Sending delivery confirmation via OTP route to ${to}`);
 
-    const res = await axios.post(D7_OTP_URL, payload, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${this.apiToken}`
-      }
-    });
+    let res;
+    try {
+      res = await axios.post(D7_OTP_URL, payload, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${this.apiToken}`
+        }
+      });
+    } catch (axiosErr) {
+      const status = axiosErr.response?.status;
+      const body = axiosErr.response?.data;
+      console.error(`[D7] HTTP ${status} from D7 OTP endpoint:`, JSON.stringify(body));
+      const err = new Error(`D7 OTP HTTP ${status}: ${JSON.stringify(body)}`);
+      err.code = 'D7_OTP_HTTP_ERROR';
+      err.response = axiosErr.response;
+      throw err;
+    }
 
     const data = res.data;
+    console.log(`[D7] OTP response:`, JSON.stringify(data));
     if (!data.otp_id) {
       const error = new Error(`D7 OTP rejected: ${JSON.stringify(data)}`);
       error.code = 'D7_OTP_REJECTED';
@@ -106,17 +118,29 @@ class D7Adapter extends SmsAdapter {
       }
     };
 
-    console.log(`[D7] Sending SMS to ${to} via D7 regular SMS`);
+    console.log(`[D7] Sending SMS to ${to} via D7 regular SMS, originator: ${this.originator}`);
 
-    const res = await axios.post(D7_SMS_URL, payload, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${this.apiToken}`
-      }
-    });
+    let res;
+    try {
+      res = await axios.post(D7_SMS_URL, payload, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${this.apiToken}`
+        }
+      });
+    } catch (axiosErr) {
+      const status = axiosErr.response?.status;
+      const body = axiosErr.response?.data;
+      console.error(`[D7] HTTP ${status} from D7 SMS endpoint:`, JSON.stringify(body));
+      const err = new Error(`D7 HTTP ${status}: ${JSON.stringify(body)}`);
+      err.code = 'D7_HTTP_ERROR';
+      err.response = axiosErr.response;
+      throw err;
+    }
 
     const data = res.data;
+    console.log(`[D7] SMS response:`, JSON.stringify(data));
     if (data.status !== 'accepted') {
       const error = new Error(`D7 SMS rejected: ${JSON.stringify(data)}`);
       error.code = 'D7_REJECTED';

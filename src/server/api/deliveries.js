@@ -844,6 +844,10 @@ router.post('/:id/send-sms', authenticate, requireRole('admin'), async (req, res
       });
     } catch (smsErr) {
       console.error('[SMS] D7 send failed:', smsErr.message);
+      // Capture the full Axios response body if available (D7 error details)
+      const d7ResponseData = smsErr.response?.data;
+      const d7Detail = d7ResponseData ? JSON.stringify(d7ResponseData) : null;
+      console.error('[SMS] D7 response body:', d7Detail);
       smsError = smsErr.message;
 
       await prisma.smsLog.create({
@@ -855,17 +859,20 @@ router.post('/:id/send-sms', authenticate, requireRole('admin'), async (req, res
           status: 'failed',
           failureReason: smsErr.message,
           sentAt: new Date(),
-          metadata: { type: 'confirmation_request', tokenExpiry: expiresAt.toISOString() }
+          metadata: { type: 'confirmation_request', tokenExpiry: expiresAt.toISOString(), d7Detail }
         }
       }).catch(e => console.error('[SMS] Log error:', e.message));
     }
 
     // ── 2. Build response ──────────────────────────────────────────────────
     if (!smsSent) {
+      // Parse out the D7 rejection detail from the error message for the frontend
+      const d7Detail = smsError?.includes('D7') ? smsError : null;
       return res.status(500).json({
         ok: false,
         error: 'sms_failed',
-        message: `SMS failed: ${smsError}`,
+        message: smsError || 'D7 Networks rejected the SMS request',
+        d7Detail,
         token,
         confirmationLink
       });
