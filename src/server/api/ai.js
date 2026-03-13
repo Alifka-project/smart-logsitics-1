@@ -189,6 +189,29 @@ function inferDateRangeFromQuery(query) {
     return x;
   };
 
+  // Generic: "last 20 days", "in the last 21 days", etc.
+  const lastDaysMatch = q.match(/(?:in the\s+)?last\s+(\d+)\s+day/);
+  if (lastDaysMatch) {
+    const n = parseInt(lastDaysMatch[1], 10);
+    if (Number.isFinite(n) && n > 0 && n <= 365) {
+      const to   = endOfDayExclusive(now);
+      const from = new Date(to.getTime() - n * 24 * 60 * 60 * 1000);
+      from.setHours(0, 0, 0, 0);
+      return { from, to, label: `last ${n} days` };
+    }
+  }
+
+  // Generic: "last 6 hours" etc. (used mainly for driver/delivery-team views)
+  const lastHoursMatch = q.match(/(?:in the\s+)?last\s+(\d+)\s+hour/);
+  if (lastHoursMatch) {
+    const n = parseInt(lastHoursMatch[1], 10);
+    if (Number.isFinite(n) && n > 0 && n <= 240) {
+      const to   = now;
+      const from = new Date(to.getTime() - n * 60 * 60 * 1000);
+      return { from, to, label: `last ${n} hours` };
+    }
+  }
+
   // Today
   if (q.includes(' today')) {
     const from = startOfDay(now);
@@ -204,7 +227,7 @@ function inferDateRangeFromQuery(query) {
     return { from, to, label: 'yesterday' };
   }
 
-  // Last 7 days / last week
+  // Last 7 days / last week (explicit phrase)
   if (q.includes('last 7 days') || q.includes('last seven days') || q.includes('last week')) {
     const to   = endOfDayExclusive(now);
     const from = new Date(to.getTime() - 7 * 24 * 60 * 60 * 1000);
