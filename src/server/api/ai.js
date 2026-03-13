@@ -35,6 +35,26 @@ router.post('/search', async (req, res) => {
     let drivers    = [];
     let totalCount = 0;
 
+    // Always fetch live aggregate stats so the AI can answer analytical
+    // questions (e.g. "how many pending orders?") regardless of text matches.
+    const statsP = userRole === 'admin'
+      ? Promise.all([
+          prisma.delivery.count(),
+          prisma.delivery.count({ where: { status: 'pending' } }),
+          prisma.delivery.count({ where: { status: 'out-for-delivery' } }),
+          prisma.delivery.count({ where: { status: 'delivered' } }),
+          prisma.delivery.count({ where: { status: 'cancelled' } }),
+          prisma.driver.count({ where: { active: true } }),
+          prisma.driver.count(),
+        ])
+      : Promise.all([
+          prisma.deliveryAssignment.count({ where: { driverId } }),
+          prisma.deliveryAssignment.count({ where: { driverId, delivery: { status: 'pending' } } }),
+          prisma.deliveryAssignment.count({ where: { driverId, delivery: { status: 'out-for-delivery' } } }),
+          prisma.deliveryAssignment.count({ where: { driverId, delivery: { status: 'delivered' } } }),
+          Promise.resolve(0), Promise.resolve(0), Promise.resolve(0),
+        ]);
+
     if (userRole === 'admin') {
       [deliveries, drivers, totalCount] = await Promise.all([
         prisma.delivery.findMany({
@@ -61,7 +81,6 @@ router.post('/search', async (req, res) => {
         prisma.delivery.count({ where: deliveryWhere }),
       ]);
     } else {
-      // Driver / Delivery Team: only their assigned deliveries
       const assignedWhere = {
         assignments: { some: { driverId } },
         ...deliveryWhere,
@@ -77,29 +96,39 @@ router.post('/search', async (req, res) => {
       ]);
     }
 
+    // Resolve aggregate stats in parallel with the text-match query
+    const [statTotal, statPending, statInTransit, statDelivered, statCancelled, statActiveDrivers, statTotalDrivers] = await statsP;
+
+    const liveStats = userRole === 'admin'
+      ? { totalDeliveries: statTotal, pending: statPending, inTransit: statInTransit, delivered: statDelivered, cancelled: statCancelled, activeDrivers: statActiveDrivers, totalDrivers: statTotalDrivers }
+      : { myTotal: statTotal, myPending: statPending, myInTransit: statInTransit, myDelivered: statDelivered };
+
     // Build a compact context snapshot for the AI
     const ctx = {
       role: userRole,
       query: q,
-      totalMatchingDeliveries: totalCount,
-      deliveries: deliveries.slice(0, 5).map(d => ({
+      liveStats,
+      textMatchCount: totalCount,
+      matchingDeliveries: deliveries.slice(0, 5).map(d => ({
         customer: d.customer,
         address:  d.address,
         status:   d.status,
         po:       d.poNumber,
       })),
-      drivers: drivers.slice(0, 3).map(d => ({
+      matchingDrivers: drivers.slice(0, 3).map(d => ({
         name:   d.fullName || d.username,
         email:  d.email,
         active: d.active,
       })),
     };
 
-    // Default answer (used if OpenAI call fails or key missing)
+    // Default fallback answer when OpenAI is unavailable
     let answer =
       totalCount > 0
         ? `Found ${totalCount} deliver${totalCount !== 1 ? 'ies' : 'y'}${drivers.length ? ` and ${drivers.length} driver${drivers.length !== 1 ? 's' : ''}` : ''} matching "${q}".`
-        : `No records found matching "${q}".`;
+        : userRole === 'admin'
+          ? `There are currently ${statPending} pending, ${statInTransit} in transit, and ${statDelivered} delivered orders (${statTotal} total).`
+          : `No matching deliveries found for "${q}".`;
 
     const openaiKey = process.env.OPENAI_API_KEY;
     if (openaiKey) {
@@ -116,14 +145,15 @@ router.post('/search', async (req, res) => {
               {
                 role: 'system',
                 content:
-                  'You are an AI assistant for a Dubai logistics management system called Electrolux Logistics. ' +
-                  'Answer queries about deliveries, drivers and operations in 1-2 concise sentences. ' +
-                  'Be direct and helpful. Include key numbers if relevant. ' +
-                  'Mention actionable next steps when appropriate.',
+                  'You are an AI assistant for Electrolux Logistics — a Dubai-based delivery management system. ' +
+                  'You have access to live system stats (liveStats) AND text-matched records (matchingDeliveries, matchingDrivers). ' +
+                  'For analytical/counting questions (e.g. "how many pending", "total deliveries") use liveStats. ' +
+                  'For lookup questions (e.g. "find John", "delivery to Marina") use matchingDeliveries/matchingDrivers. ' +
+                  'Answer in 1-2 concise sentences. Include exact numbers. Be direct and actionable.',
               },
               {
                 role: 'user',
-                content: `Search query: "${q}"\n\nContext: ${JSON.stringify(ctx)}\n\nProvide a brief, helpful summary.`,
+                content: `Query: "${q}"\n\nData: ${JSON.stringify(ctx)}\n\nAnswer concisely using the most relevant data above.`,
               },
             ],
             max_tokens: 140,

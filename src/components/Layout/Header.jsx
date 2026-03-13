@@ -231,7 +231,7 @@ const AISearchBar = memo(function AISearchBar({
           <div style={{ padding: '8px 16px', borderTop: '1px solid var(--border)', background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={{ fontSize: '10px', color: MUTED }}>↵ Enter to search · Esc to close</span>
             <span style={{ fontSize: '10px', color: MUTED, display: 'flex', alignItems: 'center', gap: '3px' }}>
-              <Sparkles size={9} /> Powered by GPT-4o
+              <Sparkles size={9} /> Electrolux Advanced AI Search
             </span>
           </div>
         </div>
@@ -916,9 +916,12 @@ export default function Header({ isAdmin = false }) {
               ))}
             </nav>
 
-            {/* Search bar — centred, fills remaining space */}
-            <div className="hidden md:flex flex-1 items-center justify-center" style={{ minWidth:0, padding:'0 8px' }}>
-              <AISearchBar {...searchBarProps} flex="1 1 auto" maxWidth="400px" />
+            {/* Spacer — pushes search + controls to the right */}
+            <div style={{ flex: 1 }} />
+
+            {/* Search bar — right side, fixed width */}
+            <div className="hidden md:flex items-center" style={{ width: '280px', marginRight: '8px' }}>
+              <AISearchBar {...searchBarProps} flex="1 1 auto" maxWidth="100%" />
             </div>
 
             {/* Right controls */}
@@ -1017,11 +1020,12 @@ export default function Header({ isAdmin = false }) {
               style={{ filter: theme==='dark' ? 'none' : 'brightness(0) saturate(100%)' }} />
           </Link>
 
-          {/* Search bar — centred, fills middle space */}
-          <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', minWidth:0, padding:'0 12px' }}>
-            <div className="hidden md:flex" style={{ width:'100%', maxWidth:'420px' }}>
-              <AISearchBar {...searchBarProps} flex="1 1 auto" maxWidth="100%" />
-            </div>
+          {/* Spacer — pushes search + controls to the right */}
+          <div style={{ flex: 1 }} />
+
+          {/* Search bar — right side, fixed width */}
+          <div className="hidden md:flex items-center" style={{ width: '280px', marginRight: '8px' }}>
+            <AISearchBar {...searchBarProps} flex="1 1 auto" maxWidth="100%" />
           </div>
 
           {/* Right controls */}
