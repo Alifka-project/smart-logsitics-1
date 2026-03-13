@@ -945,7 +945,7 @@ export default function Header({ isAdmin = false }) {
       <>
         <header className="min-h-[64px] md:min-h-[76px] sticky top-0 z-[900] shrink-0"
           style={{ background:'var(--bg)', paddingTop:'env(safe-area-inset-top, 0px)' }}>
-          <div className="header-inner">
+          <div className="header-inner" style={{ position: 'relative' }}>
 
             {/* Hamburger — mobile only */}
             <button className="flex md:hidden items-center justify-center shrink-0 mr-2"
@@ -955,15 +955,16 @@ export default function Header({ isAdmin = false }) {
               <Menu size={20} />
             </button>
 
-            {/* Logo */}
+            {/* Logo — left anchor */}
             <Link to="/admin" className="flex items-center shrink-0 mr-3 md:mr-4" style={{ textDecoration:'none' }}>
               <img src="/elect home.png" alt="Electrolux"
                 className="h-8 w-auto md:h-[34px] object-contain block"
                 style={{ filter: theme==='dark' ? 'none' : 'brightness(0) saturate(100%)' }} />
             </Link>
 
-            {/* Nav pills — desktop */}
-            <nav className="hidden md:flex items-center shrink-0" style={{ gap:'2px', marginRight:'8px' }}>
+            {/* Nav pills — absolutely centered in the full header width */}
+            <nav className="hidden md:flex items-center"
+              style={{ position:'absolute', left:'50%', transform:'translateX(-50%)', gap:'2px', zIndex: 1 }}>
               {ADMIN_NAV.map(item => (
                 <NavLink key={item.path} to={item.path} end={item.exact}
                   style={({ isActive }) => pillStyle(isActive)}
