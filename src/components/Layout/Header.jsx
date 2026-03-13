@@ -904,13 +904,20 @@ export default function Header({ isAdmin = false }) {
                 style={{ filter: theme==='dark' ? 'none' : 'brightness(0) saturate(100%)' }} />
             </Link>
 
-            {/* Nav pills — desktop */}
-            <nav className="hidden md:flex items-center shrink-0" style={{ gap:'2px', marginRight:'8px' }}>
+            {/* Nav pills — desktop (centered using auto margins) */}
+            <nav
+              className="hidden md:flex items-center shrink-0"
+              style={{ gap:'2px', margin:'0 auto' }}
+            >
               {ADMIN_NAV.map(item => (
-                <NavLink key={item.path} to={item.path} end={item.exact}
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  end={item.exact}
                   style={({ isActive }) => pillStyle(isActive)}
                   onMouseEnter={e => { if (!isNavActive(item.path, item.exact)) Object.assign(e.currentTarget.style, onHover); }}
-                  onMouseLeave={e => { if (!isNavActive(item.path, item.exact)) Object.assign(e.currentTarget.style, offHover); }}>
+                  onMouseLeave={e => { if (!isNavActive(item.path, item.exact)) Object.assign(e.currentTarget.style, offHover); }}
+                >
                   {item.label}
                 </NavLink>
               ))}
