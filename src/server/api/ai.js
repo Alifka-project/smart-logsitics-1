@@ -170,24 +170,96 @@ function inferStatusFromQuery(query) {
   return null;
 }
 
+/* Infer a createdAt date range from a natural language query.
+   We keep this conservative and only handle clear phrases like
+   "today", "yesterday", "last 7 days", "last week", "this month",
+   "last month", "last 30 days". */
+function inferDateRangeFromQuery(query) {
+  const q = query.toLowerCase();
+  const now = new Date();
+
+  const startOfDay = (d) => {
+    const x = new Date(d);
+    x.setHours(0, 0, 0, 0);
+    return x;
+  };
+  const endOfDayExclusive = (d) => {
+    const x = new Date(d);
+    x.setHours(24, 0, 0, 0);
+    return x;
+  };
+
+  // Today
+  if (q.includes(' today')) {
+    const from = startOfDay(now);
+    const to   = endOfDayExclusive(now);
+    return { from, to, label: 'today' };
+  }
+
+  // Yesterday
+  if (q.includes(' yesterday')) {
+    const y    = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const from = startOfDay(y);
+    const to   = endOfDayExclusive(y);
+    return { from, to, label: 'yesterday' };
+  }
+
+  // Last 7 days / last week
+  if (q.includes('last 7 days') || q.includes('last seven days') || q.includes('last week')) {
+    const to   = endOfDayExclusive(now);
+    const from = new Date(to.getTime() - 7 * 24 * 60 * 60 * 1000);
+    from.setHours(0, 0, 0, 0);
+    return { from, to, label: 'last 7 days' };
+  }
+
+  // Last 30 days
+  if (q.includes('last 30 days') || q.includes('last thirty days')) {
+    const to   = endOfDayExclusive(now);
+    const from = new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
+    from.setHours(0, 0, 0, 0);
+    return { from, to, label: 'last 30 days' };
+  }
+
+  // This month
+  if (q.includes('this month') || q.includes('current month')) {
+    const from = new Date(now.getFullYear(), now.getMonth(), 1);
+    const to   = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    return { from, to, label: 'this month' };
+  }
+
+  // Last month
+  if (q.includes('last month') || q.includes('previous month')) {
+    const from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const to   = new Date(now.getFullYear(), now.getMonth(), 1);
+    return { from, to, label: 'last month' };
+  }
+
+  return null;
+}
+
 /* ─── POST /api/ai/search ────────────────────────────────────── */
 router.post('/search', async (req, res) => {
   const { query } = req.body || {};
   if (!query?.trim()) return res.json({ answer: '', results: [], drivers: [], navSuggestions: [] });
 
   try {
-    const user        = req.user;
-    const userRole    = user?.role || 'driver';
-    const driverId    = user?.sub;
-    const q           = query.trim();
-    const statusInt   = inferStatusFromQuery(q);
+    const user      = req.user;
+    const userRole  = user?.role || 'driver';
+    const driverId  = user?.sub;
+    const q         = query.trim();
+    const statusInt = inferStatusFromQuery(q);
+    const dateRange = inferDateRangeFromQuery(q);
 
     /* Navigation suggestions (deterministic keyword match) */
     const navSuggestions = findNavSuggestions(q, userRole);
 
+    const baseDateFilter = dateRange
+      ? { createdAt: { gte: dateRange.from, lt: dateRange.to } }
+      : {};
+
     const deliveryWhere = statusInt
       // Status-intent queries: list all deliveries for that status
-      ? { status: statusInt }
+      ? { status: statusInt, ...baseDateFilter }
       // Generic text search
       : {
           OR: [
@@ -197,6 +269,7 @@ router.post('/search', async (req, res) => {
             { poNumber: { contains: q, mode: 'insensitive' } },
             { items:    { contains: q, mode: 'insensitive' } },
           ],
+          ...baseDateFilter,
         };
 
     const deliverySelect = {
@@ -211,19 +284,36 @@ router.post('/search', async (req, res) => {
     /* Aggregate stats — always fetched for analytical queries */
     const statsP = userRole === 'admin'
       ? Promise.all([
-          prisma.delivery.count(),
-          prisma.delivery.count({ where: { status: 'pending' } }),
-          prisma.delivery.count({ where: { status: 'out-for-delivery' } }),
-          prisma.delivery.count({ where: { status: 'delivered' } }),
-          prisma.delivery.count({ where: { status: 'cancelled' } }),
+          prisma.delivery.count({ where: baseDateFilter }),
+          prisma.delivery.count({ where: { status: 'pending',          ...baseDateFilter } }),
+          prisma.delivery.count({ where: { status: 'out-for-delivery', ...baseDateFilter } }),
+          prisma.delivery.count({ where: { status: 'delivered',        ...baseDateFilter } }),
+          prisma.delivery.count({ where: { status: 'cancelled',        ...baseDateFilter } }),
           prisma.driver.count({ where: { active: true } }),
           prisma.driver.count(),
         ])
       : Promise.all([
-          prisma.deliveryAssignment.count({ where: { driverId } }),
-          prisma.deliveryAssignment.count({ where: { driverId, delivery: { status: 'pending' } } }),
-          prisma.deliveryAssignment.count({ where: { driverId, delivery: { status: 'out-for-delivery' } } }),
-          prisma.deliveryAssignment.count({ where: { driverId, delivery: { status: 'delivered' } } }),
+          prisma.deliveryAssignment.count({
+            where: { driverId, ...(dateRange ? { delivery: baseDateFilter } : {}) },
+          }),
+          prisma.deliveryAssignment.count({
+            where: {
+              driverId,
+              delivery: { status: 'pending', ...(dateRange ? baseDateFilter : {}) },
+            },
+          }),
+          prisma.deliveryAssignment.count({
+            where: {
+              driverId,
+              delivery: { status: 'out-for-delivery', ...(dateRange ? baseDateFilter : {}) },
+            },
+          }),
+          prisma.deliveryAssignment.count({
+            where: {
+              driverId,
+              delivery: { status: 'delivered', ...(dateRange ? baseDateFilter : {}) },
+            },
+          }),
           Promise.resolve(0), Promise.resolve(0), Promise.resolve(0),
         ]);
 
@@ -270,6 +360,7 @@ router.post('/search', async (req, res) => {
       role: userRole,
       query: q,
       liveStats,
+      dateRange: dateRange ? dateRange.label : null,
       textMatchCount: totalCount,
       matchingDeliveries: deliveries.slice(0, 5).map(d => ({ customer: d.customer, address: d.address, status: d.status, po: d.poNumber })),
       matchingDrivers: drivers.slice(0, 3).map(d => ({ name: d.fullName || d.username, email: d.email, active: d.active })),
@@ -279,7 +370,8 @@ router.post('/search', async (req, res) => {
     /* Fallback answer if OpenAI unavailable
        Priority:
        1) If there are text-matched deliveries/drivers → describe those.
-       2) Else if there are live stats → answer analytically from stats.
+       2) Else if there are live stats → answer analytically from stats
+          (respecting dateRange if present).
        3) Else if there are navigation suggestions → mention pages.
        4) Else → generic "no data" message.
     */
@@ -293,14 +385,16 @@ router.post('/search', async (req, res) => {
       const guide = navSuggestions[0]
         ? ` To investigate statuses in detail, open “${navSuggestions[0].label}” from the top navigation.`
         : '';
+      const period = dateRange ? `For ${dateRange.label}, ` : 'There are currently ';
       answer =
-        `There are currently ${stPending} pending, ${stInTransit} in transit, `
+        `${period}${stPending} pending, ${stInTransit} in transit, `
         + `${stDelivered} delivered and ${stCancelled} cancelled orders `
         + `(${stTotal} total, ${stActiveDrivers} active drivers).`
         + guide;
     } else if (userRole !== 'admin') {
+      const period = dateRange ? `For ${dateRange.label}, ` : 'You have ';
       answer =
-        `You have ${liveStats.myPending} pending, ${liveStats.myInTransit} in transit `
+        `${period}${liveStats.myPending} pending, ${liveStats.myInTransit} in transit `
         + `and ${liveStats.myDelivered} delivered deliveries assigned to you `
         + `(${liveStats.myTotal} total).`;
     } else if (navSuggestions.length > 0) {
@@ -329,7 +423,8 @@ router.post('/search', async (req, res) => {
                   '• For counting/analytical questions ("how many pending", "total deliveries") → use liveStats numbers.\n' +
                   '• For record lookups ("find customer X", "delivery to Marina") → use matchingDeliveries.\n' +
                   '• For navigation questions ("where is tracking", "how to see reports", "how to check delivery status") → explicitly mention the best page name and path using navigationSuggested.\n' +
-                  '• Always answer in 1-2 concise sentences. Include exact numbers when available. Be direct and actionable, e.g. "There are 79 pending deliveries. To see details, open Operations → Delivery Tracking."',
+                  '• When dateRange is present, make clear which period you are talking about (e.g. "For the last 7 days").\n' +
+                  '• Always answer in 1-2 concise sentences. Include exact numbers when available. Be direct and actionable, e.g. "For the last 7 days there are 79 pending deliveries. To see details, open Operations → Delivery Tracking."',
               },
               {
                 role: 'user',
