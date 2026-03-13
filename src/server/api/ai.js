@@ -132,29 +132,72 @@ function findNavSuggestions(query, userRole) {
     .map(({ score: _s, keywords: _k, roles: _r, ...rest }) => rest); // strip scoring internals
 }
 
+/* Infer high-level delivery status intent from a natural language query.
+   Used so questions like "how many order cancel" or "show pending orders"
+   return a filtered table of deliveries for that status. */
+function inferStatusFromQuery(query) {
+  const q = query.toLowerCase();
+
+  // Cancelled
+  if (q.includes('cancelled') || q.includes('canceled') || q.includes('cancel ')) {
+    return 'cancelled';
+  }
+
+  // Pending
+  if (q.includes('pending') || q.includes('not delivered yet') || q.includes('waiting')) {
+    return 'pending';
+  }
+
+  // In transit / out for delivery
+  if (
+    q.includes('in transit') ||
+    q.includes('on the way') ||
+    q.includes('out for delivery') ||
+    q.includes('out for deliver')
+  ) {
+    return 'out-for-delivery';
+  }
+
+  // Delivered / completed
+  if (
+    q.includes('delivered') ||
+    q.includes('completed delivery') ||
+    q.includes('finished delivery')
+  ) {
+    return 'delivered';
+  }
+
+  return null;
+}
+
 /* ─── POST /api/ai/search ────────────────────────────────────── */
 router.post('/search', async (req, res) => {
   const { query } = req.body || {};
   if (!query?.trim()) return res.json({ answer: '', results: [], drivers: [], navSuggestions: [] });
 
   try {
-    const user     = req.user;
-    const userRole = user?.role || 'driver';
-    const driverId = user?.sub;
-    const q        = query.trim();
+    const user        = req.user;
+    const userRole    = user?.role || 'driver';
+    const driverId    = user?.sub;
+    const q           = query.trim();
+    const statusInt   = inferStatusFromQuery(q);
 
     /* Navigation suggestions (deterministic keyword match) */
     const navSuggestions = findNavSuggestions(q, userRole);
 
-    const deliveryWhere = {
-      OR: [
-        { customer: { contains: q, mode: 'insensitive' } },
-        { address:  { contains: q, mode: 'insensitive' } },
-        { status:   { contains: q, mode: 'insensitive' } },
-        { poNumber: { contains: q, mode: 'insensitive' } },
-        { items:    { contains: q, mode: 'insensitive' } },
-      ],
-    };
+    const deliveryWhere = statusInt
+      // Status-intent queries: list all deliveries for that status
+      ? { status: statusInt }
+      // Generic text search
+      : {
+          OR: [
+            { customer: { contains: q, mode: 'insensitive' } },
+            { address:  { contains: q, mode: 'insensitive' } },
+            { status:   { contains: q, mode: 'insensitive' } },
+            { poNumber: { contains: q, mode: 'insensitive' } },
+            { items:    { contains: q, mode: 'insensitive' } },
+          ],
+        };
 
     const deliverySelect = {
       id: true, customer: true, address: true,
