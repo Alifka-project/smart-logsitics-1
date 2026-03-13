@@ -1,10 +1,9 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, memo } from 'react';
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import { isAuthenticated, getCurrentUser, clearAuth } from '../../frontend/auth';
 import {
   LogOut, User, Settings, ChevronDown, Bell, Sun, Moon, X, Camera, Save, Menu,
-  Search, Sparkles, Package, TruckIcon, CheckCircle2, Users,
-  Zap, Clock,
+  Search, Sparkles, Users, Zap,
 } from 'lucide-react';
 import api from '../../frontend/apiClient';
 import { useToast } from '../../hooks/useToast';
@@ -19,7 +18,6 @@ const ADMIN_NAV = [
   { label: 'Users',      path: '/admin/users',      exact: false },
 ];
 
-/* ─── Quick search suggestion pills ─────────────────────── */
 const SEARCH_SUGGESTIONS = [
   'Pending deliveries',
   'Out for delivery',
@@ -27,12 +25,230 @@ const SEARCH_SUGGESTIONS = [
   'Active drivers',
 ];
 
+/* ─────────────────────────────────────────────────────────────
+   AISearchBar — defined OUTSIDE Header so React never unmounts
+   it on re-render (avoids the "loses focus after one key" bug).
+   ───────────────────────────────────────────────────────────── */
+const AISearchBar = memo(function AISearchBar({
+  outerRef,
+  inputRef,
+  searchQuery,
+  setSearchQuery,
+  searchLoading,
+  searchResults,
+  showSearch,
+  setShowSearch,
+  handleSearch,
+  triggerSuggestion,
+  handleResultClick,
+  clearSearch,
+  theme,
+  flex,
+  maxWidth,
+}) {
+  const MUTED   = theme === 'dark' ? '#9CA3C4' : '#6b7280';
+
+  const statusColor = (s = '') => {
+    const st = s.toLowerCase();
+    if (st === 'delivered')        return { bg: 'rgba(34,197,94,0.12)',  color: '#22c55e' };
+    if (st === 'out-for-delivery') return { bg: 'rgba(59,130,246,0.12)', color: '#3b82f6' };
+    if (st === 'pending')          return { bg: 'rgba(249,115,22,0.12)', color: '#f97316' };
+    if (st === 'cancelled')        return { bg: 'rgba(239,68,68,0.10)',  color: '#ef4444' };
+    return { bg: 'rgba(156,163,196,0.12)', color: MUTED };
+  };
+
+  return (
+    <div
+      ref={outerRef}
+      style={{ position: 'relative', flex: flex || '1 1 280px', maxWidth: maxWidth || '420px', minWidth: '140px' }}
+    >
+      {/* ── Input row ── */}
+      <form onSubmit={handleSearch}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '7px',
+          background: theme === 'dark' ? 'var(--surface2)' : '#f0f1f8',
+          border: `1px solid ${showSearch || searchQuery ? 'var(--primary)' : 'var(--border)'}`,
+          borderRadius: '999px', padding: '6px 11px 6px 10px',
+          transition: 'border-color 0.2s, box-shadow 0.2s',
+          boxShadow: showSearch || searchQuery ? '0 0 0 3px var(--primary-glow)' : 'none',
+        }}>
+          {searchLoading
+            ? <div style={{ width: '14px', height: '14px', border: '2px solid var(--border)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 0.7s linear infinite', flexShrink: 0 }} />
+            : <Search size={13} style={{ color: MUTED, flexShrink: 0 }} />
+          }
+          <input
+            ref={inputRef}
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            onFocus={() => setShowSearch(true)}
+            placeholder="AI Search… ⌘K"
+            autoComplete="off"
+            style={{
+              flex: 1, background: 'transparent', border: 'none', outline: 'none',
+              fontSize: '13px', color: 'var(--text)', minWidth: 0,
+            }}
+          />
+          {searchQuery
+            ? <button type="button" onClick={clearSearch}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: MUTED, padding: 0, display: 'flex', alignItems: 'center' }}>
+                <X size={13} />
+              </button>
+            : <span style={{
+                fontSize: '10px', color: MUTED, background: 'var(--surface)',
+                border: '1px solid var(--border)', padding: '1px 5px', borderRadius: '4px',
+                flexShrink: 0, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '2px',
+              }}>
+                <Sparkles size={8} /> AI
+              </span>
+          }
+        </div>
+      </form>
+
+      {/* ── Results panel ── */}
+      {showSearch && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 10px)', left: '50%', transform: 'translateX(-50%)',
+          width: 'min(540px, 95vw)',
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: '16px', boxShadow: 'var(--shadow3)',
+          overflow: 'hidden', zIndex: 9999,
+          animation: 'ai-panel-in 0.18s cubic-bezier(0.34,1.56,0.64,1)',
+        }}>
+
+          {/* Loading */}
+          {searchLoading && (
+            <div style={{ padding: '28px', textAlign: 'center', color: MUTED }}>
+              <div style={{ width: '22px', height: '22px', border: '2px solid var(--border)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 0.7s linear infinite', margin: '0 auto 10px' }} />
+              <p style={{ fontSize: '13px' }}>Analysing with AI…</p>
+            </div>
+          )}
+
+          {/* Results */}
+          {!searchLoading && searchResults && (
+            <>
+              {/* AI answer */}
+              <div style={{
+                padding: '14px 16px',
+                background: theme === 'dark'
+                  ? 'linear-gradient(135deg, rgba(78,136,185,0.12) 0%, transparent 100%)'
+                  : 'linear-gradient(135deg, rgba(1,30,65,0.05) 0%, transparent 100%)',
+                borderBottom: '1px solid var(--border)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '7px' }}>
+                  <div style={{ width: '24px', height: '24px', borderRadius: '7px', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Sparkles size={13} color="white" />
+                  </div>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>AI Insight</span>
+                </div>
+                <p style={{ fontSize: '13px', color: 'var(--text)', lineHeight: 1.55 }}>{searchResults.answer}</p>
+              </div>
+
+              {/* Delivery results */}
+              {searchResults.results?.length > 0 && (
+                <div style={{ maxHeight: '220px', overflowY: 'auto' }}>
+                  <div style={{ padding: '9px 16px 4px', fontSize: '11px', fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Deliveries ({searchResults.totalCount ?? searchResults.results.length})
+                  </div>
+                  {searchResults.results.map(d => {
+                    const sc = statusColor(d.status);
+                    return (
+                      <div key={d.id}
+                        onClick={() => handleResultClick(d, 'delivery')}
+                        style={{ padding: '10px 16px', cursor: 'pointer', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '12px', transition: 'background 0.1s' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      >
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.customer || 'Unknown'}</p>
+                          <p style={{ fontSize: '11px', color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '2px' }}>{d.address || 'No address'}</p>
+                        </div>
+                        <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '999px', background: sc.bg, color: sc.color, whiteSpace: 'nowrap', textTransform: 'capitalize', flexShrink: 0 }}>
+                          {d.status}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Driver results (admin only) */}
+              {searchResults.drivers?.length > 0 && (
+                <div style={{ maxHeight: '160px', overflowY: 'auto' }}>
+                  <div style={{ padding: '9px 16px 4px', fontSize: '11px', fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Users size={11} /> Drivers ({searchResults.drivers.length})
+                  </div>
+                  {searchResults.drivers.map(d => (
+                    <div key={d.id}
+                      onClick={() => handleResultClick(d, 'driver')}
+                      style={{ padding: '10px 16px', cursor: 'pointer', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '12px', transition: 'background 0.1s' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '12px', fontWeight: 700, flexShrink: 0 }}>
+                        {(d.fullName || d.username || 'D')[0].toUpperCase()}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.fullName || d.username}</p>
+                        <p style={{ fontSize: '11px', color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.email || d.phone || ''}</p>
+                      </div>
+                      <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 7px', borderRadius: '999px', background: d.active ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.1)', color: d.active ? '#22c55e' : '#ef4444', flexShrink: 0 }}>
+                        {d.active ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {(!searchResults.results?.length && !searchResults.drivers?.length) && (
+                <div style={{ padding: '28px', textAlign: 'center', color: MUTED }}>
+                  <Search size={28} style={{ margin: '0 auto 8px', opacity: 0.3 }} />
+                  <p style={{ fontSize: '13px' }}>No records found for "{searchQuery}"</p>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Suggestion pills (shown when panel open but no results yet) */}
+          {!searchLoading && !searchResults && (
+            <div style={{ padding: '14px' }}>
+              <p style={{ fontSize: '11px', fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', padding: '0 4px' }}>Try asking…</p>
+              {SEARCH_SUGGESTIONS.map(s => (
+                <button key={s}
+                  onClick={() => triggerSuggestion(s)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', textAlign: 'left', padding: '8px 12px', borderRadius: '8px', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '13px', color: 'var(--text2)', marginBottom: '2px' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  <Zap size={12} style={{ color: MUTED, flexShrink: 0 }} />
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Footer */}
+          <div style={{ padding: '8px 16px', borderTop: '1px solid var(--border)', background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '10px', color: MUTED }}>↵ Enter to search · Esc to close</span>
+            <span style={{ fontSize: '10px', color: MUTED, display: 'flex', alignItems: 'center', gap: '3px' }}>
+              <Sparkles size={9} /> Powered by GPT-4o
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
+
+/* ═══════════════════════════════════════════════════════════
+   Header — main component
+   ═══════════════════════════════════════════════════════════ */
 export default function Header({ isAdmin = false }) {
-  /* ── Auth state ── */
+  /* ── Auth ── */
   const [loggedIn, setLoggedIn] = useState(isAuthenticated());
   const [user,     setUser]     = useState(getCurrentUser());
 
-  /* ── UI state ── */
+  /* ── UI ── */
   const [showDropdown,      setShowDropdown]      = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileModal,  setShowProfileModal]  = useState(false);
@@ -52,11 +268,8 @@ export default function Header({ isAdmin = false }) {
   const [searchResults, setSearchResults] = useState(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [showSearch,    setShowSearch]    = useState(false);
-  const searchRef       = useRef(null);
-  const searchInputRef  = useRef(null);
-
-  /* ── Navbar stats ── */
-  const [navStats, setNavStats] = useState(null);
+  const searchRef      = useRef(null);
+  const searchInputRef = useRef(null);
 
   /* ── Theme ── */
   const [theme, setTheme] = useState(() => {
@@ -74,10 +287,10 @@ export default function Header({ isAdmin = false }) {
   const [passwordError,   setPasswordError]   = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState(false);
 
-  const dropdownRef    = useRef(null);
-  const notifRef       = useRef(null);
-  const navigate       = useNavigate();
-  const location       = useLocation();
+  const dropdownRef = useRef(null);
+  const notifRef    = useRef(null);
+  const navigate    = useNavigate();
+  const location    = useLocation();
 
   /* ──────────────────── Effects ──────────────────── */
   useEffect(() => {
@@ -127,10 +340,10 @@ export default function Header({ isAdmin = false }) {
     return () => document.removeEventListener('mousedown', onOutside);
   }, []);
 
-  /* Close mobile nav drawer on route change */
+  /* Close mobile nav on route change */
   useEffect(() => { setMobileNavOpen(false); }, [location.pathname]);
 
-  /* Keyboard shortcut: Ctrl/Cmd+K focuses search, Esc closes */
+  /* Keyboard shortcut: ⌘K / Ctrl+K opens search; Esc closes */
   useEffect(() => {
     const onKeyDown = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
@@ -177,20 +390,6 @@ export default function Header({ isAdmin = false }) {
       window.removeEventListener('deliveryStatusUpdated', onStatusUpdate);
     };
   }, [loggedIn]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  /* Navbar stats polling — every 60 s */
-  useEffect(() => {
-    if (!loggedIn) return;
-    const fetchStats = async () => {
-      try {
-        const { data } = await api.get('/ai/navbar-stats');
-        setNavStats(data);
-      } catch {}
-    };
-    fetchStats();
-    const iv = setInterval(fetchStats, 60000);
-    return () => clearInterval(iv);
-  }, [loggedIn]);
 
   /* ──────────────────── Helpers ──────────────────── */
   const playSound = () => {
@@ -257,8 +456,8 @@ export default function Header({ isAdmin = false }) {
           const overdue     = or.status==='fulfilled' ? or.value.data?.deliveries||[]     : [];
           const unconfirmed = ur.status==='fulfilled' ? ur.value.data?.deliveries||[]     : [];
           deliveryNotifs = [
-            ...alerts.map(n    => ({ id:`alert-${n.id}`,           type:'delivery', status:n.type,           title:n.title,                                              message:n.message,                 timestamp:n.createdAt,           read:false, _adminAlertId:n.id })),
-            ...overdue.map(d   => ({ id:`overdue-${d.id}`,         type:'delivery', status:'overdue',         title:`Overdue (${d.hoursOverdue}h): ${d.customer||'?'}`,   message:`${d.address||''} — ${d.status}`, timestamp:d.createdAt, read:false, deliveryId:d.id })),
+            ...alerts.map(n    => ({ id:`alert-${n.id}`,           type:'delivery', status:n.type,           title:n.title,                                              message:n.message,                 timestamp:n.createdAt,              read:false, _adminAlertId:n.id })),
+            ...overdue.map(d   => ({ id:`overdue-${d.id}`,         type:'delivery', status:'overdue',         title:`Overdue (${d.hoursOverdue}h): ${d.customer||'?'}`,   message:`${d.address||''} — ${d.status}`, timestamp:d.createdAt,   read:false, deliveryId:d.id })),
             ...unconfirmed.map(d=>({ id:`sms-unconfirmed-${d.id}`, type:'delivery', status:'sms_unconfirmed', title:`SMS Unconfirmed (>24h): ${d.customer||'?'}`,         message:d.address||'',             timestamp:d.smsSentAt||d.createdAt, read:false })),
           ];
         } catch {}
@@ -330,10 +529,10 @@ export default function Header({ isAdmin = false }) {
     }
   };
 
-  /* ── AI Search ── */
+  /* ── Search handlers (stable refs via useCallback) ── */
   const handleSearch = useCallback(async (e) => {
     if (e?.preventDefault) e.preventDefault();
-    const q = searchQuery.trim();
+    const q = searchInputRef.current?.value?.trim() || '';
     if (!q) return;
     setSearchLoading(true);
     setShowSearch(true);
@@ -345,7 +544,7 @@ export default function Header({ isAdmin = false }) {
     } finally {
       setSearchLoading(false);
     }
-  }, [searchQuery]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const triggerSuggestion = useCallback(async (text) => {
     setSearchQuery(text);
@@ -369,17 +568,17 @@ export default function Header({ isAdmin = false }) {
     if (type === 'delivery') {
       if (role === 'admin') navigate(`/admin?tab=deliveries&delivery=${result.id}&viewAll=1`);
       else if (role === 'delivery_team') navigate(`/delivery-team?tab=control&delivery=${result.id}`);
-      else navigate(`/driver?tab=deliveries`);
+      else navigate('/driver?tab=deliveries');
     } else if (type === 'driver') {
       navigate('/admin/users');
     }
   }, [user, navigate]);
 
-  const clearSearch = () => {
+  const clearSearch = useCallback(() => {
     setSearchQuery('');
     setSearchResults(null);
     setShowSearch(false);
-  };
+  }, []);
 
   /* ── Profile helpers ── */
   const compressImage = (dataUrl, maxSize=400, quality=0.8) => new Promise(res => {
@@ -468,25 +667,19 @@ export default function Header({ isAdmin = false }) {
 
   const isNavActive = (path, exact) => exact ? location.pathname === path : location.pathname.startsWith(path);
 
-  const [isMobileViewport, setIsMobileViewport] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return window.innerWidth <= 640;
-  });
-
+  const [isMobileViewport, setIsMobileViewport] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth <= 640 : false
+  );
   useEffect(() => {
-    const handleResize = () => {
-      if (typeof window === 'undefined') return;
-      setIsMobileViewport(window.innerWidth <= 640);
-    };
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    const onResize = () => setIsMobileViewport(window.innerWidth <= 640);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
   }, []);
 
   /* Smooth theme toggle */
   const toggleTheme = () => {
     const next = theme === 'dark' ? 'light' : 'dark';
-    const applyTheme = () => {
+    const apply = () => {
       document.documentElement.classList.remove('light', 'dark');
       document.documentElement.classList.add(next);
       document.documentElement.style.removeProperty('background-color');
@@ -494,256 +687,38 @@ export default function Header({ isAdmin = false }) {
       setTheme(next);
     };
     if (typeof document.startViewTransition === 'function') {
-      document.startViewTransition(applyTheme);
+      document.startViewTransition(apply);
     } else {
       document.documentElement.classList.add('theme-changing');
-      applyTheme();
+      apply();
       setTimeout(() => document.documentElement.classList.remove('theme-changing'), 500);
     }
   };
 
-  /* ──────────────────── Colour tokens (computed from theme) ──────────────────── */
+  /* ── Colour tokens ── */
   const MUTED   = theme === 'dark' ? '#9CA3C4' : '#6b7280';
   const PRIMARY = theme === 'dark' ? '#E8EAF6' : '#1A1D3B';
 
-  /* ──────────────────── Reusable icon-button style ──────────────────── */
+  /* ── Shared icon-button style ── */
   const iconBtn  = { width:'34px', height:'34px', borderRadius:'8px', display:'flex', alignItems:'center', justifyContent:'center', background:'transparent', border:'none', cursor:'pointer', color:MUTED, transition:'background 0.15s, color 0.15s', flexShrink:0 };
   const onHover  = { background: theme==='dark' ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)', color: PRIMARY };
   const offHover = { background:'transparent', color: MUTED };
 
-  /* ──────────────────── STATUS COLOUR helper ──────────────────── */
-  const statusColor = (s='') => {
-    const st = s.toLowerCase();
-    if (st==='delivered')        return { bg:'rgba(34,197,94,0.12)',    color:'#22c55e' };
-    if (st==='out-for-delivery') return { bg:'rgba(59,130,246,0.12)',   color:'#3b82f6' };
-    if (st==='pending')          return { bg:'rgba(249,115,22,0.12)',   color:'#f97316' };
-    if (st==='cancelled')        return { bg:'rgba(239,68,68,0.10)',    color:'#ef4444' };
-    return { bg:'rgba(156,163,196,0.12)', color:MUTED };
-  };
-
-  /* ──────────────────── AI Search Bar ──────────────────── */
-  const AISearchBar = ({ flex = '1 1 280px', maxWidth = '420px' }) => (
-    <div
-      ref={searchRef}
-      style={{ position:'relative', flex, maxWidth, minWidth:'140px' }}
-    >
-      <form onSubmit={handleSearch}>
-        <div style={{
-          display:'flex', alignItems:'center', gap:'7px',
-          background: theme==='dark' ? 'var(--surface2)' : '#f0f1f8',
-          border:`1px solid ${showSearch||searchQuery ? 'var(--primary)' : 'var(--border)'}`,
-          borderRadius:'999px', padding:'6px 11px 6px 10px',
-          transition:'border-color 0.2s, box-shadow 0.2s',
-          boxShadow: showSearch||searchQuery ? '0 0 0 3px var(--primary-glow)' : 'none',
-        }}>
-          {searchLoading
-            ? <div style={{ width:'14px', height:'14px', border:'2px solid var(--border)', borderTopColor:'var(--primary)', borderRadius:'50%', animation:'spin 0.7s linear infinite', flexShrink:0 }} />
-            : <Search size={13} style={{ color:MUTED, flexShrink:0 }} />
-          }
-          <input
-            ref={searchInputRef}
-            type="text"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            onFocus={() => setShowSearch(true)}
-            placeholder="AI Search… ⌘K"
-            style={{ flex:1, background:'transparent', border:'none', outline:'none', fontSize:'13px', color:'var(--text)', minWidth:0 }}
-          />
-          {searchQuery
-            ? <button type="button" onClick={clearSearch}
-                style={{ background:'transparent', border:'none', cursor:'pointer', color:MUTED, padding:0, display:'flex' }}>
-                <X size={13} />
-              </button>
-            : <span style={{ fontSize:'10px', color:MUTED, background:'var(--surface)', border:'1px solid var(--border)', padding:'1px 5px', borderRadius:'4px', flexShrink:0, whiteSpace:'nowrap', display:'flex', alignItems:'center', gap:'2px' }}>
-                <Sparkles size={8} /> AI
-              </span>
-          }
-        </div>
-      </form>
-
-      {/* ── Results Panel ── */}
-      {showSearch && (
-        <div style={{
-          position:'absolute', top:'calc(100% + 10px)', left:'50%', transform:'translateX(-50%)',
-          width:'min(540px, 95vw)',
-          background:'var(--surface)', border:'1px solid var(--border)',
-          borderRadius:'16px', boxShadow:'var(--shadow3)',
-          overflow:'hidden', zIndex:9999,
-          animation:'ai-panel-in 0.18s cubic-bezier(0.34,1.56,0.64,1)',
-        }}>
-
-          {/* Loading */}
-          {searchLoading && (
-            <div style={{ padding:'28px', textAlign:'center', color:MUTED }}>
-              <div style={{ width:'22px', height:'22px', border:'2px solid var(--border)', borderTopColor:'var(--primary)', borderRadius:'50%', animation:'spin 0.7s linear infinite', margin:'0 auto 10px' }} />
-              <p style={{ fontSize:'13px' }}>Analysing with AI…</p>
-            </div>
-          )}
-
-          {/* Results */}
-          {!searchLoading && searchResults && (
-            <>
-              {/* AI Answer */}
-              <div style={{ padding:'14px 16px', background: theme==='dark' ? 'linear-gradient(135deg, rgba(78,136,185,0.12) 0%, transparent 100%)' : 'linear-gradient(135deg, rgba(1,30,65,0.05) 0%, transparent 100%)', borderBottom:'1px solid var(--border)' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'7px' }}>
-                  <div style={{ width:'24px', height:'24px', borderRadius:'7px', background:'var(--primary)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                    <Sparkles size={13} color="white" />
-                  </div>
-                  <span style={{ fontSize:'11px', fontWeight:700, color:'var(--primary)', textTransform:'uppercase', letterSpacing:'0.06em' }}>AI Insight</span>
-                </div>
-                <p style={{ fontSize:'13px', color:'var(--text)', lineHeight:1.55 }}>{searchResults.answer}</p>
-              </div>
-
-              {/* Delivery results */}
-              {searchResults.results?.length > 0 && (
-                <div style={{ maxHeight:'220px', overflowY:'auto' }}>
-                  <div style={{ padding:'9px 16px 4px', fontSize:'11px', fontWeight:700, color:MUTED, textTransform:'uppercase', letterSpacing:'0.05em', display:'flex', alignItems:'center', gap:'6px' }}>
-                    <Package size={11} /> Deliveries ({searchResults.totalCount ?? searchResults.results.length})
-                  </div>
-                  {searchResults.results.map(d => {
-                    const sc = statusColor(d.status);
-                    return (
-                      <div key={d.id}
-                        onClick={() => handleResultClick(d, 'delivery')}
-                        style={{ padding:'10px 16px', cursor:'pointer', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:'12px', transition:'background 0.1s' }}
-                        onMouseEnter={e => e.currentTarget.style.background='var(--surface2)'}
-                        onMouseLeave={e => e.currentTarget.style.background='transparent'}
-                      >
-                        <div style={{ flex:1, minWidth:0 }}>
-                          <p style={{ fontSize:'13px', fontWeight:600, color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{d.customer || 'Unknown'}</p>
-                          <p style={{ fontSize:'11px', color:MUTED, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginTop:'2px' }}>{d.address || 'No address'}</p>
-                        </div>
-                        <span style={{ fontSize:'10px', fontWeight:700, padding:'2px 8px', borderRadius:'999px', background:sc.bg, color:sc.color, whiteSpace:'nowrap', textTransform:'capitalize', flexShrink:0 }}>
-                          {d.status}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Driver results (admin only) */}
-              {searchResults.drivers?.length > 0 && (
-                <div style={{ maxHeight:'160px', overflowY:'auto' }}>
-                  <div style={{ padding:'9px 16px 4px', fontSize:'11px', fontWeight:700, color:MUTED, textTransform:'uppercase', letterSpacing:'0.05em', display:'flex', alignItems:'center', gap:'6px' }}>
-                    <Users size={11} /> Drivers ({searchResults.drivers.length})
-                  </div>
-                  {searchResults.drivers.map(d => (
-                    <div key={d.id}
-                      onClick={() => handleResultClick(d, 'driver')}
-                      style={{ padding:'10px 16px', cursor:'pointer', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:'12px', transition:'background 0.1s' }}
-                      onMouseEnter={e => e.currentTarget.style.background='var(--surface2)'}
-                      onMouseLeave={e => e.currentTarget.style.background='transparent'}
-                    >
-                      <div style={{ width:'32px', height:'32px', borderRadius:'50%', background:'var(--primary)', display:'flex', alignItems:'center', justifyContent:'center', color:'white', fontSize:'12px', fontWeight:700, flexShrink:0 }}>
-                        {(d.fullName || d.username || 'D')[0].toUpperCase()}
-                      </div>
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <p style={{ fontSize:'13px', fontWeight:600, color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{d.fullName || d.username}</p>
-                        <p style={{ fontSize:'11px', color:MUTED, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{d.email || d.phone || ''}</p>
-                      </div>
-                      <span style={{ fontSize:'10px', fontWeight:700, padding:'2px 7px', borderRadius:'999px', background: d.active ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.1)', color: d.active ? '#22c55e' : '#ef4444', flexShrink:0 }}>
-                        {d.active ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {(!searchResults.results?.length && !searchResults.drivers?.length) && (
-                <div style={{ padding:'28px', textAlign:'center', color:MUTED }}>
-                  <Search size={28} style={{ margin:'0 auto 8px', opacity:0.3 }} />
-                  <p style={{ fontSize:'13px' }}>No records found for "{searchQuery}"</p>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* Empty state / suggestions */}
-          {!searchLoading && !searchResults && (
-            <div style={{ padding:'14px' }}>
-              <p style={{ fontSize:'11px', fontWeight:700, color:MUTED, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:'8px', padding:'0 4px' }}>Try asking…</p>
-              {SEARCH_SUGGESTIONS.map(s => (
-                <button key={s}
-                  onClick={() => triggerSuggestion(s)}
-                  style={{ display:'flex', alignItems:'center', gap:'8px', width:'100%', textAlign:'left', padding:'8px 12px', borderRadius:'8px', background:'transparent', border:'none', cursor:'pointer', fontSize:'13px', color:'var(--text2)', marginBottom:'2px' }}
-                  onMouseEnter={e => e.currentTarget.style.background='var(--surface2)'}
-                  onMouseLeave={e => e.currentTarget.style.background='transparent'}
-                >
-                  <Zap size={12} style={{ color:MUTED, flexShrink:0 }} />
-                  {s}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Footer */}
-          <div style={{ padding:'8px 16px', borderTop:'1px solid var(--border)', background:'var(--surface2)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-            <span style={{ fontSize:'10px', color:MUTED }}>↵ Enter to search · Esc to close</span>
-            <span style={{ fontSize:'10px', color:MUTED, display:'flex', alignItems:'center', gap:'3px' }}>
-              <Sparkles size={9} /> Powered by GPT-4o
-            </span>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
-  /* ──────────────────── Live Stats Chips ──────────────────── */
-  const NavStatsChips = () => {
-    if (!navStats) return null;
-    const role = navStats.role;
-
-    if (role === 'admin') {
-      return (
-        <div className="hidden xl:flex items-center gap-1.5 mr-1 shrink-0">
-          {navStats.pending > 0 && (
-            <NavLink to="/deliveries" style={{ textDecoration:'none' }} title={`${navStats.pending} pending deliveries`}>
-              <span style={{ display:'flex', alignItems:'center', gap:'4px', fontSize:'11px', fontWeight:600, padding:'3px 9px', borderRadius:'999px', background:'rgba(249,115,22,0.12)', color:'#f97316', border:'1px solid rgba(249,115,22,0.2)', cursor:'pointer', whiteSpace:'nowrap' }}>
-                <Clock size={10} /> {navStats.pending} Pending
-              </span>
-            </NavLink>
-          )}
-          {navStats.inTransit > 0 && (
-            <span style={{ display:'flex', alignItems:'center', gap:'4px', fontSize:'11px', fontWeight:600, padding:'3px 9px', borderRadius:'999px', background:'rgba(59,130,246,0.12)', color:'#3b82f6', border:'1px solid rgba(59,130,246,0.2)', whiteSpace:'nowrap' }}
-              title={`${navStats.inTransit} deliveries out for delivery`}>
-              <TruckIcon size={10} /> {navStats.inTransit} In Transit
-            </span>
-          )}
-          {navStats.deliveredToday > 0 && (
-            <span style={{ display:'flex', alignItems:'center', gap:'4px', fontSize:'11px', fontWeight:600, padding:'3px 9px', borderRadius:'999px', background:'rgba(34,197,94,0.12)', color:'#22c55e', border:'1px solid rgba(34,197,94,0.2)', whiteSpace:'nowrap' }}
-              title={`${navStats.deliveredToday} delivered today`}>
-              <CheckCircle2 size={10} /> {navStats.deliveredToday} Today
-            </span>
-          )}
-          {navStats.activeDrivers > 0 && (
-            <span style={{ display:'flex', alignItems:'center', gap:'4px', fontSize:'11px', fontWeight:600, padding:'3px 9px', borderRadius:'999px', background:'rgba(168,85,247,0.12)', color:'#a855f7', border:'1px solid rgba(168,85,247,0.2)', whiteSpace:'nowrap' }}
-              title={`${navStats.activeDrivers} active drivers`}>
-              <Users size={10} /> {navStats.activeDrivers} Drivers
-            </span>
-          )}
-        </div>
-      );
-    }
-
-    if (role === 'driver' || role === 'delivery_team') {
-      return (
-        <div className="hidden md:flex items-center gap-1.5 mr-1 shrink-0">
-          {navStats.assigned > 0 && (
-            <span style={{ display:'flex', alignItems:'center', gap:'4px', fontSize:'11px', fontWeight:600, padding:'3px 9px', borderRadius:'999px', background:'rgba(59,130,246,0.12)', color:'#3b82f6', border:'1px solid rgba(59,130,246,0.2)', whiteSpace:'nowrap' }}>
-              <Package size={10} /> {navStats.assigned} Assigned
-            </span>
-          )}
-          {navStats.deliveredToday > 0 && (
-            <span style={{ display:'flex', alignItems:'center', gap:'4px', fontSize:'11px', fontWeight:600, padding:'3px 9px', borderRadius:'999px', background:'rgba(34,197,94,0.12)', color:'#22c55e', border:'1px solid rgba(34,197,94,0.2)', whiteSpace:'nowrap' }}>
-              <CheckCircle2 size={10} /> {navStats.deliveredToday} Done
-            </span>
-          )}
-        </div>
-      );
-    }
-
-    return null;
+  /* ── Shared search bar props (passed into stable AISearchBar component) ── */
+  const searchBarProps = {
+    outerRef: searchRef,
+    inputRef: searchInputRef,
+    searchQuery,
+    setSearchQuery,
+    searchLoading,
+    searchResults,
+    showSearch,
+    setShowSearch,
+    handleSearch,
+    triggerSuggestion,
+    handleResultClick,
+    clearSearch,
+    theme,
   };
 
   /* ──────────────────── Notification panel ──────────────────── */
@@ -753,24 +728,19 @@ export default function Header({ isAdmin = false }) {
       ? { position:'fixed', left:'8px', right:'8px', top:'72px', maxHeight:'calc(100vh - 88px)', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', boxShadow:'var(--shadow3)', overflow:'hidden', zIndex:9999 }
       : { position:'absolute', right:'8px', top:'calc(100% + 8px)', width:'min(360px, calc(100vw - 24px))', maxWidth:'calc(100vw - 16px)', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', boxShadow:'var(--shadow3)', overflow:'hidden', zIndex:9999 };
 
-    const containerStyle = {
-      ...baseStyle,
-      opacity: showNotifications ? 1 : 0,
-      transform: showNotifications ? 'translateY(0) scale(1)' : 'translateY(-10px) scale(0.95)',
-      transformOrigin: 'top right',
-      pointerEvents: showNotifications ? 'auto' : 'none',
-      transition: 'opacity 0.2s ease, transform 0.22s cubic-bezier(0.34,1.56,0.64,1)',
-    };
-
-    const listMaxHeight = isMobile ? 'calc(100vh - 88px - 48px)' : 'min(380px, calc(100vh - 96px))';
-
     return (
-      <div style={containerStyle}>
+      <div style={{
+        ...baseStyle,
+        opacity: showNotifications ? 1 : 0,
+        transform: showNotifications ? 'translateY(0) scale(1)' : 'translateY(-10px) scale(0.95)',
+        transformOrigin: 'top right', pointerEvents: showNotifications ? 'auto' : 'none',
+        transition: 'opacity 0.2s ease, transform 0.22s cubic-bezier(0.34,1.56,0.64,1)',
+      }}>
         <div style={{ padding:'14px 16px', background:'var(--surface2)', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <span style={{ fontWeight:700, fontSize:'14px', color:'var(--text)' }}>Notifications</span>
           {unreadCount>0 && <span style={{ fontSize:'11px', fontWeight:600, padding:'2px 8px', borderRadius:'20px', background:'var(--primary-glow)', color:'var(--primary)' }}>{unreadCount} unread</span>}
         </div>
-        <div style={{ maxHeight:listMaxHeight, overflowY:'auto' }}>
+        <div style={{ maxHeight: isMobile ? 'calc(100vh - 88px - 48px)' : 'min(380px, calc(100vh - 96px))', overflowY:'auto' }}>
           {notifications.length===0 ? (
             <div style={{ padding:'40px', textAlign:'center', color:'var(--muted)' }}>
               <Bell size={32} style={{ margin:'0 auto 8px', opacity:0.3 }} />
@@ -805,8 +775,7 @@ export default function Header({ isAdmin = false }) {
       borderRadius:'var(--radius-lg)', boxShadow:'var(--shadow3)', overflow:'hidden', zIndex:9999,
       opacity: showDropdown ? 1 : 0,
       transform: showDropdown ? 'translateY(0) scale(1)' : 'translateY(-8px) scale(0.95)',
-      transformOrigin: 'top right',
-      pointerEvents: showDropdown ? 'auto' : 'none',
+      transformOrigin: 'top right', pointerEvents: showDropdown ? 'auto' : 'none',
       transition: 'opacity 0.18s ease, transform 0.22s cubic-bezier(0.34,1.56,0.64,1)',
     }}>
       <div style={{ padding:'16px', background:'var(--surface2)', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:'12px' }}>
@@ -844,11 +813,9 @@ export default function Header({ isAdmin = false }) {
       <>
         <div className="fixed inset-0 md:hidden"
           style={{ background:'rgba(0,0,0,0.55)', zIndex:9997 }}
-          onClick={() => setMobileNavOpen(false)}
-        />
+          onClick={() => setMobileNavOpen(false)} />
         <div className="fixed top-0 left-0 h-full md:hidden flex flex-col animate-slide-in-left"
-          style={{ width:'min(78vw, 290px)', zIndex:9998, background:'var(--bg)', boxShadow:'4px 0 40px rgba(0,0,0,0.35)' }}
-        >
+          style={{ width:'min(78vw, 290px)', zIndex:9998, background:'var(--bg)', boxShadow:'4px 0 40px rgba(0,0,0,0.35)' }}>
           {/* Drawer header */}
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 16px', borderBottom:'1px solid var(--border)' }}>
             <img src="/elect home.png" alt="Electrolux" style={{ height:'26px', objectFit:'contain', filter: theme==='dark' ? 'none' : 'brightness(0) saturate(100%)' }} />
@@ -857,7 +824,6 @@ export default function Header({ isAdmin = false }) {
               <X size={20} />
             </button>
           </div>
-
           {/* Mobile search */}
           <div style={{ padding:'12px 14px', borderBottom:'1px solid var(--border)' }}>
             <form onSubmit={(e) => { setMobileNavOpen(false); handleSearch(e); }}>
@@ -873,28 +839,11 @@ export default function Header({ isAdmin = false }) {
               </div>
             </form>
           </div>
-
-          {/* Mobile stats */}
-          {navStats && (
-            <div style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', display:'flex', flexWrap:'wrap', gap:'6px' }}>
-              {navStats.role === 'admin' && <>
-                {navStats.pending > 0 && <span style={{ fontSize:'11px', fontWeight:600, padding:'3px 9px', borderRadius:'999px', background:'rgba(249,115,22,0.12)', color:'#f97316', border:'1px solid rgba(249,115,22,0.2)' }}>{navStats.pending} Pending</span>}
-                {navStats.inTransit > 0 && <span style={{ fontSize:'11px', fontWeight:600, padding:'3px 9px', borderRadius:'999px', background:'rgba(59,130,246,0.12)', color:'#3b82f6', border:'1px solid rgba(59,130,246,0.2)' }}>{navStats.inTransit} In Transit</span>}
-                {navStats.deliveredToday > 0 && <span style={{ fontSize:'11px', fontWeight:600, padding:'3px 9px', borderRadius:'999px', background:'rgba(34,197,94,0.12)', color:'#22c55e', border:'1px solid rgba(34,197,94,0.2)' }}>{navStats.deliveredToday} Done Today</span>}
-              </>}
-              {(navStats.role === 'driver' || navStats.role === 'delivery_team') && <>
-                {navStats.assigned > 0 && <span style={{ fontSize:'11px', fontWeight:600, padding:'3px 9px', borderRadius:'999px', background:'rgba(59,130,246,0.12)', color:'#3b82f6', border:'1px solid rgba(59,130,246,0.2)' }}>{navStats.assigned} Assigned</span>}
-                {navStats.deliveredToday > 0 && <span style={{ fontSize:'11px', fontWeight:600, padding:'3px 9px', borderRadius:'999px', background:'rgba(34,197,94,0.12)', color:'#22c55e', border:'1px solid rgba(34,197,94,0.2)' }}>{navStats.deliveredToday} Done</span>}
-              </>}
-            </div>
-          )}
-
           {/* Nav links */}
           <nav style={{ flex:1, overflowY:'auto', padding:'10px' }}>
             {children}
           </nav>
-
-          {/* User info + sign out */}
+          {/* User info + actions */}
           <div style={{ padding:'14px 16px', borderTop:'1px solid var(--border)' }}>
             <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'12px' }}>
               <div style={{ width:'38px', height:'38px', borderRadius:'50%', background:'var(--primary)', overflow:'hidden', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', color:'white', fontWeight:700, fontSize:'13px' }}>
@@ -919,7 +868,7 @@ export default function Header({ isAdmin = false }) {
     );
   }
 
-  /* ──────────────────── Pill nav style ──────────────────── */
+  /* ── Pill nav style ── */
   const pillStyle = (active) => ({
     display:'inline-flex', alignItems:'center', gap:'5px',
     padding:'7px 14px', borderRadius:'999px', fontSize:'13px',
@@ -932,7 +881,7 @@ export default function Header({ isAdmin = false }) {
     whiteSpace:'nowrap', flexShrink:0,
   });
 
-  /* ──────────────────── ADMIN HEADER ──────────────────── */
+  /* ══════════════════════ ADMIN HEADER ══════════════════════ */
   if (isAdmin) {
     return (
       <>
@@ -955,39 +904,25 @@ export default function Header({ isAdmin = false }) {
                 style={{ filter: theme==='dark' ? 'none' : 'brightness(0) saturate(100%)' }} />
             </Link>
 
-            {/* Nav pills + Search Bar (desktop) */}
-            <nav className="nav-scroll h-full hidden md:flex" style={{ gap:'0', alignItems:'center', justifyContent:'flex-start' }}>
-              {/* Pills */}
-              <div style={{ display:'flex', alignItems:'center', gap:'2px', flexShrink:0 }}>
-                {ADMIN_NAV.map(item => (
-                  <NavLink key={item.path} to={item.path} end={item.exact}
-                    style={({ isActive }) => pillStyle(isActive)}
-                    onMouseEnter={e => { if (!isNavActive(item.path, item.exact)) Object.assign(e.currentTarget.style, onHover); }}
-                    onMouseLeave={e => { if (!isNavActive(item.path, item.exact)) Object.assign(e.currentTarget.style, offHover); }}>
-                    {item.label}
-                  </NavLink>
-                ))}
-              </div>
-
-              {/* Spacer */}
-              <div style={{ flex:1, minWidth:'12px' }} />
-
-              {/* AI Search Bar */}
-              <AISearchBar flex="1 1 200px" maxWidth="360px" />
-
-              {/* Spacer */}
-              <div style={{ width:'8px', flexShrink:0 }} />
+            {/* Nav pills — desktop */}
+            <nav className="hidden md:flex items-center shrink-0" style={{ gap:'2px', marginRight:'8px' }}>
+              {ADMIN_NAV.map(item => (
+                <NavLink key={item.path} to={item.path} end={item.exact}
+                  style={({ isActive }) => pillStyle(isActive)}
+                  onMouseEnter={e => { if (!isNavActive(item.path, item.exact)) Object.assign(e.currentTarget.style, onHover); }}
+                  onMouseLeave={e => { if (!isNavActive(item.path, item.exact)) Object.assign(e.currentTarget.style, offHover); }}>
+                  {item.label}
+                </NavLink>
+              ))}
             </nav>
 
+            {/* Search bar — centred, fills remaining space */}
+            <div className="hidden md:flex flex-1 items-center justify-center" style={{ minWidth:0, padding:'0 8px' }}>
+              <AISearchBar {...searchBarProps} flex="1 1 auto" maxWidth="400px" />
+            </div>
+
             {/* Right controls */}
-            <div style={{ display:'flex', alignItems:'center', gap:'4px', flexShrink:0, marginLeft:'auto' }}>
-
-              {/* Live stats chips (xl+) */}
-              <NavStatsChips />
-
-              {/* Separator */}
-              <div className="hidden xl:block" style={{ width:'1px', height:'20px', background:'var(--border)', margin:'0 4px', flexShrink:0 }} />
-
+            <div style={{ display:'flex', alignItems:'center', gap:'2px', flexShrink:0 }}>
               {/* Theme toggle */}
               <button onClick={toggleTheme} style={iconBtn}
                 title={theme==='dark' ? 'Light mode' : 'Dark mode'}
@@ -1013,7 +948,7 @@ export default function Header({ isAdmin = false }) {
               </div>
 
               {/* User pill */}
-              <div style={{ position:'relative', marginLeft:'4px' }} ref={dropdownRef}>
+              <div style={{ position:'relative', marginLeft:'6px' }} ref={dropdownRef}>
                 <button onClick={() => setShowDropdown(v => !v)} style={{
                   display:'flex', alignItems:'center', gap:'9px',
                   padding:'5px 12px 5px 5px', borderRadius:'999px',
@@ -1058,8 +993,7 @@ export default function Header({ isAdmin = false }) {
     );
   }
 
-
-  /* ──────────────────── NON-ADMIN HEADER (Driver / Delivery Team) ──────────────────── */
+  /* ══════════════════════ NON-ADMIN HEADER ══════════════════════ */
   const logoTo = user?.role === 'delivery_team' ? '/delivery-team' : '/driver';
 
   return (
@@ -1083,22 +1017,15 @@ export default function Header({ isAdmin = false }) {
               style={{ filter: theme==='dark' ? 'none' : 'brightness(0) saturate(100%)' }} />
           </Link>
 
-          {/* Search bar — fills centre space on desktop */}
+          {/* Search bar — centred, fills middle space */}
           <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', minWidth:0, padding:'0 12px' }}>
             <div className="hidden md:flex" style={{ width:'100%', maxWidth:'420px' }}>
-              <AISearchBar flex="1 1 auto" maxWidth="100%" />
+              <AISearchBar {...searchBarProps} flex="1 1 auto" maxWidth="100%" />
             </div>
           </div>
 
           {/* Right controls */}
-          <div style={{ display:'flex', alignItems:'center', gap:'4px', flexShrink:0 }}>
-
-            {/* Live stats chips */}
-            <NavStatsChips />
-
-            {/* Separator */}
-            <div className="hidden md:block" style={{ width:'1px', height:'20px', background:'var(--border)', margin:'0 4px', flexShrink:0 }} />
-
+          <div style={{ display:'flex', alignItems:'center', gap:'2px', flexShrink:0 }}>
             {/* Theme */}
             <button onClick={toggleTheme} style={iconBtn}
               title={theme==='dark' ? 'Light mode' : 'Dark mode'}
@@ -1125,7 +1052,7 @@ export default function Header({ isAdmin = false }) {
 
             {/* User pill */}
             {loggedIn && user ? (
-              <div style={{ position:'relative', marginLeft:'4px' }} ref={dropdownRef}>
+              <div style={{ position:'relative', marginLeft:'6px' }} ref={dropdownRef}>
                 <button onClick={() => setShowDropdown(v => !v)} style={{
                   display:'flex', alignItems:'center', gap:'9px',
                   padding:'5px 12px 5px 5px', borderRadius:'999px',
@@ -1175,7 +1102,6 @@ export default function Header({ isAdmin = false }) {
             </button>
           </div>
           <div style={{ padding:'24px', display:'flex', flexDirection:'column', gap:'20px' }}>
-            {/* Avatar */}
             <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'8px' }}>
               <div style={{ position:'relative' }}>
                 <div style={{ width:'80px', height:'80px', borderRadius:'50%', background:'var(--accent)', display:'flex', alignItems:'center', justifyContent:'center', color:'white', fontWeight:700, fontSize:'24px', overflow:'hidden', border:'3px solid var(--bg-hover)' }}>
