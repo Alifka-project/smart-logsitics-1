@@ -225,14 +225,36 @@ router.post('/search', async (req, res) => {
       navigationSuggested: navSuggestions.map(n => ({ label: n.label, path: n.path })),
     };
 
-    /* Fallback answer if OpenAI unavailable */
-    let answer = totalCount > 0
-      ? `Found ${totalCount} deliver${totalCount !== 1 ? 'ies' : 'y'}${drivers.length ? ` and ${drivers.length} driver${drivers.length !== 1 ? 's' : ''}` : ''} matching "${q}".`
-      : navSuggestions.length > 0
-        ? `I found ${navSuggestions.length} page${navSuggestions.length > 1 ? 's' : ''} that match your query. Click a result below to navigate.`
-        : userRole === 'admin'
-          ? `There are currently ${stPending} pending, ${stInTransit} in transit, and ${stDelivered} delivered orders (${stTotal} total).`
-          : `No matching records found for "${q}".`;
+    /* Fallback answer if OpenAI unavailable
+       Priority:
+       1) If there are text-matched deliveries/drivers → describe those.
+       2) Else if there are live stats → answer analytically from stats.
+       3) Else if there are navigation suggestions → mention pages.
+       4) Else → generic "no data" message.
+    */
+    let answer;
+    if (totalCount > 0 || drivers.length > 0) {
+      answer =
+        `Found ${totalCount} deliver${totalCount !== 1 ? 'ies' : 'y'}`
+        + (drivers.length ? ` and ${drivers.length} driver${drivers.length !== 1 ? 's' : ''}` : '')
+        + ` matching "${q}".`;
+    } else if (userRole === 'admin') {
+      answer =
+        `There are currently ${stPending} pending, ${stInTransit} in transit, `
+        + `${stDelivered} delivered and ${stCancelled} cancelled orders `
+        + `(${stTotal} total, ${stActiveDrivers} active drivers).`;
+    } else if (userRole !== 'admin') {
+      answer =
+        `You have ${liveStats.myPending} pending, ${liveStats.myInTransit} in transit `
+        + `and ${liveStats.myDelivered} delivered deliveries assigned to you `
+        + `(${liveStats.myTotal} total).`;
+    } else if (navSuggestions.length > 0) {
+      answer =
+        `I found ${navSuggestions.length} page${navSuggestions.length > 1 ? 's' : ''} `
+        + `that match your query. Open the most relevant page to investigate further.`;
+    } else {
+      answer = `No matching records found for "${q}".`;
+    }
 
     const openaiKey = process.env.OPENAI_API_KEY;
     if (openaiKey) {
