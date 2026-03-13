@@ -3,9 +3,7 @@ import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import { isAuthenticated, getCurrentUser, clearAuth } from '../../frontend/auth';
 import {
   LogOut, User, Settings, ChevronDown, Bell, Sun, Moon, X, Camera, Save, Menu,
-  Search, Sparkles, Users, Zap, Navigation, ArrowRight,
-  LayoutDashboard, Package, MapPin, Layers, Map, MessageSquare,
-  AlertTriangle, BarChart2,
+  Search, Sparkles, Users, Zap,
 } from 'lucide-react';
 import api from '../../frontend/apiClient';
 import { useToast } from '../../hooks/useToast';
@@ -21,10 +19,10 @@ const ADMIN_NAV = [
 ];
 
 const SEARCH_SUGGESTIONS = [
-  'How many pending orders?',
+  'Pending deliveries',
   'Out for delivery',
+  'Overdue deliveries',
   'Active drivers',
-  'Deliveries assigned to me',
 ];
 
 /* ─────────────────────────────────────────────────────────────
@@ -206,7 +204,6 @@ const AISearchBar = memo(function AISearchBar({
                 <div style={{ padding: '28px', textAlign: 'center', color: MUTED }}>
                   <Search size={28} style={{ margin: '0 auto 8px', opacity: 0.3 }} />
                   <p style={{ fontSize: '13px' }}>No records found for "{searchQuery}"</p>
-                  <p style={{ fontSize: '11px', marginTop: '6px', color: MUTED, opacity: 0.7 }}>Try different keywords or use the suggestions below</p>
                 </div>
               )}
             </>
@@ -217,12 +214,11 @@ const AISearchBar = memo(function AISearchBar({
             <div style={{ padding: '14px' }}>
               <p style={{ fontSize: '11px', fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', padding: '0 4px' }}>Try asking…</p>
               {SEARCH_SUGGESTIONS.map(s => (
-                <button
-                  key={s}
+                <button key={s}
                   onClick={() => triggerSuggestion(s)}
                   style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', textAlign: 'left', padding: '8px 12px', borderRadius: '8px', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '13px', color: 'var(--text2)', marginBottom: '2px' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
                   <Zap size={12} style={{ color: MUTED, flexShrink: 0 }} />
                   {s}
@@ -569,10 +565,7 @@ export default function Header({ isAdmin = false }) {
     setSearchQuery('');
     setSearchResults(null);
     const role = user?.role || user?.account?.role || 'driver';
-    if (type === 'nav') {
-      // Direct navigation to a system page/tab
-      navigate(result.path);
-    } else if (type === 'delivery') {
+    if (type === 'delivery') {
       if (role === 'admin') navigate(`/admin?tab=deliveries&delivery=${result.id}&viewAll=1`);
       else if (role === 'delivery_team') navigate(`/delivery-team?tab=control&delivery=${result.id}`);
       else navigate('/driver?tab=deliveries');
@@ -894,7 +887,7 @@ export default function Header({ isAdmin = false }) {
       <>
         <header className="min-h-[64px] md:min-h-[76px] sticky top-0 z-[900] shrink-0"
           style={{ background:'var(--bg)', paddingTop:'env(safe-area-inset-top, 0px)' }}>
-          <div className="header-inner" style={{ position: 'relative' }}>
+          <div className="header-inner">
 
             {/* Hamburger — mobile only */}
             <button className="flex md:hidden items-center justify-center shrink-0 mr-2"
@@ -904,16 +897,15 @@ export default function Header({ isAdmin = false }) {
               <Menu size={20} />
             </button>
 
-            {/* Logo — left anchor */}
+            {/* Logo */}
             <Link to="/admin" className="flex items-center shrink-0 mr-3 md:mr-4" style={{ textDecoration:'none' }}>
               <img src="/elect home.png" alt="Electrolux"
                 className="h-8 w-auto md:h-[34px] object-contain block"
                 style={{ filter: theme==='dark' ? 'none' : 'brightness(0) saturate(100%)' }} />
             </Link>
 
-            {/* Nav pills — absolutely centered in the full header width */}
-            <nav className="hidden md:flex items-center"
-              style={{ position:'absolute', left:'50%', transform:'translateX(-50%)', gap:'2px', zIndex: 1 }}>
+            {/* Nav pills — desktop */}
+            <nav className="hidden md:flex items-center shrink-0" style={{ gap:'2px', marginRight:'8px' }}>
               {ADMIN_NAV.map(item => (
                 <NavLink key={item.path} to={item.path} end={item.exact}
                   style={({ isActive }) => pillStyle(isActive)}
