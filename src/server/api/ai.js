@@ -52,6 +52,9 @@ const NAVIGATION_MAP = [
       'delivery tracking', 'track delivery', 'track order',
       'delivery map', 'delivery location', 'where is my order',
       'order tracking', 'check delivery status', 'how to check delivery status',
+      'map', 'maps', 'live map', 'driver map', 'tracking map',
+      'see map', 'see maps', 'view map', 'view maps',
+      'how to see map', 'how to see maps',
     ],
     roles:       ['admin'],
   },
@@ -445,7 +448,8 @@ router.post('/search', async (req, res) => {
                   'Rules:\n' +
                   '• For counting/analytical questions ("how many pending", "total deliveries") → use liveStats numbers.\n' +
                   '• For record lookups ("find customer X", "delivery to Marina") → use matchingDeliveries.\n' +
-                  '• For navigation questions ("where is tracking", "how to see reports", "how to check delivery status") → explicitly mention the best page name and path using navigationSuggested.\n' +
+                  '• For navigation questions ("where is tracking", "how to see reports", "how to check delivery status", "how to see maps") → explicitly mention the best page name and path using navigationSuggested.\n' +
+                  '  If the query starts with "how", "where" or "show me" and navigationSuggested is not empty, focus on navigation instructions and only mention counts when the user clearly asks "how many".\n' +
                   '• When dateRange is present, make clear which period you are talking about (e.g. "For the last 7 days").\n' +
                   '• Always answer in 1-2 concise sentences. Include exact numbers when available. Be direct and actionable, e.g. "For the last 7 days there are 79 pending deliveries. To see details, open Operations → Delivery Tracking."',
               },
