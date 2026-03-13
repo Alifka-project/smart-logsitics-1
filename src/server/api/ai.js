@@ -20,7 +20,11 @@ const NAVIGATION_MAP = [
     path:        '/deliveries',
     description: 'Full delivery list — upload files, search, filter and manage orders',
     icon:        'Package',
-    keywords:    ['deliveries', 'delivery list', 'orders', 'upload', 'shipment', 'manage deliveries', 'delivery management', 'all deliveries'],
+    keywords:    [
+      'deliveries', 'delivery list', 'orders', 'upload', 'shipment',
+      'manage deliveries', 'delivery management', 'all deliveries',
+      'check delivery status', 'see status', 'view status', 'order status',
+    ],
     roles:       ['admin', 'driver', 'delivery_team'],
   },
   {
@@ -44,7 +48,11 @@ const NAVIGATION_MAP = [
     path:        '/admin/operations?tab=delivery-tracking',
     description: 'Track individual deliveries on an interactive map',
     icon:        'Map',
-    keywords:    ['delivery tracking', 'track delivery', 'track order', 'delivery map', 'delivery location', 'where is my order', 'order tracking'],
+    keywords:    [
+      'delivery tracking', 'track delivery', 'track order',
+      'delivery map', 'delivery location', 'where is my order',
+      'order tracking', 'check delivery status', 'how to check delivery status',
+    ],
     roles:       ['admin'],
   },
   {
@@ -239,10 +247,14 @@ router.post('/search', async (req, res) => {
         + (drivers.length ? ` and ${drivers.length} driver${drivers.length !== 1 ? 's' : ''}` : '')
         + ` matching "${q}".`;
     } else if (userRole === 'admin') {
+      const guide = navSuggestions[0]
+        ? ` To investigate statuses in detail, open “${navSuggestions[0].label}” from the top navigation.`
+        : '';
       answer =
         `There are currently ${stPending} pending, ${stInTransit} in transit, `
         + `${stDelivered} delivered and ${stCancelled} cancelled orders `
-        + `(${stTotal} total, ${stActiveDrivers} active drivers).`;
+        + `(${stTotal} total, ${stActiveDrivers} active drivers).`
+        + guide;
     } else if (userRole !== 'admin') {
       answer =
         `You have ${liveStats.myPending} pending, ${liveStats.myInTransit} in transit `
@@ -273,8 +285,8 @@ router.post('/search', async (req, res) => {
                   'Rules:\n' +
                   '• For counting/analytical questions ("how many pending", "total deliveries") → use liveStats numbers.\n' +
                   '• For record lookups ("find customer X", "delivery to Marina") → use matchingDeliveries.\n' +
-                  '• For navigation questions ("where is tracking", "how to see reports") → reference the navigationSuggested pages.\n' +
-                  '• Answer in 1-2 concise sentences. Include exact numbers. Be direct and actionable.',
+                  '• For navigation questions ("where is tracking", "how to see reports", "how to check delivery status") → explicitly mention the best page name and path using navigationSuggested.\n' +
+                  '• Always answer in 1-2 concise sentences. Include exact numbers when available. Be direct and actionable, e.g. "There are 79 pending deliveries. To see details, open Operations → Delivery Tracking."',
               },
               {
                 role: 'user',
