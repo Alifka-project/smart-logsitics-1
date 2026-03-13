@@ -210,7 +210,9 @@ async function confirmDelivery(token, deliveryDate) {
         payload: {
           confirmedAt: new Date().toISOString(),
           selectedDate: deliveryDate.toISOString(),
-          token: token.substring(0, 8) + '...' // masked for security
+          token: token.substring(0, 8) + '...', // masked for security
+          customerName: delivery.customer || null,
+          customerPhone: delivery.phone || null
         },
         actorType: 'customer'
       }

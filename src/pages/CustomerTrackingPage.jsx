@@ -369,11 +369,28 @@ export default function CustomerTrackingPage() {
                       {new Date(event.timestamp).toLocaleString()}
                     </p>
                     {event.details && (
-                      <p className="text-sm text-gray-700 mt-1 bg-gray-50 p-2 rounded">
-                        {typeof event.details === 'object' 
-                          ? JSON.stringify(event.details, null, 2) 
-                          : event.details}
-                      </p>
+                      <div className="text-sm text-gray-700 mt-1 bg-gray-50 p-2 rounded whitespace-pre-wrap">
+                        {event.type === 'customer_confirmed' && typeof event.details === 'object' ? (
+                          <>
+                            <p>
+                              Customer{event.details.customerName ? ` ${event.details.customerName}` : ''} 
+                              {' '}confirmed the delivery
+                              {event.details.selectedDate
+                                ? ` for ${new Date(event.details.selectedDate).toLocaleDateString()}`
+                                : ''}.
+                            </p>
+                            {event.details.customerPhone && (
+                              <p className="mt-1">Phone: {event.details.customerPhone}</p>
+                            )}
+                          </>
+                        ) : (
+                          <p>
+                            {typeof event.details === 'object'
+                              ? JSON.stringify(event.details, null, 2)
+                              : event.details}
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
