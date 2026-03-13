@@ -1,14 +1,133 @@
 const express = require('express');
-const router = express.Router();
-const prisma = require('../db/prisma');
+const router  = express.Router();
+const prisma  = require('../db/prisma');
 
-/* ─── POST /api/ai/search ─────────────────────────────────────
-   AI-powered global search: queries DB then calls OpenAI for
-   a natural-language summary and ranked results.
+/* ─── Navigation map ─────────────────────────────────────────
+   Each entry describes a page/feature, the URL to reach it,
+   synonyms a user might type, and which roles can see it.
    ──────────────────────────────────────────────────────────── */
+const NAVIGATION_MAP = [
+  {
+    label:       'Dashboard',
+    path:        '/admin',
+    description: 'Main overview — KPIs, delivery charts and today\'s live stats',
+    icon:        'LayoutDashboard',
+    keywords:    ['dashboard', 'home', 'overview', 'summary', 'kpi', 'main page', 'start'],
+    roles:       ['admin'],
+  },
+  {
+    label:       'Deliveries',
+    path:        '/deliveries',
+    description: 'Full delivery list — upload files, search, filter and manage orders',
+    icon:        'Package',
+    keywords:    ['deliveries', 'delivery list', 'orders', 'upload', 'shipment', 'manage deliveries', 'delivery management', 'all deliveries'],
+    roles:       ['admin', 'driver', 'delivery_team'],
+  },
+  {
+    label:       'Driver Monitoring',
+    path:        '/admin/operations?tab=monitoring',
+    description: 'Live map showing real-time GPS locations of all active drivers',
+    icon:        'MapPin',
+    keywords:    ['monitoring', 'tracking', 'live map', 'gps', 'driver location', 'truck', 'vehicle', 'real-time', 'live tracking', 'where is driver', 'driver tracking', 'track driver', 'truck monitoring', 'fleet'],
+    roles:       ['admin'],
+  },
+  {
+    label:       'Delivery Control',
+    path:        '/admin/operations?tab=control',
+    description: 'Assign drivers to deliveries, update statuses and dispatch orders',
+    icon:        'Layers',
+    keywords:    ['control', 'assign', 'assignment', 'dispatch', 'manage driver', 'delivery control', 'allocate', 'route'],
+    roles:       ['admin'],
+  },
+  {
+    label:       'Delivery Tracking',
+    path:        '/admin/operations?tab=delivery-tracking',
+    description: 'Track individual deliveries on an interactive map',
+    icon:        'Map',
+    keywords:    ['delivery tracking', 'track delivery', 'track order', 'delivery map', 'delivery location', 'where is my order', 'order tracking'],
+    roles:       ['admin'],
+  },
+  {
+    label:       'Communication',
+    path:        '/admin/operations?tab=communication',
+    description: 'Chat and messaging with drivers and the delivery team',
+    icon:        'MessageSquare',
+    keywords:    ['communication', 'chat', 'message', 'messaging', 'talk', 'contact driver', 'inbox', 'send message'],
+    roles:       ['admin', 'delivery_team'],
+  },
+  {
+    label:       'Alerts',
+    path:        '/admin/operations?tab=alerts',
+    description: 'System alerts — overdue deliveries, unconfirmed SMS, and warnings',
+    icon:        'AlertTriangle',
+    keywords:    ['alerts', 'alert', 'notifications', 'overdue', 'warning', 'issue', 'problem', 'unconfirmed', 'sms alert'],
+    roles:       ['admin'],
+  },
+  {
+    label:       'Reports',
+    path:        '/admin/reports',
+    description: 'Analytics reports — delivery performance, driver stats, area coverage',
+    icon:        'BarChart2',
+    keywords:    ['reports', 'report', 'performance', 'analytics', 'statistics', 'charts', 'insights', 'data'],
+    roles:       ['admin'],
+  },
+  {
+    label:       'POD Report',
+    path:        '/admin/reports/pod',
+    description: 'Proof of Delivery reports — signatures, photos and delivery evidence',
+    icon:        'BarChart2',
+    keywords:    ['pod', 'proof of delivery', 'evidence', 'signature', 'photo proof', 'delivery proof', 'pod report'],
+    roles:       ['admin'],
+  },
+  {
+    label:       'Users & Drivers',
+    path:        '/admin/users',
+    description: 'Manage users — add or edit drivers, delivery team members and admins',
+    icon:        'Users',
+    keywords:    ['users', 'user management', 'add driver', 'create driver', 'drivers', 'team', 'staff', 'employee', 'accounts', 'add user', 'manage user'],
+    roles:       ['admin'],
+  },
+  {
+    label:       'Operations Centre',
+    path:        '/admin/operations',
+    description: 'Operations hub — monitoring, control, tracking, communication and alerts',
+    icon:        'Layers',
+    keywords:    ['operations', 'operations centre', 'operations center', 'ops'],
+    roles:       ['admin'],
+  },
+];
+
+/* Score a navigation entry against a query */
+function findNavSuggestions(query, userRole) {
+  const q = query.toLowerCase();
+  return NAVIGATION_MAP
+    .filter(n => n.roles.includes(userRole))
+    .map(n => {
+      let score = 0;
+      for (const kw of n.keywords) {
+        if (q.includes(kw)) score += kw.split(' ').length * 10; // multi-word matches score higher
+      }
+      // Also partial word matches (single word keywords)
+      if (score === 0) {
+        for (const kw of n.keywords) {
+          const parts = kw.split(' ');
+          for (const p of parts) {
+            if (p.length > 3 && q.includes(p)) score += 3;
+          }
+        }
+      }
+      return { ...n, score };
+    })
+    .filter(n => n.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .map(({ score: _s, keywords: _k, roles: _r, ...rest }) => rest); // strip scoring internals
+}
+
+/* ─── POST /api/ai/search ────────────────────────────────────── */
 router.post('/search', async (req, res) => {
   const { query } = req.body || {};
-  if (!query?.trim()) return res.json({ answer: '', results: [], drivers: [] });
+  if (!query?.trim()) return res.json({ answer: '', results: [], drivers: [], navSuggestions: [] });
 
   try {
     const user     = req.user;
@@ -16,13 +135,16 @@ router.post('/search', async (req, res) => {
     const driverId = user?.sub;
     const q        = query.trim();
 
+    /* Navigation suggestions (deterministic keyword match) */
+    const navSuggestions = findNavSuggestions(q, userRole);
+
     const deliveryWhere = {
       OR: [
-        { customer:  { contains: q, mode: 'insensitive' } },
-        { address:   { contains: q, mode: 'insensitive' } },
-        { status:    { contains: q, mode: 'insensitive' } },
-        { poNumber:  { contains: q, mode: 'insensitive' } },
-        { items:     { contains: q, mode: 'insensitive' } },
+        { customer: { contains: q, mode: 'insensitive' } },
+        { address:  { contains: q, mode: 'insensitive' } },
+        { status:   { contains: q, mode: 'insensitive' } },
+        { poNumber: { contains: q, mode: 'insensitive' } },
+        { items:    { contains: q, mode: 'insensitive' } },
       ],
     };
 
@@ -35,8 +157,7 @@ router.post('/search', async (req, res) => {
     let drivers    = [];
     let totalCount = 0;
 
-    // Always fetch live aggregate stats so the AI can answer analytical
-    // questions (e.g. "how many pending orders?") regardless of text matches.
+    /* Aggregate stats — always fetched for analytical queries */
     const statsP = userRole === 'admin'
       ? Promise.all([
           prisma.delivery.count(),
@@ -55,13 +176,12 @@ router.post('/search', async (req, res) => {
           Promise.resolve(0), Promise.resolve(0), Promise.resolve(0),
         ]);
 
+    /* Text-match records */
     if (userRole === 'admin') {
       [deliveries, drivers, totalCount] = await Promise.all([
         prisma.delivery.findMany({
-          where: deliveryWhere,
-          take: 10,
-          orderBy: { createdAt: 'desc' },
-          select: deliverySelect,
+          where: deliveryWhere, take: 10,
+          orderBy: { createdAt: 'desc' }, select: deliverySelect,
         }),
         prisma.driver.findMany({
           where: {
@@ -73,91 +193,74 @@ router.post('/search', async (req, res) => {
             ],
           },
           take: 5,
-          select: {
-            id: true, fullName: true, username: true,
-            email: true, active: true, phone: true,
-          },
+          select: { id: true, fullName: true, username: true, email: true, active: true, phone: true },
         }),
         prisma.delivery.count({ where: deliveryWhere }),
       ]);
     } else {
-      const assignedWhere = {
-        assignments: { some: { driverId } },
-        ...deliveryWhere,
-      };
+      const assignedWhere = { assignments: { some: { driverId } }, ...deliveryWhere };
       [deliveries, totalCount] = await Promise.all([
         prisma.delivery.findMany({
-          where: assignedWhere,
-          take: 10,
-          orderBy: { createdAt: 'desc' },
-          select: deliverySelect,
+          where: assignedWhere, take: 10,
+          orderBy: { createdAt: 'desc' }, select: deliverySelect,
         }),
         prisma.delivery.count({ where: assignedWhere }),
       ]);
     }
 
-    // Resolve aggregate stats in parallel with the text-match query
-    const [statTotal, statPending, statInTransit, statDelivered, statCancelled, statActiveDrivers, statTotalDrivers] = await statsP;
+    const [stTotal, stPending, stInTransit, stDelivered, stCancelled, stActiveDrivers, stTotalDrivers] = await statsP;
 
     const liveStats = userRole === 'admin'
-      ? { totalDeliveries: statTotal, pending: statPending, inTransit: statInTransit, delivered: statDelivered, cancelled: statCancelled, activeDrivers: statActiveDrivers, totalDrivers: statTotalDrivers }
-      : { myTotal: statTotal, myPending: statPending, myInTransit: statInTransit, myDelivered: statDelivered };
+      ? { totalDeliveries: stTotal, pending: stPending, inTransit: stInTransit, delivered: stDelivered, cancelled: stCancelled, activeDrivers: stActiveDrivers, totalDrivers: stTotalDrivers }
+      : { myTotal: stTotal, myPending: stPending, myInTransit: stInTransit, myDelivered: stDelivered };
 
-    // Build a compact context snapshot for the AI
+    /* OpenAI context */
     const ctx = {
       role: userRole,
       query: q,
       liveStats,
       textMatchCount: totalCount,
-      matchingDeliveries: deliveries.slice(0, 5).map(d => ({
-        customer: d.customer,
-        address:  d.address,
-        status:   d.status,
-        po:       d.poNumber,
-      })),
-      matchingDrivers: drivers.slice(0, 3).map(d => ({
-        name:   d.fullName || d.username,
-        email:  d.email,
-        active: d.active,
-      })),
+      matchingDeliveries: deliveries.slice(0, 5).map(d => ({ customer: d.customer, address: d.address, status: d.status, po: d.poNumber })),
+      matchingDrivers: drivers.slice(0, 3).map(d => ({ name: d.fullName || d.username, email: d.email, active: d.active })),
+      navigationSuggested: navSuggestions.map(n => ({ label: n.label, path: n.path })),
     };
 
-    // Default fallback answer when OpenAI is unavailable
-    let answer =
-      totalCount > 0
-        ? `Found ${totalCount} deliver${totalCount !== 1 ? 'ies' : 'y'}${drivers.length ? ` and ${drivers.length} driver${drivers.length !== 1 ? 's' : ''}` : ''} matching "${q}".`
+    /* Fallback answer if OpenAI unavailable */
+    let answer = totalCount > 0
+      ? `Found ${totalCount} deliver${totalCount !== 1 ? 'ies' : 'y'}${drivers.length ? ` and ${drivers.length} driver${drivers.length !== 1 ? 's' : ''}` : ''} matching "${q}".`
+      : navSuggestions.length > 0
+        ? `I found ${navSuggestions.length} page${navSuggestions.length > 1 ? 's' : ''} that match your query. Click a result below to navigate.`
         : userRole === 'admin'
-          ? `There are currently ${statPending} pending, ${statInTransit} in transit, and ${statDelivered} delivered orders (${statTotal} total).`
-          : `No matching deliveries found for "${q}".`;
+          ? `There are currently ${stPending} pending, ${stInTransit} in transit, and ${stDelivered} delivered orders (${stTotal} total).`
+          : `No matching records found for "${q}".`;
 
     const openaiKey = process.env.OPENAI_API_KEY;
     if (openaiKey) {
       try {
         const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${openaiKey}`,
-          },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openaiKey}` },
           body: JSON.stringify({
             model: 'gpt-4o-mini',
             messages: [
               {
                 role: 'system',
                 content:
-                  'You are an AI assistant for Electrolux Logistics — a Dubai-based delivery management system. ' +
-                  'You have access to live system stats (liveStats) AND text-matched records (matchingDeliveries, matchingDrivers). ' +
-                  'For analytical/counting questions (e.g. "how many pending", "total deliveries") use liveStats. ' +
-                  'For lookup questions (e.g. "find John", "delivery to Marina") use matchingDeliveries/matchingDrivers. ' +
-                  'Answer in 1-2 concise sentences. Include exact numbers. Be direct and actionable.',
+                  'You are an AI assistant for Electrolux Logistics — a Dubai-based delivery management system.\n' +
+                  'You have access to: (1) live system stats in liveStats, (2) text-matched records in matchingDeliveries/matchingDrivers, (3) navigation suggestions in navigationSuggested.\n' +
+                  'Rules:\n' +
+                  '• For counting/analytical questions ("how many pending", "total deliveries") → use liveStats numbers.\n' +
+                  '• For record lookups ("find customer X", "delivery to Marina") → use matchingDeliveries.\n' +
+                  '• For navigation questions ("where is tracking", "how to see reports") → reference the navigationSuggested pages.\n' +
+                  '• Answer in 1-2 concise sentences. Include exact numbers. Be direct and actionable.',
               },
               {
                 role: 'user',
                 content: `Query: "${q}"\n\nData: ${JSON.stringify(ctx)}\n\nAnswer concisely using the most relevant data above.`,
               },
             ],
-            max_tokens: 140,
-            temperature: 0.3,
+            max_tokens: 150,
+            temperature: 0.25,
           }),
         });
         const aiData = await aiRes.json();
@@ -169,24 +272,20 @@ router.post('/search', async (req, res) => {
       }
     }
 
-    res.json({ answer, results: deliveries, drivers, totalCount });
+    res.json({ answer, results: deliveries, drivers, totalCount, navSuggestions });
   } catch (err) {
     console.error('[AI Search] Error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
 
-/* ─── GET /api/ai/navbar-stats ────────────────────────────────
-   Returns live delivery/driver counts for the top navbar chips.
-   Lightweight — intentionally no heavy joins.
-   ──────────────────────────────────────────────────────────── */
+/* ─── GET /api/ai/navbar-stats ──────────────────────────────── */
 router.get('/navbar-stats', async (req, res) => {
   try {
     const user     = req.user;
     const userRole = user?.role || 'driver';
     const driverId = user?.sub;
-
-    const today = new Date();
+    const today    = new Date();
     today.setHours(0, 0, 0, 0);
 
     if (userRole === 'admin') {
@@ -194,9 +293,7 @@ router.get('/navbar-stats', async (req, res) => {
         prisma.delivery.count(),
         prisma.delivery.count({ where: { status: 'pending' } }),
         prisma.delivery.count({ where: { status: 'out-for-delivery' } }),
-        prisma.delivery.count({
-          where: { status: 'delivered', deliveredAt: { gte: today } },
-        }),
+        prisma.delivery.count({ where: { status: 'delivered', deliveredAt: { gte: today } } }),
         prisma.driver.count({ where: { active: true } }),
       ]);
       return res.json({ role: 'admin', total, pending, inTransit, deliveredToday, activeDrivers });
@@ -205,16 +302,10 @@ router.get('/navbar-stats', async (req, res) => {
     if (userRole === 'driver' || userRole === 'delivery_team') {
       const [assigned, deliveredToday] = await Promise.all([
         prisma.deliveryAssignment.count({
-          where: {
-            driverId,
-            delivery: { status: { notIn: ['delivered', 'cancelled'] } },
-          },
+          where: { driverId, delivery: { status: { notIn: ['delivered', 'cancelled'] } } },
         }),
         prisma.deliveryAssignment.count({
-          where: {
-            driverId,
-            delivery: { status: 'delivered', deliveredAt: { gte: today } },
-          },
+          where: { driverId, delivery: { status: 'delivered', deliveredAt: { gte: today } } },
         }),
       ]);
       return res.json({ role: userRole, assigned, deliveredToday });
@@ -227,7 +318,7 @@ router.get('/navbar-stats', async (req, res) => {
   }
 });
 
-/* ─── POST /api/ai/optimize (stub) ──────────────────────────── */
+/* ─── POST /api/ai/optimize (stub) ─────────────────────────── */
 router.post('/optimize', async (_req, res) => {
   res.status(501).json({ error: 'not_implemented' });
 });

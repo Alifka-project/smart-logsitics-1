@@ -3,7 +3,9 @@ import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import { isAuthenticated, getCurrentUser, clearAuth } from '../../frontend/auth';
 import {
   LogOut, User, Settings, ChevronDown, Bell, Sun, Moon, X, Camera, Save, Menu,
-  Search, Sparkles, Users, Zap,
+  Search, Sparkles, Users, Zap, Navigation, ArrowRight,
+  LayoutDashboard, Package, MapPin, Layers, Map, MessageSquare,
+  AlertTriangle, BarChart2,
 } from 'lucide-react';
 import api from '../../frontend/apiClient';
 import { useToast } from '../../hooks/useToast';
@@ -19,10 +21,12 @@ const ADMIN_NAV = [
 ];
 
 const SEARCH_SUGGESTIONS = [
-  'Pending deliveries',
-  'Out for delivery',
-  'Overdue deliveries',
-  'Active drivers',
+  { text: 'How many pending orders?',      icon: 'data' },
+  { text: 'Where is tracking monitoring?', icon: 'nav'  },
+  { text: 'Out for delivery',              icon: 'data' },
+  { text: 'Where can I see reports?',      icon: 'nav'  },
+  { text: 'Active drivers',               icon: 'data' },
+  { text: 'Where is the communication?',  icon: 'nav'  },
 ];
 
 /* ─────────────────────────────────────────────────────────────
@@ -55,6 +59,16 @@ const AISearchBar = memo(function AISearchBar({
     if (st === 'pending')          return { bg: 'rgba(249,115,22,0.12)', color: '#f97316' };
     if (st === 'cancelled')        return { bg: 'rgba(239,68,68,0.10)',  color: '#ef4444' };
     return { bg: 'rgba(156,163,196,0.12)', color: MUTED };
+  };
+
+  /* Map icon name strings from server → lucide components */
+  const NAV_ICONS = {
+    LayoutDashboard, Package, MapPin, Layers, Map,
+    MessageSquare, AlertTriangle, BarChart2, Users,
+  };
+  const NavIcon = ({ name, size = 14 }) => {
+    const Ic = NAV_ICONS[name] || Navigation;
+    return <Ic size={size} />;
   };
 
   return (
@@ -200,10 +214,45 @@ const AISearchBar = memo(function AISearchBar({
                 </div>
               )}
 
-              {(!searchResults.results?.length && !searchResults.drivers?.length) && (
+              {/* Navigation suggestions */}
+              {searchResults.navSuggestions?.length > 0 && (
+                <div style={{ borderTop: searchResults.results?.length || searchResults.drivers?.length ? '1px solid var(--border)' : 'none' }}>
+                  <div style={{ padding: '9px 16px 4px', fontSize: '11px', fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Navigation size={11} /> Navigate To
+                  </div>
+                  {searchResults.navSuggestions.map(nav => (
+                    <div key={nav.path}
+                      onClick={() => handleResultClick(nav, 'nav')}
+                      style={{ padding: '11px 16px', cursor: 'pointer', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '12px', transition: 'background 0.1s' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                      {/* Page icon */}
+                      <div style={{ width: '34px', height: '34px', borderRadius: '9px', background: 'var(--primary-glow)', border: '1px solid var(--primary-glow)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <span style={{ color: 'var(--primary)' }}>
+                          <NavIcon name={nav.icon} size={15} />
+                        </span>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>{nav.label}</p>
+                        <p style={{ fontSize: '11px', color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '1px' }}>{nav.description}</p>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                        <span style={{ fontSize: '10px', fontWeight: 600, padding: '2px 7px', borderRadius: '999px', background: 'var(--primary-glow)', color: 'var(--primary)', whiteSpace: 'nowrap' }}>
+                          Go there
+                        </span>
+                        <ArrowRight size={13} style={{ color: 'var(--primary)' }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {(!searchResults.results?.length && !searchResults.drivers?.length && !searchResults.navSuggestions?.length) && (
                 <div style={{ padding: '28px', textAlign: 'center', color: MUTED }}>
                   <Search size={28} style={{ margin: '0 auto 8px', opacity: 0.3 }} />
                   <p style={{ fontSize: '13px' }}>No records found for "{searchQuery}"</p>
+                  <p style={{ fontSize: '11px', marginTop: '6px', color: MUTED, opacity: 0.7 }}>Try different keywords or use the suggestions below</p>
                 </div>
               )}
             </>
@@ -214,14 +263,20 @@ const AISearchBar = memo(function AISearchBar({
             <div style={{ padding: '14px' }}>
               <p style={{ fontSize: '11px', fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', padding: '0 4px' }}>Try asking…</p>
               {SEARCH_SUGGESTIONS.map(s => (
-                <button key={s}
-                  onClick={() => triggerSuggestion(s)}
+                <button key={s.text}
+                  onClick={() => triggerSuggestion(s.text)}
                   style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', textAlign: 'left', padding: '8px 12px', borderRadius: '8px', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '13px', color: 'var(--text2)', marginBottom: '2px' }}
                   onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
-                  <Zap size={12} style={{ color: MUTED, flexShrink: 0 }} />
-                  {s}
+                  {s.icon === 'nav'
+                    ? <Navigation size={12} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+                    : <Zap size={12} style={{ color: MUTED, flexShrink: 0 }} />
+                  }
+                  {s.text}
+                  {s.icon === 'nav' && (
+                    <span style={{ marginLeft: 'auto', fontSize: '10px', padding: '1px 6px', borderRadius: '999px', background: 'var(--primary-glow)', color: 'var(--primary)', fontWeight: 600 }}>Guide</span>
+                  )}
                 </button>
               ))}
             </div>
@@ -565,7 +620,10 @@ export default function Header({ isAdmin = false }) {
     setSearchQuery('');
     setSearchResults(null);
     const role = user?.role || user?.account?.role || 'driver';
-    if (type === 'delivery') {
+    if (type === 'nav') {
+      // Direct navigation to a system page/tab
+      navigate(result.path);
+    } else if (type === 'delivery') {
       if (role === 'admin') navigate(`/admin?tab=deliveries&delivery=${result.id}&viewAll=1`);
       else if (role === 'delivery_team') navigate(`/delivery-team?tab=control&delivery=${result.id}`);
       else navigate('/driver?tab=deliveries');
