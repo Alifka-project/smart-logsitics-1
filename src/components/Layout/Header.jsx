@@ -29,20 +29,6 @@ const SEARCH_SUGGESTIONS = [
   { text: 'Where is the communication?',  icon: 'nav'  },
 ];
 
-/* ─── Navigation icon map ─────────────────────────────────────
-   Defined at module scope (static, never recreated on re-render).
-   Maps the icon name strings returned by the server to lucide
-   components. NavIcon is a stable function component reference.
-   ───────────────────────────────────────────────────────────── */
-const _NAV_ICONS = {
-  LayoutDashboard, Package, MapPin, Layers, Map,
-  MessageSquare, AlertTriangle, BarChart2, Users,
-};
-function NavIcon({ name, size = 14 }) {
-  const Ic = _NAV_ICONS[name] || Navigation;
-  return <Ic size={size} />;
-}
-
 /* ─────────────────────────────────────────────────────────────
    AISearchBar — defined OUTSIDE Header so React never unmounts
    it on re-render (avoids the "loses focus after one key" bug).
@@ -73,6 +59,21 @@ const AISearchBar = memo(function AISearchBar({
     if (st === 'pending')          return { bg: 'rgba(249,115,22,0.12)', color: '#f97316' };
     if (st === 'cancelled')        return { bg: 'rgba(239,68,68,0.10)',  color: '#ef4444' };
     return { bg: 'rgba(156,163,196,0.12)', color: MUTED };
+  };
+
+  const renderNavIcon = (label, size = 15) => {
+    const commonProps = { size };
+    const lower = (label || '').toLowerCase();
+    if (lower.includes('dashboard')) return <LayoutDashboard {...commonProps} />;
+    if (lower.includes('deliveries')) return <Package {...commonProps} />;
+    if (lower.includes('monitoring')) return <MapPin {...commonProps} />;
+    if (lower.includes('delivery tracking')) return <Map {...commonProps} />;
+    if (lower.includes('communication')) return <MessageSquare {...commonProps} />;
+    if (lower.includes('alerts')) return <AlertTriangle {...commonProps} />;
+    if (lower.includes('reports')) return <BarChart2 {...commonProps} />;
+    if (lower.includes('users')) return <Users {...commonProps} />;
+    if (lower.includes('operations')) return <Layers {...commonProps} />;
+    return <Navigation {...commonProps} />;
   };
 
   return (
@@ -234,7 +235,7 @@ const AISearchBar = memo(function AISearchBar({
                       {/* Page icon */}
                       <div style={{ width: '34px', height: '34px', borderRadius: '9px', background: 'var(--primary-glow)', border: '1px solid var(--primary-glow)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <span style={{ color: 'var(--primary)' }}>
-                          <NavIcon name={nav.icon} size={15} />
+                          {renderNavIcon(nav.label, 15)}
                         </span>
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
