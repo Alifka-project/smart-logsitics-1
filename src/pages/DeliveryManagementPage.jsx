@@ -211,8 +211,8 @@ export default function DeliveryManagementPage() {
         </div>
       </div>
 
-      {/* Tab Navigation - horizontal scroll on small screens */}
-      <div className="border-b border-gray-200 dark:border-gray-700 -mx-2 px-2 sm:mx-0 sm:px-0 overflow-x-auto">
+      {/* Tab Navigation - bigger gap above (from header) and below (to content) on desktop */}
+      <div className="border-b border-gray-200 dark:border-gray-700 -mx-2 px-2 sm:mx-0 sm:px-0 overflow-x-auto mt-4 md:mt-6 mb-4 md:mb-6">
         <nav className="flex space-x-6 sm:space-x-8 min-w-max sm:min-w-0">
           {tabs.map((tab) => {
             const Icon = tab.icon;
@@ -437,10 +437,10 @@ export default function DeliveryManagementPage() {
                 </button>
               </div>
 
-              {/* Container: stacked on mobile (one panel at a time), split on desktop; responsive height */}
+              {/* Container: maximize height to fill viewport and remove bottom gap (desktop) */}
               <div
-                className="flex flex-col md:flex-row gap-3 sm:gap-4 items-stretch md:items-start flex-1 min-h-0 min-h-[320px] sm:min-h-[400px] md:min-h-[460px]"
-                style={{ height: 'calc(100vh - 280px)' }}
+                className="flex flex-col md:flex-row gap-3 sm:gap-4 items-stretch md:items-start flex-1 min-h-0 min-h-[320px] sm:min-h-[400px] md:min-h-[420px]"
+                style={{ height: 'calc(100vh - 220px)' }}
               >
                 {/* ── Map panel: full width on mobile when selected, 58% on desktop ── */}
                 <div
