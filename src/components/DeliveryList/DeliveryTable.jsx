@@ -3,7 +3,7 @@ import useDeliveryStore from '../../store/useDeliveryStore';
 import { useDragAndDrop } from '../../hooks/useDragAndDrop';
 import DeliveryCard from './DeliveryCard';
 
-export default function DeliveryTable({ onSelectDelivery, onCloseDetailModal }) {
+export default function DeliveryTable({ onSelectDelivery, onCloseDetailModal, onHoverDelivery }) {
   const deliveries = useDeliveryStore((state) => state.deliveries);
   const updateDeliveryOrder = useDeliveryStore((state) => state.updateDeliveryOrder);
   const selectDelivery = useDeliveryStore((state) => state.selectDelivery);
@@ -66,6 +66,8 @@ export default function DeliveryTable({ onSelectDelivery, onCloseDetailModal }) 
             isDragging={draggedIndex === index}
             isDragOver={dragOverIndex === index}
             onCloseDetailModal={onCloseDetailModal}
+            onMouseEnter={() => onHoverDelivery?.(index)}
+            onMouseLeave={() => onHoverDelivery?.(null)}
           />
         ))}
       </div>

@@ -13,7 +13,9 @@ export default function DeliveryCard({
   onDrop,
   isDragging,
   isDragOver,
-  onCloseDetailModal
+  onCloseDetailModal,
+  onMouseEnter,
+  onMouseLeave,
 }) {
   const [showSMSModal, setShowSMSModal] = useState(false);
 
@@ -58,6 +60,8 @@ export default function DeliveryCard({
         onDrop?.();
       }}
       onClick={onClick}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
       className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border-l-4 rounded-lg transition-all cursor-move ${
         isDragging
           ? 'opacity-50 bg-primary-100 dark:bg-primary-900/30 border-primary-400 dark:border-primary-500'
