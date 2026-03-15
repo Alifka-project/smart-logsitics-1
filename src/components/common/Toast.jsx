@@ -43,7 +43,7 @@ export function Toast({ message, type, title, metadata, onClose }) {
   const style = styles[type] || styles.info;
 
   return (
-    <div className={`${style.container} border-2 rounded-xl p-4 shadow-2xl animate-slide-in backdrop-blur-sm min-w-[320px] max-w-md`}>
+    <div className={`${style.container} border-2 rounded-xl p-3 sm:p-4 shadow-2xl animate-slide-in backdrop-blur-sm min-w-0 max-w-full sm:min-w-[320px] sm:max-w-md`}>
       <div className="flex items-start gap-3">
         <div className="flex-shrink-0 mt-0.5">
           {style.icon}
@@ -77,7 +77,7 @@ export function Toast({ message, type, title, metadata, onClose }) {
 
 export function ToastContainer({ toasts, onRemove }) {
   return (
-    <div className="fixed top-20 right-4 z-[9999] space-y-3 max-w-md">
+    <div className="fixed top-16 right-2 left-2 sm:left-auto sm:right-4 z-[9999] space-y-3 max-w-md w-full sm:w-auto">
       {toasts.map(toast => (
         <Toast
           key={toast.id}

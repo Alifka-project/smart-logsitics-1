@@ -195,28 +195,35 @@ export default function CustomerModal({ isOpen, onClose, onSaveContactSuccess, o
     if (e.target === e.currentTarget) onClose();
   };
 
+  const shortId = selectedDelivery.id?.length > 12
+    ? `${selectedDelivery.id.slice(0, 8)}…`
+    : selectedDelivery.id;
+
   return ReactDOM.createPortal(
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-2 sm:p-4"
+      className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-0 sm:p-4"
       onClick={handleBackdropClick}
       role="dialog"
       aria-modal="true"
       aria-labelledby="delivery-confirmation-title"
     >
       <div
-        className="bg-white dark:bg-gray-900 rounded-lg shadow-2xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] flex flex-col transition-colors"
+        className="bg-white dark:bg-gray-900 shadow-2xl max-w-4xl w-full h-full sm:h-auto sm:max-h-[90vh] flex flex-col transition-colors rounded-none sm:rounded-lg min-h-0"
+        style={{ maxHeight: '100dvh' }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Sticky Header - does not scroll */}
-        <div className="flex-shrink-0 flex items-center justify-between p-4 sm:p-6 border-b border-primary-700/60 bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-t-lg">
-          <h2 id="delivery-confirmation-title" className="text-lg sm:text-xl lg:text-2xl font-bold">Delivery Confirmation</h2>
-          <button type="button" onClick={onClose} className="hover:bg-primary-800/90 p-2 rounded transition-colors" aria-label="Close">
+        {/* Sticky Header - does not scroll, touch-friendly close */}
+        <div className="flex-shrink-0 flex items-center justify-between gap-2 px-3 py-3 sm:p-4 sm:px-6 border-b border-primary-700/60 bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-t-none sm:rounded-t-lg">
+          <h2 id="delivery-confirmation-title" className="text-base sm:text-xl lg:text-2xl font-bold truncate min-w-0 flex-1">
+            Delivery Confirmation
+          </h2>
+          <button type="button" onClick={onClose} className="flex-shrink-0 hover:bg-primary-800/90 p-2.5 sm:p-2 rounded-lg touch-manipulation min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center" aria-label="Close">
             <X className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
         </div>
 
-        {/* Scrollable body only */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6 bg-gray-50 dark:bg-gray-900 transition-colors">
+        {/* Scrollable body only - comfortable padding on all screens */}
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 sm:p-6 space-y-4 sm:space-y-6 bg-gray-50 dark:bg-gray-900 transition-colors">
           {/* Error Message */}
           {submitError && (
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 sm:p-4 flex items-start gap-3">
@@ -227,8 +234,10 @@ export default function CustomerModal({ isOpen, onClose, onSaveContactSuccess, o
 
           {/* Customer Details */}
           <div className="bg-primary-50 dark:bg-primary-900/20 rounded-lg p-3 sm:p-4 space-y-2">
-            <h3 className="text-lg sm:text-xl font-bold text-primary-800 dark:text-primary-300 mb-3 sm:mb-4">
-              Stop {selectedDelivery.id}: {selectedDelivery.customer}
+            <h3 className="text-base sm:text-xl font-bold text-primary-800 dark:text-primary-300 mb-3 sm:mb-4 break-words">
+              <span className="text-primary-600 dark:text-primary-400 font-medium">Stop </span>
+              <span className="truncate sm:inline" title={selectedDelivery.id}>{shortId}</span>
+              {': '}{selectedDelivery.customer}
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
               <div>
@@ -258,7 +267,7 @@ export default function CustomerModal({ isOpen, onClose, onSaveContactSuccess, o
               <div>
                 <span className="font-semibold text-gray-700 dark:text-gray-200">Distance:</span>
                 <p className="text-gray-600 dark:text-gray-300">
-                  {selectedDelivery.distanceFromWarehouse.toFixed(1)} km
+                  {(selectedDelivery.distanceFromWarehouse ?? 0).toFixed(1)} km
                 </p>
               </div>
             </div>
@@ -279,7 +288,7 @@ export default function CustomerModal({ isOpen, onClose, onSaveContactSuccess, o
                 type="button"
                 onClick={handleSaveContact}
                 disabled={isSavingContact}
-                className="px-3 py-1.5 text-xs sm:text-sm rounded-md bg-white text-primary-700 border border-primary-300 hover:bg-primary-50 disabled:opacity-60 disabled:cursor-not-allowed dark:bg-gray-800 dark:text-primary-300 dark:border-primary-700 dark:hover:bg-primary-900/30"
+                className="px-4 py-3 sm:px-3 sm:py-1.5 text-xs sm:text-sm rounded-lg bg-white text-primary-700 border border-primary-300 hover:bg-primary-50 disabled:opacity-60 disabled:cursor-not-allowed dark:bg-gray-800 dark:text-primary-300 dark:border-primary-700 dark:hover:bg-primary-900/30 touch-manipulation min-h-[44px] sm:min-h-0"
               >
                 {isSavingContact ? 'Saving…' : 'Save Contact & Recalculate Route'}
               </button>
@@ -314,11 +323,11 @@ export default function CustomerModal({ isOpen, onClose, onSaveContactSuccess, o
             deliveryStatus={selectedDelivery.status}
           />
 
-          {/* Submit Button */}
+          {/* Submit Button - touch-friendly on mobile */}
           <button
             onClick={handleSubmit}
             disabled={!status || !driverSignature || !customerSignature || isSubmitting}
-            className="w-full py-3 bg-gradient-to-r from-primary-600 to-primary-700 text-white font-bold rounded-lg hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            className="w-full py-3.5 sm:py-3 min-h-[48px] bg-gradient-to-r from-primary-600 to-primary-700 text-white font-bold rounded-lg hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all touch-manipulation text-base sm:text-base"
           >
             {isSubmitting ? '⏳ Updating...' : '✓ Complete Delivery'}
           </button>

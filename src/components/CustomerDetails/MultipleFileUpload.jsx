@@ -124,16 +124,15 @@ export default function MultipleFileUpload({ photos, setPhotos }) {
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-primary-600 to-primary-700 text-white font-semibold rounded-lg hover:shadow-lg transition-all text-sm sm:text-base"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] bg-gradient-to-r from-primary-600 to-primary-700 text-white font-semibold rounded-lg hover:shadow-lg transition-all text-sm sm:text-base touch-manipulation"
           >
             <Upload className="w-4 h-4 sm:w-5 sm:h-5" />
             Upload Photos
           </button>
-          
           <button
             type="button"
             onClick={openCamera}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-lg hover:shadow-lg transition-all text-sm sm:text-base"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-lg hover:shadow-lg transition-all text-sm sm:text-base touch-manipulation"
           >
             <Camera className="w-4 h-4 sm:w-5 sm:h-5" />
             Take Photo

@@ -28,6 +28,7 @@ export default function DeliveryManagementPage() {
   const [showCacheAlert, setShowCacheAlert] = useState(false);
   const [isReloading, setIsReloading] = useState(false);
   const [hoveredDeliveryIndex, setHoveredDeliveryIndex] = useState(null);
+  const [deliveryPanelView, setDeliveryPanelView] = useState('list'); // 'map' | 'list' — used on mobile only
   const { toasts, removeToast, success, error, warning } = useToast();
 
   useEffect(() => {
@@ -151,68 +152,68 @@ export default function DeliveryManagementPage() {
     <div className="space-y-2">
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
-      {/* Cache Alert */}
+      {/* Cache Alert - responsive and touch-friendly */}
       {showCacheAlert && (
-        <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
+        <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-3 sm:p-4 rounded">
+          <div className="flex items-start gap-3 flex-wrap">
+            <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
               <h3 className="text-sm font-semibold text-red-800 dark:text-red-200">Old Cached Data Detected!</h3>
-              <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+              <p className="text-xs sm:text-sm text-red-700 dark:text-red-300 mt-1 break-words">
                 Your browser has old deliveries with fake IDs. These don't exist in the database and will cause SMS to fail.
               </p>
               <button
                 onClick={handleReloadFromDatabase}
                 disabled={isReloading}
-                className="mt-3 flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-lg transition-colors text-sm font-medium"
+                className="mt-3 flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-lg transition-colors text-sm font-medium touch-manipulation w-full sm:w-auto"
               >
-                <RefreshCw className={`w-4 h-4 ${isReloading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-4 h-4 flex-shrink-0 ${isReloading ? 'animate-spin' : ''}`} />
                 {isReloading ? 'Reloading...' : 'Reload from Database (Fix SMS)'}
               </button>
             </div>
-            <button onClick={() => setShowCacheAlert(false)} className="text-red-600 hover:text-red-800">✕</button>
+            <button onClick={() => setShowCacheAlert(false)} className="flex-shrink-0 p-2 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center text-red-600 hover:text-red-800 rounded-lg touch-manipulation" aria-label="Dismiss">✕</button>
           </div>
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-1">
-        <div>
-          <h1 className="pp-page-title">Delivery Management</h1>
-          <p className="pp-page-subtitle">Manage deliveries, view routes, and track status</p>
+      {/* Header - stacked on mobile, row on desktop; buttons wrap and are touch-friendly */}
+      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 mb-1">
+        <div className="min-w-0">
+          <h1 className="pp-page-title text-xl sm:text-3xl">Delivery Management</h1>
+          <p className="pp-page-subtitle text-xs sm:text-sm">Manage deliveries, view routes, and track status</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 sm:flex-nowrap">
           <button
             onClick={handleReloadFromDatabase}
             disabled={isReloading}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-green-400 flex items-center gap-2 text-sm"
+            className="flex-1 sm:flex-none min-h-[44px] px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-green-400 flex items-center justify-center gap-2 text-sm touch-manipulation"
             title="Reload deliveries from database with real UUIDs"
           >
-            <RefreshCw className={`w-4 h-4 ${isReloading ? 'animate-spin' : ''}`} />
-            {isReloading ? 'Loading...' : 'Reload DB'}
+            <RefreshCw className={`w-4 h-4 flex-shrink-0 ${isReloading ? 'animate-spin' : ''}`} />
+            <span className="truncate">{isReloading ? 'Loading...' : 'Reload DB'}</span>
           </button>
           <button
             onClick={() => setShowUpload(true)}
-            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center gap-2 text-sm"
+            className="flex-1 sm:flex-none min-h-[44px] px-4 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center justify-center gap-2 text-sm touch-manipulation"
           >
-            <Upload className="w-4 h-4" />
+            <Upload className="w-4 h-4 flex-shrink-0" />
             Upload
           </button>
           {deliveries.length > 0 && (
             <button
               onClick={handleExport}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 text-sm"
+              className="flex-1 sm:flex-none min-h-[44px] px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-center gap-2 text-sm touch-manipulation"
             >
-              <Download className="w-4 h-4" />
+              <Download className="w-4 h-4 flex-shrink-0" />
               Export
             </button>
           )}
         </div>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="border-b border-gray-200 dark:border-gray-700">
-        <nav className="flex space-x-8">
+      {/* Tab Navigation - horizontal scroll on small screens */}
+      <div className="border-b border-gray-200 dark:border-gray-700 -mx-2 px-2 sm:mx-0 sm:px-0 overflow-x-auto">
+        <nav className="flex space-x-6 sm:space-x-8 min-w-max sm:min-w-0">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             return (
@@ -225,7 +226,7 @@ export default function DeliveryManagementPage() {
                   }
                 }}
                 className={`
-                  flex items-center gap-2 py-2.5 px-1 border-b-2 font-medium text-sm
+                  flex items-center gap-2 py-3 sm:py-2.5 px-2 sm:px-1 border-b-2 font-medium text-sm whitespace-nowrap touch-manipulation min-h-[44px] sm:min-h-0
                   ${activeTab === tab.id
                     ? 'border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-400'
                     : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
@@ -249,9 +250,9 @@ export default function DeliveryManagementPage() {
       {activeTab === 'overview' && (
         <div className="space-y-6">
           {(showUpload || deliveries.length === 0) && (
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-6 sm:p-8 transition-colors">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 sm:p-6 lg:p-8 transition-colors">
+              <div className="flex justify-between items-center gap-2 mb-4 sm:mb-6">
+                <h2 className="text-lg sm:text-2xl font-bold text-gray-800 dark:text-gray-100 truncate min-w-0">
                   {deliveries.length === 0 ? 'Upload Delivery Data' : 'Upload New Data'}
                 </h2>
                 {deliveries.length > 0 && (
@@ -407,15 +408,51 @@ export default function DeliveryManagementPage() {
               </button>
             </div>
           ) : (
-            /* Split layout: map on left, list on right */
-            <div
-              className="flex gap-4 items-start"
-              style={{ height: 'calc(100vh - 300px)', minHeight: '460px' }}
-            >
-              {/* ── LEFT PANEL: Map ── */}
+            <>
+              {/* Mobile: Map | List toggle — one full-width view at a time */}
+              <div className="flex md:hidden gap-2 p-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-t-xl">
+                <button
+                  type="button"
+                  onClick={() => setDeliveryPanelView('map')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-medium text-sm transition-colors ${
+                    deliveryPanelView === 'map'
+                      ? 'bg-primary-600 text-white shadow'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                  }`}
+                >
+                  <MapPin className="w-4 h-4" />
+                  Map
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeliveryPanelView('list')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-medium text-sm transition-colors ${
+                    deliveryPanelView === 'list'
+                      ? 'bg-primary-600 text-white shadow'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                  }`}
+                >
+                  <List className="w-4 h-4" />
+                  List
+                </button>
+              </div>
+
+              {/* Container: stacked on mobile (one panel at a time), split on desktop; responsive height */}
               <div
-                className="w-[58%] h-full relative rounded-xl overflow-hidden shadow-lg border border-gray-200 dark:border-gray-700"
+                className="flex flex-col md:flex-row gap-3 sm:gap-4 items-stretch md:items-start flex-1 min-h-0 min-h-[320px] sm:min-h-[400px] md:min-h-[460px]"
+                style={{ height: 'calc(100vh - 280px)' }}
               >
+                {/* ── Map panel: full width on mobile when selected, 58% on desktop ── */}
+                <div
+                  className={`
+                    relative rounded-xl overflow-hidden shadow-lg border border-gray-200 dark:border-gray-700
+                    w-full md:w-[58%] h-full
+                    ${deliveryPanelView === 'list' ? 'hidden md:block' : 'block'}
+                  `}
+                  style={{
+                    minHeight: deliveryPanelView === 'map' ? 'min(70vh, 500px)' : undefined,
+                  }}
+                >
                 {isLoadingRoute && !route ? (
                   <div className="h-full flex items-center justify-center bg-white dark:bg-gray-800">
                     <div className="text-center">
@@ -457,10 +494,15 @@ export default function DeliveryManagementPage() {
                   <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-orange-400 inline-block" /> Medium</div>
                   <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-blue-500 inline-block" /> Low</div>
                 </div>
-              </div>
+                </div>
 
-              {/* ── RIGHT PANEL: Route stats + scrollable list ── */}
-              <div className="w-[42%] h-full flex flex-col gap-3 min-w-0">
+              {/* ── List panel: full width on mobile when selected, 42% on desktop ── */}
+              <div
+                className={`
+                  w-full md:w-[42%] h-full flex flex-col gap-3 min-w-0
+                  ${deliveryPanelView === 'map' ? 'hidden md:flex' : 'flex'}
+                `}
+              >
 
                 {/* Compact Route Stats Card */}
                 {isLoadingRoute && !route ? (
@@ -522,7 +564,9 @@ export default function DeliveryManagementPage() {
 
                 {/* Hint text */}
                 <p className="flex-shrink-0 text-xs text-gray-500 dark:text-gray-400 px-1">
-                  ↕ Drag to reorder — the route updates automatically. Hover a card to highlight it on the map.
+                  ↕ Drag to reorder — route updates automatically.
+                  <span className="hidden md:inline"> Hover a card to highlight on the map.</span>
+                  <span className="md:hidden"> Tap Map/List above to switch views.</span>
                 </p>
 
                 {/* Scrollable delivery list */}
@@ -535,6 +579,7 @@ export default function DeliveryManagementPage() {
                 </div>
               </div>
             </div>
+            </>
           )}
         </>
       )}
