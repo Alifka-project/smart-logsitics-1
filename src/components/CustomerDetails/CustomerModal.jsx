@@ -8,7 +8,7 @@ import SignaturePad from './SignaturePad';
 import StatusUpdateForm from './StatusUpdateForm';
 import { geocodeAddress } from '../../services/geocodingService';
 
-export default function CustomerModal({ isOpen, onClose }) {
+export default function CustomerModal({ isOpen, onClose, onSaveContactSuccess, onSaveContactError }) {
   const selectedDelivery = useDeliveryStore((state) => state.selectedDelivery);
   const updateDeliveryStatus = useDeliveryStore((state) => state.updateDeliveryStatus);
   const updateDeliveryContact = useDeliveryStore((state) => state.updateDeliveryContact);
@@ -78,6 +78,8 @@ export default function CustomerModal({ isOpen, onClose }) {
       });
 
       setContactSaved(true);
+      const message = 'Contact saved and route recalculated.';
+      onSaveContactSuccess?.(message);
 
       // Notify other dashboards / map views
       window.dispatchEvent(new CustomEvent('deliveriesUpdated', {
@@ -85,12 +87,13 @@ export default function CustomerModal({ isOpen, onClose }) {
       }));
     } catch (error) {
       console.error('[CustomerModal] Error updating contact:', error);
-      setContactError(
+      const errMsg =
         error.response?.data?.detail ||
         error.response?.data?.error ||
         error.message ||
-        'Failed to update contact details'
-      );
+        'Failed to update contact details';
+      setContactError(errMsg);
+      onSaveContactError?.(errMsg);
     } finally {
       setIsSavingContact(false);
     }
@@ -188,18 +191,32 @@ export default function CustomerModal({ isOpen, onClose }) {
     }
   };
 
+  const handleBackdropClick = (e) => {
+    if (e.target === e.currentTarget) onClose();
+  };
+
   return ReactDOM.createPortal(
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-2 sm:p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-2xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto transition-colors">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-primary-700/60 bg-gradient-to-r from-primary-600 to-primary-700 text-white">
-          <h2 className="text-lg sm:text-xl lg:text-2xl font-bold">Delivery Confirmation</h2>
-          <button onClick={onClose} className="hover:bg-primary-800/90 p-2 rounded transition-colors">
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-2 sm:p-4"
+      onClick={handleBackdropClick}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delivery-confirmation-title"
+    >
+      <div
+        className="bg-white dark:bg-gray-900 rounded-lg shadow-2xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] flex flex-col transition-colors"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Sticky Header - does not scroll */}
+        <div className="flex-shrink-0 flex items-center justify-between p-4 sm:p-6 border-b border-primary-700/60 bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-t-lg">
+          <h2 id="delivery-confirmation-title" className="text-lg sm:text-xl lg:text-2xl font-bold">Delivery Confirmation</h2>
+          <button type="button" onClick={onClose} className="hover:bg-primary-800/90 p-2 rounded transition-colors" aria-label="Close">
             <X className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
         </div>
 
-        <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 bg-gray-50 dark:bg-gray-900 transition-colors">
+        {/* Scrollable body only */}
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6 bg-gray-50 dark:bg-gray-900 transition-colors">
           {/* Error Message */}
           {submitError && (
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 sm:p-4 flex items-start gap-3">

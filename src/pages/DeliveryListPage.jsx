@@ -62,9 +62,11 @@ export default function DeliveryListPage() {
       )}
 
       {/* Customer Details Modal */}
-      <CustomerModal 
-        isOpen={showModal} 
-        onClose={() => setShowModal(false)} 
+      <CustomerModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        onSaveContactSuccess={(msg) => success(msg)}
+        onSaveContactError={(msg) => error(msg)}
       />
     </div>
   );

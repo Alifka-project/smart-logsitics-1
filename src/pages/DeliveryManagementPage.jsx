@@ -540,7 +540,12 @@ export default function DeliveryManagementPage() {
       )}
 
       {/* Customer Details Modal */}
-      <CustomerModal isOpen={showModal} onClose={() => setShowModal(false)} />
+      <CustomerModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        onSaveContactSuccess={(msg) => success(msg)}
+        onSaveContactError={(msg) => error(msg)}
+      />
     </div>
   );
 }

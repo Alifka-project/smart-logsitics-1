@@ -3,11 +3,11 @@ import { Upload, X, Camera, Image as ImageIcon } from 'lucide-react';
 
 export default function MultipleFileUpload({ photos, setPhotos }) {
   const fileInputRef = useRef();
+  const cameraInputRef = useRef();
 
-  const handleFileChange = (e) => {
-    const files = Array.from(e.target.files);
-    
-    files.forEach((file) => {
+  const addFilesAsPhotos = (files) => {
+    const fileList = Array.from(files);
+    fileList.forEach((file) => {
       const reader = new FileReader();
       reader.onload = (event) => {
         setPhotos((prev) => [...prev, {
@@ -19,8 +19,17 @@ export default function MultipleFileUpload({ photos, setPhotos }) {
       };
       reader.readAsDataURL(file);
     });
+  };
 
-    // Reset input
+  const handleFileChange = (e) => {
+    const files = e.target.files;
+    if (files?.length) addFilesAsPhotos(files);
+    e.target.value = '';
+  };
+
+  const handleCameraChange = (e) => {
+    const files = e.target.files;
+    if (files?.length) addFilesAsPhotos(files);
     e.target.value = '';
   };
 
@@ -47,10 +56,8 @@ export default function MultipleFileUpload({ photos, setPhotos }) {
           </button>
           
           <button
-            onClick={() => {
-              fileInputRef.current?.setAttribute('capture', 'camera');
-              fileInputRef.current?.click();
-            }}
+            type="button"
+            onClick={() => cameraInputRef.current?.click()}
             className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-lg hover:shadow-lg transition-all text-sm sm:text-base"
           >
             <Camera className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -58,6 +65,7 @@ export default function MultipleFileUpload({ photos, setPhotos }) {
           </button>
         </div>
 
+        {/* Upload from gallery/files - no capture so user can pick files */}
         <input
           ref={fileInputRef}
           type="file"
@@ -65,6 +73,17 @@ export default function MultipleFileUpload({ photos, setPhotos }) {
           multiple
           onChange={handleFileChange}
           className="hidden"
+          aria-label="Upload photos from device"
+        />
+        {/* Camera capture only - capture attribute forces camera on supported devices */}
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleCameraChange}
+          className="hidden"
+          aria-label="Take photo with camera"
         />
 
         {/* Info Text */}
