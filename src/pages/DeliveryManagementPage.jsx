@@ -28,7 +28,6 @@ export default function DeliveryManagementPage() {
   const [showCacheAlert, setShowCacheAlert] = useState(false);
   const [isReloading, setIsReloading] = useState(false);
   const [hoveredDeliveryIndex, setHoveredDeliveryIndex] = useState(null);
-  const [deliveryPanelView, setDeliveryPanelView] = useState('list'); // 'map' | 'list' — used on mobile only
   const { toasts, removeToast, success, error, warning } = useToast();
 
   useEffect(() => {
@@ -409,49 +408,14 @@ export default function DeliveryManagementPage() {
             </div>
           ) : (
             <>
-              {/* Mobile: Map | List toggle — one full-width view at a time */}
-              <div className="flex md:hidden gap-2 p-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-t-xl">
-                <button
-                  type="button"
-                  onClick={() => setDeliveryPanelView('map')}
-                  className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-medium text-sm transition-colors ${
-                    deliveryPanelView === 'map'
-                      ? 'bg-primary-600 text-white shadow'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                  }`}
-                >
-                  <MapPin className="w-4 h-4" />
-                  Map
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDeliveryPanelView('list')}
-                  className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-medium text-sm transition-colors ${
-                    deliveryPanelView === 'list'
-                      ? 'bg-primary-600 text-white shadow'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                  }`}
-                >
-                  <List className="w-4 h-4" />
-                  List
-                </button>
-              </div>
-
-              {/* Container: maximize height to fill viewport and remove bottom gap (desktop) */}
+              {/* Container: mobile = top/bottom split (map top, list bottom); desktop = side-by-side */}
               <div
                 className="flex flex-col md:flex-row gap-3 sm:gap-4 items-stretch md:items-start flex-1 min-h-0 min-h-[320px] sm:min-h-[400px] md:min-h-[420px]"
                 style={{ height: 'calc(100vh - 220px)' }}
               >
-                {/* ── Map panel: full width on mobile when selected, 58% on desktop ── */}
+                {/* ── Map: top on mobile (fixed height), left on desktop ── */}
                 <div
-                  className={`
-                    relative rounded-xl overflow-hidden shadow-lg border border-gray-200 dark:border-gray-700
-                    w-full md:w-[58%] h-full
-                    ${deliveryPanelView === 'list' ? 'hidden md:block' : 'block'}
-                  `}
-                  style={{
-                    minHeight: deliveryPanelView === 'map' ? 'min(70vh, 500px)' : undefined,
-                  }}
+                  className="relative rounded-xl overflow-hidden shadow-lg border border-gray-200 dark:border-gray-700 w-full md:w-[58%] flex-shrink-0 md:flex-shrink h-[42vh] md:h-full min-h-[240px] md:min-h-0"
                 >
                 {isLoadingRoute && !route ? (
                   <div className="h-full flex items-center justify-center bg-white dark:bg-gray-800">
@@ -496,12 +460,9 @@ export default function DeliveryManagementPage() {
                 </div>
                 </div>
 
-              {/* ── List panel: full width on mobile when selected, 42% on desktop ── */}
+              {/* ── List: bottom on mobile (scrollable), right on desktop ── */}
               <div
-                className={`
-                  w-full md:w-[42%] h-full flex flex-col gap-3 min-w-0
-                  ${deliveryPanelView === 'map' ? 'hidden md:flex' : 'flex'}
-                `}
+                className="w-full md:w-[42%] flex-1 min-h-0 md:h-full flex flex-col gap-3 min-w-0 overflow-hidden"
               >
 
                 {/* Compact Route Stats Card */}
@@ -566,7 +527,7 @@ export default function DeliveryManagementPage() {
                 <p className="flex-shrink-0 text-xs text-gray-500 dark:text-gray-400 px-1">
                   ↕ Drag to reorder — route updates automatically.
                   <span className="hidden md:inline"> Hover a card to highlight on the map.</span>
-                  <span className="md:hidden"> Tap Map/List above to switch views.</span>
+                  <span className="md:hidden"> Map on top, list below. Tap a card to view details.</span>
                 </p>
 
                 {/* Scrollable delivery list */}

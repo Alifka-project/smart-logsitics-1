@@ -749,36 +749,36 @@ export default function DriverPortal() {
   const hasRoute = !!route?.coordinates?.length;
 
   return (
-    <div className="space-y-6 w-full min-w-0">
-      {/* Header Section */}
-      <div className="pp-page-header flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="pp-page-title">Driver Portal</h1>
-            <p className="pp-page-subtitle">Track your location and manage deliveries in real-time</p>
+    <div className="space-y-4 md:space-y-6 w-full min-w-0">
+      {/* Header Section - responsive and touch-friendly */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Driver Portal</h1>
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5">Track your location and manage deliveries in real-time</p>
           </div>
-          <div className="flex items-center gap-3">
-            <div className={`flex items-center gap-2 px-4 py-2.5 rounded-lg shadow-sm transition-all ${
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <div className={`flex items-center gap-2 px-3 py-2.5 min-h-[44px] rounded-lg shadow-sm transition-all touch-manipulation ${
               isTracking 
                 ? 'bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800'
                 : 'bg-gray-50 text-gray-600 border border-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600'
             }`}>
-              <div className={`w-2.5 h-2.5 rounded-full transition-all ${
+              <div className={`w-2.5 h-2.5 rounded-full transition-all flex-shrink-0 ${
                 isTracking ? 'bg-green-500 animate-pulse' : 'bg-gray-400 dark:bg-gray-500'
               }`}></div>
               <span className="text-sm font-semibold">{isTracking ? 'Tracking Active' : 'Tracking Off'}</span>
             </div>
             {notifications > 0 && (
-              <div className="flex items-center gap-2 px-3 py-2 bg-red-50 text-red-700 rounded-lg border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800">
-                <Bell className="w-4 h-4" />
+              <div className="flex items-center gap-2 px-3 py-2.5 min-h-[44px] bg-red-50 text-red-700 rounded-lg border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800 touch-manipulation">
+                <Bell className="w-4 h-4 flex-shrink-0" />
                 <span className="text-sm font-semibold">{notifications}</span>
               </div>
             )}
           </div>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="pp-card px-3 py-2">
-        <nav className="flex flex-wrap gap-2">
+      {/* Tab Navigation - bigger gap, scroll on mobile */}
+      <div className="pp-card px-2 py-2 mt-4 md:mt-6 mb-4 md:mb-6 overflow-x-auto">
+        <nav className="flex flex-wrap gap-2 min-w-max md:min-w-0">
           {[
             { id: 'tracking', label: 'Tracking', icon: Navigation },
             { id: 'deliveries', label: 'Deliveries', icon: Truck },
@@ -789,7 +789,7 @@ export default function DriverPortal() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`pp-nav-pill ${activeTab === tab.id ? 'active' : ''}`}
+                className={`pp-nav-pill min-h-[44px] touch-manipulation ${activeTab === tab.id ? 'active' : ''}`}
               >
                 <Icon className="w-5 h-5" />
                 {tab.label}
@@ -807,9 +807,9 @@ export default function DriverPortal() {
       {/* Animated tab content — re-mounts on tab change */}
       <div key={activeTab} className="tab-enter">
 
-      {/* Tracking Tab */}
+      {/* Tracking Tab - mobile: map top, controls/list bottom */}
       {activeTab === 'tracking' && (
-        <div className="space-y-6">
+        <div className="flex flex-col md:block space-y-4 md:space-y-6">
           {/* Error Message */}
           {error && (
             <div className="bg-red-50 border-l-4 border-red-400 rounded-lg p-4 shadow-sm dark:bg-red-900/20 dark:border-red-600">
@@ -823,34 +823,81 @@ export default function DriverPortal() {
             </div>
           )}
 
-      {/* Control Panel */}
-      <div className="pp-card p-6">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Location Controls</h2>
-        <div className="flex flex-wrap gap-3">
+      {/* Map - show first on mobile (top of split) */}
+      <div className="pp-card overflow-hidden w-full order-first md:order-none">
+        <div className="p-3 sm:p-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 dark:from-gray-800 dark:to-gray-900 dark:border-gray-700">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+            <MapPin className="w-5 h-5 text-primary-600 dark:text-primary-400 flex-shrink-0" />
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">Location Map</h2>
+            </div>
+            <div className="text-xs text-gray-500 dark:text-gray-300">
+              {isRouteLoading && 'Routing...'}
+              {!isRouteLoading && routeError && routeError}
+              {!isRouteLoading && !routeError && hasRoute && 'Route updated'}
+            </div>
+          </div>
+        </div>
+        <div className="relative w-full" style={{ width: '100%', margin: 0, padding: 0 }}>
+          <div 
+            ref={mapRef} 
+            className="h-[42vh] min-h-[240px] sm:h-[500px] lg:h-[600px] bg-gray-100 dark:bg-gray-900"
+            style={{ 
+              width: '100%',
+              position: 'relative',
+              zIndex: 1,
+              margin: 0,
+              padding: 0
+            }}
+          />
+          {!location && mapReady && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-50 bg-opacity-90 z-[1000] dark:bg-gray-900/80">
+              <div className="pp-card text-center p-4 sm:p-6 max-w-sm mx-4">
+                <MapPin className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
+                <p className="text-gray-700 dark:text-gray-200 font-medium mb-1 text-sm sm:text-base">No location data available</p>
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Click "Start Tracking" below to begin</p>
+              </div>
+            </div>
+          )}
+          {!mapReady && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+              <div className="text-center">
+                <RefreshCw className="w-8 h-8 text-gray-400 dark:text-gray-500 mx-auto mb-2 animate-spin" />
+                <p className="text-gray-600 dark:text-gray-300 text-sm">Loading map...</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Control Panel - below map on mobile */}
+      <div className="pp-card p-4 sm:p-6 order-2">
+        <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4">Location Controls</h2>
+        <div className="flex flex-wrap gap-2 sm:gap-3">
           {!isTracking ? (
             <button
               onClick={requestLocationPermission}
               disabled={loading}
-              className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 active:bg-primary-800 disabled:bg-primary-300 disabled:cursor-not-allowed flex items-center gap-2 font-semibold shadow-sm transition-all transform hover:scale-105 active:scale-95"
+              className="min-h-[44px] px-4 sm:px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 active:bg-primary-800 disabled:bg-primary-300 disabled:cursor-not-allowed flex items-center gap-2 font-semibold shadow-sm transition-all touch-manipulation"
             >
-              <Navigation className="w-5 h-5" />
+              <Navigation className="w-5 h-5 flex-shrink-0" />
               {loading ? 'Starting...' : 'Start Tracking'}
             </button>
           ) : (
             <button
               onClick={stopTracking}
-              className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 active:bg-red-800 flex items-center gap-2 font-semibold shadow-sm transition-all transform hover:scale-105 active:scale-95"
+              className="min-h-[44px] px-4 sm:px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 active:bg-red-800 flex items-center gap-2 font-semibold shadow-sm transition-all touch-manipulation"
             >
-              <Activity className="w-5 h-5" />
+              <Activity className="w-5 h-5 flex-shrink-0" />
               Stop Tracking
             </button>
           )}
           <button
             onClick={loadLatestLocation}
             disabled={loading}
-            className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 active:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2 font-semibold shadow-sm transition-all transform hover:scale-105 active:scale-95 dark:bg-gray-700 dark:hover:bg-gray-600 dark:active:bg-gray-700"
+            className="min-h-[44px] px-4 sm:px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 active:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2 font-semibold shadow-sm transition-all touch-manipulation dark:bg-gray-700 dark:hover:bg-gray-600 dark:active:bg-gray-700"
           >
-            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-5 h-5 flex-shrink-0 ${loading ? 'animate-spin' : ''}`} />
             Refresh Location
           </button>
         </div>
@@ -890,54 +937,6 @@ export default function DriverPortal() {
             </div>
           </div>
         )}
-      </div>
-
-      {/* Map */}
-      <div className="pp-card overflow-hidden w-full">
-        <div className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 dark:from-gray-800 dark:to-gray-900 dark:border-gray-700">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-            <MapPin className="w-5 h-5 text-primary-600 dark:text-primary-400" />
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Location Map</h2>
-            </div>
-            <div className="text-xs text-gray-500 dark:text-gray-300">
-              {isRouteLoading && 'Routing...'}
-              {!isRouteLoading && routeError && routeError}
-              {!isRouteLoading && !routeError && hasRoute && 'Route updated'}
-            </div>
-          </div>
-        </div>
-        <div className="relative w-full" style={{ width: '100%', margin: 0, padding: 0 }}>
-          <div 
-            ref={mapRef} 
-            className="h-[500px] sm:h-[600px] bg-gray-100 dark:bg-gray-900"
-            style={{ 
-              minHeight: '400px',
-              width: '100%',
-              position: 'relative',
-              zIndex: 1,
-              margin: 0,
-              padding: 0
-            }}
-          />
-          {!location && mapReady && (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-50 bg-opacity-90 z-[1000] dark:bg-gray-900/80">
-              <div className="pp-card text-center p-6 max-w-sm mx-4">
-                <MapPin className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
-                <p className="text-gray-700 dark:text-gray-200 font-medium mb-1">No location data available</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Click "Start Tracking" to begin location tracking</p>
-              </div>
-            </div>
-          )}
-          {!mapReady && (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-              <div className="text-center">
-                <RefreshCw className="w-8 h-8 text-gray-400 dark:text-gray-500 mx-auto mb-2 animate-spin" />
-                <p className="text-gray-600 dark:text-gray-300">Loading map...</p>
-              </div>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Location History */}
@@ -986,15 +985,15 @@ export default function DriverPortal() {
         <DeliveryManagementPage />
       )}
 
-      {/* Messages Tab */}
+      {/* Messages Tab - stacked on mobile, sensible heights */}
       {activeTab === 'messages' && (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 lg:gap-6 flex flex-col lg:block min-h-0">
           {/* Contacts List */}
-          <div className="lg:col-span-1 bg-white dark:bg-gray-800 rounded-lg shadow">
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="lg:col-span-1 bg-white dark:bg-gray-800 rounded-lg shadow flex flex-col min-h-0 max-h-[40vh] lg:max-h-none">
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
               <h3 className="font-semibold text-gray-900 dark:text-gray-100">Contacts</h3>
             </div>
-            <div className="divide-y divide-gray-200 dark:divide-gray-700 max-h-[600px] overflow-y-auto">
+            <div className="divide-y divide-gray-200 dark:divide-gray-700 overflow-y-auto min-h-0 flex-1 max-h-[40vh] lg:max-h-[600px]">
               {loadingContacts ? (
                 <div className="p-8 text-center text-gray-500 dark:text-gray-400">
                   Loading contacts...
@@ -1047,7 +1046,7 @@ export default function DriverPortal() {
           </div>
 
           {/* Chat Area */}
-          <div className="lg:col-span-3 bg-white dark:bg-gray-800 rounded-lg shadow flex flex-col h-[600px]">
+          <div className="lg:col-span-3 bg-white dark:bg-gray-800 rounded-lg shadow flex flex-col min-h-[300px] lg:h-[600px] flex-1 lg:flex-initial">
             {selectedContact ? (
               <>
                 {/* Chat Header */}

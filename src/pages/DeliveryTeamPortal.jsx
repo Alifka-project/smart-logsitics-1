@@ -379,34 +379,34 @@ export default function DeliveryTeamPortal() {
   }
 
   return (
-    <div className="space-y-6 w-full min-w-0">
-      {/* Header */}
-      <div className="pp-page-header flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="pp-page-title">Delivery Team Portal</h1>
-            <p className="pp-page-subtitle">Monitor drivers, manage deliveries, and coordinate operations</p>
+    <div className="space-y-4 md:space-y-6 w-full min-w-0">
+      {/* Header - responsive and touch-friendly */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Delivery Team Portal</h1>
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5">Monitor drivers, manage deliveries, and coordinate operations</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <button
               onClick={() => setAutoRefresh(!autoRefresh)}
-              className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
+              className={`min-h-[44px] px-3 sm:px-4 py-2 rounded-lg flex items-center gap-2 touch-manipulation ${
                 autoRefresh
                   ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300'
                   : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
               }`}
             >
-              <RefreshCw className={`w-4 h-4 ${autoRefresh ? 'animate-spin' : ''}`} />
-              {autoRefresh ? 'Auto-refresh ON' : 'Auto-refresh OFF'}
+              <RefreshCw className={`w-4 h-4 flex-shrink-0 ${autoRefresh ? 'animate-spin' : ''}`} />
+              <span className="text-sm font-medium">{autoRefresh ? 'Auto-refresh ON' : 'Auto-refresh OFF'}</span>
             </button>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
+            <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
               Last update: {lastUpdate.toLocaleTimeString()}
             </div>
           </div>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="pp-card px-3 py-2">
-        <nav className="flex flex-wrap gap-2">
+      {/* Tab Navigation - bigger gap, scroll on mobile */}
+      <div className="pp-card px-2 py-2 mt-4 md:mt-6 mb-4 md:mb-6 overflow-x-auto">
+        <nav className="flex flex-wrap gap-2 min-w-max md:min-w-0">
           {[
             { id: 'monitoring', label: 'Monitoring', icon: Activity },
             { id: 'control', label: 'Delivery Control', icon: Settings },
@@ -418,7 +418,7 @@ export default function DeliveryTeamPortal() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`pp-nav-pill ${activeTab === tab.id ? 'active' : ''}`}
+                className={`pp-nav-pill min-h-[44px] touch-manipulation ${activeTab === tab.id ? 'active' : ''}`}
               >
                 <Icon className="w-5 h-5" />
                 {tab.label}
@@ -431,11 +431,11 @@ export default function DeliveryTeamPortal() {
       {/* Animated tab content — re-mounts on tab change */}
       <div key={activeTab} className="tab-enter">
 
-      {/* Monitoring Tab */}
+      {/* Monitoring Tab - mobile: map top, list bottom */}
       {activeTab === 'monitoring' && (
-        <div className="space-y-6">
+        <div className="flex flex-col space-y-4 md:space-y-6">
           {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
             <div className="pp-card p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -485,21 +485,21 @@ export default function DeliveryTeamPortal() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Live Map */}
-            <div className="lg:col-span-2 pp-card overflow-hidden">
-              <div className="p-4 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
+          <div className="flex flex-col lg:grid lg:grid-cols-3 gap-4 lg:gap-6 min-h-0">
+            {/* Live Map - top on mobile, left on desktop */}
+            <div className="lg:col-span-2 pp-card overflow-hidden order-first w-full">
+              <div className="p-3 sm:p-4 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Live Map View</h2>
               </div>
-              <div className="h-[500px]">
+              <div className="h-[42vh] min-h-[240px] lg:h-[500px]">
                 <DriverTrackingMap drivers={drivers} />
               </div>
             </div>
 
-            {/* Active Deliveries List */}
-            <div className="pp-card p-6">
-              <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Active Deliveries</h2>
-              <div className="space-y-3 max-h-[500px] overflow-y-auto">
+            {/* Active Deliveries List - below map on mobile */}
+            <div className="pp-card p-4 sm:p-6 flex flex-col min-h-0 flex-1 lg:flex-initial">
+              <h2 className="text-lg font-semibold mb-3 sm:mb-4 text-gray-900 dark:text-gray-100">Active Deliveries</h2>
+              <div className="space-y-3 flex-1 min-h-0 overflow-y-auto max-h-[50vh] lg:max-h-[500px]">
                 {activeDeliveries.slice(0, 10).map(delivery => (
                   <div
                     key={delivery.id}
@@ -777,15 +777,15 @@ export default function DeliveryTeamPortal() {
         <DeliveryManagementPage />
       )}
 
-      {/* Communication Tab */}
+      {/* Communication Tab - stacked on mobile, sensible heights */}
       {activeTab === 'communication' && (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 lg:gap-6 flex flex-col lg:block min-h-0">
           {/* Contacts List */}
-          <div className="lg:col-span-1 bg-white dark:bg-gray-800 rounded-lg shadow">
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="lg:col-span-1 bg-white dark:bg-gray-800 rounded-lg shadow flex flex-col min-h-0 max-h-[40vh] lg:max-h-none">
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
               <h3 className="font-semibold text-gray-900 dark:text-gray-100">Contacts</h3>
             </div>
-            <div className="divide-y divide-gray-200 dark:divide-gray-700 max-h-[600px] overflow-y-auto">
+            <div className="divide-y divide-gray-200 dark:divide-gray-700 overflow-y-auto min-h-0 flex-1 max-h-[40vh] lg:max-h-[600px]">
               {/* Team Members Section */}
               {teamMembers.length > 0 && (
                 <>
@@ -872,7 +872,7 @@ export default function DeliveryTeamPortal() {
           </div>
 
           {/* Chat Area */}
-          <div className="lg:col-span-3 bg-white dark:bg-gray-800 rounded-lg shadow flex flex-col h-[600px]">
+          <div className="lg:col-span-3 bg-white dark:bg-gray-800 rounded-lg shadow flex flex-col min-h-[300px] lg:h-[600px] flex-1 lg:flex-initial">
             {selectedContact ? (
               <>
                 {/* Chat Header */}
