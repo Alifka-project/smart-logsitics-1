@@ -407,12 +407,59 @@ export default function DeliveryManagementPage() {
               </button>
             </div>
           ) : (
-            /* Split layout: list on left, map on right */
+            /* Split layout: map on left, list on right */
             <div
               className="flex gap-4 items-start"
               style={{ height: 'calc(100vh - 260px)', minHeight: '520px' }}
             >
-              {/* ── LEFT PANEL: Route stats + scrollable list ── */}
+              {/* ── LEFT PANEL: Map ── */}
+              <div
+                className="w-[58%] h-full relative rounded-xl overflow-hidden shadow-lg border border-gray-200 dark:border-gray-700"
+              >
+                {isLoadingRoute && !route ? (
+                  <div className="h-full flex items-center justify-center bg-white dark:bg-gray-800">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4" />
+                      <p className="text-gray-600 dark:text-gray-400 text-sm">
+                        Calculating route for {deliveries.length} stops…
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <DeliveryMap
+                    deliveries={deliveries}
+                    route={route}
+                    highlightedIndex={hoveredDeliveryIndex}
+                    mapClassName="h-full"
+                  />
+                )}
+
+                {/* Updating route overlay (while map is already visible) */}
+                {isLoadingRoute && route && (
+                  <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-white dark:bg-gray-800 rounded-full px-4 py-2 shadow-lg flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 z-[1000] border border-gray-200 dark:border-gray-600">
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary-600" />
+                    Updating route…
+                  </div>
+                )}
+
+                {/* Fallback route warning overlay */}
+                {routeError && isFallback && (
+                  <div className="absolute bottom-3 left-3 right-3 bg-yellow-50 dark:bg-yellow-900/40 border border-yellow-200 dark:border-yellow-700 rounded-lg p-2 text-xs text-yellow-700 dark:text-yellow-300 flex items-center gap-2 z-[1000]">
+                    <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                    {routeError}
+                  </div>
+                )}
+
+                {/* Map legend */}
+                <div className="absolute top-3 right-3 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg px-3 py-2 shadow text-xs text-gray-700 dark:text-gray-300 z-[1000] space-y-1">
+                  <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-green-500 inline-block" /> Warehouse</div>
+                  <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-red-500 inline-block" /> High priority</div>
+                  <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-orange-400 inline-block" /> Medium</div>
+                  <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-blue-500 inline-block" /> Low</div>
+                </div>
+              </div>
+
+              {/* ── RIGHT PANEL: Route stats + scrollable list ── */}
               <div className="w-[42%] h-full flex flex-col gap-3 min-w-0">
 
                 {/* Compact Route Stats Card */}
@@ -485,53 +532,6 @@ export default function DeliveryManagementPage() {
                     onCloseDetailModal={() => setShowModal(false)}
                     onHoverDelivery={setHoveredDeliveryIndex}
                   />
-                </div>
-              </div>
-
-              {/* ── RIGHT PANEL: Map ── */}
-              <div
-                className="w-[58%] h-full relative rounded-xl overflow-hidden shadow-lg border border-gray-200 dark:border-gray-700"
-              >
-                {isLoadingRoute && !route ? (
-                  <div className="h-full flex items-center justify-center bg-white dark:bg-gray-800">
-                    <div className="text-center">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4" />
-                      <p className="text-gray-600 dark:text-gray-400 text-sm">
-                        Calculating route for {deliveries.length} stops…
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <DeliveryMap
-                    deliveries={deliveries}
-                    route={route}
-                    highlightedIndex={hoveredDeliveryIndex}
-                    mapClassName="h-full"
-                  />
-                )}
-
-                {/* Updating route overlay (while map is already visible) */}
-                {isLoadingRoute && route && (
-                  <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-white dark:bg-gray-800 rounded-full px-4 py-2 shadow-lg flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 z-[1000] border border-gray-200 dark:border-gray-600">
-                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary-600" />
-                    Updating route…
-                  </div>
-                )}
-
-                {/* Fallback route warning overlay */}
-                {routeError && isFallback && (
-                  <div className="absolute bottom-3 left-3 right-3 bg-yellow-50 dark:bg-yellow-900/40 border border-yellow-200 dark:border-yellow-700 rounded-lg p-2 text-xs text-yellow-700 dark:text-yellow-300 flex items-center gap-2 z-[1000]">
-                    <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                    {routeError}
-                  </div>
-                )}
-
-                {/* Map legend */}
-                <div className="absolute top-3 right-3 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg px-3 py-2 shadow text-xs text-gray-700 dark:text-gray-300 z-[1000] space-y-1">
-                  <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-green-500 inline-block" /> Warehouse</div>
-                  <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-red-500 inline-block" /> High priority</div>
-                  <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-orange-400 inline-block" /> Medium</div>
-                  <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-blue-500 inline-block" /> Low</div>
                 </div>
               </div>
             </div>
