@@ -1,9 +1,12 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Upload, X, Camera, Image as ImageIcon } from 'lucide-react';
 
 export default function MultipleFileUpload({ photos, setPhotos }) {
   const fileInputRef = useRef();
-  const cameraInputRef = useRef();
+  const videoRef = useRef();
+  const streamRef = useRef(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraError, setCameraError] = useState('');
 
   const addFilesAsPhotos = (files) => {
     const fileList = Array.from(files);
@@ -21,16 +24,87 @@ export default function MultipleFileUpload({ photos, setPhotos }) {
     });
   };
 
+  const addDataUrlAsPhoto = (dataUrl) => {
+    setPhotos((prev) => [...prev, {
+      id: Date.now() + Math.random(),
+      data: dataUrl,
+      name: `camera-${Date.now()}.jpg`,
+      type: 'image/jpeg',
+    }]);
+  };
+
   const handleFileChange = (e) => {
     const files = e.target.files;
     if (files?.length) addFilesAsPhotos(files);
     e.target.value = '';
   };
 
-  const handleCameraChange = (e) => {
-    const files = e.target.files;
-    if (files?.length) addFilesAsPhotos(files);
-    e.target.value = '';
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    setCameraOpen(false);
+    setCameraError('');
+  };
+
+  const openCamera = async () => {
+    setCameraError('');
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraError('Camera not supported in this browser. Use Upload Photos instead.');
+      return;
+    }
+    const constraints = [
+      { video: { facingMode: 'environment' }, audio: false },
+      { video: { facingMode: 'user' }, audio: false },
+      { video: true, audio: false },
+    ];
+    for (const config of constraints) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia(config);
+        streamRef.current = stream;
+        setCameraOpen(true);
+        return;
+      } catch (err) {
+        const isOverconstrained = err.name === 'OverconstrainedError';
+        const isNotFound = err.name === 'NotFoundError';
+        if (err.name === 'NotAllowedError') {
+          setCameraError('Camera access denied. Please allow camera in browser settings.');
+          return;
+        }
+        if (!isOverconstrained && !isNotFound) {
+          console.error('[MultipleFileUpload] Camera error:', err);
+          setCameraError('Could not open camera. Try again or use Upload Photos.');
+          return;
+        }
+      }
+    }
+    setCameraError('No camera found. Use Upload Photos to add images from your device.');
+  };
+
+  useEffect(() => {
+    if (!cameraOpen || !videoRef.current || !streamRef.current) return;
+    videoRef.current.srcObject = streamRef.current;
+    videoRef.current.play().catch(console.error);
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+      }
+    };
+  }, [cameraOpen]);
+
+  const capturePhoto = () => {
+    const video = videoRef.current;
+    if (!video || !streamRef.current || video.readyState < 2) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+    addDataUrlAsPhoto(dataUrl);
+    stopCamera();
   };
 
   const handleRemovePhoto = (photoId) => {
@@ -48,6 +122,7 @@ export default function MultipleFileUpload({ photos, setPhotos }) {
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row gap-3">
           <button
+            type="button"
             onClick={() => fileInputRef.current?.click()}
             className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-primary-600 to-primary-700 text-white font-semibold rounded-lg hover:shadow-lg transition-all text-sm sm:text-base"
           >
@@ -57,7 +132,7 @@ export default function MultipleFileUpload({ photos, setPhotos }) {
           
           <button
             type="button"
-            onClick={() => cameraInputRef.current?.click()}
+            onClick={openCamera}
             className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-lg hover:shadow-lg transition-all text-sm sm:text-base"
           >
             <Camera className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -65,7 +140,13 @@ export default function MultipleFileUpload({ photos, setPhotos }) {
           </button>
         </div>
 
-        {/* Upload from gallery/files - no capture so user can pick files */}
+        {cameraError && (
+          <p className="text-sm text-red-600 dark:text-red-400" role="alert">
+            {cameraError}
+          </p>
+        )}
+
+        {/* Upload from gallery/files only */}
         <input
           ref={fileInputRef}
           type="file"
@@ -75,22 +156,41 @@ export default function MultipleFileUpload({ photos, setPhotos }) {
           className="hidden"
           aria-label="Upload photos from device"
         />
-        {/* Camera capture only - capture attribute forces camera on supported devices */}
-        <input
-          ref={cameraInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handleCameraChange}
-          className="hidden"
-          aria-label="Take photo with camera"
-        />
 
         {/* Info Text */}
         <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
           You can upload multiple photos (delivery proof, damaged items, etc.)
         </p>
       </div>
+
+      {/* Camera overlay – opens camera directly, no album */}
+      {cameraOpen && (
+        <div className="fixed inset-0 z-[10000] bg-black flex flex-col items-center justify-center">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="max-w-full max-h-[70vh] w-full object-contain bg-black"
+          />
+          <div className="flex gap-4 p-4">
+            <button
+              type="button"
+              onClick={capturePhoto}
+              className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg"
+            >
+              Capture Photo
+            </button>
+            <button
+              type="button"
+              onClick={stopCamera}
+              className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Photo Grid */}
       {photos.length > 0 && (
