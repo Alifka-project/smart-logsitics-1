@@ -408,10 +408,10 @@ export default function DeliveryManagementPage() {
             </div>
           ) : (
             <>
-              {/* Container: mobile = top/bottom split (map top, list bottom); desktop = side-by-side */}
+              {/* Container: no page scroll — map+list sized to fit viewport (slightly smaller) */}
               <div
-                className="flex flex-col md:flex-row gap-3 sm:gap-4 items-stretch md:items-start flex-1 min-h-0 min-h-[320px] sm:min-h-[400px] md:min-h-[420px]"
-                style={{ height: 'calc(100vh - 220px)' }}
+                className="flex flex-col md:flex-row gap-3 sm:gap-4 items-stretch md:items-start flex-1 min-h-0 min-h-[320px] sm:min-h-[400px] md:min-h-[380px]"
+                style={{ height: 'calc(100vh - 260px)', maxHeight: 'calc(100vh - 260px)' }}
               >
                 {/* ── Map: top on mobile (fixed height), left on desktop ── */}
                 <div
@@ -472,43 +472,43 @@ export default function DeliveryManagementPage() {
                     <span className="text-sm text-blue-700 dark:text-blue-300">Calculating optimized route…</span>
                   </div>
                 ) : route ? (
-                  <div className="flex-shrink-0 bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-xl p-4 shadow-sm">
-                    <div className="flex items-center justify-between mb-3">
+                  <div className="flex-shrink-0 bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-xl p-3 shadow-sm">
+                    <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4" />
-                        <span className="font-semibold text-sm">Optimized Route</span>
+                        <MapPin className="w-3.5 h-3.5" />
+                        <span className="font-semibold text-xs">Optimized Route</span>
                         {isOptimized && (
-                          <span className="flex items-center gap-1 bg-green-500 px-2 py-0.5 rounded-full text-xs font-semibold">
-                            <Zap className="w-3 h-3" /> AI
+                          <span className="flex items-center gap-1 bg-green-500 px-1.5 py-0.5 rounded-full text-[10px] font-semibold">
+                            <Zap className="w-2.5 h-2.5" /> AI
                           </span>
                         )}
                       </div>
                       <button
                         onClick={loadRoute}
                         disabled={isLoadingRoute}
-                        className="p-1.5 bg-white/20 hover:bg-white/30 rounded-lg transition-colors disabled:opacity-50"
+                        className="p-1 bg-white/20 hover:bg-white/30 rounded transition-colors disabled:opacity-50"
                         title="Recalculate route"
                       >
-                        <RefreshCw className={`w-3.5 h-3.5 ${isLoadingRoute ? 'animate-spin' : ''}`} />
+                        <RefreshCw className={`w-3 h-3 ${isLoadingRoute ? 'animate-spin' : ''}`} />
                       </button>
                     </div>
-                    <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="grid grid-cols-3 gap-1.5 text-center">
                       <div>
-                        <div className="text-xl font-bold">{deliveries.length}</div>
-                        <div className="text-xs opacity-80">Stops</div>
+                        <div className="text-lg font-bold">{deliveries.length}</div>
+                        <div className="text-[10px] opacity-80">Stops</div>
                       </div>
                       <div>
-                        <div className="text-xl font-bold">{route.distanceKm.toFixed(1)}</div>
-                        <div className="text-xs opacity-80">km total</div>
+                        <div className="text-lg font-bold">{route.distanceKm.toFixed(1)}</div>
+                        <div className="text-[10px] opacity-80">km total</div>
                       </div>
                       <div>
-                        <div className="text-xl font-bold">{(route.timeHours + deliveries.length).toFixed(1)}</div>
-                        <div className="text-xs opacity-80">hrs est.</div>
+                        <div className="text-lg font-bold">{(route.timeHours + deliveries.length).toFixed(1)}</div>
+                        <div className="text-[10px] opacity-80">hrs est.</div>
                       </div>
                     </div>
                     {isFallback && (
-                      <p className="text-xs opacity-75 mt-2 flex items-center gap-1">
-                        <AlertTriangle className="w-3 h-3" />
+                      <p className="text-[10px] opacity-75 mt-1.5 flex items-center gap-1">
+                        <AlertTriangle className="w-2.5 h-2.5" />
                         Simplified route — road routing unavailable
                       </p>
                     )}
@@ -523,8 +523,8 @@ export default function DeliveryManagementPage() {
                   </div>
                 )}
 
-                {/* Hint text */}
-                <p className="flex-shrink-0 text-xs text-gray-500 dark:text-gray-400 px-1">
+                {/* Hint text - compact so list gets more space */}
+                <p className="flex-shrink-0 text-[11px] text-gray-500 dark:text-gray-400 px-0">
                   ↕ Drag to reorder — route updates automatically.
                   <span className="hidden md:inline"> Hover a card to highlight on the map.</span>
                   <span className="md:hidden"> Map on top, list below. Tap a card to view details.</span>
