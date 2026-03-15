@@ -3,8 +3,9 @@ import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import { isAuthenticated, getCurrentUser, clearAuth } from '../../frontend/auth';
 import {
   LogOut, User, Settings, ChevronDown, Bell, Sun, Moon, X, Camera, Save, Menu,
-  Search, Sparkles, Users, Zap,
+  Search, Sparkles, Users, Zap, BarChart2,
 } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import api from '../../frontend/apiClient';
 import { useToast } from '../../hooks/useToast';
 import { ToastContainer } from '../common/Toast';
@@ -20,8 +21,8 @@ const ADMIN_NAV = [
 
 const SEARCH_SUGGESTIONS = [
   'Pending deliveries',
-  'Out for delivery',
-  'Overdue deliveries',
+  'Most selling product this month',
+  'Who is the top customer?',
   'Active drivers',
 ];
 
@@ -144,6 +145,52 @@ const AISearchBar = memo(function AISearchBar({
                 <p style={{ fontSize: '13px', color: 'var(--text)', lineHeight: 1.55 }}>{searchResults.answer}</p>
               </div>
 
+              {/* Analytics chart (top products / top customers) */}
+              {searchResults.insight?.chartData?.length > 0 && (
+                <div style={{
+                  padding: '12px 16px',
+                  borderBottom: '1px solid var(--border)',
+                  background: 'var(--surface2)',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                    <BarChart2 size={14} style={{ color: 'var(--primary)' }} />
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      {searchResults.insight.type === 'top_products' ? 'Products by deliveries' : 'Top customers'}
+                      {searchResults.insight.period ? ` · ${searchResults.insight.period}` : ''}
+                    </span>
+                  </div>
+                  <div style={{ width: '100%', height: 220 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={searchResults.insight.chartData}
+                        layout="vertical"
+                        margin={{ top: 4, right: 8, left: 4, bottom: 4 }}
+                      >
+                        <XAxis type="number" hide />
+                        <YAxis
+                          type="category"
+                          dataKey="name"
+                          width={140}
+                          tick={{ fontSize: 11, fill: 'var(--text)' }}
+                          tickFormatter={v => (v && v.length > 22 ? v.slice(0, 20) + '…' : v)}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            background: 'var(--surface)',
+                            border: '1px solid var(--border)',
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                          }}
+                          labelStyle={{ color: 'var(--text)' }}
+                          formatter={(value) => [value, searchResults.insight.type === 'top_products' ? 'Deliveries' : 'Orders']}
+                        />
+                        <Bar dataKey="count" fill="var(--primary)" radius={[0, 4, 4, 0]} minPointSize={6} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+
               {/* Delivery results */}
               {searchResults.results?.length > 0 && (
                 <div style={{ maxHeight: '220px', overflowY: 'auto' }}>
@@ -200,7 +247,7 @@ const AISearchBar = memo(function AISearchBar({
                 </div>
               )}
 
-              {(!searchResults.results?.length && !searchResults.drivers?.length) && (
+              {(!searchResults.results?.length && !searchResults.drivers?.length) && !searchResults.insightOnly && (
                 <div style={{ padding: '28px', textAlign: 'center', color: MUTED }}>
                   <Search size={28} style={{ margin: '0 auto 8px', opacity: 0.3 }} />
                   <p style={{ fontSize: '13px' }}>No records found for "{searchQuery}"</p>

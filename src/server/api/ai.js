@@ -263,10 +263,65 @@ function inferDateRangeFromQuery(query) {
   return null;
 }
 
+/* Detect insight/analytics queries (e.g. "top customer", "who has the most orders")
+   so we can run aggregates and return data in the AI answer instead of "no records". */
+function isInsightQuery(query) {
+  const q = query.toLowerCase();
+  const patterns = [
+    /\b(top|best|leading|biggest)\s+(customer|customers|clients?)\b/,
+    /\b(customer|customers|client)\s+(with\s+)?(most|highest|top)\s+(orders?|deliveries?)\b/,
+    /\bwho\s+(is|are)\s+(the\s+)?(top|best|leading)\s+(customer|customers)\b/,
+    /\bmost\s+(orders?|deliveries?)\s+by\s+(customer|client)\b/,
+    /\b(customer|client)\s+ranking\b/,
+    /\b(top|best)\s+\d*\s*(customer|customers)\b/,
+  ];
+  return patterns.some(r => r.test(q));
+}
+
+/* Detect product/sales analytics queries (e.g. "most selling product", "best selling this month")
+   so we can aggregate by product (items) and return chart data. */
+function isProductInsightQuery(query) {
+  const q = query.toLowerCase();
+  const patterns = [
+    /\b(most|best|top)\s+(selling\s+)?(product|products|item|items)\b/,
+    /\b(what|which)\s+(is|are)\s+(the\s+)?(most|best|top)\s+(selling\s+)?(product|products)\b/,
+    /\b(product|item)s?\s+(selling|sold)\s+(this\s+month|last\s+month|this\s+week)/,
+    /\b(product|item)\s+ranking\b/,
+    /\b(top|best)\s+\d*\s*(product|item)s?\b/,
+    /\bsales\s+by\s+(product|item)\b/,
+    /\bmost\s+sold\s+(product|item)s?\b/,
+  ];
+  return patterns.some(r => r.test(q));
+}
+
+/* Normalize delivery.items (string or JSON) into product name(s) for aggregation.
+   Handles: "Electronics x 30", "Widgets", "Auto Parts - Model X", JSON array with description. */
+function parseProductNames(itemsField) {
+  const names = [];
+  if (itemsField == null || String(itemsField).trim() === '') return names;
+  const raw = typeof itemsField === 'string' ? itemsField : JSON.stringify(itemsField);
+  let parts = [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      parsed.forEach(p => {
+        const d = p && (p.description || p.name || p.item || p.Description || p.Name);
+        if (d) names.push(String(d).replace(/\s*x\s*\d+\s*$/i, '').trim());
+      });
+      return names.filter(Boolean);
+    }
+  } catch (_) { /* not JSON */ }
+  parts = raw.split(/[,;\n]|\s+-\s+/).map(s => String(s).replace(/\s*x\s*\d+\s*$/i, '').trim()).filter(Boolean);
+  if (parts.length) return parts;
+  const single = raw.replace(/\s*x\s*\d+\s*$/i, '').trim();
+  if (single) return [single];
+  return names;
+}
+
 /* ─── POST /api/ai/search ────────────────────────────────────── */
 router.post('/search', async (req, res) => {
   const { query } = req.body || {};
-  if (!query?.trim()) return res.json({ answer: '', results: [], drivers: [], navSuggestions: [] });
+  if (!query?.trim()) return res.json({ answer: '', results: [], drivers: [], navSuggestions: [], insightOnly: false, insight: null });
 
   try {
     const user      = req.user;
@@ -274,7 +329,18 @@ router.post('/search', async (req, res) => {
     const driverId  = user?.sub;
     const q         = query.trim();
     const statusInt = inferStatusFromQuery(q);
-    const dateRange = inferDateRangeFromQuery(q);
+    let dateRange   = inferDateRangeFromQuery(q);
+    const productIntent = isProductInsightQuery(q);
+    const insightIntent = isInsightQuery(q) || productIntent;
+    /* Product insights default to "this month" when no date in query */
+    if (productIntent && !dateRange) {
+      const now = new Date();
+      dateRange = {
+        from: new Date(now.getFullYear(), now.getMonth(), 1),
+        to:   new Date(now.getFullYear(), now.getMonth() + 1, 1),
+        label: 'this month',
+      };
+    }
 
     /* Navigation suggestions (deterministic keyword match) */
     const navSuggestions = findNavSuggestions(q, userRole);
@@ -283,20 +349,24 @@ router.post('/search', async (req, res) => {
       ? { createdAt: { gte: dateRange.from, lt: dateRange.to } }
       : {};
 
+    /* For insight queries we don't require text match on deliveries; we'll use aggregates. */
     const deliveryWhere = statusInt
       // Status-intent queries: list all deliveries for that status
       ? { status: statusInt, ...baseDateFilter }
-      // Generic text search
-      : {
-          OR: [
-            { customer: { contains: q, mode: 'insensitive' } },
-            { address:  { contains: q, mode: 'insensitive' } },
-            { status:   { contains: q, mode: 'insensitive' } },
-            { poNumber: { contains: q, mode: 'insensitive' } },
-            { items:    { contains: q, mode: 'insensitive' } },
-          ],
-          ...baseDateFilter,
-        };
+      : insightIntent
+        // Insight query: fetch all (with optional date filter) for aggregation; record list can stay empty
+        ? baseDateFilter
+        // Generic text search
+        : {
+            OR: [
+              { customer: { contains: q, mode: 'insensitive' } },
+              { address:  { contains: q, mode: 'insensitive' } },
+              { status:   { contains: q, mode: 'insensitive' } },
+              { poNumber: { contains: q, mode: 'insensitive' } },
+              { items:    { contains: q, mode: 'insensitive' } },
+            ],
+            ...baseDateFilter,
+          };
 
     const deliverySelect = {
       id: true, customer: true, address: true,
@@ -381,6 +451,59 @@ router.post('/search', async (req, res) => {
       ? { totalDeliveries: stTotal, pending: stPending, inTransit: stInTransit, delivered: stDelivered, cancelled: stCancelled, activeDrivers: stActiveDrivers, totalDrivers: stTotalDrivers }
       : { myTotal: stTotal, myPending: stPending, myInTransit: stInTransit, myDelivered: stDelivered };
 
+    /* Top customers aggregate — for insight queries (admin only) */
+    let topCustomers = [];
+    if (userRole === 'admin' && insightIntent) {
+      const grouped = await prisma.delivery.groupBy({
+        by: ['customer'],
+        _count: { id: true },
+        where: { customer: { not: null }, ...baseDateFilter },
+      });
+      topCustomers = grouped
+        .map(g => ({ customer: g.customer || 'Unknown', count: g._count.id }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+    }
+
+    /* Top products aggregate — for product/sales insight (admin only) */
+    let topProducts = [];
+    let insightChartData = null;
+    if (userRole === 'admin' && productIntent) {
+      const withItems = await prisma.delivery.findMany({
+        where: { items: { not: null }, ...baseDateFilter },
+        select: { items: true, metadata: true },
+      });
+      const productCount = {};
+      withItems.forEach(d => {
+        const meta = d.metadata || {};
+        const orig = meta.originalRow || meta._originalRow || {};
+        const fromMeta = String(orig.Description || orig.description || '').trim();
+        const names = fromMeta ? [fromMeta] : parseProductNames(d.items);
+        names.forEach(name => {
+          const key = (name || 'Unspecified').trim();
+          if (!key) return;
+          productCount[key] = (productCount[key] || 0) + 1;
+        });
+      });
+      topProducts = Object.entries(productCount)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+      if (topProducts.length > 0) {
+        insightChartData = {
+          type: 'top_products',
+          chartData: topProducts.map(p => ({ name: p.name, count: p.count })),
+          period: dateRange ? dateRange.label : 'this month',
+        };
+      }
+    } else if (userRole === 'admin' && insightIntent && topCustomers.length > 0) {
+      insightChartData = {
+        type: 'top_customers',
+        chartData: topCustomers.map(c => ({ name: c.customer, count: c.count })),
+        period: dateRange ? dateRange.label : null,
+      };
+    }
+
     /* OpenAI context */
     const ctx = {
       role: userRole,
@@ -391,18 +514,37 @@ router.post('/search', async (req, res) => {
       matchingDeliveries: deliveries.slice(0, 5).map(d => ({ customer: d.customer, address: d.address, status: d.status, po: d.poNumber })),
       matchingDrivers: drivers.slice(0, 3).map(d => ({ name: d.fullName || d.username, email: d.email, active: d.active })),
       navigationSuggested: navSuggestions.map(n => ({ label: n.label, path: n.path })),
+      topCustomers: topCustomers.length ? topCustomers : undefined,
+      topProducts: topProducts.length ? topProducts : undefined,
     };
 
     /* Fallback answer if OpenAI unavailable
        Priority:
-       1) If there are text-matched deliveries/drivers → describe those.
-       2) Else if there are live stats → answer analytically from stats
+       1) Insight query with topCustomers → answer from aggregate data.
+       2) If there are text-matched deliveries/drivers → describe those.
+       3) Else if there are live stats → answer analytically from stats
           (respecting dateRange if present).
-       3) Else if there are navigation suggestions → mention pages.
-       4) Else → generic "no data" message.
+       4) Else if there are navigation suggestions → mention pages.
+       5) Else → generic "no data" message.
     */
     let answer;
-    if (totalCount > 0 || drivers.length > 0) {
+    let insightOnly = false;
+    if (insightIntent && topCustomers.length > 0 && !productIntent) {
+      const period = dateRange ? `For ${dateRange.label}, ` : '';
+      const first = topCustomers[0];
+      if (topCustomers.length === 1) {
+        answer = `${period}The top customer is ${first.customer} with ${first.count} delivery${first.count !== 1 ? 'ies' : ''}.`;
+      } else {
+        const rest = topCustomers.slice(1, 5).map((t, i) => `${i + 2}. ${t.customer} (${t.count})`).join('; ');
+        answer = `${period}The top customer is ${first.customer} with ${first.count} deliveries. Next: ${rest}.`;
+      }
+      insightOnly = true;
+    } else if (productIntent && topProducts.length > 0) {
+      const period = dateRange ? `For ${dateRange.label}, ` : '';
+      const first = topProducts[0];
+      answer = `${period}The most delivered product is "${first.name}" with ${first.count} delivery${first.count !== 1 ? 'ies' : ''}. See the chart below for the full breakdown.`;
+      insightOnly = true;
+    } else if (totalCount > 0 || drivers.length > 0) {
       answer =
         `Found ${totalCount} deliver${totalCount !== 1 ? 'ies' : 'y'}`
         + (drivers.length ? ` and ${drivers.length} driver${drivers.length !== 1 ? 's' : ''}` : '')
@@ -444,14 +586,16 @@ router.post('/search', async (req, res) => {
                 role: 'system',
                 content:
                   'You are an AI assistant for Electrolux Logistics — a Dubai-based delivery management system.\n' +
-                  'You have access to: (1) live system stats in liveStats, (2) text-matched records in matchingDeliveries/matchingDrivers, (3) navigation suggestions in navigationSuggested.\n' +
+                  'You have access to: (1) live system stats in liveStats, (2) text-matched records in matchingDeliveries/matchingDrivers, (3) navigation suggestions in navigationSuggested, (4) topCustomers for top/best customer questions, (5) topProducts for most selling product / best selling items (name and count per product).\n' +
                   'Rules:\n' +
+                  '• For "top customer", "best customer", "who has the most orders/deliveries", "top customers" → use topCustomers. Name the top customer and their delivery count; include date range if present.\n' +
+                  '• For "most selling product", "best selling this month", "top products", "what is the most product selling" → use topProducts. Name the top product and its delivery count; mention the period (dateRange). Keep the answer short; the user will also see a chart.\n' +
                   '• For counting/analytical questions ("how many pending", "total deliveries") → use liveStats numbers.\n' +
                   '• For record lookups ("find customer X", "delivery to Marina") → use matchingDeliveries.\n' +
                   '• For navigation questions ("where is tracking", "how to see reports", "how to check delivery status", "how to see maps") → explicitly mention the best page name and path using navigationSuggested.\n' +
                   '  If the query starts with "how", "where" or "show me" and navigationSuggested is not empty, focus on navigation instructions and only mention counts when the user clearly asks "how many".\n' +
                   '• When dateRange is present, make clear which period you are talking about (e.g. "For the last 7 days").\n' +
-                  '• Always answer in 1-2 concise sentences. Include exact numbers when available. Be direct and actionable, e.g. "For the last 7 days there are 79 pending deliveries. To see details, open Operations → Delivery Tracking."',
+                  '• Always answer in 1-2 concise sentences. Include exact numbers when available. Be direct and actionable, e.g. "The top customer is ABC Corp with 45 deliveries." or "For the last 7 days there are 79 pending deliveries. To see details, open Operations → Delivery Tracking."',
               },
               {
                 role: 'user',
@@ -465,13 +609,14 @@ router.post('/search', async (req, res) => {
         const aiData = await aiRes.json();
         if (aiData.choices?.[0]?.message?.content) {
           answer = aiData.choices[0].message.content.trim();
+          if (insightIntent && (topCustomers.length > 0 || topProducts.length > 0)) insightOnly = true;
         }
       } catch (aiErr) {
         console.error('[AI Search] OpenAI error:', aiErr.message);
       }
     }
 
-    res.json({ answer, results: deliveries, drivers, totalCount, navSuggestions });
+    res.json({ answer, results: deliveries, drivers, totalCount, navSuggestions, insightOnly, insight: insightChartData });
   } catch (err) {
     console.error('[AI Search] Error:', err.message);
     res.status(500).json({ error: err.message });
