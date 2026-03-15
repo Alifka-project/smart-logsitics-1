@@ -148,7 +148,7 @@ export default function DeliveryManagementPage() {
   ];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
       {/* Cache Alert */}
@@ -176,7 +176,7 @@ export default function DeliveryManagementPage() {
       )}
 
       {/* Header */}
-      <div className="pp-page-header flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-1">
         <div>
           <h1 className="pp-page-title">Delivery Management</h1>
           <p className="pp-page-subtitle">Manage deliveries, view routes, and track status</p>
@@ -225,7 +225,7 @@ export default function DeliveryManagementPage() {
                   }
                 }}
                 className={`
-                  flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm
+                  flex items-center gap-2 py-2.5 px-1 border-b-2 font-medium text-sm
                   ${activeTab === tab.id
                     ? 'border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-400'
                     : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
@@ -410,7 +410,7 @@ export default function DeliveryManagementPage() {
             /* Split layout: map on left, list on right */
             <div
               className="flex gap-4 items-start"
-              style={{ height: 'calc(100vh - 260px)', minHeight: '520px' }}
+              style={{ height: 'calc(100vh - 300px)', minHeight: '460px' }}
             >
               {/* ── LEFT PANEL: Map ── */}
               <div
