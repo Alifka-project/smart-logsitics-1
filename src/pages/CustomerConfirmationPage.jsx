@@ -252,14 +252,19 @@ export default function CustomerConfirmationPage() {
                 <h2 style={{ fontWeight: 700, fontSize: 15, color: '#1e293b' }}>Order Details</h2>
               </div>
               <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {delivery.poNumber && (
+                {(delivery.poNumber || delivery.id) && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div style={{ width: 36, height: 36, borderRadius: 10, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       <Package style={{ width: 16, height: 16, color: '#003057' }} />
                     </div>
                     <div>
-                      <p style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>PO Number</p>
-                      <p style={{ fontSize: 15, fontWeight: 700, color: '#1e293b' }}>{delivery.poNumber}</p>
+                      <p style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Order Reference</p>
+                      {delivery.poNumber && (
+                        <p style={{ fontSize: 13, fontWeight: 700, color: '#1e293b' }}>PO: {delivery.poNumber}</p>
+                      )}
+                      {delivery.id && (
+                        <p style={{ fontSize: 12, fontWeight: 500, color: '#64748b' }}>Delivery No: #{String(delivery.id).slice(0, 8)}</p>
+                      )}
                     </div>
                   </div>
                 )}

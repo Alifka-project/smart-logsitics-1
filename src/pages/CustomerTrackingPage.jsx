@@ -427,6 +427,22 @@ export default function CustomerTrackingPage() {
         <div className="card anim-card anim-card-5" style={{ padding: 20, marginBottom: 12 }}>
           <h3 style={{ fontWeight: 700, fontSize: 15, color: '#1e293b', marginBottom: 14 }}>Order Information</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {(delivery.poNumber || delivery.id) && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 34, height: 34, borderRadius: 10, background: '#F0F7FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Package style={{ width: 15, height: 15, color: '#003057' }} />
+                </div>
+                <div>
+                  <p style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Order Reference</p>
+                  {delivery.poNumber && (
+                    <p style={{ fontSize: 13, fontWeight: 700, color: '#1e293b', marginTop: 2 }}>PO: {delivery.poNumber}</p>
+                  )}
+                  {delivery.id && (
+                    <p style={{ fontSize: 12, fontWeight: 500, color: '#64748b' }}>Delivery No: #{String(delivery.id).slice(0, 8)}</p>
+                  )}
+                </div>
+              </div>
+            )}
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
               <div style={{ width: 34, height: 34, borderRadius: 10, background: '#F0F7FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <MapPin style={{ width: 15, height: 15, color: '#003057' }} />
@@ -436,17 +452,6 @@ export default function CustomerTrackingPage() {
                 <p style={{ fontSize: 13, fontWeight: 600, color: '#1e293b', marginTop: 2 }}>{delivery.address}</p>
               </div>
             </div>
-            {delivery.poNumber && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 34, height: 34, borderRadius: 10, background: '#F0F7FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Package style={{ width: 15, height: 15, color: '#003057' }} />
-                </div>
-                <div>
-                  <p style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>PO Number</p>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: '#1e293b', marginTop: 2 }}>{delivery.poNumber}</p>
-                </div>
-              </div>
-            )}
           </div>
 
           {items.length > 0 && (
