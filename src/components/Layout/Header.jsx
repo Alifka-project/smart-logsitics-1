@@ -974,10 +974,13 @@ export default function Header({ isAdmin = false }) {
                 style={{ filter: theme==='dark' ? 'none' : 'brightness(0) saturate(100%)' }} />
             </Link>
 
-            {/* Nav pills — desktop (centered using auto margins) */}
+            {/* Spacer — pushes nav + search + controls to the right */}
+            <div style={{ flex: 1 }} />
+
+            {/* Nav pills — desktop (sit directly to the left of search bar) */}
             <nav
               className="hidden md:flex items-center shrink-0"
-              style={{ gap:'2px', margin:'0 auto' }}
+              style={{ gap:'2px', marginRight:'12px' }}
             >
               {ADMIN_NAV.map(item => (
                 <NavLink
@@ -993,10 +996,7 @@ export default function Header({ isAdmin = false }) {
               ))}
             </nav>
 
-            {/* Spacer — pushes search + controls to the right */}
-            <div style={{ flex: 1 }} />
-
-            {/* Search bar — right side, fixed width */}
+            {/* Search bar — to the right of top nav, fixed width */}
             <div className="hidden md:flex items-center" style={{ width: '280px', marginRight: '8px' }}>
               <AISearchBar {...searchBarProps} flex="1 1 auto" maxWidth="100%" />
             </div>
