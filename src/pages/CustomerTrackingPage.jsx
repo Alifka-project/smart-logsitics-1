@@ -159,11 +159,12 @@ function getStepTimestamp(step, timeline) {
 }
 
 // ── Status hero config (top card) ────────────────────────────────────────────
-// label = pill text, title/subtitle = main hero copy (so it doesn't duplicate
-// the step label/description below).
+// Badge (label) = short status word
+// Title         = main customer-facing message
+// Subtitle      = supporting explanation
 const STATUS_HERO = {
   0: {
-    bg: '#EFF6FF',
+    bg: '#FFFFFF',
     color: '#1D4ED8',
     label: 'Processing',
     icon: Package,
@@ -171,31 +172,31 @@ const STATUS_HERO = {
     subtitle: 'We’re preparing your items for delivery.',
   },
   1: {
-    bg: '#ECFEFF',
+    bg: '#FFFFFF',
     color: '#0891B2',
     label: 'Scheduled',
     icon: Calendar,
-    title: 'Order scheduled',
+    title: 'Delivery date booked',
     subtitle: 'Your delivery date has been confirmed.',
   },
   2: {
-    bg: '#FFF7ED',
+    bg: '#FFFFFF',
     color: '#C2410C',
-    label: 'Out for Delivery',
+    label: 'In transit',
     icon: Truck,
-    title: 'On the way today',
+    title: 'Out for delivery',
     subtitle: 'Your driver is heading to your address.',
   },
   3: {
-    bg: '#F0FDF4',
+    bg: '#FFFFFF',
     color: '#15803D',
-    label: 'Items Arrived',
+    label: 'Delivered',
     icon: MapPin,
-    title: 'Items arrived',
-    subtitle: 'Delivered to your address.',
+    title: 'Your order has arrived',
+    subtitle: 'Delivered to your address successfully.',
   },
   4: {
-    bg: '#FDF4FF',
+    bg: '#FFFFFF',
     color: '#7E22CE',
     label: 'Completed',
     icon: Star,
