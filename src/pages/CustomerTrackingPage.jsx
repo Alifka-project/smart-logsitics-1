@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   AlertCircle, Loader, MapPin, Truck, Clock, Package,
-  Phone, CheckCircle, Navigation, Star, RefreshCw, ChevronRight,
+  Phone, CheckCircle, Navigation, Star, RefreshCw, ChevronRight, ArrowLeft,
   MessageSquare, Calendar
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
@@ -231,6 +231,7 @@ function Skeleton() {
 
 export default function CustomerTrackingPage() {
   const { token } = useParams();
+  const navigate = useNavigate();
   const [tracking, setTracking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -304,17 +305,38 @@ export default function CustomerTrackingPage() {
       <style>{STYLES}</style>
 
       {/* ── Header ──────────────────────────────────────────────────── */}
-      <div style={{ background: 'linear-gradient(135deg, #003057 0%, #005082 100%)', padding: '20px 16px 32px' }}>
+      <div style={{ background: 'linear-gradient(135deg, #003057 0%, #005082 100%)', padding: '18px 16px 28px' }}>
         <div style={{ maxWidth: 520, margin: '0 auto' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <img src="/elect home.png" alt="Electrolux" style={{ height: 30, filter: 'brightness(0) invert(1)' }} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <button
+              onClick={() => navigate(-1)}
+              style={{
+                border: 'none',
+                background: 'rgba(15,23,42,0.35)',
+                borderRadius: 999,
+                padding: '6px 10px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                color: '#E5E7EB',
+                cursor: 'pointer'
+              }}
+            >
+              <ArrowLeft style={{ width: 16, height: 16 }} />
+              <span style={{ fontSize: 12, fontWeight: 600 }}>Back</span>
+            </button>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.15)', borderRadius: 50, padding: '5px 12px' }}>
               <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#4ADE80', animation: 'ripple 2s infinite' }} />
               <span style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}>Live Tracking</span>
             </div>
           </div>
-          <h1 style={{ color: '#fff', fontSize: 22, fontWeight: 800, marginBottom: 2 }}>Delivery Tracking</h1>
-          {delivery.poNumber && <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>PO: {delivery.poNumber}</p>}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6 }}>
+            <img src="/elect home.png" alt="Electrolux" style={{ height: 26, filter: 'brightness(0) invert(1)' }} />
+            <div>
+              <h1 style={{ color: '#fff', fontSize: 20, fontWeight: 800, marginBottom: 0 }}>Delivery Tracking</h1>
+              {delivery.poNumber && <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>PO: {delivery.poNumber}</p>}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -490,7 +512,7 @@ export default function CustomerTrackingPage() {
                   <Package style={{ width: 15, height: 15, color: '#003057' }} />
                 </div>
                 <div>
-                  <p style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Order Reference</p>
+                  <p style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>PO Number</p>
                   {delivery.poNumber && (
                     <p style={{ fontSize: 13, fontWeight: 700, color: '#1e293b', marginTop: 2 }}>PO: {delivery.poNumber}</p>
                   )}

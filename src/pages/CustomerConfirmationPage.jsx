@@ -258,7 +258,7 @@ export default function CustomerConfirmationPage() {
                       <Package style={{ width: 16, height: 16, color: '#003057' }} />
                     </div>
                     <div>
-                      <p style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Order Reference</p>
+                      <p style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>PO Number</p>
                       {delivery.poNumber && (
                         <p style={{ fontSize: 13, fontWeight: 700, color: '#1e293b' }}>PO: {delivery.poNumber}</p>
                       )}
