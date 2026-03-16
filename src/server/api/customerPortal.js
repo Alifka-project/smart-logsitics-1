@@ -82,17 +82,17 @@ router.get('/confirm-delivery/:token', async (req, res) => {
       }
     }
 
-    // Generate available delivery dates (next 7 days, excluding weekends)
+    // Generate 7 working days (Sunday = day off in UAE; Saturday is a working day)
     const availableDates = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
-    for (let i = 1; i <= 7; i++) {
+    let dayOffset = 1;
+    while (availableDates.length < 7) {
       const date = new Date(today);
-      date.setDate(date.getDate() + i);
-      
-      // Skip weekends (Saturday = 6, Sunday = 0)
-      if (date.getDay() !== 0 && date.getDay() !== 6) {
+      date.setDate(date.getDate() + dayOffset);
+      dayOffset++;
+      // Skip Sundays only (0 = Sunday). Saturday (6) is a working day in UAE.
+      if (date.getDay() !== 0) {
         availableDates.push(date);
       }
     }

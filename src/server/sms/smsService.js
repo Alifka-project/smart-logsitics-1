@@ -154,9 +154,19 @@ async function validateConfirmationToken(token) {
       return { isValid: false, error: 'Token not found' };
     }
 
-    // Check if token is expired
+    // Check standard token expiry (30 days from send)
     if (delivery.tokenExpiresAt && new Date() > delivery.tokenExpiresAt) {
-      return { isValid: false, error: 'Token has expired', delivery };
+      return { isValid: false, error: 'This confirmation link has expired.', delivery };
+    }
+
+    // After delivery, link expires 3 days after the delivery date
+    const deliveredStatuses = ['delivered', 'delivered-with-installation', 'delivered-without-installation'];
+    if (deliveredStatuses.includes(delivery.status) && delivery.deliveredAt) {
+      const expireAfterDelivery = new Date(delivery.deliveredAt);
+      expireAfterDelivery.setDate(expireAfterDelivery.getDate() + 3);
+      if (new Date() > expireAfterDelivery) {
+        return { isValid: false, error: 'This link is no longer available. Your delivery has been completed.', delivery };
+      }
     }
 
     // Check if already confirmed

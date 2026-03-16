@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { AlertCircle, CheckCircle, Calendar, Package, MapPin, Phone, FileText, Loader } from 'lucide-react';
-import api from '../frontend/apiClient';
+import { AlertCircle, CheckCircle, Calendar, Package, MapPin, Phone, Loader, ChevronRight } from 'lucide-react';
 
 export default function CustomerConfirmationPage() {
   const { token } = useParams();
@@ -15,36 +14,21 @@ export default function CustomerConfirmationPage() {
   const [success, setSuccess] = useState(false);
   const [isAlreadyConfirmed, setIsAlreadyConfirmed] = useState(false);
 
-  // Fetch delivery details
-  useEffect(() => {
-    fetchDeliveryDetails();
-  }, [token]);
+  useEffect(() => { fetchDeliveryDetails(); }, [token]);
 
   const fetchDeliveryDetails = async () => {
     try {
       setLoading(true);
       setError('');
-
-      // Use fetch instead of api client to avoid authentication headers
       const response = await fetch(`/api/customer/confirm-delivery/${token}`);
       const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.message || data.error || 'Failed to load delivery details');
-        return;
-      }
-
+      if (!response.ok) { setError(data.message || data.error || 'Failed to load delivery details'); return; }
       setDelivery(data.delivery);
       setAvailableDates(data.availableDates || []);
       setIsAlreadyConfirmed(data.isAlreadyConfirmed || false);
-
-      // Set first available date as default
-      if (data.availableDates && data.availableDates.length > 0) {
-        setSelectedDate(data.availableDates[0]);
-      }
+      if (data.availableDates?.length > 0) setSelectedDate(data.availableDates[0]);
     } catch (err) {
       setError(err.message || 'Failed to fetch delivery details');
-      console.error('Fetch error:', err);
     } finally {
       setLoading(false);
     }
@@ -52,281 +36,247 @@ export default function CustomerConfirmationPage() {
 
   const handleConfirmDelivery = async (e) => {
     e.preventDefault();
-
-    if (!selectedDate) {
-      setError('Please select a delivery date');
-      return;
-    }
-
+    if (!selectedDate) { setError('Please select a delivery date'); return; }
     try {
       setConfirming(true);
       setError('');
-
       const response = await fetch(`/api/customer/confirm-delivery/${token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ deliveryDate: selectedDate })
       });
-
       const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.message || data.error || 'Failed to confirm delivery');
-        return;
-      }
-
+      if (!response.ok) { setError(data.message || data.error || 'Failed to confirm delivery'); return; }
       setSuccess(true);
       setDelivery(data.delivery);
-
-      // Redirect to tracking page after 3 seconds
-      setTimeout(() => {
-        navigate(`/customer-tracking/${token}`);
-      }, 3000);
+      setTimeout(() => navigate(`/customer-tracking/${token}`), 3000);
     } catch (err) {
       setError(err.message || 'Failed to confirm delivery');
-      console.error('Confirm error:', err);
     } finally {
       setConfirming(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
-        <div className="text-center">
-          <Loader className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
-          <p className="text-gray-700 text-lg">Loading your delivery details...</p>
-        </div>
-      </div>
-    );
-  }
+  const formatDate = (dateStr) => new Date(dateStr + 'T00:00:00').toLocaleDateString('en-AE', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
 
-  if (error && !delivery) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full text-center">
-          <AlertCircle className="w-16 h-16 text-red-600 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-800 mb-4">Oops!</h1>
-          <p className="text-gray-600 mb-6">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
-          >
-            Try Again
-          </button>
-        </div>
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #003057 0%, #005082 100%)' }}>
+      <div className="text-center">
+        <Loader className="w-12 h-12 text-white animate-spin mx-auto mb-4" />
+        <p className="text-white text-lg font-medium">Loading your delivery details...</p>
       </div>
-    );
-  }
+    </div>
+  );
+
+  if (error && !delivery) return (
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'linear-gradient(135deg, #003057 0%, #005082 100%)' }}>
+      <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
+        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <AlertCircle className="w-9 h-9 text-red-600" />
+        </div>
+        <h1 className="text-xl font-bold text-gray-800 mb-3">Link Unavailable</h1>
+        <p className="text-gray-600 mb-6 text-sm">{error}</p>
+        <p className="text-sm text-gray-500">For assistance, call <a href="tel:+971524408687" className="text-blue-600 font-semibold">+971 52 440 8687</a></p>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 py-8 px-4">
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <img 
-            src="/elect home.png" 
-            alt="Electrolux" 
-            className="h-12 mx-auto mb-4"
-          />
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">
-            Delivery Confirmation
-          </h1>
-          <p className="text-gray-600">
+    <div className="min-h-screen" style={{ background: 'linear-gradient(160deg, #f0f4f8 0%, #e8edf2 100%)' }}>
+      {/* Header */}
+      <div className="w-full py-6 px-4" style={{ background: 'linear-gradient(135deg, #003057 0%, #005082 100%)' }}>
+        <div className="max-w-2xl mx-auto flex flex-col items-center">
+          <img src="/elect home.png" alt="Electrolux" className="h-10 mb-3 brightness-0 invert" />
+          <h1 className="text-2xl font-bold text-white tracking-wide">Delivery Confirmation</h1>
+          <p className="text-blue-200 text-sm mt-1">
             {isAlreadyConfirmed ? 'Your delivery is confirmed' : 'Please confirm your delivery and select a date'}
           </p>
         </div>
+      </div>
 
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+        {/* Success Banner */}
         {success && (
-          <div className="mb-6 bg-green-50 border-l-4 border-green-500 p-4 rounded-lg">
-            <div className="flex items-start">
-              <CheckCircle className="w-6 h-6 text-green-500 mt-0.5 mr-3 flex-shrink-0" />
-              <div>
-                <h3 className="font-semibold text-green-800">Delivery Confirmed!</h3>
-                <p className="text-green-700">
-                  Thank you for confirming your delivery. You'll be redirected to tracking shortly.
-                </p>
-              </div>
+          <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-start gap-3">
+            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <CheckCircle className="w-5 h-5 text-green-600" />
+            </div>
+            <div>
+              <p className="font-semibold text-green-800">Delivery Confirmed!</p>
+              <p className="text-green-700 text-sm">Thank you. Redirecting you to tracking shortly...</p>
             </div>
           </div>
         )}
 
+        {/* Error Banner */}
         {error && (
-          <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
-            <div className="flex items-start">
-              <AlertCircle className="w-6 h-6 text-red-500 mt-0.5 mr-3 flex-shrink-0" />
-              <div>
-                <h3 className="font-semibold text-red-800">Error</h3>
-                <p className="text-red-700">{error}</p>
-              </div>
-            </div>
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <p className="text-red-700 text-sm">{error}</p>
           </div>
         )}
 
         {delivery && (
-          <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-            {/* Order Details Section */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6">
-              <h2 className="text-2xl font-bold mb-4">Order Details</h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-start">
-                  <FileText className="w-5 h-5 mt-1 mr-3 flex-shrink-0" />
-                  <div>
-                    <p className="text-blue-100 text-sm">Order ID</p>
-                    <p className="font-semibold text-lg">{delivery.id}</p>
-                  </div>
-                </div>
-
+          <>
+            {/* Order Details Card */}
+            <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
+              <div className="px-5 py-4 border-b border-gray-100">
+                <h2 className="font-bold text-gray-800 text-base">Order Details</h2>
+              </div>
+              <div className="p-5 space-y-4">
                 {delivery.poNumber && (
-                  <div className="flex items-start">
-                    <FileText className="w-5 h-5 mt-1 mr-3 flex-shrink-0" />
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: '#e8f0fe' }}>
+                      <Package className="w-4 h-4" style={{ color: '#003057' }} />
+                    </div>
                     <div>
-                      <p className="text-blue-100 text-sm">PO Number</p>
-                      <p className="font-semibold text-lg">{delivery.poNumber}</p>
+                      <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">PO Number</p>
+                      <p className="font-bold text-gray-800">{delivery.poNumber}</p>
                     </div>
                   </div>
                 )}
-
-                <div className="flex items-start">
-                  <MapPin className="w-5 h-5 mt-1 mr-3 flex-shrink-0" />
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5" style={{ background: '#e8f0fe' }}>
+                    <MapPin className="w-4 h-4" style={{ color: '#003057' }} />
+                  </div>
                   <div>
-                    <p className="text-blue-100 text-sm">Delivery Address</p>
-                    <p className="font-semibold">{delivery.address}</p>
+                    <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Delivery Address</p>
+                    <p className="font-semibold text-gray-800 text-sm">{delivery.address}</p>
                   </div>
                 </div>
-
                 {delivery.phone && (
-                  <div className="flex items-start">
-                    <Phone className="w-5 h-5 mt-1 mr-3 flex-shrink-0" />
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: '#e8f0fe' }}>
+                      <Phone className="w-4 h-4" style={{ color: '#003057' }} />
+                    </div>
                     <div>
-                      <p className="text-blue-100 text-sm">Phone</p>
-                      <p className="font-semibold">{delivery.phone}</p>
+                      <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Phone</p>
+                      <p className="font-semibold text-gray-800">{delivery.phone}</p>
                     </div>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Items Section */}
-            {delivery.items && delivery.items.length > 0 && (
-              <div className="border-b p-6">
-                <div className="flex items-center mb-4">
-                  <Package className="w-6 h-6 text-blue-600 mr-2" />
-                  <h3 className="text-xl font-bold text-gray-800">Items</h3>
+            {/* Items Card */}
+            {delivery.items?.length > 0 && (
+              <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
+                <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
+                  <Package className="w-4 h-4 text-gray-500" />
+                  <h2 className="font-bold text-gray-800 text-base">Items</h2>
                 </div>
-                
-                <div className="space-y-3">
-                  {Array.isArray(delivery.items) ? (
-                    delivery.items.map((item, idx) => (
-                      <div key={idx} className="flex items-center p-3 bg-gray-50 rounded-lg">
-                        <div className="flex-1">
-                          <p className="font-semibold text-gray-800">
-                            {typeof item === 'string' ? item : (item.name || item.description || 'Item')}
-                          </p>
-                          {typeof item === 'object' && item.quantity && (
-                            <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-gray-600">{delivery.items}</p>
-                  )}
+                <div className="divide-y divide-gray-50">
+                  {(Array.isArray(delivery.items) ? delivery.items : [delivery.items]).map((item, idx) => (
+                    <div key={idx} className="px-5 py-3 flex items-center gap-3">
+                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#003057' }} />
+                      <p className="text-sm font-medium text-gray-700">
+                        {typeof item === 'string' ? item : (item.name || item.description || item.sku || 'Item')}
+                        {typeof item === 'object' && item.quantity && <span className="text-gray-400 ml-2">× {item.quantity}</span>}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
 
-            {/* Confirmation Form Section */}
-            {!isAlreadyConfirmed && !success && (
-              <form onSubmit={handleConfirmDelivery} className="p-6 border-t">
-                <div className="mb-6">
-                  <label className="flex items-center mb-3">
-                    <Calendar className="w-5 h-5 text-blue-600 mr-2" />
-                    <span className="font-semibold text-gray-800">Select Delivery Date</span>
-                  </label>
-                  
-                  <select
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 bg-white text-gray-800 font-medium"
-                  >
-                    <option value="">-- Choose a date --</option>
+            {/* Date Selection / Confirmed State */}
+            {!isAlreadyConfirmed && !success ? (
+              <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
+                <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-gray-500" />
+                  <h2 className="font-bold text-gray-800 text-base">Select Delivery Date</h2>
+                </div>
+                <form onSubmit={handleConfirmDelivery} className="p-5 space-y-4">
+                  <div className="grid grid-cols-1 gap-2">
                     {availableDates.map((date) => (
-                      <option key={date} value={date}>
-                        {new Date(date + 'T00:00:00').toLocaleDateString('en-US', {
-                          weekday: 'long',
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}
-                      </option>
+                      <label
+                        key={date}
+                        className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                          selectedDate === date
+                            ? 'border-blue-600 bg-blue-50'
+                            : 'border-gray-200 hover:border-blue-300 bg-white'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="delivery-date"
+                          value={date}
+                          checked={selectedDate === date}
+                          onChange={() => setSelectedDate(date)}
+                          className="sr-only"
+                        />
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                          selectedDate === date ? 'border-blue-600' : 'border-gray-300'
+                        }`}>
+                          {selectedDate === date && <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />}
+                        </div>
+                        <span className={`text-sm font-medium ${selectedDate === date ? 'text-blue-800' : 'text-gray-700'}`}>
+                          {formatDate(date)}
+                        </span>
+                      </label>
                     ))}
-                  </select>
-                </div>
+                  </div>
 
-                <div className="flex items-start mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <input
-                    type="checkbox"
-                    id="confirm-checkbox"
-                    required
-                    className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 mt-0.5 mr-3"
-                  />
-                  <label htmlFor="confirm-checkbox" className="text-sm text-gray-700">
-                    I confirm this order and the selected delivery date. I understand that I will receive tracking information via SMS.
-                  </label>
-                </div>
+                  <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
+                    <input type="checkbox" id="confirm-cb" required className="w-4 h-4 mt-0.5 rounded" style={{ accentColor: '#003057' }} />
+                    <label htmlFor="confirm-cb" className="text-xs text-gray-600 leading-relaxed">
+                      I confirm this order and agree to the selected delivery date.
+                    </label>
+                  </div>
 
-                <button
-                  type="submit"
-                  disabled={confirming || !selectedDate}
-                  className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-gray-400 disabled:to-gray-500 text-white font-bold py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed flex items-center justify-center"
-                >
-                  {confirming ? (
-                    <>
-                      <Loader className="w-5 h-5 animate-spin mr-2" />
-                      Confirming...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="w-5 h-5 mr-2" />
-                      Confirm Delivery
-                    </>
-                  )}
-                </button>
-              </form>
-            )}
-
-            {isAlreadyConfirmed && (
-              <div className="p-6 border-t bg-green-50">
-                <div className="flex items-start">
-                  <CheckCircle className="w-6 h-6 text-green-600 mt-1 mr-3 flex-shrink-0" />
-                  <div>
-                    <h3 className="font-bold text-green-800 mb-1">Delivery Confirmed</h3>
-                    <p className="text-green-700">
-                      Your delivery has been confirmed for{' '}
-                      <span className="font-semibold">
-                        {delivery.confirmedDate ? new Date(delivery.confirmedDate).toLocaleDateString() : 'the selected date'}
-                      </span>
-                    </p>
+                  <button
+                    type="submit"
+                    disabled={confirming || !selectedDate}
+                    className="w-full py-3.5 px-6 rounded-xl font-bold text-white text-sm flex items-center justify-center gap-2 transition-opacity disabled:opacity-50"
+                    style={{ background: confirming || !selectedDate ? '#9ca3af' : 'linear-gradient(135deg, #003057 0%, #005082 100%)' }}
+                  >
+                    {confirming ? (
+                      <><Loader className="w-4 h-4 animate-spin" />Confirming...</>
+                    ) : (
+                      <><CheckCircle className="w-4 h-4" />Confirm Delivery<ChevronRight className="w-4 h-4 ml-auto" /></>
+                    )}
+                  </button>
+                </form>
+              </div>
+            ) : isAlreadyConfirmed ? (
+              <div className="bg-white rounded-2xl shadow-sm border border-green-200 overflow-hidden">
+                <div className="p-5 flex items-start gap-3">
+                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <CheckCircle className="w-6 h-6 text-green-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-bold text-green-800">Delivery Already Confirmed</p>
+                    {delivery.confirmedDate && (
+                      <p className="text-sm text-green-700 mt-1">
+                        Scheduled for <strong>{new Date(delivery.confirmedDate).toLocaleDateString('en-AE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</strong>
+                      </p>
+                    )}
                     <button
                       onClick={() => navigate(`/customer-tracking/${token}`)}
-                      className="mt-3 text-green-700 hover:text-green-800 font-semibold underline"
+                      className="mt-3 text-sm font-semibold flex items-center gap-1"
+                      style={{ color: '#003057' }}
                     >
-                      View Real-Time Tracking →
+                      View Tracking <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
               </div>
-            )}
-          </div>
+            ) : null}
+          </>
         )}
 
-        {/* Footer Info */}
-        <div className="mt-8 text-center text-gray-600">
-          <p className="text-sm">
-            Questions? Contact us at support@electrolux-logistics.com
+        {/* Footer */}
+        <div className="text-center py-4">
+          <p className="text-xs text-gray-500">
+            Need help?{' '}
+            <a href="tel:+971524408687" className="font-semibold" style={{ color: '#003057' }}>
+              +971 52 440 8687
+            </a>
+            {' '}· Electrolux Delivery Team
           </p>
+          <p className="text-xs text-gray-400 mt-1">electrolux-smart-portal.vercel.app</p>
         </div>
       </div>
     </div>
