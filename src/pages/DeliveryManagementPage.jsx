@@ -408,14 +408,13 @@ export default function DeliveryManagementPage() {
             </div>
           ) : (
             <>
-              {/* Container: no page scroll — map+list sized to fit viewport (slightly smaller) */}
+              {/* Container: mobile = auto height (page can scroll), desktop = fixed viewport height (no page scroll) */}
               <div
-                className="flex flex-col md:flex-row gap-3 sm:gap-4 items-stretch md:items-start flex-1 min-h-0 min-h-[320px] sm:min-h-[400px] md:min-h-[380px]"
-                style={{ height: 'calc(100vh - 260px)', maxHeight: 'calc(100vh - 260px)' }}
+                className="flex flex-col md:flex-row gap-3 sm:gap-4 items-stretch md:items-start flex-1 min-h-0 min-h-[320px] sm:min-h-[400px] md:min-h-[380px] md:h-[calc(100vh-260px)] md:max-h-[calc(100vh-260px)]"
               >
                 {/* ── Map: top on mobile (fixed height), left on desktop ── */}
                 <div
-                  className="relative rounded-xl overflow-hidden shadow-lg border border-gray-200 dark:border-gray-700 w-full md:w-[58%] flex-shrink-0 md:flex-shrink h-[42vh] md:h-full min-h-[240px] md:min-h-0"
+                  className="relative rounded-xl overflow-hidden shadow-lg border border-gray-200 dark:border-gray-700 w-full md:w-[58%] flex-shrink-0 md:flex-shrink h-[34vh] md:h-full min-h-[220px] md:min-h-0"
                 >
                 {isLoadingRoute && !route ? (
                   <div className="h-full flex items-center justify-center bg-white dark:bg-gray-800">
