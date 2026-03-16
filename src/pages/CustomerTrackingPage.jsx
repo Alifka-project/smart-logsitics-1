@@ -160,11 +160,11 @@ function getStepTimestamp(step, timeline) {
 
 // ── Status hero config ───────────────────────────────────────────────────────
 const STATUS_HERO = {
-  0: { bg: '#EFF6FF', color: '#1D4ED8', label: 'Processing',     emoji: '📦' },
-  1: { bg: '#F0FDF4', color: '#15803D', label: 'Scheduled',      emoji: '📅' },
-  2: { bg: '#FFF7ED', color: '#C2410C', label: 'Out for Delivery', emoji: '🚚' },
-  3: { bg: '#F0FDF4', color: '#15803D', label: 'Items Arrived',  emoji: '✅' },
-  4: { bg: '#FDF4FF', color: '#7E22CE', label: 'Completed',       emoji: '🌟' },
+  0: { bg: '#EFF6FF', color: '#1D4ED8', label: 'Processing',       icon: Package },
+  1: { bg: '#ECFEFF', color: '#0891B2', label: 'Scheduled',        icon: Calendar },
+  2: { bg: '#FFF7ED', color: '#C2410C', label: 'Out for Delivery', icon: Truck },
+  3: { bg: '#F0FDF4', color: '#15803D', label: 'Items Arrived',    icon: MapPin },
+  4: { bg: '#FDF4FF', color: '#7E22CE', label: 'Completed',        icon: Star },
 };
 
 // ── Skeleton loader ──────────────────────────────────────────────────────────
@@ -283,10 +283,15 @@ export default function CustomerTrackingPage() {
       <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 16px 32px', marginTop: -12 }}>
 
         {/* ── Status Hero Card ─────────────────────────────────────── */}
-        <div className="card anim-card anim-card-1" style={{ padding: '20px 20px', marginBottom: 12, background: hero.bg, border: `1px solid ${hero.color}22` }}>
+        <div className="card anim-card anim-card-1" style={{ padding: '18px 18px', marginBottom: 12, background: hero.bg, border: `1px solid ${hero.color}22` }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <div className="anim-icon" style={{ width: 56, height: 56, borderRadius: 16, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, boxShadow: '0 4px 12px rgba(0,0,0,0.08)', flexShrink: 0 }}>
-              {hero.emoji}
+            <div className="anim-icon" style={{ width: 56, height: 56, borderRadius: 18, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 8px 20px rgba(15,23,42,0.12)' }}>
+              <div style={{ width: 38, height: 38, borderRadius: 14, background: `linear-gradient(135deg, ${hero.color} 0%, ${hero.color}CC 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {(() => {
+                  const Icon = hero.icon || Package;
+                  return <Icon style={{ width: 20, height: 20, color: '#ffffff' }} />;
+                })()}
+              </div>
             </div>
             <div style={{ flex: 1 }}>
               <span className="status-chip" style={{ background: hero.color, color: '#fff', marginBottom: 4 }}>
@@ -408,9 +413,20 @@ export default function CustomerTrackingPage() {
         {/* ── Map ─────────────────────────────────────────────────── */}
         {(delivery.lat || trackingInfo.driverLocation) && (
           <div className="card anim-card anim-card-4" style={{ overflow: 'hidden', marginBottom: 12 }}>
-            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Navigation style={{ width: 15, height: 15, color: '#64748b' }} />
-              <span style={{ fontWeight: 700, fontSize: 14, color: '#1e293b' }}>Live Map</span>
+            <div style={{ padding: '10px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Navigation style={{ width: 15, height: 15, color: '#64748b' }} />
+                <span style={{ fontWeight: 700, fontSize: 14, color: '#1e293b' }}>Live Map</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <button className={`btn-refresh ${refreshing ? 'spinning' : ''}`} onClick={() => fetchTracking(true)} style={{ paddingInline: 10 }}>
+                  <RefreshCw style={{ width: 13, height: 13 }} />
+                  <span style={{ fontSize: 12 }}>Refresh</span>
+                </button>
+                <div className={`toggle-track ${autoRefresh ? 'on' : ''}`} onClick={() => setAutoRefresh(v => !v)}>
+                  <div className="toggle-thumb" />
+                </div>
+              </div>
             </div>
             <div style={{ height: 240 }}>
               <MapContainer center={mapCenter} zoom={13} style={{ width: '100%', height: '100%' }}>
@@ -480,25 +496,6 @@ export default function CustomerTrackingPage() {
               </div>
             </div>
           )}
-        </div>
-
-        {/* ── Refresh Control ─────────────────────────────────────── */}
-        <div className="card anim-card anim-card-6" style={{ padding: '14px 20px', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <p style={{ fontWeight: 700, fontSize: 14, color: '#1e293b' }}>Auto-refresh</p>
-            <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>
-              Updated at {lastUpdated.toLocaleTimeString('en-AE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-            </p>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <button className={`btn-refresh ${refreshing ? 'spinning' : ''}`} onClick={() => fetchTracking(true)}>
-              <RefreshCw style={{ width: 13, height: 13 }} />
-              {refreshing ? 'Refreshing…' : 'Refresh'}
-            </button>
-            <div className={`toggle-track ${autoRefresh ? 'on' : ''}`} onClick={() => setAutoRefresh(v => !v)}>
-              <div className="toggle-thumb" />
-            </div>
-          </div>
         </div>
 
         {/* ── Support Footer ──────────────────────────────────────── */}
