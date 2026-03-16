@@ -181,6 +181,82 @@ router.put('/admin/:id/status', authenticate, requireRole('admin'), async (req, 
       console.warn(`[Deliveries] Failed to create status notification for ${existingDelivery.id}:`, err.message);
     });
 
+    // Optionally notify customer by SMS for key status changes
+    try {
+      const lowerStatus = (status || '').toLowerCase();
+      const phone = updatedDelivery.phone || existingDelivery.phone;
+
+      if (phone) {
+        const smsService = require('../sms/smsService');
+        const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
+        const token = updatedDelivery.confirmationToken || existingDelivery.confirmationToken;
+        const trackingLink = token ? `${frontendUrl}/customer-tracking/${token}` : null;
+        const customerName = updatedDelivery.customer || existingDelivery.customer || 'Valued Customer';
+        const poRef = (updatedDelivery.poNumber || existingDelivery.poNumber) ? `#${updatedDelivery.poNumber || existingDelivery.poNumber}` : '';
+
+        // Out for delivery (same day as scheduled)
+        if (lowerStatus === 'out-for-delivery') {
+          const body = `Dear ${customerName},
+
+Your Electrolux order ${poRef} is out for delivery today.
+${trackingLink ? `\nTrack your delivery in real time:\n${trackingLink}\n` : ''}
+For assistance, please contact the Electrolux Delivery Team at +971524408687.
+
+Thank you,
+Electrolux Delivery Team`;
+
+          const smsResult = await smsService.smsAdapter.sendSms({
+            to: phone,
+            body,
+            metadata: { deliveryId: updatedDelivery.id, type: 'status_out_for_delivery' }
+          });
+
+          await prisma.smsLog.create({
+            data: {
+              deliveryId: updatedDelivery.id,
+              phoneNumber: phone,
+              messageContent: body,
+              smsProvider: process.env.SMS_PROVIDER || 'd7',
+              externalMessageId: smsResult.messageId,
+              status: smsResult.status || 'sent',
+              sentAt: new Date(),
+              metadata: { type: 'status_out_for_delivery' }
+            }
+          });
+        }
+
+        // Order finished / delivered (after POD uploaded)
+        if (['delivered', 'completed', 'delivered-with-installation', 'delivered-without-installation'].includes(lowerStatus)) {
+          const body = `Dear ${customerName},
+
+Your Electrolux delivery ${poRef} has been completed.
+
+Thank you for choosing Electrolux.`;
+
+          const smsResult = await smsService.smsAdapter.sendSms({
+            to: phone,
+            body,
+            metadata: { deliveryId: updatedDelivery.id, type: 'status_order_finished' }
+          });
+
+          await prisma.smsLog.create({
+            data: {
+              deliveryId: updatedDelivery.id,
+              phoneNumber: phone,
+              messageContent: body,
+              smsProvider: process.env.SMS_PROVIDER || 'd7',
+              externalMessageId: smsResult.messageId,
+              status: smsResult.status || 'sent',
+              sentAt: new Date(),
+              metadata: { type: 'status_order_finished' }
+            }
+          });
+        }
+      }
+    } catch (notifyErr) {
+      console.warn('[Deliveries] Failed to send customer status SMS:', notifyErr.message);
+    }
+
     res.json({
       ok: true,
       status: status,

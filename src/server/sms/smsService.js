@@ -43,7 +43,7 @@ function generateConfirmationToken() {
  * Send confirmation SMS to customer
  * @param {string} deliveryId - Delivery ID
  * @param {string} phoneNumber - Customer phone number
- * @param {Date} tokenExpiry - Token expiration date (default: 48 hours)
+ * @param {Date} tokenExpiry - Token expiration date (default: 30 days)
  * @returns {Promise<{ok: boolean, token: string, messageId: string, phoneNumber: string}>}
  */
 async function sendConfirmationSms(deliveryId, phoneNumber, tokenExpiry = null) {
@@ -61,7 +61,8 @@ async function sendConfirmationSms(deliveryId, phoneNumber, tokenExpiry = null) 
 
     // Generate unique token
     const confirmationToken = generateConfirmationToken();
-    const expiresAt = tokenExpiry || new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
+    // 30 days — customers may receive stock in the next month
+    const expiresAt = tokenExpiry || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
     // Get delivery details
     const delivery = await prisma.delivery.findUnique({
@@ -73,20 +74,23 @@ async function sendConfirmationSms(deliveryId, phoneNumber, tokenExpiry = null) 
     }
 
     // Create confirmation link
-    const frontendUrl = process.env.FRONTEND_URL || 'https://smart-logistics-1.vercel.app';
+    const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
     const confirmationLink = `${frontendUrl}/confirm-delivery/${confirmationToken}`;
 
-    // Create SMS message
-    const smsMessage = `Hi ${delivery.customer || 'there'},
+    // Create SMS message (same format as main send-sms flow)
+    const customerName = delivery.customer || 'Valued Customer';
+    const poRef = delivery.poNumber ? `#${delivery.poNumber}` : '';
+    const smsMessage = `Dear ${customerName},
 
-Your order from Electrolux is ready for delivery confirmation.
+Your Electrolux order ${poRef} is ready for delivery.
 
-Click to confirm and select your delivery date:
+Please confirm your preferred delivery date using the link below:
 ${confirmationLink}
 
-This link expires in 48 hours.
+For assistance, please contact the Electrolux Delivery Team at +971524408687.
 
-Thank you!`;
+Thank you,
+Electrolux Delivery Team`;
 
     // Send SMS
     const smsResult = await smsAdapter.sendSms({
@@ -208,7 +212,8 @@ async function confirmDelivery(token, deliveryDate) {
         confirmationStatus: 'confirmed',
         customerConfirmedAt: new Date(),
         confirmedDeliveryDate: deliveryDate,
-        status: 'confirmed'
+        // Use scheduled-confirmed to align with dashboards / reports
+        status: 'scheduled-confirmed'
       }
     });
 
