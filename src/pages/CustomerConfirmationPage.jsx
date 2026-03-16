@@ -1,6 +1,90 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { AlertCircle, CheckCircle, Calendar, Package, MapPin, Phone, Loader, ChevronRight } from 'lucide-react';
+import { AlertCircle, CheckCircle, Calendar, Package, MapPin, Phone, Loader, ChevronRight, ArrowRight } from 'lucide-react';
+
+// ── Animations / shared CSS ──────────────────────────────────────────────────
+const STYLES = `
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.6); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  @keyframes checkDraw {
+    from { stroke-dashoffset: 100; }
+    to   { stroke-dashoffset: 0; }
+  }
+  @keyframes shimmer {
+    0%   { background-position: -400px 0; }
+    100% { background-position:  400px 0; }
+  }
+  @keyframes ripplePulse {
+    0%   { box-shadow: 0 0 0 0   rgba(0,80,130,0.3); }
+    70%  { box-shadow: 0 0 0 16px rgba(0,80,130,0); }
+    100% { box-shadow: 0 0 0 0   rgba(0,80,130,0); }
+  }
+
+  .anim-card { animation: fadeUp 0.45s ease both; }
+  .anim-c1 { animation-delay: 0.05s; }
+  .anim-c2 { animation-delay: 0.12s; }
+  .anim-c3 { animation-delay: 0.19s; }
+  .anim-c4 { animation-delay: 0.26s; }
+  .anim-icon { animation: scaleIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both; animation-delay: 0.1s; }
+
+  .card {
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+    border: 1px solid #f1f5f9;
+  }
+
+  .date-pill {
+    display: flex; align-items: center;
+    padding: 12px 14px; border-radius: 14px;
+    border: 2px solid #e2e8f0; background: #fff;
+    cursor: pointer; transition: all 0.2s ease;
+    gap: 10px;
+  }
+  .date-pill:hover { border-color: #0056a3; background: #F0F7FF; }
+  .date-pill.selected {
+    border-color: #003057;
+    background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%);
+  }
+
+  .btn-confirm {
+    width: 100%; padding: 15px 24px; border-radius: 14px; border: none;
+    font-size: 15px; font-weight: 700; color: #fff; cursor: pointer;
+    background: linear-gradient(135deg, #003057 0%, #0056a3 100%);
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: all 0.25s ease;
+    box-shadow: 0 4px 16px rgba(0,48,87,0.3);
+  }
+  .btn-confirm:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,48,87,0.4);
+    background: linear-gradient(135deg, #00213d 0%, #003a6e 100%);
+    animation: ripplePulse 1.2s ease;
+  }
+  .btn-confirm:active:not(:disabled) { transform: translateY(0); }
+  .btn-confirm:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
+
+  .btn-track {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 20px; border-radius: 50px; border: 2px solid #003057;
+    color: #003057; background: #fff; font-weight: 700; font-size: 13px;
+    cursor: pointer; transition: all 0.2s ease; text-decoration: none;
+  }
+  .btn-track:hover { background: #003057; color: #fff; }
+
+  .shimmer-line {
+    background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+    background-size: 400px 100%;
+    animation: shimmer 1.2s infinite linear;
+    border-radius: 8px;
+  }
+`;
 
 export default function CustomerConfirmationPage() {
   const { token } = useParams();
@@ -13,6 +97,7 @@ export default function CustomerConfirmationPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [isAlreadyConfirmed, setIsAlreadyConfirmed] = useState(false);
+  const [agreed, setAgreed] = useState(false);
 
   useEffect(() => { fetchDeliveryDetails(); }, [token]);
 
@@ -20,9 +105,9 @@ export default function CustomerConfirmationPage() {
     try {
       setLoading(true);
       setError('');
-      const response = await fetch(`/api/customer/confirm-delivery/${token}`);
-      const data = await response.json();
-      if (!response.ok) { setError(data.message || data.error || 'Failed to load delivery details'); return; }
+      const res = await fetch(`/api/customer/confirm-delivery/${token}`);
+      const data = await res.json();
+      if (!res.ok) { setError(data.message || data.error || 'Failed to load delivery details'); return; }
       setDelivery(data.delivery);
       setAvailableDates(data.availableDates || []);
       setIsAlreadyConfirmed(data.isAlreadyConfirmed || false);
@@ -40,16 +125,16 @@ export default function CustomerConfirmationPage() {
     try {
       setConfirming(true);
       setError('');
-      const response = await fetch(`/api/customer/confirm-delivery/${token}`, {
+      const res = await fetch(`/api/customer/confirm-delivery/${token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ deliveryDate: selectedDate })
       });
-      const data = await response.json();
-      if (!response.ok) { setError(data.message || data.error || 'Failed to confirm delivery'); return; }
+      const data = await res.json();
+      if (!res.ok) { setError(data.message || data.error || 'Failed to confirm delivery'); return; }
       setSuccess(true);
       setDelivery(data.delivery);
-      setTimeout(() => navigate(`/customer-tracking/${token}`), 3000);
+      setTimeout(() => navigate(`/customer-tracking/${token}`), 3500);
     } catch (err) {
       setError(err.message || 'Failed to confirm delivery');
     } finally {
@@ -57,226 +142,282 @@ export default function CustomerConfirmationPage() {
     }
   };
 
-  const formatDate = (dateStr) => new Date(dateStr + 'T00:00:00').toLocaleDateString('en-AE', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-  });
+  const formatDateShort = (dateStr) => {
+    const d = new Date(dateStr + 'T00:00:00');
+    return {
+      day:   d.toLocaleDateString('en-AE', { weekday: 'short' }),
+      date:  d.toLocaleDateString('en-AE', { day: 'numeric', month: 'short' }),
+      full:  d.toLocaleDateString('en-AE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
+    };
+  };
 
+  const items = delivery?.items
+    ? (Array.isArray(delivery.items) ? delivery.items : [delivery.items])
+    : [];
+
+  // ── Loading skeleton ─────────────────────────────────────────────
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #003057 0%, #005082 100%)' }}>
-      <div className="text-center">
-        <Loader className="w-12 h-12 text-white animate-spin mx-auto mb-4" />
-        <p className="text-white text-lg font-medium">Loading your delivery details...</p>
+    <div style={{ minHeight: '100vh', background: '#F8FAFC' }}>
+      <style>{STYLES}</style>
+      <div style={{ background: 'linear-gradient(135deg,#003057,#005082)', padding: '24px 16px 40px' }}>
+        <div style={{ maxWidth: 520, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <div className="shimmer-line" style={{ width: 120, height: 30, marginBottom: 12, opacity: 0.4 }} />
+          <div className="shimmer-line" style={{ width: 200, height: 22, opacity: 0.3 }} />
+        </div>
+      </div>
+      <div style={{ maxWidth: 520, margin: '0 auto', padding: '20px 16px' }}>
+        {[1,2,3].map(i => (
+          <div key={i} className="card" style={{ padding: 20, marginBottom: 12 }}>
+            <div className="shimmer-line" style={{ height: 14, width: '50%', marginBottom: 10 }} />
+            <div className="shimmer-line" style={{ height: 12, width: '80%', marginBottom: 8 }} />
+            <div className="shimmer-line" style={{ height: 12, width: '60%' }} />
+          </div>
+        ))}
       </div>
     </div>
   );
 
+  // ── Error state ──────────────────────────────────────────────────
   if (error && !delivery) return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'linear-gradient(135deg, #003057 0%, #005082 100%)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
-        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <AlertCircle className="w-9 h-9 text-red-600" />
+    <div style={{ minHeight: '100vh', background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <style>{STYLES}</style>
+      <div className="card" style={{ maxWidth: 400, width: '100%', padding: 32, textAlign: 'center' }}>
+        <div className="anim-icon" style={{ width: 64, height: 64, borderRadius: '50%', background: '#FEF2F2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+          <AlertCircle style={{ width: 30, height: 30, color: '#EF4444' }} />
         </div>
-        <h1 className="text-xl font-bold text-gray-800 mb-3">Link Unavailable</h1>
-        <p className="text-gray-600 mb-6 text-sm">{error}</p>
-        <p className="text-sm text-gray-500">For assistance, call <a href="tel:+971524408687" className="text-blue-600 font-semibold">+971 52 440 8687</a></p>
+        <h2 style={{ fontWeight: 800, fontSize: 18, color: '#1e293b', marginBottom: 8 }}>Link Unavailable</h2>
+        <p style={{ fontSize: 14, color: '#64748b', marginBottom: 20 }}>{error}</p>
+        <p style={{ fontSize: 13, color: '#64748b' }}>
+          Call us:{' '}
+          <a href="tel:+971524408687" style={{ color: '#003057', fontWeight: 700 }}>+971 52 440 8687</a>
+        </p>
+      </div>
+    </div>
+  );
+
+  // ── Success state ────────────────────────────────────────────────
+  if (success) return (
+    <div style={{ minHeight: '100vh', background: '#F8FAFC', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <style>{STYLES}</style>
+      <div className="card" style={{ maxWidth: 400, width: '100%', padding: 36, textAlign: 'center' }}>
+        <div className="anim-icon" style={{ width: 72, height: 72, borderRadius: '50%', background: 'linear-gradient(135deg,#DCFCE7,#BBF7D0)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', boxShadow: '0 0 0 10px rgba(34,197,94,0.1)' }}>
+          <CheckCircle style={{ width: 36, height: 36, color: '#16A34A' }} />
+        </div>
+        <h2 style={{ fontWeight: 800, fontSize: 22, color: '#1e293b', marginBottom: 8 }}>Delivery Confirmed!</h2>
+        <p style={{ fontSize: 15, color: '#16A34A', fontWeight: 600, marginBottom: 8 }}>
+          {formatDateShort(selectedDate).full}
+        </p>
+        <p style={{ fontSize: 14, color: '#64748b', marginBottom: 24 }}>
+          Thank you. Redirecting you to real-time tracking…
+        </p>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: '#94a3b8', fontSize: 13 }}>
+          <Loader style={{ width: 16, height: 16, animation: 'spin 1s linear infinite' }} />
+          <style>{`@keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }`}</style>
+          Redirecting…
+        </div>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen" style={{ background: 'linear-gradient(160deg, #f0f4f8 0%, #e8edf2 100%)' }}>
-      {/* Header */}
-      <div className="w-full py-6 px-4" style={{ background: 'linear-gradient(135deg, #003057 0%, #005082 100%)' }}>
-        <div className="max-w-2xl mx-auto flex flex-col items-center">
-          <img src="/elect home.png" alt="Electrolux" className="h-10 mb-3 brightness-0 invert" />
-          <h1 className="text-2xl font-bold text-white tracking-wide">Delivery Confirmation</h1>
-          <p className="text-blue-200 text-sm mt-1">
-            {isAlreadyConfirmed ? 'Your delivery is confirmed' : 'Please confirm your delivery and select a date'}
+    <div style={{ minHeight: '100vh', background: '#F8FAFC' }}>
+      <style>{STYLES}</style>
+
+      {/* ── Header ──────────────────────────────────────────────── */}
+      <div style={{ background: 'linear-gradient(135deg, #003057 0%, #005082 100%)', padding: '24px 16px 40px' }}>
+        <div style={{ maxWidth: 520, margin: '0 auto', textAlign: 'center' }}>
+          <img src="/elect home.png" alt="Electrolux" style={{ height: 34, filter: 'brightness(0) invert(1)', marginBottom: 14 }} />
+          <h1 style={{ color: '#fff', fontSize: 24, fontWeight: 800, marginBottom: 6 }}>Delivery Confirmation</h1>
+          <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14 }}>
+            {isAlreadyConfirmed ? 'Your delivery is already confirmed' : 'Select your preferred delivery date below'}
           </p>
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
-        {/* Success Banner */}
-        {success && (
-          <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-start gap-3">
-            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <CheckCircle className="w-5 h-5 text-green-600" />
-            </div>
-            <div>
-              <p className="font-semibold text-green-800">Delivery Confirmed!</p>
-              <p className="text-green-700 text-sm">Thank you. Redirecting you to tracking shortly...</p>
-            </div>
-          </div>
-        )}
+      <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 16px 32px', marginTop: -18 }}>
 
-        {/* Error Banner */}
+        {/* ── Error Banner ──────────────────────────────────────── */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-            <p className="text-red-700 text-sm">{error}</p>
+          <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 14, padding: '12px 16px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <AlertCircle style={{ width: 18, height: 18, color: '#EF4444', flexShrink: 0 }} />
+            <p style={{ fontSize: 13, color: '#DC2626' }}>{error}</p>
           </div>
         )}
 
         {delivery && (
           <>
-            {/* Order Details Card */}
-            <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
-              <div className="px-5 py-4 border-b border-gray-100">
-                <h2 className="font-bold text-gray-800 text-base">Order Details</h2>
+            {/* ── Order Details Card ─────────────────────────────── */}
+            <div className="card anim-card anim-c1" style={{ padding: 0, marginBottom: 12, overflow: 'hidden' }}>
+              <div style={{ padding: '14px 18px', borderBottom: '1px solid #f1f5f9' }}>
+                <h2 style={{ fontWeight: 700, fontSize: 15, color: '#1e293b' }}>Order Details</h2>
               </div>
-              <div className="p-5 space-y-4">
+              <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {delivery.poNumber && (
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: '#e8f0fe' }}>
-                      <Package className="w-4 h-4" style={{ color: '#003057' }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Package style={{ width: 16, height: 16, color: '#003057' }} />
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">PO Number</p>
-                      <p className="font-bold text-gray-800">{delivery.poNumber}</p>
+                      <p style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>PO Number</p>
+                      <p style={{ fontSize: 15, fontWeight: 700, color: '#1e293b' }}>{delivery.poNumber}</p>
                     </div>
                   </div>
                 )}
-                <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5" style={{ background: '#e8f0fe' }}>
-                    <MapPin className="w-4 h-4" style={{ color: '#003057' }} />
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 }}>
+                    <MapPin style={{ width: 16, height: 16, color: '#003057' }} />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Delivery Address</p>
-                    <p className="font-semibold text-gray-800 text-sm">{delivery.address}</p>
+                    <p style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Delivery Address</p>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: '#1e293b', marginTop: 2 }}>{delivery.address}</p>
                   </div>
                 </div>
                 {delivery.phone && (
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: '#e8f0fe' }}>
-                      <Phone className="w-4 h-4" style={{ color: '#003057' }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Phone style={{ width: 16, height: 16, color: '#003057' }} />
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Phone</p>
-                      <p className="font-semibold text-gray-800">{delivery.phone}</p>
+                      <p style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Phone</p>
+                      <p style={{ fontSize: 14, fontWeight: 600, color: '#1e293b' }}>{delivery.phone}</p>
                     </div>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Items Card */}
-            {delivery.items?.length > 0 && (
-              <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
-                <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
-                  <Package className="w-4 h-4 text-gray-500" />
-                  <h2 className="font-bold text-gray-800 text-base">Items</h2>
+            {/* ── Items Card ────────────────────────────────────── */}
+            {items.length > 0 && (
+              <div className="card anim-card anim-c2" style={{ marginBottom: 12, overflow: 'hidden' }}>
+                <div style={{ padding: '14px 18px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Package style={{ width: 15, height: 15, color: '#64748b' }} />
+                  <h2 style={{ fontWeight: 700, fontSize: 15, color: '#1e293b' }}>Items</h2>
+                  <span style={{ marginLeft: 'auto', background: '#F1F5F9', color: '#64748b', fontSize: 12, fontWeight: 600, padding: '2px 8px', borderRadius: 50 }}>
+                    {items.length}
+                  </span>
                 </div>
-                <div className="divide-y divide-gray-50">
-                  {(Array.isArray(delivery.items) ? delivery.items : [delivery.items]).map((item, idx) => (
-                    <div key={idx} className="px-5 py-3 flex items-center gap-3">
-                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#003057' }} />
-                      <p className="text-sm font-medium text-gray-700">
+                <div style={{ padding: '8px 18px 12px' }}>
+                  {items.map((item, idx) => (
+                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: idx < items.length - 1 ? '1px solid #f8fafc' : 'none' }}>
+                      <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#003057', flexShrink: 0 }} />
+                      <span style={{ fontSize: 13, color: '#374151', fontWeight: 500 }}>
                         {typeof item === 'string' ? item : (item.name || item.description || item.sku || 'Item')}
-                        {typeof item === 'object' && item.quantity && <span className="text-gray-400 ml-2">× {item.quantity}</span>}
-                      </p>
+                      </span>
+                      {typeof item === 'object' && item.quantity && (
+                        <span style={{ marginLeft: 'auto', fontSize: 12, color: '#94a3b8', fontWeight: 600 }}>×{item.quantity}</span>
+                      )}
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Date Selection / Confirmed State */}
-            {!isAlreadyConfirmed && !success ? (
-              <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
-                <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-gray-500" />
-                  <h2 className="font-bold text-gray-800 text-base">Select Delivery Date</h2>
-                </div>
-                <form onSubmit={handleConfirmDelivery} className="p-5 space-y-4">
-                  <div className="grid grid-cols-1 gap-2">
-                    {availableDates.map((date) => (
-                      <label
-                        key={date}
-                        className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
-                          selectedDate === date
-                            ? 'border-blue-600 bg-blue-50'
-                            : 'border-gray-200 hover:border-blue-300 bg-white'
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="delivery-date"
-                          value={date}
-                          checked={selectedDate === date}
-                          onChange={() => setSelectedDate(date)}
-                          className="sr-only"
-                        />
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                          selectedDate === date ? 'border-blue-600' : 'border-gray-300'
-                        }`}>
-                          {selectedDate === date && <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />}
-                        </div>
-                        <span className={`text-sm font-medium ${selectedDate === date ? 'text-blue-800' : 'text-gray-700'}`}>
-                          {formatDate(date)}
-                        </span>
-                      </label>
-                    ))}
+            {/* ── Already Confirmed ─────────────────────────────── */}
+            {isAlreadyConfirmed ? (
+              <div className="card anim-card anim-c3" style={{ padding: 20, border: '1.5px solid #DCFCE7', background: 'linear-gradient(135deg,#F0FDF4,#DCFCE7)' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+                  <div className="anim-icon" style={{ width: 44, height: 44, borderRadius: '50%', background: '#16A34A', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <CheckCircle style={{ width: 22, height: 22, color: '#fff' }} />
                   </div>
-
-                  <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
-                    <input type="checkbox" id="confirm-cb" required className="w-4 h-4 mt-0.5 rounded" style={{ accentColor: '#003057' }} />
-                    <label htmlFor="confirm-cb" className="text-xs text-gray-600 leading-relaxed">
-                      I confirm this order and agree to the selected delivery date.
-                    </label>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={confirming || !selectedDate}
-                    className="w-full py-3.5 px-6 rounded-xl font-bold text-white text-sm flex items-center justify-center gap-2 transition-opacity disabled:opacity-50"
-                    style={{ background: confirming || !selectedDate ? '#9ca3af' : 'linear-gradient(135deg, #003057 0%, #005082 100%)' }}
-                  >
-                    {confirming ? (
-                      <><Loader className="w-4 h-4 animate-spin" />Confirming...</>
-                    ) : (
-                      <><CheckCircle className="w-4 h-4" />Confirm Delivery<ChevronRight className="w-4 h-4 ml-auto" /></>
-                    )}
-                  </button>
-                </form>
-              </div>
-            ) : isAlreadyConfirmed ? (
-              <div className="bg-white rounded-2xl shadow-sm border border-green-200 overflow-hidden">
-                <div className="p-5 flex items-start gap-3">
-                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <CheckCircle className="w-6 h-6 text-green-600" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-bold text-green-800">Delivery Already Confirmed</p>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontWeight: 800, fontSize: 16, color: '#15803D' }}>Delivery Already Confirmed</p>
                     {delivery.confirmedDate && (
-                      <p className="text-sm text-green-700 mt-1">
-                        Scheduled for <strong>{new Date(delivery.confirmedDate).toLocaleDateString('en-AE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</strong>
+                      <p style={{ fontSize: 13, color: '#16A34A', marginTop: 4 }}>
+                        Scheduled for{' '}
+                        <strong>{new Date(delivery.confirmedDate).toLocaleDateString('en-AE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</strong>
                       </p>
                     )}
                     <button
                       onClick={() => navigate(`/customer-tracking/${token}`)}
-                      className="mt-3 text-sm font-semibold flex items-center gap-1"
-                      style={{ color: '#003057' }}
+                      className="btn-track"
+                      style={{ marginTop: 14 }}
                     >
-                      View Tracking <ChevronRight className="w-4 h-4" />
+                      View Tracking <ChevronRight style={{ width: 15, height: 15 }} />
                     </button>
                   </div>
                 </div>
               </div>
-            ) : null}
+            ) : (
+              /* ── Date Selection Form ────────────────────────── */
+              <div className="card anim-card anim-c3" style={{ overflow: 'hidden', marginBottom: 12 }}>
+                <div style={{ padding: '14px 18px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Calendar style={{ width: 15, height: 15, color: '#64748b' }} />
+                  <h2 style={{ fontWeight: 700, fontSize: 15, color: '#1e293b' }}>Select Delivery Date</h2>
+                </div>
+                <form onSubmit={handleConfirmDelivery} style={{ padding: 18 }}>
+                  {/* Date pills – 2 columns */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
+                    {availableDates.map((date) => {
+                      const { day, date: dateLabel } = formatDateShort(date);
+                      const isSelected = selectedDate === date;
+                      return (
+                        <label key={date} className={`date-pill${isSelected ? ' selected' : ''}`} onClick={() => setSelectedDate(date)}>
+                          <input type="radio" name="delivery-date" value={date} checked={isSelected} onChange={() => setSelectedDate(date)} style={{ display: 'none' }} />
+                          <div style={{ width: 20, height: 20, borderRadius: '50%', border: `2px solid ${isSelected ? '#003057' : '#cbd5e1'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            {isSelected && <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#003057' }} />}
+                          </div>
+                          <div>
+                            <p style={{ fontSize: 11, fontWeight: 700, color: isSelected ? '#003057' : '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{day}</p>
+                            <p style={{ fontSize: 13, fontWeight: 700, color: isSelected ? '#003057' : '#374151' }}>{dateLabel}</p>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+
+                  {/* Selected date display */}
+                  {selectedDate && (
+                    <div style={{ padding: '10px 14px', background: '#EFF6FF', borderRadius: 12, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Calendar style={{ width: 15, height: 15, color: '#003057', flexShrink: 0 }} />
+                      <span style={{ fontSize: 13, fontWeight: 600, color: '#003057' }}>
+                        {formatDateShort(selectedDate).full}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Agreement checkbox */}
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 14px', background: '#F8FAFC', borderRadius: 12, marginBottom: 16, cursor: 'pointer' }}>
+                    <div
+                      onClick={() => setAgreed(v => !v)}
+                      style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${agreed ? '#003057' : '#cbd5e1'}`, background: agreed ? '#003057' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1, transition: 'all 0.2s ease', cursor: 'pointer' }}
+                    >
+                      {agreed && (
+                        <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
+                          <path d="M1 4.5L4 7.5L10 1.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                    </div>
+                    <span style={{ fontSize: 13, color: '#64748b', lineHeight: 1.5 }}>
+                      I confirm this order and agree to the selected delivery date.
+                    </span>
+                  </label>
+
+                  {/* Submit button */}
+                  <button
+                    type="submit"
+                    className="btn-confirm"
+                    disabled={confirming || !selectedDate || !agreed}
+                  >
+                    {confirming ? (
+                      <><Loader style={{ width: 18, height: 18, animation: 'spin 1s linear infinite' }} /> Confirming…</>
+                    ) : (
+                      <>Confirm Delivery <ArrowRight style={{ width: 18, height: 18 }} /></>
+                    )}
+                  </button>
+                </form>
+              </div>
+            )}
           </>
         )}
 
-        {/* Footer */}
-        <div className="text-center py-4">
-          <p className="text-xs text-gray-500">
+        {/* ── Footer ──────────────────────────────────────────────── */}
+        <div style={{ textAlign: 'center', paddingTop: 16, paddingBottom: 8 }}>
+          <p style={{ fontSize: 13, color: '#64748b' }}>
             Need help?{' '}
-            <a href="tel:+971524408687" className="font-semibold" style={{ color: '#003057' }}>
-              +971 52 440 8687
-            </a>
+            <a href="tel:+971524408687" style={{ color: '#003057', fontWeight: 700, textDecoration: 'none' }}>+971 52 440 8687</a>
             {' '}· Electrolux Delivery Team
           </p>
-          <p className="text-xs text-gray-400 mt-1">electrolux-smart-portal.vercel.app</p>
+          <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>electrolux-smart-portal.vercel.app</p>
         </div>
       </div>
     </div>
