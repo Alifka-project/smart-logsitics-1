@@ -110,6 +110,14 @@ const STYLES = `
     padding: 4px 12px; border-radius: 50px;
     font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
   }
+  @keyframes beat {
+    0%   { transform: scale(1);   box-shadow: 0 0 0 0 rgba(0,48,87,0.25); }
+    40%  { transform: scale(1.08); box-shadow: 0 0 0 8px rgba(0,48,87,0); }
+    100% { transform: scale(1);   box-shadow: 0 0 0 0 rgba(0,48,87,0); }
+  }
+  .step-icon-current {
+    animation: beat 1.4s ease-out infinite;
+  }
   .shimmer-line {
     background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
     background-size: 400px 100%;
@@ -322,7 +330,7 @@ export default function CustomerTrackingPage() {
                     border: isDone ? '2px solid #003057' : isActive ? '2.5px solid #003057' : '2px solid #e2e8f0',
                     boxShadow: isActive ? '0 0 0 5px rgba(0,48,87,0.12)' : 'none',
                     transition: 'all 0.3s ease',
-                  }}>
+                  }} className={isActive ? 'step-icon-current' : ''}>
                     {isDone
                       ? <CheckCircle style={{ width: 18, height: 18, color: '#fff' }} />
                       : <Icon style={{ width: 17, height: 17, color: isActive ? '#003057' : '#cbd5e1' }} />
