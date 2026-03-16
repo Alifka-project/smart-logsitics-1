@@ -225,8 +225,13 @@ Electrolux Delivery Team`;
           });
         }
 
-        // Order finished / delivered (after POD uploaded)
-        if (['delivered', 'completed', 'delivered-with-installation', 'delivered-without-installation'].includes(lowerStatus)) {
+        // Order finished: send final thank-you SMS ONLY once, when moving into a true
+        // \"finished\" state (completed / POD done). Do NOT send when the item just arrives.
+        const prevStatus = (existingDelivery.status || '').toLowerCase();
+        const completionStatuses = ['completed'];
+        const wasAlreadyFinished = completionStatuses.includes(prevStatus);
+
+        if (completionStatuses.includes(lowerStatus) && !wasAlreadyFinished) {
           const body = `Dear ${customerName},
 
 Your Electrolux delivery ${poRef} has been completed.

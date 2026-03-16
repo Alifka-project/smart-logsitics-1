@@ -49,7 +49,6 @@ export default function SMSConfirmationModal({ delivery, onClose, onSuccess }) {
     <div
       className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
       style={{ zIndex: 99999, position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
-      onClick={onClose}
     >
       <div
         className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl max-w-lg w-full relative my-8 mx-auto border border-gray-200 dark:border-gray-700"
@@ -90,14 +89,15 @@ export default function SMSConfirmationModal({ delivery, onClose, onSuccess }) {
               {/* Message Preview */}
               <div>
                 <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">Message that will be sent:</p>
-                <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 p-3 rounded-lg text-sm text-gray-700 dark:text-gray-200 space-y-2">
-                  <p>Hi {delivery.customer || 'there'},</p>
-                  <p>Your Electrolux order is ready for delivery!</p>
-                  <p>Please confirm your delivery date by clicking the link below:</p>
-                  <p className="text-blue-600 dark:text-blue-300 font-semibold">[Confirmation Link]</p>
-                  <p>Link expires in 48 hours.</p>
-                  <p>- Electrolux Delivery Team</p>
-                </div>
+              <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 p-3 rounded-lg text-sm text-gray-700 dark:text-gray-200 space-y-2">
+                <p>Dear {delivery.customer || 'Valued Customer'},</p>
+                <p>Your Electrolux order{delivery.poNumber ? ` #${delivery.poNumber}` : ''} is ready for delivery.</p>
+                <p>Please confirm your preferred delivery date using the link below:</p>
+                <p className="text-blue-600 dark:text-blue-300 font-semibold">[Confirmation Link]</p>
+                <p>For assistance, please contact the Electrolux Delivery Team at +971524408687.</p>
+                <p>Thank you,</p>
+                <p>Electrolux Delivery Team</p>
+              </div>
               </div>
 
               {/* Buttons */}
@@ -142,7 +142,7 @@ export default function SMSConfirmationModal({ delivery, onClose, onSuccess }) {
                     <div>
                       <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Link Expires:</p>
                       <p className="text-sm text-gray-800 dark:text-gray-100">
-                        {result.expiresAt ? new Date(result.expiresAt).toLocaleString() : '48 hours from now'}
+                        {result.expiresAt ? new Date(result.expiresAt).toLocaleString() : '30 days from send'}
                       </p>
                     </div>
                     <div className="border-t border-green-200 dark:border-green-800 pt-3">
