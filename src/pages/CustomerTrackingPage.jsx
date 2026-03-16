@@ -158,13 +158,50 @@ function getStepTimestamp(step, timeline) {
   return null;
 }
 
-// ── Status hero config ───────────────────────────────────────────────────────
+// ── Status hero config (top card) ────────────────────────────────────────────
+// label = pill text, title/subtitle = main hero copy (so it doesn't duplicate
+// the step label/description below).
 const STATUS_HERO = {
-  0: { bg: '#EFF6FF', color: '#1D4ED8', label: 'Processing',       icon: Package },
-  1: { bg: '#ECFEFF', color: '#0891B2', label: 'Scheduled',        icon: Calendar },
-  2: { bg: '#FFF7ED', color: '#C2410C', label: 'Out for Delivery', icon: Truck },
-  3: { bg: '#F0FDF4', color: '#15803D', label: 'Items Arrived',    icon: MapPin },
-  4: { bg: '#FDF4FF', color: '#7E22CE', label: 'Completed',        icon: Star },
+  0: {
+    bg: '#EFF6FF',
+    color: '#1D4ED8',
+    label: 'Processing',
+    icon: Package,
+    title: 'Order received',
+    subtitle: 'We’re preparing your items for delivery.',
+  },
+  1: {
+    bg: '#ECFEFF',
+    color: '#0891B2',
+    label: 'Scheduled',
+    icon: Calendar,
+    title: 'Order scheduled',
+    subtitle: 'Your delivery date has been confirmed.',
+  },
+  2: {
+    bg: '#FFF7ED',
+    color: '#C2410C',
+    label: 'Out for Delivery',
+    icon: Truck,
+    title: 'On the way today',
+    subtitle: 'Your driver is heading to your address.',
+  },
+  3: {
+    bg: '#F0FDF4',
+    color: '#15803D',
+    label: 'Items Arrived',
+    icon: MapPin,
+    title: 'Items arrived',
+    subtitle: 'Delivered to your address.',
+  },
+  4: {
+    bg: '#FDF4FF',
+    color: '#7E22CE',
+    label: 'Completed',
+    icon: Star,
+    title: 'Order finished',
+    subtitle: 'Thank you for choosing Electrolux.',
+  },
 };
 
 // ── Skeleton loader ──────────────────────────────────────────────────────────
@@ -298,10 +335,10 @@ export default function CustomerTrackingPage() {
                 {hero.label}
               </span>
               <p style={{ fontWeight: 700, fontSize: 16, color: '#1e293b', marginTop: 4 }}>
-                {TIMELINE_STEPS[currentStep].label}
+                {hero.title}
               </p>
               <p style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>
-                {TIMELINE_STEPS[currentStep].desc}
+                {hero.subtitle}
               </p>
             </div>
           </div>
@@ -418,15 +455,10 @@ export default function CustomerTrackingPage() {
                 <Navigation style={{ width: 15, height: 15, color: '#64748b' }} />
                 <span style={{ fontWeight: 700, fontSize: 14, color: '#1e293b' }}>Live Map</span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <button className={`btn-refresh ${refreshing ? 'spinning' : ''}`} onClick={() => fetchTracking(true)} style={{ paddingInline: 10 }}>
-                  <RefreshCw style={{ width: 13, height: 13 }} />
-                  <span style={{ fontSize: 12 }}>Refresh</span>
-                </button>
-                <div className={`toggle-track ${autoRefresh ? 'on' : ''}`} onClick={() => setAutoRefresh(v => !v)}>
-                  <div className="toggle-thumb" />
-                </div>
-              </div>
+              <button className={`btn-refresh ${refreshing ? 'spinning' : ''}`} onClick={() => fetchTracking(true)} style={{ paddingInline: 12 }}>
+                <RefreshCw style={{ width: 13, height: 13 }} />
+                <span style={{ fontSize: 12 }}>Refresh</span>
+              </button>
             </div>
             <div style={{ height: 240 }}>
               <MapContainer center={mapCenter} zoom={13} style={{ width: '100%', height: '100%' }}>
