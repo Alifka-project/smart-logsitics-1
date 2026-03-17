@@ -97,7 +97,8 @@ export default function DeliveryManagementPage() {
     try {
       setIsReloading(true);
       clearDeliveriesCache();
-      const response = await api.get('/deliveries');
+      // Only load "active" deliveries (exclude delivered/cancelled/rescheduled history)
+      const response = await api.get('/deliveries?includeFinished=false');
       if (response.data && response.data.deliveries) {
         loadDeliveries(response.data.deliveries);
         success(`✓ Reloaded ${response.data.deliveries.length} deliveries from database with real UUIDs!`);

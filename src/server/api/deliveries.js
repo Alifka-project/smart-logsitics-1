@@ -159,7 +159,7 @@ router.put('/admin/:id/status', authenticate, requireRole('admin'), async (req, 
     // Invalidate caches so tracking/dashboard pick up the change
     cache.invalidatePrefix('tracking:');
     cache.invalidatePrefix('dashboard:');
-    cache.delete('deliveries:list:v2');
+    cache.invalidatePrefix('deliveries:list:v2');
 
     // Create admin notification for status change (fire-and-forget)
     prisma.adminNotification.create({
@@ -652,11 +652,41 @@ router.get('/available-drivers', authenticate, requireRole('admin'), async (req,
   }
 });
 
-// GET /api/deliveries - Get all deliveries from database
+// Define which statuses are considered "terminal" / finished for routing purposes.
+// These will normally be excluded from the Delivery Management active list unless
+// a client explicitly asks to include them.
+const TERMINAL_STATUSES = [
+  'delivered',
+  'delivered-with-installation',
+  'delivered-without-installation',
+  'completed',
+  'pod-completed',
+  'cancelled',
+  'rescheduled',
+  'returned',
+];
+
+// GET /api/deliveries - Get deliveries from database
+// By default returns ONLY "active" deliveries (non-terminal). To include history,
+// pass ?includeFinished=true from the client.
 router.get('/', authenticate, async (req, res) => {
   try {
-    const deliveries = await cache.getOrFetch('deliveries:list:v2', async () => {
+    const includeFinished = req.query.includeFinished === 'true';
+    const cacheKey = includeFinished
+      ? 'deliveries:list:v2:all'
+      : 'deliveries:list:v2:active';
+
+    const deliveries = await cache.getOrFetch(cacheKey, async () => {
+      const whereClause = includeFinished
+        ? {}
+        : {
+            status: {
+              notIn: TERMINAL_STATUSES,
+            },
+          };
+
       return prisma.delivery.findMany({
+        where: whereClause,
         select: {
           id: true,
           customer: true,

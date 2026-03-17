@@ -3,7 +3,11 @@ import ReactDOM from 'react-dom';
 import { X, Camera, Signature, Loader, Upload, Trash2 } from 'lucide-react';
 import api from '../frontend/apiClient';
 
-const POD_REQUIRED_STATUSES = ['delivered', 'delivered-without-installation'];
+const POD_REQUIRED_STATUSES = [
+  'delivered',
+  'delivered-without-installation',
+  'delivered-with-installation',
+];
 
 export default function DeliveryDetailModal({ delivery, isOpen, onClose, onStatusUpdate }) {
   const [newStatus, setNewStatus] = useState(delivery?.status || 'pending');
@@ -60,6 +64,27 @@ export default function DeliveryDetailModal({ delivery, isOpen, onClose, onStatu
       }
     }
   }, [delivery, isOpen]);
+
+  // If delivery is already in a "delivered" status and has no POD yet,
+  // automatically show the POD upload panel so admins can attach POD
+  // without needing to toggle the status again.
+  useEffect(() => {
+    if (!delivery || !isOpen || !podFetched) return;
+
+    const currentStatus = (delivery.status || '').toLowerCase();
+    const hasExistingPOD =
+      (podPhotos && podPhotos.length > 0) ||
+      !!driverSignature ||
+      !!customerSignature;
+
+    if (
+      POD_REQUIRED_STATUSES.includes(currentStatus) &&
+      !hasExistingPOD &&
+      !pendingStatus
+    ) {
+      setPendingStatus(currentStatus);
+    }
+  }, [delivery, isOpen, podFetched, podPhotos, driverSignature, customerSignature, pendingStatus]);
 
   const handleStatusChange = async (newStatusValue) => {
     // For delivery-completion statuses, require POD photo first
@@ -285,7 +310,7 @@ export default function DeliveryDetailModal({ delivery, isOpen, onClose, onStatu
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*"
+                  accept="image/*,application/pdf"
                   multiple
                   className="hidden"
                   onChange={handleFileSelect}

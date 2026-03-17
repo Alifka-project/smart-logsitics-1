@@ -41,6 +41,16 @@ export default function DeliveryTable({ onSelectDelivery, onCloseDetailModal, on
     onSelectDelivery();
   };
 
+  // Only show "active" deliveries in the management list. Completed / cancelled
+  // drops off this view but stays in the store for reporting.
+  const ACTIVE_STATUSES = ['pending', 'out-for-delivery', 'in-transit', 'scheduled', 'confirmed'];
+  const activeItems = items.filter((delivery) => {
+    const status = (delivery.status || '').toLowerCase();
+    if (!status) return true;
+    if (ACTIVE_STATUSES.includes(status)) return true;
+    return false;
+  });
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 transition-colors">
       <div className="mb-4">
@@ -53,7 +63,7 @@ export default function DeliveryTable({ onSelectDelivery, onCloseDetailModal, on
       </div>
 
       <div className="space-y-2 sm:space-y-3">
-        {items.map((delivery, index) => (
+        {activeItems.map((delivery, index) => (
           <DeliveryCard
             key={delivery.id}
             delivery={delivery}
@@ -72,9 +82,9 @@ export default function DeliveryTable({ onSelectDelivery, onCloseDetailModal, on
         ))}
       </div>
 
-      {items.length === 0 && (
+      {activeItems.length === 0 && (
         <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-          No deliveries loaded yet
+          No active deliveries. Completed or cancelled stops are hidden from this list.
         </div>
       )}
     </div>
