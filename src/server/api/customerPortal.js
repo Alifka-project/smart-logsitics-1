@@ -5,8 +5,8 @@
 
 const express = require('express');
 const router = express.Router();
-const smsService = require('../sms/smsService');
-const prisma = require('../db/prisma');
+const smsService = require('../sms/smsService.js');
+const prisma = require('../db/prisma.js');
 
 /**
  * POST /api/customer/confirm-delivery/:token

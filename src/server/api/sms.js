@@ -1,13 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const { authenticate, requireRole } = require('../auth');
-const db = require('../db');
-const sapService = require('../../../services/sapService');
+const { authenticate, requireRole } = require('../auth.js');
+const db = require('../db.js');
+const sapService = require('../../../services/sapService.js');
 
 // Initialize SMS adapter (Twilio or mock)
 let smsAdapter = null;
 try {
-  const TwilioAdapter = require('../sms/twilioAdapter');
+  const TwilioAdapter = require('../sms/twilioAdapter.js');
   smsAdapter = new TwilioAdapter(process.env);
 } catch (e) {
   console.warn('[SMS] Twilio adapter not available, SMS sending will be mocked');

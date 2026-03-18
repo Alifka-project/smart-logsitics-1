@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { authenticate, requireRole } = require('../auth');
-const prisma = require('../db/prisma');
-const cache = require('../cache');
+const { authenticate, requireRole } = require('../auth.js');
+const prisma = require('../db/prisma.js');
+const cache = require('../cache.js');
 
 /**
  * GET /api/admin/messages/conversations/:driverId

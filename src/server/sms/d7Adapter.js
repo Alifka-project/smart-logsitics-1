@@ -1,6 +1,6 @@
-const SmsAdapter = require('./adapter');
+const SmsAdapter = require('./adapter.js');
 const axios = require('axios');
-const { normalizePhone, isValidPhone } = require('../utils/phoneUtils');
+const { normalizePhone, isValidPhone } = require('../utils/phoneUtils.js');
 
 // Regular SMS endpoint — works for most countries but UAE carrier blocks all
 // unregistered senders (requires TRA registration, takes 3-7 business days)

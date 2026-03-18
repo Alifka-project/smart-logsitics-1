@@ -1,11 +1,11 @@
 // Express router for driver admin endpoints
 const express = require('express');
 const router = express.Router();
-const { authenticate, requireRole, requireAnyRole } = require('../auth');
-const sapService = require('../../../services/sapService');
-const prisma = require('../db/prisma');
-const { hashPassword } = require('../auth');
-const cache = require('../cache');
+const { authenticate, requireRole, requireAnyRole } = require('../auth.js');
+const sapService = require('../../../services/sapService.js');
+const prisma = require('../db/prisma.js');
+const { hashPassword } = require('../auth.js');
+const cache = require('../cache.js');
 
 // GET /api/admin/drivers - list drivers (with filters)
 // Optimized: cached for 30s, uses select instead of include
@@ -430,7 +430,7 @@ router.get('/sessions', async (req, res) => {
     // In serverless (Vercel), the in-memory sessionStore is always fresh per cold start.
     // Try it first; if empty or unavailable fall back to a DB-based lastLogin query.
     try {
-      const sessionStore = require('../sessionStore');
+      const sessionStore = require('../sessionStore.js');
       if (sessionStore && typeof sessionStore.getAllActiveSessions === 'function') {
         activeSessions = sessionStore.getAllActiveSessions();
       }

@@ -1,6 +1,6 @@
-const SmsAdapter = require('./adapter');
+const SmsAdapter = require('./adapter.js');
 const axios = require('axios');
-const { normalizeUAEPhone, isValidUAEPhone } = require('../utils/phoneUtils');
+const { normalizeUAEPhone, isValidUAEPhone } = require('../utils/phoneUtils.js');
 
 class TwilioAdapter extends SmsAdapter {
   constructor(config) {

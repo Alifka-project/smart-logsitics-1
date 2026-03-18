@@ -3,7 +3,7 @@
  * Database is REQUIRED - All queries use Prisma Client
  */
 
-const prisma = require('./prisma');
+const prisma = require('./prisma.js');
 
 // Legacy compatibility wrapper for existing SQL queries
 // For new code, use prisma directly (e.g., prisma.driver.findUnique())

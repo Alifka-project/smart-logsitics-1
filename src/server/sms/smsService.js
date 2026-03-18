@@ -4,8 +4,8 @@
  */
 
 const crypto = require('crypto');
-const prisma = require('../db/prisma');
-const { normalizeUAEPhone } = require('../utils/phoneUtils');
+const prisma = require('../db/prisma.js');
+const { normalizeUAEPhone } = require('../utils/phoneUtils.js');
 
 // Initialize SMS adapter — D7 Networks primary, Twilio fallback, then mock
 let smsAdapter = null;
@@ -13,11 +13,11 @@ const smsProvider = process.env.SMS_PROVIDER || 'd7';
 
 try {
   if (smsProvider === 'd7' || process.env.D7_API_TOKEN) {
-    const D7Adapter = require('./d7Adapter');
+    const D7Adapter = require('./d7Adapter.js');
     smsAdapter = new D7Adapter(process.env);
     console.log('[SMS] D7 Networks adapter initialized');
   } else {
-    const TwilioAdapter = require('./twilioAdapter');
+    const TwilioAdapter = require('./twilioAdapter.js');
     smsAdapter = new TwilioAdapter(process.env);
     console.log('[SMS] Twilio adapter initialized');
   }

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const sapService = require('../../../services/sapService');
+const sapService = require('../../../services/sapService.js');
 
 router.get('/ping', async (req, res) => {
   try {

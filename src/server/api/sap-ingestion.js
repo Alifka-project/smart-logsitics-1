@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const { randomUUID } = require('crypto');
-const { authenticate, requireRole } = require('../auth');
-const { buildBusinessKey, upsertDeliveryByBusinessKey } = require('../services/deliveryDedupService');
-const prisma = require('../db/prisma');
+const { authenticate, requireRole } = require('../auth.js');
+const { buildBusinessKey, upsertDeliveryByBusinessKey } = require('../services/deliveryDedupService.js');
+const prisma = require('../db/prisma.js');
 
 /**
  * SAP Data Ingestion Endpoint

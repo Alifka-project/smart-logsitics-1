@@ -1,6 +1,6 @@
 // Cleanup job for old location data
 // This prevents the live_locations table from growing infinitely
-const db = require('../db');
+const db = require('../db.js');
 
 async function cleanupOldLocations() {
   try {

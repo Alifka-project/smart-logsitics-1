@@ -1,14 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const { randomUUID } = require('crypto');
-const { authenticate, requireRole } = require('../auth');
-const sapService = require('../../../services/sapService');
-const { autoAssignDeliveries, getAvailableDrivers } = require('../services/autoAssignmentService');
-const { buildBusinessKey, upsertDeliveryByBusinessKey } = require('../services/deliveryDedupService');
-const prisma = require('../db/prisma');
-const cache = require('../cache');
-const { sortDeliveriesIncompleteLast } = require('../utils/deliveryListSort');
-const { normalizePhone } = require('../utils/phoneUtils');
+const { authenticate, requireRole } = require('../auth.js');
+const sapService = require('../../../services/sapService.js');
+const { autoAssignDeliveries, getAvailableDrivers } = require('../services/autoAssignmentService.js');
+const { buildBusinessKey, upsertDeliveryByBusinessKey } = require('../services/deliveryDedupService.js');
+const prisma = require('../db/prisma.js');
+const cache = require('../cache.js');
+const { sortDeliveriesIncompleteLast } = require('../utils/deliveryListSort.js');
+const { normalizePhone } = require('../utils/phoneUtils.js');
 
 async function deliveryExists(deliveryId) {
   try {
@@ -187,7 +187,7 @@ router.put('/admin/:id/status', authenticate, requireRole('admin'), async (req, 
       const phone = updatedDelivery.phone || existingDelivery.phone;
 
       if (phone) {
-        const smsService = require('../sms/smsService');
+        const smsService = require('../sms/smsService.js');
         const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
         const token = updatedDelivery.confirmationToken || existingDelivery.confirmationToken;
         const trackingLink = token ? `${frontendUrl}/customer-tracking/${token}` : null;
@@ -902,7 +902,7 @@ router.post('/:id/send-sms', authenticate, requireRole('admin'), async (req, res
 
     // Always generate the confirmation token first — link is always available
     // even when both SMS and email fail.
-    const smsService = require('../sms/smsService');
+    const smsService = require('../sms/smsService.js');
     const token = smsService.generateConfirmationToken();
     // 30 days — customers may receive stock next month
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
@@ -936,7 +936,7 @@ router.post('/:id/send-sms', authenticate, requireRole('admin'), async (req, res
 
     try {
       if (isUAE) {
-        const WhatsAppAdapter = require('../sms/whatsappAdapter');
+        const WhatsAppAdapter = require('../sms/whatsappAdapter.js');
         const waAdapter = new WhatsAppAdapter(process.env);
         const result = await waAdapter.sendMessage({ to: normalizedPhone, body: smsBody });
         messageId = result.messageId;

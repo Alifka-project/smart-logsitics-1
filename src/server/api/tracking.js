@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { authenticate, requireRole } = require('../auth');
-const db = require('../db');
-const sapService = require('../../../services/sapService');
-const prisma = require('../db/prisma');
-const cache = require('../cache');
+const { authenticate, requireRole } = require('../auth.js');
+const db = require('../db.js');
+const sapService = require('../../../services/sapService.js');
+const prisma = require('../db/prisma.js');
+const cache = require('../cache.js');
 
 /**
  * Detect addresses that cannot be used for routing (e.g. "call for delivery").

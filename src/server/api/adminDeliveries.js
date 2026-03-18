@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { authenticate, requireRole } = require('../auth');
-const prisma = require('../db/prisma');
+const { authenticate, requireRole } = require('../auth.js');
+const prisma = require('../db/prisma.js');
 
 // GET /api/admin/deliveries/metadata/sample - Shows sample metadata from database
 router.get('/metadata/sample', authenticate, requireRole('admin'), async (req, res) => {

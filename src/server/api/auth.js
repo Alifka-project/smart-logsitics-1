@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
-const prisma = require('../db/prisma');
+const prisma = require('../db/prisma.js');
 const {
   hashPassword,
   comparePassword,
@@ -11,11 +11,11 @@ const {
   refreshAccessToken,
   authenticate,
   destroyUserSessions
-} = require('../auth');
-const { loginLimiter } = require('../security/rateLimiter');
-const { validatePassword, sanitizeInput } = require('../security/passwordValidator');
-const { recordFailedAttempt, recordSuccess, isLocked } = require('../security/accountLockout');
-const { getEmailService } = require('../services/emailService');
+} = require('../auth.js');
+const { loginLimiter } = require('../security/rateLimiter.js');
+const { validatePassword, sanitizeInput } = require('../security/passwordValidator.js');
+const { recordFailedAttempt, recordSuccess, isLocked } = require('../security/accountLockout.js');
+const { getEmailService } = require('../services/emailService.js');
 
 // POST /api/auth/register
 router.post('/register', async (req, res) => {

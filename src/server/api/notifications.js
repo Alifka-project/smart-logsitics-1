@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { authenticate, requireRole } = require('../auth');
-const prisma = require('../db/prisma');
+const { authenticate, requireRole } = require('../auth.js');
+const prisma = require('../db/prisma.js');
 
 // ─────────────────────────────────────────────────────────────
 // ADMIN ALERT NOTIFICATIONS  (AdminNotification table)
@@ -308,7 +308,7 @@ router.post('/resend-sms/:deliveryId', authenticate, requireRole('admin'), async
     }
 
     // Use SMS service to resend
-    const smsService = require('../sms/smsService');
+    const smsService = require('../sms/smsService.js');
     const result = await smsService.sendConfirmationSms(deliveryId, delivery.phone);
 
     res.json({ 

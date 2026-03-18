@@ -1,10 +1,10 @@
 // Express router for driver location ingestion
 const express = require('express');
 const router = express.Router();
-const db = require('../db');
-const prisma = require('../db/prisma');
+const db = require('../db.js');
+const prisma = require('../db/prisma.js');
 
-const { authenticate } = require('../auth');
+const { authenticate } = require('../auth.js');
 
 // ─────────────────────────────────────────────────────────────
 // Haversine distance helper (returns metres)

@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 // GET /api/admin/dashboard
-const { authenticate, requireRole } = require('../auth');
-const sapService = require('../../../services/sapService');
-const prisma = require('../db/prisma');
-const { sortDeliveriesIncompleteLast } = require('../utils/deliveryListSort');
+const { authenticate, requireRole } = require('../auth.js');
+const sapService = require('../../../services/sapService.js');
+const prisma = require('../db/prisma.js');
+const { sortDeliveriesIncompleteLast } = require('../utils/deliveryListSort.js');
 
 /**
  * Compute dashboard analytics from deliveries

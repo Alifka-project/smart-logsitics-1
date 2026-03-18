@@ -6,17 +6,17 @@
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
-const prisma = require('../db/prisma');
+const prisma = require('../db/prisma.js');
 const {
   hashPassword,
   comparePassword,
   generateAccessToken,
   createLoginSession,
-} = require('../auth');
-const { validatePassword, sanitizeInput } = require('../security/passwordValidator');
-const { recordFailedAttempt, recordSuccess, isLocked } = require('../security/accountLockout');
-const { loginLimiter } = require('../security/rateLimiter');
-const { getEmailService } = require('../services/emailService');
+} = require('../auth.js');
+const { validatePassword, sanitizeInput } = require('../security/passwordValidator.js');
+const { recordFailedAttempt, recordSuccess, isLocked } = require('../security/accountLockout.js');
+const { loginLimiter } = require('../security/rateLimiter.js');
+const { getEmailService } = require('../services/emailService.js');
 
 // POST /api/auth/login - with rate limiting and account lockout
 router.post('/login', loginLimiter, async (req, res) => {
@@ -168,7 +168,7 @@ router.post('/logout', async (req, res) => {
     const sessionId = cookies[process.env.SESSION_COOKIE_NAME || 'sid'];
     
     if (sessionId) {
-      const { destroySession } = require('../sessionStore');
+      const { destroySession } = require('../sessionStore.js');
       destroySession(sessionId);
     }
     

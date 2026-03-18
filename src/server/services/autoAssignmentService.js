@@ -3,7 +3,7 @@
  * Automatically assigns deliveries to drivers based on availability, load, and location
  */
 
-const prisma = require('../db/prisma');
+const prisma = require('../db/prisma.js');
 
 /**
  * Find the best available driver for a delivery

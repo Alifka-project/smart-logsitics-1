@@ -1,12 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const prisma = require('../db/prisma');
+const prisma = require('../db/prisma.js');
 
-const { classifyQuery, INTENTS, DIMENSIONS } = require('../services/ai/classifyQuery');
-const { countDeliveries, getTopCustomers, getTopProducts, getStatusBreakdown, getDeliveryTrend } = require('../services/ai/analyticsExecutor');
-const { searchDeliveries, searchDrivers } = require('../services/ai/searchExecutor');
-const { findNavigationTarget } = require('../services/ai/navigationMap');
-const { summarizeInsight } = require('../services/ai/summarizeInsight');
+const { classifyQuery, INTENTS, DIMENSIONS } = require('../services/ai/classifyQuery.js');
+const { countDeliveries, getTopCustomers, getTopProducts, getStatusBreakdown, getDeliveryTrend } = require('../services/ai/analyticsExecutor.js');
+const { searchDeliveries, searchDrivers } = require('../services/ai/searchExecutor.js');
+const { findNavigationTarget } = require('../services/ai/navigationMap.js');
+const { summarizeInsight } = require('../services/ai/summarizeInsight.js');
 
 /* ─── POST /api/ai/search ──────────────────────────────────────
    Flow: classify → execute (analytics | lookup | navigation) → summarize (optional) → response

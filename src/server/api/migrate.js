@@ -6,7 +6,7 @@
 
 const express = require('express');
 const router = express.Router();
-const prisma = require('../db/prisma');
+const prisma = require('../db/prisma.js');
 
 // POST /api/migrate - Create all tables (ONE TIME USE)
 router.post('/migrate', async (req, res) => {
@@ -161,7 +161,7 @@ router.post('/migrate', async (req, res) => {
 // POST /api/migrate/seed - Create default users
 router.post('/seed', async (req, res) => {
   try {
-    const { hashPassword } = require('../auth');
+    const { hashPassword } = require('../auth.js');
     
     // Create admin user
     const adminUsername = process.env.ADMIN_USER || 'Admin';
