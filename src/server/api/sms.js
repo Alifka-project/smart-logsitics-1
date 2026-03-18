@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate, requireRole } = require('../auth.js');
-const db = require('../db.js');
+const db = require('../db/index.js');
 const sapService = require('../../../services/sapService.js');
 
 // Initialize SMS adapter (Twilio or mock)

@@ -1,7 +1,7 @@
 // Express router for driver location ingestion
 const express = require('express');
 const router = express.Router();
-const db = require('../db.js');
+const db = require('../db/index.js');
 const prisma = require('../db/prisma.js');
 
 const { authenticate } = require('../auth.js');

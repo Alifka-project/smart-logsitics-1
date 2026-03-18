@@ -1,7 +1,7 @@
 // SMS provider webhook receiver - normalize and persist
 const express = require('express');
 const router = express.Router();
-const db = require('../db.js');
+const db = require('../db/index.js');
 
 // POST /api/sms/webhook
 router.post('/webhook', express.urlencoded({ extended: true }), async (req, res) => {
