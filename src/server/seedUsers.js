@@ -3,8 +3,8 @@
  * Database is REQUIRED - Uses Prisma ORM
  */
 
-const prisma = require('./db/prisma');
-const { hashPassword } = require('./auth');
+const prisma = require('./db/prisma.js');
+const { hashPassword } = require('./auth.js');
 
 async function ensureUser(username, password, role, email, fullName) {
   try {

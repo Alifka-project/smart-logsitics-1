@@ -3,9 +3,9 @@
  * All functions accept filters: { status, dateRange } where dateRange is { from, to, label }.
  */
 
-const prisma = require('../../db/prisma');
-const { CANONICAL, prismaStatusWhere } = require('../../domain/statusMap');
-const { customerNormalized, productNormalized, parseProductNames } = require('../../domain/normalize');
+const prisma = require('../../db/prisma.js');
+const { CANONICAL, prismaStatusWhere } = require('../../domain/statusMap.js');
+const { customerNormalized, productNormalized, parseProductNames } = require('../../domain/normalize.js');
 
 function baseWhere(filters) {
   const where = {};

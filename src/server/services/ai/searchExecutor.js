@@ -3,9 +3,9 @@
  * Uses normalization and partial matching. Relevance: prefer customer/PO match, then address, then items.
  */
 
-const prisma = require('../../db/prisma');
-const { normalizeText } = require('../../domain/normalize');
-const { baseWhere } = require('./analyticsExecutor');
+const prisma = require('../../db/prisma.js');
+const { normalizeText } = require('../../domain/normalize.js');
+const { baseWhere } = require('./analyticsExecutor.js');
 
 const DELIVERY_SELECT = {
   id: true,

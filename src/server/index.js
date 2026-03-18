@@ -4,7 +4,7 @@ const dotenv = require('dotenv');
 dotenv.config();
 const helmet = require('helmet');
 const cors = require('cors');
-const prisma = require('./db/prisma');
+const prisma = require('./db/prisma.js');
 
 const app = express();
 const port = process.env.PORT || 4000;
@@ -43,9 +43,9 @@ app.use(helmet({
   contentSecurityPolicy: false // CSP may be configured per-deployment
 }));
 
-const { authenticate, requireCSRF } = require('./auth');
-const { validateEnv } = require('./envCheck');
-const { apiLimiter } = require('./security/rateLimiter');
+const { authenticate, requireCSRF } = require('./auth.js');
+const { validateEnv } = require('./envCheck.js');
+const { apiLimiter } = require('./security/rateLimiter.js');
 
 // Rate limiting: use centralized rate limiter
 app.use('/api', apiLimiter);
@@ -106,20 +106,20 @@ try {
 }
 
 // Public API routes (no auth)
-app.use('/api/auth', require('./api/auth'));
-app.use('/api/sms/webhook', require('./api/smsWebhook'));
-app.use('/api/customer', require('./api/customerPortal')); // Customer confirmation and tracking (token-based)
+app.use('/api/auth', require('./api/auth.js'));
+app.use('/api/sms/webhook', require('./api/smsWebhook.js'));
+app.use('/api/customer', require('./api/customerPortal.js')); // Customer confirmation and tracking (token-based)
 
 // Public SMS confirmation endpoint (before auth middleware)
 app.post('/api/sms/confirm', async (req, res) => {
-  const smsRouter = require('./api/sms');
+  const smsRouter = require('./api/sms.js');
   return smsRouter.confirm(req, res);
 });
 
 // Health check - verify database connection using Prisma
 app.get('/api/health', async (req, res) => {
   try {
-    const prisma = require('./db/prisma');
+    const prisma = require('./db/prisma.js');
     if (!prisma) {
       return res.status(503).json({ 
         ok: false, 
@@ -167,19 +167,19 @@ app.use('/api', (req, res, next) => {
 });
 
 // Mount protected API routes
-app.use('/api/admin/drivers', require('./api/drivers'));
-app.use('/api/driver', require('./api/locations'));
-app.use('/api/admin/dashboard', require('./api/adminDashboard'));
-app.use('/api/admin/notifications', require('./api/notifications'));
-app.use('/api/admin/reports', require('./api/reports'));
-app.use('/api/admin/tracking', require('./api/tracking'));
-app.use('/api/messages', require('./api/messages')); // Mount at /api/messages for both admin and driver routes
-app.use('/api/admin/deliveries', require('./api/adminDeliveries'));
-app.use('/api/ai', require('./api/ai'));
-app.use('/api/deliveries', require('./api/deliveries'));
-app.use('/api/sms', require('./api/sms'));
-app.use('/api/sap', require('./api/sap'));
-app.use('/api/sap-ingestion', require('./api/sap-ingestion')); // SAP data ingestion with POD support
+app.use('/api/admin/drivers', require('./api/drivers.js'));
+app.use('/api/driver', require('./api/locations.js'));
+app.use('/api/admin/dashboard', require('./api/adminDashboard.js'));
+app.use('/api/admin/notifications', require('./api/notifications.js'));
+app.use('/api/admin/reports', require('./api/reports.js'));
+app.use('/api/admin/tracking', require('./api/tracking.js'));
+app.use('/api/messages', require('./api/messages.js')); // Mount at /api/messages for both admin and driver routes
+app.use('/api/admin/deliveries', require('./api/adminDeliveries.js'));
+app.use('/api/ai', require('./api/ai.js'));
+app.use('/api/deliveries', require('./api/deliveries.js'));
+app.use('/api/sms', require('./api/sms.js'));
+app.use('/api/sap', require('./api/sap.js'));
+app.use('/api/sap-ingestion', require('./api/sap-ingestion.js')); // SAP data ingestion with POD support
 
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);

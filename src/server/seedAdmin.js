@@ -1,5 +1,5 @@
-const { prisma } = require('./db');
-const { hashPassword } = require('./auth');
+const { prisma } = require('./db/index.js');
+const { hashPassword } = require('./auth.js');
 
 async function seed() {
   try {

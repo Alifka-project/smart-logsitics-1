@@ -2,7 +2,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 
-const { generateSyntheticData } = require('../data/syntheticData');
+const { generateSyntheticData } = require('../data/syntheticData.js');
 
 const app = express();
 const port = process.env.SAP_MOCK_PORT || 5000;

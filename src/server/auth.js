@@ -2,7 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const cookie = require('cookie');
 
-const { createSession, getSession, destroySession, verifyCSRF, rotateSession, destroyUserSessions } = require('./sessionStore');
+const { createSession, getSession, destroySession, verifyCSRF, rotateSession, destroyUserSessions } = require('./sessionStore.js');
 
 const JWT_SECRET = process.env.JWT_SECRET || (() => {
   console.warn('⚠️  WARNING: JWT_SECRET not set, using default. Change in production!');

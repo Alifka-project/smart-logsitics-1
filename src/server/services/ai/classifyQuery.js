@@ -3,8 +3,8 @@
  * Uses normalization, keyword mapping, and rule-based parsing (no LLM required).
  */
 
-const { intentToStatus } = require('../../domain/statusMap');
-const { inferDateRangeFromQuery } = require('./dateFilters');
+const { intentToStatus } = require('../../domain/statusMap.js');
+const { inferDateRangeFromQuery } = require('./dateFilters.js');
 
 const INTENTS = Object.freeze({
   LOOKUP: 'lookup',
