@@ -118,7 +118,8 @@ export default function AdminDashboardPage() {
   const loadDashboardData = useCallback(async () => {
     try {
       const [dashboardResp, driversResp, deliveriesResp] = await Promise.allSettled([
-        api.get('/admin/dashboard'),
+        // Always bypass server cache so KPIs reflect latest confirmations/status changes
+        api.get('/admin/dashboard', { params: { nocache: 1 } }),
         api.get('/admin/drivers').catch(() => ({ data: { data: [] } })),
         api.get('/admin/tracking/deliveries').catch(() => ({ data: { deliveries: [] } }))
       ]);

@@ -216,7 +216,8 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
   try {
     // Check cache first
     const now = Date.now();
-    if (dashboardCache && (now - dashboardCacheTime) < DASHBOARD_CACHE_TTL) {
+    const bypassCache = String(req.query?.nocache || req.query?.noCache || '').trim() === '1';
+    if (!bypassCache && dashboardCache && (now - dashboardCacheTime) < DASHBOARD_CACHE_TTL) {
       return res.json(dashboardCache);
     }
 
@@ -252,6 +253,9 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
           status: true,
           items: true,
           metadata: true,
+          confirmationStatus: true,
+          customerConfirmedAt: true,
+          confirmedDeliveryDate: true,
           createdAt: true,
           deliveredAt: true,
           driverSignature: true,
@@ -310,6 +314,9 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
         status: d.status,
         items: d.items,
         metadata: d.metadata,
+        confirmationStatus: d.confirmationStatus,
+        customerConfirmedAt: d.customerConfirmedAt,
+        confirmedDeliveryDate: d.confirmedDeliveryDate,
         created_at: d.createdAt,
         createdAt: d.createdAt,
         created: d.createdAt,
@@ -391,7 +398,15 @@ router.get('/', authenticate, requireRole('admin'), async (req, res) => {
       if (s === 'scheduled') totals.scheduled++;
       if (s === 'scheduled-confirmed') {
         totals['scheduled-confirmed']++;
-        totals.customerAccepted++; // Customer accepted/confirmed
+        totals.customerAccepted++; // Customer accepted/confirmed (status-based)
+      }
+
+      // Customer acceptance fallback (DB confirmations may not always sync to status)
+      // Only count once per delivery (avoid double counting when status already scheduled-confirmed)
+      const isConfirmedByCustomer =
+        String(d.confirmationStatus || '').toLowerCase() === 'confirmed' || !!d.customerConfirmedAt;
+      if (isConfirmedByCustomer && s !== 'scheduled-confirmed') {
+        totals.customerAccepted++;
       }
       if (s === 'out-for-delivery') totals['out-for-delivery']++;
       
