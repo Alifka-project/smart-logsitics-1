@@ -114,8 +114,8 @@ export default function AdminReportsPage(): React.ReactElement {
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [filters, setFilters] = useState<Filters>({
-    startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    endDate: new Date().toISOString().split('T')[0],
+    startDate: '',
+    endDate: '',
     status: '',
     customerStatus: '',
     poNumber: '',
@@ -155,7 +155,10 @@ export default function AdminReportsPage(): React.ReactElement {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `electrolux-deliveries-${filters.startDate}-to-${filters.endDate}.csv`;
+        const rangeLabel = filters.startDate && filters.endDate
+          ? `${filters.startDate}-to-${filters.endDate}`
+          : 'all-dates';
+        a.download = `electrolux-deliveries-${rangeLabel}.csv`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);

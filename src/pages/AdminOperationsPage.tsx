@@ -143,7 +143,8 @@ export default function AdminOperationsPage(): React.ReactElement {
   const [newMessage, setNewMessage] = useState<string>('');
   const [loadingMessages, setLoadingMessages] = useState<boolean>(false);
   const [sendingMessage, setSendingMessage] = useState<boolean>(false);
-  const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
+  // Keep as a loose Set to mirror JSX behavior (it may store string/number/undefined).
+  const [onlineUserIds, setOnlineUserIds] = useState<Set<any>>(new Set());
   const [contacts, setContacts] = useState<OpDriver[]>([]);
   const [teamMembers, setTeamMembers] = useState<OpDriver[]>([]);
   const [messageTemplates] = useState<string[]>([
@@ -180,15 +181,15 @@ export default function AdminOperationsPage(): React.ReactElement {
     if (loadingOnlineStatusRef.current) return;
     loadingOnlineStatusRef.current = true;
     try {
-      let activeSessionUserIds = new Set<string>();
+      let activeSessionUserIds = new Set<any>();
       try {
         const sessionsResponse = await api.get('/admin/drivers/sessions');
         const sessData = sessionsResponse.data as { sessions?: Array<{ userId?: string | number }> };
         if (sessData?.sessions) {
           activeSessionUserIds = new Set(
             sessData.sessions
-              .map(s => s.userId?.toString() || '')
-              .filter(Boolean)
+              .map(s => s.userId?.toString() || s.userId)
+              .filter(Boolean),
           );
           if (!silent) console.debug(`[AdminOps] Loaded ${activeSessionUserIds.size} users from sessions`);
         }
@@ -200,7 +201,8 @@ export default function AdminOperationsPage(): React.ReactElement {
           if (contact.account?.lastLogin) {
             const lastLogin = new Date(contact.account.lastLogin);
             if (lastLogin >= fiveMinutesAgo) {
-              activeSessionUserIds.add(String(contact.id));
+              const userId = (contact as any).id?.toString() || (contact as any).id;
+              activeSessionUserIds.add(userId);
             }
           }
         });
@@ -432,8 +434,18 @@ export default function AdminOperationsPage(): React.ReactElement {
   };
 
   const isDriverOnline = (driver: OpDriver): boolean => {
-    const idStr = String(driver.id);
-    if (onlineUserIds.has(idStr) || driver.tracking?.online) return true;
+    const driverAny = driver as any;
+    const driverIdStr = driverAny.id?.toString();
+    const driverIdNum = driverAny.id;
+
+    if (
+      onlineUserIds.has(driverIdStr) ||
+      onlineUserIds.has(driverIdNum) ||
+      onlineUserIds.has(String(driverIdNum)) ||
+      driverAny.tracking?.online
+    ) {
+      return true;
+    }
     if (driver.account?.lastLogin) {
       return new Date(driver.account.lastLogin) >= new Date(Date.now() - 5 * 60 * 1000);
     }

@@ -400,7 +400,8 @@ export default function Header({ isAdmin = false }: HeaderProps) {
           const alerts      = ar.status==='fulfilled' ? (ar.value.data?.notifications||[]) : [];
           const overdue     = or.status==='fulfilled' ? (or.value.data?.deliveries||[])     : [];
           const unconfirmed = ur.status==='fulfilled' ? (ur.value.data?.deliveries||[])     : [];
-          const extractDeliveryId = (obj: Record<string, unknown>) => {
+          const extractDeliveryId = (obj: Record<string, unknown> | null | undefined) => {
+            if (!obj) return null;
             const metadata = ((obj.metadata as Record<string, unknown>) || (obj.payload as Record<string, unknown>) || {});
             return (obj.deliveryId as string) || (obj.delivery_id as string) || ((obj.delivery as Record<string, unknown>)?.id as string) || (metadata.deliveryId as string) || (metadata.delivery_id as string) || null;
           };

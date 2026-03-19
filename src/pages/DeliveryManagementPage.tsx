@@ -128,8 +128,21 @@ export default function DeliveryManagementPage() {
       // Only load "active" deliveries (exclude delivered/cancelled/rescheduled history)
       const response = await api.get('/deliveries?includeFinished=false');
       if (response.data && response.data.deliveries) {
-        loadDeliveries(response.data.deliveries as Delivery[]);
-        success(`✓ Reloaded ${response.data.deliveries.length} deliveries from database with real UUIDs!`);
+        const freshDeliveries = response.data.deliveries as Delivery[];
+        loadDeliveries(freshDeliveries);
+
+        // Trigger backend bulk auto-assignment so Operations Control reflects assignments
+        try {
+          const ids = freshDeliveries.map((d) => d.id).filter(Boolean);
+          if (ids.length > 0) {
+            await api.post('/deliveries/bulk-assign', { deliveryIds: ids });
+          }
+        } catch (assignErr: unknown) {
+          const e = assignErr as { message?: string };
+          console.warn('Bulk auto-assign after DB reload failed:', e.message || assignErr);
+        }
+
+        success(`✓ Reloaded ${freshDeliveries.length} deliveries from database with real UUIDs!`);
         setShowCacheAlert(false);
       } else {
         error('No deliveries found in database. Please upload deliveries first.');
