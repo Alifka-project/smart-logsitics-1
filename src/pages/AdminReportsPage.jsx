@@ -30,8 +30,9 @@ export default function AdminReportsPage() {
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState({
-    startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    endDate: new Date().toISOString().split('T')[0],
+    // Default to "all dates" – backend interprets missing dates as full range
+    startDate: '',
+    endDate: '',
     status: '',
     customerStatus: '',
     poNumber: '',
@@ -71,7 +72,10 @@ export default function AdminReportsPage() {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `electrolux-deliveries-${filters.startDate}-to-${filters.endDate}.csv`;
+        const rangeLabel = filters.startDate && filters.endDate
+          ? `${filters.startDate}-to-${filters.endDate}`
+          : 'all-dates';
+        a.download = `electrolux-deliveries-${rangeLabel}.csv`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);

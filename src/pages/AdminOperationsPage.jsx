@@ -226,7 +226,7 @@ export default function AdminOperationsPage() {
     const tab = params.get('tab');
     // Support both legacy "userId" and newer "driverId" parameters for deep links
     const driverId = params.get('driverId') || params.get('userId');
-    const allowedTabs = new Set(['monitoring', 'control', 'delivery-tracking', 'communication', 'alerts']);
+    const allowedTabs = new Set(['monitoring', 'control', 'delivery-tracking', 'communication']); // 'alerts' temporarily disabled
 
     if (tab && allowedTabs.has(tab) && tab !== activeTab) {
       setActiveTab(tab);
@@ -418,8 +418,9 @@ export default function AdminOperationsPage() {
   };
 
   const onlineDrivers = drivers.filter(d => isDriverOnline(d));
+  // Treat "active" as any delivery that is currently assigned to a driver
   const activeDeliveries = deliveries.filter(d => 
-    d.tracking?.status === 'in_progress' || d.status?.toLowerCase() === 'out-for-delivery'
+    d.tracking?.driverId || d.assignedDriverId || d.tracking?.assigned
   );
 
   if (loading) {
@@ -454,7 +455,7 @@ export default function AdminOperationsPage() {
             { id: 'control', label: 'Control', icon: Settings },
             { id: 'delivery-tracking', label: 'Delivery Tracking', icon: Package },
             { id: 'communication', label: 'Communication', icon: MessageSquare },
-            { id: 'alerts', label: 'Alerts', icon: AlertCircle }
+            // { id: 'alerts', label: 'Alerts', icon: AlertCircle } // Temporarily hidden (feature not active)
           ].map(tab => {
             const Icon = tab.icon;
             return (
@@ -1252,7 +1253,8 @@ export default function AdminOperationsPage() {
         </div>
       )}
 
-      {activeTab === 'alerts' && (
+      {/* Alerts tab currently disabled until backend alert actions are defined */}
+      {false && activeTab === 'alerts' && (
         <div className="space-y-6">
           {/* Alert Summary */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
