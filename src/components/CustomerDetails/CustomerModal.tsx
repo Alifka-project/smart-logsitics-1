@@ -105,9 +105,9 @@ export default function CustomerModal({
         message?: string;
       };
       const errMsg =
-        err.response?.data?.detail ??
-        err.response?.data?.error ??
-        err.message ??
+        err.response?.data?.detail ||
+        err.response?.data?.error ||
+        err.message ||
         'Failed to update contact details';
       setContactError(errMsg);
       onSaveContactError?.(errMsg);
@@ -203,9 +203,9 @@ export default function CustomerModal({
         config: err.config,
       });
       setSubmitError(
-        err.response?.data?.detail ??
-          err.response?.data?.error ??
-          err.message ??
+        err.response?.data?.detail ||
+          err.response?.data?.error ||
+          err.message ||
           'Failed to update delivery status',
       );
     } finally {
@@ -263,7 +263,7 @@ export default function CustomerModal({
           <div className="bg-primary-50 dark:bg-primary-900/20 rounded-lg p-3 sm:p-4 space-y-2">
             <h3 className="text-base sm:text-xl font-bold text-primary-800 dark:text-primary-300 mb-3 sm:mb-4 break-words">
               <span className="text-primary-600 dark:text-primary-400 font-medium">Stop </span>
-              <span className="truncate sm:inline" title={selectedDelivery.id ?? ''}>
+              <span className="truncate sm:inline" title={selectedDelivery.id}>
                 {shortId}
               </span>
               {': '}
