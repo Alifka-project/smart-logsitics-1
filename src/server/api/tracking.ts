@@ -1,0 +1,265 @@
+import { Router, Request, Response } from 'express';
+import { authenticate, requireRole } from '../auth.js';
+import sapService from '../services/sapService.js';
+import prisma from '../db/prisma.js';
+import cache from '../cache.js';
+
+const router = Router();
+
+/**
+ * Detect addresses that cannot be used for routing (e.g. "call for delivery").
+ * Mirrors src/utils/addressHandler.js isUnrecognizableAddress for server-side use.
+ */
+const UNRECOGNIZABLE_ADDR_PATTERNS = [
+  /^(call|call\s+for\s+(delivery|pickup|address|location)|call\s+customer)$/i,
+  /^(tbd|to\s+be\s+(confirmed|determined|advised)|n\/a|na|none|nil|-)$/i,
+  /^(pickup|warehouse|collect|collection\s+point)$/i,
+  /^(see\s+notes?|as\s+instructed|contact\s+(customer|driver|office))$/i,
+  /^(unknown|unspecified|no\s+address|no\s+delivery\s+address)$/i,
+  /^(refer\s+to|check\s+with|pending|awaiting)$/i,
+];
+
+function isUnrecognizableAddressServer(address: unknown): boolean {
+  if (!address || typeof address !== 'string') return true;
+  const trimmed = address.trim();
+  if (trimmed.length < 5) return true;
+  for (const p of UNRECOGNIZABLE_ADDR_PATTERNS) {
+    if (p.test(trimmed)) return true;
+  }
+  if (/^call\b/i.test(trimmed)) return true;
+  return false;
+}
+
+// GET /api/admin/tracking/deliveries - real-time delivery tracking
+// Optimized: uses select instead of include, server-side cache (30s fresh, 2min max)
+router.get('/deliveries', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+  try {
+    const data = await cache.getOrFetch('tracking:deliveries:v2', async () => {
+      let dbDeliveries: unknown[] = [];
+      try {
+        dbDeliveries = await prisma.delivery.findMany({
+          select: {
+            id: true,
+            customer: true,
+            address: true,
+            phone: true,
+            lat: true,
+            lng: true,
+            status: true,
+            items: true,
+            metadata: true,
+            poNumber: true,
+            createdAt: true,
+            assignments: {
+              take: 1,
+              orderBy: { assignedAt: 'desc' },
+              select: {
+                driverId: true,
+                status: true,
+                assignedAt: true,
+                driver: {
+                  select: { fullName: true }
+                }
+              }
+            }
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 2000
+        });
+      } catch (err: unknown) {
+        const e = err as { message?: string };
+        console.error('[Tracking] Prisma query error:', e.message);
+        dbDeliveries = [];
+      }
+
+      let deliveries = (dbDeliveries as {
+        id: string; customer: string | null; address: string | null; phone: string | null;
+        lat: number | null; lng: number | null; status: string; items: unknown;
+        metadata: unknown; poNumber: string | null; createdAt: Date;
+        assignments: { driverId: string | null; status: string; assignedAt: Date | null; driver?: { fullName?: string } | null }[];
+      }[]).map(d => ({
+        id: d.id,
+        customer: d.customer,
+        address: d.address,
+        phone: d.phone,
+        lat: d.lat,
+        lng: d.lng,
+        status: d.status,
+        items: d.items,
+        metadata: d.metadata,
+        poNumber: d.poNumber,
+        created_at: d.createdAt,
+        createdAt: d.createdAt,
+        created: d.createdAt,
+        assignedDriverId: d.assignments?.[0]?.driverId || null,
+        driverName: d.assignments?.[0]?.driver?.fullName || null,
+        assignmentStatus: d.assignments?.[0]?.status || 'unassigned',
+        tracking: {
+          assigned: !!(d.assignments?.[0]?.driverId),
+          driverId: d.assignments?.[0]?.driverId || null,
+          status: d.assignments?.[0]?.status || 'unassigned',
+          assignedAt: d.assignments?.[0]?.assignedAt || null,
+          lastLocation: null
+        }
+      }));
+
+      try {
+        const deliveriesResp = await sapService.call('/Deliveries', 'get') as { data: unknown };
+        let sapDeliveries: unknown[] = [];
+        const sapData = deliveriesResp.data as Record<string, unknown>;
+        if (Array.isArray(sapData?.value)) {
+          sapDeliveries = sapData.value as unknown[];
+        } else if (Array.isArray(deliveriesResp.data)) {
+          sapDeliveries = deliveriesResp.data as unknown[];
+        }
+
+        const dbDeliveryIds = new Set(deliveries.map(d => d.id));
+        const newSapDeliveries = (sapDeliveries as { id?: string; ID?: string }[]).filter(d => {
+          const sapId = d.id || d.ID;
+          return sapId && !dbDeliveryIds.has(sapId);
+        });
+        deliveries = deliveries.concat(newSapDeliveries as typeof deliveries);
+      } catch (_) {
+        // SAP not available, use database only
+      }
+
+      deliveries.sort((a, b) => {
+        const aPhone = a.phone != null ? String(a.phone).trim() : '';
+        const bPhone = b.phone != null ? String(b.phone).trim() : '';
+        const aHasPhone = aPhone.length > 0;
+        const bHasPhone = bPhone.length > 0;
+
+        const aBadAddress = isUnrecognizableAddressServer(a.address);
+        const bBadAddress = isUnrecognizableAddressServer(b.address);
+
+        const aHasContact = aHasPhone && !aBadAddress;
+        const bHasContact = bHasPhone && !bBadAddress;
+
+        if (aHasContact && !bHasContact) return -1;
+        if (!aHasContact && bHasContact) return 1;
+        return 0;
+      });
+
+      return deliveries;
+    }, 30000, 120000);
+
+    res.json({
+      deliveries: data,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err: unknown) {
+    const e = err as { message?: string };
+    console.error('tracking/deliveries error', err);
+    res.status(500).json({ error: 'tracking_fetch_failed', detail: e.message });
+  }
+});
+
+// GET /api/admin/tracking/drivers - real-time driver tracking
+// Optimized: uses select, server-side cache, single combined query
+router.get('/drivers', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+  try {
+    const data = await cache.getOrFetch('tracking:drivers', async () => {
+      let prismaDrivers: {
+        id: string; username: string | null; email: string | null; phone: string | null;
+        fullName: string | null; active: boolean | null;
+        account?: { role: string } | null;
+        status?: { status: string; updatedAt: Date; currentAssignmentId: string | null } | null;
+      }[] = [];
+
+      try {
+        const dbDrivers = await prisma.driver.findMany({
+          where: {
+            account: { role: 'driver' }
+          },
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            phone: true,
+            fullName: true,
+            active: true,
+            account: { select: { role: true } },
+            status: { select: { status: true, updatedAt: true, currentAssignmentId: true } }
+          }
+        });
+        prismaDrivers = dbDrivers;
+      } catch (e: unknown) {
+        const err = e as { message?: string };
+        console.warn('[Tracking] Could not fetch Prisma drivers:', err.message);
+      }
+
+      if (prismaDrivers.length === 0) {
+        try {
+          const driversResp = await sapService.call('/Drivers', 'get') as { data: unknown };
+          let sapDrivers: unknown[] = [];
+          const sapData = driversResp.data as Record<string, unknown>;
+          if (Array.isArray(sapData?.value)) sapDrivers = sapData.value as unknown[];
+          else if (Array.isArray(driversResp.data)) sapDrivers = driversResp.data as unknown[];
+          return sapDrivers.map(d => ({ ...(d as object), tracking: { online: false, location: null, status: 'offline', lastUpdate: null, assignmentId: null } }));
+        } catch (_) { /* ignore */ }
+      }
+
+      let locationsMap: Record<string, {
+        driverId: string; latitude: number; longitude: number;
+        heading: number | null; speed: number | null; accuracy: number | null; recordedAt: Date;
+      }> = {};
+
+      try {
+        const locationsData = await prisma.liveLocation.findMany({
+          distinct: ['driverId'],
+          orderBy: { recordedAt: 'desc' },
+          select: {
+            driverId: true,
+            latitude: true,
+            longitude: true,
+            heading: true,
+            speed: true,
+            accuracy: true,
+            recordedAt: true
+          },
+          take: 100
+        });
+        locationsData.forEach(l => { locationsMap[l.driverId] = l; });
+      } catch (_) { /* locations unavailable */ }
+
+      return prismaDrivers.map(d => {
+        const loc = locationsMap[d.id];
+        return {
+          id: d.id,
+          username: d.username,
+          email: d.email,
+          phone: d.phone,
+          fullName: d.fullName,
+          full_name: d.fullName,
+          active: d.active,
+          role: d.account?.role || 'driver',
+          tracking: {
+            online: loc ? (Date.now() - new Date(loc.recordedAt).getTime()) < 5 * 60 * 1000 : false,
+            location: loc ? {
+              lat: loc.latitude,
+              lng: loc.longitude,
+              heading: loc.heading,
+              speed: loc.speed,
+              accuracy: loc.accuracy,
+              timestamp: loc.recordedAt
+            } : null,
+            status: d.status?.status || 'offline',
+            lastUpdate: loc?.recordedAt || d.status?.updatedAt || null,
+            assignmentId: d.status?.currentAssignmentId || null
+          }
+        };
+      });
+    }, 15000, 60000);
+
+    res.json({
+      drivers: data,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err: unknown) {
+    const e = err as { message?: string };
+    console.error('tracking/drivers error', err);
+    res.status(500).json({ error: 'tracking_fetch_failed', detail: e.message });
+  }
+});
+
+export default router;
