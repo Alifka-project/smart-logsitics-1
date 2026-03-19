@@ -553,7 +553,7 @@
 
   /* ── Page heading — consistent across every page ── */
   .pp-page-title {
-    font-size: 30px;
+    font-size: clamp(1.25rem, 4vw + 0.5rem, 30px);
     font-weight: 700;
     letter-spacing: -0.025em;
     color: var(--text);

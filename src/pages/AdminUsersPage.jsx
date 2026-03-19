@@ -417,7 +417,7 @@ export default function AdminUsersPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="pp-page-header flex justify-between items-center">
+      <div className="pp-page-header flex flex-wrap justify-between items-center gap-3">
         <div>
           <h1 className="pp-page-title">User & Account Management</h1>
           <p className="pp-page-subtitle">Manage accounts, drivers, and permissions</p>
@@ -434,8 +434,8 @@ export default function AdminUsersPage() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="border-b border-gray-200 dark:border-gray-700">
-        <nav className="flex space-x-8">
+      <div className="border-b border-gray-200 dark:border-gray-700 overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0">
+        <nav className="flex space-x-6 sm:space-x-8 min-w-max whitespace-nowrap">
           {[
             { id: 'accounts', label: 'Accounts', icon: Users },
             { id: 'drivers', label: 'Drivers', icon: UserCheck },

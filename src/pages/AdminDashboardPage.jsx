@@ -758,7 +758,7 @@ export default function AdminDashboardPage() {
               placeholder="Search customer name or area..."
               value={topCustomersSearch}
               onChange={e => setTopCustomersSearch(e.target.value)}
-              className="flex-1 min-w-[200px] px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="flex-1 min-w-0 sm:min-w-[140px] md:min-w-[200px] px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
             <select value={topCustomersAreaFilter} onChange={e => setTopCustomersAreaFilter(e.target.value)}
               className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
@@ -857,13 +857,13 @@ export default function AdminDashboardPage() {
       {activeTab === 'deliveries' && (
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
           {/* Filter bar */}
-          <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex flex-wrap gap-2 items-center">
+          <div className="px-3 sm:px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex flex-wrap gap-2 items-center">
                   <input
                     type="text"
                     placeholder="Search PO number, customer, address..."
                     value={deliverySearch}
                     onChange={e => { setDeliverySearch(e.target.value); setDeliveryPage(0); }}
-              className="flex-1 min-w-[200px] px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="flex-1 min-w-0 sm:min-w-[140px] md:min-w-[200px] px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                     <select
                       value={deliveryStatusFilter}
@@ -904,7 +904,7 @@ export default function AdminDashboardPage() {
                 ['poNumber', 'customer', 'status', 'driver', 'address', 'date'],
                 'deliveries'
               )}
-              className="ml-auto flex items-center gap-2 px-4 py-2 text-sm bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors shadow-sm"
+              className="ml-auto flex-shrink-0 flex items-center gap-2 px-4 py-2 text-sm bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors shadow-sm"
             >
               <Download className="w-4 h-4" /> Export CSV
             </button>
@@ -1010,13 +1010,19 @@ export default function AdminDashboardPage() {
               <div className="flex items-center gap-1">
                     <button
                       disabled={deliveryPage === 0}
-                  onClick={() => { setDeliveryPage(p => p - 1); deliveryTableRef.current?.scrollIntoView({ behavior: 'smooth' }); }}
+                  onClick={() => {
+                    setDeliveryPage(p => p - 1);
+                    deliveryTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
                   className="px-3 py-1.5 border border-gray-200 dark:border-gray-600 rounded-md disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
                     >← Prev</button>
                 <span className="px-3 text-gray-600 dark:text-gray-400">{deliveryPage + 1} / {totalPages}</span>
                     <button
                       disabled={deliveryPage >= totalPages - 1}
-                  onClick={() => { setDeliveryPage(p => p + 1); deliveryTableRef.current?.scrollIntoView({ behavior: 'smooth' }); }}
+                  onClick={() => {
+                    setDeliveryPage(p => p + 1);
+                    deliveryTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
                   className="px-3 py-1.5 border border-gray-200 dark:border-gray-600 rounded-md disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
                     >Next →</button>
                   </div>
@@ -1081,7 +1087,7 @@ export default function AdminDashboardPage() {
                   <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Delivery Hotspot Map — Dubai</h2>
                   <p className="pp-page-subtitle">Circle size = delivery volume for that area</p>
                 </div>
-                <div style={{ height: '420px', borderRadius: '12px', overflow: 'hidden' }}>
+                <div className="h-[280px] sm:h-[360px] md:h-[420px] rounded-xl overflow-hidden">
                   <MapContainer center={[25.2, 55.27]} zoom={11} style={{ height: '100%', width: '100%' }} scrollWheelZoom={false}>
                     <TileLayer
                       url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -1133,6 +1139,7 @@ export default function AdminDashboardPage() {
                   <Download className="w-3.5 h-3.5" /> Export
                 </button>
               </div>
+              <div className="overflow-x-auto">
               <table className="min-w-full">
                 <thead className="bg-gray-50 dark:bg-gray-700/50">
                   <tr>
@@ -1159,6 +1166,7 @@ export default function AdminDashboardPage() {
                   })}
                   </tbody>
                 </table>
+              </div>
             </div>
           )}
         </div>
@@ -1174,7 +1182,7 @@ export default function AdminDashboardPage() {
               placeholder="Search item name, PNC, or model..."
               value={topItemsSearch}
               onChange={e => setTopItemsSearch(e.target.value)}
-              className="flex-1 min-w-[200px] px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="flex-1 min-w-0 sm:min-w-[140px] md:min-w-[200px] px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
             <select value={chartTopN} onChange={e => setChartTopN(Number(e.target.value))}
               className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
@@ -1221,6 +1229,7 @@ export default function AdminDashboardPage() {
                 <Download className="w-3.5 h-3.5" /> Export
               </button>
             </div>
+            <div className="overflow-x-auto">
             <table className="min-w-full">
               <thead className="bg-gray-50 dark:bg-gray-700/50">
                 <tr>
@@ -1245,6 +1254,7 @@ export default function AdminDashboardPage() {
                 )}
               </tbody>
             </table>
+            </div>
                                 </div>
                                   </div>
                                 )}
@@ -1272,7 +1282,7 @@ export default function AdminDashboardPage() {
             <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex flex-wrap gap-2 items-center">
               <input type="text" placeholder="Search name or email..." value={driversSearch}
                 onChange={e => setDriversSearch(e.target.value)}
-                className="flex-1 min-w-[180px] px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                className="flex-1 min-w-0 sm:min-w-[140px] md:min-w-[180px] px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500" />
               <select value={driversStatusFilter} onChange={e => setDriversStatusFilter(e.target.value)}
                 className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                 <option value="all">All Drivers</option>
@@ -1296,6 +1306,7 @@ export default function AdminDashboardPage() {
                                 </div>
 
             {/* Table */}
+            <div className="overflow-x-auto">
             <table className="min-w-full">
               <thead className="bg-gray-50 dark:bg-gray-700/50">
                 <tr>
@@ -1361,6 +1372,7 @@ export default function AdminDashboardPage() {
                   )}
                 </tbody>
               </table>
+            </div>
         </div>
       </div>
       )}

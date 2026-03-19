@@ -1016,8 +1016,8 @@ export default function Header({ isAdmin = false }) {
               ))}
             </nav>
 
-            {/* Search bar — to the right of top nav, fixed width */}
-            <div className="hidden md:flex items-center" style={{ width: '280px', marginRight: '8px' }}>
+            {/* Search bar — responsive width to avoid overflow on smaller desktops */}
+            <div className="hidden md:flex items-center min-w-0 flex-1 max-w-[280px] lg:max-w-[320px] mr-2">
               <AISearchBar {...searchBarProps} flex="1 1 auto" maxWidth="100%" />
             </div>
 
@@ -1120,8 +1120,8 @@ export default function Header({ isAdmin = false }) {
           {/* Spacer — pushes search + controls to the right */}
           <div style={{ flex: 1 }} />
 
-          {/* Search bar — right side, fixed width */}
-          <div className="hidden md:flex items-center" style={{ width: '280px', marginRight: '8px' }}>
+          {/* Search bar — responsive width to avoid overflow on smaller desktops */}
+          <div className="hidden md:flex items-center min-w-0 flex-1 max-w-[280px] lg:max-w-[320px] mr-2">
             <AISearchBar {...searchBarProps} flex="1 1 auto" maxWidth="100%" />
           </div>
 
