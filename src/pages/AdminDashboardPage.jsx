@@ -84,6 +84,14 @@ export default function AdminDashboardPage() {
   // Hero chart period selector
   const [heroPeriod, setHeroPeriod] = useState('30d');
 
+  const clearDeliveryQuery = useCallback(() => {
+    const params = new URLSearchParams(location.search);
+    if (!params.has('delivery')) return;
+    params.delete('delivery');
+    const next = params.toString();
+    navigate(next ? `${location.pathname}?${next}` : location.pathname, { replace: true });
+  }, [location.pathname, location.search, navigate]);
+
   // ─── DATA FETCHING ───
 
   const loadOnlineStatus = useCallback(async () => {
@@ -1361,13 +1369,18 @@ export default function AdminDashboardPage() {
       <DeliveryDetailModal
         delivery={selectedDelivery}
         isOpen={isModalOpen}
-        onClose={() => { setIsModalOpen(false); setSelectedDelivery(null); }}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedDelivery(null);
+          clearDeliveryQuery();
+        }}
         onStatusUpdate={(deliveryId, newStatus) => {
           setDeliveries(prev => prev.map(d =>
             (d.id === deliveryId || d.ID === deliveryId) ? { ...d, status: newStatus } : d
           ));
           setIsModalOpen(false);
           setSelectedDelivery(null);
+          clearDeliveryQuery();
           loadDashboardData();
         }}
       />
