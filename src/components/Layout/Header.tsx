@@ -400,10 +400,14 @@ export default function Header({ isAdmin = false }: HeaderProps) {
           const alerts      = ar.status==='fulfilled' ? (ar.value.data?.notifications||[]) : [];
           const overdue     = or.status==='fulfilled' ? (or.value.data?.deliveries||[])     : [];
           const unconfirmed = ur.status==='fulfilled' ? (ur.value.data?.deliveries||[])     : [];
+          const extractDeliveryId = (obj: Record<string, unknown>) => {
+            const metadata = ((obj.metadata as Record<string, unknown>) || (obj.payload as Record<string, unknown>) || {});
+            return (obj.deliveryId as string) || (obj.delivery_id as string) || ((obj.delivery as Record<string, unknown>)?.id as string) || (metadata.deliveryId as string) || (metadata.delivery_id as string) || null;
+          };
           deliveryNotifs = [
-            ...alerts.map(n     => ({ id:`alert-${n.id}`,           type:'delivery', status:n.type as string,           title:n.title as string,                                             message:n.message as string,               timestamp:n.createdAt as string,             read:false, _adminAlertId:n.id as string })),
+            ...alerts.map(n     => ({ id:`alert-${n.id}`,           type:'delivery', status:n.type as string,           title:n.title as string,                                             message:n.message as string,               timestamp:n.createdAt as string,             read:false, _adminAlertId:n.id as string, deliveryId: extractDeliveryId(n) })),
             ...overdue.map(d    => ({ id:`overdue-${d.id}`,         type:'delivery', status:'overdue',                  title:`Overdue (${d.hoursOverdue}h): ${d.customer||'?'}`,            message:`${d.address||''} — ${d.status}`,  timestamp:d.createdAt as string,            read:false, deliveryId:d.id as string })),
-            ...unconfirmed.map(d=> ({ id:`sms-unconfirmed-${d.id}`, type:'delivery', status:'sms_unconfirmed',          title:`SMS Unconfirmed (>24h): ${d.customer||'?'}`,                  message:d.address as string||'',           timestamp:(d.smsSentAt||d.createdAt) as string, read:false })),
+            ...unconfirmed.map(d=> ({ id:`sms-unconfirmed-${d.id}`, type:'delivery', status:'sms_unconfirmed',          title:`SMS Unconfirmed (>24h): ${d.customer||'?'}`,                  message:d.address as string||'',           timestamp:(d.smsSentAt||d.createdAt) as string, read:false, deliveryId:d.id as string })),
           ];
         } catch { /* ignore */ }
       }
@@ -458,6 +462,8 @@ export default function Header({ isAdmin = false }: HeaderProps) {
     const cuForRole = getCurrentUser() as unknown as Record<string, unknown>;
     const role = ((cuForRole?.account as Record<string, unknown>)?.role as string) || getCurrentUser()?.role || 'driver';
     setShowNotifications(false);
+    const inferredId = n.deliveryId || (typeof n.id === 'string' ? n.id.split('-').slice(1).join('-') : null);
+    const deliveryQuery = inferredId ? `&delivery=${encodeURIComponent(inferredId)}` : '';
     if (n.type==='message') {
       if (role==='admin') navigate(`/admin/operations?tab=communication${n.senderId?`&userId=${n.senderId}`:''}`);
       else if (role==='delivery_team') navigate(`/delivery-team?tab=communication${n.senderId?`&contact=${n.senderId}`:''}`);
@@ -465,9 +471,8 @@ export default function Header({ isAdmin = false }: HeaderProps) {
       return;
     }
     if (n.type==='delivery' && (role==='admin'||role==='delivery_team')) {
-      const q = n.deliveryId ? `&delivery=${n.deliveryId}` : '';
-      if (role==='delivery_team') navigate(`/delivery-team?tab=control${q}`);
-      else navigate(`/admin?tab=deliveries${q}&viewAll=1`);
+      if (role==='delivery_team') navigate(`/delivery-team?tab=control${deliveryQuery}`);
+      else navigate(`/admin?tab=deliveries${deliveryQuery}&viewAll=1`);
       void markRead(n);
     }
   };

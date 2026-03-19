@@ -535,10 +535,15 @@ export default function Header({ isAdmin = false }) {
           const alerts      = ar.status==='fulfilled' ? ar.value.data?.notifications||[]  : [];
           const overdue     = or.status==='fulfilled' ? or.value.data?.deliveries||[]     : [];
           const unconfirmed = ur.status==='fulfilled' ? ur.value.data?.deliveries||[]     : [];
+          const extractDeliveryId = (obj) => {
+            if (!obj) return null;
+            const metadata = obj.metadata || obj.payload || {};
+            return obj.deliveryId || obj.delivery_id || obj.delivery?.id || metadata.deliveryId || metadata.delivery_id || null;
+          };
           deliveryNotifs = [
-            ...alerts.map(n    => ({ id:`alert-${n.id}`,           type:'delivery', status:n.type,           title:n.title,                                              message:n.message,                 timestamp:n.createdAt,              read:false, _adminAlertId:n.id })),
+            ...alerts.map(n    => ({ id:`alert-${n.id}`,           type:'delivery', status:n.type,           title:n.title,                                              message:n.message,                 timestamp:n.createdAt,              read:false, _adminAlertId:n.id, deliveryId: extractDeliveryId(n) })),
             ...overdue.map(d   => ({ id:`overdue-${d.id}`,         type:'delivery', status:'overdue',         title:`Overdue (${d.hoursOverdue}h): ${d.customer||'?'}`,   message:`${d.address||''} — ${d.status}`, timestamp:d.createdAt,   read:false, deliveryId:d.id })),
-            ...unconfirmed.map(d=>({ id:`sms-unconfirmed-${d.id}`, type:'delivery', status:'sms_unconfirmed', title:`SMS Unconfirmed (>24h): ${d.customer||'?'}`,         message:d.address||'',             timestamp:d.smsSentAt||d.createdAt, read:false })),
+            ...unconfirmed.map(d=>({ id:`sms-unconfirmed-${d.id}`, type:'delivery', status:'sms_unconfirmed', title:`SMS Unconfirmed (>24h): ${d.customer||'?'}`,         message:d.address||'',             timestamp:d.smsSentAt||d.createdAt, read:false, deliveryId:d.id })),
           ];
         } catch {}
       }
@@ -595,6 +600,8 @@ export default function Header({ isAdmin = false }) {
     if (!n) return;
     const role = getCurrentUser()?.account?.role || getCurrentUser()?.role || 'driver';
     setShowNotifications(false);
+    const inferredId = n.deliveryId || (typeof n.id === 'string' ? n.id.split('-').slice(1).join('-') : null);
+    const deliveryQuery = inferredId ? `&delivery=${encodeURIComponent(inferredId)}` : '';
     if (n.type==='message') {
       if (role==='admin') navigate(`/admin/operations?tab=communication${n.senderId?`&userId=${n.senderId}`:''}`);
       else if (role==='delivery_team') navigate(`/delivery-team?tab=communication${n.senderId?`&contact=${n.senderId}`:''}`);
@@ -602,9 +609,8 @@ export default function Header({ isAdmin = false }) {
       return;
     }
     if (n.type==='delivery' && (role==='admin'||role==='delivery_team')) {
-      const q = n.deliveryId ? `&delivery=${n.deliveryId}` : '';
-      if (role==='delivery_team') navigate(`/delivery-team?tab=control${q}`);
-      else navigate(`/admin?tab=deliveries${q}&viewAll=1`);
+      if (role==='delivery_team') navigate(`/delivery-team?tab=control${deliveryQuery}`);
+      else navigate(`/admin?tab=deliveries${deliveryQuery}&viewAll=1`);
       markRead(n);
     }
   };
