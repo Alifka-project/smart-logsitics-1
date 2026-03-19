@@ -15,7 +15,8 @@ import {
   Phone,
   Send,
   Paperclip,
-  Circle
+  Circle,
+  Package
 } from 'lucide-react';
 import DeliveryMap from '../components/MapView/DeliveryMap';
 
