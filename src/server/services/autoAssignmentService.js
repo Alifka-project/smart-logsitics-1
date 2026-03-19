@@ -11,10 +11,13 @@ const prisma = require('../db/prisma.js');
  */
 async function findBestDriver() {
   try {
-    // Get all active drivers with their status and current assignments
-    const drivers = await prisma.driver.findMany({
+    // Primary pool: active drivers with driver role
+    let drivers = await prisma.driver.findMany({
       where: {
-        active: true
+        active: true,
+        account: {
+          role: 'driver'
+        }
       },
       include: {
         status: true,
@@ -28,6 +31,29 @@ async function findBestDriver() {
         account: true
       }
     });
+
+    // Fallback pool: role-based drivers even if active flag is false/missing
+    // Some legacy records can have active=false while still being valid drivers.
+    if (drivers.length === 0) {
+      drivers = await prisma.driver.findMany({
+        where: {
+          account: {
+            role: 'driver'
+          }
+        },
+        include: {
+          status: true,
+          assignments: {
+            where: {
+              status: {
+                in: ['assigned', 'in_progress']
+              }
+            }
+          },
+          account: true
+        }
+      });
+    }
 
     if (drivers.length === 0) {
       return null;
@@ -204,9 +230,12 @@ async function autoAssignDeliveries(deliveryIds) {
  */
 async function getAvailableDrivers() {
   try {
-    const drivers = await prisma.driver.findMany({
+    let drivers = await prisma.driver.findMany({
       where: {
-        active: true
+        active: true,
+        account: {
+          role: 'driver'
+        }
       },
       include: {
         status: true,
@@ -223,6 +252,30 @@ async function getAvailableDrivers() {
         createdAt: 'desc'
       }
     });
+
+    if (drivers.length === 0) {
+      drivers = await prisma.driver.findMany({
+        where: {
+          account: {
+            role: 'driver'
+          }
+        },
+        include: {
+          status: true,
+          assignments: {
+            where: {
+              status: {
+                in: ['assigned', 'in_progress']
+              }
+            }
+          },
+          account: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      });
+    }
 
     return drivers.map(driver => ({
       id: driver.id,
