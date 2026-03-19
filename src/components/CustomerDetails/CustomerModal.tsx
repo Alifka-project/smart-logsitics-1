@@ -25,8 +25,9 @@ export default function CustomerModal({
   const updateDeliveryStatus = useDeliveryStore((state) => state.updateDeliveryStatus);
   const updateDeliveryContact = useDeliveryStore((state) => state.updateDeliveryContact);
 
-  const [driverSignature, setDriverSignature] = useState('');
-  const [customerSignature, setCustomerSignature] = useState('');
+  // Mirror JSX + SignaturePad behavior: parent may receive `undefined` from `toDataURL()`.
+  const [driverSignature, setDriverSignature] = useState<string | undefined>('');
+  const [customerSignature, setCustomerSignature] = useState<string | undefined>('');
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [status, setStatus] = useState('');
   const [notes, setNotes] = useState('');

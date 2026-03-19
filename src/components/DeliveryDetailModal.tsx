@@ -51,7 +51,7 @@ export default function DeliveryDetailModal({
   onClose,
   onStatusUpdate,
 }: DeliveryDetailModalProps) {
-  const [newStatus, setNewStatus] = useState(delivery?.status ?? 'pending');
+  const [newStatus, setNewStatus] = useState(delivery?.status || 'pending');
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
   const [podUploadFiles, setPodUploadFiles] = useState<PodUploadFile[]>([]);
   const [loading, setLoading] = useState(false);
@@ -66,7 +66,7 @@ export default function DeliveryDetailModal({
 
   useEffect(() => {
     if (delivery && isOpen) {
-      setNewStatus(delivery.status ?? 'pending');
+      setNewStatus(delivery.status || 'pending');
       setPendingStatus(null);
       setPodUploadFiles([]);
       setError('');
@@ -94,7 +94,7 @@ export default function DeliveryDetailModal({
       } else if (delivery.id || delivery['ID']) {
         setPodLoading(true);
         api
-          .get(`/deliveries/${delivery.id ?? delivery['ID']}/pod`)
+          .get(`/deliveries/${delivery.id || delivery['ID']}/pod`)
           .then((res) => {
             if (res.data?.ok && res.data?.pod) {
               const pod = res.data.pod as Record<string, unknown>;
@@ -126,7 +126,7 @@ export default function DeliveryDetailModal({
   useEffect(() => {
     if (!delivery || !isOpen || !podFetched) return;
 
-    const currentStatus = (delivery.status ?? '').toLowerCase();
+    const currentStatus = (delivery.status || '').toLowerCase();
     const hasExistingPOD = (podPhotos && podPhotos.length > 0) || !!driverSignature || !!customerSignature;
 
     if (POD_REQUIRED_STATUSES.includes(currentStatus) && !hasExistingPOD && !pendingStatus) {
@@ -168,7 +168,7 @@ export default function DeliveryDetailModal({
       return;
     }
     await saveStatus(
-      pendingStatus ?? '',
+      pendingStatus as string,
       podUploadFiles.map((f) => f.base64),
     );
     setPendingStatus(null);
@@ -184,7 +184,7 @@ export default function DeliveryDetailModal({
       if (photoBase64Array && photoBase64Array.length > 0) {
         body['photos'] = photoBase64Array;
       }
-      const deliveryId = delivery?.id ?? (delivery?.['ID'] as string);
+      const deliveryId = (delivery?.id as any) || (delivery?.['ID'] as any);
       const response = await api.put(`/deliveries/admin/${deliveryId}/status`, body);
       if (response.data.success || response.status === 200) {
         setNewStatus(statusValue);
@@ -198,7 +198,7 @@ export default function DeliveryDetailModal({
             detail: { deliveryId, newStatus: statusValue },
           }),
         );
-        if (onStatusUpdate) onStatusUpdate(deliveryId ?? '', statusValue);
+        if (onStatusUpdate) onStatusUpdate(deliveryId as any, statusValue);
       } else {
         setError(
           (response.data as Record<string, unknown>)?.['message'] as string ||
@@ -220,7 +220,7 @@ export default function DeliveryDetailModal({
 
   if (!isOpen || !delivery) return null;
 
-  const status = (delivery.status ?? 'pending').toLowerCase();
+  const status = (delivery.status || 'pending').toLowerCase();
   const statusColorClass = STATUS_COLORS[status] ?? STATUS_COLORS['default'];
   void statusColorClass;
 
@@ -319,7 +319,7 @@ export default function DeliveryDetailModal({
             </label>
 
             <select
-              value={pendingStatus ?? newStatus}
+              value={pendingStatus || newStatus}
               onChange={(e) => void handleStatusChange(e.target.value)}
               disabled={loading}
               className="w-full px-4 py-3 border-2 border-blue-300 dark:border-blue-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-medium focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 transition-colors disabled:opacity-50"
