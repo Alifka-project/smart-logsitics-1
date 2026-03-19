@@ -396,6 +396,16 @@ export default function Header({ isAdmin = false }) {
     } catch {}
   }, [theme]);
 
+  // Ensure no floating overlay can trap clicks after navigation
+  useEffect(() => {
+    setShowSearch(false);
+    setSearchResults(null);
+    setShowNotifications(false);
+    setShowDropdown(false);
+    setShowProfileModal(false);
+    setMobileNavOpen(false);
+  }, [location.pathname, location.search]);
+
   /* Close dropdowns on outside click */
   useEffect(() => {
     function onOutside(e) {

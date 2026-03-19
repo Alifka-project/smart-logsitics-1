@@ -175,7 +175,7 @@ export default function AdminDashboardPage() {
       setDeliveryPage(0);
       setTimeout(() => deliveryTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
     }
-  }, [location.search, activeTab]);
+  }, [location.search]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
