@@ -78,7 +78,7 @@ export default function DeliveryMap({
 
     const allMarkers: L.Marker[] = [];
 
-    const warehouseMarker = L.marker([25.0053, 55.076], {
+    const warehouseMarker = L.marker([25.0053, 55.0760], {
       icon: L.icon({
         iconUrl:
           'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
@@ -103,8 +103,8 @@ export default function DeliveryMap({
     if (deliveries && deliveries.length > 0) {
       deliveries.forEach((delivery, index) => {
         const d = delivery as Record<string, unknown>;
-        const latRaw = delivery.lat ?? d['Lat'] ?? d['latitude'] ?? d['Latitude'];
-        const lngRaw = delivery.lng ?? d['Lng'] ?? d['longitude'] ?? d['Longitude'];
+        const latRaw = (delivery.lat as unknown) || d['Lat'] || d['latitude'] || d['Latitude'];
+        const lngRaw = (delivery.lng as unknown) || d['Lng'] || d['longitude'] || d['Longitude'];
         const lat = parseFloat(String(latRaw));
         const lng = parseFloat(String(lngRaw));
 
@@ -124,7 +124,11 @@ export default function DeliveryMap({
               <strong>Customer:</strong> ${delivery.customer ?? 'N/A'}<br>
               <strong>Address:</strong> ${delivery.address ?? 'N/A'}<br>
               <strong>Coordinates:</strong> ${lat.toFixed(4)}, ${lng.toFixed(4)}<br>
-              <strong>Items:</strong> ${delivery.items ?? 'N/A'}<br>
+              <strong>Items:</strong> ${
+                (delivery as unknown as { items?: string | number; itemCount?: number }).items ||
+                (delivery as unknown as { items?: string | number; itemCount?: number }).itemCount ||
+                'N/A'
+              }<br>
               <strong>ETA:</strong> ${(delivery as unknown as { etaMinutes?: number }).etaMinutes != null ? `${(delivery as unknown as { etaMinutes?: number }).etaMinutes} min` : 'Calculating...'}<br>
               <strong>ETA / item:</strong> ${(delivery as unknown as { etaPerItemMinutes?: number }).etaPerItemMinutes != null ? `${(delivery as unknown as { etaPerItemMinutes?: number }).etaPerItemMinutes} min` : 'N/A'}<br>
               <strong>Priority:</strong>
