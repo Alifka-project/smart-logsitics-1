@@ -468,12 +468,14 @@ export default function Header({ isAdmin = false }: HeaderProps) {
       if (role==='admin') navigate(`/admin/operations?tab=communication${n.senderId?`&userId=${n.senderId}`:''}`);
       else if (role==='delivery_team') navigate(`/delivery-team?tab=communication${n.senderId?`&contact=${n.senderId}`:''}`);
       else navigate('/driver?tab=messages');
+      setNotifications(prev => prev.filter(x => x.id !== n.id));
       return;
     }
     if (n.type==='delivery' && (role==='admin'||role==='delivery_team')) {
       if (role==='delivery_team') navigate(`/delivery-team?tab=control${deliveryQuery}`);
       else navigate(`/admin?tab=deliveries${deliveryQuery}&viewAll=1`);
       void markRead(n);
+      setNotifications(prev => prev.filter(x => x.id !== n.id));
     }
   };
 
