@@ -15,10 +15,8 @@ import {
   Phone,
   Send,
   Paperclip,
-  Circle,
-  Package
+  Circle
 } from 'lucide-react';
-import DriverTrackingMap from '../components/Tracking/DriverTrackingMap';
 import DeliveryMap from '../components/MapView/DeliveryMap';
 
 /* ──── Interfaces ──── */
@@ -332,7 +330,11 @@ export default function AdminOperationsPage(): React.ReactElement {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab');
     const driverId = params.get('driverId') || params.get('userId');
-    const allowedTabs = new Set(['monitoring', 'control', 'delivery-tracking', 'communication', 'alerts']);
+    const allowedTabs = new Set(['monitoring', 'control', 'communication']);
+    if (tab === 'delivery-tracking') {
+      setActiveTab('monitoring');
+      return;
+    }
     if (tab && allowedTabs.has(tab) && tab !== activeTab) {
       setActiveTab(tab);
     } else if (driverId && activeTab !== 'communication') {
@@ -439,8 +441,76 @@ export default function AdminOperationsPage(): React.ReactElement {
 
   const onlineDrivers = drivers.filter(d => isDriverOnline(d));
   const activeDeliveries = deliveries.filter(d =>
-    d.tracking?.status === 'in_progress' || (d.status || '').toLowerCase() === 'out-for-delivery'
+    d.tracking?.driverId || d.assignedDriverId || d.tracking?.assigned
   );
+
+  const getItemCount = (delivery: OpDelivery): number => {
+    const items = delivery.items as unknown;
+    if (Array.isArray(items)) return items.length;
+    const itemText = (delivery.items as string) || (delivery.item as string) || '';
+    if (typeof itemText !== 'string') return 1;
+    const normalized = itemText.trim();
+    if (!normalized) return 1;
+    return normalized.split(',').filter(Boolean).length;
+  };
+
+  const estimateMinutes = (delivery: OpDelivery): number | null => {
+    const etaRaw = delivery?.tracking?.eta;
+    if (etaRaw) {
+      const etaDate = new Date(etaRaw);
+      if (!Number.isNaN(etaDate.getTime())) {
+        return Math.max(0, Math.round((etaDate.getTime() - Date.now()) / 60000));
+      }
+    }
+    const speedMps = Number(
+      (delivery as unknown as { tracking?: { lastLocation?: { speed?: number }; location?: { speed?: number } } })
+        ?.tracking?.lastLocation?.speed ||
+      (delivery as unknown as { tracking?: { location?: { speed?: number } } })?.tracking?.location?.speed ||
+      0
+    );
+    const remainingKm = Number((delivery as unknown as { remainingDistanceKm?: number; distanceFromWarehouse?: number }).remainingDistanceKm || (delivery as unknown as { distanceFromWarehouse?: number }).distanceFromWarehouse || 0);
+    if (speedMps > 0 && remainingKm > 0) {
+      const speedKmh = speedMps * 3.6;
+      const mins = (remainingKm / speedKmh) * 60;
+      if (Number.isFinite(mins)) return Math.max(0, Math.round(mins));
+    }
+    return null;
+  };
+
+  const deliveriesWithEta = deliveries.map(d => {
+    const lat = d.lat || d.Lat || d.tracking?.lastLocation?.lat || 25.1124;
+    const lng = d.lng || d.Lng || d.tracking?.lastLocation?.lng || 55.1980;
+    const etaMinutes = estimateMinutes(d);
+    const itemCount = getItemCount(d);
+    return {
+      ...d,
+      lat,
+      lng,
+      etaMinutes,
+      itemCount,
+      etaPerItemMinutes: etaMinutes != null && itemCount > 0 ? Math.max(1, Math.round(etaMinutes / itemCount)) : null
+    };
+  });
+
+  const validRoutePoints = deliveriesWithEta
+    .map(d => [Number((d as unknown as { lat?: number }).lat), Number((d as unknown as { lng?: number }).lng)] as [number, number])
+    .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180);
+  const unifiedRoute = validRoutePoints.length > 0 ? { coordinates: [[25.0053, 55.0760], ...validRoutePoints] } : null;
+
+  const driverLocations = drivers
+    .map(driver => ({
+      id: driver.id,
+      name: driver.full_name || driver.fullName || driver.username || 'Driver',
+      status: driver.tracking?.status || (isDriverOnline(driver) ? 'online' : 'offline'),
+      speedKmh: driver.tracking?.location?.speed != null ? Math.round(driver.tracking.location.speed * 3.6) : null,
+      lat: driver.tracking?.location?.lat,
+      lng: driver.tracking?.location?.lng,
+    }))
+    .filter(driver => Number.isFinite(Number(driver.lat)) && Number.isFinite(Number(driver.lng)));
+
+  const assignedDeliveries = deliveries.filter(d => d.tracking?.assigned || d.tracking?.driverId || d.assignedDriverId);
+  const inProgressDeliveries = deliveries.filter(d => d.tracking?.status === 'in_progress');
+  const completedDeliveries = deliveries.filter(d => (d.status || '').toLowerCase() === 'delivered');
 
   if (loading) {
     return (
@@ -456,7 +526,7 @@ export default function AdminOperationsPage(): React.ReactElement {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="pp-page-header flex justify-between items-center">
+      <div className="pp-page-header flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="pp-page-title">Operations Center</h1>
           <p className="pp-page-subtitle">
@@ -467,14 +537,12 @@ export default function AdminOperationsPage(): React.ReactElement {
       </div>
 
       {/* Tab Navigation */}
-      <div className="border-b border-gray-200 dark:border-gray-700">
-        <nav className="flex space-x-8">
+      <div className="border-b border-gray-200 dark:border-gray-700 overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0">
+        <nav className="flex space-x-6 sm:space-x-8 min-w-max whitespace-nowrap">
           {([
-            { id: 'monitoring',       label: 'Monitoring',         icon: Activity      },
+            { id: 'monitoring',       label: 'Monitoring & Tracking', icon: Activity      },
             { id: 'control',          label: 'Control',            icon: Settings      },
-            { id: 'delivery-tracking',label: 'Delivery Tracking',  icon: Package       },
             { id: 'communication',    label: 'Communication',      icon: MessageSquare },
-            { id: 'alerts',           label: 'Alerts',             icon: AlertCircle   }
           ] as { id: string; label: string; icon: React.ElementType }[]).map(tab => {
             const Icon = tab.icon;
             return (
@@ -527,17 +595,20 @@ export default function AdminOperationsPage(): React.ReactElement {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden transition-colors">
               <div className="p-4 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Live Map View</h2>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Live Operations Map (Tracking + Deliveries + Route)</h2>
               </div>
-              <div className="h-[500px]">
-                <DriverTrackingMap drivers={drivers as unknown as import('../types').Driver[]} />
-              </div>
+              <DeliveryMap
+                deliveries={deliveriesWithEta as unknown as import('../types').Delivery[]}
+                route={unifiedRoute as unknown as import('../types').RouteResult}
+                driverLocations={driverLocations}
+                mapClassName="h-[320px] sm:h-[420px] lg:h-[560px]"
+              />
             </div>
 
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
-              <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Active Deliveries</h2>
-              <div className="space-y-3 max-h-[500px] overflow-y-auto">
-                {activeDeliveries.slice(0, 10).map(delivery => (
+              <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Active Deliveries ETA</h2>
+              <div className="space-y-3 max-h-[280px] sm:max-h-[380px] lg:max-h-[500px] overflow-y-auto">
+                {deliveriesWithEta.filter(d => d.tracking?.driverId || d.assignedDriverId || d.tracking?.assigned).slice(0, 12).map(delivery => (
                   <div key={String(delivery.id || delivery.ID || '')} className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -554,11 +625,12 @@ export default function AdminOperationsPage(): React.ReactElement {
                     <div className="text-xs text-gray-600 dark:text-gray-400">
                       {delivery.customer || delivery.Customer || 'Unknown Customer'}
                     </div>
-                    {delivery.tracking?.eta && (
-                      <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                        ETA: {new Date(delivery.tracking.eta).toLocaleTimeString()}
-                      </div>
-                    )}
+                    <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                      ETA: {(delivery as unknown as { etaMinutes?: number }).etaMinutes != null ? `${(delivery as unknown as { etaMinutes?: number }).etaMinutes} min` : 'Calculating...'}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-500">
+                      Items: {(delivery as unknown as { itemCount?: number }).itemCount || 1} • ETA/item: {(delivery as unknown as { etaPerItemMinutes?: number }).etaPerItemMinutes != null ? `${(delivery as unknown as { etaPerItemMinutes?: number }).etaPerItemMinutes} min` : 'N/A'}
+                    </div>
                   </div>
                 ))}
                 {activeDeliveries.length === 0 && (
@@ -621,6 +693,93 @@ export default function AdminOperationsPage(): React.ReactElement {
                 </tbody>
               </table>
               {drivers.length === 0 && <div className="text-center py-8 text-gray-500 dark:text-gray-400">No drivers found</div>}
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Delivery Tracking Overview</h2>
+              <span className="text-xs text-gray-500 dark:text-gray-400">Unified monitoring + tracking view</span>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Total Deliveries</div>
+                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{deliveries.length}</div>
+              </div>
+              <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4">
+                <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Assigned</div>
+                <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{assignedDeliveries.length}</div>
+              </div>
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4">
+                <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">In Progress</div>
+                <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{inProgressDeliveries.length}</div>
+              </div>
+              <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
+                <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Completed</div>
+                <div className="text-2xl font-bold text-green-600 dark:text-green-400">{completedDeliveries.length}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
+            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Delivery Status Details</h2>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    {['Delivery', 'Status', 'Driver', 'Assigned At', 'ETA', 'Items / ETA Item', 'Location'].map(h => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {deliveriesWithEta.slice(0, 50).map(delivery => {
+                    const tracking = delivery.tracking || {};
+                    const loc = tracking.lastLocation;
+                    const driverId = tracking.driverId || delivery.assignedDriverId;
+                    const driver = drivers.find(d => String(d.id) === String(driverId));
+                    const driverName = driver
+                      ? (driver.full_name || driver.fullName || driver.username || driver.email || `Driver ${driver.id}`)
+                      : (driverId || 'Unassigned');
+                    return (
+                      <tr key={String(delivery.id || delivery.ID || '')} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td className="px-4 py-3">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{delivery.customer || delivery.Customer || 'Unknown'}</div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">{String(delivery.address || delivery.Address || 'N/A')}</div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                            tracking.status === 'in_progress' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
+                              : tracking.assigned ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
+                              : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
+                          }`}>
+                            {tracking.status || delivery.status || 'unassigned'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{driverName}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{tracking.assignedAt ? new Date(tracking.assignedAt).toLocaleString() : 'N/A'}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {(delivery as unknown as { etaMinutes?: number }).etaMinutes != null ? `${(delivery as unknown as { etaMinutes?: number }).etaMinutes} min` : 'Calculating...'}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {(delivery as unknown as { itemCount?: number }).itemCount || 1} / {(delivery as unknown as { etaPerItemMinutes?: number }).etaPerItemMinutes != null ? `${(delivery as unknown as { etaPerItemMinutes?: number }).etaPerItemMinutes} min` : 'N/A'}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {loc ? (
+                            <div>
+                              <div>{loc.lat.toFixed(4)}, {loc.lng.toFixed(4)}</div>
+                              {loc.timestamp && <div className="text-xs text-gray-400">{new Date(loc.timestamp).toLocaleTimeString()}</div>}
+                            </div>
+                          ) : <span className="text-gray-400">No location</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {deliveries.length === 0 && <div className="text-center py-8 text-gray-500 dark:text-gray-400">No deliveries found</div>}
             </div>
           </div>
         </div>
@@ -759,7 +918,7 @@ export default function AdminOperationsPage(): React.ReactElement {
       )}
 
       {/* ══════════ DELIVERY TRACKING ══════════ */}
-      {activeTab === 'delivery-tracking' && (() => {
+      {false && activeTab === 'delivery-tracking' && (() => {
         const deliveriesForMap = deliveries.map(d => ({
           ...d,
           lat: d.lat || d.Lat || d.tracking?.lastLocation?.lat || 25.1124,
@@ -1116,7 +1275,7 @@ export default function AdminOperationsPage(): React.ReactElement {
       )}
 
       {/* ══════════ ALERTS ══════════ */}
-      {activeTab === 'alerts' && (
+      {false && activeTab === 'alerts' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {([

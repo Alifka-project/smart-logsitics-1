@@ -791,7 +791,7 @@ export default function Header({ isAdmin = false }: HeaderProps) {
                 <NavLink key={item.path} to={item.path} end={item.exact} style={({ isActive }) => pillStyle(isActive)} onMouseEnter={e=>{ if (!isNavActive(item.path, item.exact)) Object.assign(e.currentTarget.style, onHover); }} onMouseLeave={e=>{ if (!isNavActive(item.path, item.exact)) Object.assign(e.currentTarget.style, offHover); }}>{item.label}</NavLink>
               ))}
             </nav>
-            <div className="hidden md:flex items-center" style={{ width:'280px', marginRight:'8px' }}><AISearchBar {...searchBarProps} flex="1 1 auto" maxWidth="100%" /></div>
+            <div className="hidden md:flex items-center min-w-0 flex-1 max-w-[280px] lg:max-w-[320px] mr-2"><AISearchBar {...searchBarProps} flex="1 1 auto" maxWidth="100%" /></div>
             <div style={{ display:'flex', alignItems:'center', gap:'2px', flexShrink:0 }}>
               <button onClick={toggleTheme} style={iconBtn} title={theme==='dark'?'Light mode':'Dark mode'} onMouseEnter={e=>Object.assign(e.currentTarget.style, onHover)} onMouseLeave={e=>Object.assign(e.currentTarget.style, offHover)}>{theme==='dark'?<Sun size={17}/>:<Moon size={17}/>}</button>
               <div style={{ position:'relative' }} ref={notifRef}>
@@ -833,7 +833,7 @@ export default function Header({ isAdmin = false }: HeaderProps) {
             <img src="/elect home.png" alt="Electrolux" className="h-8 w-auto md:h-[34px] object-contain block" style={{ filter:theme==='dark'?'none':'brightness(0) saturate(100%)' }} />
           </Link>
           <div style={{ flex:1 }} />
-          <div className="hidden md:flex items-center" style={{ width:'280px', marginRight:'8px' }}><AISearchBar {...searchBarProps} flex="1 1 auto" maxWidth="100%" /></div>
+          <div className="hidden md:flex items-center min-w-0 flex-1 max-w-[280px] lg:max-w-[320px] mr-2"><AISearchBar {...searchBarProps} flex="1 1 auto" maxWidth="100%" /></div>
           <div style={{ display:'flex', alignItems:'center', gap:'2px', flexShrink:0 }}>
             <button onClick={toggleTheme} style={iconBtn} title={theme==='dark'?'Light mode':'Dark mode'} onMouseEnter={e=>Object.assign(e.currentTarget.style, onHover)} onMouseLeave={e=>Object.assign(e.currentTarget.style, offHover)}>{theme==='dark'?<Sun size={17}/>:<Moon size={17}/>}</button>
             <div style={{ position:'relative' }} ref={notifRef}>
