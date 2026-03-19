@@ -45,6 +45,7 @@ export default function DeliveryTeamPortal() {
   const [newMessage, setNewMessage] = useState('');
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [pendingAttachments, setPendingAttachments] = useState([]);
   const [onlineUserIds, setOnlineUserIds] = useState(new Set());
   const [messageTemplates] = useState([
     'Please update delivery status',
@@ -57,6 +58,7 @@ export default function DeliveryTeamPortal() {
   // Unread message count per driver
   const [unreadByDriverId, setUnreadByDriverId] = useState({});
   const messagesEndRef = useRef(null);
+  const attachmentInputRef = useRef(null);
   const messagePollingIntervalRef = useRef(null);
   const location = useLocation();
 
@@ -75,6 +77,56 @@ export default function DeliveryTeamPortal() {
     if (hours < 24) return `${hours}h ago`;
     if (days < 7) return `${days}d ago`;
     return date.toLocaleDateString();
+  };
+
+  const ATTACHMENT_PREFIX = 'ATTACHMENT_PAYLOAD::';
+  const parseMessagePayload = (msg) => {
+    const raw = msg?.content || msg?.text || '';
+    if (typeof raw !== 'string') return { text: '', attachments: [] };
+    if (!raw.startsWith(ATTACHMENT_PREFIX)) return { text: raw, attachments: [] };
+    try {
+      const parsed = JSON.parse(raw.slice(ATTACHMENT_PREFIX.length));
+      return {
+        text: parsed?.text || '',
+        attachments: Array.isArray(parsed?.attachments) ? parsed.attachments : []
+      };
+    } catch {
+      return { text: raw, attachments: [] };
+    }
+  };
+
+  const handleAttachmentSelect = (event) => {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
+
+    const toDataUrl = (file) =>
+      new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsDataURL(file);
+      });
+
+    Promise.all(
+      files.slice(0, 5).map(async (file) => {
+        if (file.size > 5 * 1024 * 1024) {
+          throw new Error(`${file.name} exceeds 5MB limit`);
+        }
+        const dataUrl = await toDataUrl(file);
+        return {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          name: file.name,
+          type: file.type || 'application/octet-stream',
+          size: file.size,
+          dataUrl
+        };
+      })
+    )
+      .then((newItems) => setPendingAttachments((prev) => [...prev, ...newItems].slice(0, 5)))
+      .catch((e) => alert(e?.message || 'Failed to attach file'))
+      .finally(() => {
+        if (attachmentInputRef.current) attachmentInputRef.current.value = '';
+      });
   };
 
   useEffect(() => {
@@ -320,16 +372,25 @@ export default function DeliveryTeamPortal() {
   };
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedContact) return;
+    if ((!newMessage.trim() && pendingAttachments.length === 0) || !selectedContact) return;
 
     setSendingMessage(true);
     try {
+      const contentPayload =
+        pendingAttachments.length > 0
+          ? `${ATTACHMENT_PREFIX}${JSON.stringify({
+              text: newMessage.trim(),
+              attachments: pendingAttachments.map(({ id, ...rest }) => rest)
+            })}`
+          : newMessage.trim();
+
       await api.post('/messages/send', {
-        content: newMessage.trim(),
+        content: contentPayload,
         driverId: selectedContact.id
       });
       
       setNewMessage('');
+      setPendingAttachments([]);
       await loadMessages(selectedContact.id, true);
     } catch (error) {
       console.error('Error sending message:', error);
@@ -405,7 +466,7 @@ export default function DeliveryTeamPortal() {
       </div>
 
       {/* Tab Navigation - bigger gap, scroll on mobile */}
-      <div className="pp-card px-2 py-2 mt-4 md:mt-6 mb-4 md:mb-6 overflow-x-auto">
+      <div className="pp-card px-2 py-2 mt-4 md:mt-6 mb-4 md:mb-6 overflow-x-auto relative z-20">
         <nav className="flex flex-wrap gap-2 min-w-max md:min-w-0">
           {[
             { id: 'monitoring', label: 'Monitoring', icon: Activity },
@@ -872,7 +933,7 @@ export default function DeliveryTeamPortal() {
           </div>
 
           {/* Chat Area */}
-          <div className="lg:col-span-3 bg-white dark:bg-gray-800 rounded-lg shadow flex flex-col min-h-[300px] lg:h-[600px] flex-1 lg:flex-initial">
+          <div className="lg:col-span-3 bg-white dark:bg-gray-800 rounded-lg shadow flex flex-col min-h-[300px] lg:h-[600px] flex-1 lg:flex-initial relative z-0">
             {selectedContact ? (
               <>
                 {/* Chat Header */}
@@ -911,6 +972,7 @@ export default function DeliveryTeamPortal() {
                     </div>
                   ) : (
                     messages.map(msg => {
+                      const parsedPayload = parseMessagePayload(msg);
                       const currentUser = getCurrentUser();
                       const currentUserId = currentUser?.sub;
                       const currentUserRole = currentUser?.account?.role || currentUser?.role;
@@ -953,7 +1015,32 @@ export default function DeliveryTeamPortal() {
                               ? 'bg-primary-600 text-white'
                               : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
                           }`}>
-                            <p className="text-sm">{msg.content}</p>
+                            {!!parsedPayload.text && <p className="text-sm whitespace-pre-wrap break-words">{parsedPayload.text}</p>}
+                            {parsedPayload.attachments.length > 0 && (
+                              <div className="mt-2 space-y-2">
+                                {parsedPayload.attachments.map((att, attIdx) => {
+                                  const isImage = typeof att?.type === 'string' && att.type.startsWith('image/');
+                                  return (
+                                    <div key={`${msg.id}-att-${attIdx}`} className="rounded-md overflow-hidden border border-white/20 bg-black/5">
+                                      {isImage ? (
+                                        <a href={att.dataUrl} target="_blank" rel="noreferrer" className="block">
+                                          <img src={att.dataUrl} alt={att.name || 'attachment'} className="max-h-48 w-full object-cover" />
+                                        </a>
+                                      ) : null}
+                                      <a
+                                        href={att.dataUrl}
+                                        download={att.name || 'attachment'}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="block text-xs px-2 py-1 underline break-all"
+                                      >
+                                        📎 {att.name || 'Attachment'}
+                                      </a>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
                             <p className={`text-xs mt-1 ${
                               isSent
                                 ? 'text-primary-100'
@@ -985,13 +1072,47 @@ export default function DeliveryTeamPortal() {
                 </div>
 
                 {/* Input Area */}
-                <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="p-4 border-t border-gray-200 dark:border-gray-700 relative z-10 bg-white dark:bg-gray-800">
+                  {pendingAttachments.length > 0 && (
+                    <div className="mb-3 flex flex-wrap gap-2">
+                      {pendingAttachments.map((att) => (
+                        <span key={att.id} className="inline-flex items-center gap-2 text-xs px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200">
+                          <Paperclip className="w-3 h-3" />
+                          <span className="max-w-[160px] truncate">{att.name}</span>
+                          <button
+                            type="button"
+                            className="text-red-500 hover:text-red-600"
+                            onClick={() => setPendingAttachments((prev) => prev.filter((p) => p.id !== att.id))}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   <div className="flex gap-2">
+                    <input
+                      ref={attachmentInputRef}
+                      type="file"
+                      className="hidden"
+                      multiple
+                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
+                      onChange={handleAttachmentSelect}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => attachmentInputRef.current?.click()}
+                      disabled={sendingMessage}
+                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+                      title="Attach image or document"
+                    >
+                      <Paperclip className="w-5 h-5" />
+                    </button>
                     <input
                       type="text"
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyPress={(e) => {
+                      onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault();
                           handleSendMessage();
@@ -1003,7 +1124,7 @@ export default function DeliveryTeamPortal() {
                     />
                     <button
                       onClick={handleSendMessage}
-                      disabled={sendingMessage || !newMessage.trim()}
+                      disabled={sendingMessage || (!newMessage.trim() && pendingAttachments.length === 0)}
                       className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                       <Send className="w-5 h-5" />
