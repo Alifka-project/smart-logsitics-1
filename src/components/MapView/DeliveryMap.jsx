@@ -10,7 +10,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: '/leaflet-images/marker-shadow.png',
 });
 
-export default function DeliveryMap({ deliveries, route, highlightedIndex, mapClassName }) {
+export default function DeliveryMap({ deliveries, route, highlightedIndex, mapClassName, driverLocations = [] }) {
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
   const routeLayers = useRef([]);
@@ -88,7 +88,9 @@ export default function DeliveryMap({ deliveries, route, highlightedIndex, mapCl
               <strong>Customer:</strong> ${delivery.customer || 'N/A'}<br>
               <strong>Address:</strong> ${delivery.address || 'N/A'}<br>
               <strong>Coordinates:</strong> ${lat.toFixed(4)}, ${lng.toFixed(4)}<br>
-              <strong>Items:</strong> ${delivery.items || 'N/A'}<br>
+              <strong>Items:</strong> ${delivery.items || delivery.itemCount || 'N/A'}<br>
+              <strong>ETA:</strong> ${delivery.etaMinutes != null ? `${delivery.etaMinutes} min` : 'Calculating...'}<br>
+              <strong>ETA / item:</strong> ${delivery.etaPerItemMinutes != null ? `${delivery.etaPerItemMinutes} min` : 'N/A'}<br>
               <strong>Priority:</strong>
               <span style="color:${color === 'red' ? 'red' : color === 'orange' ? 'orange' : 'blue'};font-weight:bold;">
                 ${delivery.priority === 1 ? 'HIGH' : delivery.priority === 2 ? 'MEDIUM' : 'LOW'}
@@ -112,6 +114,50 @@ export default function DeliveryMap({ deliveries, route, highlightedIndex, mapCl
 
         allMarkers.push(marker);
         deliveryMarkers.current.push(marker);
+      });
+    }
+
+    // Live driver markers (unified operations map)
+    if (driverLocations && driverLocations.length > 0) {
+      driverLocations.forEach(driver => {
+        const lat = Number(driver?.lat);
+        const lng = Number(driver?.lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+        const driverName = driver.name || driver.username || 'Driver';
+        const marker = L.marker([lat, lng], {
+          icon: L.divIcon({
+            className: 'driver-live-marker',
+            html: `<div style="
+              width: 30px;
+              height: 30px;
+              background: #10b981;
+              border: 3px solid white;
+              border-radius: 9999px;
+              box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+              display:flex;
+              align-items:center;
+              justify-content:center;
+              color:white;
+              font-size:12px;
+              font-weight:700;
+            ">${driverName.charAt(0).toUpperCase()}</div>`,
+            iconSize: [30, 30],
+            iconAnchor: [15, 15],
+          }),
+          title: driverName,
+        })
+          .addTo(mapInstance.current)
+          .bindPopup(
+            `<div style="font-family:'DM Sans','Inter',sans-serif;font-size:12px;min-width:200px;">
+              <b style="font-size:14px;">🚚 ${driverName}</b><br>
+              <strong>Status:</strong> ${driver.status || 'in transit'}<br>
+              <strong>Speed:</strong> ${driver.speedKmh != null ? `${driver.speedKmh} km/h` : 'N/A'}<br>
+              <strong>Location:</strong> ${lat.toFixed(4)}, ${lng.toFixed(4)}
+            </div>`,
+            { maxWidth: 280 }
+          );
+        allMarkers.push(marker);
       });
     }
 
@@ -176,7 +222,7 @@ export default function DeliveryMap({ deliveries, route, highlightedIndex, mapCl
         mapInstance.current = null;
       }
     };
-  }, [deliveries, route]);
+  }, [deliveries, route, driverLocations]);
 
   // ── Hover highlight ── runs only when highlightedIndex changes, no map reinit
   useEffect(() => {

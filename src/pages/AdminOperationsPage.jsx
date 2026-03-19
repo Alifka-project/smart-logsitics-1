@@ -20,7 +20,6 @@ import {
   Circle,
   Package
 } from 'lucide-react';
-import DriverTrackingMap from '../components/Tracking/DriverTrackingMap';
 import DeliveryMap from '../components/MapView/DeliveryMap';
 
 export default function AdminOperationsPage() {
@@ -428,11 +427,63 @@ export default function AdminOperationsPage() {
   const activeDeliveries = deliveries.filter(d => 
     d.tracking?.driverId || d.assignedDriverId || d.tracking?.assigned
   );
+  const getItemCount = (delivery) => {
+    if (Array.isArray(delivery.items)) return delivery.items.length;
+    const itemsText = delivery.items || delivery.item || '';
+    if (typeof itemsText !== 'string') return 1;
+    const normalized = itemsText.trim();
+    if (!normalized) return 1;
+    return normalized.split(',').filter(Boolean).length;
+  };
+
+  const estimateMinutes = (delivery) => {
+    const etaRaw = delivery?.tracking?.eta;
+    if (etaRaw) {
+      const etaDate = new Date(etaRaw);
+      if (!Number.isNaN(etaDate.getTime())) {
+        return Math.max(0, Math.round((etaDate.getTime() - Date.now()) / 60000));
+      }
+    }
+
+    // Fallback estimate when backend ETA is not available
+    const speedMps = Number(delivery?.tracking?.lastLocation?.speed || delivery?.tracking?.location?.speed || 0);
+    const remainingKm = Number(delivery?.remainingDistanceKm || delivery?.distanceFromWarehouse || 0);
+    if (speedMps > 0 && remainingKm > 0) {
+      const speedKmh = speedMps * 3.6;
+      const mins = (remainingKm / speedKmh) * 60;
+      if (Number.isFinite(mins)) return Math.max(0, Math.round(mins));
+    }
+
+    return null;
+  };
+
   const deliveriesForMap = deliveries.map(d => ({
     ...d,
     lat: d.lat || d.Lat || d.tracking?.lastLocation?.lat || 25.1124,
     lng: d.lng || d.Lng || d.tracking?.lastLocation?.lng || 55.1980,
+    etaMinutes: estimateMinutes(d),
+    itemCount: getItemCount(d),
   }));
+  const deliveriesWithEta = deliveriesForMap.map(d => ({
+    ...d,
+    etaPerItemMinutes: d.etaMinutes != null && d.itemCount > 0 ? Math.max(1, Math.round(d.etaMinutes / d.itemCount)) : null,
+  }));
+  const validRoutePoints = deliveriesWithEta
+    .map(d => [Number(d.lat), Number(d.lng)])
+    .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180);
+  const unifiedRoute = validRoutePoints.length > 0
+    ? { coordinates: [[25.0053, 55.0760], ...validRoutePoints] }
+    : null;
+  const driverLocations = drivers
+    .map(driver => ({
+      id: driver.id,
+      name: driver.full_name || driver.fullName || driver.username || 'Driver',
+      status: driver.tracking?.status || (isDriverOnline(driver) ? 'online' : 'offline'),
+      speedKmh: driver.tracking?.location?.speed != null ? Math.round(driver.tracking.location.speed * 3.6) : null,
+      lat: driver.tracking?.location?.lat,
+      lng: driver.tracking?.location?.lng,
+    }))
+    .filter(driver => Number.isFinite(Number(driver.lat)) && Number.isFinite(Number(driver.lng)));
   const assignedDeliveries = deliveries.filter(d => d.tracking?.assigned || d.tracking?.driverId || d.assignedDriverId);
   const inProgressDeliveries = deliveries.filter(d => d.tracking?.status === 'in_progress');
   const completedDeliveries = deliveries.filter(d => (d.status || '').toLowerCase() === 'delivered');
@@ -519,23 +570,24 @@ export default function AdminOperationsPage() {
             ))}
           </div>
 
-          {/* Map and Lists */}
+          {/* Unified live map and ETA list */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Map */}
             <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden transition-colors">
               <div className="p-4 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Live Map View</h2>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Live Operations Map (Tracking + Deliveries + Route)</h2>
               </div>
-              <div className="h-[280px] sm:h-[380px] lg:h-[500px]">
-                <DriverTrackingMap drivers={drivers} />
-              </div>
+              <DeliveryMap deliveries={deliveriesWithEta} route={unifiedRoute} driverLocations={driverLocations} mapClassName="h-[320px] sm:h-[420px] lg:h-[560px]" />
             </div>
 
-            {/* Active Deliveries List */}
+            {/* Active Deliveries ETA List */}
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
-              <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Active Deliveries</h2>
+              <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Active Deliveries ETA</h2>
               <div className="space-y-3 max-h-[280px] sm:max-h-[380px] lg:max-h-[500px] overflow-y-auto">
-                {activeDeliveries.slice(0, 10).map(delivery => (
+                {deliveriesWithEta
+                  .filter(d => d.tracking?.driverId || d.assignedDriverId || d.tracking?.assigned)
+                  .slice(0, 12)
+                  .map(delivery => (
                   <div key={delivery.id} className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -552,11 +604,12 @@ export default function AdminOperationsPage() {
                     <div className="text-xs text-gray-600 dark:text-gray-400">
                       {delivery.customer || delivery.Customer || 'Unknown Customer'}
                     </div>
-                    {delivery.tracking?.eta && (
-                      <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                        ETA: {new Date(delivery.tracking.eta).toLocaleTimeString()}
-                      </div>
-                    )}
+                    <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                      ETA: {delivery.etaMinutes != null ? `${delivery.etaMinutes} min` : 'Calculating...'}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-500">
+                      Items: {delivery.itemCount} • ETA/item: {delivery.etaPerItemMinutes != null ? `${delivery.etaPerItemMinutes} min` : 'N/A'}
+                    </div>
                   </div>
                 ))}
                 {activeDeliveries.length === 0 && (
@@ -641,15 +694,6 @@ export default function AdminOperationsPage() {
             </div>
           </div>
 
-          {deliveriesForMap.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
-              <div className="p-4 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Delivery Map</h2>
-              </div>
-              <DeliveryMap deliveries={deliveriesForMap} route={null} />
-            </div>
-          )}
-
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
             <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Delivery Status Details</h2>
             <div className="overflow-x-auto">
@@ -660,13 +704,20 @@ export default function AdminOperationsPage() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Driver</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Assigned At</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">ETA</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Items / ETA Item</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Location</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {deliveries.slice(0, 50).map(delivery => {
+                  {deliveriesWithEta.slice(0, 50).map(delivery => {
                     const tracking = delivery.tracking || {};
                     const location = tracking.lastLocation;
+                    const driverId = tracking.driverId || delivery.assignedDriverId;
+                    const driver = drivers.find(d => String(d.id) === String(driverId));
+                    const driverName = driver
+                      ? (driver.full_name || driver.fullName || driver.username || driver.email || `Driver ${driver.id}`)
+                      : (driverId || 'Unassigned');
                     return (
                       <tr key={delivery.id || delivery.ID} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                         <td className="px-4 py-3">
@@ -684,8 +735,16 @@ export default function AdminOperationsPage() {
                             {tracking.status || delivery.status || 'unassigned'}
                           </span>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{tracking.driverId || delivery.assignedDriverId || 'Unassigned'}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {driverName}
+                        </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{tracking.assignedAt ? new Date(tracking.assignedAt).toLocaleString() : 'N/A'}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {delivery.etaMinutes != null ? `${delivery.etaMinutes} min` : 'Calculating...'}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {delivery.itemCount} / {delivery.etaPerItemMinutes != null ? `${delivery.etaPerItemMinutes} min` : 'N/A'}
+                        </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                           {location ? <div><div>{location.lat?.toFixed(4)}, {location.lng?.toFixed(4)}</div>{location.timestamp && <div className="text-xs text-gray-400">{new Date(location.timestamp).toLocaleTimeString()}</div>}</div> : <span className="text-gray-400">No location</span>}
                         </td>
