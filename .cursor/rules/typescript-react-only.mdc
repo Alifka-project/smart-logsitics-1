@@ -1,0 +1,23 @@
+---
+description: Use TypeScript only for app source; do not edit legacy JSX duplicates
+alwaysApply: true
+---
+
+# TypeScript / TSX only (Dubai Logistics)
+
+This project is migrating to **TypeScript**. Treat **`src/**/*.ts` and `src/**/*.tsx`** as the only place to implement or change features.
+
+## Do
+
+- Edit **`.tsx`** for React components and **`.ts`** for non-UI modules.
+- When a file exists as both **`.jsx` and `.tsx`**, **change the `.tsx` file** and treat `.jsx` as **legacy** to be removed after parity.
+- Add proper types for props, API shapes, and state (avoid `any` unless unavoidable).
+
+## Do not
+
+- **Do not edit `src/**/*.jsx`** for new work or refactors (except rare, explicit hotfixes the user requests).
+- **Do not duplicate logic** across `.jsx` and `.tsx` — port once, then delete the `.jsx` copy when safe.
+
+## Imports
+
+Extensionless imports (e.g. `import('./pages/AdminDashboardPage')`) resolve **`.tsx` before `.jsx`** in this repo (see `vite.config.js`). Prefer explicit `.tsx` in new code if it improves clarity.

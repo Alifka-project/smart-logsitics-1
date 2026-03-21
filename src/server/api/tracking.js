@@ -50,6 +50,8 @@ router.get('/deliveries', authenticate, requireRole('admin'), async (req, res) =
             items: true,
             metadata: true,
             poNumber: true,
+            confirmationStatus: true,
+            customerConfirmedAt: true,
             createdAt: true,
             assignments: {
               take: 1,
@@ -84,6 +86,8 @@ router.get('/deliveries', authenticate, requireRole('admin'), async (req, res) =
         items: d.items,
         metadata: d.metadata,
         poNumber: d.poNumber,
+        confirmationStatus: d.confirmationStatus,
+        customerConfirmedAt: d.customerConfirmedAt,
         created_at: d.createdAt,
         createdAt: d.createdAt,
         created: d.createdAt,

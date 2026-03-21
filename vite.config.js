@@ -4,6 +4,18 @@ import react from '@vitejs/plugin-react'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  // Prefer .tsx over .jsx so extensionless imports use the TypeScript source when both exist.
+  resolve: {
+    extensions: [
+      '.mjs',
+      '.js',
+      '.mts',
+      '.ts',
+      '.tsx',
+      '.jsx',
+      '.json',
+    ],
+  },
   server: {
     port: 5173,
     proxy: {
