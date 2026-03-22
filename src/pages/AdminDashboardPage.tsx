@@ -183,7 +183,8 @@ export default function AdminDashboardPage(): React.ReactElement {
   const [driversSortDir, setDriversSortDir] = useState<string>('asc');
 
   const [heroPeriod, setHeroPeriod] = useState<string>('30d');
-  const [trendPeriod, setTrendPeriod] = useState<'day' | 'month' | 'year'>('month');
+  const [trendPeriodLeft, setTrendPeriodLeft] = useState<'day' | 'month' | 'year'>('month');
+  const [trendPeriodRight, setTrendPeriodRight] = useState<'day' | 'month' | 'year'>('month');
 
   // ─── DATA FETCHING ───
 
@@ -380,10 +381,10 @@ export default function AdminDashboardPage(): React.ReactElement {
     }));
   }, [deliveries, heroPeriod]);
 
-  const trendChartData = useMemo(() => {
+  const computeTrendData = useCallback((period: 'day' | 'month' | 'year') => {
     const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
     const now = new Date();
-    if (trendPeriod === 'day') {
+    if (period === 'day') {
       const buckets: Record<string, { label: string; day: string; count: number }> = {};
       for (let i = 6; i >= 0; i--) {
         const d = new Date(now);
@@ -401,7 +402,7 @@ export default function AdminDashboardPage(): React.ReactElement {
       });
       return Object.values(buckets);
     }
-    if (trendPeriod === 'month') {
+    if (period === 'month') {
       const buckets: Record<string, { label: string; count: number }> = {};
       for (let i = 0; i < 12; i++) {
         const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -418,7 +419,7 @@ export default function AdminDashboardPage(): React.ReactElement {
       });
       return Object.entries(buckets).sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v);
     }
-    if (trendPeriod === 'year') {
+    if (period === 'year') {
       const buckets: Record<string, { label: string; count: number }> = {};
       for (let i = 0; i < 5; i++) {
         const y = now.getFullYear() - i;
@@ -433,7 +434,10 @@ export default function AdminDashboardPage(): React.ReactElement {
       return Object.entries(buckets).sort((a, b) => a[0].localeCompare(b[0])).map(([, v]) => v);
     }
     return [];
-  }, [deliveries, trendPeriod]);
+  }, [deliveries]);
+
+  const trendChartDataLeft = useMemo(() => computeTrendData(trendPeriodLeft), [computeTrendData, trendPeriodLeft]);
+  const trendChartDataRight = useMemo(() => computeTrendData(trendPeriodRight), [computeTrendData, trendPeriodRight]);
 
   const filteredDeliveries = useMemo<TrackingDelivery[]>(() => {
     const list = (deliveries && Array.isArray(deliveries) ? deliveries : []).slice();
@@ -869,33 +873,33 @@ export default function AdminDashboardPage(): React.ReactElement {
             <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-                  Delivery Requests — {trendPeriod === 'day' ? 'Daily (Last 7 Days)' : trendPeriod === 'month' ? 'Monthly (Last 12 Months)' : 'Yearly (Last 5 Years)'}
+                  Delivery Requests — {trendPeriodLeft === 'day' ? 'Daily (Last 7 Days)' : trendPeriodLeft === 'month' ? 'Monthly (Last 12 Months)' : 'Yearly (Last 5 Years)'}
                 </h2>
                 <p className="pp-page-subtitle">
-                  {trendPeriod === 'day' ? 'Daily delivery volume for the current week' : trendPeriod === 'month' ? 'Number of deliveries per month' : 'Number of deliveries per year'}
+                  {trendPeriodLeft === 'day' ? 'Daily delivery volume for the current week' : trendPeriodLeft === 'month' ? 'Number of deliveries per month' : 'Number of deliveries per year'}
                 </p>
               </div>
               <div className="flex rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden text-xs font-medium">
                 {(['day', 'month', 'year'] as const).map(p => (
                   <button
                     key={p}
-                    onClick={() => setTrendPeriod(p)}
-                    className={`px-3 py-1.5 transition-colors capitalize ${trendPeriod === p ? 'bg-primary-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                    onClick={() => setTrendPeriodLeft(p)}
+                    className={`px-3 py-1.5 transition-colors capitalize ${trendPeriodLeft === p ? 'bg-primary-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                   >
                     {p === 'day' ? 'Daily' : p === 'month' ? 'Monthly' : 'Yearly'}
                   </button>
                 ))}
               </div>
             </div>
-            {trendChartData.length > 0 ? (
+            {trendChartDataLeft.length > 0 ? (
               <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={trendChartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                <BarChart data={trendChartDataLeft} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                  <XAxis dataKey={trendPeriod === 'day' ? 'day' : 'label'} tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+                  <XAxis dataKey={trendPeriodLeft === 'day' ? 'day' : 'label'} tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} />
                   <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} />
                   <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '12px' }} />
                   <Bar dataKey="count" name="Deliveries" radius={[4, 4, 0, 0]}>
-                    {trendChartData.map((_, i, arr) => (
+                    {trendChartDataLeft.map((_, i, arr) => (
                       <Cell key={i} fill={i === arr.length - 1 ? '#1d4ed8' : '#93c5fd'} />
                     ))}
                   </Bar>
@@ -906,34 +910,34 @@ export default function AdminDashboardPage(): React.ReactElement {
             )}
             </div>
 
-            {/* Trend chart — right column (same data, line overlay) */}
+            {/* Trend chart — right column */}
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-6">
               <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-                    Delivery Volume — {trendPeriod === 'day' ? 'Daily' : trendPeriod === 'month' ? 'Monthly' : 'Yearly'}
+                    Delivery Volume — {trendPeriodRight === 'day' ? 'Daily' : trendPeriodRight === 'month' ? 'Monthly' : 'Yearly'}
                   </h2>
                   <p className="pp-page-subtitle">
-                    {trendPeriod === 'day' ? 'Daily delivery volume for the current week' : trendPeriod === 'month' ? 'Monthly delivery volume (last 12 months)' : 'Yearly delivery volume (last 5 years)'}
+                    {trendPeriodRight === 'day' ? 'Daily delivery volume for the current week' : trendPeriodRight === 'month' ? 'Monthly delivery volume (last 12 months)' : 'Yearly delivery volume (last 5 years)'}
                   </p>
                 </div>
                 <div className="flex rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden text-xs font-medium">
                   {(['day', 'month', 'year'] as const).map(p => (
                     <button
                       key={p}
-                      onClick={() => setTrendPeriod(p)}
-                      className={`px-3 py-1.5 transition-colors capitalize ${trendPeriod === p ? 'bg-primary-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                      onClick={() => setTrendPeriodRight(p)}
+                      className={`px-3 py-1.5 transition-colors capitalize ${trendPeriodRight === p ? 'bg-primary-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                     >
                       {p === 'day' ? 'Daily' : p === 'month' ? 'Monthly' : 'Yearly'}
                     </button>
                   ))}
                 </div>
               </div>
-              {trendChartData.length > 0 ? (
+              {trendChartDataRight.length > 0 ? (
                 <ResponsiveContainer width="100%" height={280}>
-                  <ComposedChart data={trendChartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                  <ComposedChart data={trendChartDataRight} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                    <XAxis dataKey={trendPeriod === 'day' ? 'day' : 'label'} tick={{ fontSize: 12, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+                    <XAxis dataKey={trendPeriodRight === 'day' ? 'day' : 'label'} tick={{ fontSize: 12, fill: '#6b7280' }} tickLine={false} axisLine={false} />
                     <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} />
                     <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '12px' }} />
                     <Bar dataKey="count" name="Deliveries" fill="#2563EB" radius={[4, 4, 0, 0]} maxBarSize={40} />
@@ -946,22 +950,22 @@ export default function AdminDashboardPage(): React.ReactElement {
             </div>
           </div>
 
-          {/* Summary stats strip */}
-          {trendChartData.length > 0 && (() => {
-            const arr = trendChartData;
+          {/* Summary stats strip (based on left chart) */}
+          {trendChartDataLeft.length > 0 && (() => {
+            const arr = trendChartDataLeft;
             const total = arr.reduce((s, m) => s + (m.count || 0), 0);
             const avg = arr.length > 0 ? (total / arr.length).toFixed(1) : 0;
             const peak = arr.reduce((best, m) => (m.count || 0) > (best.count || 0) ? m : best, arr[0]);
             const current = arr[arr.length - 1];
-            const peakLabel = trendPeriod === 'day' ? (peak as { day?: string; label?: string })?.day ?? peak?.label : peak?.label;
-            const stats = trendPeriod === 'day'
+            const peakLabel = trendPeriodLeft === 'day' ? (peak as { day?: string; label?: string })?.day ?? peak?.label : peak?.label;
+            const stats = trendPeriodLeft === 'day'
               ? [
                   { label: 'Total (7 days)', value: total, color: 'text-blue-600 dark:text-blue-400' },
                   { label: 'Daily Avg', value: avg, color: 'text-indigo-600 dark:text-indigo-400' },
                   { label: 'Peak Day', value: `${peakLabel} (${peak?.count})`, color: 'text-emerald-600 dark:text-emerald-400' },
                   { label: 'Today', value: current?.count ?? 0, color: 'text-orange-600 dark:text-orange-400' },
                 ]
-              : trendPeriod === 'month'
+              : trendPeriodLeft === 'month'
                 ? [
                     { label: 'Total (12 mo)', value: total, color: 'text-blue-600 dark:text-blue-400' },
                     { label: 'Monthly Avg', value: avg, color: 'text-indigo-600 dark:text-indigo-400' },
