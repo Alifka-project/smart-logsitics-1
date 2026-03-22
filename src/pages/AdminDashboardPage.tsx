@@ -486,7 +486,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
       <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 flex items-start gap-2">
           <span className="mt-0.5 text-gray-300 dark:text-slate-600 hidden sm:inline" aria-hidden>
-            <ExternalLink className="w-3.5 h-3.5" />
+            <ArrowUpRight className="w-3.5 h-3.5" strokeWidth={2} />
           </span>
           <div>
             <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 tracking-tight truncate">{title}</h2>
@@ -513,7 +513,7 @@ function PeakHeatmapCard({ data, title, subtitle }: { data: number[][]; title: s
           <p className="pp-page-subtitle text-xs truncate mt-0.5">{subtitle}</p>
         </div>
         <span className="text-gray-300 dark:text-slate-600 shrink-0" aria-hidden>
-          <ExternalLink className="w-3.5 h-3.5" />
+          <ArrowUpRight className="w-3.5 h-3.5" strokeWidth={2} />
         </span>
       </div>
       <div className="overflow-x-auto -mx-1">
@@ -1481,7 +1481,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-gray-300 dark:text-slate-600 shrink-0 hidden sm:inline" aria-hidden>
-                      <ExternalLink className="w-4 h-4" />
+                      <ArrowUpRight className="w-4 h-4" strokeWidth={2} />
                     </span>
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 tracking-tight">Delivery Trend</h2>
                   </div>
@@ -1761,7 +1761,10 @@ export default function AdminDashboardPage(): React.ReactElement {
             ].map(({ label, value, icon: Icon, color, tooltip }) => {
               const c = KPI_COLOR_MAP[color];
               return (
-                <div key={label} className="pp-dash-card p-3 flex items-center gap-2 sm:gap-3 w-full min-w-0 max-w-[220px]">
+                <div key={label} className="pp-dash-card p-3 relative flex items-center gap-2 sm:gap-3 w-full min-w-0 max-w-[220px] pr-8">
+                  <span className="absolute top-2 right-2 text-gray-300 dark:text-slate-600 pointer-events-none" aria-hidden>
+                    <ArrowUpRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" strokeWidth={2} />
+                  </span>
                   <div className={`p-2.5 rounded-full shrink-0 ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
                   <div className="min-w-0">
                     <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
@@ -1952,9 +1955,12 @@ export default function AdminDashboardPage(): React.ReactElement {
             ].map(({ label, value, icon: Icon, color }) => {
               const c = KPI_COLOR_MAP[color];
               return (
-                <div key={label} className="pp-dash-card p-3 flex items-center gap-3">
-                  <div className={`p-2.5 rounded-full ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
-                  <div>
+                <div key={label} className="pp-dash-card p-3 relative flex items-center gap-3 pr-9">
+                  <span className="absolute top-2.5 right-2.5 text-gray-300 dark:text-slate-600 pointer-events-none" aria-hidden>
+                    <ArrowUpRight className="w-3.5 h-3.5" strokeWidth={2} />
+                  </span>
+                  <div className={`p-2.5 rounded-full shrink-0 ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
+                  <div className="min-w-0">
                     <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
                     <p className={`text-lg font-bold ${c.val}`}>{value}</p>
                   </div>
@@ -2176,7 +2182,10 @@ export default function AdminDashboardPage(): React.ReactElement {
             ].map(({ label, value, icon: Icon, color, tooltip }) => {
               const c = KPI_COLOR_MAP[color];
               return (
-                <div key={label} className="pp-dash-card p-3 flex items-center gap-2 sm:gap-3 w-full min-w-0 max-w-[220px]">
+                <div key={label} className="pp-dash-card p-3 relative flex items-center gap-2 sm:gap-3 w-full min-w-0 max-w-[220px] pr-8">
+                  <span className="absolute top-2 right-2 text-gray-300 dark:text-slate-600 pointer-events-none" aria-hidden>
+                    <ArrowUpRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" strokeWidth={2} />
+                  </span>
                   <div className={`p-2.5 rounded-full shrink-0 ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
                   <div className="min-w-0">
                     <p className="text-xs text-gray-500 dark:text-gray-400 truncate flex items-center gap-1">
@@ -2381,8 +2390,11 @@ export default function AdminDashboardPage(): React.ReactElement {
             ].map(({ label, value, icon: Icon, color, tooltip }) => {
               const c = KPI_COLOR_MAP[color];
               return (
-                <div key={label} className="pp-dash-card p-3 flex items-center gap-3">
-                  <div className={`p-2.5 rounded-full ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
+                <div key={label} className="pp-dash-card p-3 relative flex items-center gap-3 min-w-0 w-full pr-8">
+                  <span className="absolute top-2 right-2 text-gray-300 dark:text-slate-600 pointer-events-none" aria-hidden>
+                    <ArrowUpRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" strokeWidth={2} />
+                  </span>
+                  <div className={`p-2.5 rounded-full shrink-0 ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
                   <div className="min-w-0 flex-1">
                     <p className="text-xs text-gray-500 dark:text-gray-400 truncate flex items-center gap-1">
                       {tooltip ? <MetricTooltip term={label} definition={tooltip} /> : label}
@@ -2532,7 +2544,10 @@ export default function AdminDashboardPage(): React.ReactElement {
             ].map(({ label, value, icon: Icon, color }) => {
               const c = KPI_COLOR_MAP[color];
               return (
-                <div key={label} className="pp-dash-card p-3 sm:p-4 flex items-center gap-3 w-full min-w-0 max-w-[280px]">
+                <div key={label} className="pp-dash-card p-3 sm:p-4 relative flex items-center gap-3 w-full min-w-0 max-w-[280px] pr-9">
+                  <span className="absolute top-2.5 right-2.5 text-gray-300 dark:text-slate-600 pointer-events-none" aria-hidden>
+                    <ArrowUpRight className="w-3.5 h-3.5" strokeWidth={2} />
+                  </span>
                   <div className={`p-2.5 rounded-full shrink-0 ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
                   <div className="min-w-0">
                     <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
