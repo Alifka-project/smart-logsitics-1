@@ -1,4 +1,5 @@
 import React, { useCallback } from 'react';
+import { RefreshCw } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import type { DeliveryOrder } from '../../types/delivery';
 
@@ -76,7 +77,7 @@ export const ManageSidebar: React.FC<ManageSidebarProps> = ({
           <p className="text-sm font-medium text-gray-900 dark:text-white">
             {isDragActive ? 'Drop file here' : 'Drop Excel to import'}
           </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">.xlsx, .xls, .csv · Duplicates skipped</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">.xlsx, .xls, .csv</p>
           <button
             type="button"
             onClick={(e) => {
@@ -95,16 +96,18 @@ export const ManageSidebar: React.FC<ManageSidebarProps> = ({
           type="button"
           onClick={onReloadDB}
           disabled={isReloading}
-          className="py-2 px-3 bg-[#002D5B] text-white rounded-lg text-xs font-medium hover:bg-[#001f3f] disabled:opacity-60"
+          className="flex items-center justify-center gap-1.5 py-2 px-3 bg-[#002D5B] text-white rounded-lg text-xs font-medium hover:bg-[#001f3f] disabled:opacity-60"
         >
-          {isReloading ? '…' : '↻'} Reload DB
+          <RefreshCw className={`h-5 w-5 flex-shrink-0 ${isReloading ? 'animate-spin' : ''}`} />
+          Reload DB
         </button>
         <button
           type="button"
           onClick={onRefresh}
-          className="py-2 px-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+          className="flex items-center justify-center gap-1.5 py-2 px-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
         >
-          ⟳ Refresh
+          <RefreshCw className="h-5 w-5 flex-shrink-0" />
+          Refresh
         </button>
         <button
           type="button"

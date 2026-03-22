@@ -204,7 +204,7 @@ export default function DeliveryManagementPage() {
                 disabled={isReloading}
                 className="mt-3 flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-lg transition-colors text-sm font-medium touch-manipulation w-full sm:w-auto"
               >
-                <RefreshCw className={`w-4 h-4 flex-shrink-0 ${isReloading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-5 w-5 flex-shrink-0 ${isReloading ? 'animate-spin' : ''}`} />
                 {isReloading ? 'Reloading...' : 'Reload from Database (Fix SMS)'}
               </button>
             </div>
@@ -226,7 +226,7 @@ export default function DeliveryManagementPage() {
             className="flex-1 sm:flex-none min-h-[44px] px-4 py-2.5 bg-[#002D5B] text-white rounded-lg hover:bg-[#001f3f] disabled:opacity-50 flex items-center justify-center gap-2 text-sm touch-manipulation"
             title="Reload deliveries from database with real UUIDs"
           >
-            <RefreshCw className={`w-4 h-4 flex-shrink-0 ${isReloading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-5 w-5 flex-shrink-0 ${isReloading ? 'animate-spin' : ''}`} />
             <span className="truncate">{isReloading ? 'Loading...' : 'Reload DB'}</span>
           </button>
           {deliveries.length > 0 && (

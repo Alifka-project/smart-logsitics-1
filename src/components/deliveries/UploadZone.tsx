@@ -91,7 +91,7 @@ export default function UploadZone({
                 Drop Excel file here or click to upload
               </p>
               <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
-                Accepts .xlsx, .xls, .csv · Duplicates will be skipped
+                Accepts .xlsx, .xls, .csv
               </p>
             </div>
           </div>
