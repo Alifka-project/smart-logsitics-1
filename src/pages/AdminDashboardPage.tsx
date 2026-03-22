@@ -3,7 +3,7 @@ import api, { setAuthToken } from '../frontend/apiClient';
 import { BarChart, Bar, ComposedChart, XAxis, YAxis, ZAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, Line, AreaChart, Area, PieChart, Pie, Cell, ReferenceLine, ScatterChart, Scatter, type PieLabelRenderProps } from 'recharts';
 import { 
   Package, CheckCircle, XCircle, Clock, MapPin, Users, Activity, 
-  Truck, AlertCircle, FileText, Target, TrendingUp,
+  Truck, AlertCircle, FileText, Target, TrendingUp, HelpCircle,
   ChevronUp, ChevronDown, ChevronRight, RefreshCw, Download
 } from 'lucide-react';
 import RiskBadge, { riskFromSuccessRate } from '../components/Analytics/RiskBadge';
@@ -696,10 +696,6 @@ export default function AdminDashboardPage(): React.ReactElement {
       const date = new Date(d.created_at || d.createdAt || d.created || 0);
       return date >= yesterdayStart && date < todayStart;
     });
-    const inTransit = list.filter(d => {
-      const s = (d.status || '').toLowerCase();
-      return ['out-for-delivery', 'in-progress', 'assigned', 'scheduled-confirmed'].includes(s);
-    }).length;
     const yDelivered = yesterday.filter(d =>
       ['delivered', 'delivered-with-installation', 'delivered-without-installation'].includes((d.status || '').toLowerCase())
     ).length;
@@ -709,7 +705,6 @@ export default function AdminDashboardPage(): React.ReactElement {
     return [
       { id: 'total', label: 'Total Deliveries', value: totals.total, icon: Package, color: 'blue', delta: pct(totals.total, yTotal) },
       { id: 'delivered', label: 'Delivered', value: totals.delivered, icon: CheckCircle, color: 'green', delta: pct(totals.delivered, yDelivered) },
-      { id: 'transit', label: 'In Transit', value: inTransit, icon: Truck, color: 'indigo', delta: null },
       { id: 'pending', label: 'Pending', value: totals.pending, icon: Clock, color: 'yellow', delta: null },
       { id: 'cancelled', label: 'Cancelled', value: totals.cancelled, icon: XCircle, color: 'red', delta: null },
       { id: 'rate', label: 'Success Rate', value: `${successRate}%`, icon: Target, color: 'emerald', delta: null },
@@ -760,6 +755,15 @@ export default function AdminDashboardPage(): React.ReactElement {
       ...b, rate: b.total > 0 ? parseFloat(((b.delivered / b.total) * 100).toFixed(1)) : 0
     }));
   }, [deliveries, heroPeriod]);
+
+  /** When most days in the hero window have zero dispatches, hint so the chart does not look "broken". */
+  const heroChartActivitySummary = useMemo(() => {
+    const rows = heroChartData;
+    const n = rows.length;
+    const active = rows.filter(r => (r.total ?? 0) > 0).length;
+    const sparse = n >= 14 && active < Math.max(1, Math.ceil(n * 0.25));
+    return { n, active, sparse };
+  }, [heroChartData]);
 
   const areaKeywords = useMemo(() => [
     'Marina', 'Jumeirah', 'Jebel Ali', 'Business Bay', 'Downtown', 'Deira', 'Bur Dubai',
@@ -1320,8 +1324,6 @@ export default function AdminDashboardPage(): React.ReactElement {
     emerald: { bg: 'bg-emerald-50 dark:bg-emerald-900/20', icon: 'text-emerald-600 dark:text-emerald-400', val: 'text-emerald-700 dark:text-emerald-300' },
   };
 
-  const inTransitCount = (deliveries || []).filter(d => ['out-for-delivery', 'in-progress', 'assigned'].includes((d.status || '').toLowerCase())).length;
-
   const SortTh = ({ label, sortKey, current, dir, onSort, align = 'left' }: SortThProps): React.ReactElement => (
     <th
       className={`px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer select-none hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-${align}`}
@@ -1393,15 +1395,25 @@ export default function AdminDashboardPage(): React.ReactElement {
       {activeTab === 'overview' && (
         <div className="space-y-4">
           {/* KPI Strip — Overview only */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {kpiCards.map(card => {
               const Icon = card.icon;
               const c = KPI_COLOR_MAP[card.color];
               return (
                 <div key={card.id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide leading-tight">{card.label}</span>
-                    <div className={`p-1.5 rounded-md ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
+                  <div className="flex items-center justify-between mb-2 gap-2">
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide leading-tight flex items-center gap-1 min-w-0">
+                      {card.label}
+                      {card.id === 'rate' && (
+                        <span
+                          className="inline-flex shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                          title="Success rate = delivered orders ÷ total orders. The trend chart uses the same ratio per day (delivered ÷ dispatched that day)."
+                        >
+                          <HelpCircle className="w-3.5 h-3.5" aria-hidden />
+                        </span>
+                      )}
+                    </span>
+                    <div className={`p-1.5 rounded-md shrink-0 ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
                   </div>
                   <div className={`text-2xl font-bold ${c.val}`}>{card.value}</div>
                   {card.delta ? (
@@ -1415,6 +1427,36 @@ export default function AdminDashboardPage(): React.ReactElement {
             })}
           </div>
 
+          {/* Priority strip — surfaced when anything in Needs Attention is non-zero */}
+          {(() => {
+            const n = actionItems.overdue + actionItems.unassigned + actionItems.unconfirmed;
+            if (n === 0) return null;
+            const detailParts: string[] = [];
+            if (actionItems.overdue > 0) detailParts.push(`${actionItems.overdue} overdue`);
+            if (actionItems.unassigned > 0) detailParts.push(`${actionItems.unassigned} unassigned`);
+            if (actionItems.unconfirmed > 0) detailParts.push(`${actionItems.unconfirmed} awaiting confirmation`);
+            return (
+              <div
+                role="status"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 dark:border-amber-800/80 bg-amber-50/90 dark:bg-amber-950/30 px-4 py-3 text-sm"
+              >
+                <div className="text-amber-950 dark:text-amber-100">
+                  <span className="font-semibold">{n} {n === 1 ? 'item needs' : 'items need'} attention</span>
+                  {detailParts.length > 0 && (
+                    <span className="text-amber-800/90 dark:text-amber-200/90"> · {detailParts.join(' · ')}</span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab('deliveries'); setDeliveryPage(0); }}
+                  className="inline-flex items-center gap-1 font-medium text-primary-600 dark:text-primary-400 hover:underline whitespace-nowrap"
+                >
+                  Review in Deliveries <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            );
+          })()}
+
           {/* Two-column main content */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
             {/* Left column — ~2/3 */}
@@ -1424,7 +1466,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                 <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
                   <div>
                     <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Delivery Trend</h2>
-                    <p className="pp-page-subtitle">Total dispatched vs delivered — success rate on right axis</p>
+                    <p className="pp-page-subtitle">New dispatches by creation date vs delivered that day — orange line is daily success rate (delivered ÷ dispatched that day)</p>
                   </div>
                   <div className="flex rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden text-xs font-medium">
                     {([['7d', 'Last 7 days'], ['30d', 'Last 30 days'], ['90d', 'Last 90 days']] as [string, string][]).map(([p, label]) => (
@@ -1455,15 +1497,22 @@ export default function AdminDashboardPage(): React.ReactElement {
                     <Line yAxisId="right" type="monotone" dataKey="rate" stroke="#f97316" name="Success Rate %" dot={false} strokeWidth={2.5} isAnimationActive={false} />
                   </ComposedChart>
                 </ResponsiveContainer>
+                {heroChartActivitySummary.sparse && (
+                  <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                    Only {heroChartActivitySummary.active} of {heroChartActivitySummary.n} days in this window have dispatches — flat periods are normal if orders cluster on certain dates.
+                  </p>
+                )}
               </div>
 
               {/* Delivery Status Breakdown */}
               <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-5">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">Delivery Status</h3>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Delivery Status</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 mb-4">
+                  Share of all orders (same headline totals as the KPI strip). Percentages are of total orders.
+                </p>
                 <div className="space-y-3">
                   {[
                     { label: 'Delivered', value: totals.delivered, color: 'bg-green-500' },
-                    { label: 'In Transit', value: inTransitCount, color: 'bg-indigo-500' },
                     { label: 'Pending', value: totals.pending, color: 'bg-yellow-400' },
                     { label: 'Rescheduled', value: totals.rescheduled, color: 'bg-orange-400' },
                     { label: 'Cancelled', value: totals.cancelled, color: 'bg-red-500' },
@@ -1563,11 +1612,10 @@ export default function AdminDashboardPage(): React.ReactElement {
       {activeTab === 'trends' && (
         <div className="space-y-4">
           {/* Compact strip — tab-specific */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {[
               { label: 'Total Deliveries', value: totals.total, icon: Package, color: 'blue' },
               { label: 'Delivered', value: totals.delivered, icon: CheckCircle, color: 'green' },
-              { label: 'In Transit', value: inTransitCount, icon: Truck, color: 'indigo' },
               { label: 'Success Rate', value: totals.total > 0 ? `${((totals.delivered / totals.total) * 100).toFixed(1)}%` : '0%', icon: Target, color: 'emerald' },
             ].map(({ label, value, icon: Icon, color }) => {
               const c = KPI_COLOR_MAP[color];
@@ -1881,11 +1929,10 @@ export default function AdminDashboardPage(): React.ReactElement {
       {activeTab === 'deliveries' && (
         <div className="space-y-4">
           {/* Compact strip — Cureer style */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {[
               { label: 'Total', value: filteredDeliveries.length, icon: Package, color: 'blue' },
               { label: 'Delivered', value: filteredDeliveries.filter(d => ['delivered','delivered-with-installation','delivered-without-installation'].includes((d.status||'').toLowerCase())).length, icon: CheckCircle, color: 'green' },
-              { label: 'In Transit', value: filteredDeliveries.filter(d => ['out-for-delivery','in-progress','assigned','scheduled-confirmed'].includes((d.status||'').toLowerCase())).length, icon: Truck, color: 'indigo' },
               { label: 'Pending', value: filteredDeliveries.filter(d => ['pending','scheduled'].includes((d.status||'').toLowerCase())).length, icon: Clock, color: 'yellow' },
             ].map(({ label, value, icon: Icon, color }) => {
               const c = KPI_COLOR_MAP[color];
