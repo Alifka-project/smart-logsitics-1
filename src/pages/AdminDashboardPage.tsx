@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import api, { setAuthToken } from '../frontend/apiClient';
-import { BarChart, Bar, ComposedChart, XAxis, YAxis, ZAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, Line, AreaChart, Area, PieChart, Pie, ReferenceLine, ScatterChart, Scatter } from 'recharts';
+import { BarChart, Bar, ComposedChart, XAxis, YAxis, ZAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, Line, AreaChart, Area, PieChart, Pie, Cell, ReferenceLine, ScatterChart, Scatter, type PieLabelRenderProps } from 'recharts';
 import { 
   Package, CheckCircle, XCircle, Clock, MapPin, Users, Activity, 
   Truck, AlertCircle, FileText, Target, TrendingUp,
@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import RiskBadge, { riskFromSuccessRate } from '../components/Analytics/RiskBadge';
 import MetricTooltip from '../components/Analytics/MetricTooltip';
+import InsightCard from '../components/Analytics/InsightCard';
 import { sharePct, topNSharePct, concentrationLevel } from '../utils/analyticsHelpers';
 import { useNavigate, useLocation } from 'react-router-dom';
 import DeliveryDetailModal from '../components/DeliveryDetailModal';
@@ -116,6 +117,32 @@ interface AdminDriver extends Driver {
   account?: { role?: string; lastLogin?: string };
   name?: string;
   tracking?: Driver['tracking'] & { lastUpdate?: string | Date | null };
+}
+
+/** Resolve driver id for a delivery (matches list + name fallback). */
+function deliveryDriverIdForAnalytics(d: TrackingDelivery, driversList: AdminDriver[]): string | undefined {
+  const raw = d.assignedDriverId ?? d.tracking?.driverId;
+  if (raw !== undefined && raw !== null && String(raw).trim() !== '') return String(raw);
+  const nm = typeof d.driverName === 'string' ? d.driverName.trim() : '';
+  if (!nm || driversList.length === 0) return undefined;
+  const lower = nm.toLowerCase();
+  const match = driversList.find(dr => {
+    const a = (dr.fullName || dr.full_name || dr.username || '').trim().toLowerCase();
+    return a === lower;
+  });
+  return match?.id !== undefined && match?.id !== null ? String(match.id) : undefined;
+}
+
+function normalizeDeliveryStatus(s: unknown): string {
+  return String(s ?? '').toLowerCase().trim();
+}
+
+function isDeliveredDeliveryStatus(s: string): boolean {
+  return ['delivered', 'delivered-with-installation', 'delivered-without-installation', 'finished', 'completed', 'pod-completed'].includes(s);
+}
+
+function isCancelledOrRescheduledDeliveryStatus(s: string): boolean {
+  return ['cancelled', 'rejected', 'returned', 'rescheduled'].includes(s);
 }
 
 interface KpiCard {
@@ -1177,6 +1204,55 @@ export default function AdminDashboardPage(): React.ReactElement {
       return 0;
     });
   }, [drivers, driversSearch, driversStatusFilter, driversSortBy, driversSortDir, onlineUserIds]);
+
+  /** Workload + outcome charts for Drivers tab (from live deliveries, not duplicated table rows). */
+  const driverPanelAnalytics = useMemo(() => {
+    const idOf = (row: TrackingDelivery) => deliveryDriverIdForAnalytics(row, drivers);
+    const counts = new Map<string, number>();
+    let assignedN = 0;
+    let deliveredN = 0;
+    let pipelineN = 0;
+    let negativeN = 0;
+
+    for (const row of deliveries) {
+      const did = idOf(row);
+      if (!did) continue;
+      assignedN++;
+      counts.set(did, (counts.get(did) || 0) + 1);
+      const st = normalizeDeliveryStatus(row.status);
+      if (isDeliveredDeliveryStatus(st)) deliveredN++;
+      else if (isCancelledOrRescheduledDeliveryStatus(st)) negativeN++;
+      else pipelineN++;
+    }
+
+    const workloadBars = drivers
+      .map(dr => {
+        const id = String(dr.id);
+        const name = (dr.fullName || dr.full_name || dr.username || 'Driver').trim();
+        const short = name.length > 22 ? `${name.slice(0, 20)}…` : name;
+        return { name: short, count: counts.get(id) || 0 };
+      })
+      .filter(r => r.count > 0)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+
+    const outcomesPie = [
+      { name: 'Delivered', value: deliveredN, fill: '#16a34a' },
+      { name: 'In pipeline', value: pipelineN, fill: '#2563eb' },
+      { name: 'Cancelled / rescheduled', value: negativeN, fill: '#94a3b8' },
+    ].filter(x => x.value > 0);
+
+    const unassignedCount = deliveries.filter(d => !idOf(d)).length;
+
+    return {
+      workloadBars,
+      outcomesPie,
+      assignedCount: assignedN,
+      unassignedCount,
+      hasAssignments: assignedN > 0,
+      topWorkload: workloadBars[0] ?? null,
+    };
+  }, [deliveries, drivers]);
 
   const exportCSV = (rows: Record<string, unknown>[], fields: string[], filename: string): void => {
     const csv = [fields.join(','), ...rows.map(r => fields.map(f => `"${String(r[f] ?? '').replace(/"/g, '""')}"`).join(','))].join('\n');
@@ -2513,33 +2589,106 @@ export default function AdminDashboardPage(): React.ReactElement {
         </div>
             </div>
 
-            {/* Performance Review — side widget */}
+            {/* Performance analytics — charts from delivery data (not a duplicate driver list) */}
             <div className="space-y-4">
               <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-4">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Performance</h3>
-                <div className="space-y-2 max-h-[280px] overflow-y-auto">
-                  {driversData.slice(0, 8).map(driver => {
-                    const isOnline = onlineUserIds.has(String(driver.id));
-                    const displayName = driver.fullName || driver.full_name || driver.username || 'Unknown';
-                    return (
-                      <div key={driver.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                        <div className="relative flex-shrink-0">
-                          <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-xs font-semibold text-primary-700 dark:text-primary-300">
-                            {displayName[0].toUpperCase()}
-                          </div>
-                          {isOnline && <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full border border-white dark:border-gray-800" />}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{displayName}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">{isOnline ? 'Online' : 'Offline'}</p>
-                        </div>
-                        <button onClick={() => navigate(`/admin/operations?tab=communication&userId=${driver.id}`)} className="text-xs text-primary-600 dark:text-primary-400 hover:underline">Message</button>
-                      </div>
-                    );
-                  })}
+                <div className="flex items-start gap-2 mb-2">
+                  <div className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300">
+                    <Activity className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Delivery performance</h3>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                      From current tracking data ·{' '}
+                      <span className="font-medium text-gray-700 dark:text-gray-300">{driverPanelAnalytics.assignedCount}</span> assigned
+                      {driverPanelAnalytics.unassignedCount > 0 && (
+                        <> · <span className="text-amber-600 dark:text-amber-400">{driverPanelAnalytics.unassignedCount} unassigned</span></>
+                      )}
+                    </p>
+                  </div>
                 </div>
+                {driverPanelAnalytics.unassignedCount > 0 && (
+                  <InsightCard
+                    type="warning"
+                    className="mb-3"
+                    message={`${driverPanelAnalytics.unassignedCount} ${driverPanelAnalytics.unassignedCount === 1 ? 'delivery has' : 'deliveries have'} no driver assigned — open the Deliveries tab to assign.`}
+                  />
+                )}
+                {driverPanelAnalytics.topWorkload && driverPanelAnalytics.hasAssignments && (
+                  <p className="text-xs text-gray-600 dark:text-gray-300 mb-3 px-0.5">
+                    Highest workload: <span className="font-semibold text-gray-900 dark:text-gray-100">{driverPanelAnalytics.topWorkload.name}</span>
+                    {' '}({driverPanelAnalytics.topWorkload.count} assigned)
+                  </p>
+                )}
               </div>
-              <button onClick={() => navigate('/admin/users')} className="w-full text-sm text-primary-600 dark:text-primary-400 hover:underline text-center py-2">
+
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-4">
+                <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Workload</h4>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-2">Assigned deliveries by driver (top 8)</p>
+                {driverPanelAnalytics.workloadBars.length === 0 ? (
+                  <p className="text-center text-xs text-gray-400 dark:text-gray-500 py-10">No driver-assigned deliveries in current data.</p>
+                ) : (
+                  <ResponsiveContainer width="100%" height={Math.min(320, 48 + driverPanelAnalytics.workloadBars.length * 36)}>
+                    <BarChart
+                      layout="vertical"
+                      data={driverPanelAnalytics.workloadBars}
+                      margin={{ top: 4, right: 12, left: 4, bottom: 4 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
+                      <XAxis type="number" tick={{ fontSize: 10, fill: '#6b7280' }} allowDecimals={false} />
+                      <YAxis type="category" dataKey="name" width={92} tick={{ fontSize: 10, fill: '#6b7280' }} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: 'var(--surface, white)', border: '1px solid var(--border, #e5e7eb)', borderRadius: '8px', fontSize: '11px' }}
+                        formatter={(v: number) => [`${v}`, 'Assigned']}
+                      />
+                      <Bar dataKey="count" fill="#2563eb" radius={[0, 4, 4, 0]} maxBarSize={18} name="Assigned" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-4">
+                <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Outcomes</h4>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-2">Status mix for driver-assigned deliveries only</p>
+                {!driverPanelAnalytics.hasAssignments ? (
+                  <p className="text-center text-xs text-gray-400 dark:text-gray-500 py-10">No assigned deliveries to analyze.</p>
+                ) : driverPanelAnalytics.outcomesPie.length === 0 ? (
+                  <p className="text-center text-xs text-gray-400 dark:text-gray-500 py-10">No outcome data.</p>
+                ) : (
+                  <ResponsiveContainer width="100%" height={220}>
+                    <PieChart>
+                      <Pie
+                        data={driverPanelAnalytics.outcomesPie}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius="52%"
+                        outerRadius="78%"
+                        paddingAngle={2}
+                        labelLine={false}
+                        label={(props: PieLabelRenderProps) => {
+                          const p = Number(props.percent ?? 0);
+                          return Number.isFinite(p) && p >= 0.06
+                            ? `${Math.round(p * 100)}%`
+                            : '';
+                        }}
+                      >
+                        {driverPanelAnalytics.outcomesPie.map((entry, i) => (
+                          <Cell key={i} fill={entry.fill} stroke="var(--background, #fff)" strokeWidth={1} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ backgroundColor: 'var(--surface, white)', border: '1px solid var(--border, #e5e7eb)', borderRadius: '8px', fontSize: '11px' }}
+                        formatter={(v: number, name: string) => [v, name]}
+                      />
+                      <Legend wrapperStyle={{ fontSize: '11px' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+
+              <button type="button" onClick={() => navigate('/admin/users')} className="w-full text-sm text-primary-600 dark:text-primary-400 hover:underline text-center py-2">
                 Manage drivers →
               </button>
             </div>
