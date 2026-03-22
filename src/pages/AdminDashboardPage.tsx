@@ -1451,9 +1451,9 @@ export default function AdminDashboardPage(): React.ReactElement {
                       formatter={(val: number | string, name: string) => (name === 'Success Rate %' ? [`${val}%`, name] : [val, name]) as [React.ReactNode, string]}
                     />
                     <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '12px' }} />
-                    <Bar yAxisId="left" dataKey="total" fill="#c7d7f9" name="Total Dispatched" radius={[3, 3, 0, 0]} maxBarSize={20} isAnimationActive={false} />
-                    <Bar yAxisId="left" dataKey="delivered" fill="#2563EB" name="Delivered" radius={[3, 3, 0, 0]} maxBarSize={20} isAnimationActive={false} />
-                    <Line yAxisId="right" type="monotone" dataKey="rate" stroke="#f97316" name="Success Rate %" dot={false} strokeWidth={2.5} isAnimationActive={false} />
+                    <Bar yAxisId="left" dataKey="total" fill="#c7d7f9" name="Total Dispatched" radius={[3, 3, 0, 0]} maxBarSize={20} isAnimationActive animationDuration={900} animationEasing="ease-out" />
+                    <Bar yAxisId="left" dataKey="delivered" fill="#2563EB" name="Delivered" radius={[3, 3, 0, 0]} maxBarSize={20} isAnimationActive animationDuration={900} animationEasing="ease-out" />
+                    <Line yAxisId="right" type="monotone" dataKey="rate" stroke="#f97316" name="Success Rate %" dot={false} strokeWidth={2.5} isAnimationActive animationDuration={1100} animationEasing="ease-out" />
                   </ComposedChart>
                 </ResponsiveContainer>
               </div>
