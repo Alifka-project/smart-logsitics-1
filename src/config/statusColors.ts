@@ -2,6 +2,8 @@ import type { DeliveryStatus } from '../types/delivery';
 
 export type StatusVisualConfig = {
   label: string;
+  /** Shorter text for dense table pills (avoids awkward wraps). */
+  pillLabel?: string;
   bgColor: string;
   textColor: string;
   borderColor: string;
@@ -61,12 +63,14 @@ export const STATUS_CONFIG: Record<DeliveryStatus, StatusVisualConfig> = {
   },
   out_for_delivery: {
     label: 'Out for Delivery',
-    bgColor: 'bg-purple-50',
-    textColor: 'text-purple-600',
-    borderColor: 'border-purple-200',
-    iconBg: 'bg-purple-100',
+    pillLabel: 'On route',
+    bgColor: 'bg-[#002D5B]/8',
+    textColor: 'text-[#002D5B]',
+    borderColor: 'border-[#002D5B]/20 dark:border-blue-400/25',
+    iconBg: 'bg-[#002D5B]/15',
     icon: '🚚',
-    badgeStyle: 'bg-purple-100 text-purple-700',
+    badgeStyle:
+      'bg-[#002D5B]/10 text-[#002D5B] dark:bg-blue-400/15 dark:text-blue-100',
   },
   delivered: {
     label: 'Delivered',

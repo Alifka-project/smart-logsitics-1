@@ -6,6 +6,24 @@ import { rescheduleDateToWorkflow } from '../../utils/deliveryWorkflowMap';
 
 export type OrdersTableTab = 'all' | 'pending' | 'confirmed' | 'scheduled' | 'out_for_delivery';
 
+function OrderStatusPill({ status }: { status: DeliveryStatus }): React.ReactElement {
+  const c = STATUS_CONFIG[status];
+  const text = c.pillLabel ?? c.label;
+  return (
+    <span
+      className={`
+        inline-flex max-w-full items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 py-1.5
+        text-xs font-semibold leading-none shadow-sm
+        ${c.badgeStyle} ${c.borderColor}
+      `}
+      title={c.pillLabel ? c.label : undefined}
+    >
+      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-55" aria-hidden />
+      {text}
+    </span>
+  );
+}
+
 interface OrdersTableProps {
   orders: DeliveryOrder[];
   cardFilter: string;
@@ -16,9 +34,6 @@ interface OrdersTableProps {
   onCallCustomer: (phone: string) => void;
   onWhatsApp: (phone: string) => void;
   onTrackDelivery?: (orderId: string) => void;
-  selectedOrders: string[];
-  onSelectOrder: (orderId: string) => void;
-  onSelectPage: (pageIds: string[], selected: boolean) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
   sortBy: string;
@@ -69,9 +84,6 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
   onCallCustomer,
   onWhatsApp,
   onTrackDelivery,
-  selectedOrders,
-  onSelectOrder,
-  onSelectPage,
   searchQuery,
   onSearchChange,
   sortBy,
@@ -235,14 +247,6 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
     },
   ];
 
-  const pageIds = paginatedOrders.map((o) => o.id);
-  const allPageSelected =
-    pageIds.length > 0 && pageIds.every((id) => selectedOrders.includes(id));
-
-  const toggleSelectAllPage = () => {
-    onSelectPage(pageIds, !allPageSelected);
-  };
-
   const pages = pageWindow(currentPage, totalPages, 5);
 
   return (
@@ -304,18 +308,9 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="manage-orders-table-mobile table-mobile-cards w-full min-w-[800px]">
+        <table className="manage-orders-table-mobile table-mobile-cards w-full min-w-[720px]">
           <thead className="bg-gray-50 dark:bg-gray-900/80 border-b border-gray-100 dark:border-gray-700">
             <tr>
-              <th className="w-10 px-4 py-3">
-                <input
-                  type="checkbox"
-                  checked={allPageSelected}
-                  onChange={toggleSelectAllPage}
-                  className="rounded border-gray-300 dark:border-gray-600"
-                  aria-label="Select all on this page"
-                />
-              </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                 Customer
               </th>
@@ -345,29 +340,14 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
           <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
             {paginatedOrders.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                   No orders match the current filters.
                 </td>
               </tr>
             ) : (
               paginatedOrders.map((order) => {
-                const statusConfig = STATUS_CONFIG[order.status];
-                const isSelected = selectedOrders.includes(order.id);
-
                 return (
-                  <tr
-                    key={order.id}
-                    className={`hover:bg-gray-50 dark:hover:bg-gray-900/50 ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
-                  >
-                    <td className="px-4 py-3" data-label="Select">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => onSelectOrder(order.id)}
-                        className="rounded border-gray-300 dark:border-gray-600"
-                        aria-label={`Select ${order.customerName}`}
-                      />
-                    </td>
+                  <tr key={order.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50">
                     <td className="px-4 py-3" data-label="Customer">
                       <span className="text-sm font-medium text-gray-900 dark:text-white">{order.customerName}</span>
                     </td>
@@ -408,12 +388,8 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                     <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300" data-label="Product">
                       {order.product}
                     </td>
-                    <td className="px-4 py-3" data-label="Status">
-                      <span
-                        className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${statusConfig.badgeStyle}`}
-                      >
-                        ● {statusConfig.label}
-                      </span>
+                    <td className="w-[1%] whitespace-nowrap px-4 py-3 align-middle" data-label="Status">
+                      <OrderStatusPill status={order.status} />
                     </td>
                     <td className="px-4 py-3" data-label="Action">
                       {getActionButton(order)}

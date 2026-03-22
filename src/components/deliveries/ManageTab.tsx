@@ -63,7 +63,6 @@ export default function ManageTab({
   const [tableTab, setTableTab] = useState<OrdersTableTab>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('newest');
-  const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
   const manageOrders = useMemo(() => deliveries.map((d) => deliveryToManageOrder(d)), [deliveries]);
@@ -244,9 +243,6 @@ export default function ManageTab({
             onCallCustomer={handleCallCustomer}
             onWhatsApp={handleWhatsApp}
             onTrackDelivery={() => handleTrackDelivery()}
-            selectedOrders={selectedOrders}
-            onSelectOrder={handleSelectOrder}
-            onSelectPage={handleSelectPage}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             sortBy={sortBy}

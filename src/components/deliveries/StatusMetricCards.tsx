@@ -49,32 +49,40 @@ export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({
               type="button"
               onClick={() => onCardClick(key)}
               className={`
-              relative p-3 sm:p-4 rounded-xl bg-white dark:bg-gray-800/80 border text-left w-full min-w-0
-              shadow-sm transition-all hover:shadow-md
-              ${isHighlight ? 'border-2 border-amber-400' : 'border border-gray-200 dark:border-gray-600'}
-              ${isActive ? 'ring-2 ring-[#002D5B] ring-offset-2 dark:ring-offset-gray-900' : ''}
+              relative flex flex-col rounded-xl bg-white dark:bg-gray-800/80 p-3 pt-3.5 pb-3.5 text-left
+              w-full min-w-0 shadow-sm transition-all hover:shadow-md
+              ${
+                isActive
+                  ? 'border-2 border-[#002D5B] shadow-md'
+                  : isHighlight
+                    ? 'border-2 border-amber-400/90'
+                    : 'border border-gray-200 dark:border-gray-600'
+              }
               ${isFaded ? 'opacity-50' : ''}
             `}
             >
-              <div
-                className={`w-8 h-8 rounded-full ${config.iconBg} dark:opacity-90 flex items-center justify-center mb-2`}
-              >
-                <span className="text-sm">{config.icon}</span>
+              <div className="flex items-start justify-between gap-2">
+                <div
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${config.iconBg} dark:opacity-90`}
+                >
+                  <span className="text-base leading-none">{config.icon}</span>
+                </div>
+                <span className="text-gray-300 dark:text-gray-500 text-[10px] leading-none" aria-hidden>
+                  ↗
+                </span>
               </div>
 
-              <span className="absolute top-3 right-3 text-gray-400 text-xs" aria-hidden>
-                ↗
-              </span>
-
               <p
-                className={`text-xs font-medium ${isHighlight ? config.textColor : 'text-gray-600 dark:text-gray-300'}`}
+                className={`mt-2.5 text-xs font-semibold leading-snug ${isHighlight ? config.textColor : 'text-gray-600 dark:text-gray-300'}`}
               >
                 {config.label}
               </p>
 
-              <div className="flex items-baseline gap-1 mt-1">
-                <span className="text-xl font-semibold text-gray-900 dark:text-white">{count}</span>
-                <span className="text-xs text-gray-400">{sublabel}</span>
+              <div className="mt-2 flex items-end justify-between gap-2 border-t border-gray-100 pt-2.5 dark:border-gray-700/80">
+                <span className="text-2xl font-bold tabular-nums leading-none text-gray-900 dark:text-white">
+                  {count}
+                </span>
+                <span className="pb-0.5 text-[10px] font-medium text-gray-400">{sublabel}</span>
               </div>
             </button>
           );
