@@ -159,6 +159,131 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
   );
   const d = data as Record<string, unknown>[];
   const hasData = d.length > 0;
+
+  const renderChart = (): React.ReactNode => {
+    if (!hasData) return null;
+    if (chartType === 'line') {
+      return (
+        <ResponsiveContainer width="100%" height={220}>
+          <ComposedChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} domain={dataKey === 'rate' ? [0, 100] : undefined} unit={dataKey === 'rate' ? '%' : undefined} />
+            <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} formatter={dataKey === 'rate' ? (val: number) => [`${val}%`, 'Success Rate'] : undefined} />
+            <Line type="monotone" dataKey={dataKey || 'count'} stroke={barColor} strokeWidth={2} dot={{ r: 3 }} fill="transparent" isAnimationActive={false} />
+          </ComposedChart>
+        </ResponsiveContainer>
+      );
+    }
+    if (chartType === 'area') {
+      return (
+        <ResponsiveContainer width="100%" height={220}>
+          <AreaChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+            <defs>
+              <linearGradient id={`areaGrad-${title.replace(/\s/g, '')}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={barColor} stopOpacity={0.4} />
+                <stop offset="95%" stopColor={barColor} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+            <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
+            <Area type="monotone" dataKey={dataKey || 'count'} stroke={barColor} fill={`url(#areaGrad-${title.replace(/\s/g, '')})`} strokeWidth={2} isAnimationActive={false} />
+          </AreaChart>
+        </ResponsiveContainer>
+      );
+    }
+    if (chartType === 'stacked-area') {
+      return (
+        <ResponsiveContainer width="100%" height={220}>
+          <AreaChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+            <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
+            <Legend wrapperStyle={{ fontSize: '10px' }} />
+            <Area type="monotone" dataKey="delivered" stackId="1" stroke="#059669" fill="#059669" fillOpacity={0.6} name="Delivered" isAnimationActive={false} />
+            <Area type="monotone" dataKey="pending" stackId="1" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.6} name="Pending" isAnimationActive={false} />
+            <Area type="monotone" dataKey="cancelled" stackId="1" stroke="#dc2626" fill="#dc2626" fillOpacity={0.6} name="Cancelled" isAnimationActive={false} />
+          </AreaChart>
+        </ResponsiveContainer>
+      );
+    }
+    if (chartType === 'stacked-bar') {
+      return (
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+            <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
+            <Legend wrapperStyle={{ fontSize: '10px' }} />
+            <Bar dataKey="delivered" stackId="a" fill="#059669" name="Delivered" radius={[0, 0, 0, 0]} isAnimationActive={false} />
+            <Bar dataKey="pending" stackId="a" fill="#f59e0b" name="Pending" radius={[0, 0, 0, 0]} isAnimationActive={false} />
+            <Bar dataKey="cancelled" stackId="a" fill="#dc2626" name="Cancelled" radius={[0, 0, 0, 0]} isAnimationActive={false} />
+          </BarChart>
+        </ResponsiveContainer>
+      );
+    }
+    if (chartType === 'bar') {
+      return (
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+            <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
+            <Bar dataKey={dataKey || 'count'} fill={barColor} radius={[4, 4, 0, 0]} maxBarSize={24} isAnimationActive={false} />
+          </BarChart>
+        </ResponsiveContainer>
+      );
+    }
+    if (chartType === 'bar-h') {
+      return (
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={d} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
+            <XAxis type="number" tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+            <YAxis type="category" dataKey={xKey} width={80} tick={{ fontSize: 10, fill: '#374151' }} tickLine={false} axisLine={false} />
+            <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
+            <Bar dataKey={dataKey || 'count'} fill={barColor} radius={[0, 4, 4, 0]} maxBarSize={16} isAnimationActive={false} />
+          </BarChart>
+        </ResponsiveContainer>
+      );
+    }
+    if (chartType === 'donut') {
+      const COLORS = ['#2563EB', '#059669', '#f59e0b', '#dc2626', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1'];
+      const pieData = d
+        .map((row, i) => {
+          const val = Number(row[dataKey as keyof typeof row] ?? row.count ?? 0);
+          const nm = String(row[nameKey as keyof typeof row] ?? row[xKey as keyof typeof row] ?? `Item ${i + 1}`);
+          return { name: nm, value: val, fill: COLORS[i % COLORS.length] };
+        })
+        .filter((item) => item.value > 0);
+      if (pieData.length === 0) return <p className="text-center py-10 text-gray-400 dark:text-gray-500 text-xs">No data to display</p>;
+      return (
+        <ResponsiveContainer width="100%" height={220}>
+          <PieChart margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+            <Pie
+              data={pieData}
+              dataKey="value"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              innerRadius="55%"
+              outerRadius="85%"
+              paddingAngle={1}
+              isAnimationActive={false}
+            />
+            <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} formatter={(val: number, name: string) => [val, name]} />
+          </PieChart>
+        </ResponsiveContainer>
+      );
+    }
+    return null;
+  };
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-4">
       <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
@@ -168,105 +293,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
         </div>
         <FilterBtns />
       </div>
-      {hasData ? (
-        <ResponsiveContainer width="100%" height={220}>
-          {chartType === 'line' && (
-            <ComposedChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-              <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-              <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} domain={dataKey === 'rate' ? [0, 100] : undefined} unit={dataKey === 'rate' ? '%' : undefined} />
-              <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} formatter={dataKey === 'rate' ? (val: number) => [`${val}%`, 'Success Rate'] : undefined} />
-              <Line type="monotone" dataKey={dataKey || 'count'} stroke={barColor} strokeWidth={2} dot={{ r: 3 }} fill="transparent" isAnimationActive={false} />
-            </ComposedChart>
-          )}
-          {chartType === 'area' && (
-            <AreaChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-              <defs>
-                <linearGradient id={`areaGrad-${title.replace(/\s/g, '')}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={barColor} stopOpacity={0.4} />
-                  <stop offset="95%" stopColor={barColor} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-              <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-              <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-              <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
-              <Area type="monotone" dataKey={dataKey || 'count'} stroke={barColor} fill={`url(#areaGrad-${title.replace(/\s/g, '')})`} strokeWidth={2} isAnimationActive={false} />
-            </AreaChart>
-          )}
-          {chartType === 'stacked-area' && (
-            <AreaChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-              <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-              <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-              <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
-              <Legend wrapperStyle={{ fontSize: '10px' }} />
-              <Area type="monotone" dataKey="delivered" stackId="1" stroke="#059669" fill="#059669" fillOpacity={0.6} name="Delivered" isAnimationActive={false} />
-              <Area type="monotone" dataKey="pending" stackId="1" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.6} name="Pending" isAnimationActive={false} />
-              <Area type="monotone" dataKey="cancelled" stackId="1" stroke="#dc2626" fill="#dc2626" fillOpacity={0.6} name="Cancelled" isAnimationActive={false} />
-            </AreaChart>
-          )}
-          {chartType === 'stacked-bar' && (
-            <BarChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-              <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-              <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-              <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
-              <Legend wrapperStyle={{ fontSize: '10px' }} />
-              <Bar dataKey="delivered" stackId="a" fill="#059669" name="Delivered" radius={[0, 0, 0, 0]} isAnimationActive={false} />
-              <Bar dataKey="pending" stackId="a" fill="#f59e0b" name="Pending" radius={[0, 0, 0, 0]} isAnimationActive={false} />
-              <Bar dataKey="cancelled" stackId="a" fill="#dc2626" name="Cancelled" radius={[0, 0, 0, 0]} isAnimationActive={false} />
-            </BarChart>
-          )}
-          {chartType === 'bar' && (
-            <BarChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-              <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-              <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-              <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
-              <Bar dataKey={dataKey || 'count'} fill={barColor} radius={[4, 4, 0, 0]} maxBarSize={24} />
-            </BarChart>
-          )}
-          {chartType === 'bar-h' && (
-            <BarChart data={d} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-              <YAxis type="category" dataKey={xKey} width={80} tick={{ fontSize: 10, fill: '#374151' }} tickLine={false} axisLine={false} />
-              <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
-              <Bar dataKey={dataKey || 'count'} fill={barColor} radius={[0, 4, 4, 0]} maxBarSize={16} isAnimationActive={false} />
-            </BarChart>
-          )}
-          {chartType === 'donut' && (() => {
-            const COLORS = ['#2563EB', '#059669', '#f59e0b', '#dc2626', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1'];
-            const pieData = d
-              .map((row, i) => {
-                const val = Number(row[dataKey as keyof typeof row] ?? row.count ?? 0);
-                const nm = String(row[nameKey as keyof typeof row] ?? row[xKey as keyof typeof row] ?? `Item ${i + 1}`);
-                return { name: nm, value: val, fill: COLORS[i % COLORS.length] };
-              })
-              .filter((item) => item.value > 0);
-            if (pieData.length === 0) return <p className="text-center py-10 text-gray-400 dark:text-gray-500 text-xs">No data to display</p>;
-            return (
-              <PieChart margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-                <Pie
-                  data={pieData}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius="55%"
-                  outerRadius="85%"
-                  paddingAngle={1}
-                  isAnimationActive={false}
-                />
-                <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} formatter={(val: number, name: string) => [val, name]} />
-              </PieChart>
-            );
-          })()}
-        </ResponsiveContainer>
-      ) : (
-        <p className="text-center py-10 text-gray-400 dark:text-gray-500 text-xs">No data available</p>
-      )}
+      {hasData ? renderChart() : <p className="text-center py-10 text-gray-400 dark:text-gray-500 text-xs">No data available</p>}
     </div>
   );
 }
