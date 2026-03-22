@@ -148,6 +148,7 @@ export default function AdminDashboardPage(): React.ReactElement {
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
   const [deliverySearch, setDeliverySearch] = useState<string>('');
   const [deliveryStatusFilter, setDeliveryStatusFilter] = useState<string>('all');
+  const [deliveryAttentionFilter, setDeliveryAttentionFilter] = useState<'overdue' | 'unassigned' | 'awaiting' | null>(null);
   const [deliveryPage, setDeliveryPage] = useState<number>(0);
   const deliveryTableRef = useRef<HTMLDivElement>(null);
   const [deliveryDateFrom, setDeliveryDateFrom] = useState<string>('');
@@ -182,6 +183,7 @@ export default function AdminDashboardPage(): React.ReactElement {
   const [driversSortDir, setDriversSortDir] = useState<string>('asc');
 
   const [heroPeriod, setHeroPeriod] = useState<string>('30d');
+  const [trendPeriod, setTrendPeriod] = useState<'day' | 'month' | 'year'>('month');
 
   // ─── DATA FETCHING ───
 
@@ -378,6 +380,61 @@ export default function AdminDashboardPage(): React.ReactElement {
     }));
   }, [deliveries, heroPeriod]);
 
+  const trendChartData = useMemo(() => {
+    const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
+    const now = new Date();
+    if (trendPeriod === 'day') {
+      const buckets: Record<string, { label: string; day: string; count: number }> = {};
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        const key = d.toISOString().slice(0, 10);
+        const label = d.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' });
+        buckets[key] = { label, day: d.toLocaleDateString('en-GB', { weekday: 'short' }), count: 0 };
+      }
+      list.forEach(d => {
+        const t = d.delivered_at || d.deliveredAt || d.created_at || d.createdAt || d.created;
+        if (!t) return;
+        const dt = new Date(t as string | number);
+        const key = dt.toISOString().slice(0, 10);
+        if (buckets[key]) buckets[key].count++;
+      });
+      return Object.values(buckets);
+    }
+    if (trendPeriod === 'month') {
+      const buckets: Record<string, { label: string; count: number }> = {};
+      for (let i = 0; i < 12; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const label = d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
+        buckets[key] = { label, count: 0 };
+      }
+      list.forEach(d => {
+        const t = d.delivered_at || d.deliveredAt || d.created_at || d.createdAt || d.created;
+        if (!t) return;
+        const dt = new Date(t as string | number);
+        const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
+        if (buckets[key]) buckets[key].count++;
+      });
+      return Object.entries(buckets).sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v);
+    }
+    if (trendPeriod === 'year') {
+      const buckets: Record<string, { label: string; count: number }> = {};
+      for (let i = 0; i < 5; i++) {
+        const y = now.getFullYear() - i;
+        buckets[String(y)] = { label: String(y), count: 0 };
+      }
+      list.forEach(d => {
+        const t = d.delivered_at || d.deliveredAt || d.created_at || d.createdAt || d.created;
+        if (!t) return;
+        const y = new Date(t as string | number).getFullYear();
+        if (buckets[String(y)]) buckets[String(y)].count++;
+      });
+      return Object.entries(buckets).sort((a, b) => a[0].localeCompare(b[0])).map(([, v]) => v);
+    }
+    return [];
+  }, [deliveries, trendPeriod]);
+
   const filteredDeliveries = useMemo<TrackingDelivery[]>(() => {
     const list = (deliveries && Array.isArray(deliveries) ? deliveries : []).slice();
     const dir = deliverySortDir === 'asc' ? 1 : -1;
@@ -387,6 +444,7 @@ export default function AdminDashboardPage(): React.ReactElement {
       if (deliverySortBy === 'poNumber') return dir * (a.poNumber || '').localeCompare(b.poNumber || '');
       return dir * (new Date(a.created_at || a.createdAt || 0).getTime() - new Date(b.created_at || b.createdAt || 0).getTime());
     });
+    const dayAgo = new Date(Date.now() - 86400000);
     return list.filter(d => {
       const q = deliverySearch.trim().toLowerCase();
       if (q && !((d.poNumber || '').toLowerCase().includes(q) || (d.customer || '').toLowerCase().includes(q) || (d.address || '').toLowerCase().includes(q))) return false;
@@ -394,9 +452,23 @@ export default function AdminDashboardPage(): React.ReactElement {
       const date = new Date(d.created_at || d.createdAt || 0);
       if (deliveryDateFrom && date < new Date(deliveryDateFrom)) return false;
       if (deliveryDateTo && date > new Date(deliveryDateTo + 'T23:59:59')) return false;
+      if (deliveryAttentionFilter === 'overdue') {
+        const s = (d.status || '').toLowerCase();
+        if (!['pending', 'scheduled'].includes(s)) return false;
+        if (date >= dayAgo) return false;
+      } else if (deliveryAttentionFilter === 'unassigned') {
+        const s = (d.status || '').toLowerCase();
+        if (!['pending', 'scheduled'].includes(s)) return false;
+        if (d.assignedDriverId || d.tracking?.driverId) return false;
+      } else if (deliveryAttentionFilter === 'awaiting') {
+        const s = (d.status || '').toLowerCase();
+        const conf = String(d.confirmationStatus || '').toLowerCase();
+        if (!['pending', 'scheduled'].includes(s)) return false;
+        if (conf === 'confirmed' || d.customerConfirmedAt) return false;
+      }
       return true;
     });
-  }, [deliveries, deliverySearch, deliveryStatusFilter, deliveryDateFrom, deliveryDateTo, deliverySortBy, deliverySortDir]);
+  }, [deliveries, deliverySearch, deliveryStatusFilter, deliveryDateFrom, deliveryDateTo, deliveryAttentionFilter, deliverySortBy, deliverySortDir]);
 
   const deliveryByAreaData = useMemo<AreaItem[]>(() => {
     const arr = (data?.analytics?.deliveryByArea || []).slice().sort((a, b) => (b.count ?? 0) - (a.count ?? 0));
@@ -574,14 +646,27 @@ export default function AdminDashboardPage(): React.ReactElement {
           </button>
         </div>
 
-      {/* ── Action Items Banner ── */}
-      {(actionItems.overdue > 0 || actionItems.unassigned > 0 || actionItems.unconfirmed > 0) && (
+      {/* ── Action Items Banner (overdue removed - shown in Need Attention card) ── */}
+      {(actionItems.unassigned > 0 || actionItems.unconfirmed > 0) && (
         <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg px-4 py-3 flex flex-wrap items-center gap-4">
           <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
           <div className="flex flex-wrap gap-4 text-sm text-amber-800 dark:text-amber-300 flex-1">
-            {actionItems.overdue > 0 && <span><strong>{actionItems.overdue}</strong> overdue deliveries (pending &gt; 24 hours)</span>}
-            {actionItems.unassigned > 0 && <span><strong>{actionItems.unassigned}</strong> unassigned deliveries</span>}
-            {actionItems.unconfirmed > 0 && <span><strong>{actionItems.unconfirmed}</strong> awaiting confirmation</span>}
+            {actionItems.unassigned > 0 && (
+              <button
+                onClick={() => { setActiveTab('deliveries'); setDeliveryAttentionFilter('unassigned'); setDeliveryStatusFilter('pending'); setDeliveryPage(0); }}
+                className="font-semibold text-amber-700 dark:text-amber-400 hover:underline underline-offset-2"
+              >
+                <strong>{actionItems.unassigned}</strong> unassigned deliveries
+              </button>
+            )}
+            {actionItems.unconfirmed > 0 && (
+              <button
+                onClick={() => { setActiveTab('deliveries'); setDeliveryAttentionFilter('awaiting'); setDeliveryStatusFilter('pending'); setDeliveryPage(0); }}
+                className="font-semibold text-amber-700 dark:text-amber-400 hover:underline underline-offset-2"
+              >
+                <strong>{actionItems.unconfirmed}</strong> awaiting confirmation
+              </button>
+            )}
           </div>
           <button
             onClick={() => { setActiveTab('deliveries'); setDeliveryPage(0); }}
@@ -716,18 +801,18 @@ export default function AdminDashboardPage(): React.ReactElement {
               <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-100 dark:border-blue-800 shadow-sm p-5">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Needs Attention</h3>
                 <div className="grid grid-cols-2 gap-2 mb-3">
-                  <button onClick={() => { setActiveTab('deliveries'); setDeliveryStatusFilter('pending'); setDeliveryPage(0); }}
-                    className="flex flex-col items-center justify-center p-3 rounded-lg bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 transition-colors text-left">
+                  <button onClick={() => { setActiveTab('deliveries'); setDeliveryAttentionFilter('overdue'); setDeliveryStatusFilter('pending'); setDeliveryPage(0); }}
+                    className="flex flex-col items-center justify-center p-3 rounded-lg bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 transition-colors text-left cursor-pointer">
                     <span className="text-lg font-bold text-amber-600 dark:text-amber-400">{actionItems.overdue}</span>
                     <span className="text-xs text-gray-600 dark:text-gray-400">Overdue</span>
                   </button>
-                  <button onClick={() => { setActiveTab('deliveries'); setDeliveryStatusFilter('pending'); setDeliveryPage(0); }}
-                    className="flex flex-col items-center justify-center p-3 rounded-lg bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 transition-colors text-left">
+                  <button onClick={() => { setActiveTab('deliveries'); setDeliveryAttentionFilter('unassigned'); setDeliveryStatusFilter('pending'); setDeliveryPage(0); }}
+                    className="flex flex-col items-center justify-center p-3 rounded-lg bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 transition-colors text-left cursor-pointer">
                     <span className="text-lg font-bold text-orange-600 dark:text-orange-400">{actionItems.unassigned}</span>
                     <span className="text-xs text-gray-600 dark:text-gray-400">Unassigned</span>
                   </button>
-                  <button onClick={() => { setActiveTab('deliveries'); setDeliveryPage(0); }}
-                    className="flex flex-col items-center justify-center p-3 rounded-lg bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 transition-colors text-left col-span-2">
+                  <button onClick={() => { setActiveTab('deliveries'); setDeliveryAttentionFilter('awaiting'); setDeliveryStatusFilter('pending'); setDeliveryPage(0); }}
+                    className="flex flex-col items-center justify-center p-3 rounded-lg bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 transition-colors text-left col-span-2 cursor-pointer">
                     <span className="text-lg font-bold text-purple-600 dark:text-purple-400">{actionItems.unconfirmed}</span>
                     <span className="text-xs text-gray-600 dark:text-gray-400">Awaiting confirmation</span>
                   </button>
@@ -810,42 +895,76 @@ export default function AdminDashboardPage(): React.ReactElement {
 
           {/* Two-column layout */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Monthly chart */}
+            {/* Trend chart — left */}
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-6">
-            <div className="mb-4">
-              <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Delivery Requests — Monthly</h2>
-              <p className="pp-page-subtitle">Number of deliveries created per month (last 12 months)</p>
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+                  Delivery Requests — {trendPeriod === 'day' ? 'Daily (Last 7 Days)' : trendPeriod === 'month' ? 'Monthly (Last 12 Months)' : 'Yearly (Last 5 Years)'}
+                </h2>
+                <p className="pp-page-subtitle">
+                  {trendPeriod === 'day' ? 'Daily delivery volume for the current week' : trendPeriod === 'month' ? 'Number of deliveries per month' : 'Number of deliveries per year'}
+                </p>
+              </div>
+              <div className="flex rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden text-xs font-medium">
+                {(['day', 'month', 'year'] as const).map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setTrendPeriod(p)}
+                    className={`px-3 py-1.5 transition-colors capitalize ${trendPeriod === p ? 'bg-primary-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                  >
+                    {p === 'day' ? 'Daily' : p === 'month' ? 'Monthly' : 'Yearly'}
+                  </button>
+                ))}
+              </div>
             </div>
-            {(data?.analytics?.deliveryByMonth || []).length > 0 ? (
+            {trendChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={data!.analytics!.deliveryByMonth} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                <BarChart data={trendChartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+                  <XAxis dataKey={trendPeriod === 'day' ? 'day' : 'label'} tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} />
                   <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} />
                   <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '12px' }} />
                   <Bar dataKey="count" name="Deliveries" radius={[4, 4, 0, 0]}>
-                    {(data!.analytics!.deliveryByMonth || []).map((_, i, arr) => (
+                    {trendChartData.map((_, i, arr) => (
                       <Cell key={i} fill={i === arr.length - 1 ? '#1d4ed8' : '#93c5fd'} />
                     ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <p className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">No monthly data available</p>
+              <p className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">No data available</p>
             )}
             </div>
 
-            {/* Weekly chart — right column */}
+            {/* Trend chart — right column (same data, line overlay) */}
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-6">
-              <div className="mb-4">
-                <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Top Quantity Deliveries — Last 7 Days</h2>
-                <p className="pp-page-subtitle">Daily delivery volume for the current week</p>
+              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+                    Delivery Volume — {trendPeriod === 'day' ? 'Daily' : trendPeriod === 'month' ? 'Monthly' : 'Yearly'}
+                  </h2>
+                  <p className="pp-page-subtitle">
+                    {trendPeriod === 'day' ? 'Daily delivery volume for the current week' : trendPeriod === 'month' ? 'Monthly delivery volume (last 12 months)' : 'Yearly delivery volume (last 5 years)'}
+                  </p>
+                </div>
+                <div className="flex rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden text-xs font-medium">
+                  {(['day', 'month', 'year'] as const).map(p => (
+                    <button
+                      key={p}
+                      onClick={() => setTrendPeriod(p)}
+                      className={`px-3 py-1.5 transition-colors capitalize ${trendPeriod === p ? 'bg-primary-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                    >
+                      {p === 'day' ? 'Daily' : p === 'month' ? 'Monthly' : 'Yearly'}
+                    </button>
+                  ))}
+                </div>
               </div>
-              {(data?.analytics?.deliveryByWeek || []).length > 0 ? (
-                <ResponsiveContainer width="100%" height={240}>
-                  <ComposedChart data={data!.analytics!.deliveryByWeek} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+              {trendChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={280}>
+                  <ComposedChart data={trendChartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                    <XAxis dataKey="day" tick={{ fontSize: 12, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+                    <XAxis dataKey={trendPeriod === 'day' ? 'day' : 'label'} tick={{ fontSize: 12, fill: '#6b7280' }} tickLine={false} axisLine={false} />
                     <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} />
                     <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '12px' }} />
                     <Bar dataKey="count" name="Deliveries" fill="#2563EB" radius={[4, 4, 0, 0]} maxBarSize={40} />
@@ -853,26 +972,42 @@ export default function AdminDashboardPage(): React.ReactElement {
                   </ComposedChart>
                 </ResponsiveContainer>
               ) : (
-                <p className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">No weekly data available</p>
+                <p className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">No data available</p>
               )}
             </div>
           </div>
 
           {/* Summary stats strip */}
-          {(data?.analytics?.deliveryByMonth || []).length > 0 && (() => {
-            const months = data!.analytics!.deliveryByMonth;
-            const total = months.reduce((s, m) => s + (m.count || 0), 0);
-            const avg = months.length > 0 ? (total / months.length).toFixed(1) : 0;
-            const peak = months.reduce((best, m) => m.count > best.count ? m : best, months[0]);
-            const current = months[months.length - 1];
+          {trendChartData.length > 0 && (() => {
+            const arr = trendChartData;
+            const total = arr.reduce((s, m) => s + (m.count || 0), 0);
+            const avg = arr.length > 0 ? (total / arr.length).toFixed(1) : 0;
+            const peak = arr.reduce((best, m) => (m.count || 0) > (best.count || 0) ? m : best, arr[0]);
+            const current = arr[arr.length - 1];
+            const peakLabel = trendPeriod === 'day' ? peak?.day : peak?.label;
+            const stats = trendPeriod === 'day'
+              ? [
+                  { label: 'Total (7 days)', value: total, color: 'text-blue-600 dark:text-blue-400' },
+                  { label: 'Daily Avg', value: avg, color: 'text-indigo-600 dark:text-indigo-400' },
+                  { label: 'Peak Day', value: `${peakLabel} (${peak?.count})`, color: 'text-emerald-600 dark:text-emerald-400' },
+                  { label: 'Today', value: current?.count ?? 0, color: 'text-orange-600 dark:text-orange-400' },
+                ]
+              : trendPeriod === 'month'
+                ? [
+                    { label: 'Total (12 mo)', value: total, color: 'text-blue-600 dark:text-blue-400' },
+                    { label: 'Monthly Avg', value: avg, color: 'text-indigo-600 dark:text-indigo-400' },
+                    { label: 'Peak Month', value: `${peak?.label} (${peak?.count})`, color: 'text-emerald-600 dark:text-emerald-400' },
+                    { label: 'This Month', value: current?.count ?? 0, color: 'text-orange-600 dark:text-orange-400' },
+                  ]
+                : [
+                    { label: 'Total (5 yr)', value: total, color: 'text-blue-600 dark:text-blue-400' },
+                    { label: 'Yearly Avg', value: avg, color: 'text-indigo-600 dark:text-indigo-400' },
+                    { label: 'Peak Year', value: `${peak?.label} (${peak?.count})`, color: 'text-emerald-600 dark:text-emerald-400' },
+                    { label: 'This Year', value: current?.count ?? 0, color: 'text-orange-600 dark:text-orange-400' },
+                  ];
             return (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {[
-                  { label: 'Total (12 mo)', value: total, color: 'text-blue-600 dark:text-blue-400' },
-                  { label: 'Monthly Avg', value: avg, color: 'text-indigo-600 dark:text-indigo-400' },
-                  { label: 'Peak Month', value: `${peak?.label} (${peak?.count})`, color: 'text-emerald-600 dark:text-emerald-400' },
-                  { label: 'This Month', value: current?.count ?? 0, color: 'text-orange-600 dark:text-orange-400' },
-                ].map(({ label, value, color }) => (
+                {stats.map(({ label, value, color }) => (
                   <div key={label} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-4">
                     <p className="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium tracking-wide mb-1">{label}</p>
                     <p className={`text-xl font-bold ${color}`}>{value}</p>
@@ -1226,15 +1361,15 @@ export default function AdminDashboardPage(): React.ReactElement {
               <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-100 dark:border-blue-800 p-4">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Needs Attention</h3>
                 <div className="space-y-2">
-                  <button onClick={() => { setDeliveryStatusFilter('pending'); setDeliveryPage(0); }} className="w-full flex justify-between items-center p-2 rounded-lg bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 text-left">
+                  <button onClick={() => { setDeliveryAttentionFilter('overdue'); setDeliveryStatusFilter('pending'); setDeliveryPage(0); }} className="w-full flex justify-between items-center p-2 rounded-lg bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 text-left cursor-pointer">
                     <span className="text-sm text-gray-700 dark:text-gray-300">Overdue</span>
                     <span className="font-bold text-amber-600">{actionItems.overdue}</span>
                   </button>
-                  <button onClick={() => { setDeliveryStatusFilter('pending'); setDeliveryPage(0); }} className="w-full flex justify-between items-center p-2 rounded-lg bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 text-left">
+                  <button onClick={() => { setDeliveryAttentionFilter('unassigned'); setDeliveryStatusFilter('pending'); setDeliveryPage(0); }} className="w-full flex justify-between items-center p-2 rounded-lg bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 text-left cursor-pointer">
                     <span className="text-sm text-gray-700 dark:text-gray-300">Unassigned</span>
                     <span className="font-bold text-orange-600">{actionItems.unassigned}</span>
                   </button>
-                  <button onClick={() => setDeliveryPage(0)} className="w-full flex justify-between items-center p-2 rounded-lg bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 text-left">
+                  <button onClick={() => { setDeliveryAttentionFilter('awaiting'); setDeliveryStatusFilter('pending'); setDeliveryPage(0); }} className="w-full flex justify-between items-center p-2 rounded-lg bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 text-left cursor-pointer">
                     <span className="text-sm text-gray-700 dark:text-gray-300">Awaiting confirmation</span>
                     <span className="font-bold text-purple-600">{actionItems.unconfirmed}</span>
                   </button>
