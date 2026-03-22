@@ -64,6 +64,7 @@ export default function ManageTab({
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('newest');
   const [isUploading, setIsUploading] = useState(false);
+  const [editDeliveryId, setEditDeliveryId] = useState<string | null>(null);
 
   const manageOrders = useMemo(() => deliveries.map((d) => deliveryToManageOrder(d)), [deliveries]);
 
@@ -229,6 +230,7 @@ export default function ManageTab({
             onCallCustomer={handleCallCustomer}
             onWhatsApp={handleWhatsApp}
             onTrackDelivery={() => handleTrackDelivery()}
+            onEditOrder={(id) => setEditDeliveryId(id)}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             sortBy={sortBy}
@@ -251,6 +253,15 @@ export default function ManageTab({
           />
         </div>
       </div>
+
+      {editingDelivery && (
+        <OrderEditModal
+          delivery={editingDelivery}
+          onClose={() => setEditDeliveryId(null)}
+          onSaved={handleOrderEditSaved}
+          onToastError={onToastError}
+        />
+      )}
     </div>
   );
 }

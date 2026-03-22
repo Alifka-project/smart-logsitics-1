@@ -89,15 +89,32 @@ router.put('/admin/:id/status', authenticate, requireRole('admin'), async (req, 
 
     console.log(`[Deliveries] Found delivery: id=${existingDelivery.id}, customer=${existingDelivery.customer}`);
 
+    const prevMeta = existingDelivery.metadata && typeof existingDelivery.metadata === 'object'
+      ? existingDelivery.metadata
+      : {};
+
+    const nextMeta = {
+      ...prevMeta,
+      statusUpdatedAt: new Date().toISOString(),
+      statusUpdatedBy: req.user?.sub || 'admin',
+      actualTime: actualTime != null ? actualTime : (prevMeta.actualTime ?? null),
+    };
+
+    if (scheduledDate != null && String(scheduledDate).trim() !== '') {
+      try {
+        const d = new Date(scheduledDate);
+        if (!Number.isNaN(d.getTime())) {
+          nextMeta.scheduledDate = d.toISOString();
+        }
+      } catch (_) {
+        /* ignore invalid date */
+      }
+    }
+
     // Prepare update data - save POD data to dedicated fields
     const updateData = {
       status: status,
-      metadata: {
-        ...existingDelivery.metadata || {},
-        statusUpdatedAt: new Date().toISOString(),
-        statusUpdatedBy: req.user?.sub || 'admin',
-        actualTime: actualTime || null
-      },
+      metadata: nextMeta,
       updatedAt: new Date()
     };
 

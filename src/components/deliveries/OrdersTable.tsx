@@ -34,6 +34,7 @@ interface OrdersTableProps {
   onCallCustomer: (phone: string) => void;
   onWhatsApp: (phone: string) => void;
   onTrackDelivery?: (orderId: string) => void;
+  onEditOrder: (orderId: string) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
   sortBy: string;
@@ -392,7 +393,16 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                       <OrderStatusPill status={order.status} />
                     </td>
                     <td className="px-4 py-3" data-label="Action">
-                      {getActionButton(order)}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => onEditOrder(order.id)}
+                          className="px-2.5 py-1 text-xs font-medium rounded-md bg-[#002D5B] text-white hover:bg-[#001f3f]"
+                        >
+                          Edit
+                        </button>
+                        {getActionButton(order)}
+                      </div>
                     </td>
                   </tr>
                 );
