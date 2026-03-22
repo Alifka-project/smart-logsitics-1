@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import api, { setAuthToken } from '../frontend/apiClient';
-import { BarChart, Bar, ComposedChart, Cell, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, Line, AreaChart, Area, PieChart, Pie } from 'recharts';
+import { BarChart, Bar, ComposedChart, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, Line, AreaChart, Area, PieChart, Pie } from 'recharts';
 import { 
   Package, CheckCircle, XCircle, Clock, MapPin, Users, Activity, 
   Truck, AlertCircle, FileText, Target, TrendingUp,
@@ -213,9 +213,9 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
               <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
               <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
               <Legend wrapperStyle={{ fontSize: '10px' }} />
-              <Bar dataKey="delivered" stackId="a" fill="#059669" name="Delivered" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="pending" stackId="a" fill="#f59e0b" name="Pending" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="cancelled" stackId="a" fill="#dc2626" name="Cancelled" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="delivered" stackId="a" fill="#059669" name="Delivered" radius={[0, 0, 0, 0]} isAnimationActive={false} />
+              <Bar dataKey="pending" stackId="a" fill="#f59e0b" name="Pending" radius={[0, 0, 0, 0]} isAnimationActive={false} />
+              <Bar dataKey="cancelled" stackId="a" fill="#dc2626" name="Cancelled" radius={[0, 0, 0, 0]} isAnimationActive={false} />
             </BarChart>
           )}
           {chartType === 'bar' && (
@@ -233,7 +233,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
               <XAxis type="number" tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
               <YAxis type="category" dataKey={xKey} width={80} tick={{ fontSize: 10, fill: '#374151' }} tickLine={false} axisLine={false} />
               <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
-              <Bar dataKey={dataKey || 'count'} fill={barColor} radius={[0, 4, 4, 0]} maxBarSize={16} />
+              <Bar dataKey={dataKey || 'count'} fill={barColor} radius={[0, 4, 4, 0]} maxBarSize={16} isAnimationActive={false} />
             </BarChart>
           )}
           {chartType === 'donut' && (() => {
@@ -964,9 +964,9 @@ export default function AdminDashboardPage(): React.ReactElement {
                       formatter={(val: number | string, name: string) => (name === 'Success Rate %' ? [`${val}%`, name] : [val, name]) as [React.ReactNode, string]}
                     />
                     <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '12px' }} />
-                    <Bar yAxisId="left" dataKey="total" fill="#c7d7f9" name="Total Dispatched" radius={[3, 3, 0, 0]} maxBarSize={20} />
-                    <Bar yAxisId="left" dataKey="delivered" fill="#2563EB" name="Delivered" radius={[3, 3, 0, 0]} maxBarSize={20} />
-                    <Line yAxisId="right" type="monotone" dataKey="rate" stroke="#f97316" name="Success Rate %" dot={false} strokeWidth={2.5} />
+                    <Bar yAxisId="left" dataKey="total" fill="#c7d7f9" name="Total Dispatched" radius={[3, 3, 0, 0]} maxBarSize={20} isAnimationActive={false} />
+                    <Bar yAxisId="left" dataKey="delivered" fill="#2563EB" name="Delivered" radius={[3, 3, 0, 0]} maxBarSize={20} isAnimationActive={false} />
+                    <Line yAxisId="right" type="monotone" dataKey="rate" stroke="#f97316" name="Success Rate %" dot={false} strokeWidth={2.5} isAnimationActive={false} />
                   </ComposedChart>
                 </ResponsiveContainer>
               </div>
@@ -1246,8 +1246,8 @@ export default function AdminDashboardPage(): React.ReactElement {
                       <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 11, fill: '#374151' }} tickLine={false} axisLine={false} />
                       <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '12px' }} />
                       <Legend wrapperStyle={{ fontSize: '12px' }} />
-                      <Bar dataKey="orders" name="Total Orders" fill="#93c5fd" radius={[0, 3, 3, 0]} maxBarSize={18} />
-                      <Bar dataKey="delivered" name="Delivered" fill="#2563EB" radius={[0, 3, 3, 0]} maxBarSize={18} />
+                      <Bar dataKey="orders" name="Total Orders" fill="#93c5fd" radius={[0, 3, 3, 0]} maxBarSize={18} isAnimationActive={false} />
+                      <Bar dataKey="delivered" name="Delivered" fill="#2563EB" radius={[0, 3, 3, 0]} maxBarSize={18} isAnimationActive={false} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -1587,11 +1587,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                   <XAxis type="number" tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} />
                   <YAxis type="category" dataKey="area" width={130} tick={{ fontSize: 12, fill: '#374151' }} tickLine={false} axisLine={false} />
                   <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '12px' }} />
-                  <Bar dataKey="count" name="Deliveries" radius={[0, 4, 4, 0]}>
-                    {deliveryByAreaData.map((_, i) => (
-                      <Cell key={i} fill={i === 0 ? '#1d4ed8' : i < 3 ? '#2563EB' : '#3b82f6'} />
-                    ))}
-                  </Bar>
+                  <Bar dataKey="count" name="Deliveries" radius={[0, 4, 4, 0]} fill="#2563EB" isAnimationActive={false} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -1770,7 +1766,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                       <XAxis type="number" tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} />
                       <YAxis type="category" dataKey="label" width={180} tick={{ fontSize: 10, fill: '#374151' }} tickLine={false} axisLine={false} />
                       <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '12px' }} />
-                      <Bar dataKey="count" fill="#2563EB" radius={[0, 4, 4, 0]} name="Quantity" />
+                      <Bar dataKey="count" fill="#2563EB" radius={[0, 4, 4, 0]} name="Quantity" isAnimationActive={false} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
