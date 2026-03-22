@@ -8,6 +8,8 @@ import api from '../../frontend/apiClient';
 import { StatusMetricCards } from './StatusMetricCards';
 import { OrdersTable, type OrdersTableTab } from './OrdersTable';
 import { ManageSidebar } from './ManageSidebar';
+import { OrderEditModal } from './OrderEditModal';
+import type { Delivery } from '../../types';
 
 interface ManageTabProps {
   onSwitchToDeliveriesTab: () => void;
@@ -189,6 +191,24 @@ export default function ManageTab({
     setDeliveryListFilter('confirmed');
     onSwitchToDeliveriesTab();
   }, [setDeliveryListFilter, onSwitchToDeliveriesTab]);
+
+  const editingDelivery = useMemo((): Delivery | null => {
+    if (!editDeliveryId) return null;
+    return deliveries.find((d) => d.id === editDeliveryId) ?? null;
+  }, [deliveries, editDeliveryId]);
+
+  const handleOrderEditSaved = useCallback(
+    (updated: { status: string; notes?: string; scheduledDateIso?: string }) => {
+      if (!editDeliveryId) return;
+      updateDeliveryStatus(editDeliveryId, updated.status, {
+        ...(updated.notes !== undefined ? { deliveryNotes: updated.notes } : {}),
+        ...(updated.scheduledDateIso ? { scheduledDate: updated.scheduledDateIso } : {}),
+      });
+      setEditDeliveryId(null);
+      onNotifySuccess('Order updated', 'Changes saved.');
+    },
+    [editDeliveryId, updateDeliveryStatus, onNotifySuccess],
+  );
 
   return (
     <div className="p-4 lg:p-6 bg-gray-50 dark:bg-gray-900/20 min-h-0 rounded-xl max-w-[1600px] mx-auto w-full">

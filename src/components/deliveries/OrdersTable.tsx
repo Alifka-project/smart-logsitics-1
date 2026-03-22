@@ -85,6 +85,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
   onCallCustomer,
   onWhatsApp,
   onTrackDelivery,
+  onEditOrder,
   searchQuery,
   onSearchChange,
   sortBy,

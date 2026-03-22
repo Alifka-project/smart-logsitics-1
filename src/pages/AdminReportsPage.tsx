@@ -111,6 +111,77 @@ const CHART_COLORS = {
 };
 const PIE_COLORS = ['#22c55e', '#ef4444', '#f59e0b', '#64748b', '#8b5cf6', '#06b6d4'];
 
+/** Matches Admin Dashboard KPI tiles (tinted icon + bold value). */
+const REPORT_KPI_COLOR_MAP: Record<string, { bg: string; icon: string; val: string }> = {
+  blue: {
+    bg: 'bg-blue-50 dark:bg-blue-900/20',
+    icon: 'text-blue-600 dark:text-blue-400',
+    val: 'text-blue-700 dark:text-blue-300',
+  },
+  green: {
+    bg: 'bg-green-50 dark:bg-green-900/20',
+    icon: 'text-green-600 dark:text-green-400',
+    val: 'text-green-700 dark:text-green-300',
+  },
+  red: {
+    bg: 'bg-red-50 dark:bg-red-900/20',
+    icon: 'text-red-600 dark:text-red-400',
+    val: 'text-red-700 dark:text-red-300',
+  },
+  yellow: {
+    bg: 'bg-yellow-50 dark:bg-yellow-900/20',
+    icon: 'text-yellow-600 dark:text-yellow-400',
+    val: 'text-yellow-700 dark:text-yellow-300',
+  },
+};
+
+const inputReportsClass =
+  'w-full rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-slate-800/90 px-3 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/35';
+
+type ReportMetricTone = 'blue' | 'green' | 'red' | 'yellow';
+
+interface ReportMetricCardProps {
+  label: string;
+  value: number | string;
+  icon: React.ReactNode;
+  tone: ReportMetricTone;
+  sub?: string;
+  trend?: 'up' | 'down';
+}
+
+/** Same visual language as Admin Dashboard overview KPIs (`pp-dash-card`). */
+function ReportMetricCard({ label, value, icon, tone, sub, trend }: ReportMetricCardProps): React.ReactElement {
+  const c = REPORT_KPI_COLOR_MAP[tone];
+  const iconEl = React.isValidElement(icon)
+    ? React.cloneElement(icon as React.ReactElement<{ className?: string }>, {
+        className: `w-4 h-4 shrink-0 ${c.icon}`,
+      })
+    : icon;
+  return (
+    <div className="pp-dash-card p-4 sm:p-5 w-full min-w-0">
+      <div className="flex items-start gap-3">
+        <div className={`p-2.5 rounded-full shrink-0 ${c.bg}`}>{iconEl}</div>
+        <div className="min-w-0 flex-1">
+          <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide leading-snug">
+            {label}
+          </span>
+          <div className="flex flex-wrap items-end justify-between gap-2 mt-1">
+            <span className={`text-2xl sm:text-3xl font-bold tracking-tight tabular-nums ${c.val}`}>{value ?? '—'}</span>
+            {trend ? (
+              trend === 'up' ? (
+                <TrendingUp className="w-5 h-5 text-green-500 dark:text-green-400 shrink-0" aria-hidden />
+              ) : (
+                <TrendingDown className="w-5 h-5 text-red-500 dark:text-red-400 shrink-0" aria-hidden />
+              )
+            ) : null}
+          </div>
+          {sub ? <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{sub}</p> : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminReportsPage(): React.ReactElement {
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -313,8 +384,9 @@ export default function AdminReportsPage(): React.ReactElement {
         <FileText className="w-14 h-14 text-gray-300 dark:text-gray-600" />
         <p className="text-gray-500 dark:text-gray-400">No report data. Click Refresh to load.</p>
         <button
+          type="button"
           onClick={() => void loadReport()}
-          className="px-5 py-2.5 bg-blue-900 text-white rounded-lg hover:bg-blue-800 font-medium"
+          className="px-5 py-2.5 rounded-xl bg-blue-900 text-white hover:bg-blue-800 font-semibold shadow-sm"
         >
           Load Report
         </button>
@@ -334,38 +406,38 @@ export default function AdminReportsPage(): React.ReactElement {
   return (
     <div className="space-y-5 w-full min-w-0">
 
-      {/* ── Page Header (classic — not PolicyPilot pp-* page chrome) ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-1">
+      {/* ── Page Header (aligned with Admin Dashboard) ── */}
+      <div className="pp-page-header flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
-            Reports & Analytics
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <h1 className="pp-page-title">Reports & Analytics</h1>
+          <p className="pp-page-subtitle">
             Electrolux Dubai Logistics · Generated:{' '}
             {reportData?.generatedAt ? new Date(reportData.generatedAt).toLocaleString('en-AE') : '—'}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 shrink-0">
           <Link
             to="/admin/reports/pod"
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-900 text-white rounded-lg hover:bg-blue-800 font-medium text-sm"
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl bg-blue-900 text-white hover:bg-blue-800 shadow-sm transition-colors"
           >
             <Image className="w-4 h-4" />
             POD Report
             <ArrowRight className="w-4 h-4" />
           </Link>
           <button
+            type="button"
             onClick={() => void loadReport('csv')}
             disabled={loading}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium text-sm"
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 shadow-sm transition-colors"
           >
             <Download className="w-4 h-4" />
             Export CSV
           </button>
           <button
+            type="button"
             onClick={() => void loadReport()}
             disabled={loading}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-700 text-white rounded-lg hover:bg-blue-900 disabled:opacity-50 font-medium text-sm"
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-2xl border border-gray-200/90 dark:border-white/10 bg-white dark:bg-slate-800/90 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-700 disabled:opacity-50 shadow-sm transition-colors"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             {loading ? 'Loading…' : 'Refresh'}
@@ -374,9 +446,9 @@ export default function AdminReportsPage(): React.ReactElement {
       </div>
 
       {/* ── Filters ── */}
-      <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800/90 shadow-sm p-5">
+      <div className="pp-card p-5 sm:p-6">
         <div className="flex items-center gap-2 mb-4">
-          <div className="w-8 h-8 rounded-lg bg-blue-900/10 flex items-center justify-center">
+          <div className="w-9 h-9 rounded-xl bg-blue-900/10 dark:bg-blue-400/10 flex items-center justify-center">
             <Filter className="w-4 h-4 text-blue-900 dark:text-blue-300" />
           </div>
           <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Filters & Date Range</h2>
@@ -388,7 +460,7 @@ export default function AdminReportsPage(): React.ReactElement {
               type="date"
               value={filters.startDate}
               onChange={e => handleFilterChange('startDate', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+              className={inputReportsClass}
             />
           </div>
           <div>
@@ -397,7 +469,7 @@ export default function AdminReportsPage(): React.ReactElement {
               type="date"
               value={filters.endDate}
               onChange={e => handleFilterChange('endDate', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+              className={inputReportsClass}
             />
           </div>
           <div>
@@ -405,7 +477,7 @@ export default function AdminReportsPage(): React.ReactElement {
             <select
               value={filters.status}
               onChange={e => handleFilterChange('status', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+              className={inputReportsClass}
             >
               <option value="">All Statuses</option>
               <option value="delivered">Delivered</option>
@@ -426,7 +498,7 @@ export default function AdminReportsPage(): React.ReactElement {
             <select
               value={filters.customerStatus}
               onChange={e => handleFilterChange('customerStatus', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+              className={inputReportsClass}
             >
               <option value="">All Responses</option>
               <option value="accepted">Accepted</option>
@@ -440,7 +512,7 @@ export default function AdminReportsPage(): React.ReactElement {
             <select
               value={filters.podFilter}
               onChange={e => handleFilterChange('podFilter', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+              className={inputReportsClass}
             >
               <option value="">All POD</option>
               <option value="with-pod">✓ With POD</option>
@@ -456,17 +528,18 @@ export default function AdminReportsPage(): React.ReactElement {
                 value={filters.poNumber}
                 onChange={e => handleFilterChange('poNumber', e.target.value)}
                 placeholder="Search…"
-                className="w-full pl-8 pr-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-blue-500"
+                className={`${inputReportsClass} pl-8`}
               />
             </div>
           </div>
         </div>
-        <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+        <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-700/80">
           <div className="flex items-center gap-3">
             <button
+              type="button"
               onClick={() => void loadReport()}
               disabled={loading}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800 disabled:opacity-50 text-sm font-medium"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-900 text-white hover:bg-blue-800 disabled:opacity-50 text-sm font-semibold shadow-sm transition-colors"
             >
               <Search className="w-4 h-4" />
               Apply Date Filter
@@ -487,91 +560,97 @@ export default function AdminReportsPage(): React.ReactElement {
         </div>
       </div>
 
-      {/* ── KPI Cards (full-width columns — no max-width caps) ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 w-full">
-        <KpiCard
+      {/* ── KPI strip — same grid + card system as Admin Dashboard ── */}
+      <div className="pp-kpi-grid--fill-4">
+        <ReportMetricCard
           label="Total Deliveries"
           value={stats.total ?? filteredDeliveries.length}
           icon={<Package className="w-5 h-5" />}
-          color="navy"
+          tone="blue"
         />
-        <KpiCard
+        <ReportMetricCard
           label="Delivered"
           value={stats.delivered ?? 0}
           icon={<CheckCircle className="w-5 h-5" />}
-          color="green"
+          tone="green"
           sub={`${stats.successRate ?? 0}% success rate`}
           trend="up"
         />
-        <KpiCard
+        <ReportMetricCard
           label="Cancelled"
           value={stats.cancelled ?? 0}
           icon={<XCircle className="w-5 h-5" />}
-          color="red"
+          tone="red"
           sub={`${stats.cancellationRate ?? 0}% cancellation rate`}
           trend="down"
         />
-        <KpiCard
+        <ReportMetricCard
           label="Pending"
           value={stats.pending ?? 0}
           icon={<Clock className="w-5 h-5" />}
-          color="amber"
+          tone="yellow"
         />
       </div>
 
-      {/* ── POD Overview Banner ── */}
-      <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800/90 shadow-sm p-5">
-        <div className="flex items-center justify-between mb-4">
+      {/* ── POD Overview ── */}
+      <div className="pp-card p-5 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-blue-900/10 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-blue-900/10 dark:bg-blue-400/10 flex items-center justify-center">
               <Image className="w-4 h-4 text-blue-900 dark:text-blue-300" />
             </div>
             <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Proof of Delivery (POD) Overview</h2>
           </div>
           <Link
             to="/admin/reports/pod"
-            className="inline-flex items-center gap-1.5 text-sm text-blue-700 dark:text-blue-300 hover:underline font-medium"
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:underline shrink-0"
           >
             Full POD Report <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          <div className="flex flex-col gap-1">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+          <div className="pp-dash-card p-4 rounded-xl">
             <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">With POD</span>
-            <span className="text-3xl font-bold text-green-600 dark:text-green-400">{hasActiveFilters() ? podWithCount : (stats.withPOD ?? podWithCount)}</span>
-            <span className="text-xs text-gray-500 dark:text-gray-400">
+            <span className="block text-2xl sm:text-3xl font-bold text-green-600 dark:text-green-400 mt-1 tabular-nums">
+              {hasActiveFilters() ? podWithCount : (stats.withPOD ?? podWithCount)}
+            </span>
+            <span className="text-xs text-gray-500 dark:text-gray-400 mt-1 block">
               {hasActiveFilters() ? podRate : ((stats.delivered ?? 0) > 0 ? (((stats.withPOD ?? 0) / (stats.delivered as number)) * 100).toFixed(1) : podRate)}% of delivered orders
             </span>
           </div>
-          <div className="flex flex-col gap-1">
+          <div className="pp-dash-card p-4 rounded-xl">
             <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Without POD</span>
-            <span className="text-3xl font-bold text-red-500 dark:text-red-400">{hasActiveFilters() ? podWithoutCount : (stats.withoutPOD ?? podWithoutCount)}</span>
-            <span className="text-xs text-gray-500 dark:text-gray-400">Missing signatures / photos</span>
+            <span className="block text-2xl sm:text-3xl font-bold text-red-600 dark:text-red-400 mt-1 tabular-nums">
+              {hasActiveFilters() ? podWithoutCount : (stats.withoutPOD ?? podWithoutCount)}
+            </span>
+            <span className="text-xs text-gray-500 dark:text-gray-400 mt-1 block">Missing signatures / photos</span>
           </div>
-          <div className="flex flex-col gap-1">
+          <div className="pp-dash-card p-4 rounded-xl">
             <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Completion Rate</span>
-            <span className="text-3xl font-bold text-blue-900 dark:text-blue-300">
+            <span className="block text-2xl sm:text-3xl font-bold text-blue-700 dark:text-blue-300 mt-1 tabular-nums">
               {hasActiveFilters() ? `${podRate}%` : `${(stats.delivered ?? 0) > 0 ? (((stats.withPOD ?? 0) / (stats.delivered as number)) * 100).toFixed(1) : 0}%`}
             </span>
-            <span className="text-xs text-gray-500 dark:text-gray-400">POD uploads vs deliveries</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400 mt-1 block">POD uploads vs deliveries</span>
           </div>
         </div>
-        <div>
-          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1.5">
+        <div className="pp-dash-soft-gradient rounded-xl p-4">
+          <div className="flex justify-between text-xs font-medium text-gray-600 dark:text-gray-300 mb-2">
             <span>POD Completion</span>
-            <span>{hasActiveFilters() ? `${podRate}%` : `${(stats.delivered ?? 0) > 0 ? (((stats.withPOD ?? 0) / (stats.delivered as number)) * 100).toFixed(1) : 0}%`}</span>
+            <span>
+              {hasActiveFilters() ? `${podRate}%` : `${(stats.delivered ?? 0) > 0 ? (((stats.withPOD ?? 0) / (stats.delivered as number)) * 100).toFixed(1) : 0}%`}
+            </span>
           </div>
-          <div className="h-2.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+          <div className="h-2.5 bg-white/80 dark:bg-slate-900/40 rounded-full overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-blue-700 to-green-500 rounded-full transition-all duration-500"
               style={{
                 width: `${hasActiveFilters()
                   ? podRate
-                  : (stats.delivered ?? 0) > 0 ? (((stats.withPOD ?? 0) / (stats.delivered as number)) * 100).toFixed(1) : 0}%`
+                  : (stats.delivered ?? 0) > 0 ? (((stats.withPOD ?? 0) / (stats.delivered as number)) * 100).toFixed(1) : 0}%`,
               }}
             />
           </div>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
             POD includes: driver signature, customer signature, or delivery photos
           </p>
         </div>
@@ -579,20 +658,35 @@ export default function AdminReportsPage(): React.ReactElement {
 
       {/* ── Customer Response Stats ── */}
       {!hasActiveFilters() && (
-        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800/90 shadow-sm p-5">
+        <div className="pp-card p-5 sm:p-6">
           <div className="flex items-center gap-2 mb-4">
-            <div className="w-8 h-8 rounded-lg bg-blue-900/10 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-blue-900/10 dark:bg-blue-400/10 flex items-center justify-center">
               <User className="w-4 h-4 text-blue-900 dark:text-blue-300" />
             </div>
             <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Customer Response Statistics</h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 w-full">
-            <KpiCard label="Customer Accepted" value={stats.customerAccepted ?? 0} icon={<CheckCircle className="w-5 h-5" />} color="green"
-              sub={`${(stats.total ?? 0) > 0 ? (((stats.customerAccepted ?? 0) / (stats.total as number)) * 100).toFixed(1) : 0}% acceptance rate`} />
-            <KpiCard label="Customer Cancelled" value={stats.customerCancelled ?? 0} icon={<XCircle className="w-5 h-5" />} color="red"
-              sub={`${(stats.total ?? 0) > 0 ? (((stats.customerCancelled ?? 0) / (stats.total as number)) * 100).toFixed(1) : 0}% cancellation rate`} />
-            <KpiCard label="Customer Rescheduled" value={stats.customerRescheduled ?? 0} icon={<RefreshCw className="w-5 h-5" />} color="amber"
-              sub={`${(stats.total ?? 0) > 0 ? (((stats.customerRescheduled ?? 0) / (stats.total as number)) * 100).toFixed(1) : 0}% reschedule rate`} />
+          <div className="pp-kpi-grid--fill-3">
+            <ReportMetricCard
+              label="Customer Accepted"
+              value={stats.customerAccepted ?? 0}
+              icon={<CheckCircle className="w-5 h-5" />}
+              tone="green"
+              sub={`${(stats.total ?? 0) > 0 ? (((stats.customerAccepted ?? 0) / (stats.total as number)) * 100).toFixed(1) : 0}% acceptance rate`}
+            />
+            <ReportMetricCard
+              label="Customer Cancelled"
+              value={stats.customerCancelled ?? 0}
+              icon={<XCircle className="w-5 h-5" />}
+              tone="red"
+              sub={`${(stats.total ?? 0) > 0 ? (((stats.customerCancelled ?? 0) / (stats.total as number)) * 100).toFixed(1) : 0}% cancellation rate`}
+            />
+            <ReportMetricCard
+              label="Customer Rescheduled"
+              value={stats.customerRescheduled ?? 0}
+              icon={<RefreshCw className="w-5 h-5" />}
+              tone="yellow"
+              sub={`${(stats.total ?? 0) > 0 ? (((stats.customerRescheduled ?? 0) / (stats.total as number)) * 100).toFixed(1) : 0}% reschedule rate`}
+            />
           </div>
         </div>
       )}
@@ -601,8 +695,8 @@ export default function AdminReportsPage(): React.ReactElement {
       {!hasActiveFilters() && dailyBreakdown.length > 0 && (
         <>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
-            <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800/90 shadow-sm p-5">
-              <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Daily Breakdown</h2>
+            <div className="pp-dash-card p-5 sm:p-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 tracking-tight mb-4">Daily Breakdown</h2>
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={dailyBreakdown} margin={{ top: 4, right: 4, bottom: 4, left: -10 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -618,8 +712,8 @@ export default function AdminReportsPage(): React.ReactElement {
               </ResponsiveContainer>
             </div>
 
-            <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800/90 shadow-sm p-5">
-              <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Status Distribution</h2>
+            <div className="pp-dash-card p-5 sm:p-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 tracking-tight mb-4">Status Distribution</h2>
               <ResponsiveContainer width="100%" height={260}>
                 <PieChart>
                   <Pie
@@ -645,8 +739,8 @@ export default function AdminReportsPage(): React.ReactElement {
             </div>
           </div>
 
-          <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800/90 shadow-sm p-5">
-            <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Daily Delivery Trend</h2>
+          <div className="pp-dash-card p-5 sm:p-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 tracking-tight mb-4">Daily Delivery Trend</h2>
             <ResponsiveContainer width="100%" height={240}>
               <LineChart data={dailyBreakdown} margin={{ top: 4, right: 4, bottom: 4, left: -10 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -665,10 +759,10 @@ export default function AdminReportsPage(): React.ReactElement {
 
       {/* ── Delivery Details Table ── */}
       {reportData?.deliveries && reportData.deliveries.length > 0 && (
-        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800/90 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="pp-dash-card overflow-hidden">
+          <div className="px-5 sm:px-6 py-4 border-b border-gray-100 dark:border-white/[0.07] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Delivery Details</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 tracking-tight">Delivery Details</h2>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                 {sortedDeliveries.length} {sortedDeliveries.length === 1 ? 'delivery' : 'deliveries'} · Page {currentPage} of {totalPages || 1}
               </p>
@@ -856,83 +950,6 @@ export default function AdminReportsPage(): React.ReactElement {
 }
 
 /* ─── Sub-components ─── */
-
-interface KpiCardProps {
-  label: string;
-  value: number | string;
-  icon: React.ReactNode;
-  color: 'navy' | 'green' | 'red' | 'amber';
-  sub?: string;
-  trend?: 'up' | 'down';
-}
-
-function KpiCard({ label, value, icon, color, sub, trend }: KpiCardProps): React.ReactElement {
-  /* Classic bordered stat tiles — full width in grid (no max-w), readable on white */
-  const configs: Record<
-    string,
-    { shell: string; labelCls: string; valueCls: string; subCls: string; iconWrap: string; trendUp: string; trendDown: string }
-  > = {
-    navy: {
-      shell:
-        'border border-gray-200 dark:border-gray-600 border-l-4 border-l-blue-900 dark:border-l-blue-500 bg-white dark:bg-slate-800/90',
-      labelCls: 'text-gray-600 dark:text-gray-400',
-      valueCls: 'text-gray-900 dark:text-white',
-      subCls: 'text-gray-500 dark:text-gray-400',
-      iconWrap: 'bg-blue-50 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300',
-      trendUp: 'text-green-600 dark:text-green-400',
-      trendDown: 'text-red-500 dark:text-red-400',
-    },
-    green: {
-      shell:
-        'border border-gray-200 dark:border-gray-600 border-l-4 border-l-green-600 dark:border-l-green-500 bg-white dark:bg-slate-800/90',
-      labelCls: 'text-gray-600 dark:text-gray-400',
-      valueCls: 'text-gray-900 dark:text-white',
-      subCls: 'text-gray-500 dark:text-gray-400',
-      iconWrap: 'bg-green-50 text-green-800 dark:bg-green-950/50 dark:text-green-300',
-      trendUp: 'text-green-600 dark:text-green-400',
-      trendDown: 'text-red-500 dark:text-red-400',
-    },
-    red: {
-      shell:
-        'border border-gray-200 dark:border-gray-600 border-l-4 border-l-red-500 dark:border-l-red-400 bg-white dark:bg-slate-800/90',
-      labelCls: 'text-gray-600 dark:text-gray-400',
-      valueCls: 'text-gray-900 dark:text-white',
-      subCls: 'text-gray-500 dark:text-gray-400',
-      iconWrap: 'bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-300',
-      trendUp: 'text-green-600 dark:text-green-400',
-      trendDown: 'text-red-500 dark:text-red-400',
-    },
-    amber: {
-      shell:
-        'border border-gray-200 dark:border-gray-600 border-l-4 border-l-amber-500 dark:border-l-amber-400 bg-white dark:bg-slate-800/90',
-      labelCls: 'text-gray-600 dark:text-gray-400',
-      valueCls: 'text-gray-900 dark:text-white',
-      subCls: 'text-gray-500 dark:text-gray-400',
-      iconWrap: 'bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200',
-      trendUp: 'text-green-600 dark:text-green-400',
-      trendDown: 'text-red-500 dark:text-red-400',
-    },
-  };
-  const c = configs[color] || configs.navy;
-  return (
-    <div className={`rounded-lg p-4 sm:p-5 flex flex-col gap-2 shadow-sm w-full min-w-0 h-full ${c.shell}`}>
-      <div className="flex items-start justify-between gap-2">
-        <span className={`text-xs sm:text-sm font-semibold uppercase tracking-wide ${c.labelCls}`}>{label}</span>
-        <div className={`w-9 h-9 rounded-lg shrink-0 flex items-center justify-center ${c.iconWrap}`}>{icon}</div>
-      </div>
-      <div className="flex items-end justify-between gap-2">
-        <span className={`text-2xl sm:text-3xl font-bold tabular-nums ${c.valueCls}`}>{value ?? '—'}</span>
-        {trend &&
-          (trend === 'up' ? (
-            <TrendingUp className={`w-5 h-5 shrink-0 ${c.trendUp}`} aria-hidden />
-          ) : (
-            <TrendingDown className={`w-5 h-5 shrink-0 ${c.trendDown}`} aria-hidden />
-          ))}
-      </div>
-      {sub ? <span className={`text-xs ${c.subCls}`}>{sub}</span> : null}
-    </div>
-  );
-}
 
 interface SortThProps {
   label: string;

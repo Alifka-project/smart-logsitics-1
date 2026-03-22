@@ -485,6 +485,36 @@
     }
   }
 
+  /* Reports & similar: four equal KPI columns on large screens */
+  .pp-kpi-grid--fill-4 {
+    display: grid;
+    gap: 0.75rem;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-content: stretch;
+  }
+
+  @media (min-width: 1024px) {
+    .pp-kpi-grid--fill-4 {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  /* Three equal columns (e.g. customer response stats) */
+  .pp-kpi-grid--fill-3 {
+    display: grid;
+    gap: 0.75rem;
+    width: 100%;
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+    justify-content: stretch;
+  }
+
+  @media (min-width: 640px) {
+    .pp-kpi-grid--fill-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
   /* Smaller tiles (e.g. many chips in one strip) */
   .pp-kpi-grid--dense {
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 220px));
