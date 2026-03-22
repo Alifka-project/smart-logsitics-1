@@ -646,37 +646,6 @@ export default function AdminDashboardPage(): React.ReactElement {
           </button>
         </div>
 
-      {/* ── Action Items Banner (overdue removed - shown in Need Attention card) ── */}
-      {(actionItems.unassigned > 0 || actionItems.unconfirmed > 0) && (
-        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg px-4 py-3 flex flex-wrap items-center gap-4">
-          <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
-          <div className="flex flex-wrap gap-4 text-sm text-amber-800 dark:text-amber-300 flex-1">
-            {actionItems.unassigned > 0 && (
-              <button
-                onClick={() => { setActiveTab('deliveries'); setDeliveryAttentionFilter('unassigned'); setDeliveryStatusFilter('pending'); setDeliveryPage(0); }}
-                className="font-semibold text-amber-700 dark:text-amber-400 hover:underline underline-offset-2"
-              >
-                <strong>{actionItems.unassigned}</strong> unassigned deliveries
-              </button>
-            )}
-            {actionItems.unconfirmed > 0 && (
-              <button
-                onClick={() => { setActiveTab('deliveries'); setDeliveryAttentionFilter('awaiting'); setDeliveryStatusFilter('pending'); setDeliveryPage(0); }}
-                className="font-semibold text-amber-700 dark:text-amber-400 hover:underline underline-offset-2"
-              >
-                <strong>{actionItems.unconfirmed}</strong> awaiting confirmation
-              </button>
-            )}
-          </div>
-          <button
-            onClick={() => { setActiveTab('deliveries'); setDeliveryPage(0); }}
-            className="text-xs font-semibold text-amber-700 dark:text-amber-400 underline underline-offset-2"
-          >
-            View in Deliveries
-          </button>
-        </div>
-      )}
-
       {/* ── Tab Navigation ── */}
       <div className="border-b border-gray-200 dark:border-gray-700">
         <nav className="flex overflow-x-auto">
@@ -984,7 +953,7 @@ export default function AdminDashboardPage(): React.ReactElement {
             const avg = arr.length > 0 ? (total / arr.length).toFixed(1) : 0;
             const peak = arr.reduce((best, m) => (m.count || 0) > (best.count || 0) ? m : best, arr[0]);
             const current = arr[arr.length - 1];
-            const peakLabel = trendPeriod === 'day' ? peak?.day : peak?.label;
+            const peakLabel = trendPeriod === 'day' ? (peak as { day?: string; label?: string })?.day ?? peak?.label : peak?.label;
             const stats = trendPeriod === 'day'
               ? [
                   { label: 'Total (7 days)', value: total, color: 'text-blue-600 dark:text-blue-400' },
