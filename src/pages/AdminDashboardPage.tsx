@@ -1743,34 +1743,25 @@ export default function AdminDashboardPage(): React.ReactElement {
       {/* ══════════════ TRENDS TAB ══════════════ */}
       {activeTab === 'trends' && (
         <div className="space-y-4">
-          {/* Global trend filters: granularity + optional date range — applies to all charts */}
-          <div className="pp-dash-card p-4 sm:p-5 space-y-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Trends filters</h2>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 max-w-xl">
-                  Choose <strong>bucket size</strong> (Daily / Monthly / Yearly) and optionally a <strong>custom date range</strong>.
-                  Leave dates empty to use the default rolling window. All charts below use these settings.
-                </p>
-              </div>
-              <div className="inline-flex p-1 rounded-xl bg-gray-100/90 dark:bg-slate-700/45 gap-0.5 text-xs font-medium shrink-0" role="group" aria-label="Trend bucket size">
+          {/* Global trend filters: granularity + date range — single row */}
+          <div className="pp-dash-card p-4 sm:p-5 space-y-3">
+            <div className="flex flex-wrap items-end gap-2 sm:gap-3">
+              <div className="inline-flex p-1 rounded-full bg-gray-100 dark:bg-slate-700/50 shrink-0" role="group" aria-label="Trend bucket size">
                 {(['day', 'month', 'year'] as const).map(p => (
                   <button
                     key={p}
                     type="button"
                     onClick={() => setTrendsGlobalPeriod(p)}
-                    className={`px-3 py-1.5 rounded-lg capitalize transition-all ${
+                    className={`px-3 py-1.5 rounded-full capitalize text-xs font-medium transition-all ${
                       trendsGlobalPeriod === p
                         ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm font-semibold'
-                        : 'text-gray-600 dark:text-gray-400 hover:bg-white/70 dark:hover:bg-slate-600/40'
+                        : 'text-gray-600 dark:text-gray-500 hover:text-gray-900 dark:hover:text-gray-200'
                     }`}
                   >
                     {p === 'day' ? 'Daily' : p === 'month' ? 'Monthly' : 'Yearly'}
                   </button>
                 ))}
               </div>
-            </div>
-            <div className="flex flex-wrap items-end gap-2 sm:gap-3">
               <label className="flex flex-col gap-1 text-xs">
                 <span className="font-medium text-gray-600 dark:text-gray-400">From</span>
                 <input
