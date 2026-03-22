@@ -790,12 +790,6 @@
 
 /* Manage Delivery Order tab — mobile-friendly table rows (.table-mobile-cards = STEP 8 alias) */
 @media (max-width: 768px) {
-  .manage-layout {
-    display: flex;
-    flex-direction: column-reverse;
-    gap: 1.5rem;
-  }
-
   .sidebar-mobile {
     position: fixed;
     bottom: 0;

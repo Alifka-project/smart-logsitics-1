@@ -219,7 +219,7 @@ export default function DeliveryManagementPage() {
           <button
             onClick={() => void handleReloadFromDatabase()}
             disabled={isReloading}
-            className="flex-1 sm:flex-none min-h-[44px] px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-green-400 flex items-center justify-center gap-2 text-sm touch-manipulation"
+            className="flex-1 sm:flex-none min-h-[44px] px-4 py-2.5 bg-[#002D5B] text-white rounded-lg hover:bg-[#001f3f] disabled:opacity-50 flex items-center justify-center gap-2 text-sm touch-manipulation"
             title="Reload deliveries from database with real UUIDs"
           >
             <RefreshCw className={`w-4 h-4 flex-shrink-0 ${isReloading ? 'animate-spin' : ''}`} />

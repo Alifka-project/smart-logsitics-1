@@ -35,7 +35,7 @@ export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({
 
   return (
     <div className="status-cards-mobile overflow-x-auto pb-1 -mx-1 px-1 lg:mx-0 lg:px-0">
-      <div className="pp-kpi-grid pp-kpi-grid--dense min-w-0">
+      <div className="grid grid-cols-2 min-[480px]:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 w-full min-w-0">
         {CARD_DEFS.map(({ key, sublabel }) => {
           const config = STATUS_CONFIG[key as keyof typeof statusCounts];
           const count = statusCounts[key as keyof typeof statusCounts];
@@ -49,10 +49,10 @@ export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({
               type="button"
               onClick={() => onCardClick(key)}
               className={`
-              relative p-3 sm:p-4 rounded-xl pp-dash-card border transition-all text-left w-full min-w-0 max-w-[180px]
-              hover:shadow-md cursor-pointer
-              ${isHighlight ? 'border-amber-400 border-2' : 'border-gray-100 dark:border-white/10'}
-              ${isActive ? 'ring-2 ring-blue-600 ring-offset-2 dark:ring-offset-gray-900' : ''}
+              relative p-3 sm:p-4 rounded-xl bg-white dark:bg-gray-800/80 border text-left w-full min-w-0
+              shadow-sm transition-all hover:shadow-md
+              ${isHighlight ? 'border-2 border-amber-400' : 'border border-gray-200 dark:border-gray-600'}
+              ${isActive ? 'ring-2 ring-[#002D5B] ring-offset-2 dark:ring-offset-gray-900' : ''}
               ${isFaded ? 'opacity-50' : ''}
             `}
             >

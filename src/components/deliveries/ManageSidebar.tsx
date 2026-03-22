@@ -183,7 +183,7 @@ export const ManageSidebar: React.FC<ManageSidebarProps> = ({
             <button
               type="button"
               onClick={onAssignConfirmed}
-              className="w-full py-2 px-3 bg-amber-50 dark:bg-amber-900/25 text-amber-800 dark:text-amber-200 rounded-lg text-xs text-center hover:bg-amber-100 dark:hover:bg-amber-900/40"
+              className="w-full py-2.5 px-3 bg-amber-50 dark:bg-amber-900/25 text-amber-900 dark:text-amber-100 rounded-lg text-xs font-medium text-center hover:bg-amber-100 dark:hover:bg-amber-900/40 border border-amber-200/80 dark:border-amber-800/50"
             >
               Assign {confirmedCount} confirmed orders →
             </button>
@@ -192,10 +192,15 @@ export const ManageSidebar: React.FC<ManageSidebarProps> = ({
             <button
               type="button"
               onClick={onBulkResendUnconfirmed}
-              className="w-full py-2 px-3 bg-red-50 dark:bg-red-900/25 text-red-800 dark:text-red-200 rounded-lg text-xs text-center hover:bg-red-100 dark:hover:bg-red-900/40"
+              className="w-full py-2.5 px-3 bg-red-50 dark:bg-red-900/25 text-red-900 dark:text-red-100 rounded-lg text-xs font-medium text-center hover:bg-red-100 dark:hover:bg-red-900/40 border border-red-200/80 dark:border-red-800/50"
             >
               Resend SMS to {unconfirmedCount} unconfirmed →
             </button>
+          )}
+          {confirmedCount === 0 && unconfirmedCount === 0 && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 py-2 text-center leading-relaxed">
+              No bulk actions right now. Confirmations or unconfirmed orders will show actions here.
+            </p>
           )}
         </div>
       </div>

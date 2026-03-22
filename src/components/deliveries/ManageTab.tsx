@@ -205,7 +205,7 @@ export default function ManageTab({
   }, [setDeliveryListFilter, onSwitchToDeliveriesTab]);
 
   return (
-    <div className="p-4 lg:p-6 bg-gray-50 dark:bg-gray-900/20 min-h-0 rounded-xl">
+    <div className="p-4 lg:p-6 bg-gray-50 dark:bg-gray-900/20 min-h-0 rounded-xl max-w-[1600px] mx-auto w-full">
       <FileUpload
         ref={fileUploadRef}
         hideDefaultUI
@@ -232,8 +232,8 @@ export default function ManageTab({
         />
       </div>
 
-      <div className="manage-layout manage-delivery-layout flex flex-col-reverse lg:grid lg:grid-cols-[1fr_280px] gap-6">
-        <div className="min-w-0 order-2 lg:order-1">
+      <div className="manage-delivery-layout grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="min-w-0">
           <OrdersTable
             orders={manageOrders}
             cardFilter={cardFilter}
@@ -253,7 +253,7 @@ export default function ManageTab({
             onSortChange={setSortBy}
           />
         </div>
-        <div className="lg:sticky lg:top-4 lg:self-start">
+        <div className="min-w-0 w-full lg:sticky lg:top-4 lg:self-start">
           <ManageSidebar
             orders={manageOrders}
             onFileUpload={(f) => void handleFileUpload(f)}
