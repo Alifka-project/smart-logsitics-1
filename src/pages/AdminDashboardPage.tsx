@@ -756,15 +756,6 @@ export default function AdminDashboardPage(): React.ReactElement {
     }));
   }, [deliveries, heroPeriod]);
 
-  /** When most days in the hero window have zero dispatches, hint so the chart does not look "broken". */
-  const heroChartActivitySummary = useMemo(() => {
-    const rows = heroChartData;
-    const n = rows.length;
-    const active = rows.filter(r => (r.total ?? 0) > 0).length;
-    const sparse = n >= 14 && active < Math.max(1, Math.ceil(n * 0.25));
-    return { n, active, sparse };
-  }, [heroChartData]);
-
   const areaKeywords = useMemo(() => [
     'Marina', 'Jumeirah', 'Jebel Ali', 'Business Bay', 'Downtown', 'Deira', 'Bur Dubai',
     'Silicon Oasis', 'Motor City', 'Arabian Ranches', 'The Springs', 'Palm', 'Al Barsha',
@@ -1427,51 +1418,19 @@ export default function AdminDashboardPage(): React.ReactElement {
             })}
           </div>
 
-          {/* Priority strip — surfaced when anything in Needs Attention is non-zero */}
-          {(() => {
-            const n = actionItems.overdue + actionItems.unassigned + actionItems.unconfirmed;
-            if (n === 0) return null;
-            const detailParts: string[] = [];
-            if (actionItems.overdue > 0) detailParts.push(`${actionItems.overdue} overdue`);
-            if (actionItems.unassigned > 0) detailParts.push(`${actionItems.unassigned} unassigned`);
-            if (actionItems.unconfirmed > 0) detailParts.push(`${actionItems.unconfirmed} awaiting confirmation`);
-            return (
-              <div
-                role="status"
-                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 dark:border-amber-800/80 bg-amber-50/90 dark:bg-amber-950/30 px-4 py-3 text-sm"
-              >
-                <div className="text-amber-950 dark:text-amber-100">
-                  <span className="font-semibold">{n} {n === 1 ? 'item needs' : 'items need'} attention</span>
-                  {detailParts.length > 0 && (
-                    <span className="text-amber-800/90 dark:text-amber-200/90"> · {detailParts.join(' · ')}</span>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => { setActiveTab('deliveries'); setDeliveryPage(0); }}
-                  className="inline-flex items-center gap-1 font-medium text-primary-600 dark:text-primary-400 hover:underline whitespace-nowrap"
-                >
-                  Review in Deliveries <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            );
-          })()}
-
           {/* Two-column main content */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
             {/* Left column — ~2/3 */}
             <div className="xl:col-span-2 space-y-4">
               {/* Hero Chart */}
               <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-6">
-                <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
-                  <div>
-                    <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Delivery Trend</h2>
-                    <p className="pp-page-subtitle">New dispatches by creation date vs delivered that day — orange line is daily success rate (delivered ÷ dispatched that day)</p>
-                  </div>
-                  <div className="flex rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden text-xs font-medium">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+                  <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Delivery Trend</h2>
+                  <div className="flex rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden text-xs font-medium shrink-0">
                     {([['7d', 'Last 7 days'], ['30d', 'Last 30 days'], ['90d', 'Last 90 days']] as [string, string][]).map(([p, label]) => (
                       <button
                         key={p}
+                        type="button"
                         onClick={() => setHeroPeriod(p)}
                         className={`px-3 py-1.5 transition-colors ${heroPeriod === p ? 'bg-primary-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                       >
@@ -1497,11 +1456,6 @@ export default function AdminDashboardPage(): React.ReactElement {
                     <Line yAxisId="right" type="monotone" dataKey="rate" stroke="#f97316" name="Success Rate %" dot={false} strokeWidth={2.5} isAnimationActive={false} />
                   </ComposedChart>
                 </ResponsiveContainer>
-                {heroChartActivitySummary.sparse && (
-                  <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-                    Only {heroChartActivitySummary.active} of {heroChartActivitySummary.n} days in this window have dispatches — flat periods are normal if orders cluster on certain dates.
-                  </p>
-                )}
               </div>
 
               {/* Delivery Status Breakdown */}
