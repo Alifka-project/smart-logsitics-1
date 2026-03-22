@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import api, { setAuthToken } from '../frontend/apiClient';
-import { BarChart, Bar, ComposedChart, Cell, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, Line, PieChart, Pie } from 'recharts';
+import { BarChart, Bar, ComposedChart, Cell, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, Line, AreaChart, Area, PieChart, Pie } from 'recharts';
 import { 
   Package, CheckCircle, XCircle, Clock, MapPin, Users, Activity, 
   Truck, AlertCircle, FileText, Target, TrendingUp,
@@ -143,7 +143,7 @@ interface TrendChartCardProps {
   barColor?: string;
 }
 
-function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey, xKey, chartType, barColor = '#2563EB' }: TrendChartCardProps): React.ReactElement {
+function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey, xKey, chartType, barColor = '#2563EB', nameKey = 'name' }: TrendChartCardProps): React.ReactElement {
   const FilterBtns = () => (
     <div className="flex rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden text-xs font-medium">
       {(['day', 'month', 'year'] as const).map(p => (
@@ -170,25 +170,43 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
       </div>
       {hasData ? (
         <ResponsiveContainer width="100%" height={220}>
-          {chartType === 'bar' && (
-            <BarChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-              <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-              <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-              <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
-              <Bar dataKey={dataKey || 'count'} fill={barColor} radius={[4, 4, 0, 0]} maxBarSize={24} />
-            </BarChart>
-          )}
           {chartType === 'line' && (
             <ComposedChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
               <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-              <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} unit="%" />
-              <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} formatter={(val: number) => [`${val}%`, 'Success Rate']} />
-              <Line type="monotone" dataKey={dataKey || 'rate'} stroke="#f97316" strokeWidth={2} dot={{ r: 3 }} />
+              <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} domain={dataKey === 'rate' ? [0, 100] : undefined} unit={dataKey === 'rate' ? '%' : undefined} />
+              <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} formatter={dataKey === 'rate' ? (val: number) => [`${val}%`, 'Success Rate'] : undefined} />
+              <Line type="monotone" dataKey={dataKey || 'count'} stroke={barColor} strokeWidth={2} dot={{ r: 3 }} fill="transparent" />
             </ComposedChart>
           )}
-          {chartType === 'stacked' && (
+          {chartType === 'area' && (
+            <AreaChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+              <defs>
+                <linearGradient id={`areaGrad-${title.replace(/\s/g, '')}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={barColor} stopOpacity={0.4} />
+                  <stop offset="95%" stopColor={barColor} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+              <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+              <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
+              <Area type="monotone" dataKey={dataKey || 'count'} stroke={barColor} fill={`url(#areaGrad-${title.replace(/\s/g, '')})`} strokeWidth={2} />
+            </AreaChart>
+          )}
+          {chartType === 'stacked-area' && (
+            <AreaChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+              <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+              <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
+              <Legend wrapperStyle={{ fontSize: '10px' }} />
+              <Area type="monotone" dataKey="delivered" stackId="1" stroke="#059669" fill="#059669" fillOpacity={0.6} name="Delivered" />
+              <Area type="monotone" dataKey="pending" stackId="1" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.6} name="Pending" />
+              <Area type="monotone" dataKey="cancelled" stackId="1" stroke="#dc2626" fill="#dc2626" fillOpacity={0.6} name="Cancelled" />
+            </AreaChart>
+          )}
+          {chartType === 'stacked-bar' && (
             <BarChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
               <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
@@ -200,6 +218,15 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
               <Bar dataKey="cancelled" stackId="a" fill="#dc2626" name="Cancelled" radius={[0, 0, 0, 0]} />
             </BarChart>
           )}
+          {chartType === 'bar' && (
+            <BarChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+              <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+              <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
+              <Bar dataKey={dataKey || 'count'} fill={barColor} radius={[4, 4, 0, 0]} maxBarSize={24} />
+            </BarChart>
+          )}
           {chartType === 'bar-h' && (
             <BarChart data={d} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
@@ -208,6 +235,26 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
               <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
               <Bar dataKey={dataKey || 'count'} fill={barColor} radius={[0, 4, 4, 0]} maxBarSize={16} />
             </BarChart>
+          )}
+          {chartType === 'donut' && (
+            <PieChart margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+              <Pie
+                data={d.map((row, i) => ({ ...row, name: (row[nameKey as keyof typeof row] ?? row[xKey as keyof typeof row] ?? `Item ${i + 1}`), value: row[dataKey as keyof typeof row] ?? row.count ?? 0 }))}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                innerRadius="55%"
+                outerRadius="85%"
+                paddingAngle={1}
+                label={({ name, percent }) => (percent >= 0.05 ? `${(percent * 100).toFixed(0)}%` : '')}
+              >
+                {d.map((_, i) => (
+                  <Cell key={i} fill={['#2563EB', '#059669', '#f59e0b', '#dc2626', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1'][i % 10]} />
+                ))}
+              </Pie>
+              <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} formatter={(val: number, name: string) => [val, name]} />
+            </PieChart>
           )}
         </ResponsiveContainer>
       ) : (
@@ -1045,7 +1092,7 @@ export default function AdminDashboardPage(): React.ReactElement {
 
           {/* Six trend charts — 3 columns on lg */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* 1. Delivery Requests (total created) */}
+            {/* 1. Delivery Requests (total created) — Line: trend over time */}
             <TrendChartCard
               title="Delivery Requests"
               subtitle={trendPeriod1 === 'day' ? 'Total created per day (last 7 days)' : trendPeriod1 === 'month' ? 'Total created per month (last 12 months)' : 'Total created per year (last 5 years)'}
@@ -1054,9 +1101,10 @@ export default function AdminDashboardPage(): React.ReactElement {
               data={trend1DeliveryRequests}
               dataKey="count"
               xKey={trendPeriod1 === 'day' ? 'day' : 'label'}
-              chartType="bar"
+              chartType="line"
+              barColor="#2563EB"
             />
-            {/* 2. Delivered Volume (completed only) */}
+            {/* 2. Delivered Volume (completed only) — Area: volume over time */}
             <TrendChartCard
               title="Delivered Volume"
               subtitle={trendPeriod2 === 'day' ? 'Completed deliveries per day' : trendPeriod2 === 'month' ? 'Completed deliveries per month' : 'Completed deliveries per year'}
@@ -1065,7 +1113,7 @@ export default function AdminDashboardPage(): React.ReactElement {
               data={trend2DeliveredVolume}
               dataKey="count"
               xKey={trendPeriod2 === 'day' ? 'day' : 'label'}
-              chartType="bar"
+              chartType="area"
               barColor="#059669"
             />
             {/* 3. Success Rate Over Time */}
@@ -1079,7 +1127,7 @@ export default function AdminDashboardPage(): React.ReactElement {
               xKey={trendPeriod3 === 'day' ? 'day' : 'label'}
               chartType="line"
             />
-            {/* 4. Status Breakdown */}
+            {/* 4. Status Breakdown — Stacked area: composition over time */}
             <TrendChartCard
               title="Status Breakdown"
               subtitle={trendPeriod4 === 'day' ? 'Delivered vs Pending vs Cancelled per day' : trendPeriod4 === 'month' ? 'By month' : 'By year'}
@@ -1088,29 +1136,31 @@ export default function AdminDashboardPage(): React.ReactElement {
               data={trend4StatusBreakdown}
               dataKey={undefined}
               xKey={trendPeriod4 === 'day' ? 'day' : 'label'}
-              chartType="stacked"
+              chartType="stacked-area"
             />
-            {/* 5. Top Items */}
+            {/* 5. Top Items — Donut: share of deliveries by item */}
             <TrendChartCard
               title="Top Items"
-              subtitle={trendPeriod5 === 'day' ? 'Most delivered items (last 7 days)' : trendPeriod5 === 'month' ? 'Most delivered items (last 12 months)' : 'Most delivered items (last 5 years)'}
+              subtitle={trendPeriod5 === 'day' ? 'Share by item (last 7 days)' : trendPeriod5 === 'month' ? 'Share by item (last 12 months)' : 'Share by item (last 5 years)'}
               period={trendPeriod5}
               onPeriodChange={setTrendPeriod5}
               data={trend5TopItems}
               dataKey="count"
               xKey="item"
-              chartType="bar-h"
+              chartType="donut"
+              nameKey="item"
             />
-            {/* 6. Top Areas */}
+            {/* 6. Top Areas — Donut: share of deliveries by area */}
             <TrendChartCard
               title="Top Areas"
-              subtitle={trendPeriod6 === 'day' ? 'Deliveries by area (last 7 days)' : trendPeriod6 === 'month' ? 'Deliveries by area (last 12 months)' : 'Deliveries by area (last 5 years)'}
+              subtitle={trendPeriod6 === 'day' ? 'Share by area (last 7 days)' : trendPeriod6 === 'month' ? 'Share by area (last 12 months)' : 'Share by area (last 5 years)'}
               period={trendPeriod6}
               onPeriodChange={setTrendPeriod6}
               data={trend6TopAreas}
               dataKey="count"
               xKey="area"
-              chartType="bar-h"
+              chartType="donut"
+              nameKey="area"
             />
           </div>
         </div>
