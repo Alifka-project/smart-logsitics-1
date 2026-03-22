@@ -26,7 +26,6 @@ function OrderStatusPill({ status }: { status: DeliveryStatus }): React.ReactEle
 
 interface OrdersTableProps {
   orders: DeliveryOrder[];
-  cardFilter: string;
   tableTab: OrdersTableTab;
   onTableTabChange: (tab: OrdersTableTab) => void;
   onStatusChange: (orderId: string, newStatus: DeliveryStatus, scheduledDate?: Date) => void;
@@ -58,11 +57,6 @@ function matchesTableTab(order: DeliveryOrder, tab: OrdersTableTab): boolean {
   }
 }
 
-function matchesCard(order: DeliveryOrder, card: string): boolean {
-  if (!card || card === 'all') return true;
-  return order.status === card;
-}
-
 function pageWindow(current: number, total: number, max = 5): number[] {
   if (total <= 0) return [];
   if (total <= max) return Array.from({ length: total }, (_, i) => i + 1);
@@ -77,7 +71,6 @@ function pageWindow(current: number, total: number, max = 5): number[] {
 
 export const OrdersTable: React.FC<OrdersTableProps> = ({
   orders,
-  cardFilter,
   tableTab,
   onTableTabChange,
   onStatusChange,
@@ -97,7 +90,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
-      const matchesStatus = matchesCard(order, cardFilter) && matchesTableTab(order, tableTab);
+      const matchesStatus = matchesTableTab(order, tableTab);
       const q = searchQuery.trim().toLowerCase();
       const matchesSearch =
         !q ||
@@ -108,7 +101,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
         order.product.toLowerCase().includes(q);
       return matchesStatus && matchesSearch;
     });
-  }, [orders, cardFilter, tableTab, searchQuery]);
+  }, [orders, tableTab, searchQuery]);
 
   const sortedOrders = useMemo(() => {
     const list = [...filteredOrders];
@@ -138,7 +131,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [cardFilter, tableTab, searchQuery, sortBy]);
+  }, [tableTab, searchQuery, sortBy]);
 
   const paginatedOrders = sortedOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
@@ -253,13 +246,15 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
   const pages = pageWindow(currentPage, totalPages, 5);
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-      <div className="p-4 border-b border-gray-100 dark:border-gray-700">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Delivery Orders</h2>
-          <span className="text-gray-400 text-sm hidden sm:block" aria-hidden>
-            ↗
-          </span>
+    <div className="overflow-hidden rounded-xl border border-gray-200/80 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <div className="border-b border-gray-100 px-4 py-4 dark:border-gray-700 sm:px-5">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight text-gray-900 dark:text-white">Delivery Orders</h2>
+            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+              Use tabs and search below — status cards above are summary only.
+            </p>
+          </div>
         </div>
 
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mt-4">
@@ -311,36 +306,46 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="manage-orders-table-mobile table-mobile-cards w-full min-w-[720px]">
-          <thead className="bg-gray-50 dark:bg-gray-900/80 border-b border-gray-100 dark:border-gray-700">
+        <table className="manage-orders-table-mobile table-mobile-cards w-full min-w-[860px] table-fixed border-collapse text-sm">
+          <colgroup>
+            <col className="w-[14%]" />
+            <col className="w-[11%]" />
+            <col className="w-[7%]" />
+            <col className="w-[10%]" />
+            <col className="w-[11%]" />
+            <col className="w-[24%]" />
+            <col className="w-[11%]" />
+            <col className="w-[12%]" />
+          </colgroup>
+          <thead className="border-b border-gray-200 bg-gray-50/95 dark:border-gray-600 dark:bg-gray-900/90">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+              <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                 Customer
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+              <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                 Phone
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+              <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                 Order
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+              <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                 Delivery date
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+              <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                 Area
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+              <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                 Product
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+              <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                 Status
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+              <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                 Action
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
+          <tbody className="divide-y divide-gray-100 dark:divide-gray-700/80">
             {paginatedOrders.length === 0 ? (
               <tr>
                 <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
@@ -350,13 +355,20 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
             ) : (
               paginatedOrders.map((order) => {
                 return (
-                  <tr key={order.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50">
-                    <td className="px-4 py-3" data-label="Customer">
-                      <span className="text-sm font-medium text-gray-900 dark:text-white">{order.customerName}</span>
+                  <tr
+                    key={order.id}
+                    className="transition-colors hover:bg-gray-50/90 dark:hover:bg-gray-900/40"
+                  >
+                    <td className="min-w-0 px-3 py-2.5 align-top" data-label="Customer">
+                      <span className="line-clamp-2 font-medium leading-snug text-gray-900 dark:text-white">
+                        {order.customerName}
+                      </span>
                     </td>
-                    <td className="px-4 py-3" data-label="Phone">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm text-gray-600 dark:text-gray-300">{order.customerPhone}</span>
+                    <td className="min-w-0 px-3 py-2.5 align-top" data-label="Phone">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[13px] tabular-nums text-gray-700 dark:text-gray-300">
+                          {order.customerPhone}
+                        </span>
                         <button
                           type="button"
                           onClick={() => onCallCustomer(order.customerPhone)}
@@ -379,23 +391,32 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                         </button>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300" data-label="Order">
+                    <td className="min-w-0 px-3 py-2.5 align-top font-mono text-[13px] text-gray-700 dark:text-gray-300" data-label="Order">
                       #{order.orderNumber}
                     </td>
-                    <td className="px-4 py-3 text-sm" data-label="Delivery date">
+                    <td className="min-w-0 px-3 py-2.5 align-top text-[13px]" data-label="Delivery date">
                       {getDeliveryDateDisplay(order)}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300" data-label="Area">
-                      {order.area}
+                    <td className="min-w-0 px-3 py-2.5 align-top" data-label="Area">
+                      <span className="line-clamp-2 text-[13px] leading-snug text-gray-700 dark:text-gray-300">
+                        {order.area}
+                      </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300" data-label="Product">
-                      {order.product}
+                    <td className="min-w-0 px-3 py-2.5 align-top" data-label="Product">
+                      <span
+                        className="line-clamp-2 break-words text-[13px] leading-snug text-gray-800 dark:text-gray-200"
+                        title={order.product}
+                      >
+                        {order.product}
+                      </span>
                     </td>
-                    <td className="w-[1%] whitespace-nowrap px-4 py-3 align-middle" data-label="Status">
-                      <OrderStatusPill status={order.status} />
+                    <td className="min-w-0 px-3 py-2.5 align-top" data-label="Status">
+                      <div className="inline-flex max-w-full">
+                        <OrderStatusPill status={order.status} />
+                      </div>
                     </td>
-                    <td className="px-4 py-3" data-label="Action">
-                      <div className="flex flex-wrap items-center gap-1.5">
+                    <td className="min-w-0 px-3 py-2.5 align-top" data-label="Action">
+                      <div className="flex flex-nowrap items-center gap-1.5">
                         <button
                           type="button"
                           onClick={() => onEditOrder(order.id)}

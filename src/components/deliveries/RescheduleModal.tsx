@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { DeliveryOrder } from '../../types/delivery';
 
 interface RescheduleModalProps {
@@ -9,6 +10,18 @@ interface RescheduleModalProps {
 
 export const RescheduleModal: React.FC<RescheduleModalProps> = ({ order, onClose, onReschedule }) => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+
+  useEffect(() => {
+    const html = document.documentElement;
+    const prevBody = document.body.style.overflow;
+    const prevHtml = html.style.overflow;
+    document.body.style.overflow = 'hidden';
+    html.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevBody;
+      html.style.overflow = prevHtml;
+    };
+  }, []);
 
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -27,10 +40,18 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({ order, onClose
 
   const minDateStr = tomorrow.toISOString().split('T')[0];
 
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md border border-gray-100 dark:border-gray-700">
-        <div className="p-4 border-b border-gray-100 dark:border-gray-700">
+  const modal = (
+    <div
+      className="fixed inset-0 z-[10050] flex items-center justify-center bg-black/50 p-4 sm:p-6"
+      role="presentation"
+    >
+      <div
+        className="flex max-h-[min(90vh,720px)] w-full max-w-md flex-col overflow-hidden rounded-xl border border-gray-100 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800"
+        role="dialog"
+        aria-modal="true"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="shrink-0 border-b border-gray-100 p-4 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Reschedule Delivery</h3>
             <button
@@ -47,7 +68,7 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({ order, onClose
           </p>
         </div>
 
-        <div className="p-4 space-y-4">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4">
           <div>
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Quick options</p>
             <div className="flex gap-2 flex-wrap">
@@ -101,7 +122,7 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({ order, onClose
           )}
         </div>
 
-        <div className="p-4 border-t border-gray-100 dark:border-gray-700 flex gap-3">
+        <div className="flex shrink-0 gap-3 border-t border-gray-100 p-4 dark:border-gray-700">
           <button
             type="button"
             onClick={onClose}
@@ -121,4 +142,7 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({ order, onClose
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(modal, document.body);
 };

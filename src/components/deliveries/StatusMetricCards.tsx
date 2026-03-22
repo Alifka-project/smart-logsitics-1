@@ -4,8 +4,6 @@ import type { DeliveryOrder } from '../../types/delivery';
 
 interface StatusMetricCardsProps {
   orders: DeliveryOrder[];
-  onCardClick: (status: string) => void;
-  activeFilter?: string;
 }
 
 const CARD_DEFS = [
@@ -18,11 +16,8 @@ const CARD_DEFS = [
   { key: 'delivered', sublabel: 'Done' },
 ] as const;
 
-export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({
-  orders,
-  onCardClick,
-  activeFilter,
-}) => {
+/** Read-only KPI strip — filters live on the table tabs below (no duplicate click-to-filter). */
+export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({ orders }) => {
   const statusCounts = {
     uploaded: orders.filter((o) => o.status === 'uploaded').length,
     sms_sent: orders.filter((o) => o.status === 'sms_sent').length,
@@ -40,23 +35,18 @@ export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({
           const config = STATUS_CONFIG[key as keyof typeof statusCounts];
           const count = statusCounts[key as keyof typeof statusCounts];
           const isHighlight = Boolean(config.highlight);
-          const isActive = activeFilter === key;
           const isFaded = key === 'delivered' && count === 0;
 
           return (
-            <button
+            <div
               key={key}
-              type="button"
-              onClick={() => onCardClick(key)}
               className={`
               relative flex flex-col rounded-xl bg-white dark:bg-gray-800/80 p-3 pt-3.5 pb-3.5 text-left
-              w-full min-w-0 shadow-sm transition-all hover:shadow-md
+              w-full min-w-0 shadow-sm border
               ${
-                isActive
-                  ? 'border-2 border-[#002D5B] shadow-md'
-                  : isHighlight
-                    ? 'border-2 border-amber-400/90'
-                    : 'border border-gray-200 dark:border-gray-600'
+                isHighlight
+                  ? 'border-2 border-amber-400/90'
+                  : 'border border-gray-200 dark:border-gray-600'
               }
               ${isFaded ? 'opacity-50' : ''}
             `}
@@ -67,9 +57,6 @@ export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({
                 >
                   <span className="text-base leading-none">{config.icon}</span>
                 </div>
-                <span className="text-gray-300 dark:text-gray-500 text-[10px] leading-none" aria-hidden>
-                  ↗
-                </span>
               </div>
 
               <p
@@ -84,7 +71,7 @@ export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({
                 </span>
                 <span className="pb-0.5 text-[10px] font-medium text-gray-400">{sublabel}</span>
               </div>
-            </button>
+            </div>
           );
         })}
       </div>

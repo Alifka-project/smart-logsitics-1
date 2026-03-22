@@ -61,7 +61,6 @@ export default function ManageTab({
   const updateDeliveryStatus = useDeliveryStore((s) => s.updateDeliveryStatus);
   const setDeliveryListFilter = useDeliveryStore((s) => s.setDeliveryListFilter);
 
-  const [cardFilter, setCardFilter] = useState<string>('all');
   const [tableTab, setTableTab] = useState<OrdersTableTab>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('newest');
@@ -197,14 +196,8 @@ export default function ManageTab({
     window.open(`https://wa.me/${clean}`, '_blank', 'noopener,noreferrer');
   }, []);
 
-  const handleCardClick = useCallback((key: string) => {
-    setCardFilter(key);
-    setTableTab('all');
-  }, []);
-
   const handleTableTabChange = useCallback((tab: OrdersTableTab) => {
     setTableTab(tab);
-    setCardFilter('all');
   }, []);
 
   const handleTrackDelivery = useCallback(() => {
@@ -237,18 +230,13 @@ export default function ManageTab({
       />
 
       <div className="mb-6">
-        <StatusMetricCards
-          orders={manageOrders}
-          onCardClick={handleCardClick}
-          activeFilter={cardFilter === 'all' ? undefined : cardFilter}
-        />
+        <StatusMetricCards orders={manageOrders} />
       </div>
 
       <div className="manage-delivery-layout grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0">
           <OrdersTable
             orders={manageOrders}
-            cardFilter={cardFilter}
             tableTab={tableTab}
             onTableTabChange={handleTableTabChange}
             onStatusChange={handleStatusChange}

@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import api from '../../frontend/apiClient';
 import type { Delivery } from '../../types';
 import type { DeliveryOrder } from '../../types/delivery';
@@ -55,6 +56,18 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
   });
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    const html = document.documentElement;
+    const prevBody = document.body.style.overflow;
+    const prevHtml = html.style.overflow;
+    document.body.style.overflow = 'hidden';
+    html.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevBody;
+      html.style.overflow = prevHtml;
+    };
+  }, []);
+
   const handleSave = async (): Promise<void> => {
     if (!apiStatus.trim()) {
       onToastError('Please select a status.');
@@ -97,14 +110,19 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+  const modal = (
+    <div
+      className="fixed inset-0 z-[10050] flex items-center justify-center bg-black/50 p-4 sm:p-6"
+      role="presentation"
+    >
       <div
-        className="w-full max-w-md rounded-xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800"
+        className="flex max-h-[min(92vh,780px)] w-full max-w-md flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800"
         role="dialog"
+        aria-modal="true"
         aria-labelledby="order-edit-title"
+        onClick={(e) => e.stopPropagation()}
       >
-        <div className="border-b border-gray-100 px-4 py-3 dark:border-gray-700">
+        <div className="shrink-0 border-b border-gray-100 px-4 py-3 dark:border-gray-700">
           <div className="flex items-center justify-between gap-2">
             <h2 id="order-edit-title" className="text-lg font-semibold text-gray-900 dark:text-white">
               Edit order
@@ -123,7 +141,7 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
           </p>
         </div>
 
-        <div className="space-y-4 px-4 py-4">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4">
           <div>
             <label htmlFor="edit-status" className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
               Status
@@ -174,7 +192,7 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
           </div>
         </div>
 
-        <div className="flex gap-2 border-t border-gray-100 px-4 py-3 dark:border-gray-700">
+        <div className="flex shrink-0 gap-2 border-t border-gray-100 px-4 py-3 dark:border-gray-700">
           <button
             type="button"
             onClick={onClose}
@@ -194,4 +212,7 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(modal, document.body);
 };
