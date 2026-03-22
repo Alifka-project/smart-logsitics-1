@@ -6,20 +6,42 @@ import { rescheduleDateToWorkflow } from '../../utils/deliveryWorkflowMap';
 
 export type OrdersTableTab = 'all' | 'pending' | 'confirmed' | 'scheduled' | 'out_for_delivery';
 
-function OrderStatusPill({ status }: { status: DeliveryStatus }): React.ReactElement {
+function OrderStatusPill({
+  status,
+  onClick,
+}: {
+  status: DeliveryStatus;
+  onClick?: () => void;
+}): React.ReactElement {
   const c = STATUS_CONFIG[status];
   const text = c.pillLabel ?? c.label;
-  return (
-    <span
-      className={`
-        inline-flex max-w-full items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 py-1.5
-        text-xs font-semibold leading-none shadow-sm
-        ${c.badgeStyle} ${c.borderColor}
-      `}
-      title={c.pillLabel ? c.label : undefined}
-    >
+  const baseClass = `
+    inline-flex max-w-full cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 py-1.5
+    text-xs font-semibold leading-none shadow-sm transition-opacity hover:opacity-90
+    ${c.badgeStyle} ${c.borderColor}
+  `;
+  const content = (
+    <>
       <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-55" aria-hidden />
       {text}
+    </>
+  );
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={baseClass}
+        title={`Change status — click to edit`}
+        aria-label={`Edit order status: ${text}`}
+      >
+        {content}
+      </button>
+    );
+  }
+  return (
+    <span className={baseClass} title={c.pillLabel ? c.label : undefined}>
+      {content}
     </span>
   );
 }
@@ -216,14 +238,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
           </button>
         );
       default:
-        return (
-          <button
-            type="button"
-            className="px-3 py-1 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
-          >
-            Actions ▾
-          </button>
-        );
+        return <span className="text-xs text-gray-400 dark:text-gray-500">—</span>;
     }
   };
 
@@ -306,41 +321,41 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="manage-orders-table-mobile table-mobile-cards w-full min-w-[860px] table-fixed border-collapse text-sm">
+        <table className="manage-orders-table-mobile table-mobile-cards w-full min-w-[960px] table-fixed border-collapse text-sm">
           <colgroup>
-            <col className="w-[14%]" />
-            <col className="w-[11%]" />
-            <col className="w-[7%]" />
-            <col className="w-[10%]" />
-            <col className="w-[11%]" />
-            <col className="w-[24%]" />
-            <col className="w-[11%]" />
-            <col className="w-[12%]" />
+            <col style={{ width: '16%' }} />
+            <col style={{ width: '11%' }} />
+            <col style={{ width: '9%' }} />
+            <col style={{ width: '11%' }} />
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '22%' }} />
+            <col style={{ width: '12%' }} />
+            <col style={{ width: '9%' }} />
           </colgroup>
           <thead className="border-b border-gray-200 bg-gray-50/95 dark:border-gray-600 dark:bg-gray-900/90">
             <tr>
-              <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Customer
               </th>
-              <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Phone
               </th>
-              <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              <th className="w-[9%] min-w-[72px] px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Order
               </th>
-              <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              <th className="w-[11%] min-w-[80px] px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Delivery date
               </th>
-              <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Area
               </th>
-              <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Product
               </th>
-              <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Status
               </th>
-              <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Action
               </th>
             </tr>
@@ -359,12 +374,12 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                     key={order.id}
                     className="transition-colors hover:bg-gray-50/90 dark:hover:bg-gray-900/40"
                   >
-                    <td className="min-w-0 px-3 py-2.5 align-top" data-label="Customer">
-                      <span className="line-clamp-2 font-medium leading-snug text-gray-900 dark:text-white">
+                    <td className="min-w-0 px-4 py-3 align-middle" data-label="Customer">
+                      <span className="line-clamp-2 font-medium leading-snug text-gray-900 dark:text-white" title={order.customerName}>
                         {order.customerName}
                       </span>
                     </td>
-                    <td className="min-w-0 px-3 py-2.5 align-top" data-label="Phone">
+                    <td className="min-w-0 px-4 py-3 align-middle" data-label="Phone">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <span className="text-[13px] tabular-nums text-gray-700 dark:text-gray-300">
                           {order.customerPhone}
@@ -391,18 +406,20 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                         </button>
                       </div>
                     </td>
-                    <td className="min-w-0 px-3 py-2.5 align-top font-mono text-[13px] text-gray-700 dark:text-gray-300" data-label="Order">
-                      #{order.orderNumber}
+                    <td className="min-w-0 overflow-hidden px-4 py-3 align-middle" data-label="Order">
+                      <span className="whitespace-nowrap font-mono text-[13px] text-gray-700 dark:text-gray-300" title={`Order #${order.orderNumber}`}>
+                        #{order.orderNumber}
+                      </span>
                     </td>
-                    <td className="min-w-0 px-3 py-2.5 align-top text-[13px]" data-label="Delivery date">
-                      {getDeliveryDateDisplay(order)}
+                    <td className="min-w-0 overflow-hidden px-4 py-3 align-middle text-[13px]" data-label="Delivery date">
+                      <span className="whitespace-nowrap">{getDeliveryDateDisplay(order)}</span>
                     </td>
-                    <td className="min-w-0 px-3 py-2.5 align-top" data-label="Area">
+                    <td className="min-w-0 px-4 py-3 align-middle" data-label="Area">
                       <span className="line-clamp-2 text-[13px] leading-snug text-gray-700 dark:text-gray-300">
                         {order.area}
                       </span>
                     </td>
-                    <td className="min-w-0 px-3 py-2.5 align-top" data-label="Product">
+                    <td className="min-w-0 px-4 py-3 align-middle" data-label="Product">
                       <span
                         className="line-clamp-2 break-words text-[13px] leading-snug text-gray-800 dark:text-gray-200"
                         title={order.product}
@@ -410,20 +427,13 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                         {order.product}
                       </span>
                     </td>
-                    <td className="min-w-0 px-3 py-2.5 align-top" data-label="Status">
+                    <td className="min-w-0 px-4 py-3 align-middle" data-label="Status">
                       <div className="inline-flex max-w-full">
-                        <OrderStatusPill status={order.status} />
+                        <OrderStatusPill status={order.status} onClick={() => onEditOrder(order.id)} />
                       </div>
                     </td>
-                    <td className="min-w-0 px-3 py-2.5 align-top" data-label="Action">
+                    <td className="min-w-0 px-4 py-3 align-middle" data-label="Action">
                       <div className="flex flex-nowrap items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => onEditOrder(order.id)}
-                          className="px-2.5 py-1 text-xs font-medium rounded-md bg-[#002D5B] text-white hover:bg-[#001f3f]"
-                        >
-                          Edit
-                        </button>
                         {getActionButton(order)}
                       </div>
                     </td>
