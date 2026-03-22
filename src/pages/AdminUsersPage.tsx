@@ -435,7 +435,7 @@ export default function AdminUsersPage(): React.ReactElement {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full min-w-0">
       {/* Header */}
       <div className="pp-page-header flex flex-wrap justify-between items-center gap-3">
         <div>
@@ -444,18 +444,19 @@ export default function AdminUsersPage(): React.ReactElement {
         </div>
         {activeTab !== 'logs' && (
           <button
+            type="button"
             onClick={openAddModal}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            className="px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 flex items-center gap-2 font-semibold shadow-sm transition-colors"
           >
-            <UserPlus className="w-5 h-5" />
+            <UserPlus className="w-5 h-5 shrink-0" />
             Add New {activeTab === 'accounts' ? 'Account' : 'Driver'}
           </button>
         )}
       </div>
 
-      {/* Tab Navigation */}
-      <div className="border-b border-gray-200 dark:border-gray-700 overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0">
-        <nav className="flex space-x-6 sm:space-x-8 min-w-max whitespace-nowrap">
+      {/* Tab Navigation — PolicyPilot pill rail */}
+      <div className="rounded-2xl bg-gray-100/80 dark:bg-white/[0.06] p-1.5 border border-gray-200/60 dark:border-white/[0.07]">
+        <nav className="flex flex-wrap gap-1 overflow-x-auto">
           {[
             { id: 'accounts', label: 'Accounts', icon: Users },
             { id: 'drivers', label: 'Drivers', icon: UserCheck },
@@ -465,21 +466,20 @@ export default function AdminUsersPage(): React.ReactElement {
             return (
               <button
                 key={tab.id}
+                type="button"
                 onClick={() => {
                   setActiveTab(tab.id);
                   resetForm();
                 }}
-                className={`
-                  flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm
-                  ${activeTab === tab.id
-                    ? 'border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-400'
-                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
-                  }
-                `}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap rounded-xl transition-all ${
+                  activeTab === tab.id
+                    ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-white/60 dark:hover:bg-slate-700/50'
+                }`}
               >
-                <Icon className="w-5 h-5" />
+                <Icon className="w-4 h-4 shrink-0" />
                 {tab.label}
-                <span className="ml-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs rounded-full px-2 py-0.5">
+                <span className="ml-1 bg-gray-100/90 dark:bg-slate-700/80 text-gray-600 dark:text-gray-300 text-xs font-semibold rounded-full px-2 py-0.5 tabular-nums">
                   {tab.id === 'accounts' ? accounts.length : tab.id === 'drivers' ? drivers.length : onlineUsers.length}
                 </span>
               </button>
@@ -488,6 +488,7 @@ export default function AdminUsersPage(): React.ReactElement {
         </nav>
       </div>
 
+      <div key={activeTab} className="tab-enter">
       {/* Activity Logs Tab Content */}
       {activeTab === 'logs' ? (
         <div className="space-y-6">
@@ -513,9 +514,9 @@ export default function AdminUsersPage(): React.ReactElement {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
               </div>
             ) : onlineUsers.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="pp-kpi-grid">
                 {onlineUsers.map(user => (
-                  <div key={user.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 hover:shadow-md animate-fade-in">
+                  <div key={user.id} className="pp-dash-card p-4 hover:bg-gray-50/80 dark:hover:bg-slate-800/50 transition-all duration-300 animate-fade-in w-full min-w-0 max-w-[280px]">
                     <div className="flex items-center gap-3">
                       <div className="relative">
                         <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center ring-2 ring-green-500/20">
@@ -713,13 +714,13 @@ export default function AdminUsersPage(): React.ReactElement {
                   placeholder="Search by username, name, or email..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 dark:border-white/10 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
               <select
                 value={filterRole}
                 onChange={(e) => setFilterRole(e.target.value)}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-2.5 border border-gray-200 dark:border-white/10 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
               >
                 <option value="all">All Roles</option>
                 <option value="admin">Admin</option>
@@ -866,6 +867,7 @@ export default function AdminUsersPage(): React.ReactElement {
           </div>
         </>
       )}
+      </div>
 
       {/* Add/Edit Modal */}
       {showModal && (
@@ -1029,7 +1031,7 @@ export default function AdminUsersPage(): React.ReactElement {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="px-4 py-2.5 bg-blue-600 text-white rounded-xl font-semibold shadow-sm hover:bg-blue-700"
                 >
                   {editingUser ? 'Update' : 'Create'} {activeTab === 'accounts' ? 'Account' : 'Driver'}
                 </button>

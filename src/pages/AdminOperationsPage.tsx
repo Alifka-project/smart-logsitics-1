@@ -537,7 +537,7 @@ export default function AdminOperationsPage(): React.ReactElement {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full min-w-0">
       {/* Header */}
       <div className="pp-page-header flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -549,9 +549,9 @@ export default function AdminOperationsPage(): React.ReactElement {
         </div>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="border-b border-gray-200 dark:border-gray-700 overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0">
-        <nav className="flex space-x-6 sm:space-x-8 min-w-max whitespace-nowrap">
+      {/* Tab Navigation — PolicyPilot pill rail */}
+      <div className="rounded-2xl bg-gray-100/80 dark:bg-white/[0.06] p-1.5 border border-gray-200/60 dark:border-white/[0.07]">
+        <nav className="flex flex-wrap gap-1 overflow-x-auto">
           {([
             { id: 'monitoring',       label: 'Monitoring & Tracking', icon: Activity      },
             { id: 'control',          label: 'Control',            icon: Settings      },
@@ -561,17 +561,18 @@ export default function AdminOperationsPage(): React.ReactElement {
             return (
               <button
                 key={tab.id}
+                type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm ${
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap rounded-xl transition-all ${
                   activeTab === tab.id
-                    ? 'border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-400'
-                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                    ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-white/60 dark:hover:bg-slate-700/50'
                 }`}
               >
-                <Icon className="w-5 h-5" />
+                <Icon className="w-4 h-4 shrink-0" />
                 {tab.label}
                 {tab.id === 'alerts' && alerts.length > 0 && (
-                  <span className="ml-2 bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
+                  <span className="ml-1 bg-red-500 text-white text-xs rounded-full px-2 py-0.5 font-semibold">
                     {alerts.length}
                   </span>
                 )}
@@ -587,7 +588,7 @@ export default function AdminOperationsPage(): React.ReactElement {
       {/* ══════════ MONITORING ══════════ */}
       {activeTab === 'monitoring' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="pp-kpi-grid">
             {([
               { label: 'Active Deliveries',    value: activeDeliveries.length,                             icon: Truck,        bg: 'bg-blue-50 dark:bg-blue-900/20',     ic: 'text-blue-600 dark:text-blue-400',     val: 'text-blue-700 dark:text-blue-300'    },
               { label: 'Online Drivers',        value: onlineDrivers.length,                               icon: Users,        bg: 'bg-green-50 dark:bg-green-900/20',   ic: 'text-green-600 dark:text-green-400',   val: 'text-green-700 dark:text-green-300'  },
@@ -595,12 +596,14 @@ export default function AdminOperationsPage(): React.ReactElement {
               { label: 'Active Alerts',         value: alerts.length,                                      icon: AlertCircle,  bg: 'bg-red-50 dark:bg-red-900/20',       ic: 'text-red-600 dark:text-red-400',       val: 'text-red-700 dark:text-red-300'      },
               { label: 'Total Drivers',         value: drivers.length,                                     icon: Activity,     bg: 'bg-indigo-50 dark:bg-indigo-900/20', ic: 'text-indigo-600 dark:text-indigo-400', val: 'text-indigo-700 dark:text-indigo-300'},
             ] as { label: string; value: number; icon: React.ElementType; bg: string; ic: string; val: string }[]).map(({ label, value, icon: Icon, bg, ic, val }) => (
-              <div key={label} className="pp-dash-card p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">{label}</span>
-                  <div className={`p-1.5 rounded-lg ${bg}`}><Icon className={`w-4 h-4 ${ic}`} /></div>
+              <div key={label} className="pp-dash-card p-4 w-full min-w-0 max-w-[280px]">
+                <div className="flex items-start gap-3">
+                  <div className={`p-2.5 rounded-full shrink-0 ${bg}`}><Icon className={`w-4 h-4 ${ic}`} /></div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide leading-snug">{label}</p>
+                    <p className={`text-2xl font-bold tracking-tight ${val} mt-1`}>{value}</p>
+                  </div>
                 </div>
-                <div className={`text-2xl font-bold ${val}`}>{value}</div>
               </div>
             ))}
           </div>
@@ -815,16 +818,18 @@ export default function AdminOperationsPage(): React.ReactElement {
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="pp-kpi-grid">
               {[
                 { label: 'Total Deliveries', value: deliveries.length, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-900/20' },
                 { label: 'Assigned',         value: deliveries.filter(d => d.tracking?.driverId || d.assignedDriverId).length, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-900/20' },
                 { label: 'Unassigned',       value: deliveries.filter(d => !d.tracking?.driverId && !d.assignedDriverId).length, color: 'text-yellow-600 dark:text-yellow-400', bg: 'bg-yellow-50 dark:bg-yellow-900/20' },
-                { label: 'Available Drivers',value: drivers.length, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-900/20' },
+                { label: 'Available Drivers',value: drivers.length, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-900/20' },
               ].map(({ label, value, color, bg }) => (
-                <div key={label} className={`${bg} rounded p-4`}>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">{label}</div>
-                  <div className={`text-2xl font-bold ${color}`}>{value}</div>
+                <div key={label} className="pp-dash-card p-4 w-full min-w-0 max-w-[280px]">
+                  <div className={`rounded-xl p-3 ${bg}`}>
+                    <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">{label}</div>
+                    <div className={`text-2xl font-bold ${color} mt-1`}>{value}</div>
+                  </div>
                 </div>
               ))}
             </div>
