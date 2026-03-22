@@ -180,6 +180,7 @@ app.use('/api/deliveries', require('./api/deliveries.js'));
 app.use('/api/sms', require('./api/sms.js'));
 app.use('/api/sap', require('./api/sap.js'));
 app.use('/api/sap-ingestion', require('./api/sap-ingestion.js')); // SAP data ingestion with POD support
+app.use('/api/routing', require('./api/routing.js')); // OSRM proxy for road-following routes
 
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);

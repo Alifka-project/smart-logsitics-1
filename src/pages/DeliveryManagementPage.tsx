@@ -68,6 +68,7 @@ export default function DeliveryManagementPage() {
   }, []);
 
   // Recalculate route when the visible delivery list changes while on the deliveries tab
+  // (Upload → loadDeliveries updates store → displayDeliveries changes → route recalculates)
   useEffect(() => {
     if (activeTab === 'deliveries' && displayDeliveries.length > 0) {
       void loadRoute();
@@ -121,6 +122,8 @@ export default function DeliveryManagementPage() {
       warning(`⚠ ${result.warnings.length} warning(s) found during validation`);
     }
     setShowCacheAlert(false);
+    // Switch to Deliveries tab so user sees updated list and route immediately
+    setActiveTab('deliveries');
   };
 
   const handleReloadFromDatabase = async (): Promise<void> => {

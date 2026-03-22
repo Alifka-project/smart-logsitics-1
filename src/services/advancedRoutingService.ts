@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { isValidDubaiCoordinates } from './geocodingService';
 import { calculateRouteWithOSRM } from './osrmRoutingService';
+import api from '../frontend/apiClient';
 import type { Delivery } from '../types';
 
 const OPENAI_API_KEY: string =
@@ -179,44 +180,32 @@ async function calculateRouteChunk(
   locations: RouteLocation[],
 ): Promise<{ legs: unknown[]; coordinates: [number, number][]; distance: number; duration: number }> {
   try {
-    const coordinates = locations.map((loc) => `${loc.lng},${loc.lat}`).join(';');
-    const url = `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson&steps=true`;
+    console.log(`[Routing] Calling OSRM proxy with ${locations.length} waypoints`);
 
-    console.log(`[Routing] Calling OSRM with ${locations.length} waypoints`);
+    /* Use backend proxy to avoid CORS - OSRM public server blocks direct browser requests */
+    const response = await api.post<{
+      coordinates: [number, number][];
+      distance: number;
+      duration: number;
+      legs?: unknown[];
+    }>('/routing/osrm', { locations }, { timeout: 45000 });
 
-    const response = await axios.get<{
-      code?: string;
-      routes?: Array<{
-        distance: number;
-        duration: number;
-        geometry: { coordinates: [number, number][] };
-        legs?: unknown[];
-      }>;
-    }>(url, { timeout: 45000 });
+    const { coordinates: coordinatesFixed, distance, duration, legs = [] } = response.data;
 
-    if (!response.data || response.data.code !== 'Ok') {
-      throw new Error(`OSRM routing failed: ${response.data?.code || 'Unknown error'}`);
-    }
-
-    const route = response.data.routes![0];
-    if (!route?.geometry?.coordinates) {
+    if (!coordinatesFixed?.length) {
       throw new Error('Invalid OSRM response - no geometry');
     }
 
-    const coordinatesFixed: [number, number][] = route.geometry.coordinates.map(
-      (coord) => [coord[1], coord[0]],
-    );
-
     return {
-      legs: route.legs || [],
+      legs,
       coordinates: coordinatesFixed,
-      distance: route.distance,
-      duration: route.duration,
+      distance: distance ?? 0,
+      duration: duration ?? 0,
     };
   } catch (error: unknown) {
     const err = error as { response?: { data?: { error?: string } }; message?: string };
-    console.error('[Routing] OSRM API error:', err.response?.data || err.message);
-    throw new Error(`OSRM routing failed: ${err.response?.data?.error || err.message}`);
+    console.error('[Routing] OSRM proxy error:', err.response?.data || err.message);
+    throw new Error(`OSRM routing failed: ${(err.response?.data as { message?: string })?.message || err.message || 'Unknown error'}`);
   }
 }
 
