@@ -176,7 +176,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
               <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
               <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} domain={dataKey === 'rate' ? [0, 100] : undefined} unit={dataKey === 'rate' ? '%' : undefined} />
               <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} formatter={dataKey === 'rate' ? (val: number) => [`${val}%`, 'Success Rate'] : undefined} />
-              <Line type="monotone" dataKey={dataKey || 'count'} stroke={barColor} strokeWidth={2} dot={{ r: 3 }} fill="transparent" />
+              <Line type="monotone" dataKey={dataKey || 'count'} stroke={barColor} strokeWidth={2} dot={{ r: 3 }} fill="transparent" isAnimationActive={false} />
             </ComposedChart>
           )}
           {chartType === 'area' && (
@@ -191,7 +191,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
               <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
               <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
               <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
-              <Area type="monotone" dataKey={dataKey || 'count'} stroke={barColor} fill={`url(#areaGrad-${title.replace(/\s/g, '')})`} strokeWidth={2} />
+              <Area type="monotone" dataKey={dataKey || 'count'} stroke={barColor} fill={`url(#areaGrad-${title.replace(/\s/g, '')})`} strokeWidth={2} isAnimationActive={false} />
             </AreaChart>
           )}
           {chartType === 'stacked-area' && (
@@ -201,9 +201,9 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
               <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
               <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
               <Legend wrapperStyle={{ fontSize: '10px' }} />
-              <Area type="monotone" dataKey="delivered" stackId="1" stroke="#059669" fill="#059669" fillOpacity={0.6} name="Delivered" />
-              <Area type="monotone" dataKey="pending" stackId="1" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.6} name="Pending" />
-              <Area type="monotone" dataKey="cancelled" stackId="1" stroke="#dc2626" fill="#dc2626" fillOpacity={0.6} name="Cancelled" />
+              <Area type="monotone" dataKey="delivered" stackId="1" stroke="#059669" fill="#059669" fillOpacity={0.6} name="Delivered" isAnimationActive={false} />
+              <Area type="monotone" dataKey="pending" stackId="1" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.6} name="Pending" isAnimationActive={false} />
+              <Area type="monotone" dataKey="cancelled" stackId="1" stroke="#dc2626" fill="#dc2626" fillOpacity={0.6} name="Cancelled" isAnimationActive={false} />
             </AreaChart>
           )}
           {chartType === 'stacked-bar' && (
@@ -236,26 +236,33 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
               <Bar dataKey={dataKey || 'count'} fill={barColor} radius={[0, 4, 4, 0]} maxBarSize={16} />
             </BarChart>
           )}
-          {chartType === 'donut' && (
-            <PieChart margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-              <Pie
-                data={d.map((row, i) => ({ ...row, name: (row[nameKey as keyof typeof row] ?? row[xKey as keyof typeof row] ?? `Item ${i + 1}`), value: row[dataKey as keyof typeof row] ?? row.count ?? 0 }))}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                innerRadius="55%"
-                outerRadius="85%"
-                paddingAngle={1}
-                label={({ name, percent }) => (percent >= 0.05 ? `${(percent * 100).toFixed(0)}%` : '')}
-              >
-                {d.map((_, i) => (
-                  <Cell key={i} fill={['#2563EB', '#059669', '#f59e0b', '#dc2626', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1'][i % 10]} />
-                ))}
-              </Pie>
-              <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} formatter={(val: number, name: string) => [val, name]} />
-            </PieChart>
-          )}
+          {chartType === 'donut' && (() => {
+            const COLORS = ['#2563EB', '#059669', '#f59e0b', '#dc2626', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1'];
+            const pieData = d
+              .map((row, i) => {
+                const val = Number(row[dataKey as keyof typeof row] ?? row.count ?? 0);
+                const nm = String(row[nameKey as keyof typeof row] ?? row[xKey as keyof typeof row] ?? `Item ${i + 1}`);
+                return { name: nm, value: val, fill: COLORS[i % COLORS.length] };
+              })
+              .filter((item) => item.value > 0);
+            if (pieData.length === 0) return <p className="text-center py-10 text-gray-400 dark:text-gray-500 text-xs">No data to display</p>;
+            return (
+              <PieChart margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                <Pie
+                  data={pieData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius="55%"
+                  outerRadius="85%"
+                  paddingAngle={1}
+                  isAnimationActive={false}
+                />
+                <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} formatter={(val: number, name: string) => [val, name]} />
+              </PieChart>
+            );
+          })()}
         </ResponsiveContainer>
       ) : (
         <p className="text-center py-10 text-gray-400 dark:text-gray-500 text-xs">No data available</p>
