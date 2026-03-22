@@ -4,7 +4,7 @@ import { BarChart, Bar, ComposedChart, XAxis, YAxis, ZAxis, Tooltip, Legend, Res
 import { 
   Package, CheckCircle, XCircle, Clock, MapPin, Users, Activity, 
   Truck, AlertCircle, FileText, Target, TrendingUp,
-  ChevronUp, ChevronDown, ChevronRight, RefreshCw, Download, ArrowUpRight
+  ChevronUp, ChevronDown, ChevronRight, RefreshCw, Download, ArrowUpRight, Filter, RotateCcw
 } from 'lucide-react';
 import RiskBadge, { riskFromSuccessRate } from '../components/Analytics/RiskBadge';
 import MetricTooltip from '../components/Analytics/MetricTooltip';
@@ -689,10 +689,14 @@ export default function AdminDashboardPage(): React.ReactElement {
   const [topCustomersAreaFilter, setTopCustomersAreaFilter] = useState<string>('all');
   const [topCustomersSortBy, setTopCustomersSortBy] = useState<string>('orders');
   const [topCustomersSortDir, setTopCustomersSortDir] = useState<string>('desc');
+  const [topCustomersMinOrders, setTopCustomersMinOrders] = useState<string>('');
+  const [topCustomersMinSuccess, setTopCustomersMinSuccess] = useState<string>('');
+  const [topCustomersRiskFilter, setTopCustomersRiskFilter] = useState<string>('all');
 
   const [topItemsSearch, setTopItemsSearch] = useState<string>('');
   const [topItemsSortBy, setTopItemsSortBy] = useState<string>('count');
   const [topItemsSortDir, setTopItemsSortDir] = useState<string>('desc');
+  const [topItemsMinQty, setTopItemsMinQty] = useState<string>('');
 
   const [chartTopN, setChartTopN] = useState<number>(10);
 
@@ -1262,16 +1266,19 @@ export default function AdminDashboardPage(): React.ReactElement {
   }, [deliveries, areaKeywords, chartTopN]);
 
   const topItemsData = useMemo<ItemItem[]>(() => {
+    const minQty = Number(topItemsMinQty) || 0;
     let rows = (data?.analytics?.topItems || []).filter(r => {
       const q = topItemsSearch.trim().toLowerCase();
-      return !q || (r.item || '').toLowerCase().includes(q) || (r.pnc || '').toLowerCase().includes(q) || (r.modelId || '').toLowerCase().includes(q);
+      const matchSearch = !q || (r.item || '').toLowerCase().includes(q) || (r.pnc || '').toLowerCase().includes(q) || (r.modelId || '').toLowerCase().includes(q);
+      const matchMinQty = minQty <= 0 || (r.count ?? 0) >= minQty;
+      return matchSearch && matchMinQty;
     });
     const dir = topItemsSortDir === 'asc' ? 1 : -1;
     if (topItemsSortBy === 'count') rows = [...rows].sort((a, b) => dir * ((a.count ?? 0) - (b.count ?? 0)));
     else if (topItemsSortBy === 'item') rows = [...rows].sort((a, b) => dir * (a.item || '').localeCompare(b.item || ''));
     else if (topItemsSortBy === 'pnc') rows = [...rows].sort((a, b) => dir * (a.pnc || '').localeCompare(b.pnc || ''));
     return rows.slice(0, chartTopN);
-  }, [data?.analytics?.topItems, topItemsSearch, topItemsSortBy, topItemsSortDir, chartTopN]);
+  }, [data?.analytics?.topItems, topItemsSearch, topItemsSortBy, topItemsSortDir, topItemsMinQty, chartTopN]);
 
   const topItemsTableData = useMemo(() => {
     const total = (data?.analytics?.topItems || []).reduce((s, r) => s + (r.count ?? 0), 0);
@@ -1285,7 +1292,14 @@ export default function AdminDashboardPage(): React.ReactElement {
     let rows = (data?.analytics?.topCustomers || []).filter(r => {
       const q = topCustomersSearch.trim().toLowerCase();
       const matchArea = topCustomersAreaFilter === 'all' || (r.primaryArea || '') === topCustomersAreaFilter;
-      return matchArea && (!q || (r.customer || '').toLowerCase().includes(q) || (r.primaryArea || '').toLowerCase().includes(q));
+      const matchSearch = !q || (r.customer || '').toLowerCase().includes(q) || (r.primaryArea || '').toLowerCase().includes(q);
+      const minOrd = Number(topCustomersMinOrders) || 0;
+      const minSucc = Number(topCustomersMinSuccess) || 0;
+      const matchMinOrders = minOrd <= 0 || (r.orders ?? 0) >= minOrd;
+      const matchMinSuccess = minSucc <= 0 || (r.successRate ?? 0) >= minSucc;
+      const risk = riskFromSuccessRate(r.successRate ?? 0);
+      const matchRisk = topCustomersRiskFilter === 'all' || risk === topCustomersRiskFilter;
+      return matchArea && matchSearch && matchMinOrders && matchMinSuccess && matchRisk;
     });
     const dir = topCustomersSortDir === 'asc' ? 1 : -1;
     return [...rows].sort((a, b) => {
@@ -1294,7 +1308,7 @@ export default function AdminDashboardPage(): React.ReactElement {
       if (topCustomersSortBy === 'successRate') return dir * ((a.successRate ?? 0) - (b.successRate ?? 0));
       return dir * ((a.orders ?? 0) - (b.orders ?? 0));
     });
-  }, [data?.analytics?.topCustomers, topCustomersSearch, topCustomersAreaFilter, topCustomersSortBy, topCustomersSortDir]);
+  }, [data?.analytics?.topCustomers, topCustomersSearch, topCustomersAreaFilter, topCustomersSortBy, topCustomersSortDir, topCustomersMinOrders, topCustomersMinSuccess, topCustomersRiskFilter]);
 
   const topCustomersDataWithMeta = useMemo(() => {
     const total = topCustomersData.reduce((s, r) => s + (r.orders ?? 0), 0);
@@ -1955,35 +1969,55 @@ export default function AdminDashboardPage(): React.ReactElement {
             })}
           </div>
 
-          {/* Filter bar */}
-          <div className="flex flex-wrap gap-2 items-center">
-            <input
-              type="text"
-              placeholder="Search customer name or area..."
-              value={topCustomersSearch}
-              onChange={e => setTopCustomersSearch(e.target.value)}
-              className="flex-1 min-w-0 sm:min-w-[140px] md:min-w-[200px] px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <select value={topCustomersAreaFilter} onChange={e => setTopCustomersAreaFilter(e.target.value)}
-              className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
-              <option value="all">All Areas</option>
-              {topCustomersAreas.map(a => <option key={a} value={a}>{a}</option>)}
-            </select>
-            <select value={topCustomersSortBy} onChange={e => setTopCustomersSortBy(e.target.value)}
-              className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
-              <option value="orders">Sort: Total Orders</option>
-              <option value="delivered">Sort: Delivered</option>
-              <option value="successRate">Sort: Success Rate</option>
-              <option value="customer">Sort: Name</option>
-            </select>
-            <button onClick={() => setTopCustomersSortDir(d => d === 'asc' ? 'desc' : 'asc')}
-              className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-              {topCustomersSortDir === 'asc' ? '↑ Asc' : '↓ Desc'}
-            </button>
-            <button onClick={() => exportCSV(topCustomersDataWithMeta as unknown as Record<string, unknown>[], ['customer', 'orders', 'delivered', 'pending', 'cancelled', 'successRate', 'sharePct', 'pendingRate', 'riskFlag', 'primaryArea', 'totalQuantity'], 'top-customers')}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold shadow-sm transition-colors">
-              <Download className="w-3.5 h-3.5" /> Export
-            </button>
+          {/* Filter bar — advanced */}
+          <div className="pp-dash-card p-4 space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Filter className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+              <input
+                type="text"
+                placeholder="Search customer or area..."
+                value={topCustomersSearch}
+                onChange={e => setTopCustomersSearch(e.target.value)}
+                className="flex-1 min-w-0 sm:min-w-[140px] md:min-w-[180px] px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <select value={topCustomersAreaFilter} onChange={e => setTopCustomersAreaFilter(e.target.value)}
+                className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                <option value="all">All Areas</option>
+                {topCustomersAreas.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+              <input type="number" min={0} placeholder="Min orders" value={topCustomersMinOrders} onChange={e => setTopCustomersMinOrders(e.target.value)}
+                className="w-24 px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" title="Show customers with at least this many orders" />
+              <input type="number" min={0} max={100} placeholder="Min success %" value={topCustomersMinSuccess} onChange={e => setTopCustomersMinSuccess(e.target.value)}
+                className="w-28 px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" title="Minimum success rate" />
+              <select value={topCustomersRiskFilter} onChange={e => setTopCustomersRiskFilter(e.target.value)}
+                className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                <option value="all">All risk levels</option>
+                <option value="low">Low risk</option>
+                <option value="medium">Medium risk</option>
+                <option value="high">High risk</option>
+              </select>
+              <select value={topCustomersSortBy} onChange={e => setTopCustomersSortBy(e.target.value)}
+                className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                <option value="orders">Sort: Orders</option>
+                <option value="delivered">Sort: Delivered</option>
+                <option value="successRate">Sort: Success %</option>
+                <option value="customer">Sort: Name</option>
+              </select>
+              <button onClick={() => setTopCustomersSortDir(d => d === 'asc' ? 'desc' : 'asc')}
+                className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                {topCustomersSortDir === 'asc' ? '↑ Asc' : '↓ Desc'}
+              </button>
+              {(topCustomersSearch || topCustomersAreaFilter !== 'all' || topCustomersMinOrders || topCustomersMinSuccess || topCustomersRiskFilter !== 'all') && (
+                <button onClick={() => { setTopCustomersSearch(''); setTopCustomersAreaFilter('all'); setTopCustomersMinOrders(''); setTopCustomersMinSuccess(''); setTopCustomersRiskFilter('all'); }}
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors">
+                  <RotateCcw className="w-3.5 h-3.5" /> Clear filters
+                </button>
+              )}
+              <button onClick={() => exportCSV(topCustomersDataWithMeta as unknown as Record<string, unknown>[], ['customer', 'orders', 'delivered', 'pending', 'cancelled', 'successRate', 'sharePct', 'pendingRate', 'riskFlag', 'primaryArea', 'totalQuantity'], 'top-customers')}
+                className="ml-auto flex items-center gap-1.5 px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold shadow-sm transition-colors">
+                <Download className="w-3.5 h-3.5" /> Export
+              </button>
+            </div>
           </div>
 
           {/* Two-column layout: Chart | Table */}
@@ -2589,29 +2623,40 @@ export default function AdminDashboardPage(): React.ReactElement {
             })}
           </div>
 
-          {/* Filter bar */}
-          <div className="flex flex-wrap gap-2 items-center">
-            <input
-              type="text"
-              placeholder="Search item name, PNC, or model..."
-              value={topItemsSearch}
-              onChange={e => setTopItemsSearch(e.target.value)}
-              className="flex-1 min-w-0 sm:min-w-[140px] md:min-w-[200px] px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <select value={chartTopN} onChange={e => setChartTopN(Number(e.target.value))}
-              className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
-              {[5, 10, 15, 20].map(n => <option key={n} value={n}>Top {n}</option>)}
-            </select>
-            <select value={topItemsSortBy} onChange={e => setTopItemsSortBy(e.target.value)}
-              className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
-              <option value="count">Sort: Quantity</option>
-              <option value="item">Sort: Item Name</option>
-              <option value="pnc">Sort: PNC</option>
-            </select>
-            <button onClick={() => setTopItemsSortDir(d => d === 'asc' ? 'desc' : 'asc')}
-              className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-              {topItemsSortDir === 'asc' ? '↑ Asc' : '↓ Desc'}
-            </button>
+          {/* Filter bar — advanced */}
+          <div className="pp-dash-card p-4 space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Filter className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+              <input
+                type="text"
+                placeholder="Search item, PNC, or model..."
+                value={topItemsSearch}
+                onChange={e => setTopItemsSearch(e.target.value)}
+                className="flex-1 min-w-0 sm:min-w-[140px] md:min-w-[180px] px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <input type="number" min={0} placeholder="Min quantity" value={topItemsMinQty} onChange={e => setTopItemsMinQty(e.target.value)}
+                className="w-28 px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" title="Show items with at least this quantity" />
+              <select value={chartTopN} onChange={e => setChartTopN(Number(e.target.value))}
+                className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                {[5, 10, 15, 20].map(n => <option key={n} value={n}>Top {n}</option>)}
+              </select>
+              <select value={topItemsSortBy} onChange={e => setTopItemsSortBy(e.target.value)}
+                className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                <option value="count">Sort: Quantity</option>
+                <option value="item">Sort: Item Name</option>
+                <option value="pnc">Sort: PNC</option>
+              </select>
+              <button onClick={() => setTopItemsSortDir(d => d === 'asc' ? 'desc' : 'asc')}
+                className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                {topItemsSortDir === 'asc' ? '↑ Asc' : '↓ Desc'}
+              </button>
+              {(topItemsSearch || topItemsMinQty) && (
+                <button onClick={() => { setTopItemsSearch(''); setTopItemsMinQty(''); }}
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors">
+                  <RotateCcw className="w-3.5 h-3.5" /> Clear filters
+                </button>
+              )}
+            </div>
           </div>
 
           {/* ~40% charts | ~60% table */}
