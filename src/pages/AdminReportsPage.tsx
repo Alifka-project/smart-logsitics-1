@@ -332,13 +332,15 @@ export default function AdminReportsPage(): React.ReactElement {
   const podRate = podTotal > 0 ? ((podWithCount / podTotal) * 100).toFixed(1) : '0.0';
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 w-full min-w-0">
 
-      {/* ── Page Header ── */}
-      <div className="pp-page-header flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* ── Page Header (classic — not PolicyPilot pp-* page chrome) ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-1">
         <div>
-          <h1 className="pp-page-title">Reports & Analytics</h1>
-          <p className="pp-page-subtitle">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
+            Reports & Analytics
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Electrolux Dubai Logistics · Generated:{' '}
             {reportData?.generatedAt ? new Date(reportData.generatedAt).toLocaleString('en-AE') : '—'}
           </p>
@@ -372,7 +374,7 @@ export default function AdminReportsPage(): React.ReactElement {
       </div>
 
       {/* ── Filters ── */}
-      <div className="pp-card p-5">
+      <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800/90 shadow-sm p-5">
         <div className="flex items-center gap-2 mb-4">
           <div className="w-8 h-8 rounded-lg bg-blue-900/10 flex items-center justify-center">
             <Filter className="w-4 h-4 text-blue-900 dark:text-blue-300" />
@@ -485,8 +487,8 @@ export default function AdminReportsPage(): React.ReactElement {
         </div>
       </div>
 
-      {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* ── KPI Cards (full-width columns — no max-width caps) ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 w-full">
         <KpiCard
           label="Total Deliveries"
           value={stats.total ?? filteredDeliveries.length}
@@ -518,7 +520,7 @@ export default function AdminReportsPage(): React.ReactElement {
       </div>
 
       {/* ── POD Overview Banner ── */}
-      <div className="pp-card p-5">
+      <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800/90 shadow-sm p-5">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-blue-900/10 flex items-center justify-center">
@@ -577,14 +579,14 @@ export default function AdminReportsPage(): React.ReactElement {
 
       {/* ── Customer Response Stats ── */}
       {!hasActiveFilters() && (
-        <div className="pp-card p-5">
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800/90 shadow-sm p-5">
           <div className="flex items-center gap-2 mb-4">
             <div className="w-8 h-8 rounded-lg bg-blue-900/10 flex items-center justify-center">
               <User className="w-4 h-4 text-blue-900 dark:text-blue-300" />
             </div>
             <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Customer Response Statistics</h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 w-full">
             <KpiCard label="Customer Accepted" value={stats.customerAccepted ?? 0} icon={<CheckCircle className="w-5 h-5" />} color="green"
               sub={`${(stats.total ?? 0) > 0 ? (((stats.customerAccepted ?? 0) / (stats.total as number)) * 100).toFixed(1) : 0}% acceptance rate`} />
             <KpiCard label="Customer Cancelled" value={stats.customerCancelled ?? 0} icon={<XCircle className="w-5 h-5" />} color="red"
@@ -598,8 +600,8 @@ export default function AdminReportsPage(): React.ReactElement {
       {/* ── Charts ── */}
       {!hasActiveFilters() && dailyBreakdown.length > 0 && (
         <>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="pp-card p-5">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
+            <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800/90 shadow-sm p-5">
               <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Daily Breakdown</h2>
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={dailyBreakdown} margin={{ top: 4, right: 4, bottom: 4, left: -10 }}>
@@ -616,7 +618,7 @@ export default function AdminReportsPage(): React.ReactElement {
               </ResponsiveContainer>
             </div>
 
-            <div className="pp-card p-5">
+            <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800/90 shadow-sm p-5">
               <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Status Distribution</h2>
               <ResponsiveContainer width="100%" height={260}>
                 <PieChart>
@@ -643,7 +645,7 @@ export default function AdminReportsPage(): React.ReactElement {
             </div>
           </div>
 
-          <div className="pp-card p-5">
+          <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800/90 shadow-sm p-5">
             <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Daily Delivery Trend</h2>
             <ResponsiveContainer width="100%" height={240}>
               <LineChart data={dailyBreakdown} margin={{ top: 4, right: 4, bottom: 4, left: -10 }}>
@@ -663,7 +665,7 @@ export default function AdminReportsPage(): React.ReactElement {
 
       {/* ── Delivery Details Table ── */}
       {reportData?.deliveries && reportData.deliveries.length > 0 && (
-        <div className="pp-card overflow-hidden">
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800/90 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Delivery Details</h2>
@@ -865,30 +867,69 @@ interface KpiCardProps {
 }
 
 function KpiCard({ label, value, icon, color, sub, trend }: KpiCardProps): React.ReactElement {
-  const configs: Record<string, { bg: string; text: string; sub: string; iconBg: string }> = {
-    navy:  { bg: 'bg-blue-900',  text: 'text-white', sub: 'text-blue-200', iconBg: 'bg-white/15' },
-    green: { bg: 'bg-green-600',    text: 'text-white', sub: 'text-green-100',   iconBg: 'bg-white/15' },
-    red:   { bg: 'bg-red-500',      text: 'text-white', sub: 'text-red-100',     iconBg: 'bg-white/15' },
-    amber: { bg: 'bg-amber-500',    text: 'text-white', sub: 'text-amber-100',   iconBg: 'bg-white/15' },
+  /* Classic bordered stat tiles — full width in grid (no max-w), readable on white */
+  const configs: Record<
+    string,
+    { shell: string; labelCls: string; valueCls: string; subCls: string; iconWrap: string; trendUp: string; trendDown: string }
+  > = {
+    navy: {
+      shell:
+        'border border-gray-200 dark:border-gray-600 border-l-4 border-l-blue-900 dark:border-l-blue-500 bg-white dark:bg-slate-800/90',
+      labelCls: 'text-gray-600 dark:text-gray-400',
+      valueCls: 'text-gray-900 dark:text-white',
+      subCls: 'text-gray-500 dark:text-gray-400',
+      iconWrap: 'bg-blue-50 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300',
+      trendUp: 'text-green-600 dark:text-green-400',
+      trendDown: 'text-red-500 dark:text-red-400',
+    },
+    green: {
+      shell:
+        'border border-gray-200 dark:border-gray-600 border-l-4 border-l-green-600 dark:border-l-green-500 bg-white dark:bg-slate-800/90',
+      labelCls: 'text-gray-600 dark:text-gray-400',
+      valueCls: 'text-gray-900 dark:text-white',
+      subCls: 'text-gray-500 dark:text-gray-400',
+      iconWrap: 'bg-green-50 text-green-800 dark:bg-green-950/50 dark:text-green-300',
+      trendUp: 'text-green-600 dark:text-green-400',
+      trendDown: 'text-red-500 dark:text-red-400',
+    },
+    red: {
+      shell:
+        'border border-gray-200 dark:border-gray-600 border-l-4 border-l-red-500 dark:border-l-red-400 bg-white dark:bg-slate-800/90',
+      labelCls: 'text-gray-600 dark:text-gray-400',
+      valueCls: 'text-gray-900 dark:text-white',
+      subCls: 'text-gray-500 dark:text-gray-400',
+      iconWrap: 'bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-300',
+      trendUp: 'text-green-600 dark:text-green-400',
+      trendDown: 'text-red-500 dark:text-red-400',
+    },
+    amber: {
+      shell:
+        'border border-gray-200 dark:border-gray-600 border-l-4 border-l-amber-500 dark:border-l-amber-400 bg-white dark:bg-slate-800/90',
+      labelCls: 'text-gray-600 dark:text-gray-400',
+      valueCls: 'text-gray-900 dark:text-white',
+      subCls: 'text-gray-500 dark:text-gray-400',
+      iconWrap: 'bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200',
+      trendUp: 'text-green-600 dark:text-green-400',
+      trendDown: 'text-red-500 dark:text-red-400',
+    },
   };
   const c = configs[color] || configs.navy;
   return (
-    <div className={`${c.bg} rounded-xl p-5 flex flex-col gap-3 shadow-sm w-full min-w-0 max-w-[280px]`}>
-      <div className="flex items-center justify-between">
-        <span className={`text-sm font-medium ${c.sub}`}>{label}</span>
-        <div className={`w-8 h-8 rounded-lg ${c.iconBg} flex items-center justify-center ${c.text}`}>
-          {icon}
-        </div>
+    <div className={`rounded-lg p-4 sm:p-5 flex flex-col gap-2 shadow-sm w-full min-w-0 h-full ${c.shell}`}>
+      <div className="flex items-start justify-between gap-2">
+        <span className={`text-xs sm:text-sm font-semibold uppercase tracking-wide ${c.labelCls}`}>{label}</span>
+        <div className={`w-9 h-9 rounded-lg shrink-0 flex items-center justify-center ${c.iconWrap}`}>{icon}</div>
       </div>
-      <div className="flex items-end justify-between">
-        <span className={`text-3xl font-bold ${c.text}`}>{value ?? '—'}</span>
-        {trend && (
-          trend === 'up'
-            ? <TrendingUp className="w-5 h-5 text-white/70" />
-            : <TrendingDown className="w-5 h-5 text-white/70" />
-        )}
+      <div className="flex items-end justify-between gap-2">
+        <span className={`text-2xl sm:text-3xl font-bold tabular-nums ${c.valueCls}`}>{value ?? '—'}</span>
+        {trend &&
+          (trend === 'up' ? (
+            <TrendingUp className={`w-5 h-5 shrink-0 ${c.trendUp}`} aria-hidden />
+          ) : (
+            <TrendingDown className={`w-5 h-5 shrink-0 ${c.trendDown}`} aria-hidden />
+          ))}
       </div>
-      {sub && <span className={`text-xs ${c.sub}`}>{sub}</span>}
+      {sub ? <span className={`text-xs ${c.subCls}`}>{sub}</span> : null}
     </div>
   );
 }

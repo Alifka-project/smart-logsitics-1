@@ -1390,7 +1390,7 @@ export default function AdminDashboardPage(): React.ReactElement {
   // ─── RENDER ───
 
     return (
-    <div className="space-y-6 w-full min-w-0">
+    <div className="space-y-5 w-full min-w-0">
 
       {/* ── Page Header ── */}
       <div className="pp-page-header flex flex-wrap items-center justify-between gap-3">
@@ -1433,14 +1433,14 @@ export default function AdminDashboardPage(): React.ReactElement {
 
       {/* ══════════════ OVERVIEW TAB ══════════════ */}
       {activeTab === 'overview' && (
-        <div className="space-y-4">
-          {/* KPI Strip — Overview only */}
-          <div className="pp-kpi-grid">
+        <div className="space-y-3">
+          {/* KPI Strip — full-width grid so all 5 metrics share one row on large screens */}
+          <div className="pp-kpi-grid--fill">
             {kpiCards.map(card => {
               const Icon = card.icon;
               const c = KPI_COLOR_MAP[card.color];
               return (
-                <div key={card.id} className="pp-dash-card p-4 sm:p-5 relative w-full min-w-0 max-w-[280px]">
+                <div key={card.id} className="pp-dash-card p-4 sm:p-5 relative w-full min-w-0">
                   <span className="absolute top-3 right-3 text-gray-300 dark:text-slate-600 pointer-events-none" aria-hidden>
                     <ExternalLink className="w-3.5 h-3.5" />
                   </span>
@@ -1473,12 +1473,12 @@ export default function AdminDashboardPage(): React.ReactElement {
           </div>
 
           {/* Two-column main content */}
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 xl:gap-4">
             {/* Left column — ~2/3 */}
-            <div className="xl:col-span-2 space-y-4">
+            <div className="xl:col-span-2 space-y-3">
               {/* Hero Chart */}
-              <div className="pp-dash-card p-6">
-                <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+              <div className="pp-dash-card p-4 sm:p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-gray-300 dark:text-slate-600 shrink-0 hidden sm:inline" aria-hidden>
                       <ExternalLink className="w-4 h-4" />
@@ -1498,23 +1498,25 @@ export default function AdminDashboardPage(): React.ReactElement {
                     ))}
                   </div>
                 </div>
-                <ResponsiveContainer width="100%" height={300}>
-                  <ComposedChart data={heroChartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
-                    <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false}
-                      interval={heroPeriod === '7d' ? 0 : heroPeriod === '30d' ? 4 : 8} />
-                    <YAxis yAxisId="left" tick={{ fontSize: 11, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
-                    <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#f97316' }} tickLine={false} axisLine={false} unit="%" domain={[0, 100]} />
-                    <Tooltip
-                      {...RECHARTS_TOOLTIP_OVERVIEW}
-                      formatter={(val: number | string, name: string) => (name === 'Success Rate %' ? [`${val}%`, name] : [val, name]) as [React.ReactNode, string]}
-                    />
-                    <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '12px', color: 'var(--chart-legend)' }} />
-                    <Bar yAxisId="left" dataKey="total" fill="#c7d7f9" name="Total Dispatched" radius={[3, 3, 0, 0]} maxBarSize={20} isAnimationActive animationDuration={900} animationEasing="ease-out" />
-                    <Bar yAxisId="left" dataKey="delivered" fill="#2563EB" name="Delivered" radius={[3, 3, 0, 0]} maxBarSize={20} isAnimationActive animationDuration={900} animationEasing="ease-out" />
-                    <Line yAxisId="right" type="monotone" dataKey="rate" stroke="#f97316" name="Success Rate %" dot={false} strokeWidth={2.5} isAnimationActive animationDuration={1100} animationEasing="ease-out" />
-                  </ComposedChart>
-                </ResponsiveContainer>
+                <div className="w-full h-[248px] sm:h-[268px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={heroChartData} margin={{ top: 8, right: 24, left: -8, bottom: 4 }} barCategoryGap="12%">
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+                      <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false}
+                        interval={heroPeriod === '7d' ? 0 : heroPeriod === '30d' ? 4 : 8} />
+                      <YAxis yAxisId="left" tick={{ fontSize: 11, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} width={36} />
+                      <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#f97316' }} tickLine={false} axisLine={false} unit="%" domain={[0, 100]} width={40} />
+                      <Tooltip
+                        {...RECHARTS_TOOLTIP_OVERVIEW}
+                        formatter={(val: number | string, name: string) => (name === 'Success Rate %' ? [`${val}%`, name] : [val, name]) as [React.ReactNode, string]}
+                      />
+                      <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '8px', color: 'var(--chart-legend)' }} />
+                      <Bar yAxisId="left" dataKey="total" fill="#c7d7f9" name="Total Dispatched" radius={[3, 3, 0, 0]} maxBarSize={36} isAnimationActive animationDuration={900} animationEasing="ease-out" />
+                      <Bar yAxisId="left" dataKey="delivered" fill="#2563EB" name="Delivered" radius={[3, 3, 0, 0]} maxBarSize={36} isAnimationActive animationDuration={900} animationEasing="ease-out" />
+                      <Line yAxisId="right" type="monotone" dataKey="rate" stroke="#f97316" name="Success Rate %" dot={false} strokeWidth={2.5} isAnimationActive animationDuration={1100} animationEasing="ease-out" />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
 
               {/* Delivery Status Breakdown */}
@@ -1548,7 +1550,7 @@ export default function AdminDashboardPage(): React.ReactElement {
             </div>
 
             {/* Right column — ~1/3 side widgets */}
-            <div className="space-y-4">
+            <div className="space-y-3">
               {/* Exception Queue — PolicyPilot style */}
               <div className="pp-dash-soft-gradient p-5">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 tracking-tight">Needs Attention</h3>

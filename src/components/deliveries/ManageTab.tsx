@@ -170,20 +170,6 @@ export default function ManageTab({
     window.open(`https://wa.me/${clean}`, '_blank', 'noopener,noreferrer');
   }, []);
 
-  const handleSelectOrder = useCallback((orderId: string) => {
-    setSelectedOrders((prev) => (prev.includes(orderId) ? prev.filter((id) => id !== orderId) : [...prev, orderId]));
-  }, []);
-
-  const handleSelectPage = useCallback((pageIds: string[], selected: boolean) => {
-    setSelectedOrders((prev) => {
-      if (selected) {
-        const next = new Set([...prev, ...pageIds]);
-        return [...next];
-      }
-      return prev.filter((id) => !pageIds.includes(id));
-    });
-  }, []);
-
   const handleCardClick = useCallback((key: string) => {
     setCardFilter(key);
     setTableTab('all');
