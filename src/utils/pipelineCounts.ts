@@ -16,7 +16,7 @@ export interface PipelineCounts {
 }
 
 /** Each delivery is counted in exactly one pipeline bucket (current stage). */
-export function computePipelineCounts(deliveries: Delivery[]): PipelineCounts {
+export function computePipelineCounts(deliveries: Delivery[] | undefined | null): PipelineCounts {
   const counts: PipelineCounts = {
     uploaded: 0,
     sms_sent: 0,
@@ -25,7 +25,8 @@ export function computePipelineCounts(deliveries: Delivery[]): PipelineCounts {
     delivered: 0,
   };
 
-  for (const d of deliveries) {
+  const list = deliveries ?? [];
+  for (const d of list) {
     const s = (d.status || '').toLowerCase();
     const assignedDriver =
       Boolean(d.assignedDriverId) ||
@@ -70,8 +71,8 @@ export function computePipelineCounts(deliveries: Delivery[]): PipelineCounts {
 }
 
 /** Confirmed orders that are not yet driver-assigned (ready to assign). */
-export function countReadyToAssign(deliveries: Delivery[]): number {
-  return deliveries.filter((d) => {
+export function countReadyToAssign(deliveries: Delivery[] | undefined | null): number {
+  return (deliveries ?? []).filter((d) => {
     const s = (d.status || '').toLowerCase();
     const ok = ['confirmed', 'scheduled-confirmed'].includes(s);
     const hasDriver =
@@ -81,8 +82,8 @@ export function countReadyToAssign(deliveries: Delivery[]): number {
   }).length;
 }
 
-export function countFailed(deliveries: Delivery[]): number {
-  return deliveries.filter((d) => {
+export function countFailed(deliveries: Delivery[] | undefined | null): number {
+  return (deliveries ?? []).filter((d) => {
     const s = (d.status || '').toLowerCase();
     return (
       s === 'cancelled' ||
@@ -93,7 +94,7 @@ export function countFailed(deliveries: Delivery[]): number {
   }).length;
 }
 
-export function countReturned(deliveries: Delivery[]): number {
-  return deliveries.filter((d) => (d.status || '').toLowerCase() === 'returned')
+export function countReturned(deliveries: Delivery[] | undefined | null): number {
+  return (deliveries ?? []).filter((d) => (d.status || '').toLowerCase() === 'returned')
     .length;
 }

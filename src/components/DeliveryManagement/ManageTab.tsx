@@ -52,9 +52,8 @@ export default function ManageTab({
   onSyntheticSuccess,
 }: ManageTabProps) {
   const fileUploadRef = useRef<FileUploadHandle>(null);
-  const deliveries = useDeliveryStore((s) => s.deliveries);
+  const deliveries = useDeliveryStore((s) => s.deliveries ?? []);
   const recentUploads = useDeliveryStore((s) => s.recentUploads);
-  const loadDeliveries = useDeliveryStore((s) => s.loadDeliveries);
 
   const [showHistory, setShowHistory] = useState(false);
 
@@ -64,7 +63,10 @@ export default function ManageTab({
   const returnedN = useMemo(() => countReturned(deliveries), [deliveries]);
   const needsAttention = failedN + returnedN > 0;
 
-  const lastThree = useMemo(() => recentUploads.slice(0, 3), [recentUploads]);
+  const lastThree = useMemo(
+    () => (recentUploads ?? []).slice(0, 3),
+    [recentUploads],
+  );
 
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
@@ -347,11 +349,11 @@ export default function ManageTab({
               </button>
             </div>
             <div className="overflow-y-auto p-4">
-              {recentUploads.length === 0 ? (
+              {uploadsList.length === 0 ? (
                 <p className="text-sm text-gray-500">No records.</p>
               ) : (
                 <ul className="space-y-2 text-sm">
-                  {recentUploads.map((u) => (
+                  {uploadsList.map((u) => (
                     <li
                       key={u.id}
                       className="flex justify-between gap-2 border-b border-gray-100 dark:border-gray-700 pb-2"

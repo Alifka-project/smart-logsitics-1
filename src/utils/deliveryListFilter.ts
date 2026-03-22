@@ -18,19 +18,22 @@ export function isActiveDeliveryListStatus(status: string): boolean {
   return ACTIVE_STATUSES.has(status.toLowerCase());
 }
 
-export function getActiveDeliveriesForList(deliveries: Delivery[]): Delivery[] {
-  return deliveries.filter((d) => {
+export function getActiveDeliveriesForList(deliveries: Delivery[] | undefined | null): Delivery[] {
+  const list = deliveries ?? [];
+  return list.filter((d) => {
     const status = (d.status || '').toLowerCase();
     return isActiveDeliveryListStatus(status);
   });
 }
 
 export function applyDeliveryListFilter(
-  deliveries: Delivery[],
-  filter: DeliveryListFilter,
+  deliveries: Delivery[] | undefined | null,
+  filter: DeliveryListFilter | undefined,
 ): Delivery[] {
-  const active = getActiveDeliveriesForList(deliveries);
-  switch (filter) {
+  const list = deliveries ?? [];
+  const safeFilter: DeliveryListFilter = filter ?? 'all';
+  const active = getActiveDeliveriesForList(list);
+  switch (safeFilter) {
     case 'pending':
       return active.filter((d) => (d.status || '').toLowerCase() === 'pending');
     case 'confirmed':
@@ -46,8 +49,8 @@ export function applyDeliveryListFilter(
 }
 
 export function countForDeliveryListFilter(
-  deliveries: Delivery[],
-  filter: DeliveryListFilter,
+  deliveries: Delivery[] | undefined | null,
+  filter: DeliveryListFilter | undefined,
 ): number {
   return applyDeliveryListFilter(deliveries, filter).length;
 }

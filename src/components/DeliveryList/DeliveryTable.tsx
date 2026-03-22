@@ -22,8 +22,8 @@ export default function DeliveryTable({
   onCloseDetailModal,
   onHoverDelivery,
 }: DeliveryTableProps) {
-  const deliveries = useDeliveryStore((state) => state.deliveries);
-  const deliveryListFilter = useDeliveryStore((state) => state.deliveryListFilter);
+  const deliveries = useDeliveryStore((state) => state.deliveries ?? []);
+  const deliveryListFilter = useDeliveryStore((state) => state.deliveryListFilter ?? 'all');
   const setDeliveryListFilter = useDeliveryStore((state) => state.setDeliveryListFilter);
   const updateDeliveryOrder = useDeliveryStore((state) => state.updateDeliveryOrder);
   const selectDelivery = useDeliveryStore((state) => state.selectDelivery);

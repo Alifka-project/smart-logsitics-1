@@ -40,8 +40,8 @@ interface Tab {
 }
 
 export default function DeliveryManagementPage() {
-  const deliveries = useDeliveryStore((state) => state.deliveries);
-  const deliveryListFilter = useDeliveryStore((state) => state.deliveryListFilter);
+  const deliveries = useDeliveryStore((state) => state.deliveries ?? []);
+  const deliveryListFilter = useDeliveryStore((state) => state.deliveryListFilter ?? 'all');
   const loadDeliveries = useDeliveryStore((state) => state.loadDeliveries);
   const [activeTab, setActiveTab] = useState<string>('manage');
 
