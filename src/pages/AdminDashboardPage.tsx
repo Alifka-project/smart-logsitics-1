@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 import RiskBadge, { riskFromSuccessRate } from '../components/Analytics/RiskBadge';
 import MetricTooltip from '../components/Analytics/MetricTooltip';
-import InsightCard from '../components/Analytics/InsightCard';
 import { sharePct, topNSharePct, concentrationLevel } from '../utils/analyticsHelpers';
 import { useNavigate, useLocation } from 'react-router-dom';
 import DeliveryDetailModal from '../components/DeliveryDetailModal';
@@ -1242,15 +1241,10 @@ export default function AdminDashboardPage(): React.ReactElement {
       { name: 'Cancelled / rescheduled', value: negativeN, fill: '#94a3b8' },
     ].filter(x => x.value > 0);
 
-    const unassignedCount = deliveries.filter(d => !idOf(d)).length;
-
     return {
       workloadBars,
       outcomesPie,
-      assignedCount: assignedN,
-      unassignedCount,
       hasAssignments: assignedN > 0,
-      topWorkload: workloadBars[0] ?? null,
     };
   }, [deliveries, drivers]);
 
@@ -2589,39 +2583,8 @@ export default function AdminDashboardPage(): React.ReactElement {
         </div>
             </div>
 
-            {/* Performance analytics — charts from delivery data (not a duplicate driver list) */}
+            {/* Performance analytics — charts from delivery data */}
             <div className="space-y-4">
-              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-4">
-                <div className="flex items-start gap-2 mb-2">
-                  <div className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300">
-                    <Activity className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Delivery performance</h3>
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                      From current tracking data ·{' '}
-                      <span className="font-medium text-gray-700 dark:text-gray-300">{driverPanelAnalytics.assignedCount}</span> assigned
-                      {driverPanelAnalytics.unassignedCount > 0 && (
-                        <> · <span className="text-amber-600 dark:text-amber-400">{driverPanelAnalytics.unassignedCount} unassigned</span></>
-                      )}
-                    </p>
-                  </div>
-                </div>
-                {driverPanelAnalytics.unassignedCount > 0 && (
-                  <InsightCard
-                    type="warning"
-                    className="mb-3"
-                    message={`${driverPanelAnalytics.unassignedCount} ${driverPanelAnalytics.unassignedCount === 1 ? 'delivery has' : 'deliveries have'} no driver assigned — open the Deliveries tab to assign.`}
-                  />
-                )}
-                {driverPanelAnalytics.topWorkload && driverPanelAnalytics.hasAssignments && (
-                  <p className="text-xs text-gray-600 dark:text-gray-300 mb-3 px-0.5">
-                    Highest workload: <span className="font-semibold text-gray-900 dark:text-gray-100">{driverPanelAnalytics.topWorkload.name}</span>
-                    {' '}({driverPanelAnalytics.topWorkload.count} assigned)
-                  </p>
-                )}
-              </div>
-
               <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-4">
                 <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Workload</h4>
                 <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-2">Assigned deliveries by driver (top 8)</p>
