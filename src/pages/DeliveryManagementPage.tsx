@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Upload, Database, MapPin, Zap, List, LayoutDashboard, Download, RefreshCw } from 'lucide-react';
-import FileUpload from '../components/Upload/FileUpload';
-import SyntheticDataButton from '../components/Upload/SyntheticDataButton';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Upload, Database, MapPin, Zap, List, ClipboardList, Download, RefreshCw } from 'lucide-react';
 import DeliveryTable from '../components/DeliveryList/DeliveryTable';
 import CustomerModal from '../components/CustomerDetails/CustomerModal';
-import StatsCards from '../components/Analytics/StatsCards';
+import ManageTab from '../components/DeliveryManagement/ManageTab';
 import DeliveryMap from '../components/MapView/DeliveryMap';
 import { calculateRoute, generateFallbackRoute } from '../services/advancedRoutingService';
 import useDeliveryStore from '../store/useDeliveryStore';
+import { applyDeliveryListFilter } from '../utils/deliveryListFilter';
 import { useToast } from '../hooks/useToast';
 import { ToastContainer } from '../components/common/Toast';
 import { AlertCircle, AlertTriangle } from 'lucide-react';
@@ -42,9 +41,14 @@ interface Tab {
 
 export default function DeliveryManagementPage() {
   const deliveries = useDeliveryStore((state) => state.deliveries);
+  const deliveryListFilter = useDeliveryStore((state) => state.deliveryListFilter);
   const loadDeliveries = useDeliveryStore((state) => state.loadDeliveries);
-  const [activeTab, setActiveTab] = useState<string>('overview');
-  const [showUpload, setShowUpload] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<string>('manage');
+
+  const displayDeliveries = useMemo(
+    () => applyDeliveryListFilter(deliveries, deliveryListFilter),
+    [deliveries, deliveryListFilter],
+  );
   const [showModal, setShowModal] = useState<boolean>(false);
   const [route, setRoute] = useState<AdvancedRouteResult | null>(null);
   const [isLoadingRoute, setIsLoadingRoute] = useState<boolean>(false);
@@ -61,16 +65,16 @@ export default function DeliveryManagementPage() {
     setShowCacheAlert(hasFake);
   }, []);
 
-  // Recalculate route whenever deliveries change while on the deliveries tab
+  // Recalculate route when the visible delivery list changes while on the deliveries tab
   useEffect(() => {
-    if (activeTab === 'deliveries' && deliveries.length > 0) {
+    if (activeTab === 'deliveries' && displayDeliveries.length > 0) {
       void loadRoute();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, deliveries]);
+  }, [activeTab, displayDeliveries, deliveryListFilter]);
 
   const loadRoute = async (): Promise<void> => {
-    if (deliveries.length === 0) return;
+    if (displayDeliveries.length === 0) return;
 
     setIsLoadingRoute(true);
     setRouteError(null);
@@ -80,11 +84,11 @@ export default function DeliveryManagementPage() {
     try {
       const locations = [
         { lat: 25.0053, lng: 55.0760 },
-        ...deliveries.map((d: Delivery) => ({ lat: d.lat, lng: d.lng }))
+        ...displayDeliveries.map((d: Delivery) => ({ lat: d.lat, lng: d.lng }))
       ];
 
       try {
-        const routeData = (await calculateRoute(locations, deliveries, true)) as unknown as AdvancedRouteResult;
+        const routeData = (await calculateRoute(locations, displayDeliveries, true)) as unknown as AdvancedRouteResult;
         setRoute(routeData);
         setIsOptimized(routeData.optimized === true);
       } catch (apiError: unknown) {
@@ -101,7 +105,7 @@ export default function DeliveryManagementPage() {
       setRouteError('Failed to generate route. Showing delivery locations only.');
       const locations = [
         { lat: 25.0053, lng: 55.0760 },
-        ...deliveries.map((d: Delivery) => ({ lat: d.lat, lng: d.lng }))
+        ...displayDeliveries.map((d: Delivery) => ({ lat: d.lat, lng: d.lng }))
       ];
       setRoute(generateFallbackRoute(locations) as unknown as AdvancedRouteResult);
     } finally {
@@ -114,11 +118,7 @@ export default function DeliveryManagementPage() {
     if (result.warnings && result.warnings.length > 0) {
       warning(`⚠ ${result.warnings.length} warning(s) found during validation`);
     }
-    setShowUpload(false);
     setShowCacheAlert(false);
-    if (deliveries.length === 0) {
-      setTimeout(() => setActiveTab('deliveries'), 500);
-    }
   };
 
   const handleReloadFromDatabase = async (): Promise<void> => {
@@ -165,12 +165,6 @@ export default function DeliveryManagementPage() {
 
   const handleSyntheticSuccess = (result: FileUploadResult): void => {
     success(`✓ Successfully loaded ${result.count} test deliveries`);
-    setShowUpload(false);
-    setTimeout(() => setActiveTab('deliveries'), 500);
-  };
-
-  const handleDataLoaded = (): void => {
-    setShowUpload(false);
     setTimeout(() => setActiveTab('deliveries'), 500);
   };
 
@@ -186,7 +180,7 @@ export default function DeliveryManagementPage() {
   };
 
   const tabs: Tab[] = [
-    { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+    { id: 'manage', label: 'Manage Delivery Order', icon: ClipboardList },
     { id: 'deliveries', label: 'Deliveries', icon: List },
   ];
 
@@ -235,7 +229,7 @@ export default function DeliveryManagementPage() {
             <span className="truncate">{isReloading ? 'Loading...' : 'Reload DB'}</span>
           </button>
           <button
-            onClick={() => setShowUpload(true)}
+            onClick={() => setActiveTab('manage')}
             className="flex-1 sm:flex-none min-h-[44px] px-4 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center justify-center gap-2 text-sm touch-manipulation"
           >
             <Upload className="w-4 h-4 flex-shrink-0" />
@@ -288,151 +282,14 @@ export default function DeliveryManagementPage() {
         </nav>
       </div>
 
-      {/* ── OVERVIEW TAB ── */}
-      {activeTab === 'overview' && (
-        <div className="space-y-6">
-          {(showUpload || deliveries.length === 0) && (
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 sm:p-6 lg:p-8 transition-colors">
-              <div className="flex justify-between items-center gap-2 mb-4 sm:mb-6">
-                <h2 className="text-lg sm:text-2xl font-bold text-gray-800 dark:text-gray-100 truncate min-w-0">
-                  {deliveries.length === 0 ? 'Upload Delivery Data' : 'Upload New Data'}
-                </h2>
-                {deliveries.length > 0 && (
-                  <button onClick={() => setShowUpload(false)} className="text-gray-500 hover:text-gray-700">✕</button>
-                )}
-              </div>
-              <FileUpload onSuccess={handleFileSuccess} onError={handleFileError} />
-              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">Or load sample data:</p>
-                <SyntheticDataButton onLoadSuccess={handleSyntheticSuccess} />
-              </div>
-            </div>
-          )}
-
-          {deliveries.length > 0 && (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Deliveries</div>
-                      <div className="text-3xl font-bold" style={{color:'var(--text)'}}>{deliveries.length}</div>
-                    </div>
-                    <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                      <Database className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Distance</div>
-                      <div className="text-3xl font-bold" style={{color:'var(--text)'}}>
-                        {Math.round(deliveries.reduce((sum, d) => sum + (d.distanceFromWarehouse || 0), 0))} km
-                      </div>
-                    </div>
-                    <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                      <MapPin className="w-6 h-6 text-green-600 dark:text-green-400" />
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">High Priority</div>
-                      <div className="text-3xl font-bold text-red-600 dark:text-red-400">
-                        {deliveries.filter(d => d.priority === 1).length}
-                      </div>
-                    </div>
-                    <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                      <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Quick Actions</div>
-                      <div className="flex gap-2 mt-2">
-                        <button
-                          onClick={() => setActiveTab('deliveries')}
-                          className="px-3 py-1 bg-primary-600 text-white text-xs rounded hover:bg-primary-700"
-                        >
-                          Manage
-                        </button>
-                      </div>
-                    </div>
-                    <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                      <Zap className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <StatsCards />
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 hover:shadow-lg transition">
-                  <div className="flex items-center mb-4">
-                    <div className="w-12 h-12 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center">
-                      <Upload className="w-6 h-6 text-primary-600 dark:text-primary-400" />
-                    </div>
-                    <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 ml-4">Easy Upload</h3>
-                  </div>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm">
-                    Upload your Excel files with delivery data. Supports ERP, simplified, and generic formats.
-                  </p>
-                </div>
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 hover:shadow-lg transition">
-                  <div className="flex items-center mb-4">
-                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                      <MapPin className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 ml-4">Route Optimization</h3>
-                  </div>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm">
-                    Automatically optimized delivery routes with visual mapping and turn-by-turn directions.
-                  </p>
-                </div>
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 hover:shadow-lg transition">
-                  <div className="flex items-center mb-4">
-                    <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
-                      <Zap className="w-6 h-6 text-green-600 dark:text-green-400" />
-                    </div>
-                    <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 ml-4">Real-time Tracking</h3>
-                  </div>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm">
-                    Track deliveries in real-time with status updates, signatures, and photo confirmation.
-                  </p>
-                </div>
-              </div>
-            </>
-          )}
-
-          {deliveries.length === 0 && !showUpload && (
-            <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-6 sm:p-8 transition-colors">
-              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Getting Started</h2>
-              <ol className="space-y-3 text-gray-700 dark:text-gray-300">
-                <li className="flex gap-4">
-                  <span className="flex-shrink-0 w-8 h-8 bg-primary-600 text-white rounded-full flex items-center justify-center font-bold">1</span>
-                  <span><strong>Upload or Load Data:</strong> Click "Upload" button above or use the upload section</span>
-                </li>
-                <li className="flex gap-4">
-                  <span className="flex-shrink-0 w-8 h-8 bg-primary-600 text-white rounded-full flex items-center justify-center font-bold">2</span>
-                  <span><strong>View &amp; Manage:</strong> Switch to "Deliveries" tab — drag to reorder and see the route update live on the map</span>
-                </li>
-                <li className="flex gap-4">
-                  <span className="flex-shrink-0 w-8 h-8 bg-primary-600 text-white rounded-full flex items-center justify-center font-bold">3</span>
-                  <span><strong>Hover to Highlight:</strong> Hover any delivery card to highlight it on the map</span>
-                </li>
-                <li className="flex gap-4">
-                  <span className="flex-shrink-0 w-8 h-8 bg-primary-600 text-white rounded-full flex items-center justify-center font-bold">4</span>
-                  <span><strong>Manage Deliveries:</strong> Edit details, upload photos, capture signatures from the list</span>
-                </li>
-              </ol>
-            </div>
-          )}
-        </div>
+      {/* ── MANAGE DELIVERY ORDER TAB ── */}
+      {activeTab === 'manage' && (
+        <ManageTab
+          onSwitchToDeliveriesTab={() => setActiveTab('deliveries')}
+          onUploadSuccess={handleFileSuccess}
+          onUploadError={handleFileError}
+          onSyntheticSuccess={handleSyntheticSuccess}
+        />
       )}
 
       {/* ── DELIVERIES TAB (combined split view) ── */}
@@ -443,7 +300,7 @@ export default function DeliveryManagementPage() {
               <Database className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
               <p className="text-gray-600 dark:text-gray-400 text-lg mb-4">No deliveries loaded</p>
               <button
-                onClick={() => { setShowUpload(true); setActiveTab('overview'); }}
+                onClick={() => setActiveTab('manage')}
                 className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
               >
                 Upload Delivery Data
@@ -464,13 +321,13 @@ export default function DeliveryManagementPage() {
                     <div className="text-center">
                       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4" />
                       <p className="text-gray-600 dark:text-gray-400 text-sm">
-                        Calculating route for {deliveries.length} stops…
+                        Calculating route for {displayDeliveries.length} stops…
                       </p>
                     </div>
                   </div>
                 ) : (
                   <DeliveryMap
-                    deliveries={deliveries}
+                    deliveries={displayDeliveries}
                     route={route as unknown as import('../types').RouteResult}
                     highlightedIndex={hoveredDeliveryIndex}
                     mapClassName="h-full"
@@ -536,7 +393,7 @@ export default function DeliveryManagementPage() {
                     </div>
                     <div className="grid grid-cols-3 gap-1.5 text-center">
                       <div>
-                        <div className="text-lg font-bold">{deliveries.length}</div>
+                        <div className="text-lg font-bold">{displayDeliveries.length}</div>
                         <div className="text-[10px] opacity-80">Stops</div>
                       </div>
                       <div>
@@ -544,7 +401,7 @@ export default function DeliveryManagementPage() {
                         <div className="text-[10px] opacity-80">km total</div>
                       </div>
                       <div>
-                        <div className="text-lg font-bold">{(route.timeHours + deliveries.length).toFixed(1)}</div>
+                        <div className="text-lg font-bold">{(route.timeHours + displayDeliveries.length).toFixed(1)}</div>
                         <div className="text-[10px] opacity-80">hrs est.</div>
                       </div>
                     </div>

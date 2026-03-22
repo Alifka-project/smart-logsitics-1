@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { forwardRef, useCallback, useImperativeHandle, useRef, useState } from 'react';
 import { Upload, AlertCircle, CheckCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import useDeliveryStore from '../../store/useDeliveryStore';
@@ -24,9 +24,18 @@ interface FileUploadErrorPayload {
   format?: string;
 }
 
+export interface FileUploadHandle {
+  processFile: (file: File) => void;
+  openFileDialog: () => void;
+}
+
 interface FileUploadProps {
   onSuccess?: (payload: FileUploadSuccessPayload) => void;
   onError?: (payload: FileUploadErrorPayload) => void;
+  /** Hide built-in dashed upload area (use custom dropzone UI). */
+  hideDefaultUI?: boolean;
+  /** When true, do not navigate to /deliveries after upload (e.g. Manage tab). */
+  skipNavigate?: boolean;
 }
 
 interface ExtendedValidationResult extends ValidationResult {
@@ -41,18 +50,41 @@ interface SaveResult {
   error?: string;
 }
 
-export default function FileUpload({ onSuccess, onError }: FileUploadProps) {
+const FileUpload = forwardRef<FileUploadHandle, FileUploadProps>(function FileUpload(
+  { onSuccess, onError, hideDefaultUI = false, skipNavigate = false },
+  ref,
+) {
   const inputRef = useRef<HTMLInputElement>(null);
   const loadDeliveries = useDeliveryStore((state) => state.loadDeliveries);
+  const beginUploadRecord = useDeliveryStore((state) => state.beginUploadRecord);
+  const completeUploadRecord = useDeliveryStore((state) => state.completeUploadRecord);
+  const removeUploadRecord = useDeliveryStore((state) => state.removeUploadRecord);
   const navigate = useNavigate();
   const setRoute = useDeliveryStore((state) => state.setRoute);
   const [isLoading, setIsLoading] = useState(false);
   const [validationResult, setValidationResult] = useState<ExtendedValidationResult | null>(null);
   const [showGeocoding, setShowGeocoding] = useState(false);
   const [deliveriesToGeocode, setDeliveriesToGeocode] = useState<Delivery[]>([]);
+  const activeUploadIdRef = useRef<string | null>(null);
 
-  // suppress unused warning for setRoute
   void setRoute;
+
+  const abortUploadRecord = useCallback((): void => {
+    if (activeUploadIdRef.current) {
+      removeUploadRecord(activeUploadIdRef.current);
+      activeUploadIdRef.current = null;
+    }
+  }, [removeUploadRecord]);
+
+  const finishUploadRecord = useCallback(
+    (count: number): void => {
+      if (activeUploadIdRef.current) {
+        completeUploadRecord(activeUploadIdRef.current, count);
+        activeUploadIdRef.current = null;
+      }
+    },
+    [completeUploadRecord],
+  );
 
   const saveDeliveriesAndAssign = async (deliveries: Delivery[]): Promise<SaveResult> => {
     try {
@@ -119,152 +151,190 @@ export default function FileUpload({ onSuccess, onError }: FileUploadProps) {
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsLoading(true);
-    setValidationResult(null);
-
+  const maybeNavigateDeliveries = useCallback((): void => {
+    if (skipNavigate) return;
     try {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        try {
-          const data = new Uint8Array(event.target?.result as ArrayBuffer);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-          let jsonData = XLSX.utils.sheet_to_json(firstSheet) as Record<string, unknown>[];
+      navigate('/deliveries');
+    } catch {
+      /* ignore */
+    }
+  }, [navigate, skipNavigate]);
 
-          if (jsonData.length > 0) {
-            const columns = Object.keys(jsonData[0]);
-            console.log('[FileUpload] Excel columns detected:', columns);
-            console.log('[FileUpload] Looking for PO Number columns...');
-            const poColumns = columns.filter((col) => col.toLowerCase().includes('po'));
-            console.log('[FileUpload] PO-related columns found:', poColumns);
-          }
+  const processFile = useCallback(
+    (file: File | undefined): void => {
+      if (!file) return;
 
-          const { format, transform } = detectDataFormat(jsonData as import('../../types').RawERPRow[]);
-          console.log('[FileUpload] Detected format:', format);
+      setIsLoading(true);
+      setValidationResult(null);
+      activeUploadIdRef.current = beginUploadRecord(file.name);
 
-          if (transform) {
-            jsonData = transform(jsonData as import('../../types').RawERPRow[]) as unknown as Record<string, unknown>[];
+      try {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const data = new Uint8Array(event.target?.result as ArrayBuffer);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            let jsonData = XLSX.utils.sheet_to_json(firstSheet) as Record<string, unknown>[];
+
             if (jsonData.length > 0) {
-              const sample = jsonData[0];
-              console.log('[FileUpload] Transformed deliveries sample:', {
-                customer: sample['customer'],
-                address: sample['address'],
-                _originalDeliveryNumber: sample['_originalDeliveryNumber'],
-                _originalPONumber: sample['_originalPONumber'],
-                _originalQuantity: sample['_originalQuantity'],
-                _originalCity: sample['_originalCity'],
-                _originalRoute: sample['_originalRoute'],
-              });
-            }
-          }
-
-          const validation = validateDeliveryData(jsonData);
-          const extValidation: ExtendedValidationResult = {
-            ...validation,
-            detectedFormat: format,
-          };
-          setValidationResult(extValidation);
-
-          if (validation.isValid) {
-            const needsGeocoding = validation.validData.filter(
-              (d) => !hasValidCoordinates(d.lat as number, d.lng as number),
-            );
-
-            const fallbackCount = (jsonData || []).filter(
-              (d) => d && (d as Record<string, unknown>)['_usedDefaultCoords'],
-            ).length;
-            if (fallbackCount > 0) {
-              if (!validation.warnings) validation.warnings = [];
-              validation.warnings.unshift(
-                `Warning: ${fallbackCount} rows used default coordinates because latitude/longitude could not be parsed.`,
-              );
+              const columns = Object.keys(jsonData[0]);
+              console.log('[FileUpload] Excel columns detected:', columns);
+              console.log('[FileUpload] Looking for PO Number columns...');
+              const poColumns = columns.filter((col) => col.toLowerCase().includes('po'));
+              console.log('[FileUpload] PO-related columns found:', poColumns);
             }
 
-            if (needsGeocoding.length > 0) {
-              console.log(
-                `[FileUpload] ${needsGeocoding.length}/${validation.validData.length} deliveries need geocoding`,
-              );
-              setDeliveriesToGeocode(validation.validData);
-              setShowGeocoding(true);
-            } else {
-              console.log(
-                `[FileUpload] All ${validation.validData.length} deliveries have valid coordinates`,
+            const { format, transform } = detectDataFormat(jsonData as import('../../types').RawERPRow[]);
+            console.log('[FileUpload] Detected format:', format);
+
+            if (transform) {
+              jsonData = transform(jsonData as import('../../types').RawERPRow[]) as unknown as Record<
+                string,
+                unknown
+              >[];
+              if (jsonData.length > 0) {
+                const sample = jsonData[0];
+                console.log('[FileUpload] Transformed deliveries sample:', {
+                  customer: sample['customer'],
+                  address: sample['address'],
+                  _originalDeliveryNumber: sample['_originalDeliveryNumber'],
+                  _originalPONumber: sample['_originalPONumber'],
+                  _originalQuantity: sample['_originalQuantity'],
+                  _originalCity: sample['_originalCity'],
+                  _originalRoute: sample['_originalRoute'],
+                });
+              }
+            }
+
+            const validation = validateDeliveryData(jsonData);
+            const extValidation: ExtendedValidationResult = {
+              ...validation,
+              detectedFormat: format,
+            };
+            setValidationResult(extValidation);
+
+            if (validation.isValid) {
+              const needsGeocoding = validation.validData.filter(
+                (d) => !hasValidCoordinates(d.lat as number, d.lng as number),
               );
 
-              void (async () => {
-                try {
-                  const saveResult = await saveDeliveriesAndAssign(validation.validData);
-                  console.log('[FileUpload] Successfully saved to database');
+              const fallbackCount = (jsonData || []).filter(
+                (d) => d && (d as Record<string, unknown>)['_usedDefaultCoords'],
+              ).length;
+              if (fallbackCount > 0) {
+                if (!validation.warnings) validation.warnings = [];
+                validation.warnings.unshift(
+                  `Warning: ${fallbackCount} rows used default coordinates because latitude/longitude could not be parsed.`,
+                );
+              }
 
-                  if (saveResult.success && saveResult.deliveries?.length) {
-                    console.log(
-                      `[FileUpload] Loading ${saveResult.deliveries.length} deliveries with database UUIDs`,
-                    );
-                    loadDeliveries(saveResult.deliveries);
-                  } else {
-                    console.warn('[FileUpload] No deliveries returned from database, using local data');
+              if (needsGeocoding.length > 0) {
+                console.log(
+                  `[FileUpload] ${needsGeocoding.length}/${validation.validData.length} deliveries need geocoding`,
+                );
+                setDeliveriesToGeocode(validation.validData);
+                setShowGeocoding(true);
+              } else {
+                console.log(
+                  `[FileUpload] All ${validation.validData.length} deliveries have valid coordinates`,
+                );
+
+                void (async () => {
+                  try {
+                    const saveResult = await saveDeliveriesAndAssign(validation.validData);
+                    console.log('[FileUpload] Successfully saved to database');
+
+                    if (saveResult.success && saveResult.deliveries?.length) {
+                      console.log(
+                        `[FileUpload] Loading ${saveResult.deliveries.length} deliveries with database UUIDs`,
+                      );
+                      loadDeliveries(saveResult.deliveries);
+                    } else {
+                      console.warn('[FileUpload] No deliveries returned from database, using local data');
+                      loadDeliveries(validation.validData);
+                    }
+                  } catch (error: unknown) {
+                    const err = error as { response?: { data?: unknown }; message?: string };
+                    console.error('[FileUpload] Database save failed:', error);
+                    console.error('[FileUpload] Error response:', err.response?.data);
                     loadDeliveries(validation.validData);
                   }
-                } catch (error: unknown) {
-                  const err = error as { response?: { data?: unknown }; message?: string };
-                  console.error('[FileUpload] Database save failed:', error);
-                  console.error('[FileUpload] Error response:', err.response?.data);
-                  loadDeliveries(validation.validData);
-                }
 
-                try {
-                  navigate('/deliveries');
-                } catch {
-                  /* ignore */
-                }
+                  finishUploadRecord(validation.validData.length);
+                  maybeNavigateDeliveries();
 
-                if (onSuccess) {
-                  onSuccess({
-                    count: validation.validData.length,
-                    warnings: validation.warnings,
-                    format,
-                    geocoded: false,
-                    geocodedCount: 0,
-                  });
-                }
-              })();
+                  if (onSuccess) {
+                    onSuccess({
+                      count: validation.validData.length,
+                      warnings: validation.warnings,
+                      format,
+                      geocoded: false,
+                      geocodedCount: 0,
+                    });
+                  }
+                })();
+              }
+            } else {
+              abortUploadRecord();
+              if (onError) {
+                onError({ errors: validation.errors, warnings: validation.warnings, format });
+              }
             }
-          } else {
+          } catch (error: unknown) {
+            const err = error as { message?: string };
+            console.error('File processing error:', error);
+            abortUploadRecord();
             if (onError) {
-              onError({ errors: validation.errors, warnings: validation.warnings, format });
+              onError({ errors: [`Failed to process file: ${err.message}`], warnings: [] });
             }
+          } finally {
+            setIsLoading(false);
           }
-        } catch (error: unknown) {
-          const err = error as { message?: string };
-          console.error('File processing error:', error);
-          if (onError) {
-            onError({ errors: [`Failed to process file: ${err.message}`], warnings: [] });
-          }
-        } finally {
+        };
+
+        reader.onerror = (): void => {
           setIsLoading(false);
-        }
-      };
+          abortUploadRecord();
+          if (onError) {
+            onError({ errors: ['Failed to read file'], warnings: [] });
+          }
+        };
 
-      reader.onerror = (): void => {
+        reader.readAsArrayBuffer(file);
+      } catch (error: unknown) {
+        const err = error as { message?: string };
+        console.error('Error reading file:', error);
         setIsLoading(false);
+        abortUploadRecord();
         if (onError) {
-          onError({ errors: ['Failed to read file'], warnings: [] });
+          onError({ errors: [`Error: ${err.message}`], warnings: [] });
         }
-      };
-
-      reader.readAsArrayBuffer(file);
-    } catch (error: unknown) {
-      const err = error as { message?: string };
-      console.error('Error reading file:', error);
-      setIsLoading(false);
-      if (onError) {
-        onError({ errors: [`Error: ${err.message}`], warnings: [] });
       }
-    }
+    },
+    [
+      abortUploadRecord,
+      beginUploadRecord,
+      finishUploadRecord,
+      loadDeliveries,
+      maybeNavigateDeliveries,
+      onError,
+      onSuccess,
+    ],
+  );
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      processFile: (file: File) => processFile(file),
+      openFileDialog: () => inputRef.current?.click(),
+    }),
+    [processFile],
+  );
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    processFile(e.target.files?.[0]);
+    e.target.value = '';
   };
 
   const handleGeocodingComplete = async (geocodedDeliveries: Delivery[]): Promise<void> => {
@@ -301,11 +371,9 @@ export default function FileUpload({ onSuccess, onError }: FileUploadProps) {
         loadDeliveries(sorted);
       }
 
-      try {
-        navigate('/deliveries');
-      } catch (e) {
-        console.warn('[FileUpload] Navigation error:', e);
-      }
+      maybeNavigateDeliveries();
+
+      finishUploadRecord(geocodedDeliveries.length);
 
       if (onSuccess) {
         onSuccess({
@@ -319,11 +387,9 @@ export default function FileUpload({ onSuccess, onError }: FileUploadProps) {
     } catch (error: unknown) {
       console.error('[FileUpload] Error in geocoding complete handler:', error);
       loadDeliveries(sorted);
-      try {
-        navigate('/deliveries');
-      } catch {
-        /* ignore */
-      }
+      maybeNavigateDeliveries();
+
+      finishUploadRecord(geocodedDeliveries.length);
 
       if (onSuccess) {
         onSuccess({
@@ -343,6 +409,7 @@ export default function FileUpload({ onSuccess, onError }: FileUploadProps) {
   const handleGeocodingCancel = (): void => {
     console.log('[FileUpload] Geocoding cancelled');
     setShowGeocoding(false);
+    abortUploadRecord();
   };
 
   return (
@@ -355,43 +422,44 @@ export default function FileUpload({ onSuccess, onError }: FileUploadProps) {
         />
       )}
 
-      <div
-        onClick={() => !isLoading && inputRef.current?.click()}
-        className={`border-3 border-dashed rounded-lg p-6 sm:p-8 lg:p-12 text-center transition-colors ${
-          isLoading
-            ? 'border-gray-300 bg-gray-50 cursor-not-allowed'
-            : 'border-primary-300 hover:border-primary-500 hover:bg-primary-50 cursor-pointer'
-        }`}
-      >
-        <Upload
-          className={`w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 ${
-            isLoading ? 'text-gray-400 animate-pulse' : 'text-primary-500'
+      {!hideDefaultUI && (
+        <div
+          onClick={() => !isLoading && inputRef.current?.click()}
+          className={`border-3 border-dashed rounded-lg p-6 sm:p-8 lg:p-12 text-center transition-colors ${
+            isLoading
+              ? 'border-gray-300 bg-gray-50 cursor-not-allowed'
+              : 'border-primary-300 hover:border-primary-500 hover:bg-primary-50 cursor-pointer'
           }`}
-        />
-        <h3 className="text-base sm:text-lg font-semibold text-gray-700 mb-2">
-          {isLoading ? 'Processing file...' : 'Click to Upload Excel or Delivery Note'}
-        </h3>
-        <p className="text-sm sm:text-base text-gray-500">
-          {isLoading
-            ? 'Please wait...'
-            : 'Supported formats: .xlsx, .xls, .csv (ERP/SAP or Simple format)'}
-        </p>
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".xlsx,.xls,.csv"
-          onChange={handleFileChange}
-          disabled={isLoading}
-          className="hidden"
-        />
-      </div>
+        >
+          <Upload
+            className={`w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 ${
+              isLoading ? 'text-gray-400 animate-pulse' : 'text-primary-500'
+            }`}
+          />
+          <h3 className="text-base sm:text-lg font-semibold text-gray-700 mb-2">
+            {isLoading ? 'Processing file...' : 'Click to Upload Excel or Delivery Note'}
+          </h3>
+          <p className="text-sm sm:text-base text-gray-500">
+            {isLoading
+              ? 'Please wait...'
+              : 'Supported formats: .xlsx, .xls, .csv (ERP/SAP or Simple format)'}
+          </p>
+        </div>
+      )}
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".xlsx,.xls,.csv"
+        onChange={handleFileChange}
+        disabled={isLoading}
+        className="hidden"
+      />
 
       {validationResult && (
         <div
           className={`rounded-lg p-4 border-l-4 ${
-            validationResult.isValid
-              ? 'bg-green-50 border-green-500'
-              : 'bg-red-50 border-red-500'
+            validationResult.isValid ? 'bg-green-50 border-green-500' : 'bg-red-50 border-red-500'
           }`}
         >
           <div className="flex items-start gap-3">
@@ -441,4 +509,6 @@ export default function FileUpload({ onSuccess, onError }: FileUploadProps) {
       )}
     </div>
   );
-}
+});
+
+export default FileUpload;

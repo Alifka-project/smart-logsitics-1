@@ -3,10 +3,20 @@ import { calculateDistance } from '../utils/distanceCalculator';
 import { assignPriorities } from '../utils/priorityCalculator';
 import { isUnrecognizableAddress } from '../utils/addressHandler';
 import type { Delivery, RouteResult } from '../types';
+import type { DeliveryListFilter } from '../utils/deliveryListFilter';
 
 const WAREHOUSE_LAT = 25.0053;
 const WAREHOUSE_LNG = 55.076;
 const STORAGE_KEY = 'deliveries_data';
+const RECENT_UPLOADS_KEY = 'delivery_recent_uploads';
+
+export interface RecentUploadEntry {
+  id: string;
+  filename: string;
+  orderCount: number;
+  uploadedAt: string;
+  status: 'processing' | 'completed';
+}
 
 interface DeliveryStore {
   // State
@@ -15,6 +25,8 @@ interface DeliveryStore {
   route: RouteResult | null;
   isLoading: boolean;
   currentPage: string;
+  deliveryListFilter: DeliveryListFilter;
+  recentUploads: RecentUploadEntry[];
 
   // Actions
   initializeFromStorage: () => Delivery[];
@@ -27,6 +39,29 @@ interface DeliveryStore {
   clearDeliveries: () => void;
   calculateRoute: () => Promise<void>;
   setRoute: (route: RouteResult) => void;
+  setDeliveryListFilter: (filter: DeliveryListFilter) => void;
+  beginUploadRecord: (filename: string) => string;
+  completeUploadRecord: (id: string, orderCount: number) => void;
+  removeUploadRecord: (id: string) => void;
+}
+
+function loadRecentUploadsFromStorage(): RecentUploadEntry[] {
+  try {
+    const raw = localStorage.getItem(RECENT_UPLOADS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as RecentUploadEntry[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistRecentUploads(entries: RecentUploadEntry[]): void {
+  try {
+    localStorage.setItem(RECENT_UPLOADS_KEY, JSON.stringify(entries.slice(0, 20)));
+  } catch {
+    /* ignore */
+  }
 }
 
 const useDeliveryStore = create<DeliveryStore>((set, get) => ({
@@ -36,6 +71,8 @@ const useDeliveryStore = create<DeliveryStore>((set, get) => ({
   route: null,
   isLoading: false,
   currentPage: 'list',
+  deliveryListFilter: 'all',
+  recentUploads: loadRecentUploadsFromStorage(),
 
   initializeFromStorage: (): Delivery[] => {
     try {
@@ -254,6 +291,42 @@ const useDeliveryStore = create<DeliveryStore>((set, get) => ({
 
   setRoute: (route: RouteResult): void => {
     set({ route });
+  },
+
+  setDeliveryListFilter: (filter: DeliveryListFilter): void => {
+    set({ deliveryListFilter: filter });
+  },
+
+  beginUploadRecord: (filename: string): string => {
+    const id =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `up-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const entry: RecentUploadEntry = {
+      id,
+      filename,
+      orderCount: 0,
+      uploadedAt: new Date().toISOString(),
+      status: 'processing',
+    };
+    const next = [entry, ...get().recentUploads].slice(0, 20);
+    set({ recentUploads: next });
+    persistRecentUploads(next);
+    return id;
+  },
+
+  completeUploadRecord: (id: string, orderCount: number): void => {
+    const next = get().recentUploads.map((u) =>
+      u.id === id ? { ...u, orderCount, status: 'completed' as const } : u,
+    );
+    set({ recentUploads: next });
+    persistRecentUploads(next);
+  },
+
+  removeUploadRecord: (id: string): void => {
+    const next = get().recentUploads.filter((u) => u.id !== id);
+    set({ recentUploads: next });
+    persistRecentUploads(next);
   },
 }));
 

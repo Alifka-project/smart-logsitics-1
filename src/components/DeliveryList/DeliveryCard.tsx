@@ -6,7 +6,12 @@ import type { Delivery } from '../../types';
 
 interface DeliveryCardProps {
   delivery: Delivery;
-  index: number;
+  /** Order number shown on the card (1-based). */
+  displayIndex: number;
+  /** Index in the full ordered list for drag-and-drop (omit when drag is disabled). */
+  dragIndex?: number;
+  /** When true, drag-and-drop is disabled (e.g. list is filtered). */
+  dragDisabled?: boolean;
   onClick: () => void;
   onDragStart?: (index: number) => void;
   onDragOver?: (index: number) => void;
@@ -21,7 +26,9 @@ interface DeliveryCardProps {
 
 export default function DeliveryCard({
   delivery,
-  index,
+  displayIndex,
+  dragIndex,
+  dragDisabled = false,
   onClick,
   onDragStart,
   onDragOver,
@@ -34,6 +41,8 @@ export default function DeliveryCard({
   onMouseLeave,
 }: DeliveryCardProps) {
   const [showSMSModal, setShowSMSModal] = useState(false);
+  const dIdx = dragIndex ?? 0;
+  const canDrag = !dragDisabled && typeof dragIndex === 'number';
 
   const handleSMSClick = (e: React.MouseEvent): void => {
     e.stopPropagation();
@@ -45,10 +54,20 @@ export default function DeliveryCard({
     }
   };
 
+  const handleCallClick = (e: React.MouseEvent): void => {
+    e.stopPropagation();
+    if (delivery.phone) {
+      window.location.href = `tel:${String(delivery.phone).replace(/\s/g, '')}`;
+    }
+  };
+
+  const isP1 = delivery.priority === 1;
+
   return (
     <div
-      draggable
+      draggable={canDrag}
       onDragStart={(e) => {
+        if (!canDrag) return;
         if (e.dataTransfer) {
           try {
             e.dataTransfer.effectAllowed = 'move';
@@ -56,91 +75,117 @@ export default function DeliveryCard({
             /* ignore */
           }
         }
-        onDragStart?.(index);
+        onDragStart?.(dIdx);
       }}
       onDragOver={(e) => {
+        if (!canDrag) return;
         e.preventDefault();
-        onDragOver?.(index);
+        onDragOver?.(dIdx);
       }}
       onDragLeave={(e) => {
+        if (!canDrag) return;
         e.preventDefault();
         onDragLeave?.();
       }}
       onDrop={(e) => {
+        if (!canDrag) return;
         e.preventDefault();
         onDrop?.();
       }}
       onClick={onClick}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border-l-4 rounded-lg transition-all cursor-move ${
+      className={`flex flex-col rounded-lg border transition-all ${
+        isP1
+          ? 'bg-red-50/80 dark:bg-red-950/25 border-red-200/80 dark:border-red-900/50'
+          : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800/90'
+      } ${
+        canDrag ? 'cursor-move' : 'cursor-pointer'
+      } ${
         isDragging
-          ? 'opacity-50 bg-primary-100 dark:bg-primary-900/30 border-primary-400 dark:border-primary-500'
+          ? 'opacity-50 border-primary-400 dark:border-primary-500 shadow-md'
           : isDragOver
-            ? 'bg-primary-50 dark:bg-primary-900/20 border-primary-500 dark:border-primary-400 shadow-md scale-105'
-            : 'border-primary-500 dark:border-primary-400 bg-gradient-to-r from-primary-50 dark:from-primary-900/20 to-white dark:to-gray-800 hover:shadow-lg hover:translate-x-1'
+            ? 'ring-2 ring-primary-400 dark:ring-primary-500 shadow-md scale-[1.01]'
+            : 'hover:shadow-md'
       }`}
     >
-      <div className="flex items-center gap-2 mb-2 sm:mb-0 sm:mr-3 flex-shrink-0">
-        <GripVertical className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 transition-colors" />
-        <span className="text-base sm:text-lg font-bold text-primary-600 dark:text-primary-400 w-6">
-          {index + 1}.
-        </span>
-      </div>
-
-      <div className="flex-1 mb-3 sm:mb-0">
-        <h3 className="text-sm sm:text-lg font-semibold text-gray-800 dark:text-gray-100 mb-2">
-          {delivery.customer}
-        </h3>
-
-        <div className="space-y-1 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-          <div className="flex items-start gap-2">
-            <MapPin className="w-3 h-3 sm:w-4 sm:h-4 mt-0.5 flex-shrink-0 text-gray-600 dark:text-gray-400" />
-            <span className="break-words">{delivery.address}</span>
-          </div>
-          <div className="flex items-start gap-2">
-            <Package className="w-3 h-3 sm:w-4 sm:h-4 mt-0.5 flex-shrink-0 text-gray-600 dark:text-gray-400" />
-            <span className="break-words">{delivery.items}</span>
-          </div>
-          {delivery.phone && (
-            <div className="flex items-center gap-2">
-              <Phone className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0 text-gray-600 dark:text-gray-400" />
-              <span className="break-all">{delivery.phone}</span>
-            </div>
-          )}
-          <div className="flex items-center gap-2">
-            <Navigation className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0 text-gray-600 dark:text-gray-400" />
-            <span className="font-semibold text-primary-600 dark:text-primary-400">
-              {(delivery.distanceFromWarehouse ?? 0).toFixed(1)} km
+      <div className="flex items-start gap-2 p-3 sm:p-4">
+        {canDrag && (
+          <div className="flex items-center gap-1 flex-shrink-0 pt-0.5">
+            <GripVertical className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 dark:text-gray-500" />
+            <span className="text-base sm:text-lg font-bold text-primary-600 dark:text-primary-400 w-6 text-center">
+              {displayIndex + 1}.
             </span>
           </div>
-        </div>
-      </div>
-
-      <div className="flex flex-row gap-2 sm:flex-col sm:text-right sm:space-y-2 sm:ml-3 flex-shrink-0">
-        <StatusBadge status={delivery.status} />
-        <div
-          className={`px-2 sm:px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
-            delivery.priority === 1
-              ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
-              : delivery.priority === 2
-                ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300'
-                : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
-          }`}
-        >
-          P{delivery.priority}
-        </div>
-
-        {delivery.phone && (
-          <button
-            onClick={handleSMSClick}
-            className="px-2 sm:px-3 py-1 bg-primary-700 hover:bg-primary-900 text-white rounded-full text-xs font-semibold flex items-center gap-1 whitespace-nowrap transition-colors"
-            title="Send confirmation SMS"
-          >
-            <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4" />
-            <span className="hidden sm:inline">SMS</span>
-          </button>
         )}
+        {!canDrag && (
+          <span className="text-base sm:text-lg font-bold text-primary-600 dark:text-primary-400 w-8 flex-shrink-0 pt-0.5">
+            {displayIndex + 1}.
+          </span>
+        )}
+
+        <div className="flex-1 min-w-0 space-y-2">
+          <div className="flex flex-wrap items-center gap-2 gap-y-1">
+            <h3 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">
+              {delivery.customer}
+            </h3>
+            <StatusBadge status={delivery.status} />
+            {isP1 && (
+              <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-red-600 text-white">
+                P1
+              </span>
+            )}
+            {!isP1 && delivery.priority != null && (
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100">
+                P{delivery.priority}
+              </span>
+            )}
+          </div>
+
+          <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 flex items-start gap-1.5">
+            <span className="flex-shrink-0" aria-hidden>
+              📍
+            </span>
+            <span className="break-words">{delivery.address}</span>
+          </div>
+          <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 flex items-start gap-1.5">
+            <span className="flex-shrink-0" aria-hidden>
+              📦
+            </span>
+            <span className="break-words">{delivery.items}</span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <div className="flex items-center gap-1.5 text-xs sm:text-sm">
+              <Navigation className="w-3.5 h-3.5 flex-shrink-0 text-primary-500" />
+              <span className="font-semibold text-primary-600 dark:text-primary-400">
+                {(delivery.distanceFromWarehouse ?? 0).toFixed(1)} km
+              </span>
+            </div>
+            {delivery.phone && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleCallClick}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600"
+                  title="Call customer"
+                >
+                  <Phone className="w-3.5 h-3.5" />
+                  Call
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSMSClick}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-primary-700 hover:bg-primary-800 text-white"
+                  title="Send confirmation SMS"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  SMS
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {showSMSModal && (
