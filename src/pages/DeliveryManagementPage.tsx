@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Upload, Database, MapPin, Zap, List, ClipboardList, Download, RefreshCw } from 'lucide-react';
+import { Database, MapPin, Zap, List, ClipboardList, Download, RefreshCw } from 'lucide-react';
 import DeliveryTable from '../components/DeliveryList/DeliveryTable';
 import CustomerModal from '../components/CustomerDetails/CustomerModal';
-import ManageTab from '../components/DeliveryManagement/ManageTab';
+import ManageTab from '../components/deliveries/ManageTab';
 import DeliveryMap from '../components/MapView/DeliveryMap';
 import { calculateRoute, generateFallbackRoute } from '../services/advancedRoutingService';
 import useDeliveryStore from '../store/useDeliveryStore';
@@ -43,6 +43,7 @@ export default function DeliveryManagementPage() {
   const deliveries = useDeliveryStore((state) => state.deliveries ?? []);
   const deliveryListFilter = useDeliveryStore((state) => state.deliveryListFilter ?? 'all');
   const loadDeliveries = useDeliveryStore((state) => state.loadDeliveries);
+  const addCompletedUpload = useDeliveryStore((state) => state.addCompletedUpload);
   const [activeTab, setActiveTab] = useState<string>('manage');
 
   const displayDeliveries = useMemo(
@@ -130,6 +131,7 @@ export default function DeliveryManagementPage() {
       if (response.data && response.data.deliveries) {
         const freshDeliveries = response.data.deliveries as Delivery[];
         loadDeliveries(freshDeliveries);
+        addCompletedUpload('Database reload', freshDeliveries.length);
 
         // Trigger backend bulk auto-assignment so Operations Control reflects assignments
         try {
@@ -161,11 +163,6 @@ export default function DeliveryManagementPage() {
     } else {
       error('Failed to process file');
     }
-  };
-
-  const handleSyntheticSuccess = (result: FileUploadResult): void => {
-    success(`✓ Successfully loaded ${result.count} test deliveries`);
-    setTimeout(() => setActiveTab('deliveries'), 500);
   };
 
   const handleExport = (): void => {
@@ -228,13 +225,6 @@ export default function DeliveryManagementPage() {
             <RefreshCw className={`w-4 h-4 flex-shrink-0 ${isReloading ? 'animate-spin' : ''}`} />
             <span className="truncate">{isReloading ? 'Loading...' : 'Reload DB'}</span>
           </button>
-          <button
-            onClick={() => setActiveTab('manage')}
-            className="flex-1 sm:flex-none min-h-[44px] px-4 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center justify-center gap-2 text-sm touch-manipulation"
-          >
-            <Upload className="w-4 h-4 flex-shrink-0" />
-            Upload
-          </button>
           {deliveries.length > 0 && (
             <button
               onClick={handleExport}
@@ -288,7 +278,10 @@ export default function DeliveryManagementPage() {
           onSwitchToDeliveriesTab={() => setActiveTab('deliveries')}
           onUploadSuccess={handleFileSuccess}
           onUploadError={handleFileError}
-          onSyntheticSuccess={handleSyntheticSuccess}
+          onDuplicateFile={() =>
+            error('Already uploaded', 'This file was already uploaded. Duplicates are skipped.')
+          }
+          onToastError={(msg) => error(msg)}
         />
       )}
 

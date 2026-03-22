@@ -15,6 +15,32 @@ import { MapContainer, TileLayer, CircleMarker, Tooltip as MapTooltip, Popup } f
 import 'leaflet/dist/leaflet.css';
 import type { Driver } from '../types';
 
+/** Recharts default tooltip — theme via --chart-* in index.css (:root / .dark) */
+const RECHARTS_TOOLTIP = {
+  contentStyle: {
+    backgroundColor: 'var(--chart-tooltip-bg)',
+    border: '1px solid var(--chart-tooltip-border)',
+    borderRadius: '8px',
+    fontSize: '11px',
+    color: 'var(--chart-tooltip-fg)',
+  },
+  labelStyle: { color: 'var(--chart-tooltip-fg)', fontWeight: 600 as const },
+  itemStyle: { color: 'var(--chart-tooltip-fg)' },
+};
+const RECHARTS_TOOLTIP_12 = {
+  ...RECHARTS_TOOLTIP,
+  contentStyle: { ...RECHARTS_TOOLTIP.contentStyle, fontSize: '12px' },
+};
+/** Overview hero chart tooltip — 12px + shadow */
+const RECHARTS_TOOLTIP_OVERVIEW = {
+  ...RECHARTS_TOOLTIP,
+  contentStyle: {
+    ...RECHARTS_TOOLTIP.contentStyle,
+    fontSize: '12px',
+    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.12)',
+  },
+};
+
 /* Dubai area → approximate centre [lat, lng] */
 const DUBAI_AREA_COORDS: Record<string, [number, number]> = {
   'Marina':      [25.0800, 55.1350],
@@ -199,10 +225,10 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
       return (
         <ResponsiveContainer width="100%" height={220}>
           <ComposedChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-            <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} domain={dataKey === 'rate' ? [0, 100] : undefined} unit={dataKey === 'rate' ? '%' : undefined} />
-            <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} formatter={dataKey === 'rate' ? (val: number) => [`${val}%`, 'Success Rate'] : undefined} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} domain={dataKey === 'rate' ? [0, 100] : undefined} unit={dataKey === 'rate' ? '%' : undefined} />
+            <Tooltip {...RECHARTS_TOOLTIP} formatter={dataKey === 'rate' ? (val: number) => [`${val}%`, 'Success Rate'] : undefined} />
             <Line type="monotone" dataKey={dataKey || 'count'} stroke={barColor} strokeWidth={2} dot={{ r: 3 }} fill="transparent" isAnimationActive />
           </ComposedChart>
         </ResponsiveContainer>
@@ -218,10 +244,10 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
                 <stop offset="95%" stopColor={barColor} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-            <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-            <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
+            <Tooltip {...RECHARTS_TOOLTIP} />
             <Area type="monotone" dataKey={dataKey || 'count'} stroke={barColor} fill={`url(#areaGrad-${title.replace(/\s/g, '')})`} strokeWidth={2} isAnimationActive />
           </AreaChart>
         </ResponsiveContainer>
@@ -231,11 +257,11 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
       return (
         <ResponsiveContainer width="100%" height={220}>
           <AreaChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-            <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-            <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
-            <Legend wrapperStyle={{ fontSize: '10px' }} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
+            <Tooltip {...RECHARTS_TOOLTIP} />
+            <Legend wrapperStyle={{ fontSize: '10px', color: 'var(--chart-legend)' }} />
             <Area type="monotone" dataKey="delivered" stackId="1" stroke="#059669" fill="#059669" fillOpacity={0.6} name="Delivered" isAnimationActive />
             <Area type="monotone" dataKey="pending" stackId="1" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.6} name="Pending" isAnimationActive />
             <Area type="monotone" dataKey="cancelled" stackId="1" stroke="#dc2626" fill="#dc2626" fillOpacity={0.6} name="Cancelled" isAnimationActive />
@@ -247,11 +273,11 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
       return (
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-            <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-            <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
-            <Legend wrapperStyle={{ fontSize: '10px' }} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
+            <Tooltip {...RECHARTS_TOOLTIP} />
+            <Legend wrapperStyle={{ fontSize: '10px', color: 'var(--chart-legend)' }} />
             <Bar dataKey="delivered" stackId="a" fill="#059669" name="Delivered" radius={[0, 0, 0, 0]} isAnimationActive />
             <Bar dataKey="pending" stackId="a" fill="#f59e0b" name="Pending" radius={[0, 0, 0, 0]} isAnimationActive />
             <Bar dataKey="cancelled" stackId="a" fill="#dc2626" name="Cancelled" radius={[0, 0, 0, 0]} isAnimationActive />
@@ -263,10 +289,10 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
       return (
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-            <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-            <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
+            <Tooltip {...RECHARTS_TOOLTIP} />
             <Bar dataKey={dataKey || 'count'} fill={barColor} radius={[4, 4, 0, 0]} maxBarSize={24} isAnimationActive />
           </BarChart>
         </ResponsiveContainer>
@@ -276,10 +302,10 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
       return (
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={d} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
-            <XAxis type="number" tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-            <YAxis type="category" dataKey={xKey} width={80} tick={{ fontSize: 10, fill: '#374151' }} tickLine={false} axisLine={false} />
-            <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" horizontal={false} />
+            <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
+            <YAxis type="category" dataKey={xKey} width={80} tick={{ fontSize: 10, fill: 'var(--chart-tick-emphasis)' }} tickLine={false} axisLine={false} />
+            <Tooltip {...RECHARTS_TOOLTIP} />
             <Bar dataKey={dataKey || 'count'} fill={barColor} radius={[0, 4, 4, 0]} maxBarSize={16} isAnimationActive />
           </BarChart>
         </ResponsiveContainer>
@@ -289,11 +315,11 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
       return (
         <ResponsiveContainer width="100%" height={220}>
           <ComposedChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-            <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-            <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
-            <Legend wrapperStyle={{ fontSize: '10px' }} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
+            <Tooltip {...RECHARTS_TOOLTIP} />
+            <Legend wrapperStyle={{ fontSize: '10px', color: 'var(--chart-legend)' }} />
             <Bar dataKey="count" fill="#2563EB" radius={[4, 4, 0, 0]} maxBarSize={24} name="Requests" isAnimationActive />
             <Line type="monotone" dataKey="ma" stroke="#f59e0b" strokeWidth={2} strokeDasharray="4 4" dot={{ r: 2 }} name="Moving Avg" isAnimationActive />
           </ComposedChart>
@@ -304,11 +330,11 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
       return (
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-            <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-            <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
-            <Legend wrapperStyle={{ fontSize: '10px' }} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
+            <Tooltip {...RECHARTS_TOOLTIP} />
+            <Legend wrapperStyle={{ fontSize: '10px', color: 'var(--chart-legend)' }} />
             <Bar dataKey="created" fill="#3b82f6" radius={[0, 0, 0, 0]} maxBarSize={28} name="Created" isAnimationActive />
             <Bar dataKey="delivered" fill="#059669" radius={[0, 0, 0, 0]} maxBarSize={28} name="Delivered" isAnimationActive />
             <Bar dataKey="inTransit" fill="#8b5cf6" radius={[0, 0, 0, 0]} maxBarSize={28} name="In Transit" isAnimationActive />
@@ -321,10 +347,10 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
       return (
         <ResponsiveContainer width="100%" height={220}>
           <ComposedChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-            <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} domain={[0, 100]} unit="%" />
-            <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} formatter={(val: number) => [`${val}%`, 'Success Rate']} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} domain={[0, 100]} unit="%" />
+            <Tooltip {...RECHARTS_TOOLTIP} formatter={(val: number) => [`${val}%`, 'Success Rate']} />
             <ReferenceLine y={targetValue} stroke="#dc2626" strokeDasharray="4 4" strokeWidth={1.5} />
             <Line type="monotone" dataKey="rate" stroke="#059669" strokeWidth={2} dot={{ r: 3 }} name="Success Rate" isAnimationActive />
           </ComposedChart>
@@ -335,11 +361,11 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
       return (
         <ResponsiveContainer width="100%" height={220}>
           <ComposedChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-            <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} unit="h" />
-            <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
-            <Legend wrapperStyle={{ fontSize: '10px' }} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} unit="h" />
+            <Tooltip {...RECHARTS_TOOLTIP} />
+            <Legend wrapperStyle={{ fontSize: '10px', color: 'var(--chart-legend)' }} />
             <Line type="monotone" dataKey="medianHours" stroke="#2563EB" strokeWidth={2} dot={{ r: 3 }} name="Median (h)" isAnimationActive />
             <Line type="monotone" dataKey="p90Hours" stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="4 4" dot={{ r: 2 }} name="P90 (h)" isAnimationActive />
           </ComposedChart>
@@ -356,10 +382,10 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
                 <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-            <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-            <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
+            <Tooltip {...RECHARTS_TOOLTIP} />
             <Area type="monotone" dataKey="open" stroke="#8b5cf6" fill={`url(#backlogGrad-${title.replace(/\s/g, '')})`} strokeWidth={2} name="Open / Pending / In Transit" isAnimationActive />
           </AreaChart>
         </ResponsiveContainer>
@@ -369,11 +395,11 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
       return (
         <ResponsiveContainer width="100%" height={220}>
           <AreaChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }} stackOffset="expand">
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-            <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} domain={[0, 100]} unit="%" tickFormatter={(v) => `${v}%`} />
-            <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} formatter={(val: number) => [`${Number(val).toFixed(1)}%`, undefined]} />
-            <Legend wrapperStyle={{ fontSize: '10px' }} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} domain={[0, 100]} unit="%" tickFormatter={(v) => `${v}%`} />
+            <Tooltip {...RECHARTS_TOOLTIP} formatter={(val: number) => [`${Number(val).toFixed(1)}%`, undefined]} />
+            <Legend wrapperStyle={{ fontSize: '10px', color: 'var(--chart-legend)' }} />
             <Area type="monotone" dataKey="deliveredPct" stackId="1" stroke="#059669" fill="#059669" fillOpacity={0.6} name="Delivered" isAnimationActive />
             <Area type="monotone" dataKey="pendingPct" stackId="1" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.6} name="Pending" isAnimationActive />
             <Area type="monotone" dataKey="inTransitPct" stackId="1" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.6} name="In Transit" isAnimationActive />
@@ -387,11 +413,11 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
       return (
         <ResponsiveContainer width="100%" height={220}>
           <AreaChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-            <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-            <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
-            <Legend wrapperStyle={{ fontSize: '10px' }} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
+            <Tooltip {...RECHARTS_TOOLTIP} />
+            <Legend wrapperStyle={{ fontSize: '10px', color: 'var(--chart-legend)' }} />
             {topKeys.map((k, i) => {
               const colors = ['#2563EB', '#059669', '#f59e0b', '#8b5cf6', '#ec4899'];
               return <Area key={k} type="monotone" dataKey={k} stackId="1" stroke={colors[i % colors.length]} fill={colors[i % colors.length]} fillOpacity={0.6} name={k} isAnimationActive />;
@@ -404,10 +430,10 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
       return (
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={d} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
-            <XAxis type="number" tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-            <YAxis type="category" dataKey={xKey} width={90} tick={{ fontSize: 9, fill: '#374151' }} tickLine={false} axisLine={false} />
-            <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" horizontal={false} />
+            <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
+            <YAxis type="category" dataKey={xKey} width={90} tick={{ fontSize: 9, fill: 'var(--chart-tick-emphasis)' }} tickLine={false} axisLine={false} />
+            <Tooltip {...RECHARTS_TOOLTIP} />
             <Bar dataKey={dataKey || 'count'} fill={barColor} radius={[0, 4, 4, 0]} maxBarSize={16} name="Volume" isAnimationActive />
           </BarChart>
         </ResponsiveContainer>
@@ -437,7 +463,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
               paddingAngle={1}
               isAnimationActive
             />
-            <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} formatter={(val: number, name: string) => [val, name]} />
+            <Tooltip {...RECHARTS_TOOLTIP} formatter={(val: number, name: string) => [val, name]} />
           </PieChart>
         </ResponsiveContainer>
       );
@@ -490,7 +516,7 @@ function PeakHeatmapCard({ data, title, subtitle }: { data: number[][]; title: s
                       <div
                         title={`${day} ${col}:00 - ${v} requests`}
                         className="w-5 h-4 rounded-sm transition-all duration-300 ease-out"
-                        style={{ backgroundColor: v > 0 ? `rgba(37, 99, 235, ${op})` : 'rgba(229, 231, 235, 0.25)' }}
+                        style={{ backgroundColor: v > 0 ? `rgba(37, 99, 235, ${op})` : 'var(--heatmap-empty)' }}
                       />
                     </td>
                   );
@@ -1441,16 +1467,16 @@ export default function AdminDashboardPage(): React.ReactElement {
                 </div>
                 <ResponsiveContainer width="100%" height={300}>
                   <ComposedChart data={heroChartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                    <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false}
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+                    <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false}
                       interval={heroPeriod === '7d' ? 0 : heroPeriod === '30d' ? 4 : 8} />
-                    <YAxis yAxisId="left" tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+                    <YAxis yAxisId="left" tick={{ fontSize: 11, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
                     <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#f97316' }} tickLine={false} axisLine={false} unit="%" domain={[0, 100]} />
                     <Tooltip
-                      contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '12px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
+                      {...RECHARTS_TOOLTIP_OVERVIEW}
                       formatter={(val: number | string, name: string) => (name === 'Success Rate %' ? [`${val}%`, name] : [val, name]) as [React.ReactNode, string]}
                     />
-                    <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '12px' }} />
+                    <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '12px', color: 'var(--chart-legend)' }} />
                     <Bar yAxisId="left" dataKey="total" fill="#c7d7f9" name="Total Dispatched" radius={[3, 3, 0, 0]} maxBarSize={20} isAnimationActive animationDuration={900} animationEasing="ease-out" />
                     <Bar yAxisId="left" dataKey="delivered" fill="#2563EB" name="Delivered" radius={[3, 3, 0, 0]} maxBarSize={20} isAnimationActive animationDuration={900} animationEasing="ease-out" />
                     <Line yAxisId="right" type="monotone" dataKey="rate" stroke="#f97316" name="Success Rate %" dot={false} strokeWidth={2.5} isAnimationActive animationDuration={1100} animationEasing="ease-out" />
@@ -1761,12 +1787,12 @@ export default function AdminDashboardPage(): React.ReactElement {
                       layout="vertical"
                       margin={{ left: 10, right: 50, top: 5, bottom: 5 }}
                     >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
-                      <XAxis type="number" tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-                      <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 11, fill: '#374151' }} tickLine={false} axisLine={false} />
-                      <YAxis type="number" yAxisId="pct" orientation="right" domain={[0, 100]} tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `${v}%`} width={45} tickLine={false} axisLine={false} />
-                      <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '12px' }} formatter={(val: number, name: string, props: { payload?: { cumPct?: number } }) => (name === 'Cum. Share' ? [`${(props?.payload?.cumPct ?? val).toFixed(1)}%`, name] : [val, name])} />
-                      <Legend wrapperStyle={{ fontSize: '12px' }} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" horizontal={false} />
+                      <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
+                      <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 11, fill: 'var(--chart-tick-emphasis)' }} tickLine={false} axisLine={false} />
+                      <YAxis type="number" yAxisId="pct" orientation="right" domain={[0, 100]} tick={{ fontSize: 9, fill: 'var(--chart-tick-secondary)' }} tickFormatter={v => `${v}%`} width={45} tickLine={false} axisLine={false} />
+                      <Tooltip {...RECHARTS_TOOLTIP_12} formatter={(val: number, name: string, props: { payload?: { cumPct?: number } }) => (name === 'Cum. Share' ? [`${(props?.payload?.cumPct ?? val).toFixed(1)}%`, name] : [val, name])} />
+                      <Legend wrapperStyle={{ fontSize: '12px', color: 'var(--chart-legend)' }} />
                       <Bar dataKey="orders" name="Total Orders" fill="#93c5fd" radius={[0, 3, 3, 0]} maxBarSize={18} isAnimationActive />
                       <Bar dataKey="delivered" name="Delivered" fill="#2563EB" radius={[0, 3, 3, 0]} maxBarSize={18} isAnimationActive />
                       <Line type="monotone" dataKey="cumPct" name="Cum. Share" stroke="#f59e0b" strokeWidth={2} strokeDasharray="4 4" dot={{ r: 2 }} yAxisId="pct" isAnimationActive />
@@ -1795,10 +1821,10 @@ export default function AdminDashboardPage(): React.ReactElement {
                   <p className="text-[10px] text-gray-400 mb-2">Orders (x) vs Success % (y), bubble size = pending</p>
                   <ResponsiveContainer width="100%" height={180}>
                     <ScatterChart margin={{ top: 5, right: 10, bottom: 5, left: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis type="number" dataKey="orders" name="Orders" tick={{ fontSize: 9 }} tickLine={false} />
-                      <YAxis type="number" dataKey="successRate" name="Success %" domain={[0, 100]} tick={{ fontSize: 9 }} tickLine={false} />
-                      <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ fontSize: '11px' }} formatter={(val: number, name: string) => [name === 'pending' ? val : name === 'successRate' ? `${val}%` : val, name]} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                      <XAxis type="number" dataKey="orders" name="Orders" tick={{ fontSize: 9, fill: 'var(--chart-tick)' }} tickLine={false} />
+                      <YAxis type="number" dataKey="successRate" name="Success %" domain={[0, 100]} tick={{ fontSize: 9, fill: 'var(--chart-tick)' }} tickLine={false} />
+                      <Tooltip cursor={{ strokeDasharray: '3 3' }} {...RECHARTS_TOOLTIP} formatter={(val: number, name: string) => [name === 'pending' ? val : name === 'successRate' ? `${val}%` : val, name]} />
                       <ZAxis type="number" dataKey="pending" range={[60, 400]} name="Pending" />
                       <Scatter
                         data={topCustomersData.map(r => ({ orders: r.orders ?? 0, successRate: r.successRate ?? 0, pending: Math.max(r.pending ?? 0, 1), name: r.customer }))}
@@ -2148,10 +2174,10 @@ export default function AdminDashboardPage(): React.ReactElement {
                 {deliveryByAreaEnhanced.length > 0 ? (
                   <ResponsiveContainer width="100%" height={Math.max(220, deliveryByAreaEnhanced.length * 38)}>
                     <BarChart data={deliveryByAreaEnhanced} layout="vertical" margin={{ left: 10, right: 50, top: 5, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
-                      <XAxis type="number" tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-                      <YAxis type="category" dataKey="area" width={130} tick={{ fontSize: 12, fill: '#374151' }} tickLine={false} axisLine={false} />
-                      <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '12px' }} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" horizontal={false} />
+                      <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
+                      <YAxis type="category" dataKey="area" width={130} tick={{ fontSize: 12, fill: 'var(--chart-tick-emphasis)' }} tickLine={false} axisLine={false} />
+                      <Tooltip {...RECHARTS_TOOLTIP_12} />
                       <Bar dataKey="count" name="Deliveries" radius={[0, 4, 4, 0]} fill="#2563EB" isAnimationActive />
                     </BarChart>
                   </ResponsiveContainer>
@@ -2166,11 +2192,11 @@ export default function AdminDashboardPage(): React.ReactElement {
                   <p className="text-[10px] text-gray-400 mb-2">Deliveries (x) vs Success % (y), bubble size = pending</p>
                   <ResponsiveContainer width="100%" height={220}>
                     <ScatterChart margin={{ top: 5, right: 10, bottom: 5, left: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis type="number" dataKey="count" name="Deliveries" tick={{ fontSize: 9 }} tickLine={false} />
-                      <YAxis type="number" dataKey="successRate" name="Success %" domain={[0, 100]} tick={{ fontSize: 9 }} tickLine={false} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                      <XAxis type="number" dataKey="count" name="Deliveries" tick={{ fontSize: 9, fill: 'var(--chart-tick)' }} tickLine={false} />
+                      <YAxis type="number" dataKey="successRate" name="Success %" domain={[0, 100]} tick={{ fontSize: 9, fill: 'var(--chart-tick)' }} tickLine={false} />
                       <ZAxis type="number" dataKey="pending" range={[60, 400]} name="Pending" />
-                      <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ fontSize: '11px' }} formatter={(val: number, name: string) => [name === 'successRate' ? `${val}%` : val, name]} />
+                      <Tooltip cursor={{ strokeDasharray: '3 3' }} {...RECHARTS_TOOLTIP} formatter={(val: number, name: string) => [name === 'successRate' ? `${val}%` : val, name]} />
                       <Scatter
                         data={deliveryByAreaEnhanced.map(r => ({ ...r, pending: Math.max(r.pending ?? 0, 1) }))}
                         fill="#2563EB"
@@ -2374,12 +2400,12 @@ export default function AdminDashboardPage(): React.ReactElement {
                       layout="vertical"
                       margin={{ left: 10, right: 50, top: 5, bottom: 5 }}
                     >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
-                      <XAxis type="number" tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-                      <YAxis type="category" dataKey="label" width={180} tick={{ fontSize: 10, fill: '#374151' }} tickLine={false} axisLine={false} />
-                      <YAxis type="number" yAxisId="pct" orientation="right" domain={[0, 100]} tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `${v}%`} width={45} tickLine={false} axisLine={false} />
-                      <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '12px' }} formatter={(val: number, name: string, props: { payload?: { cumPct?: number } }) => (name === 'Cum. Share' ? [`${(props?.payload?.cumPct ?? val).toFixed(1)}%`, name] : [val, name])} />
-                      <Legend wrapperStyle={{ fontSize: '12px' }} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" horizontal={false} />
+                      <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
+                      <YAxis type="category" dataKey="label" width={180} tick={{ fontSize: 10, fill: 'var(--chart-tick-emphasis)' }} tickLine={false} axisLine={false} />
+                      <YAxis type="number" yAxisId="pct" orientation="right" domain={[0, 100]} tick={{ fontSize: 9, fill: 'var(--chart-tick-secondary)' }} tickFormatter={v => `${v}%`} width={45} tickLine={false} axisLine={false} />
+                      <Tooltip {...RECHARTS_TOOLTIP_12} formatter={(val: number, name: string, props: { payload?: { cumPct?: number } }) => (name === 'Cum. Share' ? [`${(props?.payload?.cumPct ?? val).toFixed(1)}%`, name] : [val, name])} />
+                      <Legend wrapperStyle={{ fontSize: '12px', color: 'var(--chart-legend)' }} />
                       <Bar dataKey="count" fill="#2563EB" radius={[0, 4, 4, 0]} name="Quantity" isAnimationActive />
                       <Line type="monotone" dataKey="cumPct" name="Cum. Share" stroke="#f59e0b" strokeWidth={2} strokeDasharray="4 4" dot={{ r: 2 }} yAxisId="pct" isAnimationActive />
                     </ComposedChart>
@@ -2397,10 +2423,10 @@ export default function AdminDashboardPage(): React.ReactElement {
                   <p className="text-[10px] text-gray-400 mb-2">Volume (x) vs Share % (y)</p>
                   <ResponsiveContainer width="100%" height={200}>
                     <ScatterChart margin={{ top: 5, right: 10, bottom: 5, left: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis type="number" dataKey="count" name="Volume" tick={{ fontSize: 9 }} tickLine={false} />
-                      <YAxis type="number" dataKey="sharePct" name="Share %" tick={{ fontSize: 9 }} tickLine={false} />
-                      <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ fontSize: '11px' }} formatter={(val: number, name: string) => [name === 'sharePct' ? `${val}%` : val, name]} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                      <XAxis type="number" dataKey="count" name="Volume" tick={{ fontSize: 9, fill: 'var(--chart-tick)' }} tickLine={false} />
+                      <YAxis type="number" dataKey="sharePct" name="Share %" tick={{ fontSize: 9, fill: 'var(--chart-tick)' }} tickLine={false} />
+                      <Tooltip cursor={{ strokeDasharray: '3 3' }} {...RECHARTS_TOOLTIP} formatter={(val: number, name: string) => [name === 'sharePct' ? `${val}%` : val, name]} />
                       <Scatter
                         data={topItemsData.map((r) => {
                           const total = topItemsData.reduce((s, x) => s + (x.count ?? 0), 0);
@@ -2598,11 +2624,11 @@ export default function AdminDashboardPage(): React.ReactElement {
                       data={driverPanelAnalytics.workloadBars}
                       margin={{ top: 4, right: 12, left: 4, bottom: 4 }}
                     >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
-                      <XAxis type="number" tick={{ fontSize: 10, fill: '#6b7280' }} allowDecimals={false} />
-                      <YAxis type="category" dataKey="name" width={92} tick={{ fontSize: 10, fill: '#6b7280' }} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" horizontal={false} />
+                      <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} allowDecimals={false} />
+                      <YAxis type="category" dataKey="name" width={92} tick={{ fontSize: 10, fill: 'var(--chart-tick-emphasis)' }} />
                       <Tooltip
-                        contentStyle={{ backgroundColor: 'var(--surface, white)', border: '1px solid var(--border, #e5e7eb)', borderRadius: '8px', fontSize: '11px' }}
+                        {...RECHARTS_TOOLTIP}
                         formatter={(v: number) => [`${v}`, 'Assigned']}
                       />
                       <Bar dataKey="count" fill="#2563eb" radius={[0, 4, 4, 0]} maxBarSize={18} name="Assigned" />
@@ -2639,14 +2665,14 @@ export default function AdminDashboardPage(): React.ReactElement {
                         }}
                       >
                         {driverPanelAnalytics.outcomesPie.map((entry, i) => (
-                          <Cell key={i} fill={entry.fill} stroke="var(--background, #fff)" strokeWidth={1} />
+                          <Cell key={i} fill={entry.fill} stroke="var(--surface)" strokeWidth={1} />
                         ))}
                       </Pie>
                       <Tooltip
-                        contentStyle={{ backgroundColor: 'var(--surface, white)', border: '1px solid var(--border, #e5e7eb)', borderRadius: '8px', fontSize: '11px' }}
+                        {...RECHARTS_TOOLTIP}
                         formatter={(v: number, name: string) => [v, name]}
                       />
-                      <Legend wrapperStyle={{ fontSize: '11px' }} />
+                      <Legend wrapperStyle={{ fontSize: '11px', color: 'var(--chart-legend)' }} />
                     </PieChart>
                   </ResponsiveContainer>
                 )}

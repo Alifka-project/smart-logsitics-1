@@ -16,6 +16,8 @@ interface FileUploadSuccessPayload {
   format: string;
   geocoded: boolean;
   geocodedCount: number;
+  /** Present when upload was keyed by hash (Manage tab). */
+  fileHash?: string;
 }
 
 interface FileUploadErrorPayload {
@@ -24,8 +26,13 @@ interface FileUploadErrorPayload {
   format?: string;
 }
 
+export interface ProcessFileOptions {
+  /** SHA-256 hex; used for upload history + duplicate registration on success. */
+  fileHash?: string;
+}
+
 export interface FileUploadHandle {
-  processFile: (file: File) => void;
+  processFile: (file: File, options?: ProcessFileOptions) => void;
   openFileDialog: () => void;
 }
 
@@ -59,6 +66,7 @@ const FileUpload = forwardRef<FileUploadHandle, FileUploadProps>(function FileUp
   const beginUploadRecord = useDeliveryStore((state) => state.beginUploadRecord);
   const completeUploadRecord = useDeliveryStore((state) => state.completeUploadRecord);
   const removeUploadRecord = useDeliveryStore((state) => state.removeUploadRecord);
+  const failUploadRecord = useDeliveryStore((state) => state.failUploadRecord);
   const navigate = useNavigate();
   const setRoute = useDeliveryStore((state) => state.setRoute);
   const [isLoading, setIsLoading] = useState(false);
@@ -66,21 +74,36 @@ const FileUpload = forwardRef<FileUploadHandle, FileUploadProps>(function FileUp
   const [showGeocoding, setShowGeocoding] = useState(false);
   const [deliveriesToGeocode, setDeliveriesToGeocode] = useState<Delivery[]>([]);
   const activeUploadIdRef = useRef<string | null>(null);
+  const activeUploadHashRef = useRef<string>('');
 
   void setRoute;
 
-  const abortUploadRecord = useCallback((): void => {
+  const failActiveUpload = useCallback((): void => {
+    if (activeUploadIdRef.current) {
+      failUploadRecord(activeUploadIdRef.current);
+      activeUploadIdRef.current = null;
+      activeUploadHashRef.current = '';
+    }
+  }, [failUploadRecord]);
+
+  const cancelActiveUpload = useCallback((): void => {
     if (activeUploadIdRef.current) {
       removeUploadRecord(activeUploadIdRef.current);
       activeUploadIdRef.current = null;
+      activeUploadHashRef.current = '';
     }
   }, [removeUploadRecord]);
 
   const finishUploadRecord = useCallback(
     (count: number): void => {
       if (activeUploadIdRef.current) {
-        completeUploadRecord(activeUploadIdRef.current, count);
+        completeUploadRecord(
+          activeUploadIdRef.current,
+          count,
+          activeUploadHashRef.current,
+        );
         activeUploadIdRef.current = null;
+        activeUploadHashRef.current = '';
       }
     },
     [completeUploadRecord],
@@ -161,12 +184,13 @@ const FileUpload = forwardRef<FileUploadHandle, FileUploadProps>(function FileUp
   }, [navigate, skipNavigate]);
 
   const processFile = useCallback(
-    (file: File | undefined): void => {
+    (file: File | undefined, options?: ProcessFileOptions): void => {
       if (!file) return;
 
       setIsLoading(true);
       setValidationResult(null);
-      activeUploadIdRef.current = beginUploadRecord(file.name);
+      activeUploadHashRef.current = options?.fileHash ?? '';
+      activeUploadIdRef.current = beginUploadRecord(file.name, activeUploadHashRef.current);
 
       try {
         const reader = new FileReader();
@@ -261,6 +285,7 @@ const FileUpload = forwardRef<FileUploadHandle, FileUploadProps>(function FileUp
                     loadDeliveries(validation.validData);
                   }
 
+                  const hashSnap = activeUploadHashRef.current;
                   finishUploadRecord(validation.validData.length);
                   maybeNavigateDeliveries();
 
@@ -271,12 +296,13 @@ const FileUpload = forwardRef<FileUploadHandle, FileUploadProps>(function FileUp
                       format,
                       geocoded: false,
                       geocodedCount: 0,
+                      fileHash: hashSnap || undefined,
                     });
                   }
                 })();
               }
             } else {
-              abortUploadRecord();
+              failActiveUpload();
               if (onError) {
                 onError({ errors: validation.errors, warnings: validation.warnings, format });
               }
@@ -284,7 +310,7 @@ const FileUpload = forwardRef<FileUploadHandle, FileUploadProps>(function FileUp
           } catch (error: unknown) {
             const err = error as { message?: string };
             console.error('File processing error:', error);
-            abortUploadRecord();
+            failActiveUpload();
             if (onError) {
               onError({ errors: [`Failed to process file: ${err.message}`], warnings: [] });
             }
@@ -295,7 +321,7 @@ const FileUpload = forwardRef<FileUploadHandle, FileUploadProps>(function FileUp
 
         reader.onerror = (): void => {
           setIsLoading(false);
-          abortUploadRecord();
+          failActiveUpload();
           if (onError) {
             onError({ errors: ['Failed to read file'], warnings: [] });
           }
@@ -306,14 +332,14 @@ const FileUpload = forwardRef<FileUploadHandle, FileUploadProps>(function FileUp
         const err = error as { message?: string };
         console.error('Error reading file:', error);
         setIsLoading(false);
-        abortUploadRecord();
+        failActiveUpload();
         if (onError) {
           onError({ errors: [`Error: ${err.message}`], warnings: [] });
         }
       }
     },
     [
-      abortUploadRecord,
+      failActiveUpload,
       beginUploadRecord,
       finishUploadRecord,
       loadDeliveries,
@@ -326,14 +352,14 @@ const FileUpload = forwardRef<FileUploadHandle, FileUploadProps>(function FileUp
   useImperativeHandle(
     ref,
     () => ({
-      processFile: (file: File) => processFile(file),
+      processFile: (file: File, options?: ProcessFileOptions) => processFile(file, options),
       openFileDialog: () => inputRef.current?.click(),
     }),
     [processFile],
   );
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    processFile(e.target.files?.[0]);
+    processFile(e.target.files?.[0], undefined);
     e.target.value = '';
   };
 
@@ -373,6 +399,7 @@ const FileUpload = forwardRef<FileUploadHandle, FileUploadProps>(function FileUp
 
       maybeNavigateDeliveries();
 
+      const hashSnap = activeUploadHashRef.current;
       finishUploadRecord(geocodedDeliveries.length);
 
       if (onSuccess) {
@@ -382,6 +409,7 @@ const FileUpload = forwardRef<FileUploadHandle, FileUploadProps>(function FileUp
           format: validationResult?.detectedFormat ?? 'unknown',
           geocoded: true,
           geocodedCount,
+          fileHash: hashSnap || undefined,
         });
       }
     } catch (error: unknown) {
@@ -389,6 +417,7 @@ const FileUpload = forwardRef<FileUploadHandle, FileUploadProps>(function FileUp
       loadDeliveries(sorted);
       maybeNavigateDeliveries();
 
+      const hashSnap = activeUploadHashRef.current;
       finishUploadRecord(geocodedDeliveries.length);
 
       if (onSuccess) {
@@ -401,6 +430,7 @@ const FileUpload = forwardRef<FileUploadHandle, FileUploadProps>(function FileUp
           format: validationResult?.detectedFormat ?? 'unknown',
           geocoded: true,
           geocodedCount,
+          fileHash: hashSnap || undefined,
         });
       }
     }
@@ -409,7 +439,7 @@ const FileUpload = forwardRef<FileUploadHandle, FileUploadProps>(function FileUp
   const handleGeocodingCancel = (): void => {
     console.log('[FileUpload] Geocoding cancelled');
     setShowGeocoding(false);
-    abortUploadRecord();
+    cancelActiveUpload();
   };
 
   return (

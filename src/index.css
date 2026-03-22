@@ -52,6 +52,18 @@
   --text-primary:   var(--text);
   --text-secondary: var(--text2);
   --text-muted:     var(--muted);
+
+  /* Recharts (Admin dashboard & tabs) — light */
+  --chart-grid: #e5e7eb;
+  --chart-tick: #6b7280;
+  --chart-tick-emphasis: #374151;
+  --chart-tick-secondary: #9ca3af;
+  --chart-tooltip-bg: #ffffff;
+  --chart-tooltip-border: #e5e7eb;
+  --chart-tooltip-fg: #111827;
+  --chart-legend: #4b5563;
+  /* Peak heatmap & similar: empty / zero cells */
+  --heatmap-empty: rgba(229, 231, 235, 0.28);
 }
 
 /* ── Dark mode tokens — Electrolux navy palette ── */
@@ -84,6 +96,17 @@
   --text-secondary: var(--text2);
   --text-muted:     var(--muted);
   --border-light:  rgba(255,255,255,0.09);
+
+  /* Recharts — dark: high-contrast ticks & tooltips */
+  --chart-grid: rgba(148, 163, 184, 0.22);
+  --chart-tick: #cbd5e1;
+  --chart-tick-emphasis: #f1f5f9;
+  --chart-tick-secondary: #94a3b8;
+  --chart-tooltip-bg: #0f172a;
+  --chart-tooltip-border: rgba(255, 255, 255, 0.12);
+  --chart-tooltip-fg: #f8fafc;
+  --chart-legend: #cbd5e1;
+  --heatmap-empty: rgba(71, 85, 105, 0.45);
 }
 
 /* ════════════════════════════════════════════════════════════

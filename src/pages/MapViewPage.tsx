@@ -81,7 +81,7 @@ export default function MapViewPage() {
     return (
       <div className="bg-white rounded-lg shadow-md p-6 sm:p-8 lg:p-12 text-center">
         <p className="text-gray-500 text-base sm:text-lg">
-          No deliveries loaded. Please upload data or load synthetic data first.
+          No deliveries loaded. Upload a spreadsheet from Delivery Management or reload from the database.
         </p>
       </div>
     );

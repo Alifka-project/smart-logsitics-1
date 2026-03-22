@@ -9,26 +9,35 @@ const WAREHOUSE_LAT = 25.0053;
 const WAREHOUSE_LNG = 55.076;
 const STORAGE_KEY = 'deliveries_data';
 const RECENT_UPLOADS_KEY = 'delivery_recent_uploads';
+const HASHES_KEY = 'delivery_uploaded_file_hashes';
 
-export interface RecentUploadEntry {
+export type UploadRecordStatus = 'processing' | 'completed' | 'error';
+
+/** One row in upload history (file uploads, DB reload, etc.). */
+export interface UploadRecord {
   id: string;
   filename: string;
+  /** SHA-256 hex; empty for non-file sources (e.g. DB reload). */
+  fileHash: string;
   orderCount: number;
   uploadedAt: string;
-  status: 'processing' | 'completed';
+  status: UploadRecordStatus;
 }
 
+/** @deprecated Use UploadRecord */
+export type RecentUploadEntry = UploadRecord;
+
 interface DeliveryStore {
-  // State
   deliveries: Delivery[];
   selectedDelivery: Delivery | null;
   route: RouteResult | null;
   isLoading: boolean;
   currentPage: string;
   deliveryListFilter: DeliveryListFilter;
-  recentUploads: RecentUploadEntry[];
+  recentUploads: UploadRecord[];
+  /** Successful file upload hashes (duplicate file prevention). */
+  uploadedFileHashes: string[];
 
-  // Actions
   initializeFromStorage: () => Delivery[];
   saveToStorage: (deliveries: Delivery[]) => void;
   loadDeliveries: (data: Delivery[]) => void;
@@ -40,23 +49,74 @@ interface DeliveryStore {
   calculateRoute: () => Promise<void>;
   setRoute: (route: RouteResult) => void;
   setDeliveryListFilter: (filter: DeliveryListFilter) => void;
-  beginUploadRecord: (filename: string) => string;
-  completeUploadRecord: (id: string, orderCount: number) => void;
+
+  beginUploadRecord: (filename: string, fileHash: string) => string;
+  completeUploadRecord: (id: string, orderCount: number, fileHash: string) => void;
+  failUploadRecord: (id: string) => void;
   removeUploadRecord: (id: string) => void;
+  updateUploadRecordStatus: (id: string, status: UploadRecordStatus) => void;
+
+  isFileAlreadyUploaded: (hash: string) => boolean;
+  registerUploadedFileHash: (hash: string) => void;
+
+  addCompletedUpload: (filename: string, orderCount: number, fileHash?: string) => void;
 }
 
-function loadRecentUploadsFromStorage(): RecentUploadEntry[] {
+function loadHashesFromStorage(): string[] {
   try {
-    const raw = localStorage.getItem(RECENT_UPLOADS_KEY);
+    const raw = localStorage.getItem(HASHES_KEY);
     if (!raw) return [];
-    const parsed = JSON.parse(raw) as RecentUploadEntry[];
-    return Array.isArray(parsed) ? parsed : [];
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed)
+      ? parsed.filter((x): x is string => typeof x === 'string' && x.length > 0)
+      : [];
   } catch {
     return [];
   }
 }
 
-function persistRecentUploads(entries: RecentUploadEntry[]): void {
+function persistHashes(hashes: string[]): void {
+  try {
+    localStorage.setItem(HASHES_KEY, JSON.stringify(hashes.slice(0, 500)));
+  } catch {
+    /* ignore */
+  }
+}
+
+function normalizeUploadsFromStorage(parsed: unknown): UploadRecord[] {
+  if (!Array.isArray(parsed)) return [];
+  return parsed
+    .map((row: Record<string, unknown>) => {
+      const id = String(row.id ?? '');
+      if (!id) return null;
+      const st = row.status;
+      const status: UploadRecordStatus =
+        st === 'processing' || st === 'completed' || st === 'error' ? st : 'completed';
+      return {
+        id,
+        filename: String(row.filename ?? 'Upload'),
+        fileHash: typeof row.fileHash === 'string' ? row.fileHash : '',
+        orderCount: Number(row.orderCount) || 0,
+        uploadedAt:
+          typeof row.uploadedAt === 'string' ? row.uploadedAt : new Date().toISOString(),
+        status,
+      } satisfies UploadRecord;
+    })
+    .filter((x): x is UploadRecord => x !== null);
+}
+
+function loadRecentUploadsFromStorage(): UploadRecord[] {
+  try {
+    const raw = localStorage.getItem(RECENT_UPLOADS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    return normalizeUploadsFromStorage(parsed);
+  } catch {
+    return [];
+  }
+}
+
+function persistRecentUploads(entries: UploadRecord[]): void {
   try {
     localStorage.setItem(RECENT_UPLOADS_KEY, JSON.stringify(entries.slice(0, 20)));
   } catch {
@@ -65,7 +125,6 @@ function persistRecentUploads(entries: RecentUploadEntry[]): void {
 }
 
 const useDeliveryStore = create<DeliveryStore>((set, get) => ({
-  // State
   deliveries: [],
   selectedDelivery: null,
   route: null,
@@ -73,6 +132,7 @@ const useDeliveryStore = create<DeliveryStore>((set, get) => ({
   currentPage: 'list',
   deliveryListFilter: 'all',
   recentUploads: loadRecentUploadsFromStorage(),
+  uploadedFileHashes: loadHashesFromStorage(),
 
   initializeFromStorage: (): Delivery[] => {
     try {
@@ -95,6 +155,12 @@ const useDeliveryStore = create<DeliveryStore>((set, get) => ({
 
         console.log(`[Store] ✓ Loaded ${deliveries.length} deliveries from localStorage with valid UUIDs`);
         set({ deliveries });
+        if (deliveries.length > 0) {
+          const uploads = get().recentUploads ?? [];
+          if (uploads.length === 0) {
+            get().addCompletedUpload('Browser saved session', deliveries.length, '');
+          }
+        }
         return deliveries;
       }
     } catch (error) {
@@ -297,14 +363,29 @@ const useDeliveryStore = create<DeliveryStore>((set, get) => ({
     set({ deliveryListFilter: filter });
   },
 
-  beginUploadRecord: (filename: string): string => {
+  isFileAlreadyUploaded: (hash: string): boolean => {
+    if (!hash) return false;
+    return get().uploadedFileHashes.includes(hash);
+  },
+
+  registerUploadedFileHash: (hash: string): void => {
+    if (!hash) return;
+    const prev = get().uploadedFileHashes;
+    if (prev.includes(hash)) return;
+    const next = [...prev, hash];
+    set({ uploadedFileHashes: next });
+    persistHashes(next);
+  },
+
+  beginUploadRecord: (filename: string, fileHash: string): string => {
     const id =
       typeof crypto !== 'undefined' && crypto.randomUUID
         ? crypto.randomUUID()
         : `up-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-    const entry: RecentUploadEntry = {
+    const entry: UploadRecord = {
       id,
       filename,
+      fileHash,
       orderCount: 0,
       uploadedAt: new Date().toISOString(),
       status: 'processing',
@@ -315,10 +396,29 @@ const useDeliveryStore = create<DeliveryStore>((set, get) => ({
     return id;
   },
 
-  completeUploadRecord: (id: string, orderCount: number): void => {
+  completeUploadRecord: (id: string, orderCount: number, fileHash: string): void => {
+    let hashes = [...get().uploadedFileHashes];
+    if (fileHash && !hashes.includes(fileHash)) {
+      hashes = [...hashes, fileHash];
+    }
     const next = get().recentUploads.map((u) =>
-      u.id === id ? { ...u, orderCount, status: 'completed' as const } : u,
+      u.id === id ? { ...u, orderCount, status: 'completed' as const, fileHash: fileHash || u.fileHash } : u,
     );
+    set({ recentUploads: next, uploadedFileHashes: hashes });
+    persistRecentUploads(next);
+    persistHashes(hashes);
+  },
+
+  failUploadRecord: (id: string): void => {
+    const next = get().recentUploads.map((u) =>
+      u.id === id ? { ...u, status: 'error' as const } : u,
+    );
+    set({ recentUploads: next });
+    persistRecentUploads(next);
+  },
+
+  updateUploadRecordStatus: (id: string, status: UploadRecordStatus): void => {
+    const next = get().recentUploads.map((u) => (u.id === id ? { ...u, status } : u));
     set({ recentUploads: next });
     persistRecentUploads(next);
   },
@@ -327,6 +427,28 @@ const useDeliveryStore = create<DeliveryStore>((set, get) => ({
     const next = get().recentUploads.filter((u) => u.id !== id);
     set({ recentUploads: next });
     persistRecentUploads(next);
+  },
+
+  addCompletedUpload: (filename: string, orderCount: number, fileHash = ''): void => {
+    const id =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `up-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const entry: UploadRecord = {
+      id,
+      filename,
+      fileHash,
+      orderCount,
+      uploadedAt: new Date().toISOString(),
+      status: 'completed',
+    };
+    const prev = get().recentUploads ?? [];
+    const next = [entry, ...prev].slice(0, 20);
+    set({ recentUploads: next });
+    persistRecentUploads(next);
+    if (fileHash) {
+      get().registerUploadedFileHash(fileHash);
+    }
   },
 }));
 

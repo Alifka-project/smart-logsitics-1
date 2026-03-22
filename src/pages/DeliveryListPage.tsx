@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import useDeliveryStore from '../store/useDeliveryStore';
 import FileUpload from '../components/Upload/FileUpload';
-import SyntheticDataButton from '../components/Upload/SyntheticDataButton';
 import DeliveryTable from '../components/DeliveryList/DeliveryTable';
 import CustomerModal from '../components/CustomerDetails/CustomerModal';
 import StatsCards from '../components/Analytics/StatsCards';
@@ -34,10 +33,6 @@ export default function DeliveryListPage(): React.ReactElement {
     }
   };
 
-  const handleSyntheticSuccess = (result: FileResult): void => {
-    success(`✓ Successfully loaded ${result.count ?? 0} test deliveries`);
-  };
-
   return (
     <div className="space-y-4 sm:space-y-6">
       <ToastContainer toasts={toasts} onRemove={removeToast} />
@@ -49,10 +44,6 @@ export default function DeliveryListPage(): React.ReactElement {
             Upload Delivery Documents
           </h2>
           <FileUpload onSuccess={handleFileSuccess} onError={handleFileError} />
-          <div className="mt-4 text-center">
-            <div className="text-gray-500 mb-4">or</div>
-            <SyntheticDataButton onLoadSuccess={handleSyntheticSuccess} />
-          </div>
         </div>
       )}
 
