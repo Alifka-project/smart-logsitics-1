@@ -13,6 +13,7 @@ import { AlertCircle, AlertTriangle } from 'lucide-react';
 import { clearDeliveriesCache, showCacheWarning } from '../utils/clearCacheAndReload';
 import api from '../frontend/apiClient';
 import type { Delivery } from '../types';
+import { exportAsXlsx, exportAsCsv } from '../utils/exportDeliveries';
 import type { LucideIcon } from 'lucide-react';
 
 // Route result shape returned by advancedRoutingService
@@ -165,15 +166,18 @@ export default function DeliveryManagementPage() {
     }
   };
 
-  const handleExport = (): void => {
-    const dataStr = JSON.stringify(deliveries, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `deliveries-${new Date().toISOString()}.json`;
-    link.click();
-    success('Deliveries exported successfully');
+  const handleExport = (format: 'xlsx' | 'csv' = 'xlsx'): void => {
+    if (deliveries.length === 0) {
+      error('No deliveries to export');
+      return;
+    }
+    if (format === 'csv') {
+      exportAsCsv(deliveries);
+      success(`Exported ${deliveries.length} deliveries as CSV`);
+    } else {
+      exportAsXlsx(deliveries);
+      success(`Exported ${deliveries.length} deliveries as Excel`);
+    }
   };
 
   const tabs: Tab[] = [
@@ -227,11 +231,11 @@ export default function DeliveryManagementPage() {
           </button>
           {deliveries.length > 0 && (
             <button
-              onClick={handleExport}
+              onClick={() => handleExport('xlsx')}
               className="flex-1 sm:flex-none min-h-[44px] px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-center gap-2 text-sm touch-manipulation"
             >
               <Download className="w-4 h-4 flex-shrink-0" />
-              Export
+              Export Excel
             </button>
           )}
         </div>

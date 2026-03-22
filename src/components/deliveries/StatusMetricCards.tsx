@@ -7,13 +7,13 @@ interface StatusMetricCardsProps {
 }
 
 const CARD_DEFS = [
-  { key: 'uploaded', sublabel: 'New' },
-  { key: 'sms_sent', sublabel: 'Awaiting' },
-  { key: 'unconfirmed', sublabel: 'No reply' },
-  { key: 'confirmed', sublabel: 'Tomorrow' },
-  { key: 'scheduled', sublabel: 'Future' },
-  { key: 'out_for_delivery', sublabel: 'On route' },
-  { key: 'delivered', sublabel: 'Done' },
+  { key: 'uploaded', sublabel: 'New', darkIconBg: 'dark:bg-blue-500/30' },
+  { key: 'sms_sent', sublabel: 'Awaiting', darkIconBg: 'dark:bg-emerald-500/30' },
+  { key: 'unconfirmed', sublabel: 'No reply', darkIconBg: 'dark:bg-red-500/35' },
+  { key: 'confirmed', sublabel: 'Tomorrow', darkIconBg: 'dark:bg-amber-500/35' },
+  { key: 'scheduled', sublabel: 'Future', darkIconBg: 'dark:bg-indigo-500/30' },
+  { key: 'out_for_delivery', sublabel: 'On route', darkIconBg: 'dark:bg-orange-500/30' },
+  { key: 'delivered', sublabel: 'Done', darkIconBg: 'dark:bg-green-500/35' },
 ] as const;
 
 /** Read-only KPI strip — filters live on the table tabs below (no duplicate click-to-filter). */
@@ -31,7 +31,7 @@ export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({ orders }) 
   return (
     <div className="status-cards-mobile overflow-x-auto pb-1 -mx-1 px-1 lg:mx-0 lg:px-0">
       <div className="grid grid-cols-2 min-[480px]:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 w-full min-w-0">
-        {CARD_DEFS.map(({ key, sublabel }) => {
+        {CARD_DEFS.map(({ key, sublabel, darkIconBg }) => {
           const config = STATUS_CONFIG[key as keyof typeof statusCounts];
           const count = statusCounts[key as keyof typeof statusCounts];
           const isHighlight = Boolean(config.highlight);
@@ -53,9 +53,9 @@ export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({ orders }) 
             >
               <div className="flex items-start justify-between gap-2">
                 <div
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${config.iconBg} dark:opacity-90`}
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-base ${config.iconBg} ${darkIconBg}`}
                 >
-                  <span className="text-base leading-none">{config.icon}</span>
+                  <span className="leading-none">{config.icon}</span>
                 </div>
               </div>
 
@@ -65,11 +65,11 @@ export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({ orders }) 
                 {config.label}
               </p>
 
-              <div className="mt-2 flex items-end justify-between gap-2 border-t border-gray-100 pt-2.5 dark:border-gray-700/80">
+              <div className="mt-2 flex items-end justify-between gap-2 border-t border-gray-100 pt-2.5 dark:border-gray-600">
                 <span className="text-2xl font-bold tabular-nums leading-none text-gray-900 dark:text-white">
                   {count}
                 </span>
-                <span className="pb-0.5 text-[10px] font-medium text-gray-400">{sublabel}</span>
+                <span className="pb-0.5 text-[10px] font-medium text-gray-400 dark:text-gray-500">{sublabel}</span>
               </div>
             </div>
           );

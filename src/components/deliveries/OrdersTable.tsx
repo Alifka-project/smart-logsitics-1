@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { ChevronDown, Search } from 'lucide-react';
 import type { DeliveryOrder, DeliveryStatus } from '../../types/delivery';
 import { STATUS_CONFIG } from '../../config/statusColors';
 import { RescheduleModal } from './RescheduleModal';
@@ -294,10 +295,8 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
           </div>
 
           <div className="flex gap-2 flex-col sm:flex-row">
-            <div className="relative flex-1 lg:w-48">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" aria-hidden>
-                🔍
-              </span>
+            <div className="relative flex-1 lg:w-52">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
               <input
                 type="search"
                 placeholder="Search name, phone, order, area, product…"
@@ -306,31 +305,34 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                 className="w-full pl-9 pr-3 py-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#002D5B]"
               />
             </div>
-            <select
-              value={sortBy}
-              onChange={(e) => onSortChange(e.target.value)}
-              className="px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-600 dark:text-gray-300"
-            >
-              <option value="newest">Newest</option>
-              <option value="oldest">Oldest</option>
-              <option value="customer">Customer A–Z</option>
-              <option value="area">Area</option>
-            </select>
+            <div className="relative">
+              <select
+                value={sortBy}
+                onChange={(e) => onSortChange(e.target.value)}
+                className="w-full appearance-none bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg pl-3 pr-8 py-1.5 text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#002D5B]"
+              >
+                <option value="newest">Newest</option>
+                <option value="oldest">Oldest</option>
+                <option value="customer">Customer A–Z</option>
+                <option value="area">Area</option>
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500 dark:text-gray-400" aria-hidden />
+            </div>
           </div>
         </div>
       </div>
 
       <div className="overflow-x-auto">
-        <table className="manage-orders-table-mobile table-mobile-cards w-full min-w-[960px] table-fixed border-collapse text-sm">
+        <table className="manage-orders-table-mobile table-mobile-cards w-full min-w-[1000px] table-fixed border-collapse text-sm">
           <colgroup>
-            <col style={{ width: '16%' }} />
-            <col style={{ width: '11%' }} />
-            <col style={{ width: '9%' }} />
-            <col style={{ width: '11%' }} />
-            <col style={{ width: '10%' }} />
-            <col style={{ width: '22%' }} />
+            <col style={{ width: '15%' }} />
             <col style={{ width: '12%' }} />
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '11%' }} />
             <col style={{ width: '9%' }} />
+            <col style={{ width: '21%' }} />
+            <col style={{ width: '12%' }} />
+            <col style={{ width: '10%' }} />
           </colgroup>
           <thead className="border-b border-gray-200 bg-gray-50/95 dark:border-gray-600 dark:bg-gray-900/90">
             <tr>
@@ -379,31 +381,29 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                         {order.customerName}
                       </span>
                     </td>
-                    <td className="min-w-0 px-4 py-3 align-middle" data-label="Phone">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-[13px] tabular-nums text-gray-700 dark:text-gray-300">
+                    <td className="min-w-0 px-4 py-2.5 align-middle" data-label="Phone">
+                      <div className="flex items-center gap-1.5">
+                        <span className="shrink-0 text-[13px] tabular-nums text-gray-700 dark:text-gray-300">
                           {order.customerPhone}
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => onCallCustomer(order.customerPhone)}
-                          className="w-7 h-7 flex items-center justify-center bg-blue-100 dark:bg-blue-900/40 rounded hover:bg-blue-200 dark:hover:bg-blue-900/60"
-                          title="Call customer"
-                        >
-                          <span className="text-xs" aria-hidden>
-                            📞
-                          </span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onWhatsApp(order.customerPhone)}
-                          className="w-7 h-7 flex items-center justify-center bg-green-100 dark:bg-green-900/40 rounded hover:bg-green-200 dark:hover:bg-green-900/60"
-                          title="WhatsApp"
-                        >
-                          <span className="text-xs" aria-hidden>
-                            💬
-                          </span>
-                        </button>
+                        <div className="flex shrink-0 items-center gap-0.5">
+                          <button
+                            type="button"
+                            onClick={() => onCallCustomer(order.customerPhone)}
+                            className="flex h-7 w-7 items-center justify-center rounded bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-200 dark:hover:bg-blue-900/70"
+                            title="Call customer"
+                          >
+                            <span className="text-xs" aria-hidden>📞</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onWhatsApp(order.customerPhone)}
+                            className="flex h-7 w-7 items-center justify-center rounded bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-200 dark:hover:bg-green-900/70"
+                            title="WhatsApp"
+                          >
+                            <span className="text-xs" aria-hidden>💬</span>
+                          </button>
+                        </div>
                       </div>
                     </td>
                     <td className="min-w-0 overflow-hidden px-4 py-3 align-middle" data-label="Order">
