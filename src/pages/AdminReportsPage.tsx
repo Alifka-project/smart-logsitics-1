@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import api, { setAuthToken } from '../frontend/apiClient';
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
-  XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid
+  XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid,
+  type PieLabelRenderProps,
 } from 'recharts';
 import {
   Download, Filter, FileText, ChevronDown, ChevronUp,
@@ -625,7 +626,10 @@ export default function AdminReportsPage(): React.ReactElement {
                     outerRadius={95}
                     innerRadius={40}
                     labelLine={false}
-                    label={(props: Record<string, unknown>) => `${(props['percentage'] as number ?? 0).toFixed(0)}%`}
+                    label={(props: PieLabelRenderProps) => {
+                      const p = Number(props.percent ?? 0);
+                      return `${Number.isFinite(p) ? Math.round(p * 100) : 0}%`;
+                    }}
                     dataKey="count"
                   >
                     {statusDistribution.map((_, i) => (
