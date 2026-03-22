@@ -40,12 +40,17 @@ interface Tab {
   icon: LucideIcon;
 }
 
-export default function DeliveryManagementPage() {
+interface DeliveryManagementPageProps {
+  /** When true (e.g. Driver Portal), hide Manage Delivery Order tab; show only Deliveries view */
+  hideManageTab?: boolean;
+}
+
+export default function DeliveryManagementPage({ hideManageTab = false }: DeliveryManagementPageProps) {
   const deliveries = useDeliveryStore((state) => state.deliveries ?? []);
   const deliveryListFilter = useDeliveryStore((state) => state.deliveryListFilter ?? 'all');
   const loadDeliveries = useDeliveryStore((state) => state.loadDeliveries);
   const addCompletedUpload = useDeliveryStore((state) => state.addCompletedUpload);
-  const [activeTab, setActiveTab] = useState<string>('manage');
+  const [activeTab, setActiveTab] = useState<string>(hideManageTab ? 'deliveries' : 'manage');
 
   const displayDeliveries = useMemo(
     () => applyDeliveryListFilter(deliveries, deliveryListFilter),
@@ -183,10 +188,12 @@ export default function DeliveryManagementPage() {
     }
   };
 
-  const tabs: Tab[] = [
-    { id: 'manage', label: 'Manage Delivery Order', icon: ClipboardList },
-    { id: 'deliveries', label: 'Deliveries', icon: List },
-  ];
+  const tabs: Tab[] = hideManageTab
+    ? [{ id: 'deliveries', label: 'Deliveries', icon: List }]
+    : [
+        { id: 'manage', label: 'Manage Delivery Order', icon: ClipboardList },
+        { id: 'deliveries', label: 'Deliveries', icon: List },
+      ];
 
   return (
     <div className="space-y-2">
@@ -244,7 +251,8 @@ export default function DeliveryManagementPage() {
         </div>
       </div>
 
-      {/* Tab Navigation - bigger gap above (from header) and below (to content) on desktop */}
+      {/* Tab Navigation - hidden when only Deliveries (Driver Portal) */}
+      {!hideManageTab && (
       <div className="border-b border-gray-200 dark:border-gray-700 -mx-2 px-2 sm:mx-0 sm:px-0 overflow-x-auto mt-4 md:mt-6 mb-4 md:mb-6">
         <nav className="flex space-x-6 sm:space-x-8 min-w-max sm:min-w-0">
           {tabs.map((tab) => {
@@ -278,9 +286,10 @@ export default function DeliveryManagementPage() {
           })}
         </nav>
       </div>
+      )}
 
       {/* ── MANAGE DELIVERY ORDER TAB ── */}
-      {activeTab === 'manage' && (
+      {!hideManageTab && activeTab === 'manage' && (
         <ManageTab
           onSwitchToDeliveriesTab={() => setActiveTab('deliveries')}
           onUploadSuccess={handleFileSuccess}
@@ -298,17 +307,24 @@ export default function DeliveryManagementPage() {
 
       {/* ── DELIVERIES TAB (combined split view) ── */}
       {activeTab === 'deliveries' && (
-        <>
+        <div className={hideManageTab ? 'mt-4 md:mt-6' : ''}>
           {deliveries.length === 0 ? (
             <div className="pp-dash-card p-8 text-center transition-colors">
               <Database className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-              <p className="text-gray-600 dark:text-gray-400 text-lg mb-4">No deliveries loaded</p>
-              <button
-                onClick={() => setActiveTab('manage')}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                Upload Delivery Data
-              </button>
+              <p className="text-gray-600 dark:text-gray-400 text-lg mb-4">
+                {hideManageTab ? 'No deliveries assigned yet.' : 'No deliveries loaded'}
+              </p>
+              {!hideManageTab && (
+                <button
+                  onClick={() => setActiveTab('manage')}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Upload Delivery Data
+                </button>
+              )}
+              {hideManageTab && (
+                <p className="text-sm text-gray-500 dark:text-gray-400">Contact your supervisor to assign deliveries.</p>
+              )}
             </div>
           ) : (
             <>
@@ -445,7 +461,7 @@ export default function DeliveryManagementPage() {
             </div>
             </>
           )}
-        </>
+        </div>
       )}
 
       {/* Customer Details Modal */}

@@ -1038,9 +1038,9 @@ export default function DriverPortal() {
         </div>
       )}
 
-      {/* Deliveries Tab */}
+      {/* Deliveries Tab — hide Manage Delivery Order; drivers only see map/list */}
       {activeTab === 'deliveries' && (
-        <DeliveryManagementPage />
+        <DeliveryManagementPage hideManageTab />
       )}
 
       {/* Messages Tab - stacked on mobile, sensible heights */}
