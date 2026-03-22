@@ -176,6 +176,7 @@ function ProtectedLayout() {
   return (
     <ProtectedRoute>
       <div
+        className="app-ui-pp"
         style={{ minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)', paddingTop: '14px' }}
       >
         <Header isAdmin={isAdmin} />

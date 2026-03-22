@@ -1390,7 +1390,7 @@ export default function AdminDashboardPage(): React.ReactElement {
   // ─── RENDER ───
 
     return (
-    <div className="admin-dashboard-pp space-y-6 w-full min-w-0">
+    <div className="space-y-6 w-full min-w-0">
 
       {/* ── Page Header ── */}
       <div className="pp-page-header flex flex-wrap items-center justify-between gap-3">
@@ -1435,38 +1435,38 @@ export default function AdminDashboardPage(): React.ReactElement {
       {activeTab === 'overview' && (
         <div className="space-y-4">
           {/* KPI Strip — Overview only */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className="pp-kpi-grid">
             {kpiCards.map(card => {
               const Icon = card.icon;
               const c = KPI_COLOR_MAP[card.color];
               return (
-                <div key={card.id} className="pp-dash-card p-5">
-                  <div className="flex items-start justify-between gap-2 mb-3">
-                    <div className="flex items-start gap-3 min-w-0">
-                      <div className={`p-2.5 rounded-full shrink-0 ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
-                      <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide leading-snug flex items-center gap-1 min-w-0 pt-0.5">
-                      {card.label}
-                      {card.id === 'rate' && (
-                        <span
-                          className="inline-flex shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                          title="Success rate = delivered orders ÷ total orders. The trend chart uses the same ratio per day (delivered ÷ dispatched that day)."
-                        >
-                          <HelpCircle className="w-3.5 h-3.5" aria-hidden />
-                        </span>
-                      )}
-                    </span>
+                <div key={card.id} className="pp-dash-card p-4 sm:p-5 relative w-full min-w-0 max-w-[280px]">
+                  <span className="absolute top-3 right-3 text-gray-300 dark:text-slate-600 pointer-events-none" aria-hidden>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </span>
+                  <div className="flex items-start gap-3 pr-6">
+                    <div className={`p-2.5 rounded-full shrink-0 ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
+                    <div className="min-w-0 flex-1">
+                      <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide leading-snug flex items-center gap-1">
+                        {card.label}
+                        {card.id === 'rate' && (
+                          <span
+                            className="inline-flex shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 pointer-events-auto"
+                            title="Success rate = delivered orders ÷ total orders. The trend chart uses the same ratio per day (delivered ÷ dispatched that day)."
+                          >
+                            <HelpCircle className="w-3.5 h-3.5" aria-hidden />
+                          </span>
+                        )}
+                      </span>
+                      <div className={`text-2xl sm:text-3xl font-bold tracking-tight ${c.val} mt-1`}>{card.value}</div>
+                      {card.delta ? (
+                        <div className={`text-xs mt-1 flex items-center gap-0.5 ${card.delta.up ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
+                          {card.delta.up ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                          {card.delta.pct}% vs yesterday
+                        </div>
+                      ) : <div className="h-4 mt-1" />}
                     </div>
-                    <span className="text-gray-300 dark:text-slate-600 shrink-0 pt-0.5" aria-hidden title="">
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </span>
                   </div>
-                  <div className={`text-3xl font-bold tracking-tight ${c.val}`}>{card.value}</div>
-                  {card.delta ? (
-                    <div className={`text-xs mt-1 flex items-center gap-0.5 ${card.delta.up ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
-                      {card.delta.up ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                      {card.delta.pct}% vs yesterday
-                    </div>
-                  ) : <div className="h-4 mt-1" />}
                 </div>
               );
             })}
@@ -1625,7 +1625,7 @@ export default function AdminDashboardPage(): React.ReactElement {
       {activeTab === 'trends' && (
         <div className="space-y-4">
           {/* Compact strip — tab-specific */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="pp-kpi-grid">
             {[
               { label: 'Total Deliveries', value: totals.total, icon: Package, color: 'blue' },
               { label: 'Delivered', value: totals.delivered, icon: CheckCircle, color: 'green' },
@@ -1633,11 +1633,11 @@ export default function AdminDashboardPage(): React.ReactElement {
             ].map(({ label, value, icon: Icon, color }) => {
               const c = KPI_COLOR_MAP[color];
               return (
-                <div key={label} className="pp-dash-card p-3 flex items-center gap-3">
-                  <div className={`p-2.5 rounded-full ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
-                  <div>
+                <div key={label} className="pp-dash-card p-3 sm:p-4 flex items-center gap-3 w-full min-w-0 max-w-[280px]">
+                  <div className={`p-2.5 rounded-full shrink-0 ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
+                  <div className="min-w-0">
                     <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
-                    <p className={`text-lg font-bold ${c.val}`}>{value}</p>
+                    <p className={`text-xl font-bold ${c.val}`}>{value}</p>
                   </div>
                 </div>
               );
@@ -1746,7 +1746,7 @@ export default function AdminDashboardPage(): React.ReactElement {
       {activeTab === 'customers' && (
         <div className="space-y-4">
           {/* KPI strip — original + extra */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+          <div className="pp-kpi-grid pp-kpi-grid--dense">
             {[
               { label: 'Total Customers', value: topCustomersData.length, icon: Users, color: 'blue' },
               { label: 'Total Orders', value: topCustomersData.reduce((s, r) => s + (r.orders ?? 0), 0), icon: Package, color: 'indigo' },
@@ -1759,8 +1759,8 @@ export default function AdminDashboardPage(): React.ReactElement {
             ].map(({ label, value, icon: Icon, color, tooltip }) => {
               const c = KPI_COLOR_MAP[color];
               return (
-                <div key={label} className="pp-dash-card p-3 flex items-center gap-3">
-                  <div className={`p-2.5 rounded-full ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
+                <div key={label} className="pp-dash-card p-3 flex items-center gap-2 sm:gap-3 w-full min-w-0 max-w-[220px]">
+                  <div className={`p-2.5 rounded-full shrink-0 ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
                   <div className="min-w-0">
                     <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
                       {tooltip ? <MetricTooltip term={label} definition={tooltip} /> : label}
@@ -2161,7 +2161,7 @@ export default function AdminDashboardPage(): React.ReactElement {
       {activeTab === 'by-area' && (
         <div className="space-y-4">
           {/* KPI strip — original + extra */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+          <div className="pp-kpi-grid pp-kpi-grid--dense">
             {[
               { label: 'Areas', value: deliveryByAreaData.length, icon: MapPin, color: 'blue' },
               { label: 'Total Deliveries', value: deliveryByAreaData.reduce((s,r)=>s+(r.count||0),0), icon: Package, color: 'indigo' },
@@ -2174,8 +2174,8 @@ export default function AdminDashboardPage(): React.ReactElement {
             ].map(({ label, value, icon: Icon, color, tooltip }) => {
               const c = KPI_COLOR_MAP[color];
               return (
-                <div key={label} className="pp-dash-card p-3 flex items-center gap-3">
-                  <div className={`p-2.5 rounded-full ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
+                <div key={label} className="pp-dash-card p-3 flex items-center gap-2 sm:gap-3 w-full min-w-0 max-w-[220px]">
+                  <div className={`p-2.5 rounded-full shrink-0 ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
                   <div className="min-w-0">
                     <p className="text-xs text-gray-500 dark:text-gray-400 truncate flex items-center gap-1">
                       {tooltip ? <MetricTooltip term={label} definition={tooltip} /> : label}
@@ -2366,7 +2366,7 @@ export default function AdminDashboardPage(): React.ReactElement {
       {activeTab === 'by-product' && (
         <div className="space-y-4">
           {/* KPI strip — original + extra */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+          <div className="pp-kpi-grid pp-kpi-grid--dense">
             {[
               { label: 'Top Items', value: topItemsData.length, icon: FileText, color: 'blue' },
               { label: 'Total Qty', value: topItemsData.reduce((s,r)=>s+(r.count||0),0), icon: Package, color: 'indigo' },
@@ -2521,7 +2521,7 @@ export default function AdminDashboardPage(): React.ReactElement {
       {activeTab === 'drivers' && (
         <div className="space-y-4">
           {/* Driver KPIs — compact strip */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="pp-kpi-grid">
             {[
               { label: 'Total Drivers', value: drivers.length, icon: Users, color: 'blue' },
               { label: 'Online', value: driversData.filter(d => onlineUserIds.has(String(d.id))).length, icon: CheckCircle, color: 'green' },
@@ -2530,11 +2530,11 @@ export default function AdminDashboardPage(): React.ReactElement {
             ].map(({ label, value, icon: Icon, color }) => {
               const c = KPI_COLOR_MAP[color];
               return (
-                <div key={label} className="pp-dash-card p-3 flex items-center gap-3">
-                  <div className={`p-2.5 rounded-full ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
-                  <div>
+                <div key={label} className="pp-dash-card p-3 sm:p-4 flex items-center gap-3 w-full min-w-0 max-w-[280px]">
+                  <div className={`p-2.5 rounded-full shrink-0 ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
+                  <div className="min-w-0">
                     <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
-                    <p className={`text-lg font-bold ${c.val}`}>{value}</p>
+                    <p className={`text-xl font-bold ${c.val}`}>{value}</p>
                   </div>
                 </div>
               );

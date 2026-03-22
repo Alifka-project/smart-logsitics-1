@@ -20,7 +20,7 @@ export default function HomePage() {
     <div className="h-screen flex items-center justify-center px-4 overflow-hidden">
       <div className="w-full max-w-4xl max-h-[calc(100vh-40px)] overflow-auto">
         {showUpload && !deliveries.length ? (
-          <div className="bg-white rounded-lg shadow-xl p-6 sm:p-10 mb-8">
+          <div className="pp-dash-card shadow-xl p-6 sm:p-10 mb-8">
             <div className="text-center mb-8">
               <h1 className="text-3xl sm:text-4xl font-bold text-gray-800 mb-2">
                 Welcome to Smart Logistics
@@ -38,7 +38,7 @@ export default function HomePage() {
           </div>
         ) : (
           <>
-            <div className="bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-lg shadow-lg p-8 sm:p-12 mb-8">
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-2xl shadow-lg p-8 sm:p-12 mb-8">
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
                 Smart Logistics Management System
               </h1>
@@ -48,14 +48,14 @@ export default function HomePage() {
               <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   onClick={() => setShowUpload(true)}
-                  className="bg-white text-primary-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition flex items-center justify-center gap-2"
+                  className="bg-white text-blue-600 px-6 py-3 rounded-xl font-semibold hover:bg-gray-100 transition flex items-center justify-center gap-2 shadow-sm"
                 >
                   <Upload className="w-5 h-5" />
                   Upload New File
                 </button>
                 <button
                   onClick={() => void navigate('/deliveries')}
-                  className="bg-primary-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary-600 transition flex items-center justify-center gap-2"
+                  className="bg-blue-500 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-600 transition flex items-center justify-center gap-2 shadow-sm"
                 >
                   <Database className="w-5 h-5" />
                   View Deliveries
@@ -64,7 +64,7 @@ export default function HomePage() {
             </div>
 
             {showUpload && (
-              <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8 mb-8">
+              <div className="pp-dash-card shadow-lg p-6 sm:p-8 mb-8">
                 <h2 className="text-2xl font-bold text-gray-800 mb-6">Upload New Delivery Data</h2>
                 <FileUpload onSuccess={handleDataLoaded} />
               </div>
@@ -73,10 +73,10 @@ export default function HomePage() {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition">
+          <div className="pp-dash-card p-6 transition">
             <div className="flex items-center mb-4">
-              <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center">
-                <Upload className="w-6 h-6 text-primary-600" />
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Upload className="w-6 h-6 text-blue-600" />
               </div>
               <h3 className="text-lg font-bold text-gray-800 ml-4">Easy Upload</h3>
             </div>
@@ -86,7 +86,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition">
+          <div className="pp-dash-card p-6 transition">
             <div className="flex items-center mb-4">
               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                 <MapPin className="w-6 h-6 text-blue-600" />
@@ -99,7 +99,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition">
+          <div className="pp-dash-card p-6 transition">
             <div className="flex items-center mb-4">
               <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                 <Zap className="w-6 h-6 text-green-600" />
@@ -114,14 +114,14 @@ export default function HomePage() {
         </div>
 
         {deliveries.length > 0 && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 sm:p-8">
+          <div className="pp-dash-soft-gradient p-6 sm:p-8">
             <h2 className="text-xl font-bold text-blue-900 mb-4">📦 Current Deliveries Loaded</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-              <div>
+            <div className="pp-kpi-grid mb-6">
+              <div className="min-w-0 max-w-[280px]">
                 <div className="text-3xl font-bold text-blue-600">{deliveries.length}</div>
                 <div className="text-sm text-blue-700">Total Deliveries</div>
               </div>
-              <div>
+              <div className="min-w-0 max-w-[280px]">
                 <div className="text-3xl font-bold text-blue-600">
                   {Math.round(
                     deliveries.reduce((sum, d) => sum + (d.distanceFromWarehouse ?? 0), 0),
@@ -129,7 +129,7 @@ export default function HomePage() {
                 </div>
                 <div className="text-sm text-blue-700">Total Distance (km)</div>
               </div>
-              <div>
+              <div className="min-w-0 max-w-[280px]">
                 <div className="text-3xl font-bold text-blue-600">
                   {deliveries.filter((d) => d.priority === 1).length}
                 </div>
@@ -146,7 +146,7 @@ export default function HomePage() {
         )}
 
         {deliveries.length === 0 && (
-          <div className="bg-gray-100 rounded-lg p-6 sm:p-8">
+          <div className="pp-dash-card p-6 sm:p-8 bg-gray-50/80 dark:bg-transparent">
             <h2 className="text-xl font-bold text-gray-800 mb-4">Getting Started</h2>
             <ol className="space-y-3 text-gray-700">
               {[
@@ -156,7 +156,7 @@ export default function HomePage() {
                 { step: 4, label: 'Manage Deliveries', desc: 'Edit details, upload photos, capture signatures' },
               ].map(({ step, label, desc }) => (
                 <li key={step} className="flex gap-4">
-                  <span className="flex-shrink-0 w-8 h-8 bg-primary-600 text-white rounded-full flex items-center justify-center font-bold">
+                  <span className="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">
                     {step}
                   </span>
                   <span>

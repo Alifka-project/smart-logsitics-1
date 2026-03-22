@@ -155,7 +155,7 @@ export default function AdminPODReportPage(): React.ReactElement {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <RefreshCw className="w-10 h-10 text-primary-700 dark:text-primary-300 animate-spin mx-auto mb-3" />
+          <RefreshCw className="w-10 h-10 text-blue-700 dark:text-blue-300 animate-spin mx-auto mb-3" />
           <p className="text-gray-600 dark:text-gray-400 font-medium">Loading POD Report…</p>
         </div>
       </div>
@@ -169,7 +169,7 @@ export default function AdminPODReportPage(): React.ReactElement {
         <p className="text-gray-500 dark:text-gray-400">No POD data available.</p>
         <button
           onClick={() => void loadReport()}
-          className="px-5 py-2.5 bg-primary-900 text-white rounded-lg hover:bg-primary-800 font-medium"
+          className="px-5 py-2.5 bg-blue-900 text-white rounded-lg hover:bg-blue-800 font-medium"
         >
           Load Report
         </button>
@@ -193,7 +193,7 @@ export default function AdminPODReportPage(): React.ReactElement {
       <div>
         <Link
           to="/admin/reports"
-          className="inline-flex items-center gap-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-primary-900 dark:hover:text-primary-300 font-medium"
+          className="inline-flex items-center gap-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-blue-900 dark:hover:text-blue-300 font-medium"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to Reports
@@ -203,7 +203,7 @@ export default function AdminPODReportPage(): React.ReactElement {
       <div className="pp-page-header flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="pp-page-title flex items-center gap-2">
-            <Shield className="w-7 h-7 text-primary-900 dark:text-primary-300" />
+            <Shield className="w-7 h-7 text-blue-900 dark:text-blue-300" />
             Proof of Delivery Report
           </h1>
           <p className="pp-page-subtitle">Signature & photo verification for all delivered orders</p>
@@ -223,7 +223,7 @@ export default function AdminPODReportPage(): React.ReactElement {
           <button
             onClick={() => void loadReport('html')}
             disabled={loading}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-700 text-white rounded-lg hover:bg-primary-900 disabled:opacity-50 font-medium text-sm"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-700 text-white rounded-lg hover:bg-blue-900 disabled:opacity-50 font-medium text-sm"
           >
             <Camera className="w-4 h-4" />
             Export with Images
@@ -231,7 +231,7 @@ export default function AdminPODReportPage(): React.ReactElement {
           <button
             onClick={() => void loadReport()}
             disabled={loading}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-900 text-white rounded-lg hover:bg-primary-800 disabled:opacity-50 font-medium text-sm"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-900 text-white rounded-lg hover:bg-blue-800 disabled:opacity-50 font-medium text-sm"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             {loading ? 'Loading…' : 'Refresh'}
@@ -242,8 +242,8 @@ export default function AdminPODReportPage(): React.ReactElement {
       {/* ── Filters ── */}
       <div className="pp-card p-5">
         <div className="flex items-center gap-2 mb-4">
-          <div className="w-8 h-8 rounded-lg bg-primary-900/10 flex items-center justify-center">
-            <Filter className="w-4 h-4 text-primary-900 dark:text-primary-300" />
+          <div className="w-8 h-8 rounded-lg bg-blue-900/10 flex items-center justify-center">
+            <Filter className="w-4 h-4 text-blue-900 dark:text-blue-300" />
           </div>
           <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Filters</h2>
         </div>
@@ -254,7 +254,7 @@ export default function AdminPODReportPage(): React.ReactElement {
               type="date"
               value={filters.startDate}
               onChange={e => handleFilterChange('startDate', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
+              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
@@ -263,7 +263,7 @@ export default function AdminPODReportPage(): React.ReactElement {
               type="date"
               value={filters.endDate}
               onChange={e => handleFilterChange('endDate', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
+              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
@@ -271,7 +271,7 @@ export default function AdminPODReportPage(): React.ReactElement {
             <select
               value={filters.podStatus}
               onChange={e => handleFilterChange('podStatus', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
+              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">All Delivered Orders</option>
               <option value="with-pod">✓ With POD (Verified)</option>
@@ -283,7 +283,7 @@ export default function AdminPODReportPage(): React.ReactElement {
           <button
             onClick={() => void loadReport()}
             disabled={loading}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-primary-900 text-white rounded-lg hover:bg-primary-800 disabled:opacity-50 text-sm font-medium"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800 disabled:opacity-50 text-sm font-medium"
           >
             <Search className="w-4 h-4" />
             Apply Filters
@@ -296,15 +296,15 @@ export default function AdminPODReportPage(): React.ReactElement {
 
       {/* ── Headline KPI cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-br from-primary-900 to-primary-700 rounded-xl p-5 text-white shadow-sm">
+        <div className="bg-gradient-to-br from-blue-900 to-blue-700 rounded-xl p-5 text-white shadow-sm">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-primary-200 uppercase tracking-wide">Total Delivered</span>
+            <span className="text-xs font-semibold text-blue-200 uppercase tracking-wide">Total Delivered</span>
             <div className="w-9 h-9 bg-white/15 rounded-lg flex items-center justify-center">
               <FileText className="w-5 h-5" />
             </div>
           </div>
           <div className="text-3xl font-bold">{stats.totalDelivered ?? 0}</div>
-          <div className="text-xs text-primary-200 mt-1">Orders in period</div>
+          <div className="text-xs text-blue-200 mt-1">Orders in period</div>
         </div>
 
         <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-xl p-5 text-white shadow-sm">
@@ -329,15 +329,15 @@ export default function AdminPODReportPage(): React.ReactElement {
           <div className="text-xs text-red-100 mt-1">Missing verification</div>
         </div>
 
-        <div className="bg-gradient-to-br from-primary-600 to-primary-800 rounded-xl p-5 text-white shadow-sm">
+        <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl p-5 text-white shadow-sm">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-primary-200 uppercase tracking-wide">Total Photos</span>
+            <span className="text-xs font-semibold text-blue-200 uppercase tracking-wide">Total Photos</span>
             <div className="w-9 h-9 bg-white/15 rounded-lg flex items-center justify-center">
               <Camera className="w-5 h-5" />
             </div>
           </div>
           <div className="text-3xl font-bold">{stats.totalPhotos ?? 0}</div>
-          <div className="text-xs text-primary-200 mt-1">
+          <div className="text-xs text-blue-200 mt-1">
             Avg: {(stats.totalDelivered ?? 0) > 0 ? ((stats.totalPhotos ?? 0) / (stats.totalDelivered as number)).toFixed(1) : '0.0'} per delivery
           </div>
         </div>
@@ -347,7 +347,7 @@ export default function AdminPODReportPage(): React.ReactElement {
       <div className="pp-card p-5">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Award className="w-5 h-5 text-primary-900 dark:text-primary-300" />
+            <Award className="w-5 h-5 text-blue-900 dark:text-blue-300" />
             <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Overall POD Completion</h3>
           </div>
           <span className={`text-2xl font-bold ${getCompletionColor(overallPct)}`}>{overallPct}%</span>
@@ -369,8 +369,8 @@ export default function AdminPODReportPage(): React.ReactElement {
         {/* POD Quality */}
         <div className="pp-card p-5">
           <div className="flex items-center gap-2 mb-4">
-            <div className="w-7 h-7 rounded-lg bg-primary-900/10 flex items-center justify-center">
-              <Award className="w-4 h-4 text-primary-900 dark:text-primary-300" />
+            <div className="w-7 h-7 rounded-lg bg-blue-900/10 flex items-center justify-center">
+              <Award className="w-4 h-4 text-blue-900 dark:text-blue-300" />
             </div>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">POD Quality</h3>
           </div>
@@ -384,7 +384,7 @@ export default function AdminPODReportPage(): React.ReactElement {
               color="green"
             />
             <QualityRow
-              icon={<CheckCircle className="w-4 h-4 text-primary-600" />}
+              icon={<CheckCircle className="w-4 h-4 text-blue-600" />}
               label="Good"
               sublabel="Signature + photos"
               value={stats.goodPOD ?? 0}
@@ -405,8 +405,8 @@ export default function AdminPODReportPage(): React.ReactElement {
         {/* Signature Status */}
         <div className="pp-card p-5">
           <div className="flex items-center gap-2 mb-4">
-            <div className="w-7 h-7 rounded-lg bg-primary-900/10 flex items-center justify-center">
-              <PenLine className="w-4 h-4 text-primary-900 dark:text-primary-300" />
+            <div className="w-7 h-7 rounded-lg bg-blue-900/10 flex items-center justify-center">
+              <PenLine className="w-4 h-4 text-blue-900 dark:text-blue-300" />
             </div>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Signatures</h3>
           </div>
@@ -414,14 +414,14 @@ export default function AdminPODReportPage(): React.ReactElement {
             <div>
               <div className="flex justify-between items-center mb-1.5">
                 <span className="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-1.5">
-                  <span className="text-xs px-1.5 py-0.5 bg-primary-100 text-primary-800 dark:bg-primary-900/30 dark:text-primary-300 rounded font-bold">D</span>
+                  <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 rounded font-bold">D</span>
                   Driver Signature
                 </span>
                 <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{stats.withDriverSignature ?? 0}</span>
               </div>
               <div className="h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-primary-700 rounded-full"
+                  className="h-full bg-blue-700 rounded-full"
                   style={{ width: `${(stats.totalDelivered ?? 0) > 0 ? ((stats.withDriverSignature ?? 0) / (stats.totalDelivered as number)) * 100 : 0}%` }}
                 />
               </div>
@@ -447,8 +447,8 @@ export default function AdminPODReportPage(): React.ReactElement {
         {/* Photo Status */}
         <div className="pp-card p-5">
           <div className="flex items-center gap-2 mb-4">
-            <div className="w-7 h-7 rounded-lg bg-primary-900/10 flex items-center justify-center">
-              <Camera className="w-4 h-4 text-primary-900 dark:text-primary-300" />
+            <div className="w-7 h-7 rounded-lg bg-blue-900/10 flex items-center justify-center">
+              <Camera className="w-4 h-4 text-blue-900 dark:text-blue-300" />
             </div>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Photos</h3>
           </div>
@@ -460,7 +460,7 @@ export default function AdminPODReportPage(): React.ReactElement {
             <div>
               <div className="h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-primary-600 to-green-500 rounded-full"
+                  className="h-full bg-gradient-to-r from-blue-600 to-green-500 rounded-full"
                   style={{ width: `${(stats.totalDelivered ?? 0) > 0 ? ((stats.withPhotos ?? 0) / (stats.totalDelivered as number)) * 100 : 0}%` }}
                 />
               </div>
@@ -472,7 +472,7 @@ export default function AdminPODReportPage(): React.ReactElement {
             <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600 dark:text-gray-300">Total Photos Uploaded</span>
-                <span className="text-lg font-bold text-primary-900 dark:text-primary-300">{stats.totalPhotos ?? 0}</span>
+                <span className="text-lg font-bold text-blue-900 dark:text-blue-300">{stats.totalPhotos ?? 0}</span>
               </div>
             </div>
           </div>
@@ -549,7 +549,7 @@ export default function AdminPODReportPage(): React.ReactElement {
         <div className="pp-card overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
             <div className="flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-primary-900 dark:text-primary-300" />
+              <TrendingUp className="w-5 h-5 text-blue-900 dark:text-blue-300" />
               <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Driver POD Performance</h3>
             </div>
           </div>
@@ -572,8 +572,8 @@ export default function AdminPODReportPage(): React.ReactElement {
                     <tr key={driver.driverName} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                       <td className="px-5 py-3 whitespace-nowrap">
                         <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-primary-900/10 dark:bg-primary-900/20 flex items-center justify-center">
-                            <User className="w-4 h-4 text-primary-900 dark:text-primary-300" />
+                          <div className="w-8 h-8 rounded-full bg-blue-900/10 dark:bg-blue-900/20 flex items-center justify-center">
+                            <User className="w-4 h-4 text-blue-900 dark:text-blue-300" />
                           </div>
                           <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{driver.driverName || 'Unknown'}</span>
                         </div>
@@ -667,7 +667,7 @@ export default function AdminPODReportPage(): React.ReactElement {
                     }`}
                   >
                     <td className="px-5 py-3 whitespace-nowrap">
-                      <span className="text-sm font-semibold text-primary-900 dark:text-primary-300">
+                      <span className="text-sm font-semibold text-blue-900 dark:text-blue-300">
                         {delivery.poNumber || '—'}
                       </span>
                     </td>
@@ -702,7 +702,7 @@ export default function AdminPODReportPage(): React.ReactElement {
                     </td>
                     <td className="px-5 py-3 whitespace-nowrap">
                       {(delivery.photoCount ?? 0) > 0 ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary-100 text-primary-800 dark:bg-primary-900/30 dark:text-primary-300 text-xs font-semibold rounded-full">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 text-xs font-semibold rounded-full">
                           <Camera className="w-3 h-3" />
                           {delivery.photoCount}
                         </span>
@@ -713,7 +713,7 @@ export default function AdminPODReportPage(): React.ReactElement {
                     <td className="px-5 py-3 whitespace-nowrap">
                       <div className="flex items-center gap-1.5">
                         {delivery.hasDriverSignature ? (
-                          <span className="text-xs px-1.5 py-0.5 bg-primary-100 text-primary-800 dark:bg-primary-900/30 dark:text-primary-300 rounded font-semibold" title="Driver Signature">D</span>
+                          <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 rounded font-semibold" title="Driver Signature">D</span>
                         ) : (
                           <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500 rounded font-semibold line-through" title="Driver Signature missing">D</span>
                         )}
@@ -756,7 +756,7 @@ interface QualityRowProps {
 
 function QualityRow({ icon, label, sublabel, value, total, color }: QualityRowProps): React.ReactElement {
   const pct = total > 0 ? Math.round((value / total) * 100) : 0;
-  const barColors: Record<string, string> = { green: 'bg-green-500', blue: 'bg-primary-600', amber: 'bg-amber-500' };
+  const barColors: Record<string, string> = { green: 'bg-green-500', blue: 'bg-blue-600', amber: 'bg-amber-500' };
   return (
     <div>
       <div className="flex items-center justify-between mb-1">

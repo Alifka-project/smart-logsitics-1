@@ -89,7 +89,7 @@ export default function DeliveryTable({
   ];
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 transition-colors">
+    <div className="pp-dash-card p-4 sm:p-6 transition-colors">
       <div className="mb-4">
         <h2 className="text-lg sm:text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">
           🚚 Delivery Sequence

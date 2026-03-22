@@ -86,7 +86,7 @@ export default function TrackingPage() {
 
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-8 text-center">
+        <div className="pp-dash-card shadow-2xl max-w-md w-full p-8 text-center">
           <div className="mx-auto w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
             <CheckCircle className="w-10 h-10 text-green-600" />
           </div>
@@ -105,7 +105,7 @@ export default function TrackingPage() {
           )}
           <button
             onClick={() => void navigate('/')}
-            className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+            className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             Close
           </button>
@@ -116,7 +116,7 @@ export default function TrackingPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-8">
+      <div className="pp-dash-card shadow-2xl max-w-md w-full p-8">
         <div className="text-center mb-6">
           <h1 className="text-2xl font-bold text-gray-800 mb-2">Confirm Your Delivery</h1>
           <p className="text-gray-600">
@@ -137,7 +137,7 @@ export default function TrackingPage() {
                 setCode(value);
                 setError(null);
               }}
-              className="w-full px-4 py-3 text-center text-2xl font-mono tracking-widest border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="w-full px-4 py-3 text-center text-2xl font-mono tracking-widest border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="0000"
               maxLength={4}
               autoFocus
@@ -156,7 +156,7 @@ export default function TrackingPage() {
           <button
             type="submit"
             disabled={confirming || code.length !== 4}
-            className="w-full px-4 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+            className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
           >
             {confirming ? 'Confirming...' : 'Confirm Delivery'}
           </button>

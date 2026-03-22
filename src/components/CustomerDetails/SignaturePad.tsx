@@ -24,7 +24,7 @@ export default function SignaturePad({ title, onChange }: SignaturePadProps) {
       <h3 className="text-base sm:text-lg font-semibold text-gray-800 dark:text-gray-100 mb-3">
         {title}
       </h3>
-      <div className="border-2 border-primary-300 dark:border-primary-500 rounded-lg bg-white dark:bg-gray-800 transition-colors">
+      <div className="border-2 border-blue-300 dark:border-blue-500 rounded-lg bg-white dark:bg-gray-800 transition-colors">
         <SignatureCanvas
           ref={sigCanvas}
           canvasProps={{

@@ -886,7 +886,7 @@ export default function DriverPortal() {
         <div className="p-3 sm:p-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 dark:from-gray-800 dark:to-gray-900 dark:border-gray-700">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-            <MapPin className="w-5 h-5 text-primary-600 dark:text-primary-400 flex-shrink-0" />
+            <MapPin className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
             <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">Location Map</h2>
             </div>
             <div className="text-xs text-gray-500 dark:text-gray-300">
@@ -936,7 +936,7 @@ export default function DriverPortal() {
             <button
               onClick={requestLocationPermission}
               disabled={loading}
-              className="min-h-[44px] px-4 sm:px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 active:bg-primary-800 disabled:bg-primary-300 disabled:cursor-not-allowed flex items-center gap-2 font-semibold shadow-sm transition-all touch-manipulation"
+              className="min-h-[44px] px-4 sm:px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 disabled:bg-blue-300 disabled:cursor-not-allowed flex items-center gap-2 font-semibold shadow-sm transition-all touch-manipulation"
             >
               <Navigation className="w-5 h-5 flex-shrink-0" />
               {loading ? 'Starting...' : 'Start Tracking'}
@@ -1047,7 +1047,7 @@ export default function DriverPortal() {
       {activeTab === 'messages' && (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 lg:gap-6 flex flex-col lg:block min-h-0">
           {/* Contacts List */}
-          <div className="lg:col-span-1 bg-white dark:bg-gray-800 rounded-lg shadow flex flex-col min-h-0 max-h-[40vh] lg:max-h-none">
+          <div className="lg:col-span-1 pp-dash-card flex flex-col min-h-0 max-h-[40vh] lg:max-h-none">
             <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
               <h3 className="font-semibold text-gray-900 dark:text-gray-100">Contacts</h3>
             </div>
@@ -1074,7 +1074,7 @@ export default function DriverPortal() {
                               setSelectedContact(member);
                               void loadMessages(member.id);
                             }}
-                            className={`w-full p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${ selectedContact?.id === member.id ? 'bg-primary-50 dark:bg-primary-900/20' : ''
+                            className={`w-full p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${ selectedContact?.id === member.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
                             }`}
                           >
                             <div className="flex items-center justify-between mb-1">
@@ -1104,7 +1104,7 @@ export default function DriverPortal() {
           </div>
 
           {/* Chat Area */}
-          <div className="lg:col-span-3 bg-white dark:bg-gray-800 rounded-lg shadow flex flex-col min-h-[300px] lg:h-[600px] flex-1 lg:flex-initial">
+          <div className="lg:col-span-3 pp-dash-card flex flex-col min-h-[300px] lg:h-[600px] flex-1 lg:flex-initial">
             {selectedContact ? (
               <>
                 {/* Chat Header */}
@@ -1169,7 +1169,7 @@ export default function DriverPortal() {
                             className={`max-w-[70%] rounded-lg p-3 ${
                               isFromOther
                                 ? 'bg-white text-gray-900 border border-gray-200 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700'
-                                : 'bg-primary-600 text-white'
+                                : 'bg-blue-600 text-white'
                             }`}
                           >
                             {isFromOther && (
@@ -1178,7 +1178,7 @@ export default function DriverPortal() {
                               </span>
                             )}
                             <p className="text-sm">{messageText}</p>
-                            <p className={`text-xs mt-1 ${isFromOther ? 'text-gray-500 dark:text-gray-400' : 'text-primary-100'}`}>
+                            <p className={`text-xs mt-1 ${isFromOther ? 'text-gray-500 dark:text-gray-400' : 'text-blue-100'}`}>
                               {formatMessageTimestamp(messageTime)}
                             </p>
                           </div>
@@ -1204,12 +1204,12 @@ export default function DriverPortal() {
                       }}
                       placeholder="Type a message..."
                       disabled={sendingMessage}
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50 dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700"
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700"
                     />
                     <button
                       onClick={() => void handleSendMessage()}
                       disabled={!newMessage.trim() || sendingMessage}
-                      className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                       <Send className="w-5 h-5" />
                       Send

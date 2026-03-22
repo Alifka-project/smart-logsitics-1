@@ -231,7 +231,7 @@ export default function DeliveryDetailModal({
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto transform transition-all"
+        className="pp-dash-card shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto transform transition-all"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-800 dark:to-blue-900 border-b border-blue-200 dark:border-blue-700 px-6 py-5 flex items-center justify-between rounded-t-lg">
@@ -527,7 +527,7 @@ export default function DeliveryDetailModal({
         <div className="border-t border-gray-200 dark:border-gray-700 px-6 py-4 bg-gray-50 dark:bg-gray-700/50 flex justify-end rounded-b-lg">
           <button
             onClick={onClose}
-            className="px-6 py-2 bg-primary-800 hover:bg-primary-900 dark:bg-primary-700 dark:hover:bg-primary-900 text-white font-medium rounded-lg transition-colors"
+            className="px-6 py-2 bg-blue-800 hover:bg-blue-900 dark:bg-blue-700 dark:hover:bg-blue-900 text-white font-medium rounded-lg transition-colors"
           >
             Close
           </button>

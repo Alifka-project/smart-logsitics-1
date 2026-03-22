@@ -112,7 +112,7 @@ export default function GeocodingProgress({
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
             <div
-              className="bg-primary-800 h-full transition-all duration-300"
+              className="bg-blue-800 h-full transition-all duration-300"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -197,7 +197,7 @@ export default function GeocodingProgress({
           {(progress === 100 || isCancelled) && (
             <button
               onClick={() => progress === 100 && onComplete(results)}
-              className="flex-1 px-4 py-2 bg-primary-800 text-white rounded hover:bg-primary-900 font-medium transition disabled:opacity-50"
+              className="flex-1 px-4 py-2 bg-blue-800 text-white rounded hover:bg-blue-900 font-medium transition disabled:opacity-50"
               disabled={isCancelled}
             >
               {isCancelled ? 'Cancelled' : 'Continue'}

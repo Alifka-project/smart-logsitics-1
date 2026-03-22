@@ -54,7 +54,7 @@ export default function StatsCards() {
       value: analytics.total,
       icon: Package,
       color: 'primary',
-      className: 'bg-gradient-to-br from-primary-500 to-primary-600',
+      className: 'bg-gradient-to-br from-blue-500 to-blue-600',
     },
     {
       label: 'Completed',
@@ -94,11 +94,11 @@ export default function StatsCards() {
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
+    <div className="pp-kpi-grid pp-kpi-grid--stats">
       {stats.map((stat, index) => {
         const Icon = stat.icon;
         return (
-          <div key={index} className={`${stat.className} rounded-lg shadow-md p-4 sm:p-6 text-white`}>
+          <div key={index} className={`${stat.className} rounded-xl shadow-md p-4 sm:p-5 text-white w-full min-w-0 max-w-[200px]`}>
             <div className="flex items-center justify-between mb-2">
               <Icon className="w-5 h-5 sm:w-6 sm:h-6 opacity-80" />
             </div>

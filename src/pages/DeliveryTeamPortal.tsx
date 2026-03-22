@@ -418,7 +418,7 @@ export default function DeliveryTeamPortal() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-400">Loading operations center...</p>
         </div>
       </div>
@@ -491,7 +491,7 @@ export default function DeliveryTeamPortal() {
                     {drivers.filter(d => isContactOnline(d)).length}
                   </p>
                 </div>
-                <Users className="w-8 h-8 text-primary-600 dark:text-primary-400" />
+                <Users className="w-8 h-8 text-blue-600 dark:text-blue-400" />
               </div>
             </div>
 
@@ -600,7 +600,7 @@ export default function DeliveryTeamPortal() {
                 return (
                   <div
                     key={driver.id}
-                    className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-primary-500 dark:hover:border-primary-400 transition-colors"
+                    className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 transition-colors"
                   >
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-medium text-gray-900 dark:text-gray-100">
@@ -839,7 +839,7 @@ export default function DeliveryTeamPortal() {
       {activeTab === 'communication' && (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 lg:gap-6 flex flex-col lg:block min-h-0">
           {/* Contacts List */}
-          <div className="lg:col-span-1 bg-white dark:bg-gray-800 rounded-lg shadow flex flex-col min-h-0 max-h-[40vh] lg:max-h-none">
+          <div className="lg:col-span-1 pp-dash-card flex flex-col min-h-0 max-h-[40vh] lg:max-h-none">
             <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
               <h3 className="font-semibold text-gray-900 dark:text-gray-100">Contacts</h3>
             </div>
@@ -859,7 +859,7 @@ export default function DeliveryTeamPortal() {
                         key={member.id}
                         onClick={() => setSelectedContact(member)}
                         className={`w-full p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
-                          selectedContact?.id === member.id ? 'bg-primary-50 dark:bg-primary-900/20' : ''
+                          selectedContact?.id === member.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
                         }`}
                       >
                         <div className="flex items-center justify-between mb-1">
@@ -898,7 +898,7 @@ export default function DeliveryTeamPortal() {
                         key={driver.id}
                         onClick={() => setSelectedContact(driver)}
                         className={`w-full p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
-                          selectedContact?.id === driver.id ? 'bg-primary-50 dark:bg-primary-900/20' : ''
+                          selectedContact?.id === driver.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
                         }`}
                       >
                         <div className="flex items-center justify-between mb-1">
@@ -930,7 +930,7 @@ export default function DeliveryTeamPortal() {
           </div>
 
           {/* Chat Area */}
-          <div className="lg:col-span-3 bg-white dark:bg-gray-800 rounded-lg shadow flex flex-col min-h-[300px] lg:h-[600px] flex-1 lg:flex-initial">
+          <div className="lg:col-span-3 pp-dash-card flex flex-col min-h-[300px] lg:h-[600px] flex-1 lg:flex-initial">
             {selectedContact ? (
               <>
                 {/* Chat Header */}
@@ -1008,13 +1008,13 @@ export default function DeliveryTeamPortal() {
                         >
                           <div className={`max-w-[70%] rounded-lg p-3 ${
                             isSent
-                              ? 'bg-primary-600 text-white'
+                              ? 'bg-blue-600 text-white'
                               : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
                           }`}>
                             <p className="text-sm">{msg.content}</p>
                             <p className={`text-xs mt-1 ${
                               isSent
-                                ? 'text-primary-100'
+                                ? 'text-blue-100'
                                 : 'text-gray-500 dark:text-gray-400'
                             }`}>
                               {formatMessageTimestamp(msg.createdAt)}
@@ -1056,13 +1056,13 @@ export default function DeliveryTeamPortal() {
                         }
                       }}
                       placeholder="Type a message..."
-                      className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       disabled={sendingMessage}
                     />
                     <button
                       onClick={() => void handleSendMessage()}
                       disabled={sendingMessage || !newMessage.trim()}
-                      className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                       <Send className="w-5 h-5" />
                       Send

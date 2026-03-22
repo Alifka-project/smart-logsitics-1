@@ -131,7 +131,7 @@ export default function MultipleFileUpload({ photos, setPhotos }: MultipleFileUp
   return (
     <div>
       <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-3 flex items-center gap-2">
-        <Camera className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+        <Camera className="w-5 h-5 text-blue-600 dark:text-blue-400" />
         📸 Upload Delivery Photos
       </h3>
 
@@ -140,7 +140,7 @@ export default function MultipleFileUpload({ photos, setPhotos }: MultipleFileUp
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] bg-gradient-to-r from-primary-600 to-primary-700 text-white font-semibold rounded-lg hover:shadow-lg transition-all text-sm sm:text-base touch-manipulation"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-lg hover:shadow-lg transition-all text-sm sm:text-base touch-manipulation"
           >
             <Upload className="w-4 h-4 sm:w-5 sm:h-5" />
             Upload Photos
@@ -222,7 +222,7 @@ export default function MultipleFileUpload({ photos, setPhotos }: MultipleFileUp
             {photos.map((photo) => (
               <div
                 key={photo.id}
-                className="relative group rounded-lg overflow-hidden border-2 border-gray-200 dark:border-gray-700 hover:border-primary-400 dark:hover:border-primary-500 transition-colors"
+                className="relative group rounded-lg overflow-hidden border-2 border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 transition-colors"
               >
                 <img src={photo.data} alt={photo.name} className="w-full h-32 object-cover" />
                 <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center">

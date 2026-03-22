@@ -84,7 +84,7 @@ export default function AdminDeliveryTrackingPage(): React.ReactElement {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-400">Loading delivery tracking...</p>
         </div>
       </div>
@@ -117,7 +117,7 @@ export default function AdminDeliveryTrackingPage(): React.ReactElement {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
+        <div className="pp-dash-card p-5 transition-colors">
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Deliveries</div>
@@ -128,7 +128,7 @@ export default function AdminDeliveryTrackingPage(): React.ReactElement {
             </div>
           </div>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
+        <div className="pp-dash-card p-5 transition-colors">
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Assigned</div>
@@ -139,7 +139,7 @@ export default function AdminDeliveryTrackingPage(): React.ReactElement {
             </div>
           </div>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
+        <div className="pp-dash-card p-5 transition-colors">
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">In Progress</div>
@@ -150,7 +150,7 @@ export default function AdminDeliveryTrackingPage(): React.ReactElement {
             </div>
           </div>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
+        <div className="pp-dash-card p-5 transition-colors">
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Completed</div>
@@ -165,13 +165,13 @@ export default function AdminDeliveryTrackingPage(): React.ReactElement {
 
       {/* Map */}
       {deliveriesForMap.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden transition-colors">
+        <div className="pp-dash-card overflow-hidden transition-colors">
           <DeliveryMap deliveries={deliveriesForMap as unknown as import('../types').Delivery[]} route={null} />
         </div>
       )}
 
       {/* Delivery List */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
+      <div className="pp-dash-card p-5 transition-colors">
         <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Delivery Status</h2>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">

@@ -445,7 +445,7 @@ export default function AdminUsersPage(): React.ReactElement {
         {activeTab !== 'logs' && (
           <button
             onClick={openAddModal}
-            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center gap-2"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
           >
             <UserPlus className="w-5 h-5" />
             Add New {activeTab === 'accounts' ? 'Account' : 'Driver'}
@@ -492,7 +492,7 @@ export default function AdminUsersPage(): React.ReactElement {
       {activeTab === 'logs' ? (
         <div className="space-y-6">
           {/* Currently Online Users */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
+          <div className="pp-dash-card p-5 transition-colors">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
@@ -510,7 +510,7 @@ export default function AdminUsersPage(): React.ReactElement {
             </div>
             {logsLoading ? (
               <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
               </div>
             ) : onlineUsers.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -518,8 +518,8 @@ export default function AdminUsersPage(): React.ReactElement {
                   <div key={user.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 hover:shadow-md animate-fade-in">
                     <div className="flex items-center gap-3">
                       <div className="relative">
-                        <div className="w-12 h-12 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center ring-2 ring-green-500/20">
-                          <Users className="w-6 h-6 text-primary-600 dark:text-primary-400" />
+                        <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center ring-2 ring-green-500/20">
+                          <Users className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                         </div>
                         <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full animate-pulse">
                           <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-75"></div>
@@ -556,7 +556,7 @@ export default function AdminUsersPage(): React.ReactElement {
           </div>
 
           {/* Login History */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden transition-colors">
+          <div className="pp-dash-card overflow-hidden transition-colors">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Clock className="w-5 h-5 text-gray-600 dark:text-gray-400" />
@@ -585,7 +585,7 @@ export default function AdminUsersPage(): React.ReactElement {
             {logsLoading ? (
               <div className="flex items-center justify-center py-12">
                 <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
                   <p className="text-gray-600 dark:text-gray-400">Loading activity logs...</p>
                 </div>
               </div>
@@ -615,10 +615,10 @@ export default function AdminUsersPage(): React.ReactElement {
                                 <div className="relative flex-shrink-0">
                                   <div className={`h-10 w-10 rounded-full flex items-center justify-center transition-all duration-300 ${
                                     isOnline 
-                                      ? 'bg-primary-100 dark:bg-primary-900/30 ring-2 ring-green-500/20' 
-                                      : 'bg-primary-100 dark:bg-primary-900/30'
+                                      ? 'bg-blue-100 dark:bg-blue-900/30 ring-2 ring-green-500/20' 
+                                      : 'bg-blue-100 dark:bg-blue-900/30'
                                   }`}>
-                                    <Users className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+                                    <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                                   </div>
                                   {isOnline && (
                                     <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full animate-pulse">
@@ -704,7 +704,7 @@ export default function AdminUsersPage(): React.ReactElement {
       ) : (
         <>
           {/* Search and Filters */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 transition-colors">
+          <div className="pp-dash-card p-5 transition-colors">
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
@@ -713,13 +713,13 @@ export default function AdminUsersPage(): React.ReactElement {
                   placeholder="Search by username, name, or email..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
               <select
                 value={filterRole}
                 onChange={(e) => setFilterRole(e.target.value)}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
               >
                 <option value="all">All Roles</option>
                 <option value="admin">Admin</option>
@@ -731,7 +731,7 @@ export default function AdminUsersPage(): React.ReactElement {
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
               >
                 <option value="all">All Status</option>
                 <option value="active">Active</option>
@@ -741,11 +741,11 @@ export default function AdminUsersPage(): React.ReactElement {
           </div>
 
           {/* Users Table */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden transition-colors">
+          <div className="pp-dash-card overflow-hidden transition-colors">
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
                   <p className="text-gray-600 dark:text-gray-400">Loading users...</p>
                 </div>
               </div>
@@ -771,8 +771,8 @@ export default function AdminUsersPage(): React.ReactElement {
                           <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center">
-                                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center">
-                                  <Users className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+                                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                                  <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                                 </div>
                                 <div className="ml-4">
                                   <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -831,7 +831,7 @@ export default function AdminUsersPage(): React.ReactElement {
                               <div className="flex items-center justify-end gap-2">
                                 <button
                                   onClick={() => handleEdit(user)}
-                                  className="text-primary-600 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-300 p-2 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded transition-colors"
+                                  className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
                                   title="Edit"
                                 >
                                   <Edit className="w-4 h-4" />
@@ -870,7 +870,7 @@ export default function AdminUsersPage(): React.ReactElement {
       {/* Add/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto transition-colors">
+          <div className="pp-dash-card shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto transition-colors">
             <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
                 {editingUser ? 'Edit' : 'Add New'} {activeTab === 'accounts' ? 'Account' : 'Driver'}
@@ -894,7 +894,7 @@ export default function AdminUsersPage(): React.ReactElement {
                       type="text"
                       value={formData.username}
                       onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                      className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 ${
+                      className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 ${
                         errors.username ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'
                       }`}
                       disabled={!!editingUser}
@@ -907,7 +907,7 @@ export default function AdminUsersPage(): React.ReactElement {
                       type="text"
                       value={formData.full_name}
                       onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                      className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 ${
+                      className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 ${
                         errors.full_name ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'
                       }`}
                     />
@@ -921,7 +921,7 @@ export default function AdminUsersPage(): React.ReactElement {
                       type="email"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 ${
+                      className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 ${
                         errors.email ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'
                       }`}
                     />
@@ -933,7 +933,7 @@ export default function AdminUsersPage(): React.ReactElement {
                       type="tel"
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 ${
+                      className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 ${
                         errors.phone ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'
                       }`}
                     />
@@ -953,7 +953,7 @@ export default function AdminUsersPage(): React.ReactElement {
                         type="text"
                         value={formData.license_number}
                         onChange={(e) => setFormData({ ...formData, license_number: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 ${
+                        className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 ${
                           errors.license_number ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'
                         }`}
                       />
@@ -965,7 +965,7 @@ export default function AdminUsersPage(): React.ReactElement {
                         type="date"
                         value={formData.license_expiry}
                         onChange={(e) => setFormData({ ...formData, license_expiry: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                   </div>
@@ -981,7 +981,7 @@ export default function AdminUsersPage(): React.ReactElement {
                     <select
                       value={formData.role}
                       onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="admin">Admin</option>
                       <option value="driver">Driver</option>
@@ -998,7 +998,7 @@ export default function AdminUsersPage(): React.ReactElement {
                       type="password"
                       value={formData.password}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 ${
+                      className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 ${
                         errors.password ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'
                       }`}
                     />
@@ -1029,7 +1029,7 @@ export default function AdminUsersPage(): React.ReactElement {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                 >
                   {editingUser ? 'Update' : 'Create'} {activeTab === 'accounts' ? 'Account' : 'Driver'}
                 </button>

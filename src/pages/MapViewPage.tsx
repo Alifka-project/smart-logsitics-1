@@ -79,7 +79,7 @@ export default function MapViewPage() {
 
   if (deliveries.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-6 sm:p-8 lg:p-12 text-center">
+      <div className="pp-dash-card p-6 sm:p-8 lg:p-12 text-center">
         <p className="text-gray-500 text-base sm:text-lg">
           No deliveries loaded. Upload a spreadsheet from Delivery Management or reload from the database.
         </p>
@@ -95,7 +95,7 @@ export default function MapViewPage() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-lg shadow-lg p-4 sm:p-6">
+      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg shadow-lg p-4 sm:p-6">
         <div className="flex items-center justify-between mb-3 sm:mb-4">
           <h2 className="text-xl sm:text-2xl font-bold">📍 Optimized Delivery Route</h2>
           {isOptimized && (
@@ -165,11 +165,11 @@ export default function MapViewPage() {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+      <div className="pp-dash-card shadow-lg overflow-hidden">
         {isLoading ? (
           <div className="h-[400px] sm:h-[500px] lg:h-[600px] flex items-center justify-center">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 sm:h-16 sm:w-16 border-b-2 border-primary-600 mx-auto mb-4" />
+              <div className="animate-spin rounded-full h-12 w-12 sm:h-16 sm:w-16 border-b-2 border-blue-600 mx-auto mb-4" />
               <p className="text-gray-600 text-sm sm:text-base">
                 Calculating route for {deliveries.length} deliveries...
               </p>

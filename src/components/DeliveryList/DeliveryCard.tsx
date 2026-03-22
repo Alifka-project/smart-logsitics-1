@@ -103,9 +103,9 @@ export default function DeliveryCard({
         canDrag ? 'cursor-move' : 'cursor-pointer'
       } ${
         isDragging
-          ? 'opacity-50 border-primary-400 dark:border-primary-500 shadow-md'
+          ? 'opacity-50 border-blue-400 dark:border-blue-500 shadow-md'
           : isDragOver
-            ? 'ring-2 ring-primary-400 dark:ring-primary-500 shadow-md scale-[1.01]'
+            ? 'ring-2 ring-blue-400 dark:ring-blue-500 shadow-md scale-[1.01]'
             : 'hover:shadow-md'
       }`}
     >
@@ -113,13 +113,13 @@ export default function DeliveryCard({
         {canDrag && (
           <div className="flex items-center gap-1 flex-shrink-0 pt-0.5">
             <GripVertical className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 dark:text-gray-500" />
-            <span className="text-base sm:text-lg font-bold text-primary-600 dark:text-primary-400 w-6 text-center">
+            <span className="text-base sm:text-lg font-bold text-blue-600 dark:text-blue-400 w-6 text-center">
               {displayIndex + 1}.
             </span>
           </div>
         )}
         {!canDrag && (
-          <span className="text-base sm:text-lg font-bold text-primary-600 dark:text-primary-400 w-8 flex-shrink-0 pt-0.5">
+          <span className="text-base sm:text-lg font-bold text-blue-600 dark:text-blue-400 w-8 flex-shrink-0 pt-0.5">
             {displayIndex + 1}.
           </span>
         )}
@@ -157,8 +157,8 @@ export default function DeliveryCard({
 
           <div className="flex flex-wrap items-center gap-3 pt-1">
             <div className="flex items-center gap-1.5 text-xs sm:text-sm">
-              <Navigation className="w-3.5 h-3.5 flex-shrink-0 text-primary-500" />
-              <span className="font-semibold text-primary-600 dark:text-primary-400">
+              <Navigation className="w-3.5 h-3.5 flex-shrink-0 text-blue-500" />
+              <span className="font-semibold text-blue-600 dark:text-blue-400">
                 {(delivery.distanceFromWarehouse ?? 0).toFixed(1)} km
               </span>
             </div>
@@ -176,7 +176,7 @@ export default function DeliveryCard({
                 <button
                   type="button"
                   onClick={handleSMSClick}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-primary-700 hover:bg-primary-800 text-white"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-700 hover:bg-blue-800 text-white"
                   title="Send confirmation SMS"
                 >
                   <MessageCircle className="w-3.5 h-3.5" />

@@ -39,7 +39,7 @@ export default function DeliveryListPage(): React.ReactElement {
 
       {/* Upload Section */}
       {deliveries.length === 0 && (
-        <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 lg:p-8">
+        <div className="pp-dash-card p-4 sm:p-6 lg:p-8">
           <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4 sm:mb-6">
             Upload Delivery Documents
           </h2>

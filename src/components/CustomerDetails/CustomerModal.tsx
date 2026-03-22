@@ -235,7 +235,7 @@ export default function CustomerModal({
         style={{ maxHeight: '100dvh' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex-shrink-0 flex items-center justify-between gap-2 px-3 py-3 sm:p-4 sm:px-6 border-b border-primary-700/60 bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-t-none sm:rounded-t-lg">
+        <div className="flex-shrink-0 flex items-center justify-between gap-2 px-3 py-3 sm:p-4 sm:px-6 border-b border-blue-700/60 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-t-none sm:rounded-t-lg">
           <h2
             id="delivery-confirmation-title"
             className="text-base sm:text-xl lg:text-2xl font-bold truncate min-w-0 flex-1"
@@ -245,7 +245,7 @@ export default function CustomerModal({
           <button
             type="button"
             onClick={onClose}
-            className="flex-shrink-0 hover:bg-primary-800/90 p-2.5 sm:p-2 rounded-lg touch-manipulation min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
+            className="flex-shrink-0 hover:bg-blue-800/90 p-2.5 sm:p-2 rounded-lg touch-manipulation min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
             aria-label="Close"
           >
             <X className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -260,9 +260,9 @@ export default function CustomerModal({
             </div>
           )}
 
-          <div className="bg-primary-50 dark:bg-primary-900/20 rounded-lg p-3 sm:p-4 space-y-2">
-            <h3 className="text-base sm:text-xl font-bold text-primary-800 dark:text-primary-300 mb-3 sm:mb-4 break-words">
-              <span className="text-primary-600 dark:text-primary-400 font-medium">Stop </span>
+          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 sm:p-4 space-y-2">
+            <h3 className="text-base sm:text-xl font-bold text-blue-800 dark:text-blue-300 mb-3 sm:mb-4 break-words">
+              <span className="text-blue-600 dark:text-blue-400 font-medium">Stop </span>
               <span className="truncate sm:inline" title={selectedDelivery.id}>
                 {shortId}
               </span>
@@ -279,7 +279,7 @@ export default function CustomerModal({
                     setContactSaved(false);
                   }}
                   rows={2}
-                  className="mt-1 w-full px-2 py-1.5 rounded-md border border-primary-200 dark:border-primary-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="mt-1 w-full px-2 py-1.5 rounded-md border border-blue-200 dark:border-blue-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Delivery address"
                 />
               </div>
@@ -292,7 +292,7 @@ export default function CustomerModal({
                     setEditPhone(e.target.value);
                     setContactSaved(false);
                   }}
-                  className="mt-1 w-full px-2 py-1.5 rounded-md border border-primary-200 dark:border-primary-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="mt-1 w-full px-2 py-1.5 rounded-md border border-blue-200 dark:border-blue-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Customer phone number"
                 />
               </div>
@@ -324,7 +324,7 @@ export default function CustomerModal({
                 type="button"
                 onClick={() => void handleSaveContact()}
                 disabled={isSavingContact}
-                className="px-4 py-3 sm:px-3 sm:py-1.5 text-xs sm:text-sm rounded-lg bg-white text-primary-700 border border-primary-300 hover:bg-primary-50 disabled:opacity-60 disabled:cursor-not-allowed dark:bg-gray-800 dark:text-primary-300 dark:border-primary-700 dark:hover:bg-primary-900/30 touch-manipulation min-h-[44px] sm:min-h-0"
+                className="px-4 py-3 sm:px-3 sm:py-1.5 text-xs sm:text-sm rounded-lg bg-white text-blue-700 border border-blue-300 hover:bg-blue-50 disabled:opacity-60 disabled:cursor-not-allowed dark:bg-gray-800 dark:text-blue-300 dark:border-blue-700 dark:hover:bg-blue-900/30 touch-manipulation min-h-[44px] sm:min-h-0"
               >
                 {isSavingContact ? 'Saving…' : 'Save Contact & Recalculate Route'}
               </button>
@@ -354,7 +354,7 @@ export default function CustomerModal({
           <button
             onClick={() => void handleSubmit()}
             disabled={!status || !driverSignature || !customerSignature || isSubmitting}
-            className="w-full py-3.5 sm:py-3 min-h-[48px] bg-gradient-to-r from-primary-600 to-primary-700 text-white font-bold rounded-lg hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all touch-manipulation text-base sm:text-base"
+            className="w-full py-3.5 sm:py-3 min-h-[48px] bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold rounded-lg hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all touch-manipulation text-base sm:text-base"
           >
             {isSubmitting ? '⏳ Updating...' : '✓ Complete Delivery'}
           </button>

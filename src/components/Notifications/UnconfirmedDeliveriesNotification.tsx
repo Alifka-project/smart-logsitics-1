@@ -72,7 +72,7 @@ export default function UnconfirmedDeliveriesNotification() {
 
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+          <div className="pp-dash-card shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-hidden flex flex-col">
             <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center gap-2">
                 <AlertCircle className="w-6 h-6 text-yellow-600" />
@@ -139,7 +139,7 @@ export default function UnconfirmedDeliveriesNotification() {
                         <button
                           onClick={() => void handleResendSms(delivery.id)}
                           disabled={resendingId === delivery.id}
-                          className="flex items-center gap-2 px-4 py-2 bg-primary-800 text-white rounded-lg hover:bg-primary-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+                          className="flex items-center gap-2 px-4 py-2 bg-blue-800 text-white rounded-lg hover:bg-blue-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
                         >
                           {resendingId === delivery.id ? (
                             <>

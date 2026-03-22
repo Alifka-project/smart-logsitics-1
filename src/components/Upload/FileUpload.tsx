@@ -458,12 +458,12 @@ const FileUpload = forwardRef<FileUploadHandle, FileUploadProps>(function FileUp
           className={`border-3 border-dashed rounded-lg p-6 sm:p-8 lg:p-12 text-center transition-colors ${
             isLoading
               ? 'border-gray-300 bg-gray-50 cursor-not-allowed'
-              : 'border-primary-300 hover:border-primary-500 hover:bg-primary-50 cursor-pointer'
+              : 'border-blue-300 hover:border-blue-500 hover:bg-blue-50 cursor-pointer'
           }`}
         >
           <Upload
             className={`w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 ${
-              isLoading ? 'text-gray-400 animate-pulse' : 'text-primary-500'
+              isLoading ? 'text-gray-400 animate-pulse' : 'text-blue-500'
             }`}
           />
           <h3 className="text-base sm:text-lg font-semibold text-gray-700 mb-2">

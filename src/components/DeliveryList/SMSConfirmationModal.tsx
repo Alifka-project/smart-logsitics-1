@@ -149,7 +149,7 @@ export default function SMSConfirmationModal({
                 <button
                   onClick={() => void handleSendSMS()}
                   disabled={loading}
-                  className="flex-1 px-4 py-2 bg-primary-800 hover:bg-primary-900 disabled:bg-gray-400 text-white rounded-lg transition-colors font-semibold flex items-center justify-center gap-2"
+                  className="flex-1 px-4 py-2 bg-blue-800 hover:bg-blue-900 disabled:bg-gray-400 text-white rounded-lg transition-colors font-semibold flex items-center justify-center gap-2"
                 >
                   {loading ? (
                     <>
@@ -224,7 +224,7 @@ export default function SMSConfirmationModal({
 
               <button
                 onClick={onClose}
-                className="w-full px-4 py-2 bg-primary-800 hover:bg-primary-900 text-white rounded-lg transition-colors font-semibold"
+                className="w-full px-4 py-2 bg-blue-800 hover:bg-blue-900 text-white rounded-lg transition-colors font-semibold"
               >
                 Done
               </button>
@@ -278,7 +278,7 @@ export default function SMSConfirmationModal({
                 </button>
                 <button
                   onClick={onClose}
-                  className="flex-1 px-4 py-2 bg-primary-800 hover:bg-primary-900 text-white rounded-lg transition-colors font-semibold"
+                  className="flex-1 px-4 py-2 bg-blue-800 hover:bg-blue-900 text-white rounded-lg transition-colors font-semibold"
                 >
                   Close
                 </button>

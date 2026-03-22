@@ -32,17 +32,17 @@ const TOAST_STYLES: Record<string, { container: string; icon: React.ReactNode; t
     text: 'text-white',
   },
   info: {
-    container: 'bg-gradient-to-r from-primary-800 to-primary-900 border-primary-700',
+    container: 'bg-gradient-to-r from-blue-800 to-blue-900 border-blue-700',
     icon: <Bell className="w-6 h-6 text-white" />,
     text: 'text-white',
   },
   message: {
-    container: 'bg-gradient-to-r from-primary-700 to-primary-900 border-primary-600',
+    container: 'bg-gradient-to-r from-blue-700 to-blue-900 border-blue-600',
     icon: <MessageSquare className="w-6 h-6 text-white" />,
     text: 'text-white',
   },
   delivery: {
-    container: 'bg-gradient-to-r from-primary-600 to-primary-800 border-primary-500',
+    container: 'bg-gradient-to-r from-blue-600 to-blue-800 border-blue-500',
     icon: <Package className="w-6 h-6 text-white" />,
     text: 'text-white',
   },

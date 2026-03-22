@@ -32,7 +32,7 @@ export default function DirectionsPanel({ route }: DirectionsPanelProps) {
   return (
     <div className="bg-white rounded-lg shadow-lg p-6">
       <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-        <Navigation className="w-6 h-6 text-primary-600" />
+        <Navigation className="w-6 h-6 text-blue-600" />
         Turn-by-Turn Directions
       </h3>
 
@@ -40,9 +40,9 @@ export default function DirectionsPanel({ route }: DirectionsPanelProps) {
         {route.legs.map((leg, legIndex) => (
           <div
             key={legIndex}
-            className="border-l-4 border-primary-500 pl-4 py-2 bg-primary-50 rounded"
+            className="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded"
           >
-            <div className="font-semibold text-primary-800 mb-2">
+            <div className="font-semibold text-blue-800 mb-2">
               Leg {legIndex + 1}:{' '}
               {legIndex === 0 ? 'From Warehouse' : `Stop ${legIndex}`} → Stop {legIndex + 1}
             </div>

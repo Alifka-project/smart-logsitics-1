@@ -49,13 +49,13 @@ export default function Navigation() {
                   flex items-center gap-2.5 px-4 py-2.5 font-medium transition-all duration-300 ease-out text-xs sm:text-sm whitespace-nowrap relative group rounded-lg overflow-hidden
                   ${
                     isActive
-                      ? 'text-primary-600 dark:text-primary-400 bg-white dark:bg-gray-800 shadow-[0_1px_2px_rgba(0,0,0,0.05)]'
-                      : 'text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:scale-[1.02] hover:shadow-sm'
+                      ? 'text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800 shadow-[0_1px_2px_rgba(0,0,0,0.05)]'
+                      : 'text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:scale-[1.02] hover:shadow-sm'
                   }
                 `}
               >
                 <div
-                  className={`absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-primary-600 via-primary-400 to-primary-600 dark:from-primary-400 dark:via-primary-300 dark:to-primary-400 rounded-t-full transition-all duration-300 ${
+                  className={`absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-blue-600 via-blue-400 to-blue-600 dark:from-blue-400 dark:via-blue-300 dark:to-blue-400 rounded-t-full transition-all duration-300 ${
                     isActive
                       ? 'w-full opacity-100'
                       : 'w-0 opacity-0 group-hover:w-full group-hover:opacity-50'
@@ -67,8 +67,8 @@ export default function Navigation() {
                 <Icon
                   className={`w-5 h-5 transition-all duration-300 flex-shrink-0 ${
                     isActive
-                      ? 'text-primary-600 dark:text-primary-400 scale-110'
-                      : 'text-gray-600 dark:text-gray-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 group-hover:scale-110 group-hover:rotate-12'
+                      ? 'text-blue-600 dark:text-blue-400 scale-110'
+                      : 'text-gray-600 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:scale-110 group-hover:rotate-12'
                   }`}
                 />
                 <span
@@ -81,7 +81,7 @@ export default function Navigation() {
                   {item.label}
                 </span>
                 {!isActive && (
-                  <div className="absolute inset-0 rounded-lg bg-primary-500/0 group-hover:bg-primary-500/5 dark:group-hover:bg-primary-400/5 transition-all duration-300 -z-10" />
+                  <div className="absolute inset-0 rounded-lg bg-blue-500/0 group-hover:bg-blue-500/5 dark:group-hover:bg-blue-400/5 transition-all duration-300 -z-10" />
                 )}
               </NavLink>
             );
