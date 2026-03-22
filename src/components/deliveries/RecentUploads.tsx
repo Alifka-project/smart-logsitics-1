@@ -13,7 +13,7 @@ export default function RecentUploads({ uploads }: RecentUploadsProps) {
 
   return (
     <>
-      <section className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-gray-800 p-4 sm:p-5 shadow-sm">
+      <section className="pp-dash-card p-4 sm:p-5">
         <div className="flex items-center justify-between gap-2 mb-4">
           <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Recent uploads</h3>
           <button
@@ -70,7 +70,7 @@ export default function RecentUploads({ uploads }: RecentUploadsProps) {
           aria-modal="true"
           aria-labelledby="upload-history-title"
         >
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full max-h-[70vh] overflow-hidden flex flex-col">
+          <div className="pp-dash-card shadow-2xl max-w-lg w-full max-h-[70vh] overflow-hidden flex flex-col">
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700">
               <h4 id="upload-history-title" className="font-semibold text-slate-900 dark:text-slate-100">
                 Upload history

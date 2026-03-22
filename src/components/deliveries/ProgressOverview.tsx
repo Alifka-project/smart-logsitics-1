@@ -19,7 +19,7 @@ export default function ProgressOverview({ pipeline, total }: ProgressOverviewPr
   const w = useMemo(() => getProgressWidths(pipeline, total), [pipeline, total]);
 
   return (
-    <section className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-gray-800 p-4 sm:p-5 shadow-sm">
+    <section className="pp-dash-card p-4 sm:p-5">
       <div className="mb-3">
         <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Order progress</h3>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">

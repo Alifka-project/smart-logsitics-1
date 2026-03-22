@@ -262,7 +262,7 @@ export default function DeliveryManagementPage() {
                 <Icon className="w-5 h-5" />
                 {tab.label}
                 {tab.id === 'deliveries' && deliveries.length > 0 && (
-                  <span className="ml-1 bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 text-xs font-semibold px-2 py-0.5 rounded-full">
+                  <span className="ml-1 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-semibold px-2 py-0.5 rounded-full">
                     {deliveries.length}
                   </span>
                 )}
@@ -282,6 +282,10 @@ export default function DeliveryManagementPage() {
             error('Already uploaded', 'This file was already uploaded. Duplicates are skipped.')
           }
           onToastError={(msg) => error(msg)}
+          onNotifySuccess={(title, message) => success(title, message ?? '')}
+          onReloadFromDatabase={() => void handleReloadFromDatabase()}
+          onExportDeliveries={handleExport}
+          isReloadingDatabase={isReloading}
         />
       )}
 
@@ -289,12 +293,12 @@ export default function DeliveryManagementPage() {
       {activeTab === 'deliveries' && (
         <>
           {deliveries.length === 0 ? (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 text-center transition-colors">
+            <div className="pp-dash-card p-8 text-center transition-colors">
               <Database className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
               <p className="text-gray-600 dark:text-gray-400 text-lg mb-4">No deliveries loaded</p>
               <button
                 onClick={() => setActiveTab('manage')}
-                className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 Upload Delivery Data
               </button>
@@ -312,7 +316,7 @@ export default function DeliveryManagementPage() {
                 {isLoadingRoute && !route ? (
                   <div className="h-full flex items-center justify-center bg-white dark:bg-gray-800">
                     <div className="text-center">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4" />
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
                       <p className="text-gray-600 dark:text-gray-400 text-sm">
                         Calculating route for {displayDeliveries.length} stops…
                       </p>
@@ -330,7 +334,7 @@ export default function DeliveryManagementPage() {
                 {/* Updating route overlay (while map is already visible) */}
                 {isLoadingRoute && route && (
                   <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-white dark:bg-gray-800 rounded-full px-4 py-2 shadow-lg flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 z-[1000] border border-gray-200 dark:border-gray-600">
-                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary-600" />
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600" />
                     Updating route…
                   </div>
                 )}
@@ -364,7 +368,7 @@ export default function DeliveryManagementPage() {
                     <span className="text-sm text-blue-700 dark:text-blue-300">Calculating optimized route…</span>
                   </div>
                 ) : route ? (
-                  <div className="flex-shrink-0 bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-xl p-3 shadow-sm">
+                  <div className="flex-shrink-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl p-3 shadow-sm">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <MapPin className="w-3.5 h-3.5" />

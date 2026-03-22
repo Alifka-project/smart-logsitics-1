@@ -98,7 +98,7 @@ export default function PipelineStatus({
   totalDeliveries,
 }: PipelineStatusProps) {
   return (
-    <section className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-gray-800 p-4 sm:p-5 shadow-sm">
+    <section className="pp-dash-card p-4 sm:p-5">
       <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100 mb-4">
         Pipeline detail
       </h3>
