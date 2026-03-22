@@ -2687,10 +2687,6 @@ export default function AdminDashboardPage(): React.ReactElement {
                   </ResponsiveContainer>
                 )}
               </div>
-
-              <button type="button" onClick={() => navigate('/admin/users')} className="w-full text-sm text-primary-600 dark:text-primary-400 hover:underline text-center py-2">
-                Manage drivers →
-              </button>
             </div>
           </div>
         </div>
