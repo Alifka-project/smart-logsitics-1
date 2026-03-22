@@ -19,6 +19,7 @@ import {
   Package
 } from 'lucide-react';
 import DeliveryMap from '../components/MapView/DeliveryMap';
+import { calculateRoute, generateFallbackRoute } from '../services/advancedRoutingService';
 
 /* ──── Interfaces ──── */
 
@@ -156,6 +157,8 @@ export default function AdminOperationsPage(): React.ReactElement {
   ]);
 
   const [unreadByDriverId, setUnreadByDriverId] = useState<Record<string, number>>({});
+  const [roadRoute, setRoadRoute] = useState<{ coordinates: [number, number][] } | null>(null);
+  const [routeLoading, setRouteLoading] = useState<boolean>(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagePollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -391,6 +394,50 @@ export default function AdminOperationsPage(): React.ReactElement {
     }
   }, [messages]);
 
+  /* Road-following route for map (OSRM) */
+  useEffect(() => {
+    const pts = deliveries
+      .map((d) => {
+        const lat = d.lat ?? d.Lat ?? d.tracking?.lastLocation?.lat;
+        const lng = d.lng ?? d.Lng ?? d.tracking?.lastLocation?.lng;
+        return lat != null && lng != null ? [Number(lat), Number(lng)] as [number, number] : null;
+      })
+      .filter(
+        (p): p is [number, number] =>
+          p != null &&
+          Number.isFinite(p[0]) &&
+          Number.isFinite(p[1]) &&
+          p[0] >= -90 &&
+          p[0] <= 90 &&
+          p[1] >= -180 &&
+          p[1] <= 180,
+      );
+
+    if (pts.length === 0) {
+      setRoadRoute(null);
+      return;
+    }
+
+    const locations = [{ lat: 25.0053, lng: 55.0760 }, ...pts.map(([lat, lng]) => ({ lat, lng }))];
+    if (locations.length < 2) {
+      setRoadRoute(null);
+      return;
+    }
+
+    setRouteLoading(true);
+    calculateRoute(locations, deliveries as unknown as import('../types').Delivery[], false)
+      .then((result) => setRoadRoute({ coordinates: result.coordinates }))
+      .catch(() => {
+        try {
+          const fallback = generateFallbackRoute(locations);
+          setRoadRoute({ coordinates: fallback.coordinates });
+        } catch {
+          setRoadRoute({ coordinates: [[25.0053, 55.0760], ...pts] });
+        }
+      })
+      .finally(() => setRouteLoading(false));
+  }, [deliveries]);
+
   const loadMessages = async (driverId: string, silent = false): Promise<void> => {
     if (!driverId) return;
     if (!silent) setLoadingMessages(true);
@@ -508,7 +555,8 @@ export default function AdminOperationsPage(): React.ReactElement {
   const validRoutePoints = deliveriesWithEta
     .map(d => [Number((d as unknown as { lat?: number }).lat), Number((d as unknown as { lng?: number }).lng)] as [number, number])
     .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180);
-  const unifiedRoute = validRoutePoints.length > 0 ? { coordinates: [[25.0053, 55.0760], ...validRoutePoints] } : null;
+  const fallbackRoute = validRoutePoints.length > 0 ? { coordinates: [[25.0053, 55.0760], ...validRoutePoints] } : null;
+  const mapRoute = roadRoute ?? fallbackRoute;
 
   const driverLocations = drivers
     .map(driver => ({
@@ -588,15 +636,16 @@ export default function AdminOperationsPage(): React.ReactElement {
       {/* ══════════ MONITORING ══════════ */}
       {activeTab === 'monitoring' && (
         <div className="space-y-6">
-          <div className="pp-kpi-grid">
+          <div className="pp-kpi-grid pp-kpi-grid--six">
             {([
               { label: 'Active Deliveries',    value: activeDeliveries.length,                             icon: Truck,        bg: 'bg-blue-50 dark:bg-blue-900/20',     ic: 'text-blue-600 dark:text-blue-400',     val: 'text-blue-700 dark:text-blue-300'    },
-              { label: 'Online Drivers',        value: onlineDrivers.length,                               icon: Users,        bg: 'bg-green-50 dark:bg-green-900/20',   ic: 'text-green-600 dark:text-green-400',   val: 'text-green-700 dark:text-green-300'  },
-              { label: 'Drivers w/ Location',   value: drivers.filter(d => d.tracking?.location).length,  icon: MapPin,       bg: 'bg-purple-50 dark:bg-purple-900/20', ic: 'text-purple-600 dark:text-purple-400', val: 'text-purple-700 dark:text-purple-300'},
-              { label: 'Active Alerts',         value: alerts.length,                                      icon: AlertCircle,  bg: 'bg-red-50 dark:bg-red-900/20',       ic: 'text-red-600 dark:text-red-400',       val: 'text-red-700 dark:text-red-300'      },
-              { label: 'Total Drivers',         value: drivers.length,                                     icon: Activity,     bg: 'bg-indigo-50 dark:bg-indigo-900/20', ic: 'text-indigo-600 dark:text-indigo-400', val: 'text-indigo-700 dark:text-indigo-300'},
+              { label: 'Online Drivers',       value: onlineDrivers.length,                                icon: Users,        bg: 'bg-green-50 dark:bg-green-900/20',   ic: 'text-green-600 dark:text-green-400',   val: 'text-green-700 dark:text-green-300'  },
+              { label: 'Drivers w/ Location',  value: drivers.filter(d => d.tracking?.location).length,  icon: MapPin,       bg: 'bg-purple-50 dark:bg-purple-900/20', ic: 'text-purple-600 dark:text-purple-400', val: 'text-purple-700 dark:text-purple-300'},
+              { label: 'Active Alerts',        value: alerts.length,                                       icon: AlertCircle,  bg: 'bg-red-50 dark:bg-red-900/20',       ic: 'text-red-600 dark:text-red-400',       val: 'text-red-700 dark:text-red-300'      },
+              { label: 'Total Drivers',        value: drivers.length,                                      icon: Activity,     bg: 'bg-indigo-50 dark:bg-indigo-900/20', ic: 'text-indigo-600 dark:text-indigo-400', val: 'text-indigo-700 dark:text-indigo-300'},
+              { label: 'Assigned Deliveries',  value: assignedDeliveries.length,                           icon: Package,      bg: 'bg-amber-50 dark:bg-amber-900/20',   ic: 'text-amber-600 dark:text-amber-400',   val: 'text-amber-700 dark:text-amber-300'  },
             ] as { label: string; value: number; icon: React.ElementType; bg: string; ic: string; val: string }[]).map(({ label, value, icon: Icon, bg, ic, val }) => (
-              <div key={label} className="pp-dash-card p-4 w-full min-w-0 max-w-[280px]">
+              <div key={label} className="pp-dash-card p-4 w-full min-w-0">
                 <div className="flex items-start gap-3">
                   <div className={`p-2.5 rounded-full shrink-0 ${bg}`}><Icon className={`w-4 h-4 ${ic}`} /></div>
                   <div className="min-w-0 flex-1">
@@ -610,15 +659,20 @@ export default function AdminOperationsPage(): React.ReactElement {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 pp-dash-card overflow-hidden transition-colors">
-              <div className="p-4 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
+              <div className="p-4 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600 flex items-center justify-between gap-2">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Live Operations Map (Tracking + Deliveries + Route)</h2>
+                {routeLoading && (
+                  <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">Calculating road route…</span>
+                )}
               </div>
-              <DeliveryMap
-                deliveries={deliveriesWithEta as unknown as import('../types').Delivery[]}
-                route={unifiedRoute as unknown as import('../types').RouteResult}
-                driverLocations={driverLocations}
-                mapClassName="h-[320px] sm:h-[420px] lg:h-[560px]"
-              />
+              <div className="relative">
+                <DeliveryMap
+                  deliveries={deliveriesWithEta as unknown as import('../types').Delivery[]}
+                  route={mapRoute as unknown as import('../types').RouteResult}
+                  driverLocations={driverLocations}
+                  mapClassName="h-[320px] sm:h-[420px] lg:h-[560px]"
+                />
+              </div>
             </div>
 
             <div className="pp-dash-card p-5 transition-colors">

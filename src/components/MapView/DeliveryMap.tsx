@@ -164,25 +164,23 @@ export default function DeliveryMap({
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
         const driverName = driver.name || driver.username || 'Driver';
+        const truckSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#ffffff" width="20" height="20"><path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>';
         const marker = L.marker([lat, lng], {
           icon: L.divIcon({
-            className: 'driver-live-marker',
+            className: 'driver-truck-marker',
             html: `<div style="
-              width: 30px;
-              height: 30px;
-              background: #10b981;
+              width: 42px;
+              height: 42px;
+              background: linear-gradient(135deg, #10b981 0%, #059669 100%);
               border: 3px solid white;
-              border-radius: 9999px;
-              box-shadow: 0 2px 6px rgba(0,0,0,0.25);
-              display:flex;
-              align-items:center;
-              justify-content:center;
-              color:white;
-              font-size:12px;
-              font-weight:700;
-            ">${driverName.charAt(0).toUpperCase()}</div>`,
-            iconSize: [30, 30],
-            iconAnchor: [15, 15],
+              border-radius: 10px;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            " title="${driverName}">${truckSvg}</div>`,
+            iconSize: [42, 42],
+            iconAnchor: [21, 21],
           }),
           title: driverName,
         })
