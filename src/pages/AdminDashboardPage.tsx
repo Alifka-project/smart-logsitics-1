@@ -4,7 +4,7 @@ import { BarChart, Bar, ComposedChart, XAxis, YAxis, ZAxis, Tooltip, Legend, Res
 import { 
   Package, CheckCircle, XCircle, Clock, MapPin, Users, Activity, 
   Truck, AlertCircle, FileText, Target, TrendingUp, HelpCircle,
-  ChevronUp, ChevronDown, ChevronRight, RefreshCw, Download
+  ChevronUp, ChevronDown, ChevronRight, RefreshCw, Download, ExternalLink
 } from 'lucide-react';
 import RiskBadge, { riskFromSuccessRate } from '../components/Analytics/RiskBadge';
 import MetricTooltip from '../components/Analytics/MetricTooltip';
@@ -15,12 +15,17 @@ import { MapContainer, TileLayer, CircleMarker, Tooltip as MapTooltip, Popup } f
 import 'leaflet/dist/leaflet.css';
 import type { Driver } from '../types';
 
+/**
+ * Visual language follows PolicyPilot-style dashboards (airy cards, pill controls, blue accent).
+ * @see https://dribbble.com/shots/26062430-PolicyPilot-Auto-Insurance-Dashboard-Design
+ */
+
 /** Recharts default tooltip — theme via --chart-* in index.css (:root / .dark) */
 const RECHARTS_TOOLTIP = {
   contentStyle: {
     backgroundColor: 'var(--chart-tooltip-bg)',
     border: '1px solid var(--chart-tooltip-border)',
-    borderRadius: '8px',
+    borderRadius: '12px',
     fontSize: '11px',
     color: 'var(--chart-tooltip-fg)',
   },
@@ -204,12 +209,17 @@ interface TrendChartCardProps {
 
 function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey, xKey, chartType, barColor = '#2563EB', nameKey = 'name', targetValue }: TrendChartCardProps): React.ReactElement {
   const FilterBtns = () => (
-    <div className="flex rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden text-xs font-medium">
+    <div className="inline-flex p-1 rounded-xl bg-gray-100/90 dark:bg-slate-700/45 gap-0.5 text-xs font-medium">
       {(['day', 'month', 'year'] as const).map(p => (
         <button
           key={p}
+          type="button"
           onClick={() => onPeriodChange(p)}
-          className={`px-2 py-1.5 transition-colors capitalize ${period === p ? 'bg-primary-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+          className={`px-3 py-1.5 rounded-lg capitalize transition-all ${
+            period === p
+              ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm font-semibold'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-white/70 dark:hover:bg-slate-600/40'
+          }`}
         >
           {p === 'day' ? 'Daily' : p === 'month' ? 'Monthly' : 'Yearly'}
         </button>
@@ -472,11 +482,16 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-4">
-      <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{title}</h2>
-          <p className="pp-page-subtitle text-xs truncate">{subtitle}</p>
+    <div className="pp-dash-card p-5">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0 flex items-start gap-2">
+          <span className="mt-0.5 text-gray-300 dark:text-slate-600 hidden sm:inline" aria-hidden>
+            <ExternalLink className="w-3.5 h-3.5" />
+          </span>
+          <div>
+            <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 tracking-tight truncate">{title}</h2>
+            <p className="pp-page-subtitle text-xs truncate mt-0.5">{subtitle}</p>
+          </div>
         </div>
         <FilterBtns />
       </div>
@@ -491,9 +506,16 @@ function PeakHeatmapCard({ data, title, subtitle }: { data: number[][]; title: s
   const getOpacity = (v: number) => (maxVal > 0 ? 0.25 + 0.75 * (v / maxVal) : 0);
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-4">
-      <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{title}</h2>
-      <p className="pp-page-subtitle text-xs truncate mb-3">{subtitle}</p>
+    <div className="pp-dash-card p-5">
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div>
+          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 tracking-tight truncate">{title}</h2>
+          <p className="pp-page-subtitle text-xs truncate mt-0.5">{subtitle}</p>
+        </div>
+        <span className="text-gray-300 dark:text-slate-600 shrink-0" aria-hidden>
+          <ExternalLink className="w-3.5 h-3.5" />
+        </span>
+      </div>
       <div className="overflow-x-auto -mx-1">
         <table className="w-full border-collapse text-[10px]">
           <thead>
@@ -1283,7 +1305,7 @@ export default function AdminDashboardPage(): React.ReactElement {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600 mx-auto mb-3"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-3"></div>
           <p className="text-gray-500 dark:text-gray-400 text-sm">Loading dashboard...</p>
         </div>
       </div>
@@ -1349,7 +1371,7 @@ export default function AdminDashboardPage(): React.ReactElement {
       <span className={`inline-flex items-center gap-1 ${align === 'right' ? 'justify-end w-full' : ''}`}>
         {label}
         {current === sortKey
-          ? (dir === 'asc' ? <ChevronUp className="w-3 h-3 text-primary-500" /> : <ChevronDown className="w-3 h-3 text-primary-500" />)
+          ? (dir === 'asc' ? <ChevronUp className="w-3 h-3 text-blue-500" /> : <ChevronDown className="w-3 h-3 text-blue-500" />)
           : <span className="w-3 h-3 text-gray-300 dark:text-gray-600">↕</span>}
       </span>
     </th>
@@ -1368,7 +1390,7 @@ export default function AdminDashboardPage(): React.ReactElement {
   // ─── RENDER ───
 
     return (
-    <div className="space-y-6 w-full min-w-0">
+    <div className="admin-dashboard-pp space-y-6 w-full min-w-0">
 
       {/* ── Page Header ── */}
       <div className="pp-page-header flex flex-wrap items-center justify-between gap-3">
@@ -1380,26 +1402,27 @@ export default function AdminDashboardPage(): React.ReactElement {
           </div>
           <button
           onClick={() => { setLoading(true); void loadDashboardData(); }}
-          className="flex items-center gap-2 px-4 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"
+          className="flex items-center gap-2 px-4 py-2.5 text-sm border border-gray-200/90 dark:border-white/10 rounded-2xl bg-white dark:bg-slate-800/90 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors shadow-sm"
         >
           <RefreshCw className="w-4 h-4" /> Refresh
           </button>
         </div>
 
-      {/* ── Tab Navigation ── */}
-      <div className="border-b border-gray-200 dark:border-gray-700">
-        <nav className="flex overflow-x-auto">
+      {/* ── Tab Navigation (PolicyPilot pill rail) ── */}
+      <div className="rounded-2xl bg-gray-100/80 dark:bg-white/[0.06] p-1.5 border border-gray-200/60 dark:border-white/[0.07]">
+        <nav className="flex flex-wrap gap-1 overflow-x-auto">
           {tabs.map(({ id, label, icon: Icon }) => (
               <button
               key={id}
+              type="button"
               onClick={() => { setActiveTab(id); setDeliveryPage(0); }}
-              className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap rounded-xl transition-all ${
                 activeTab === id
-                  ? 'border-blue-500 text-blue-500 dark:border-blue-400 dark:text-blue-400'
-                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                  ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-white/60 dark:hover:bg-slate-700/50'
               }`}
               >
-              <Icon className="w-4 h-4" />{label}
+              <Icon className="w-4 h-4 shrink-0" />{label}
               </button>
           ))}
         </nav>
@@ -1417,9 +1440,11 @@ export default function AdminDashboardPage(): React.ReactElement {
               const Icon = card.icon;
               const c = KPI_COLOR_MAP[card.color];
               return (
-                <div key={card.id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-4">
-                  <div className="flex items-center justify-between mb-2 gap-2">
-                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide leading-tight flex items-center gap-1 min-w-0">
+                <div key={card.id} className="pp-dash-card p-5">
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <div className={`p-2.5 rounded-full shrink-0 ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
+                      <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide leading-snug flex items-center gap-1 min-w-0 pt-0.5">
                       {card.label}
                       {card.id === 'rate' && (
                         <span
@@ -1430,9 +1455,12 @@ export default function AdminDashboardPage(): React.ReactElement {
                         </span>
                       )}
                     </span>
-                    <div className={`p-1.5 rounded-md shrink-0 ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
+                    </div>
+                    <span className="text-gray-300 dark:text-slate-600 shrink-0 pt-0.5" aria-hidden title="">
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </span>
                   </div>
-                  <div className={`text-2xl font-bold ${c.val}`}>{card.value}</div>
+                  <div className={`text-3xl font-bold tracking-tight ${c.val}`}>{card.value}</div>
                   {card.delta ? (
                     <div className={`text-xs mt-1 flex items-center gap-0.5 ${card.delta.up ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
                       {card.delta.up ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
@@ -1449,16 +1477,21 @@ export default function AdminDashboardPage(): React.ReactElement {
             {/* Left column — ~2/3 */}
             <div className="xl:col-span-2 space-y-4">
               {/* Hero Chart */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-6">
+              <div className="pp-dash-card p-6">
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-                  <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Delivery Trend</h2>
-                  <div className="flex rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden text-xs font-medium shrink-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-gray-300 dark:text-slate-600 shrink-0 hidden sm:inline" aria-hidden>
+                      <ExternalLink className="w-4 h-4" />
+                    </span>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 tracking-tight">Delivery Trend</h2>
+                  </div>
+                  <div className="inline-flex p-1 rounded-xl bg-gray-100/90 dark:bg-slate-700/45 gap-0.5 text-xs font-medium shrink-0">
                     {([['7d', 'Last 7 days'], ['30d', 'Last 30 days'], ['90d', 'Last 90 days']] as [string, string][]).map(([p, label]) => (
                       <button
                         key={p}
                         type="button"
                         onClick={() => setHeroPeriod(p)}
-                        className={`px-3 py-1.5 transition-colors ${heroPeriod === p ? 'bg-primary-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                        className={`px-3 py-1.5 rounded-lg transition-all whitespace-nowrap ${heroPeriod === p ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm font-semibold' : 'text-gray-600 dark:text-gray-400 hover:bg-white/70 dark:hover:bg-slate-600/40'}`}
                       >
                         {label}
                       </button>
@@ -1485,7 +1518,7 @@ export default function AdminDashboardPage(): React.ReactElement {
               </div>
 
               {/* Delivery Status Breakdown */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-5">
+              <div className="pp-dash-card p-5">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Delivery Status</h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 mb-4">
                   Share of all orders (same headline totals as the KPI strip). Percentages are of total orders.
@@ -1517,33 +1550,33 @@ export default function AdminDashboardPage(): React.ReactElement {
             {/* Right column — ~1/3 side widgets */}
             <div className="space-y-4">
               {/* Exception Queue — PolicyPilot style */}
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-100 dark:border-blue-800 shadow-sm p-5">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Needs Attention</h3>
+              <div className="pp-dash-soft-gradient p-5">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 tracking-tight">Needs Attention</h3>
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   <button onClick={() => { setActiveTab('deliveries'); setDeliveryAttentionFilter('overdue'); setDeliveryStatusFilter('pending'); setDeliveryPage(0); }}
-                    className="flex flex-col items-center justify-center p-3 rounded-lg bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 transition-colors text-left cursor-pointer">
+                    className="flex flex-col items-center justify-center p-3 rounded-xl bg-white/90 dark:bg-slate-900/50 hover:bg-white dark:hover:bg-slate-800/80 transition-colors text-left cursor-pointer shadow-sm border border-white/60 dark:border-white/10">
                     <span className="text-lg font-bold text-amber-600 dark:text-amber-400">{actionItems.overdue}</span>
                     <span className="text-xs text-gray-600 dark:text-gray-400">Overdue</span>
                   </button>
                   <button onClick={() => { setActiveTab('deliveries'); setDeliveryAttentionFilter('unassigned'); setDeliveryStatusFilter('pending'); setDeliveryPage(0); }}
-                    className="flex flex-col items-center justify-center p-3 rounded-lg bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 transition-colors text-left cursor-pointer">
+                    className="flex flex-col items-center justify-center p-3 rounded-xl bg-white/90 dark:bg-slate-900/50 hover:bg-white dark:hover:bg-slate-800/80 transition-colors text-left cursor-pointer shadow-sm border border-white/60 dark:border-white/10">
                     <span className="text-lg font-bold text-orange-600 dark:text-orange-400">{actionItems.unassigned}</span>
                     <span className="text-xs text-gray-600 dark:text-gray-400">Unassigned</span>
                   </button>
                   <button onClick={() => { setActiveTab('deliveries'); setDeliveryAttentionFilter('awaiting'); setDeliveryStatusFilter('pending'); setDeliveryPage(0); }}
-                    className="flex flex-col items-center justify-center p-3 rounded-lg bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 transition-colors text-left col-span-2 cursor-pointer">
+                    className="flex flex-col items-center justify-center p-3 rounded-xl bg-white/90 dark:bg-slate-900/50 hover:bg-white dark:hover:bg-slate-800/80 transition-colors text-left col-span-2 cursor-pointer shadow-sm border border-white/60 dark:border-white/10">
                     <span className="text-lg font-bold text-purple-600 dark:text-purple-400">{actionItems.unconfirmed}</span>
                     <span className="text-xs text-gray-600 dark:text-gray-400">Awaiting confirmation</span>
                   </button>
                 </div>
                 <button onClick={() => { setActiveTab('deliveries'); setDeliveryPage(0); }}
-                  className="w-full flex items-center justify-center gap-1 text-xs font-medium text-primary-600 dark:text-primary-400 hover:underline">
+                  className="w-full flex items-center justify-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline">
                   View in Deliveries <ChevronRight className="w-3 h-3" />
                 </button>
               </div>
 
               {/* Customer Response */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-5">
+              <div className="pp-dash-card p-5">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">Customer Response</h3>
                 <div className="space-y-3">
                   {[
@@ -1560,7 +1593,7 @@ export default function AdminDashboardPage(): React.ReactElement {
               </div>
 
               {/* Proof of Delivery */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-5">
+              <div className="pp-dash-card p-5">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">Proof of Delivery (POD)</h3>
                 {totals.delivered > 0 ? (
                   <>
@@ -1575,7 +1608,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                       <span>Coverage: {((totals.withPOD || 0) / totals.delivered * 100).toFixed(1)}%</span>
                       <span>Without POD: {totals.withoutPOD || 0}</span>
                     </div>
-                    <button onClick={() => navigate('/admin/reports/pod')} className="mt-4 w-full text-xs text-primary-600 dark:text-primary-400 hover:underline text-center">
+                    <button onClick={() => navigate('/admin/reports/pod')} className="mt-4 w-full text-xs text-blue-600 dark:text-blue-400 hover:underline text-center">
                       View full POD report →
                     </button>
                   </>
@@ -1600,8 +1633,8 @@ export default function AdminDashboardPage(): React.ReactElement {
             ].map(({ label, value, icon: Icon, color }) => {
               const c = KPI_COLOR_MAP[color];
               return (
-                <div key={label} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-3 flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
+                <div key={label} className="pp-dash-card p-3 flex items-center gap-3">
+                  <div className={`p-2.5 rounded-full ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
                   <div>
                     <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
                     <p className={`text-lg font-bold ${c.val}`}>{value}</p>
@@ -1726,8 +1759,8 @@ export default function AdminDashboardPage(): React.ReactElement {
             ].map(({ label, value, icon: Icon, color, tooltip }) => {
               const c = KPI_COLOR_MAP[color];
               return (
-                <div key={label} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-3 flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
+                <div key={label} className="pp-dash-card p-3 flex items-center gap-3">
+                  <div className={`p-2.5 rounded-full ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
                   <div className="min-w-0">
                     <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
                       {tooltip ? <MetricTooltip term={label} definition={tooltip} /> : label}
@@ -1746,7 +1779,7 @@ export default function AdminDashboardPage(): React.ReactElement {
               placeholder="Search customer name or area..."
               value={topCustomersSearch}
               onChange={e => setTopCustomersSearch(e.target.value)}
-              className="flex-1 min-w-0 sm:min-w-[140px] md:min-w-[200px] px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="flex-1 min-w-0 sm:min-w-[140px] md:min-w-[200px] px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <select value={topCustomersAreaFilter} onChange={e => setTopCustomersAreaFilter(e.target.value)}
               className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
@@ -1765,7 +1798,7 @@ export default function AdminDashboardPage(): React.ReactElement {
               {topCustomersSortDir === 'asc' ? '↑ Asc' : '↓ Desc'}
             </button>
             <button onClick={() => exportCSV(topCustomersDataWithMeta as unknown as Record<string, unknown>[], ['customer', 'orders', 'delivered', 'pending', 'cancelled', 'successRate', 'sharePct', 'pendingRate', 'riskFlag', 'primaryArea', 'totalQuantity'], 'top-customers')}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors">
+              className="flex items-center gap-1.5 px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold shadow-sm transition-colors">
               <Download className="w-3.5 h-3.5" /> Export
             </button>
           </div>
@@ -1775,7 +1808,7 @@ export default function AdminDashboardPage(): React.ReactElement {
             {/* Chart — left, with Pareto overlay */}
             <div className="xl:col-span-1 space-y-4">
               {topCustomersData.length > 0 ? (
-                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-6">
+                <div className="pp-dash-card p-6">
                   <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Top 10 Customers by Orders + Cumulative Share</h2>
                   <ResponsiveContainer width="100%" height={Math.max(220, Math.min(topCustomersData.length * 42, 400))}>
                     <ComposedChart
@@ -1800,13 +1833,13 @@ export default function AdminDashboardPage(): React.ReactElement {
                   </ResponsiveContainer>
                 </div>
               ) : (
-                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-6">
+                <div className="pp-dash-card p-6">
                   <p className="text-center py-8 text-gray-400 dark:text-gray-500 text-sm">No customer data available</p>
                 </div>
               )}
               {/* Side widget: Top customer spotlight */}
               {topCustomersData.length > 0 && topCustomersData[0] && (
-                <div className="mt-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-4">
+                <div className="mt-4 pp-dash-card p-4">
                   <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Top Customer</h3>
                   <p className="font-medium text-gray-900 dark:text-gray-100">{topCustomersData[0].customer}</p>
                   <p className="text-sm text-gray-500 dark:text-gray-400">{topCustomersData[0].orders ?? 0} orders · {topCustomersData[0].delivered ?? 0} delivered</p>
@@ -1816,7 +1849,7 @@ export default function AdminDashboardPage(): React.ReactElement {
 
               {/* Customer Performance Matrix */}
               {topCustomersData.length > 0 && (
-                <div className="mt-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-4">
+                <div className="mt-4 pp-dash-card p-4">
                   <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Customer Performance Matrix</h3>
                   <p className="text-[10px] text-gray-400 mb-2">Orders (x) vs Success % (y), bubble size = pending</p>
                   <ResponsiveContainer width="100%" height={180}>
@@ -1839,7 +1872,7 @@ export default function AdminDashboardPage(): React.ReactElement {
 
             {/* Table — right, spans 2 cols */}
             <div className="xl:col-span-2">
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+          <div className="pp-dash-card overflow-hidden">
             <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-700">
               <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Customer Detail — Top {topCustomersData.length}</h3>
             </div>
@@ -1917,8 +1950,8 @@ export default function AdminDashboardPage(): React.ReactElement {
             ].map(({ label, value, icon: Icon, color }) => {
               const c = KPI_COLOR_MAP[color];
               return (
-                <div key={label} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-3 flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
+                <div key={label} className="pp-dash-card p-3 flex items-center gap-3">
+                  <div className={`p-2.5 rounded-full ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
                   <div>
                     <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
                     <p className={`text-lg font-bold ${c.val}`}>{value}</p>
@@ -1931,7 +1964,7 @@ export default function AdminDashboardPage(): React.ReactElement {
           {/* Two-column: Table | Side widgets */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
             <div className="xl:col-span-2">
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+        <div className="pp-dash-card overflow-hidden">
           {/* Filter bar */}
           <div className="px-3 sm:px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex flex-wrap gap-2 items-center">
                   <input
@@ -1939,12 +1972,12 @@ export default function AdminDashboardPage(): React.ReactElement {
                     placeholder="Search PO number, customer, address..."
                     value={deliverySearch}
                     onChange={e => { setDeliverySearch(e.target.value); setDeliveryPage(0); }}
-              className="flex-1 min-w-0 sm:min-w-[140px] md:min-w-[200px] px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="flex-1 min-w-0 sm:min-w-[140px] md:min-w-[200px] px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                     <select
                       value={deliveryStatusFilter}
                       onChange={e => { setDeliveryStatusFilter(e.target.value); setDeliveryPage(0); }}
-              className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="all">All Statuses</option>
                       <option value="pending">Pending</option>
@@ -1980,7 +2013,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                 ['poNumber', 'customer', 'status', 'driver', 'address', 'date'],
                 'deliveries'
               )}
-              className="ml-auto flex-shrink-0 flex items-center gap-2 px-4 py-2 text-sm bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors shadow-sm"
+              className="ml-auto flex-shrink-0 flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-colors shadow-sm"
             >
               <Download className="w-4 h-4" /> Export CSV
             </button>
@@ -2012,7 +2045,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                       className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
                       onClick={() => { setSelectedDelivery(delivery); setIsModalOpen(true); }}
                     >
-                      <td className="px-4 py-3 text-sm font-mono text-primary-600 dark:text-primary-400">
+                      <td className="px-4 py-3 text-sm font-mono text-blue-600 dark:text-blue-400">
                         {delivery.poNumber || String(delivery.id || delivery.ID || '').slice(0, 8)}
                           </td>
                       <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{delivery.customer || 'N/A'}</td>
@@ -2045,7 +2078,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                               } catch (err) { console.error('Status update error:', err); }
                             }}
                             onClick={e => e.stopPropagation()}
-                            className="px-2 py-1 text-xs border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                            className="px-2 py-1 text-xs border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
                           >
                             <option value="pending">Pending</option>
                             <option value="scheduled">Scheduled</option>
@@ -2058,7 +2091,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                               </select>
                               <button
                             onClick={() => { setSelectedDelivery(delivery); setIsModalOpen(true); }}
-                            className="px-2 py-1 text-xs text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-primary-700 rounded hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
+                            className="px-2 py-1 text-xs text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-700 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                           >
                             View
                               </button>
@@ -2097,7 +2130,7 @@ export default function AdminDashboardPage(): React.ReactElement {
 
             {/* Side widgets */}
             <div className="space-y-4">
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-100 dark:border-blue-800 p-4">
+              <div className="pp-dash-soft-gradient p-4">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Needs Attention</h3>
                 <div className="space-y-2">
                   <button onClick={() => { setDeliveryAttentionFilter('overdue'); setDeliveryStatusFilter('pending'); setDeliveryPage(0); }} className="w-full flex justify-between items-center p-2 rounded-lg bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 text-left cursor-pointer">
@@ -2114,7 +2147,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                   </button>
                 </div>
               </div>
-              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 p-4">
+              <div className="pp-dash-card p-4">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">Quick Stats</h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Filtered: {filteredDeliveries.length} deliveries</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Cancelled: {filteredDeliveries.filter(d => (d.status||'').toLowerCase() === 'cancelled').length}</p>
@@ -2141,8 +2174,8 @@ export default function AdminDashboardPage(): React.ReactElement {
             ].map(({ label, value, icon: Icon, color, tooltip }) => {
               const c = KPI_COLOR_MAP[color];
               return (
-                <div key={label} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-3 flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
+                <div key={label} className="pp-dash-card p-3 flex items-center gap-3">
+                  <div className={`p-2.5 rounded-full ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
                   <div className="min-w-0">
                     <p className="text-xs text-gray-500 dark:text-gray-400 truncate flex items-center gap-1">
                       {tooltip ? <MetricTooltip term={label} definition={tooltip} /> : label}
@@ -2157,7 +2190,7 @@ export default function AdminDashboardPage(): React.ReactElement {
           {/* ~40% chart + matrix | ~60% map */}
           <div className="grid grid-cols-1 xl:grid-cols-5 gap-4 items-start">
             <div className="xl:col-span-2 flex flex-col gap-4 min-w-0">
-              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-6">
+              <div className="pp-dash-card p-6">
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                   <div>
                     <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Deliveries by Area</h2>
@@ -2187,7 +2220,7 @@ export default function AdminDashboardPage(): React.ReactElement {
               </div>
 
               {deliveryByAreaEnhanced.length > 0 && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-4">
+                <div className="pp-dash-card p-4">
                   <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">Area Performance Matrix</h3>
                   <p className="text-[10px] text-gray-400 mb-2">Deliveries (x) vs Success % (y), bubble size = pending</p>
                   <ResponsiveContainer width="100%" height={220}>
@@ -2221,7 +2254,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                 })
                 .filter(r => r.coords);
               return (
-                <div className="xl:col-span-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-6 min-h-0">
+                <div className="xl:col-span-3 pp-dash-card p-6 min-h-0">
                   <div className="mb-3">
                     <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Delivery Hotspot Map — Dubai</h2>
                     <p className="pp-page-subtitle">Circle size = delivery volume · Hover for share %, pending, success</p>
@@ -2273,7 +2306,7 @@ export default function AdminDashboardPage(): React.ReactElement {
 
           {/* Area table — full width, expanded */}
           {deliveryByAreaEnhanced.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+            <div className="pp-dash-card overflow-hidden">
               <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Area Detail</h3>
                 <button
@@ -2307,7 +2340,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                         <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">
                           <span className="flex items-center gap-2"><MapPin className="w-3.5 h-3.5 text-gray-400" />{row.area}</span>
                         </td>
-                        <td className="px-4 py-3 text-sm text-right font-bold text-primary-600 dark:text-primary-400">{row.count}</td>
+                        <td className="px-4 py-3 text-sm text-right font-bold text-blue-600 dark:text-blue-400">{row.count}</td>
                         <td className="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-400">{share}%</td>
                         <td className="px-4 py-3 text-sm text-right text-yellow-600 dark:text-yellow-400">{row.pending ?? 0}</td>
                         <td className="px-4 py-3 text-sm text-right">
@@ -2346,8 +2379,8 @@ export default function AdminDashboardPage(): React.ReactElement {
             ].map(({ label, value, icon: Icon, color, tooltip }) => {
               const c = KPI_COLOR_MAP[color];
               return (
-                <div key={label} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-3 flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
+                <div key={label} className="pp-dash-card p-3 flex items-center gap-3">
+                  <div className={`p-2.5 rounded-full ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
                   <div className="min-w-0 flex-1">
                     <p className="text-xs text-gray-500 dark:text-gray-400 truncate flex items-center gap-1">
                       {tooltip ? <MetricTooltip term={label} definition={tooltip} /> : label}
@@ -2366,7 +2399,7 @@ export default function AdminDashboardPage(): React.ReactElement {
               placeholder="Search item name, PNC, or model..."
               value={topItemsSearch}
               onChange={e => setTopItemsSearch(e.target.value)}
-              className="flex-1 min-w-0 sm:min-w-[140px] md:min-w-[200px] px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="flex-1 min-w-0 sm:min-w-[140px] md:min-w-[200px] px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <select value={chartTopN} onChange={e => setChartTopN(Number(e.target.value))}
               className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
@@ -2388,7 +2421,7 @@ export default function AdminDashboardPage(): React.ReactElement {
           <div className="grid grid-cols-1 xl:grid-cols-5 gap-4 items-start">
             <div className="xl:col-span-2 flex flex-col gap-4 min-w-0">
               {topItemsData.length > 0 ? (
-                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-6">
+                <div className="pp-dash-card p-6">
                   <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Top Items by Quantity + Cumulative Share</h2>
                   <ResponsiveContainer width="100%" height={Math.max(200, Math.min(topItemsData.length * 40, 400))}>
                     <ComposedChart
@@ -2412,13 +2445,13 @@ export default function AdminDashboardPage(): React.ReactElement {
                   </ResponsiveContainer>
                 </div>
               ) : (
-                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-6">
+                <div className="pp-dash-card p-6">
                   <p className="text-center py-8 text-gray-400 dark:text-gray-500 text-sm">No product data available</p>
                 </div>
               )}
 
               {topItemsData.length > 0 && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-4">
+                <div className="pp-dash-card p-4">
                   <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">Product Portfolio Matrix</h3>
                   <p className="text-[10px] text-gray-400 mb-2">Volume (x) vs Share % (y)</p>
                   <ResponsiveContainer width="100%" height={200}>
@@ -2441,7 +2474,7 @@ export default function AdminDashboardPage(): React.ReactElement {
               )}
             </div>
 
-            <div className="xl:col-span-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden min-w-0">
+            <div className="xl:col-span-3 pp-dash-card overflow-hidden min-w-0">
             <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Item Detail</h3>
               <button onClick={() => exportCSV(topItemsTableData as unknown as Record<string, unknown>[], ['item', 'pnc', 'modelId', 'count', 'sharePct'], 'top-items')}
@@ -2470,7 +2503,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                     <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{row.item}</td>
                     <td className="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">{row.pnc}</td>
                     <td className="px-4 py-3 text-sm font-mono text-gray-500 dark:text-gray-500">{row.modelId || '—'}</td>
-                    <td className="px-4 py-3 text-sm text-right font-bold text-primary-600 dark:text-primary-400">{row.count}</td>
+                    <td className="px-4 py-3 text-sm text-right font-bold text-blue-600 dark:text-blue-400">{row.count}</td>
                     <td className="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-400">{row.sharePct?.toFixed(1) ?? '—'}%</td>
                   </tr>
                 )) : (
@@ -2497,8 +2530,8 @@ export default function AdminDashboardPage(): React.ReactElement {
             ].map(({ label, value, icon: Icon, color }) => {
               const c = KPI_COLOR_MAP[color];
               return (
-                <div key={label} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-3 flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
+                <div key={label} className="pp-dash-card p-3 flex items-center gap-3">
+                  <div className={`p-2.5 rounded-full ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
                   <div>
                     <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
                     <p className={`text-lg font-bold ${c.val}`}>{value}</p>
@@ -2511,12 +2544,12 @@ export default function AdminDashboardPage(): React.ReactElement {
           {/* Two-column: Table | Performance widget */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
             <div className="xl:col-span-2">
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+          <div className="pp-dash-card overflow-hidden">
             {/* Filter bar */}
             <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex flex-wrap gap-2 items-center">
               <input type="text" placeholder="Search name or email..." value={driversSearch}
                 onChange={e => setDriversSearch(e.target.value)}
-                className="flex-1 min-w-0 sm:min-w-[140px] md:min-w-[180px] px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                className="flex-1 min-w-0 sm:min-w-[140px] md:min-w-[180px] px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
               <select value={driversStatusFilter} onChange={e => setDriversStatusFilter(e.target.value)}
                 className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                 <option value="all">All Drivers</option>
@@ -2534,7 +2567,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                 {driversSortDir === 'asc' ? '↑ Asc' : '↓ Desc'}
               </button>
               <button onClick={() => navigate('/admin/users')}
-                className="ml-auto text-sm text-primary-600 dark:text-primary-400 hover:underline">
+                className="ml-auto text-sm text-blue-600 dark:text-blue-400 hover:underline">
                 Manage drivers →
               </button>
                                 </div>
@@ -2561,7 +2594,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <div className="relative flex-shrink-0">
-                            <div className="w-9 h-9 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-sm font-semibold text-primary-700 dark:text-primary-300">
+                            <div className="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-sm font-semibold text-blue-700 dark:text-blue-300">
                               {displayName[0].toUpperCase()}
                             </div>
                             {isOnline && <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full" />}
@@ -2590,7 +2623,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                       <td className="px-4 py-3">
                             <button
                           onClick={() => navigate(`/admin/operations?tab=communication&userId=${driver.id}`)}
-                          className="text-xs text-primary-600 dark:text-primary-400 hover:underline"
+                          className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                             >
                           Message
                             </button>
@@ -2612,7 +2645,7 @@ export default function AdminDashboardPage(): React.ReactElement {
 
             {/* Performance analytics — charts from delivery data */}
             <div className="space-y-4">
-              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-4">
+              <div className="pp-dash-card p-4">
                 <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Workload</h4>
                 <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-2">Assigned deliveries by driver (top 8)</p>
                 {driverPanelAnalytics.workloadBars.length === 0 ? (
@@ -2637,7 +2670,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                 )}
               </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-4">
+              <div className="pp-dash-card p-4">
                 <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Outcomes</h4>
                 <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-2">Status mix for driver-assigned deliveries only</p>
                 {!driverPanelAnalytics.hasAssignments ? (

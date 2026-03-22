@@ -405,6 +405,53 @@
     box-shadow: 0 4px 20px rgba(1,30,65,0.35);
   }
 
+  /* ── PolicyPilot-style Admin Dashboard (ref: Dribbble PolicyPilot insurance UI) ──
+     Soft floating cards, ~20px radius, airy shadows, vibrant blue accents. */
+  .admin-dashboard-pp {
+    --dash-radius: 20px;
+    --dash-accent: #2563eb;
+    --dash-accent-hover: #1d4ed8;
+  }
+
+  .admin-dashboard-pp .pp-dash-card {
+    background-color: var(--surface);
+    border-radius: var(--dash-radius);
+    box-shadow:
+      0 4px 24px rgba(15, 23, 42, 0.06),
+      0 1px 3px rgba(15, 23, 42, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.045);
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+
+  .admin-dashboard-pp .pp-dash-card:hover {
+    box-shadow:
+      0 10px 36px rgba(15, 23, 42, 0.08),
+      0 2px 8px rgba(15, 23, 42, 0.05);
+  }
+
+  .dark .admin-dashboard-pp .pp-dash-card {
+    border-color: rgba(255, 255, 255, 0.07);
+    box-shadow: var(--shadow2);
+  }
+
+  .dark .admin-dashboard-pp .pp-dash-card:hover {
+    box-shadow: var(--shadow3);
+  }
+
+  /* Light blue “featured” strip — PolicyPilot soft gradient */
+  .admin-dashboard-pp .pp-dash-soft-gradient {
+    border-radius: var(--dash-radius);
+    background: linear-gradient(135deg, #eff6ff 0%, #eef2ff 100%);
+    border: 1px solid rgba(37, 99, 235, 0.12);
+    box-shadow: 0 4px 22px rgba(37, 99, 235, 0.07);
+  }
+
+  .dark .admin-dashboard-pp .pp-dash-soft-gradient {
+    background: linear-gradient(135deg, rgba(30, 58, 138, 0.4) 0%, rgba(49, 46, 129, 0.28) 100%);
+    border-color: rgba(59, 130, 246, 0.28);
+    box-shadow: var(--shadow2);
+  }
+
   /* ── Icon badge (rounded square with tinted bg) ── */
   .pp-icon-badge {
     display: inline-flex;
