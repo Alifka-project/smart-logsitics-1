@@ -205,9 +205,11 @@ interface TrendChartCardProps {
   barColor?: string;
   nameKey?: string;
   targetValue?: number;
+  /** When true, period pills are hidden (use global Trends filter instead). */
+  hidePeriodFilter?: boolean;
 }
 
-function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey, xKey, chartType, barColor = '#2563EB', nameKey = 'name', targetValue }: TrendChartCardProps): React.ReactElement {
+function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey, xKey, chartType, barColor = '#2563EB', nameKey = 'name', targetValue, hidePeriodFilter = false }: TrendChartCardProps): React.ReactElement {
   const FilterBtns = () => (
     <div className="inline-flex p-1 rounded-xl bg-gray-100/90 dark:bg-slate-700/45 gap-0.5 text-xs font-medium">
       {(['day', 'month', 'year'] as const).map(p => (
@@ -493,7 +495,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
             <p className="pp-page-subtitle text-xs truncate mt-0.5">{subtitle}</p>
           </div>
         </div>
-        <FilterBtns />
+        {!hidePeriodFilter && <FilterBtns />}
       </div>
       {hasData ? renderChart() : <p className="text-center py-10 text-gray-400 dark:text-gray-500 text-xs">No data available</p>}
     </div>
@@ -605,14 +607,7 @@ export default function AdminDashboardPage(): React.ReactElement {
   const [driversSortDir, setDriversSortDir] = useState<string>('asc');
 
   const [heroPeriod, setHeroPeriod] = useState<string>('30d');
-  const [trendPeriod1, setTrendPeriod1] = useState<'day' | 'month' | 'year'>('month');
-  const [trendPeriod2, setTrendPeriod2] = useState<'day' | 'month' | 'year'>('month');
-  const [trendPeriod3, setTrendPeriod3] = useState<'day' | 'month' | 'year'>('month');
-  const [trendPeriod4, setTrendPeriod4] = useState<'day' | 'month' | 'year'>('month');
-  const [trendPeriod5, setTrendPeriod5] = useState<'day' | 'month' | 'year'>('month');
-  const [trendPeriod6, setTrendPeriod6] = useState<'day' | 'month' | 'year'>('month');
-  const [trendPeriod7, setTrendPeriod7] = useState<'day' | 'month' | 'year'>('month');
-  const [trendPeriod8, setTrendPeriod8] = useState<'day' | 'month' | 'year'>('month');
+  const [trendsGlobalPeriod, setTrendsGlobalPeriod] = useState<'day' | 'month' | 'year'>('month');
 
   // ─── DATA FETCHING ───
 
@@ -833,17 +828,17 @@ export default function AdminDashboardPage(): React.ReactElement {
 
   const trend1DeliveryRequests = useMemo(() => {
     const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
-    const buckets = getTimeBuckets(trendPeriod1).map(b => ({ ...b, count: 0 }));
+    const buckets = getTimeBuckets(trendsGlobalPeriod).map(b => ({ ...b, count: 0 }));
     const bucketMap = Object.fromEntries(buckets.map((b, i) => [b.key, i]));
     list.forEach(d => {
       const t = d.created_at || d.createdAt || d.created;
       if (!t) return;
       const dt = new Date(t as string | number);
-      const key = trendPeriod1 === 'day' ? dt.toISOString().slice(0, 10) : trendPeriod1 === 'month' ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` : String(dt.getFullYear());
+      const key = trendsGlobalPeriod === 'day' ? dt.toISOString().slice(0, 10) : trendsGlobalPeriod === 'month' ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` : String(dt.getFullYear());
       const i = bucketMap[key];
       if (i !== undefined) buckets[i].count++;
     });
-    const windowSize = trendPeriod1 === 'day' ? 7 : trendPeriod1 === 'month' ? 4 : 3;
+    const windowSize = trendsGlobalPeriod === 'day' ? 7 : trendsGlobalPeriod === 'month' ? 4 : 3;
     return buckets.map((b, i) => {
       const start = Math.max(0, i - windowSize + 1);
       const slice = buckets.slice(start, i + 1);
@@ -851,20 +846,20 @@ export default function AdminDashboardPage(): React.ReactElement {
       const ma = slice.length > 0 ? parseFloat((sum / slice.length).toFixed(1)) : 0;
       return { label: (b as { day?: string }).day ?? b.label, ...b, ma };
     });
-  }, [deliveries, trendPeriod1, getTimeBuckets]);
+  }, [deliveries, trendsGlobalPeriod, getTimeBuckets]);
 
   const trend2Fulfillment = useMemo(() => {
     const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
     const isDelivered = (s: string) => ['delivered', 'delivered-with-installation', 'delivered-without-installation'].includes((s || '').toLowerCase());
     const isInTransit = (s: string) => ['out-for-delivery', 'in-progress', 'assigned', 'scheduled-confirmed'].includes((s || '').toLowerCase());
     const isCancelled = (s: string) => ['cancelled', 'rescheduled', 'rejected'].includes((s || '').toLowerCase());
-    const buckets = getTimeBuckets(trendPeriod2).map(b => ({ ...b, created: 0, delivered: 0, inTransit: 0, cancelled: 0 }));
+    const buckets = getTimeBuckets(trendsGlobalPeriod).map(b => ({ ...b, created: 0, delivered: 0, inTransit: 0, cancelled: 0 }));
     const bucketMap = Object.fromEntries(buckets.map((b, i) => [b.key, i]));
     list.forEach(d => {
       const t = d.created_at || d.createdAt || d.created;
       if (!t) return;
       const dt = new Date(t as string | number);
-      const key = trendPeriod2 === 'day' ? dt.toISOString().slice(0, 10) : trendPeriod2 === 'month' ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` : String(dt.getFullYear());
+      const key = trendsGlobalPeriod === 'day' ? dt.toISOString().slice(0, 10) : trendsGlobalPeriod === 'month' ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` : String(dt.getFullYear());
       const i = bucketMap[key];
       if (i === undefined) return;
       buckets[i].created++;
@@ -874,18 +869,18 @@ export default function AdminDashboardPage(): React.ReactElement {
       else if (isCancelled(s)) buckets[i].cancelled++;
     });
     return buckets.map(b => ({ label: (b as { day?: string }).day ?? b.label, ...b }));
-  }, [deliveries, trendPeriod2, getTimeBuckets]);
+  }, [deliveries, trendsGlobalPeriod, getTimeBuckets]);
 
   const trend3SuccessRate = useMemo(() => {
     const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
     const isDelivered = (s: string) => ['delivered', 'delivered-with-installation', 'delivered-without-installation'].includes((s || '').toLowerCase());
-    const buckets = getTimeBuckets(trendPeriod3).map(b => ({ ...b, total: 0, delivered: 0, rate: 0 }));
+    const buckets = getTimeBuckets(trendsGlobalPeriod).map(b => ({ ...b, total: 0, delivered: 0, rate: 0 }));
     const bucketMap = Object.fromEntries(buckets.map((b, i) => [b.key, i]));
     list.forEach(d => {
       const t = d.created_at || d.createdAt || d.created;
       if (!t) return;
       const dt = new Date(t as string | number);
-      const key = trendPeriod3 === 'day' ? dt.toISOString().slice(0, 10) : trendPeriod3 === 'month' ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` : String(dt.getFullYear());
+      const key = trendsGlobalPeriod === 'day' ? dt.toISOString().slice(0, 10) : trendsGlobalPeriod === 'month' ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` : String(dt.getFullYear());
       const i = bucketMap[key];
       if (i !== undefined) {
         buckets[i].total++;
@@ -897,12 +892,12 @@ export default function AdminDashboardPage(): React.ReactElement {
       ...b,
       rate: b.total > 0 ? parseFloat(((b.delivered / b.total) * 100).toFixed(1)) : 0
     }));
-  }, [deliveries, trendPeriod3, getTimeBuckets]);
+  }, [deliveries, trendsGlobalPeriod, getTimeBuckets]);
 
   const trend4LeadTime = useMemo(() => {
     const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
     const isDelivered = (s: string) => ['delivered', 'delivered-with-installation', 'delivered-without-installation'].includes((s || '').toLowerCase());
-    const buckets = getTimeBuckets(trendPeriod4).map(b => ({ ...b, leadTimes: [] as number[] }));
+    const buckets = getTimeBuckets(trendsGlobalPeriod).map(b => ({ ...b, leadTimes: [] as number[] }));
     const bucketMap = Object.fromEntries(buckets.map((b, i) => [b.key, i]));
     list.forEach(d => {
       if (!isDelivered(d.status || '')) return;
@@ -912,7 +907,7 @@ export default function AdminDashboardPage(): React.ReactElement {
       const createdDt = new Date(created as string | number);
       const deliveredDt = new Date(delivered as string | number);
       const hours = (deliveredDt.getTime() - createdDt.getTime()) / (1000 * 60 * 60);
-      const key = trendPeriod4 === 'day' ? deliveredDt.toISOString().slice(0, 10) : trendPeriod4 === 'month' ? `${deliveredDt.getFullYear()}-${String(deliveredDt.getMonth() + 1).padStart(2, '0')}` : String(deliveredDt.getFullYear());
+      const key = trendsGlobalPeriod === 'day' ? deliveredDt.toISOString().slice(0, 10) : trendsGlobalPeriod === 'month' ? `${deliveredDt.getFullYear()}-${String(deliveredDt.getMonth() + 1).padStart(2, '0')}` : String(deliveredDt.getFullYear());
       const i = bucketMap[key];
       if (i !== undefined) buckets[i].leadTimes.push(hours);
     });
@@ -923,34 +918,34 @@ export default function AdminDashboardPage(): React.ReactElement {
       const p90Hours = n > 0 ? parseFloat((sorted[Math.min(Math.floor(n * 0.9), n - 1)] ?? 0).toFixed(1)) : 0;
       return { label: (b as { day?: string }).day ?? b.label, ...b, medianHours, p90Hours };
     });
-  }, [deliveries, trendPeriod4, getTimeBuckets]);
+  }, [deliveries, trendsGlobalPeriod, getTimeBuckets]);
 
   const trend5Backlog = useMemo(() => {
     const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
     const isOpen = (s: string) => ['pending', 'scheduled', 'scheduled-confirmed', 'out-for-delivery', 'in-progress', 'assigned'].includes((s || '').toLowerCase());
-    const buckets = getTimeBuckets(trendPeriod5).map(b => ({ ...b, open: 0 }));
+    const buckets = getTimeBuckets(trendsGlobalPeriod).map(b => ({ ...b, open: 0 }));
     const bucketMap = Object.fromEntries(buckets.map((b, i) => [b.key, i]));
     list.forEach(d => {
       if (!isOpen(d.status || '')) return;
       const t = d.created_at || d.createdAt || d.created;
       if (!t) return;
       const dt = new Date(t as string | number);
-      const key = trendPeriod5 === 'day' ? dt.toISOString().slice(0, 10) : trendPeriod5 === 'month' ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` : String(dt.getFullYear());
+      const key = trendsGlobalPeriod === 'day' ? dt.toISOString().slice(0, 10) : trendsGlobalPeriod === 'month' ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` : String(dt.getFullYear());
       const i = bucketMap[key];
       if (i !== undefined) buckets[i].open++;
     });
     return buckets.map(b => ({ label: (b as { day?: string }).day ?? b.label, ...b }));
-  }, [deliveries, trendPeriod5, getTimeBuckets]);
+  }, [deliveries, trendsGlobalPeriod, getTimeBuckets]);
 
   const trend6StatusMix100 = useMemo(() => {
     const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
-    const buckets = getTimeBuckets(trendPeriod6).map(b => ({ ...b, delivered: 0, pending: 0, inTransit: 0, cancelled: 0 }));
+    const buckets = getTimeBuckets(trendsGlobalPeriod).map(b => ({ ...b, delivered: 0, pending: 0, inTransit: 0, cancelled: 0 }));
     const bucketMap = Object.fromEntries(buckets.map((b, i) => [b.key, i]));
     list.forEach(d => {
       const t = d.created_at || d.createdAt || d.created;
       if (!t) return;
       const dt = new Date(t as string | number);
-      const key = trendPeriod6 === 'day' ? dt.toISOString().slice(0, 10) : trendPeriod6 === 'month' ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` : String(dt.getFullYear());
+      const key = trendsGlobalPeriod === 'day' ? dt.toISOString().slice(0, 10) : trendsGlobalPeriod === 'month' ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` : String(dt.getFullYear());
       const i = bucketMap[key];
       if (i !== undefined) {
         const s = (d.status || '').toLowerCase();
@@ -972,7 +967,7 @@ export default function AdminDashboardPage(): React.ReactElement {
         cancelledPct: toPct(b.cancelled)
       };
     });
-  }, [deliveries, trendPeriod6, getTimeBuckets]);
+  }, [deliveries, trendsGlobalPeriod, getTimeBuckets]);
 
   const trend7Heatmap = useMemo(() => {
     const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
@@ -996,9 +991,9 @@ export default function AdminDashboardPage(): React.ReactElement {
     const now = new Date();
     const getKey = (t: string | number) => {
       const dt = new Date(t);
-      return trendPeriod5 === 'day' ? dt.toISOString().slice(0, 10) : trendPeriod5 === 'month' ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` : String(dt.getFullYear());
+      return trendsGlobalPeriod === 'day' ? dt.toISOString().slice(0, 10) : trendsGlobalPeriod === 'month' ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` : String(dt.getFullYear());
     };
-    const rangeStart = trendPeriod5 === 'day' ? new Date(now.getTime() - 7 * 86400000) : trendPeriod5 === 'month' ? new Date(now.getFullYear(), now.getMonth() - 12, 1) : new Date(now.getFullYear() - 5, 0, 1);
+    const rangeStart = trendsGlobalPeriod === 'day' ? new Date(now.getTime() - 7 * 86400000) : trendsGlobalPeriod === 'month' ? new Date(now.getFullYear(), now.getMonth() - 12, 1) : new Date(now.getFullYear() - 5, 0, 1);
     const inRange = (t: string | number) => new Date(t) >= rangeStart;
     const itemCount: Record<string, number> = {};
     list.forEach(d => {
@@ -1011,12 +1006,12 @@ export default function AdminDashboardPage(): React.ReactElement {
       itemCount[display] = (itemCount[display] || 0) + 1;
     });
     return Object.entries(itemCount).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([item, count]) => ({ item, count }));
-  }, [deliveries, trendPeriod5]);
+  }, [deliveries, trendsGlobalPeriod]);
 
   const trend6TopAreas = useMemo(() => {
     const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
     const now = new Date();
-    const rangeStart = trendPeriod6 === 'day' ? new Date(now.getTime() - 7 * 86400000) : trendPeriod6 === 'month' ? new Date(now.getFullYear(), now.getMonth() - 12, 1) : new Date(now.getFullYear() - 5, 0, 1);
+    const rangeStart = trendsGlobalPeriod === 'day' ? new Date(now.getTime() - 7 * 86400000) : trendsGlobalPeriod === 'month' ? new Date(now.getFullYear(), now.getMonth() - 12, 1) : new Date(now.getFullYear() - 5, 0, 1);
     const inRange = (t: string | number) => new Date(t) >= rangeStart;
     const areaCount: Record<string, number> = {};
     list.forEach(d => {
@@ -1032,11 +1027,11 @@ export default function AdminDashboardPage(): React.ReactElement {
       areaCount[area] = (areaCount[area] || 0) + 1;
     });
     return Object.entries(areaCount).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([area, count]) => ({ area, count }));
-  }, [deliveries, trendPeriod6, areaKeywords]);
+  }, [deliveries, trendsGlobalPeriod, areaKeywords]);
 
   const trend8AreasStacked = useMemo(() => {
     const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
-    const buckets = getTimeBuckets(trendPeriod7).map(b => ({ ...b } as Record<string, unknown>));
+    const buckets = getTimeBuckets(trendsGlobalPeriod).map(b => ({ ...b } as Record<string, unknown>));
     const bucketMap = Object.fromEntries(buckets.map((b, i) => [b.key as string, i]));
     const allAreas: Record<string, number> = {};
     list.forEach(d => {
@@ -1055,7 +1050,7 @@ export default function AdminDashboardPage(): React.ReactElement {
       const t = d.created_at || d.createdAt || d.created;
       if (!t) return;
       const dt = new Date(t as string | number);
-      const key = trendPeriod7 === 'day' ? dt.toISOString().slice(0, 10) : trendPeriod7 === 'month' ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` : String(dt.getFullYear());
+      const key = trendsGlobalPeriod === 'day' ? dt.toISOString().slice(0, 10) : trendsGlobalPeriod === 'month' ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` : String(dt.getFullYear());
       const i = bucketMap[key];
       if (i === undefined) return;
       const meta = (d.metadata || {}) as Record<string, unknown>;
@@ -1072,7 +1067,7 @@ export default function AdminDashboardPage(): React.ReactElement {
       xKey: (b as { day?: string }).day ?? (b as { label?: string }).label,
       ...b
     }));
-  }, [deliveries, trendPeriod7, getTimeBuckets, areaKeywords]);
+  }, [deliveries, trendsGlobalPeriod, getTimeBuckets, areaKeywords]);
 
   const filteredDeliveries = useMemo<TrackingDelivery[]>(() => {
     const list = (deliveries && Array.isArray(deliveries) ? deliveries : []).slice();
@@ -1626,37 +1621,42 @@ export default function AdminDashboardPage(): React.ReactElement {
       {/* ══════════════ TRENDS TAB ══════════════ */}
       {activeTab === 'trends' && (
         <div className="space-y-4">
-          {/* Compact strip — tab-specific */}
-          <div className="pp-kpi-grid">
-            {[
-              { label: 'Total Deliveries', value: totals.total, icon: Package, color: 'blue' },
-              { label: 'Delivered', value: totals.delivered, icon: CheckCircle, color: 'green' },
-              { label: 'Success Rate', value: totals.total > 0 ? `${((totals.delivered / totals.total) * 100).toFixed(1)}%` : '0%', icon: Target, color: 'emerald' },
-            ].map(({ label, value, icon: Icon, color }) => {
-              const c = KPI_COLOR_MAP[color];
-              return (
-                <div key={label} className="pp-dash-card p-3 sm:p-4 flex items-center gap-3 w-full min-w-0 max-w-[280px]">
-                  <div className={`p-2.5 rounded-full shrink-0 ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
-                  <div className="min-w-0">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
-                    <p className={`text-xl font-bold ${c.val}`}>{value}</p>
-                  </div>
-                </div>
-              );
-            })}
+          {/* Global period filter — applies to all trend charts below */}
+          <div className="pp-dash-card p-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Trend period</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Daily / Monthly / Yearly buckets apply to every chart in this tab.</p>
+            </div>
+            <div className="inline-flex p-1 rounded-xl bg-gray-100/90 dark:bg-slate-700/45 gap-0.5 text-xs font-medium shrink-0" role="group" aria-label="Trend period">
+              {(['day', 'month', 'year'] as const).map(p => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setTrendsGlobalPeriod(p)}
+                  className={`px-3 py-1.5 rounded-lg capitalize transition-all ${
+                    trendsGlobalPeriod === p
+                      ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm font-semibold'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-white/70 dark:hover:bg-slate-600/40'
+                  }`}
+                >
+                  {p === 'day' ? 'Daily' : p === 'month' ? 'Monthly' : 'Yearly'}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Eight trend charts — 3 columns on lg */}
+          {/* Trend charts — 3 columns on lg */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* 1. Delivery Demand Trend — Column + moving average */}
             <TrendChartCard
               title="Delivery Demand Trend"
-              subtitle={trendPeriod1 === 'day' ? 'Total requests per day + 7-day moving avg' : trendPeriod1 === 'month' ? 'Per month + 4-period moving avg' : 'Per year + 3-period moving avg'}
-              period={trendPeriod1}
-              onPeriodChange={setTrendPeriod1}
+              subtitle={trendsGlobalPeriod === 'day' ? 'Total requests per day + 7-day moving avg' : trendsGlobalPeriod === 'month' ? 'Per month + 4-period moving avg' : 'Per year + 3-period moving avg'}
+              period={trendsGlobalPeriod}
+              onPeriodChange={setTrendsGlobalPeriod}
+              hidePeriodFilter
               data={trend1DeliveryRequests}
               dataKey="count"
-              xKey={trendPeriod1 === 'day' ? 'day' : 'label'}
+              xKey={trendsGlobalPeriod === 'day' ? 'day' : 'label'}
               chartType="demand-ma"
               barColor="#2563EB"
             />
@@ -1664,21 +1664,22 @@ export default function AdminDashboardPage(): React.ReactElement {
             <TrendChartCard
               title="Fulfillment Trend"
               subtitle="Created vs Delivered vs In Transit vs Cancelled per period"
-              period={trendPeriod2}
-              onPeriodChange={setTrendPeriod2}
+              period={trendsGlobalPeriod}
+              onPeriodChange={setTrendsGlobalPeriod}
+              hidePeriodFilter
               data={trend2Fulfillment}
-              xKey={trendPeriod2 === 'day' ? 'day' : 'label'}
+              xKey={trendsGlobalPeriod === 'day' ? 'day' : 'label'}
               chartType="fulfillment"
             />
             {/* 3. Success Rate — Line + 95% target */}
             <TrendChartCard
               title="Success Rate"
               subtitle="Success rate = delivered / total completed requests. Target: 95%"
-              period={trendPeriod3}
-              onPeriodChange={setTrendPeriod3}
+              period={trendsGlobalPeriod}
+              onPeriodChange={setTrendsGlobalPeriod}
               data={trend3SuccessRate}
               dataKey="rate"
-              xKey={trendPeriod3 === 'day' ? 'day' : 'label'}
+              xKey={trendsGlobalPeriod === 'day' ? 'day' : 'label'}
               chartType="success-target"
               targetValue={95}
             />
@@ -1686,30 +1687,33 @@ export default function AdminDashboardPage(): React.ReactElement {
             <TrendChartCard
               title="Delivery Lead Time Trend"
               subtitle="Median and P90 hours from created to delivered"
-              period={trendPeriod4}
-              onPeriodChange={setTrendPeriod4}
+              period={trendsGlobalPeriod}
+              onPeriodChange={setTrendsGlobalPeriod}
+              hidePeriodFilter
               data={trend4LeadTime}
-              xKey={trendPeriod4 === 'day' ? 'day' : 'label'}
+              xKey={trendsGlobalPeriod === 'day' ? 'day' : 'label'}
               chartType="lead-time"
             />
             {/* 5. Backlog Trend — Open deliveries over time */}
             <TrendChartCard
               title="Backlog / Open Deliveries Trend"
-              subtitle={trendPeriod5 === 'day' ? 'Pending + in-transit created per day' : trendPeriod5 === 'month' ? 'Per month' : 'Per year'}
-              period={trendPeriod5}
-              onPeriodChange={setTrendPeriod5}
+              subtitle={trendsGlobalPeriod === 'day' ? 'Pending + in-transit created per day' : trendsGlobalPeriod === 'month' ? 'Per month' : 'Per year'}
+              period={trendsGlobalPeriod}
+              onPeriodChange={setTrendsGlobalPeriod}
+              hidePeriodFilter
               data={trend5Backlog}
-              xKey={trendPeriod5 === 'day' ? 'day' : 'label'}
+              xKey={trendsGlobalPeriod === 'day' ? 'day' : 'label'}
               chartType="backlog"
             />
             {/* 6. Status Mix Over Time — 100% stacked area */}
             <TrendChartCard
               title="Status Mix Over Time"
               subtitle="Proportion of delivered, pending, in-transit, cancelled over time"
-              period={trendPeriod6}
-              onPeriodChange={setTrendPeriod6}
+              period={trendsGlobalPeriod}
+              onPeriodChange={setTrendsGlobalPeriod}
+              hidePeriodFilter
               data={trend6StatusMix100}
-              xKey={trendPeriod6 === 'day' ? 'day' : 'label'}
+              xKey={trendsGlobalPeriod === 'day' ? 'day' : 'label'}
               chartType="status-mix-100"
             />
             {/* 7. Peak Pattern Analysis — Heatmap */}
@@ -1721,9 +1725,10 @@ export default function AdminDashboardPage(): React.ReactElement {
             {/* 8. Top Areas Trend — Stacked area by top 5 areas */}
             <TrendChartCard
               title="Top Areas Trend"
-              subtitle={trendPeriod7 === 'day' ? 'Volume by top 5 areas per day' : trendPeriod7 === 'month' ? 'Per month' : 'Per year'}
-              period={trendPeriod7}
-              onPeriodChange={setTrendPeriod7}
+              subtitle={trendsGlobalPeriod === 'day' ? 'Volume by top 5 areas per day' : trendsGlobalPeriod === 'month' ? 'Per month' : 'Per year'}
+              period={trendsGlobalPeriod}
+              onPeriodChange={setTrendsGlobalPeriod}
+              hidePeriodFilter
               data={trend8AreasStacked}
               xKey="label"
               chartType="areas-stacked"
@@ -1731,9 +1736,10 @@ export default function AdminDashboardPage(): React.ReactElement {
             {/* 9. Top Items — Ranked horizontal bars */}
             <TrendChartCard
               title="Top Items by Volume"
-              subtitle={trendPeriod8 === 'day' ? 'Last 7 days' : trendPeriod8 === 'month' ? 'Last 12 months' : 'Last 5 years'}
-              period={trendPeriod8}
-              onPeriodChange={setTrendPeriod8}
+              subtitle={trendsGlobalPeriod === 'day' ? 'Last 7 days' : trendsGlobalPeriod === 'month' ? 'Last 12 months' : 'Last 5 years'}
+              period={trendsGlobalPeriod}
+              onPeriodChange={setTrendsGlobalPeriod}
+              hidePeriodFilter
               data={trend5TopItems}
               dataKey="count"
               xKey="item"
@@ -1747,21 +1753,19 @@ export default function AdminDashboardPage(): React.ReactElement {
       {/* ══════════════ TOP CUSTOMERS TAB ══════════════ */}
       {activeTab === 'customers' && (
         <div className="space-y-4">
-          {/* KPI strip — original + extra */}
-          <div className="pp-kpi-grid pp-kpi-grid--dense">
+          {/* Six KPIs — top-customer concentration & health */}
+          <div className="pp-kpi-grid--six">
             {[
               { label: 'Total Customers', value: topCustomersData.length, icon: Users, color: 'blue' },
               { label: 'Total Orders', value: topCustomersData.reduce((s, r) => s + (r.orders ?? 0), 0), icon: Package, color: 'indigo' },
               { label: 'Delivered', value: topCustomersData.reduce((s, r) => s + (r.delivered ?? 0), 0), icon: CheckCircle, color: 'green' },
-              { label: 'Areas', value: topCustomersAreas.length, icon: MapPin, color: 'emerald' },
               { label: 'Top 1 Share', value: `${customerKpis.top1Share.toFixed(1)}%`, icon: Target, color: 'blue', tooltip: 'Top customer orders as % of total' },
               { label: 'Top 3 Share', value: `${customerKpis.top3Share.toFixed(1)}%`, icon: TrendingUp, color: 'indigo', tooltip: 'Top 3 customers combined share' },
-              { label: 'Avg Success Rate', value: `${customerKpis.avgSuccess.toFixed(1)}%`, icon: CheckCircle, color: 'green', tooltip: 'Average delivery success rate across customers' },
-              { label: 'Low Perf (<70%)', value: customerKpis.lowPerf, icon: AlertCircle, color: 'red', tooltip: 'Customers with success rate below 70%' },
+              { label: 'Avg Success Rate', value: `${customerKpis.avgSuccess.toFixed(1)}%`, icon: Activity, color: 'emerald', tooltip: 'Average delivery success rate across customers' },
             ].map(({ label, value, icon: Icon, color, tooltip }) => {
               const c = KPI_COLOR_MAP[color];
               return (
-                <div key={label} className="pp-dash-card p-3 relative flex items-center gap-2 sm:gap-3 w-full min-w-0 max-w-[220px] pr-8">
+                <div key={label} className="pp-dash-card p-3 relative flex items-center gap-2 sm:gap-3 w-full min-w-0 pr-8">
                   <span className="absolute top-2 right-2 text-gray-300 dark:text-slate-600 pointer-events-none" aria-hidden>
                     <ArrowUpRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" strokeWidth={2} />
                   </span>
@@ -1946,12 +1950,21 @@ export default function AdminDashboardPage(): React.ReactElement {
       {/* ══════════════ DELIVERIES TAB ══════════════ */}
       {activeTab === 'deliveries' && (
         <div className="space-y-4">
-          {/* Compact strip — Cureer style */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {/* Compact strip — 6 delivery metrics */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {[
               { label: 'Total', value: filteredDeliveries.length, icon: Package, color: 'blue' },
               { label: 'Delivered', value: filteredDeliveries.filter(d => ['delivered','delivered-with-installation','delivered-without-installation'].includes((d.status||'').toLowerCase())).length, icon: CheckCircle, color: 'green' },
               { label: 'Pending', value: filteredDeliveries.filter(d => ['pending','scheduled'].includes((d.status||'').toLowerCase())).length, icon: Clock, color: 'yellow' },
+              { label: "Today's Delivery", value: filteredDeliveries.filter(d => {
+                const t = d.created_at || d.createdAt || d.created;
+                if (!t) return false;
+                const dt = new Date(t as string | number);
+                const today = new Date();
+                return dt.toDateString() === today.toDateString();
+              }).length, icon: Truck, color: 'indigo' },
+              { label: 'Confirmed', value: filteredDeliveries.filter(d => (d.status||'').toLowerCase() === 'scheduled-confirmed').length, icon: Target, color: 'emerald' },
+              { label: 'Cancelled', value: filteredDeliveries.filter(d => ['cancelled','rejected','rescheduled'].includes((d.status||'').toLowerCase())).length, icon: XCircle, color: 'red' },
             ].map(({ label, value, icon: Icon, color }) => {
               const c = KPI_COLOR_MAP[color];
               return (
@@ -2168,21 +2181,19 @@ export default function AdminDashboardPage(): React.ReactElement {
       {/* ══════════════ BY AREA TAB ══════════════ */}
       {activeTab === 'by-area' && (
         <div className="space-y-4">
-          {/* KPI strip — original + extra */}
-          <div className="pp-kpi-grid pp-kpi-grid--dense">
+          {/* Six area KPIs */}
+          <div className="pp-kpi-grid--six">
             {[
-              { label: 'Areas', value: deliveryByAreaData.length, icon: MapPin, color: 'blue' },
+              { label: 'Active Areas', value: deliveryByAreaData.length, icon: MapPin, color: 'blue' },
               { label: 'Total Deliveries', value: deliveryByAreaData.reduce((s,r)=>s+(r.count||0),0), icon: Package, color: 'indigo' },
-              { label: 'Top Area', value: deliveryByAreaData[0]?.area || '—', icon: Target, color: 'emerald' },
-              { label: 'Share', value: deliveryByAreaData[0] && deliveryByAreaData.reduce((s,r)=>s+(r.count||0),0) > 0 ? `${((deliveryByAreaData[0].count/deliveryByAreaData.reduce((s,r)=>s+(r.count||0),0))*100).toFixed(0)}%` : '—', icon: TrendingUp, color: 'yellow' },
-              { label: 'Top Area Share', value: `${areaKpis.topShare.toFixed(1)}%`, icon: Target, color: 'blue', tooltip: 'Top area deliveries as % of total' },
+              { label: 'Top Region', value: deliveryByAreaData[0]?.area || '—', icon: Target, color: 'emerald' },
+              { label: 'Top Area Share', value: `${areaKpis.topShare.toFixed(1)}%`, icon: TrendingUp, color: 'yellow', tooltip: 'Top area deliveries as % of total' },
               { label: 'Avg Area Success', value: `${areaKpis.avgSuccess.toFixed(1)}%`, icon: CheckCircle, color: 'green', tooltip: 'Average success rate across areas' },
-              { label: 'Worst Area', value: areaKpis.worstArea?.area ?? '—', icon: AlertCircle, color: 'red', tooltip: 'Area with lowest success rate' },
               { label: 'Largest Backlog', value: areaKpis.largestBacklog?.area ?? '—', icon: Clock, color: 'yellow', tooltip: 'Area with most pending deliveries' },
             ].map(({ label, value, icon: Icon, color, tooltip }) => {
               const c = KPI_COLOR_MAP[color];
               return (
-                <div key={label} className="pp-dash-card p-3 relative flex items-center gap-2 sm:gap-3 w-full min-w-0 max-w-[220px] pr-8">
+                <div key={label} className="pp-dash-card p-3 relative flex items-center gap-2 sm:gap-3 w-full min-w-0 pr-8">
                   <span className="absolute top-2 right-2 text-gray-300 dark:text-slate-600 pointer-events-none" aria-hidden>
                     <ArrowUpRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" strokeWidth={2} />
                   </span>
@@ -2376,17 +2387,15 @@ export default function AdminDashboardPage(): React.ReactElement {
       {/* ══════════════ BY PRODUCT TAB ══════════════ */}
       {activeTab === 'by-product' && (
         <div className="space-y-4">
-          {/* KPI strip — original + extra */}
-          <div className="pp-kpi-grid pp-kpi-grid--dense">
+          {/* Six product KPIs */}
+          <div className="pp-kpi-grid--six">
             {[
-              { label: 'Top Items', value: topItemsData.length, icon: FileText, color: 'blue' },
+              { label: 'SKUs Tracked', value: topItemsData.length, icon: FileText, color: 'blue' },
               { label: 'Total Qty', value: topItemsData.reduce((s,r)=>s+(r.count||0),0), icon: Package, color: 'indigo' },
-              { label: 'Top Item', value: topItemsData[0]?.item?.slice(0, 20) || '—', icon: Target, color: 'emerald' },
-              { label: 'Count', value: topItemsData[0]?.count ?? '—', icon: TrendingUp, color: 'yellow' },
+              { label: 'Best Seller', value: topItemsData[0]?.item?.slice(0, 18) || '—', icon: Target, color: 'emerald' },
+              { label: 'Best Seller Qty', value: topItemsData[0]?.count ?? '—', icon: TrendingUp, color: 'yellow' },
               { label: 'Top SKU Share', value: `${productKpis.top1Share.toFixed(1)}%`, icon: Target, color: 'blue', tooltip: 'Top SKU volume as % of total' },
-              { label: 'Top 3 SKU Share', value: `${productKpis.top3Share.toFixed(1)}%`, icon: TrendingUp, color: 'indigo', tooltip: 'Top 3 SKUs combined share' },
-              { label: 'Concentration', value: productKpis.concentration, icon: Package, color: 'emerald', tooltip: 'Product concentration level (High/Medium/Low)' },
-              { label: 'DQ Issues', value: productKpis.dqIssues, icon: AlertCircle, color: 'red', tooltip: 'Items with missing PNC or description' },
+              { label: 'Concentration', value: productKpis.concentration, icon: Activity, color: 'emerald', tooltip: 'Product concentration level (High/Medium/Low)' },
             ].map(({ label, value, icon: Icon, color, tooltip }) => {
               const c = KPI_COLOR_MAP[color];
               return (

@@ -520,6 +520,24 @@
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 220px));
   }
 
+  /* Exactly six equal KPI tiles on large screens (no wasted horizontal space) */
+  .pp-kpi-grid--six {
+    display: grid;
+    gap: 0.75rem;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  @media (min-width: 640px) {
+    .pp-kpi-grid--six {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 1024px) {
+    .pp-kpi-grid--six {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+  }
+
   /* Stat gradient cards (6-up row on large screens) */
   .pp-kpi-grid--stats {
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 148px), 200px));
