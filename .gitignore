@@ -1,3 +1,6 @@
+# JSX — project uses TypeScript (.tsx) only
+*.jsx
+
 # Dependencies
 node_modules/
 /.pnp
