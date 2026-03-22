@@ -193,6 +193,102 @@ interface SortThProps {
   align?: string;
 }
 
+/** Max buckets for daily granularity (guards very wide custom ranges). */
+const TREND_BUCKET_MAX = 200;
+
+interface TrendBucketsConfig {
+  buckets: Array<{ key: string; label: string; day?: string }>;
+  rangeStart: Date;
+  rangeEnd: Date;
+}
+
+/** Build time buckets + inclusive date bounds for trend charts (custom range or default sliding windows). */
+function buildTrendBucketsAndRange(
+  period: 'day' | 'month' | 'year',
+  fromStr: string,
+  toStr: string
+): TrendBucketsConfig {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  let rangeStart: Date;
+  let rangeEnd: Date;
+  const custom = Boolean(fromStr || toStr);
+
+  if (custom) {
+    const from = fromStr ? new Date(fromStr + 'T00:00:00') : new Date(2000, 0, 1);
+    const to = toStr ? new Date(toStr + 'T23:59:59.999') : now;
+    rangeStart = from;
+    rangeEnd = to;
+    if (rangeStart.getTime() > rangeEnd.getTime()) {
+      const a = rangeStart.getTime();
+      const b = rangeEnd.getTime();
+      rangeStart = new Date(Math.min(a, b));
+      rangeStart.setHours(0, 0, 0, 0);
+      rangeEnd = new Date(Math.max(a, b));
+      rangeEnd.setHours(23, 59, 59, 999);
+    }
+  } else if (period === 'day') {
+    rangeEnd = new Date(now);
+    rangeEnd.setHours(23, 59, 59, 999);
+    rangeStart = new Date(now);
+    rangeStart.setDate(rangeStart.getDate() - 6);
+    rangeStart.setHours(0, 0, 0, 0);
+  } else if (period === 'month') {
+    rangeStart = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+    rangeEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+  } else {
+    rangeStart = new Date(now.getFullYear() - 4, 0, 1);
+    rangeEnd = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+  }
+
+  const buckets: TrendBucketsConfig['buckets'] = [];
+  if (period === 'day') {
+    const d = new Date(rangeStart);
+    d.setHours(0, 0, 0, 0);
+    const endDay = new Date(rangeEnd);
+    endDay.setHours(0, 0, 0, 0);
+    let guard = 0;
+    while (d.getTime() <= endDay.getTime() && guard < TREND_BUCKET_MAX) {
+      buckets.push({
+        key: d.toISOString().slice(0, 10),
+        label: d.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' }),
+        day: d.toLocaleDateString('en-GB', { weekday: 'short' }),
+      });
+      d.setDate(d.getDate() + 1);
+      guard++;
+    }
+  } else if (period === 'month') {
+    let d = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
+    const endM = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), 1);
+    let guard = 0;
+    while (d.getTime() <= endM.getTime() && guard < TREND_BUCKET_MAX) {
+      buckets.push({
+        key: `${d.getFullYear()}-${pad(d.getMonth() + 1)}`,
+        label: d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' }),
+      });
+      d.setMonth(d.getMonth() + 1);
+      guard++;
+    }
+  } else {
+    let y = rangeStart.getFullYear();
+    const yEnd = rangeEnd.getFullYear();
+    let guard = 0;
+    while (y <= yEnd && guard < TREND_BUCKET_MAX) {
+      buckets.push({ key: String(y), label: String(y) });
+      y++;
+      guard++;
+    }
+  }
+
+  return { buckets, rangeStart, rangeEnd };
+}
+
+function deliveryCreatedInTrendRange(t: unknown, rangeStart: Date, rangeEnd: Date): boolean {
+  if (!t) return false;
+  const dt = new Date(t as string | number);
+  return dt.getTime() >= rangeStart.getTime() && dt.getTime() <= rangeEnd.getTime();
+}
+
 interface TrendChartCardProps {
   title: string;
   subtitle: string;
@@ -349,7 +445,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
             <Legend wrapperStyle={{ fontSize: '10px', color: 'var(--chart-legend)' }} />
             <Bar dataKey="created" fill="#3b82f6" radius={[0, 0, 0, 0]} maxBarSize={28} name="Created" isAnimationActive />
             <Bar dataKey="delivered" fill="#059669" radius={[0, 0, 0, 0]} maxBarSize={28} name="Delivered" isAnimationActive />
-            <Bar dataKey="inTransit" fill="#8b5cf6" radius={[0, 0, 0, 0]} maxBarSize={28} name="In Transit" isAnimationActive />
+            <Bar dataKey="pendingActive" fill="#f59e0b" radius={[0, 0, 0, 0]} maxBarSize={28} name="Pending" isAnimationActive />
             <Bar dataKey="cancelled" fill="#dc2626" radius={[0, 0, 0, 0]} maxBarSize={28} name="Cancelled" isAnimationActive />
           </BarChart>
         </ResponsiveContainer>
@@ -398,7 +494,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
             <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
             <YAxis tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
             <Tooltip {...RECHARTS_TOOLTIP} />
-            <Area type="monotone" dataKey="open" stroke="#8b5cf6" fill={`url(#backlogGrad-${title.replace(/\s/g, '')})`} strokeWidth={2} name="Open / Pending / In Transit" isAnimationActive />
+            <Area type="monotone" dataKey="open" stroke="#8b5cf6" fill={`url(#backlogGrad-${title.replace(/\s/g, '')})`} strokeWidth={2} name="Open orders" isAnimationActive />
           </AreaChart>
         </ResponsiveContainer>
       );
@@ -414,7 +510,6 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
             <Legend wrapperStyle={{ fontSize: '10px', color: 'var(--chart-legend)' }} />
             <Area type="monotone" dataKey="deliveredPct" stackId="1" stroke="#059669" fill="#059669" fillOpacity={0.6} name="Delivered" isAnimationActive />
             <Area type="monotone" dataKey="pendingPct" stackId="1" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.6} name="Pending" isAnimationActive />
-            <Area type="monotone" dataKey="inTransitPct" stackId="1" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.6} name="In Transit" isAnimationActive />
             <Area type="monotone" dataKey="cancelledPct" stackId="1" stroke="#dc2626" fill="#dc2626" fillOpacity={0.6} name="Cancelled" isAnimationActive />
           </AreaChart>
         </ResponsiveContainer>
@@ -608,6 +703,51 @@ export default function AdminDashboardPage(): React.ReactElement {
 
   const [heroPeriod, setHeroPeriod] = useState<string>('30d');
   const [trendsGlobalPeriod, setTrendsGlobalPeriod] = useState<'day' | 'month' | 'year'>('month');
+  const [trendsRangeFrom, setTrendsRangeFrom] = useState<string>('');
+  const [trendsRangeTo, setTrendsRangeTo] = useState<string>('');
+
+  const trendsBucketsConfig = useMemo(
+    () => buildTrendBucketsAndRange(trendsGlobalPeriod, trendsRangeFrom, trendsRangeTo),
+    [trendsGlobalPeriod, trendsRangeFrom, trendsRangeTo]
+  );
+
+  const fmtYmd = useCallback((d: Date): string => {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }, []);
+
+  const applyTrendPreset = useCallback((preset: 'last7' | 'last30' | 'last90' | 'thisMonth' | 'ytd' | 'clear'): void => {
+    const now = new Date();
+    if (preset === 'clear') {
+      setTrendsRangeFrom('');
+      setTrendsRangeTo('');
+      return;
+    }
+    if (preset === 'last7') {
+      setTrendsRangeFrom(fmtYmd(new Date(now.getTime() - 6 * 86400000)));
+      setTrendsRangeTo(fmtYmd(now));
+      return;
+    }
+    if (preset === 'last30') {
+      setTrendsRangeFrom(fmtYmd(new Date(now.getTime() - 29 * 86400000)));
+      setTrendsRangeTo(fmtYmd(now));
+      return;
+    }
+    if (preset === 'last90') {
+      setTrendsRangeFrom(fmtYmd(new Date(now.getTime() - 89 * 86400000)));
+      setTrendsRangeTo(fmtYmd(now));
+      return;
+    }
+    if (preset === 'thisMonth') {
+      setTrendsRangeFrom(fmtYmd(new Date(now.getFullYear(), now.getMonth(), 1)));
+      setTrendsRangeTo(fmtYmd(now));
+      return;
+    }
+    if (preset === 'ytd') {
+      setTrendsRangeFrom(fmtYmd(new Date(now.getFullYear(), 0, 1)));
+      setTrendsRangeTo(fmtYmd(now));
+    }
+  }, [fmtYmd]);
 
   // ─── DATA FETCHING ───
 
@@ -805,34 +945,14 @@ export default function AdminDashboardPage(): React.ReactElement {
     'Al Quoz', 'JLT', 'DIFC', 'Karama', 'Satwa', 'Oud Metha', 'Mirdif', 'Dubai Hills'
   ], []);
 
-  const getTimeBuckets = useCallback((period: 'day' | 'month' | 'year') => {
-    const now = new Date();
-    if (period === 'day') {
-      return Array.from({ length: 7 }, (_, i) => {
-        const d = new Date(now);
-        d.setDate(d.getDate() - (6 - i));
-        return { key: d.toISOString().slice(0, 10), label: d.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' }), day: d.toLocaleDateString('en-GB', { weekday: 'short' }) };
-      });
-    }
-    if (period === 'month') {
-      return Array.from({ length: 12 }, (_, i) => {
-        const d = new Date(now.getFullYear(), now.getMonth() - (11 - i), 1);
-        return { key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, label: d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' }) };
-      }).sort((a, b) => a.key.localeCompare(b.key));
-    }
-    return Array.from({ length: 5 }, (_, i) => {
-      const y = now.getFullYear() - (4 - i);
-      return { key: String(y), label: String(y) };
-    });
-  }, []);
-
   const trend1DeliveryRequests = useMemo(() => {
     const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
-    const buckets = getTimeBuckets(trendsGlobalPeriod).map(b => ({ ...b, count: 0 }));
+    const { buckets: baseBuckets, rangeStart, rangeEnd } = trendsBucketsConfig;
+    const buckets = baseBuckets.map(b => ({ ...b, count: 0 }));
     const bucketMap = Object.fromEntries(buckets.map((b, i) => [b.key, i]));
     list.forEach(d => {
       const t = d.created_at || d.createdAt || d.created;
-      if (!t) return;
+      if (!t || !deliveryCreatedInTrendRange(t, rangeStart, rangeEnd)) return;
       const dt = new Date(t as string | number);
       const key = trendsGlobalPeriod === 'day' ? dt.toISOString().slice(0, 10) : trendsGlobalPeriod === 'month' ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` : String(dt.getFullYear());
       const i = bucketMap[key];
@@ -846,18 +966,18 @@ export default function AdminDashboardPage(): React.ReactElement {
       const ma = slice.length > 0 ? parseFloat((sum / slice.length).toFixed(1)) : 0;
       return { label: (b as { day?: string }).day ?? b.label, ...b, ma };
     });
-  }, [deliveries, trendsGlobalPeriod, getTimeBuckets]);
+  }, [deliveries, trendsGlobalPeriod, trendsBucketsConfig]);
 
   const trend2Fulfillment = useMemo(() => {
     const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
     const isDelivered = (s: string) => ['delivered', 'delivered-with-installation', 'delivered-without-installation'].includes((s || '').toLowerCase());
-    const isInTransit = (s: string) => ['out-for-delivery', 'in-progress', 'assigned', 'scheduled-confirmed'].includes((s || '').toLowerCase());
     const isCancelled = (s: string) => ['cancelled', 'rescheduled', 'rejected'].includes((s || '').toLowerCase());
-    const buckets = getTimeBuckets(trendsGlobalPeriod).map(b => ({ ...b, created: 0, delivered: 0, inTransit: 0, cancelled: 0 }));
+    const { buckets: baseBuckets, rangeStart, rangeEnd } = trendsBucketsConfig;
+    const buckets = baseBuckets.map(b => ({ ...b, created: 0, delivered: 0, pendingActive: 0, cancelled: 0 }));
     const bucketMap = Object.fromEntries(buckets.map((b, i) => [b.key, i]));
     list.forEach(d => {
       const t = d.created_at || d.createdAt || d.created;
-      if (!t) return;
+      if (!t || !deliveryCreatedInTrendRange(t, rangeStart, rangeEnd)) return;
       const dt = new Date(t as string | number);
       const key = trendsGlobalPeriod === 'day' ? dt.toISOString().slice(0, 10) : trendsGlobalPeriod === 'month' ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` : String(dt.getFullYear());
       const i = bucketMap[key];
@@ -865,20 +985,21 @@ export default function AdminDashboardPage(): React.ReactElement {
       buckets[i].created++;
       const s = (d.status || '').toLowerCase();
       if (isDelivered(s)) buckets[i].delivered++;
-      else if (isInTransit(s)) buckets[i].inTransit++;
       else if (isCancelled(s)) buckets[i].cancelled++;
+      else buckets[i].pendingActive++;
     });
     return buckets.map(b => ({ label: (b as { day?: string }).day ?? b.label, ...b }));
-  }, [deliveries, trendsGlobalPeriod, getTimeBuckets]);
+  }, [deliveries, trendsGlobalPeriod, trendsBucketsConfig]);
 
   const trend3SuccessRate = useMemo(() => {
     const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
     const isDelivered = (s: string) => ['delivered', 'delivered-with-installation', 'delivered-without-installation'].includes((s || '').toLowerCase());
-    const buckets = getTimeBuckets(trendsGlobalPeriod).map(b => ({ ...b, total: 0, delivered: 0, rate: 0 }));
+    const { buckets: baseBuckets, rangeStart, rangeEnd } = trendsBucketsConfig;
+    const buckets = baseBuckets.map(b => ({ ...b, total: 0, delivered: 0, rate: 0 }));
     const bucketMap = Object.fromEntries(buckets.map((b, i) => [b.key, i]));
     list.forEach(d => {
       const t = d.created_at || d.createdAt || d.created;
-      if (!t) return;
+      if (!t || !deliveryCreatedInTrendRange(t, rangeStart, rangeEnd)) return;
       const dt = new Date(t as string | number);
       const key = trendsGlobalPeriod === 'day' ? dt.toISOString().slice(0, 10) : trendsGlobalPeriod === 'month' ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` : String(dt.getFullYear());
       const i = bucketMap[key];
@@ -892,18 +1013,20 @@ export default function AdminDashboardPage(): React.ReactElement {
       ...b,
       rate: b.total > 0 ? parseFloat(((b.delivered / b.total) * 100).toFixed(1)) : 0
     }));
-  }, [deliveries, trendsGlobalPeriod, getTimeBuckets]);
+  }, [deliveries, trendsGlobalPeriod, trendsBucketsConfig]);
 
   const trend4LeadTime = useMemo(() => {
     const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
     const isDelivered = (s: string) => ['delivered', 'delivered-with-installation', 'delivered-without-installation'].includes((s || '').toLowerCase());
-    const buckets = getTimeBuckets(trendsGlobalPeriod).map(b => ({ ...b, leadTimes: [] as number[] }));
+    const { buckets: baseBuckets, rangeStart, rangeEnd } = trendsBucketsConfig;
+    const buckets = baseBuckets.map(b => ({ ...b, leadTimes: [] as number[] }));
     const bucketMap = Object.fromEntries(buckets.map((b, i) => [b.key, i]));
     list.forEach(d => {
       if (!isDelivered(d.status || '')) return;
       const created = d.created_at || d.createdAt || d.created;
       const delivered = d.delivered_at || d.deliveredAt || created;
       if (!created || !delivered) return;
+      if (!deliveryCreatedInTrendRange(created, rangeStart, rangeEnd)) return;
       const createdDt = new Date(created as string | number);
       const deliveredDt = new Date(delivered as string | number);
       const hours = (deliveredDt.getTime() - createdDt.getTime()) / (1000 * 60 * 60);
@@ -918,83 +1041,80 @@ export default function AdminDashboardPage(): React.ReactElement {
       const p90Hours = n > 0 ? parseFloat((sorted[Math.min(Math.floor(n * 0.9), n - 1)] ?? 0).toFixed(1)) : 0;
       return { label: (b as { day?: string }).day ?? b.label, ...b, medianHours, p90Hours };
     });
-  }, [deliveries, trendsGlobalPeriod, getTimeBuckets]);
+  }, [deliveries, trendsGlobalPeriod, trendsBucketsConfig]);
 
   const trend5Backlog = useMemo(() => {
     const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
     const isOpen = (s: string) => ['pending', 'scheduled', 'scheduled-confirmed', 'out-for-delivery', 'in-progress', 'assigned'].includes((s || '').toLowerCase());
-    const buckets = getTimeBuckets(trendsGlobalPeriod).map(b => ({ ...b, open: 0 }));
+    const { buckets: baseBuckets, rangeStart, rangeEnd } = trendsBucketsConfig;
+    const buckets = baseBuckets.map(b => ({ ...b, open: 0 }));
     const bucketMap = Object.fromEntries(buckets.map((b, i) => [b.key, i]));
     list.forEach(d => {
       if (!isOpen(d.status || '')) return;
       const t = d.created_at || d.createdAt || d.created;
-      if (!t) return;
+      if (!t || !deliveryCreatedInTrendRange(t, rangeStart, rangeEnd)) return;
       const dt = new Date(t as string | number);
       const key = trendsGlobalPeriod === 'day' ? dt.toISOString().slice(0, 10) : trendsGlobalPeriod === 'month' ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` : String(dt.getFullYear());
       const i = bucketMap[key];
       if (i !== undefined) buckets[i].open++;
     });
     return buckets.map(b => ({ label: (b as { day?: string }).day ?? b.label, ...b }));
-  }, [deliveries, trendsGlobalPeriod, getTimeBuckets]);
+  }, [deliveries, trendsGlobalPeriod, trendsBucketsConfig]);
 
   const trend6StatusMix100 = useMemo(() => {
     const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
-    const buckets = getTimeBuckets(trendsGlobalPeriod).map(b => ({ ...b, delivered: 0, pending: 0, inTransit: 0, cancelled: 0 }));
+    const { buckets: baseBuckets, rangeStart, rangeEnd } = trendsBucketsConfig;
+    const buckets = baseBuckets.map(b => ({ ...b, delivered: 0, pending: 0, cancelled: 0 }));
     const bucketMap = Object.fromEntries(buckets.map((b, i) => [b.key, i]));
     list.forEach(d => {
       const t = d.created_at || d.createdAt || d.created;
-      if (!t) return;
+      if (!t || !deliveryCreatedInTrendRange(t, rangeStart, rangeEnd)) return;
       const dt = new Date(t as string | number);
       const key = trendsGlobalPeriod === 'day' ? dt.toISOString().slice(0, 10) : trendsGlobalPeriod === 'month' ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` : String(dt.getFullYear());
       const i = bucketMap[key];
       if (i !== undefined) {
         const s = (d.status || '').toLowerCase();
         if (['delivered', 'delivered-with-installation', 'delivered-without-installation'].includes(s)) buckets[i].delivered++;
-        else if (['pending', 'scheduled', 'scheduled-confirmed'].includes(s)) buckets[i].pending++;
-        else if (['out-for-delivery', 'in-progress', 'assigned'].includes(s)) buckets[i].inTransit++;
         else if (['cancelled', 'rescheduled', 'rejected'].includes(s)) buckets[i].cancelled++;
+        else buckets[i].pending++;
       }
     });
     return buckets.map(b => {
-      const total = b.delivered + b.pending + b.inTransit + b.cancelled;
+      const total = b.delivered + b.pending + b.cancelled;
       const toPct = (v: number) => total > 0 ? parseFloat(((v / total) * 100).toFixed(1)) : 0;
       return {
         label: (b as { day?: string }).day ?? b.label,
         ...b,
         deliveredPct: toPct(b.delivered),
         pendingPct: toPct(b.pending),
-        inTransitPct: toPct(b.inTransit),
         cancelledPct: toPct(b.cancelled)
       };
     });
-  }, [deliveries, trendsGlobalPeriod, getTimeBuckets]);
+  }, [deliveries, trendsGlobalPeriod, trendsBucketsConfig]);
 
   const trend7Heatmap = useMemo(() => {
     const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
     const grid: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
-    const now = new Date();
-    const start = new Date(now.getTime() - 30 * 86400000);
+    const { rangeStart, rangeEnd } = trendsBucketsConfig;
+    const customRange = Boolean(trendsRangeFrom || trendsRangeTo);
+    const start = customRange ? rangeStart : new Date(Date.now() - 30 * 86400000);
+    const end = customRange ? rangeEnd : new Date();
     list.forEach(d => {
       const t = d.created_at || d.createdAt || d.created;
       if (!t) return;
       const dt = new Date(t as string | number);
-      if (dt < start) return;
+      if (dt < start || dt > end) return;
       const day = dt.getDay();
       const hour = dt.getHours();
       grid[day][hour]++;
     });
     return grid;
-  }, [deliveries]);
+  }, [deliveries, trendsBucketsConfig, trendsRangeFrom, trendsRangeTo]);
 
   const trend5TopItems = useMemo(() => {
     const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
-    const now = new Date();
-    const getKey = (t: string | number) => {
-      const dt = new Date(t);
-      return trendsGlobalPeriod === 'day' ? dt.toISOString().slice(0, 10) : trendsGlobalPeriod === 'month' ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` : String(dt.getFullYear());
-    };
-    const rangeStart = trendsGlobalPeriod === 'day' ? new Date(now.getTime() - 7 * 86400000) : trendsGlobalPeriod === 'month' ? new Date(now.getFullYear(), now.getMonth() - 12, 1) : new Date(now.getFullYear() - 5, 0, 1);
-    const inRange = (t: string | number) => new Date(t) >= rangeStart;
+    const { rangeStart, rangeEnd } = trendsBucketsConfig;
+    const inRange = (t: string | number) => deliveryCreatedInTrendRange(t, rangeStart, rangeEnd);
     const itemCount: Record<string, number> = {};
     list.forEach(d => {
       const t = d.created_at || d.createdAt || d.created;
@@ -1006,13 +1126,12 @@ export default function AdminDashboardPage(): React.ReactElement {
       itemCount[display] = (itemCount[display] || 0) + 1;
     });
     return Object.entries(itemCount).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([item, count]) => ({ item, count }));
-  }, [deliveries, trendsGlobalPeriod]);
+  }, [deliveries, trendsBucketsConfig]);
 
   const trend6TopAreas = useMemo(() => {
     const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
-    const now = new Date();
-    const rangeStart = trendsGlobalPeriod === 'day' ? new Date(now.getTime() - 7 * 86400000) : trendsGlobalPeriod === 'month' ? new Date(now.getFullYear(), now.getMonth() - 12, 1) : new Date(now.getFullYear() - 5, 0, 1);
-    const inRange = (t: string | number) => new Date(t) >= rangeStart;
+    const { rangeStart, rangeEnd } = trendsBucketsConfig;
+    const inRange = (t: string | number) => deliveryCreatedInTrendRange(t, rangeStart, rangeEnd);
     const areaCount: Record<string, number> = {};
     list.forEach(d => {
       const t = d.created_at || d.createdAt || d.created;
@@ -1027,14 +1146,17 @@ export default function AdminDashboardPage(): React.ReactElement {
       areaCount[area] = (areaCount[area] || 0) + 1;
     });
     return Object.entries(areaCount).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([area, count]) => ({ area, count }));
-  }, [deliveries, trendsGlobalPeriod, areaKeywords]);
+  }, [deliveries, trendsBucketsConfig, areaKeywords]);
 
   const trend8AreasStacked = useMemo(() => {
     const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
-    const buckets = getTimeBuckets(trendsGlobalPeriod).map(b => ({ ...b } as Record<string, unknown>));
+    const { buckets: baseBuckets, rangeStart, rangeEnd } = trendsBucketsConfig;
+    const buckets = baseBuckets.map(b => ({ ...b } as Record<string, unknown>));
     const bucketMap = Object.fromEntries(buckets.map((b, i) => [b.key as string, i]));
     const allAreas: Record<string, number> = {};
     list.forEach(d => {
+      const t0 = d.created_at || d.createdAt || d.created;
+      if (!t0 || !deliveryCreatedInTrendRange(t0, rangeStart, rangeEnd)) return;
       const meta = (d.metadata || {}) as Record<string, unknown>;
       const orig = (meta.originalRow || meta._originalRow || {}) as Record<string, unknown>;
       const addr = ((d.address || '') + ' ' + (orig.City || '')).toLowerCase();
@@ -1048,7 +1170,7 @@ export default function AdminDashboardPage(): React.ReactElement {
     top5.forEach(a => { buckets.forEach(b => { (b as Record<string, number>)[a] = 0; }); });
     list.forEach(d => {
       const t = d.created_at || d.createdAt || d.created;
-      if (!t) return;
+      if (!t || !deliveryCreatedInTrendRange(t, rangeStart, rangeEnd)) return;
       const dt = new Date(t as string | number);
       const key = trendsGlobalPeriod === 'day' ? dt.toISOString().slice(0, 10) : trendsGlobalPeriod === 'month' ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` : String(dt.getFullYear());
       const i = bucketMap[key];
@@ -1067,7 +1189,7 @@ export default function AdminDashboardPage(): React.ReactElement {
       xKey: (b as { day?: string }).day ?? (b as { label?: string }).label,
       ...b
     }));
-  }, [deliveries, trendsGlobalPeriod, getTimeBuckets, areaKeywords]);
+  }, [deliveries, trendsGlobalPeriod, trendsBucketsConfig, areaKeywords]);
 
   const filteredDeliveries = useMemo<TrackingDelivery[]>(() => {
     const list = (deliveries && Array.isArray(deliveries) ? deliveries : []).slice();
@@ -1621,28 +1743,88 @@ export default function AdminDashboardPage(): React.ReactElement {
       {/* ══════════════ TRENDS TAB ══════════════ */}
       {activeTab === 'trends' && (
         <div className="space-y-4">
-          {/* Global period filter — applies to all trend charts below */}
-          <div className="pp-dash-card p-4 flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0">
-              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Trend period</h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Daily / Monthly / Yearly buckets apply to every chart in this tab.</p>
+          {/* Global trend filters: granularity + optional date range — applies to all charts */}
+          <div className="pp-dash-card p-4 sm:p-5 space-y-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Trends filters</h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 max-w-xl">
+                  Choose <strong>bucket size</strong> (Daily / Monthly / Yearly) and optionally a <strong>custom date range</strong>.
+                  Leave dates empty to use the default rolling window. All charts below use these settings.
+                </p>
+              </div>
+              <div className="inline-flex p-1 rounded-xl bg-gray-100/90 dark:bg-slate-700/45 gap-0.5 text-xs font-medium shrink-0" role="group" aria-label="Trend bucket size">
+                {(['day', 'month', 'year'] as const).map(p => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setTrendsGlobalPeriod(p)}
+                    className={`px-3 py-1.5 rounded-lg capitalize transition-all ${
+                      trendsGlobalPeriod === p
+                        ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm font-semibold'
+                        : 'text-gray-600 dark:text-gray-400 hover:bg-white/70 dark:hover:bg-slate-600/40'
+                    }`}
+                  >
+                    {p === 'day' ? 'Daily' : p === 'month' ? 'Monthly' : 'Yearly'}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="inline-flex p-1 rounded-xl bg-gray-100/90 dark:bg-slate-700/45 gap-0.5 text-xs font-medium shrink-0" role="group" aria-label="Trend period">
-              {(['day', 'month', 'year'] as const).map(p => (
+            <div className="flex flex-wrap items-end gap-2 sm:gap-3">
+              <label className="flex flex-col gap-1 text-xs">
+                <span className="font-medium text-gray-600 dark:text-gray-400">From</span>
+                <input
+                  type="date"
+                  value={trendsRangeFrom}
+                  onChange={e => setTrendsRangeFrom(e.target.value)}
+                  className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                />
+              </label>
+              <span className="text-gray-400 pb-2 hidden sm:inline">—</span>
+              <label className="flex flex-col gap-1 text-xs">
+                <span className="font-medium text-gray-600 dark:text-gray-400">To</span>
+                <input
+                  type="date"
+                  value={trendsRangeTo}
+                  onChange={e => setTrendsRangeTo(e.target.value)}
+                  className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                />
+              </label>
+              <span className="text-xs text-gray-500 dark:text-gray-400 pb-2 hidden md:inline">or use a preset:</span>
+              <div className="flex flex-wrap gap-1.5">
+                {([
+                  ['last7', 'Last 7d'],
+                  ['last30', 'Last 30d'],
+                  ['last90', 'Last 90d'],
+                  ['thisMonth', 'This month'],
+                  ['ytd', 'YTD'],
+                ] as const).map(([k, label]) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => applyTrendPreset(k)}
+                    className="px-2.5 py-1.5 text-xs font-medium rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    {label}
+                  </button>
+                ))}
                 <button
-                  key={p}
                   type="button"
-                  onClick={() => setTrendsGlobalPeriod(p)}
-                  className={`px-3 py-1.5 rounded-lg capitalize transition-all ${
-                    trendsGlobalPeriod === p
-                      ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm font-semibold'
-                      : 'text-gray-600 dark:text-gray-400 hover:bg-white/70 dark:hover:bg-slate-600/40'
-                  }`}
+                  onClick={() => applyTrendPreset('clear')}
+                  className="px-2.5 py-1.5 text-xs font-medium rounded-lg border border-transparent text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400"
                 >
-                  {p === 'day' ? 'Daily' : p === 'month' ? 'Monthly' : 'Yearly'}
+                  Clear range
                 </button>
-              ))}
+              </div>
             </div>
+            <p className="text-[11px] text-gray-400 dark:text-gray-500">
+              {trendsRangeFrom || trendsRangeTo
+                ? <>Active range: <strong className="text-gray-600 dark:text-gray-400">{trendsRangeFrom || '…'}</strong> → <strong className="text-gray-600 dark:text-gray-400">{trendsRangeTo || '…'}</strong> · {trendsBucketsConfig.buckets.length} buckets</>
+                : <>Default window (no custom dates) · {trendsBucketsConfig.buckets.length} buckets</>}
+              {trendsBucketsConfig.buckets.length >= TREND_BUCKET_MAX && (
+                <span className="text-amber-600 dark:text-amber-400 ml-1"> — cap reached; narrow the range.</span>
+              )}
+            </p>
           </div>
 
           {/* Trend charts — 3 columns on lg */}
@@ -1660,10 +1842,10 @@ export default function AdminDashboardPage(): React.ReactElement {
               chartType="demand-ma"
               barColor="#2563EB"
             />
-            {/* 2. Fulfillment Trend — Grouped columns: created vs delivered vs in-transit vs cancelled */}
+            {/* 2. Fulfillment Trend — Grouped columns: created vs delivered vs pending vs cancelled */}
             <TrendChartCard
               title="Fulfillment Trend"
-              subtitle="Created vs Delivered vs In Transit vs Cancelled per period"
+              subtitle="Created vs Delivered vs Pending vs Cancelled (no separate in-transit)"
               period={trendsGlobalPeriod}
               onPeriodChange={setTrendsGlobalPeriod}
               hidePeriodFilter
@@ -1677,6 +1859,7 @@ export default function AdminDashboardPage(): React.ReactElement {
               subtitle="Success rate = delivered / total completed requests. Target: 95%"
               period={trendsGlobalPeriod}
               onPeriodChange={setTrendsGlobalPeriod}
+              hidePeriodFilter
               data={trend3SuccessRate}
               dataKey="rate"
               xKey={trendsGlobalPeriod === 'day' ? 'day' : 'label'}
@@ -1697,7 +1880,7 @@ export default function AdminDashboardPage(): React.ReactElement {
             {/* 5. Backlog Trend — Open deliveries over time */}
             <TrendChartCard
               title="Backlog / Open Deliveries Trend"
-              subtitle={trendsGlobalPeriod === 'day' ? 'Pending + in-transit created per day' : trendsGlobalPeriod === 'month' ? 'Per month' : 'Per year'}
+              subtitle={trendsGlobalPeriod === 'day' ? 'Open orders created per day' : trendsGlobalPeriod === 'month' ? 'Per month' : 'Per year'}
               period={trendsGlobalPeriod}
               onPeriodChange={setTrendsGlobalPeriod}
               hidePeriodFilter
@@ -1708,7 +1891,7 @@ export default function AdminDashboardPage(): React.ReactElement {
             {/* 6. Status Mix Over Time — 100% stacked area */}
             <TrendChartCard
               title="Status Mix Over Time"
-              subtitle="Proportion of delivered, pending, in-transit, cancelled over time"
+              subtitle="Delivered vs Pending vs Cancelled (100% stacked)"
               period={trendsGlobalPeriod}
               onPeriodChange={setTrendsGlobalPeriod}
               hidePeriodFilter
@@ -1719,7 +1902,7 @@ export default function AdminDashboardPage(): React.ReactElement {
             {/* 7. Peak Pattern Analysis — Heatmap */}
             <PeakHeatmapCard
               title="Peak Pattern Analysis"
-              subtitle="Request volume by day of week and hour (last 30 days)"
+              subtitle={trendsRangeFrom || trendsRangeTo ? 'Request volume by day/hour for the selected date range' : 'Request volume by day of week and hour (last 30 days)'}
               data={trend7Heatmap}
             />
             {/* 8. Top Areas Trend — Stacked area by top 5 areas */}
