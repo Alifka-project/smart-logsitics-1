@@ -131,6 +131,92 @@ interface SortThProps {
   align?: string;
 }
 
+interface TrendChartCardProps {
+  title: string;
+  subtitle: string;
+  period: 'day' | 'month' | 'year';
+  onPeriodChange: (p: 'day' | 'month' | 'year') => void;
+  data: unknown[];
+  dataKey?: string;
+  xKey: string;
+  chartType: 'bar' | 'line' | 'stacked' | 'bar-h';
+  barColor?: string;
+}
+
+function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey, xKey, chartType, barColor = '#2563EB' }: TrendChartCardProps): React.ReactElement {
+  const FilterBtns = () => (
+    <div className="flex rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden text-xs font-medium">
+      {(['day', 'month', 'year'] as const).map(p => (
+        <button
+          key={p}
+          onClick={() => onPeriodChange(p)}
+          className={`px-2 py-1.5 transition-colors capitalize ${period === p ? 'bg-primary-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+        >
+          {p === 'day' ? 'Daily' : p === 'month' ? 'Monthly' : 'Yearly'}
+        </button>
+      ))}
+    </div>
+  );
+  const d = data as Record<string, unknown>[];
+  const hasData = d.length > 0;
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-4">
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{title}</h2>
+          <p className="pp-page-subtitle text-xs truncate">{subtitle}</p>
+        </div>
+        <FilterBtns />
+      </div>
+      {hasData ? (
+        <ResponsiveContainer width="100%" height={220}>
+          {chartType === 'bar' && (
+            <BarChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+              <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+              <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
+              <Bar dataKey={dataKey || 'count'} fill={barColor} radius={[4, 4, 0, 0]} maxBarSize={24} />
+            </BarChart>
+          )}
+          {chartType === 'line' && (
+            <ComposedChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+              <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+              <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} unit="%" />
+              <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} formatter={(val: number) => [`${val}%`, 'Success Rate']} />
+              <Line type="monotone" dataKey={dataKey || 'rate'} stroke="#f97316" strokeWidth={2} dot={{ r: 3 }} />
+            </ComposedChart>
+          )}
+          {chartType === 'stacked' && (
+            <BarChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+              <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+              <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
+              <Legend wrapperStyle={{ fontSize: '10px' }} />
+              <Bar dataKey="delivered" stackId="a" fill="#059669" name="Delivered" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="pending" stackId="a" fill="#f59e0b" name="Pending" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="cancelled" stackId="a" fill="#dc2626" name="Cancelled" radius={[0, 0, 0, 0]} />
+            </BarChart>
+          )}
+          {chartType === 'bar-h' && (
+            <BarChart data={d} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
+              <XAxis type="number" tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+              <YAxis type="category" dataKey={xKey} width={80} tick={{ fontSize: 10, fill: '#374151' }} tickLine={false} axisLine={false} />
+              <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
+              <Bar dataKey={dataKey || 'count'} fill={barColor} radius={[0, 4, 4, 0]} maxBarSize={16} />
+            </BarChart>
+          )}
+        </ResponsiveContainer>
+      ) : (
+        <p className="text-center py-10 text-gray-400 dark:text-gray-500 text-xs">No data available</p>
+      )}
+    </div>
+  );
+}
+
 function ensureAuth(): void {
   const token = localStorage.getItem('auth_token');
   if (token) setAuthToken(token);
@@ -183,8 +269,12 @@ export default function AdminDashboardPage(): React.ReactElement {
   const [driversSortDir, setDriversSortDir] = useState<string>('asc');
 
   const [heroPeriod, setHeroPeriod] = useState<string>('30d');
-  const [trendPeriodLeft, setTrendPeriodLeft] = useState<'day' | 'month' | 'year'>('month');
-  const [trendPeriodRight, setTrendPeriodRight] = useState<'day' | 'month' | 'year'>('month');
+  const [trendPeriod1, setTrendPeriod1] = useState<'day' | 'month' | 'year'>('month');
+  const [trendPeriod2, setTrendPeriod2] = useState<'day' | 'month' | 'year'>('month');
+  const [trendPeriod3, setTrendPeriod3] = useState<'day' | 'month' | 'year'>('month');
+  const [trendPeriod4, setTrendPeriod4] = useState<'day' | 'month' | 'year'>('month');
+  const [trendPeriod5, setTrendPeriod5] = useState<'day' | 'month' | 'year'>('month');
+  const [trendPeriod6, setTrendPeriod6] = useState<'day' | 'month' | 'year'>('month');
 
   // ─── DATA FETCHING ───
 
@@ -381,63 +471,150 @@ export default function AdminDashboardPage(): React.ReactElement {
     }));
   }, [deliveries, heroPeriod]);
 
-  const computeTrendData = useCallback((period: 'day' | 'month' | 'year') => {
-    const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
+  const areaKeywords = useMemo(() => [
+    'Marina', 'Jumeirah', 'Jebel Ali', 'Business Bay', 'Downtown', 'Deira', 'Bur Dubai',
+    'Silicon Oasis', 'Motor City', 'Arabian Ranches', 'The Springs', 'Palm', 'Al Barsha',
+    'Al Quoz', 'JLT', 'DIFC', 'Karama', 'Satwa', 'Oud Metha', 'Mirdif', 'Dubai Hills'
+  ], []);
+
+  const getTimeBuckets = useCallback((period: 'day' | 'month' | 'year') => {
     const now = new Date();
     if (period === 'day') {
-      const buckets: Record<string, { label: string; day: string; count: number }> = {};
-      for (let i = 6; i >= 0; i--) {
+      return Array.from({ length: 7 }, (_, i) => {
         const d = new Date(now);
-        d.setDate(d.getDate() - i);
-        const key = d.toISOString().slice(0, 10);
-        const label = d.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' });
-        buckets[key] = { label, day: d.toLocaleDateString('en-GB', { weekday: 'short' }), count: 0 };
-      }
-      list.forEach(d => {
-        const t = d.delivered_at || d.deliveredAt || d.created_at || d.createdAt || d.created;
-        if (!t) return;
-        const dt = new Date(t as string | number);
-        const key = dt.toISOString().slice(0, 10);
-        if (buckets[key]) buckets[key].count++;
+        d.setDate(d.getDate() - (6 - i));
+        return { key: d.toISOString().slice(0, 10), label: d.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' }), day: d.toLocaleDateString('en-GB', { weekday: 'short' }) };
       });
-      return Object.values(buckets);
     }
     if (period === 'month') {
-      const buckets: Record<string, { label: string; count: number }> = {};
-      for (let i = 0; i < 12; i++) {
-        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        const label = d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
-        buckets[key] = { label, count: 0 };
-      }
-      list.forEach(d => {
-        const t = d.delivered_at || d.deliveredAt || d.created_at || d.createdAt || d.created;
-        if (!t) return;
-        const dt = new Date(t as string | number);
-        const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
-        if (buckets[key]) buckets[key].count++;
-      });
-      return Object.entries(buckets).sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v);
+      return Array.from({ length: 12 }, (_, i) => {
+        const d = new Date(now.getFullYear(), now.getMonth() - (11 - i), 1);
+        return { key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, label: d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' }) };
+      }).sort((a, b) => a.key.localeCompare(b.key));
     }
-    if (period === 'year') {
-      const buckets: Record<string, { label: string; count: number }> = {};
-      for (let i = 0; i < 5; i++) {
-        const y = now.getFullYear() - i;
-        buckets[String(y)] = { label: String(y), count: 0 };
-      }
-      list.forEach(d => {
-        const t = d.delivered_at || d.deliveredAt || d.created_at || d.createdAt || d.created;
-        if (!t) return;
-        const y = new Date(t as string | number).getFullYear();
-        if (buckets[String(y)]) buckets[String(y)].count++;
-      });
-      return Object.entries(buckets).sort((a, b) => a[0].localeCompare(b[0])).map(([, v]) => v);
-    }
-    return [];
-  }, [deliveries]);
+    return Array.from({ length: 5 }, (_, i) => {
+      const y = now.getFullYear() - (4 - i);
+      return { key: String(y), label: String(y) };
+    });
+  }, []);
 
-  const trendChartDataLeft = useMemo(() => computeTrendData(trendPeriodLeft), [computeTrendData, trendPeriodLeft]);
-  const trendChartDataRight = useMemo(() => computeTrendData(trendPeriodRight), [computeTrendData, trendPeriodRight]);
+  const trend1DeliveryRequests = useMemo(() => {
+    const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
+    const buckets = getTimeBuckets(trendPeriod1).map(b => ({ ...b, count: 0 }));
+    const bucketMap = Object.fromEntries(buckets.map((b, i) => [b.key, i]));
+    list.forEach(d => {
+      const t = d.created_at || d.createdAt || d.created;
+      if (!t) return;
+      const dt = new Date(t as string | number);
+      const key = trendPeriod1 === 'day' ? dt.toISOString().slice(0, 10) : trendPeriod1 === 'month' ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` : String(dt.getFullYear());
+      const i = bucketMap[key];
+      if (i !== undefined) buckets[i].count++;
+    });
+    return buckets.map(b => ({ label: (b as { day?: string }).day ?? b.label, ...b }));
+  }, [deliveries, trendPeriod1, getTimeBuckets]);
+
+  const trend2DeliveredVolume = useMemo(() => {
+    const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
+    const isDelivered = (s: string) => ['delivered', 'delivered-with-installation', 'delivered-without-installation'].includes((s || '').toLowerCase());
+    const buckets = getTimeBuckets(trendPeriod2).map(b => ({ ...b, count: 0 }));
+    const bucketMap = Object.fromEntries(buckets.map((b, i) => [b.key, i]));
+    list.forEach(d => {
+      if (!isDelivered(d.status || '')) return;
+      const t = d.delivered_at || d.deliveredAt || d.created_at || d.createdAt || d.created;
+      if (!t) return;
+      const dt = new Date(t as string | number);
+      const key = trendPeriod2 === 'day' ? dt.toISOString().slice(0, 10) : trendPeriod2 === 'month' ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` : String(dt.getFullYear());
+      const i = bucketMap[key];
+      if (i !== undefined) buckets[i].count++;
+    });
+    return buckets.map(b => ({ label: (b as { day?: string }).day ?? b.label, ...b }));
+  }, [deliveries, trendPeriod2, getTimeBuckets]);
+
+  const trend3SuccessRate = useMemo(() => {
+    const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
+    const isDelivered = (s: string) => ['delivered', 'delivered-with-installation', 'delivered-without-installation'].includes((s || '').toLowerCase());
+    const buckets = getTimeBuckets(trendPeriod3).map(b => ({ ...b, total: 0, delivered: 0, rate: 0 }));
+    const bucketMap = Object.fromEntries(buckets.map((b, i) => [b.key, i]));
+    list.forEach(d => {
+      const t = d.created_at || d.createdAt || d.created;
+      if (!t) return;
+      const dt = new Date(t as string | number);
+      const key = trendPeriod3 === 'day' ? dt.toISOString().slice(0, 10) : trendPeriod3 === 'month' ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` : String(dt.getFullYear());
+      const i = bucketMap[key];
+      if (i !== undefined) {
+        buckets[i].total++;
+        if (isDelivered(d.status || '')) buckets[i].delivered++;
+      }
+    });
+    return buckets.map(b => ({
+      label: (b as { day?: string }).day ?? b.label,
+      ...b,
+      rate: b.total > 0 ? parseFloat(((b.delivered / b.total) * 100).toFixed(1)) : 0
+    }));
+  }, [deliveries, trendPeriod3, getTimeBuckets]);
+
+  const trend4StatusBreakdown = useMemo(() => {
+    const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
+    const buckets = getTimeBuckets(trendPeriod4).map(b => ({ ...b, delivered: 0, pending: 0, cancelled: 0 }));
+    const bucketMap = Object.fromEntries(buckets.map((b, i) => [b.key, i]));
+    list.forEach(d => {
+      const t = d.created_at || d.createdAt || d.created;
+      if (!t) return;
+      const dt = new Date(t as string | number);
+      const key = trendPeriod4 === 'day' ? dt.toISOString().slice(0, 10) : trendPeriod4 === 'month' ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` : String(dt.getFullYear());
+      const i = bucketMap[key];
+      if (i !== undefined) {
+        const s = (d.status || '').toLowerCase();
+        if (['delivered', 'delivered-with-installation', 'delivered-without-installation'].includes(s)) buckets[i].delivered++;
+        else if (['pending', 'scheduled', 'scheduled-confirmed', 'out-for-delivery', 'in-progress'].includes(s)) buckets[i].pending++;
+        else if (['cancelled', 'rescheduled', 'rejected'].includes(s)) buckets[i].cancelled++;
+      }
+    });
+    return buckets.map(b => ({ label: (b as { day?: string }).day ?? b.label, ...b }));
+  }, [deliveries, trendPeriod4, getTimeBuckets]);
+
+  const trend5TopItems = useMemo(() => {
+    const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
+    const now = new Date();
+    const getKey = (t: string | number) => {
+      const dt = new Date(t);
+      return trendPeriod5 === 'day' ? dt.toISOString().slice(0, 10) : trendPeriod5 === 'month' ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` : String(dt.getFullYear());
+    };
+    const rangeStart = trendPeriod5 === 'day' ? new Date(now.getTime() - 7 * 86400000) : trendPeriod5 === 'month' ? new Date(now.getFullYear(), now.getMonth() - 12, 1) : new Date(now.getFullYear() - 5, 0, 1);
+    const inRange = (t: string | number) => new Date(t) >= rangeStart;
+    const itemCount: Record<string, number> = {};
+    list.forEach(d => {
+      const t = d.created_at || d.createdAt || d.created;
+      if (!t || !inRange(t)) return;
+      const meta = (d.metadata || {}) as Record<string, unknown>;
+      const orig = (meta.originalRow || meta._originalRow || {}) as Record<string, unknown>;
+      const item = String(orig?.Description || orig?.description || (d as { items?: string }).items || '').trim() || 'Unspecified';
+      const display = item.length > 30 ? item.slice(0, 27) + '...' : item;
+      itemCount[display] = (itemCount[display] || 0) + 1;
+    });
+    return Object.entries(itemCount).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([item, count]) => ({ item, count }));
+  }, [deliveries, trendPeriod5]);
+
+  const trend6TopAreas = useMemo(() => {
+    const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
+    const now = new Date();
+    const rangeStart = trendPeriod6 === 'day' ? new Date(now.getTime() - 7 * 86400000) : trendPeriod6 === 'month' ? new Date(now.getFullYear(), now.getMonth() - 12, 1) : new Date(now.getFullYear() - 5, 0, 1);
+    const inRange = (t: string | number) => new Date(t) >= rangeStart;
+    const areaCount: Record<string, number> = {};
+    list.forEach(d => {
+      const t = d.created_at || d.createdAt || d.created;
+      if (!t || !inRange(t)) return;
+      const meta = (d.metadata || {}) as Record<string, unknown>;
+      const orig = (meta.originalRow || meta._originalRow || {}) as Record<string, unknown>;
+      const addr = ((d.address || '') + ' ' + (orig.City || '')).toLowerCase();
+      let area = 'Other';
+      for (const kw of areaKeywords) {
+        if (addr.includes(kw.toLowerCase())) { area = kw; break; }
+      }
+      areaCount[area] = (areaCount[area] || 0) + 1;
+    });
+    return Object.entries(areaCount).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([area, count]) => ({ area, count }));
+  }, [deliveries, trendPeriod6, areaKeywords]);
 
   const filteredDeliveries = useMemo<TrackingDelivery[]>(() => {
     const list = (deliveries && Array.isArray(deliveries) ? deliveries : []).slice();
@@ -866,129 +1043,76 @@ export default function AdminDashboardPage(): React.ReactElement {
             })}
           </div>
 
-          {/* Two-column layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Trend chart — left */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-6">
-            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-                  Delivery Requests — {trendPeriodLeft === 'day' ? 'Daily (Last 7 Days)' : trendPeriodLeft === 'month' ? 'Monthly (Last 12 Months)' : 'Yearly (Last 5 Years)'}
-                </h2>
-                <p className="pp-page-subtitle">
-                  {trendPeriodLeft === 'day' ? 'Daily delivery volume for the current week' : trendPeriodLeft === 'month' ? 'Number of deliveries per month' : 'Number of deliveries per year'}
-                </p>
-              </div>
-              <div className="flex rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden text-xs font-medium">
-                {(['day', 'month', 'year'] as const).map(p => (
-                  <button
-                    key={p}
-                    onClick={() => setTrendPeriodLeft(p)}
-                    className={`px-3 py-1.5 transition-colors capitalize ${trendPeriodLeft === p ? 'bg-primary-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
-                  >
-                    {p === 'day' ? 'Daily' : p === 'month' ? 'Monthly' : 'Yearly'}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {trendChartDataLeft.length > 0 ? (
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={trendChartDataLeft} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                  <XAxis dataKey={trendPeriodLeft === 'day' ? 'day' : 'label'} tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-                  <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '12px' }} />
-                  <Bar dataKey="count" name="Deliveries" radius={[4, 4, 0, 0]}>
-                    {trendChartDataLeft.map((_, i, arr) => (
-                      <Cell key={i} fill={i === arr.length - 1 ? '#1d4ed8' : '#93c5fd'} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">No data available</p>
-            )}
-            </div>
-
-            {/* Trend chart — right column */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-6">
-              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-                    Delivery Volume — {trendPeriodRight === 'day' ? 'Daily' : trendPeriodRight === 'month' ? 'Monthly' : 'Yearly'}
-                  </h2>
-                  <p className="pp-page-subtitle">
-                    {trendPeriodRight === 'day' ? 'Daily delivery volume for the current week' : trendPeriodRight === 'month' ? 'Monthly delivery volume (last 12 months)' : 'Yearly delivery volume (last 5 years)'}
-                  </p>
-                </div>
-                <div className="flex rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden text-xs font-medium">
-                  {(['day', 'month', 'year'] as const).map(p => (
-                    <button
-                      key={p}
-                      onClick={() => setTrendPeriodRight(p)}
-                      className={`px-3 py-1.5 transition-colors capitalize ${trendPeriodRight === p ? 'bg-primary-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
-                    >
-                      {p === 'day' ? 'Daily' : p === 'month' ? 'Monthly' : 'Yearly'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {trendChartDataRight.length > 0 ? (
-                <ResponsiveContainer width="100%" height={280}>
-                  <ComposedChart data={trendChartDataRight} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                    <XAxis dataKey={trendPeriodRight === 'day' ? 'day' : 'label'} tick={{ fontSize: 12, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} />
-                    <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '12px' }} />
-                    <Bar dataKey="count" name="Deliveries" fill="#2563EB" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                    <Line type="monotone" dataKey="count" stroke="#f97316" strokeWidth={2} dot={{ r: 4, fill: '#f97316' }} name="Trend" legendType="none" />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              ) : (
-                <p className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">No data available</p>
-              )}
-            </div>
+          {/* Six trend charts — 3 columns on lg */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* 1. Delivery Requests (total created) */}
+            <TrendChartCard
+              title="Delivery Requests"
+              subtitle={trendPeriod1 === 'day' ? 'Total created per day (last 7 days)' : trendPeriod1 === 'month' ? 'Total created per month (last 12 months)' : 'Total created per year (last 5 years)'}
+              period={trendPeriod1}
+              onPeriodChange={setTrendPeriod1}
+              data={trend1DeliveryRequests}
+              dataKey="count"
+              xKey={trendPeriod1 === 'day' ? 'day' : 'label'}
+              chartType="bar"
+            />
+            {/* 2. Delivered Volume (completed only) */}
+            <TrendChartCard
+              title="Delivered Volume"
+              subtitle={trendPeriod2 === 'day' ? 'Completed deliveries per day' : trendPeriod2 === 'month' ? 'Completed deliveries per month' : 'Completed deliveries per year'}
+              period={trendPeriod2}
+              onPeriodChange={setTrendPeriod2}
+              data={trend2DeliveredVolume}
+              dataKey="count"
+              xKey={trendPeriod2 === 'day' ? 'day' : 'label'}
+              chartType="bar"
+              barColor="#059669"
+            />
+            {/* 3. Success Rate Over Time */}
+            <TrendChartCard
+              title="Success Rate"
+              subtitle={trendPeriod3 === 'day' ? 'Delivery success % per day' : trendPeriod3 === 'month' ? 'Delivery success % per month' : 'Delivery success % per year'}
+              period={trendPeriod3}
+              onPeriodChange={setTrendPeriod3}
+              data={trend3SuccessRate}
+              dataKey="rate"
+              xKey={trendPeriod3 === 'day' ? 'day' : 'label'}
+              chartType="line"
+            />
+            {/* 4. Status Breakdown */}
+            <TrendChartCard
+              title="Status Breakdown"
+              subtitle={trendPeriod4 === 'day' ? 'Delivered vs Pending vs Cancelled per day' : trendPeriod4 === 'month' ? 'By month' : 'By year'}
+              period={trendPeriod4}
+              onPeriodChange={setTrendPeriod4}
+              data={trend4StatusBreakdown}
+              dataKey={undefined}
+              xKey={trendPeriod4 === 'day' ? 'day' : 'label'}
+              chartType="stacked"
+            />
+            {/* 5. Top Items */}
+            <TrendChartCard
+              title="Top Items"
+              subtitle={trendPeriod5 === 'day' ? 'Most delivered items (last 7 days)' : trendPeriod5 === 'month' ? 'Most delivered items (last 12 months)' : 'Most delivered items (last 5 years)'}
+              period={trendPeriod5}
+              onPeriodChange={setTrendPeriod5}
+              data={trend5TopItems}
+              dataKey="count"
+              xKey="item"
+              chartType="bar-h"
+            />
+            {/* 6. Top Areas */}
+            <TrendChartCard
+              title="Top Areas"
+              subtitle={trendPeriod6 === 'day' ? 'Deliveries by area (last 7 days)' : trendPeriod6 === 'month' ? 'Deliveries by area (last 12 months)' : 'Deliveries by area (last 5 years)'}
+              period={trendPeriod6}
+              onPeriodChange={setTrendPeriod6}
+              data={trend6TopAreas}
+              dataKey="count"
+              xKey="area"
+              chartType="bar-h"
+            />
           </div>
-
-          {/* Summary stats strip (based on left chart) */}
-          {trendChartDataLeft.length > 0 && (() => {
-            const arr = trendChartDataLeft;
-            const total = arr.reduce((s, m) => s + (m.count || 0), 0);
-            const avg = arr.length > 0 ? (total / arr.length).toFixed(1) : 0;
-            const peak = arr.reduce((best, m) => (m.count || 0) > (best.count || 0) ? m : best, arr[0]);
-            const current = arr[arr.length - 1];
-            const peakLabel = trendPeriodLeft === 'day' ? (peak as { day?: string; label?: string })?.day ?? peak?.label : peak?.label;
-            const stats = trendPeriodLeft === 'day'
-              ? [
-                  { label: 'Total (7 days)', value: total, color: 'text-blue-600 dark:text-blue-400' },
-                  { label: 'Daily Avg', value: avg, color: 'text-indigo-600 dark:text-indigo-400' },
-                  { label: 'Peak Day', value: `${peakLabel} (${peak?.count})`, color: 'text-emerald-600 dark:text-emerald-400' },
-                  { label: 'Today', value: current?.count ?? 0, color: 'text-orange-600 dark:text-orange-400' },
-                ]
-              : trendPeriodLeft === 'month'
-                ? [
-                    { label: 'Total (12 mo)', value: total, color: 'text-blue-600 dark:text-blue-400' },
-                    { label: 'Monthly Avg', value: avg, color: 'text-indigo-600 dark:text-indigo-400' },
-                    { label: 'Peak Month', value: `${peak?.label} (${peak?.count})`, color: 'text-emerald-600 dark:text-emerald-400' },
-                    { label: 'This Month', value: current?.count ?? 0, color: 'text-orange-600 dark:text-orange-400' },
-                  ]
-                : [
-                    { label: 'Total (5 yr)', value: total, color: 'text-blue-600 dark:text-blue-400' },
-                    { label: 'Yearly Avg', value: avg, color: 'text-indigo-600 dark:text-indigo-400' },
-                    { label: 'Peak Year', value: `${peak?.label} (${peak?.count})`, color: 'text-emerald-600 dark:text-emerald-400' },
-                    { label: 'This Year', value: current?.count ?? 0, color: 'text-orange-600 dark:text-orange-400' },
-                  ];
-            return (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {stats.map(({ label, value, color }) => (
-                  <div key={label} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-4">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium tracking-wide mb-1">{label}</p>
-                    <p className={`text-xl font-bold ${color}`}>{value}</p>
-                  </div>
-                ))}
-              </div>
-            );
-          })()}
         </div>
       )}
 
