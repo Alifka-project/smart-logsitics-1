@@ -1,11 +1,15 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import api, { setAuthToken } from '../frontend/apiClient';
-import { BarChart, Bar, ComposedChart, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, Line, AreaChart, Area, PieChart, Pie, ReferenceLine } from 'recharts';
+import { BarChart, Bar, ComposedChart, XAxis, YAxis, ZAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, Line, AreaChart, Area, PieChart, Pie, ReferenceLine, ScatterChart, Scatter } from 'recharts';
 import { 
   Package, CheckCircle, XCircle, Clock, MapPin, Users, Activity, 
   Truck, AlertCircle, FileText, Target, TrendingUp,
   ChevronUp, ChevronDown, ChevronRight, RefreshCw, Download
 } from 'lucide-react';
+import InsightPanel, { InsightItem } from '../components/Analytics/InsightPanel';
+import RiskBadge, { riskFromSuccessRate } from '../components/Analytics/RiskBadge';
+import MetricTooltip from '../components/Analytics/MetricTooltip';
+import { sharePct, topNSharePct, concentrationLevel } from '../utils/analyticsHelpers';
 import { useNavigate, useLocation } from 'react-router-dom';
 import DeliveryDetailModal from '../components/DeliveryDetailModal';
 import { MapContainer, TileLayer, CircleMarker, Tooltip as MapTooltip, Popup } from 'react-leaflet';
@@ -1042,6 +1046,49 @@ export default function AdminDashboardPage(): React.ReactElement {
     return arr.slice(0, chartTopN);
   }, [data?.analytics?.deliveryByArea, chartTopN]);
 
+  type AreaRowEnhanced = AreaItem & { pending?: number; delivered?: number; successRate?: number };
+  const deliveryByAreaEnhanced = useMemo<AreaRowEnhanced[]>(() => {
+    const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
+    const byArea: Record<string, { count: number; pending: number; delivered: number }> = {};
+    list.forEach(d => {
+      const meta = (d.metadata || {}) as Record<string, unknown>;
+      const orig = (meta.originalRow || meta._originalRow || {}) as Record<string, unknown>;
+      const addr = ((d.address || '') + ' ' + (orig.City || '')).toLowerCase();
+      let area = 'Other';
+      for (const kw of areaKeywords) {
+        if (addr.includes(kw.toLowerCase())) { area = kw; break; }
+      }
+      if (!byArea[area]) byArea[area] = { count: 0, pending: 0, delivered: 0 };
+      byArea[area].count++;
+      const s = (d.status || '').toLowerCase();
+      if (['delivered', 'delivered-with-installation', 'delivered-without-installation'].includes(s)) byArea[area].delivered++;
+      else if (['pending', 'scheduled', 'scheduled-confirmed', 'out-for-delivery', 'in-progress', 'assigned'].includes(s)) byArea[area].pending++;
+    });
+    return Object.entries(byArea)
+      .map(([area, v]) => ({
+        area,
+        count: v.count,
+        pending: v.pending,
+        delivered: v.delivered,
+        successRate: v.count > 0 ? sharePct(v.delivered, v.count) : 0
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, chartTopN);
+  }, [deliveries, areaKeywords, chartTopN]);
+
+  type ItemRowEnhanced = ItemItem & { sharePct?: number; dataQuality?: 'ok' | 'warning' | 'missing' };
+  const topItemsWithQuality = useMemo<ItemRowEnhanced[]>(() => {
+    const items = (data?.analytics?.topItems || []).slice();
+    const total = items.reduce((s, r) => s + (r.count ?? 0), 0);
+    return items.map(r => {
+      const sh = total > 0 ? sharePct(r.count ?? 0, total) : 0;
+      const dq: ItemRowEnhanced['dataQuality'] = !r.item || r.item === 'Unspecified' || !r.pnc || r.pnc === '-'
+        ? (!r.item || r.item === 'Unspecified' ? 'missing' : 'warning')
+        : 'ok';
+      return { ...r, sharePct: sh, dataQuality: dq };
+    });
+  }, [data?.analytics?.topItems]);
+
   const topItemsData = useMemo<ItemItem[]>(() => {
     let rows = (data?.analytics?.topItems || []).filter(r => {
       const q = topItemsSearch.trim().toLowerCase();
@@ -1053,6 +1100,17 @@ export default function AdminDashboardPage(): React.ReactElement {
     else if (topItemsSortBy === 'pnc') rows = [...rows].sort((a, b) => dir * (a.pnc || '').localeCompare(b.pnc || ''));
     return rows.slice(0, chartTopN);
   }, [data?.analytics?.topItems, topItemsSearch, topItemsSortBy, topItemsSortDir, chartTopN]);
+
+  const topItemsTableData = useMemo(() => {
+    const total = (data?.analytics?.topItems || []).reduce((s, r) => s + (r.count ?? 0), 0);
+    return topItemsData.map(r => {
+      const sh = total > 0 ? sharePct(r.count ?? 0, total) : 0;
+      const dq: 'ok' | 'warning' | 'missing' = !r.item || r.item === 'Unspecified' || !r.pnc || r.pnc === '-'
+        ? (!r.item || r.item === 'Unspecified' ? 'missing' : 'warning')
+        : 'ok';
+      return { ...r, sharePct: sh, dataQuality: dq, dataQualityFlag: dq === 'ok' ? 'OK' : dq === 'warning' ? 'Warning' : 'Missing' };
+    });
+  }, [topItemsData, data?.analytics?.topItems]);
 
   const topCustomersData = useMemo<CustomerItem[]>(() => {
     let rows = (data?.analytics?.topCustomers || []).filter(r => {
@@ -1069,9 +1127,104 @@ export default function AdminDashboardPage(): React.ReactElement {
     });
   }, [data?.analytics?.topCustomers, topCustomersSearch, topCustomersAreaFilter, topCustomersSortBy, topCustomersSortDir]);
 
+  const topCustomersDataWithMeta = useMemo(() => {
+    const total = topCustomersData.reduce((s, r) => s + (r.orders ?? 0), 0);
+    return topCustomersData.map(r => ({
+      ...r,
+      sharePct: total > 0 ? sharePct(r.orders ?? 0, total) : 0,
+      pendingRate: (r.orders ?? 0) > 0 ? sharePct(r.pending ?? 0, r.orders ?? 0) : 0,
+      riskFlag: riskFromSuccessRate(r.successRate ?? 0)
+    }));
+  }, [topCustomersData]);
+
   const topCustomersAreas = useMemo<string[]>(() =>
     Array.from(new Set((data?.analytics?.topCustomers || []).map(r => r.primaryArea).filter((a): a is string => Boolean(a)))).sort()
   , [data?.analytics?.topCustomers]);
+
+  const customerKpis = useMemo(() => {
+    const cust = topCustomersData;
+    const totalOrders = cust.reduce((s, r) => s + (r.orders ?? 0), 0);
+    const top1Share = totalOrders > 0 && cust[0] ? sharePct(cust[0].orders ?? 0, totalOrders) : 0;
+    const top3Share = topNSharePct(cust, r => r.orders ?? 0, 3);
+    const avgSuccess = cust.length > 0 ? cust.reduce((s, r) => s + (r.successRate ?? 0), 0) / cust.length : 0;
+    const lowPerf = cust.filter(r => (r.successRate ?? 0) < 70).length;
+    return { top1Share, top3Share, avgSuccess, lowPerf };
+  }, [topCustomersData]);
+
+  const customerInsights = useMemo<InsightItem[]>(() => {
+    const cust = topCustomersData;
+    const insights: InsightItem[] = [];
+    const totalOrders = cust.reduce((s, r) => s + (r.orders ?? 0), 0);
+    if (cust.length > 0 && totalOrders > 0) {
+      const top1Pct = sharePct(cust[0]?.orders ?? 0, totalOrders);
+      if (top1Pct > 30) insights.push({ message: `Top customer holds ${top1Pct.toFixed(0)}% of orders — consider diversifying.`, type: 'warning' });
+      const avgSuccess = cust.reduce((s, r) => s + (r.successRate ?? 0), 0) / cust.length;
+      if (avgSuccess >= 90) insights.push({ message: `Average success rate is ${avgSuccess.toFixed(1)}% — strong fulfillment.`, type: 'success' });
+      else if (avgSuccess < 75) insights.push({ message: `Average success rate ${avgSuccess.toFixed(1)}% — review low performers.`, type: 'warning' });
+      const lowPerf = cust.filter(r => (r.successRate ?? 0) < 70);
+      if (lowPerf.length > 0) insights.push({ message: `${lowPerf.length} customer(s) below 70% success rate need attention.`, type: 'info' });
+      const highPending = cust.filter(r => ((r.pending ?? 0) / Math.max(r.orders ?? 1, 1)) > 0.2);
+      if (highPending.length > 0) insights.push({ message: `${highPending.length} customer(s) have >20% orders pending — check capacity.`, type: 'info' });
+      if (insights.length < 3) insights.push({ message: 'Monitor top 3 share for concentration risk.', type: 'neutral' });
+    }
+    return insights.slice(0, 5);
+  }, [topCustomersData]);
+
+  const areaKpis = useMemo(() => {
+    const areas = deliveryByAreaEnhanced;
+    const total = areas.reduce((s, r) => s + r.count, 0);
+    const topShare = total > 0 && areas[0] ? sharePct(areas[0].count, total) : 0;
+    const avgSuccess = areas.length > 0 ? areas.reduce((s, r) => s + (r.successRate ?? 0), 0) / areas.length : 0;
+    const worstArea = areas.length === 0 ? null : areas.reduce((a, b) => ((a.successRate ?? 100) <= (b.successRate ?? 100) ? a : b));
+    const largestBacklog = areas.filter(r => (r.pending ?? 0) > 0).sort((a, b) => (b.pending ?? 0) - (a.pending ?? 0))[0] ?? null;
+    return { topShare, avgSuccess, worstArea, largestBacklog };
+  }, [deliveryByAreaEnhanced]);
+
+  const areaInsights = useMemo<InsightItem[]>(() => {
+    const areas = deliveryByAreaEnhanced;
+    const insights: InsightItem[] = [];
+    if (areas.length > 0) {
+      const total = areas.reduce((s, r) => s + r.count, 0);
+      if (total > 0 && areas[0]) {
+        const topPct = sharePct(areas[0].count, total);
+        if (topPct > 40) insights.push({ message: `Top area (${areas[0].area}) holds ${topPct.toFixed(0)}% of deliveries.`, type: 'info' });
+      }
+      const worst = areas.reduce((a, b) => ((a.successRate ?? 100) <= (b.successRate ?? 100) ? a : b));
+      if ((worst.successRate ?? 100) < 80) insights.push({ message: `Lowest success: ${worst.area} at ${(worst.successRate ?? 0).toFixed(1)}%.`, type: 'warning' });
+      const backlog = areas.filter(r => (r.pending ?? 0) > 0).sort((a, b) => (b.pending ?? 0) - (a.pending ?? 0))[0];
+      if (backlog) insights.push({ message: `Largest backlog: ${backlog.area} with ${backlog.pending} pending.`, type: 'info' });
+      const avgSuccess = areas.reduce((s, r) => s + (r.successRate ?? 0), 0) / areas.length;
+      if (avgSuccess >= 90) insights.push({ message: `Area avg success ${avgSuccess.toFixed(1)}% — consistent performance.`, type: 'success' });
+      if (insights.length < 3) insights.push({ message: 'Review area mix for capacity planning.', type: 'neutral' });
+    }
+    return insights.slice(0, 5);
+  }, [deliveryByAreaEnhanced]);
+
+  const productKpis = useMemo(() => {
+    const items = topItemsWithQuality;
+    const total = items.reduce((s, r) => s + (r.count ?? 0), 0);
+    const top1Share = total > 0 && items[0] ? sharePct(items[0].count ?? 0, total) : 0;
+    const top3Share = topNSharePct(items, r => r.count ?? 0, 3);
+    const conc = concentrationLevel(items, total);
+    const dqIssues = items.filter(r => r.dataQuality && r.dataQuality !== 'ok').length;
+    return { top1Share, top3Share, concentration: conc, dqIssues };
+  }, [topItemsWithQuality]);
+
+  const productInsights = useMemo<InsightItem[]>(() => {
+    const items = topItemsWithQuality;
+    const insights: InsightItem[] = [];
+    const total = items.reduce((s, r) => s + (r.count ?? 0), 0);
+    if (items.length > 0 && total > 0) {
+      const top1Pct = sharePct(items[0]?.count ?? 0, total);
+      if (top1Pct > 40) insights.push({ message: `Top SKU holds ${top1Pct.toFixed(0)}% of volume — high dependence.`, type: 'info' });
+      const conc = concentrationLevel(items, total);
+      if (conc === 'High') insights.push({ message: 'Product concentration is high — consider diversifying.', type: 'warning' });
+      const dqIssues = items.filter(r => r.dataQuality !== 'ok');
+      if (dqIssues.length > 0) insights.push({ message: `${dqIssues.length} item(s) have data quality issues (missing PNC/description).`, type: 'warning' });
+      if (insights.length < 3) insights.push({ message: 'Monitor top 3 SKU share for portfolio balance.', type: 'neutral' });
+    }
+    return insights.slice(0, 5);
+  }, [topItemsWithQuality]);
 
   const driversData = useMemo<AdminDriver[]>(() => {
     let list = drivers.slice();
@@ -1530,26 +1683,37 @@ export default function AdminDashboardPage(): React.ReactElement {
       {/* ══════════════ TOP CUSTOMERS TAB ══════════════ */}
       {activeTab === 'customers' && (
         <div className="space-y-4">
-          {/* Compact strip */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {/* KPI strip — original + extra */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
             {[
               { label: 'Total Customers', value: topCustomersData.length, icon: Users, color: 'blue' },
               { label: 'Total Orders', value: topCustomersData.reduce((s, r) => s + (r.orders ?? 0), 0), icon: Package, color: 'indigo' },
               { label: 'Delivered', value: topCustomersData.reduce((s, r) => s + (r.delivered ?? 0), 0), icon: CheckCircle, color: 'green' },
               { label: 'Areas', value: topCustomersAreas.length, icon: MapPin, color: 'emerald' },
-            ].map(({ label, value, icon: Icon, color }) => {
+              { label: 'Top 1 Share', value: `${customerKpis.top1Share.toFixed(1)}%`, icon: Target, color: 'blue', tooltip: 'Top customer orders as % of total' },
+              { label: 'Top 3 Share', value: `${customerKpis.top3Share.toFixed(1)}%`, icon: TrendingUp, color: 'indigo', tooltip: 'Top 3 customers combined share' },
+              { label: 'Avg Success Rate', value: `${customerKpis.avgSuccess.toFixed(1)}%`, icon: CheckCircle, color: 'green', tooltip: 'Average delivery success rate across customers' },
+              { label: 'Low Perf (<70%)', value: customerKpis.lowPerf, icon: AlertCircle, color: 'red', tooltip: 'Customers with success rate below 70%' },
+            ].map(({ label, value, icon: Icon, color, tooltip }) => {
               const c = KPI_COLOR_MAP[color];
               return (
                 <div key={label} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-3 flex items-center gap-3">
                   <div className={`p-2 rounded-lg ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
-                  <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
-                    <p className={`text-lg font-bold ${c.val}`}>{value}</p>
+                  <div className="min-w-0">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                      {tooltip ? <MetricTooltip term={label} definition={tooltip} /> : label}
+                    </p>
+                    <p className={`text-lg font-bold ${c.val} truncate`}>{value}</p>
                   </div>
                 </div>
               );
             })}
           </div>
+
+          {/* Customer Insights panel */}
+          {customerInsights.length > 0 && (
+            <InsightPanel title="Customer Insights" insights={customerInsights} />
+          )}
 
           {/* Filter bar */}
           <div className="flex flex-wrap gap-2 items-center">
@@ -1576,7 +1740,7 @@ export default function AdminDashboardPage(): React.ReactElement {
               className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
               {topCustomersSortDir === 'asc' ? '↑ Asc' : '↓ Desc'}
             </button>
-            <button onClick={() => exportCSV(topCustomersData as unknown as Record<string, unknown>[], ['customer', 'orders', 'delivered', 'pending', 'cancelled', 'successRate', 'primaryArea', 'totalQuantity'], 'top-customers')}
+            <button onClick={() => exportCSV(topCustomersDataWithMeta as unknown as Record<string, unknown>[], ['customer', 'orders', 'delivered', 'pending', 'cancelled', 'successRate', 'sharePct', 'pendingRate', 'riskFlag', 'primaryArea', 'totalQuantity'], 'top-customers')}
               className="flex items-center gap-1.5 px-3 py-2 text-sm bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors">
               <Download className="w-3.5 h-3.5" /> Export
             </button>
@@ -1584,25 +1748,31 @@ export default function AdminDashboardPage(): React.ReactElement {
 
           {/* Two-column layout: Chart | Table */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-            {/* Chart — left */}
-            <div className="xl:col-span-1">
+            {/* Chart — left, with Pareto overlay */}
+            <div className="xl:col-span-1 space-y-4">
               {topCustomersData.length > 0 ? (
                 <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-6">
-                  <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Top 10 Customers by Orders</h2>
+                  <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Top 10 Customers by Orders + Cumulative Share</h2>
                   <ResponsiveContainer width="100%" height={Math.max(220, Math.min(topCustomersData.length * 42, 400))}>
-                    <BarChart
-                      data={topCustomersData.map(r => ({ name: r.customer, orders: r.orders, delivered: r.delivered }))}
+                    <ComposedChart
+                      data={topCustomersData.map((r, i) => {
+                        const total = topCustomersData.reduce((s, x) => s + (x.orders ?? 0), 0);
+                        const cum = topCustomersData.slice(0, i + 1).reduce((s, x) => s + (x.orders ?? 0), 0);
+                        return { name: r.customer, orders: r.orders, delivered: r.delivered, cumPct: total > 0 ? sharePct(cum, total) : 0 };
+                      })}
                       layout="vertical"
-                      margin={{ left: 10, right: 60, top: 5, bottom: 5 }}
+                      margin={{ left: 10, right: 50, top: 5, bottom: 5 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
                       <XAxis type="number" tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} />
                       <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 11, fill: '#374151' }} tickLine={false} axisLine={false} />
-                      <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '12px' }} />
+                      <YAxis type="number" yAxisId="pct" orientation="right" domain={[0, 100]} tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `${v}%`} width={45} tickLine={false} axisLine={false} />
+                      <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '12px' }} formatter={(val: number, name: string, props: { payload?: { cumPct?: number } }) => (name === 'Cum. Share' ? [`${(props?.payload?.cumPct ?? val).toFixed(1)}%`, name] : [val, name])} />
                       <Legend wrapperStyle={{ fontSize: '12px' }} />
-                      <Bar dataKey="orders" name="Total Orders" fill="#93c5fd" radius={[0, 3, 3, 0]} maxBarSize={18} isAnimationActive={false} />
-                      <Bar dataKey="delivered" name="Delivered" fill="#2563EB" radius={[0, 3, 3, 0]} maxBarSize={18} isAnimationActive={false} />
-                    </BarChart>
+                      <Bar dataKey="orders" name="Total Orders" fill="#93c5fd" radius={[0, 3, 3, 0]} maxBarSize={18} isAnimationActive />
+                      <Bar dataKey="delivered" name="Delivered" fill="#2563EB" radius={[0, 3, 3, 0]} maxBarSize={18} isAnimationActive />
+                      <Line type="monotone" dataKey="cumPct" name="Cum. Share" stroke="#f59e0b" strokeWidth={2} strokeDasharray="4 4" dot={{ r: 2 }} yAxisId="pct" isAnimationActive />
+                    </ComposedChart>
                   </ResponsiveContainer>
                 </div>
               ) : (
@@ -1617,6 +1787,28 @@ export default function AdminDashboardPage(): React.ReactElement {
                   <p className="font-medium text-gray-900 dark:text-gray-100">{topCustomersData[0].customer}</p>
                   <p className="text-sm text-gray-500 dark:text-gray-400">{topCustomersData[0].orders ?? 0} orders · {topCustomersData[0].delivered ?? 0} delivered</p>
                   {topCustomersData[0].primaryArea && <p className="text-xs text-gray-400 mt-1 flex items-center gap-1"><MapPin className="w-3 h-3" />{topCustomersData[0].primaryArea}</p>}
+                </div>
+              )}
+
+              {/* Customer Performance Matrix */}
+              {topCustomersData.length > 0 && (
+                <div className="mt-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-4">
+                  <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Customer Performance Matrix</h3>
+                  <p className="text-[10px] text-gray-400 mb-2">Orders (x) vs Success % (y), bubble size = pending</p>
+                  <ResponsiveContainer width="100%" height={180}>
+                    <ScatterChart margin={{ top: 5, right: 10, bottom: 5, left: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis type="number" dataKey="orders" name="Orders" tick={{ fontSize: 9 }} tickLine={false} />
+                      <YAxis type="number" dataKey="successRate" name="Success %" domain={[0, 100]} tick={{ fontSize: 9 }} tickLine={false} />
+                      <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ fontSize: '11px' }} formatter={(val: number, name: string) => [name === 'pending' ? val : name === 'successRate' ? `${val}%` : val, name]} />
+                      <ZAxis type="number" dataKey="pending" range={[60, 400]} name="Pending" />
+                      <Scatter
+                        data={topCustomersData.map(r => ({ orders: r.orders ?? 0, successRate: r.successRate ?? 0, pending: Math.max(r.pending ?? 0, 1), name: r.customer }))}
+                        fill="#2563EB"
+                        fillOpacity={0.7}
+                      />
+                    </ScatterChart>
+                  </ResponsiveContainer>
                 </div>
               )}
             </div>
@@ -1637,13 +1829,20 @@ export default function AdminDashboardPage(): React.ReactElement {
                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">Delivered</th>
                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">Pending</th>
                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">Cancelled</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">
+                      <MetricTooltip term="Share %" definition="Customer orders as % of total" />
+                    </th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">
+                      <MetricTooltip term="Pending Rate" definition="Pending orders as % of customer total" />
+                    </th>
                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">Success %</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-center">Risk</th>
                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-left">Primary Area</th>
                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">Total Qty</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                  {topCustomersData.length > 0 ? topCustomersData.map((row, idx) => (
+                  {topCustomersDataWithMeta.length > 0 ? topCustomersDataWithMeta.map((row, idx) => (
                     <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                       <td className="px-4 py-3 text-sm text-gray-400 dark:text-gray-500">{idx + 1}</td>
                       <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{row.customer || '—'}</td>
@@ -1651,10 +1850,19 @@ export default function AdminDashboardPage(): React.ReactElement {
                       <td className="px-4 py-3 text-sm text-right text-green-600 dark:text-green-400 font-semibold">{row.delivered ?? 0}</td>
                       <td className="px-4 py-3 text-sm text-right text-yellow-600 dark:text-yellow-400">{row.pending ?? 0}</td>
                       <td className="px-4 py-3 text-sm text-right text-red-500 dark:text-red-400">{row.cancelled ?? 0}</td>
+                      <td className="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-400">{row.sharePct?.toFixed(1) ?? '—'}%</td>
+                      <td className="px-4 py-3 text-sm text-right">
+                        <span className={row.pendingRate > 20 ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-gray-600 dark:text-gray-400'}>
+                          {row.pendingRate?.toFixed(1) ?? '—'}%
+                        </span>
+                      </td>
                       <td className="px-4 py-3 text-sm text-right">
                         <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${(row.successRate ?? 0) >= 80 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : (row.successRate ?? 0) >= 50 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
                           {(row.successRate ?? 0).toFixed(1)}%
                         </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-center">
+                        <RiskBadge level={row.riskFlag ?? 'low'} />
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
                         {row.primaryArea ? <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-gray-400" />{row.primaryArea}</span> : '—'}
@@ -1662,7 +1870,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                       <td className="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-400">{row.totalQuantity ?? '—'}</td>
                     </tr>
                   )) : (
-                    <tr><td colSpan={9} className="px-6 py-10 text-center text-gray-400 dark:text-gray-500 text-sm">No customer data available</td></tr>
+                    <tr><td colSpan={12} className="px-6 py-10 text-center text-gray-400 dark:text-gray-500 text-sm">No customer data available</td></tr>
                   )}
                 </tbody>
               </table>
@@ -1896,26 +2104,37 @@ export default function AdminDashboardPage(): React.ReactElement {
       {/* ══════════════ BY AREA TAB ══════════════ */}
       {activeTab === 'by-area' && (
         <div className="space-y-4">
-          {/* Compact strip */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {/* KPI strip — original + extra */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
             {[
               { label: 'Areas', value: deliveryByAreaData.length, icon: MapPin, color: 'blue' },
               { label: 'Total Deliveries', value: deliveryByAreaData.reduce((s,r)=>s+(r.count||0),0), icon: Package, color: 'indigo' },
               { label: 'Top Area', value: deliveryByAreaData[0]?.area || '—', icon: Target, color: 'emerald' },
               { label: 'Share', value: deliveryByAreaData[0] && deliveryByAreaData.reduce((s,r)=>s+(r.count||0),0) > 0 ? `${((deliveryByAreaData[0].count/deliveryByAreaData.reduce((s,r)=>s+(r.count||0),0))*100).toFixed(0)}%` : '—', icon: TrendingUp, color: 'yellow' },
-            ].map(({ label, value, icon: Icon, color }) => {
+              { label: 'Top Area Share', value: `${areaKpis.topShare.toFixed(1)}%`, icon: Target, color: 'blue', tooltip: 'Top area deliveries as % of total' },
+              { label: 'Avg Area Success', value: `${areaKpis.avgSuccess.toFixed(1)}%`, icon: CheckCircle, color: 'green', tooltip: 'Average success rate across areas' },
+              { label: 'Worst Area', value: areaKpis.worstArea?.area ?? '—', icon: AlertCircle, color: 'red', tooltip: 'Area with lowest success rate' },
+              { label: 'Largest Backlog', value: areaKpis.largestBacklog?.area ?? '—', icon: Clock, color: 'yellow', tooltip: 'Area with most pending deliveries' },
+            ].map(({ label, value, icon: Icon, color, tooltip }) => {
               const c = KPI_COLOR_MAP[color];
               return (
                 <div key={label} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-3 flex items-center gap-3">
                   <div className={`p-2 rounded-lg ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
                   <div className="min-w-0">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{label}</p>
-                    <p className={`text-lg font-bold ${c.val} truncate`}>{value}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate flex items-center gap-1">
+                      {tooltip ? <MetricTooltip term={label} definition={tooltip} /> : label}
+                    </p>
+                    <p className={`text-sm font-bold ${c.val} truncate`}>{value}</p>
                   </div>
                 </div>
               );
             })}
           </div>
+
+          {/* Area Insights panel */}
+          {areaInsights.length > 0 && (
+            <InsightPanel title="Area Insights" insights={areaInsights} />
+          )}
 
           {/* Two-column: Chart | Map */}
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -1934,14 +2153,14 @@ export default function AdminDashboardPage(): React.ReactElement {
                 </select>
               </div>
             </div>
-            {deliveryByAreaData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={Math.max(220, deliveryByAreaData.length * 38)}>
-                <BarChart data={deliveryByAreaData} layout="vertical" margin={{ left: 10, right: 50, top: 5, bottom: 5 }}>
+            {deliveryByAreaEnhanced.length > 0 ? (
+              <ResponsiveContainer width="100%" height={Math.max(220, deliveryByAreaEnhanced.length * 38)}>
+                <BarChart data={deliveryByAreaEnhanced} layout="vertical" margin={{ left: 10, right: 50, top: 5, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
                   <XAxis type="number" tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} />
                   <YAxis type="category" dataKey="area" width={130} tick={{ fontSize: 12, fill: '#374151' }} tickLine={false} axisLine={false} />
                   <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '12px' }} />
-                  <Bar dataKey="count" name="Deliveries" radius={[0, 4, 4, 0]} fill="#2563EB" isAnimationActive={false} />
+                  <Bar dataKey="count" name="Deliveries" radius={[0, 4, 4, 0]} fill="#2563EB" isAnimationActive />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -1950,11 +2169,11 @@ export default function AdminDashboardPage(): React.ReactElement {
           </div>
 
             {/* Dubai area map — right column */}
-          {deliveryByAreaData.length > 0 && (() => {
-            const maxCount = Math.max(...deliveryByAreaData.map(r => r.count || 0), 1);
-            const mapPoints = deliveryByAreaData
+          {deliveryByAreaEnhanced.length > 0 && (() => {
+            const totalDel = deliveryByAreaEnhanced.reduce((s, x) => s + x.count, 0);
+            const maxCount = Math.max(...deliveryByAreaEnhanced.map(r => r.count || 0), 1);
+            const mapPoints = deliveryByAreaEnhanced
               .map(r => {
-                // Match area name to known coordinates (case-insensitive partial match)
                 const key = Object.keys(DUBAI_AREA_COORDS).find(k =>
                   r.area?.toLowerCase().includes(k.toLowerCase()) ||
                   k.toLowerCase().includes((r.area || '').toLowerCase())
@@ -1966,7 +2185,7 @@ export default function AdminDashboardPage(): React.ReactElement {
               <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-6 mt-4">
                 <div className="mb-3">
                   <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Delivery Hotspot Map — Dubai</h2>
-                  <p className="pp-page-subtitle">Circle size = delivery volume for that area</p>
+                  <p className="pp-page-subtitle">Circle size = delivery volume · Hover for share %, pending, success</p>
                 </div>
                 <div className="h-[280px] sm:h-[360px] md:h-[420px] rounded-xl overflow-hidden">
                   <MapContainer center={[25.2, 55.27]} zoom={11} style={{ height: '100%', width: '100%' }} scrollWheelZoom={false}>
@@ -1977,6 +2196,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                     {mapPoints.map((r, i) => {
                       const radius = 8 + (r.count / maxCount) * 32;
                       const fillColor = r.count === maxCount ? '#1d4ed8' : r.count / maxCount > 0.5 ? '#2563EB' : '#60a5fa';
+                      const share = totalDel > 0 ? ((r.count / totalDel) * 100).toFixed(1) : '0';
                       return (
                         <CircleMarker
                           key={r.area || i}
@@ -1987,11 +2207,14 @@ export default function AdminDashboardPage(): React.ReactElement {
                           <MapTooltip permanent={false} direction="top" offset={[0, -radius]}>
                             <span style={{ fontWeight: 600 }}>{r.area}</span>
                             <br />
-                            <span>{r.count} deliveries</span>
+                            <span>{r.count} deliveries ({share}%)</span>
+                            <br />
+                            <span>Pending: {r.pending ?? 0} · Success: {(r.successRate ?? 0).toFixed(1)}%</span>
                           </MapTooltip>
                           <Popup>
                             <strong>{r.area}</strong><br />
-                            {r.count} deliveries ({((r.count / deliveryByAreaData.reduce((s, x) => s + (x.count || 0), 0)) * 100).toFixed(1)}% of total)
+                            {r.count} deliveries ({share}% of total)<br />
+                            Pending: {r.pending ?? 0} · Success: {(r.successRate ?? 0).toFixed(1)}%
                           </Popup>
                         </CircleMarker>
                       );
@@ -2009,13 +2232,35 @@ export default function AdminDashboardPage(): React.ReactElement {
           })()}
           </div>
 
-          {/* Area table — full width */}
-          {deliveryByAreaData.length > 0 && (
+          {/* Area Performance Matrix */}
+          {deliveryByAreaEnhanced.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-4">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">Area Performance Matrix</h3>
+              <p className="text-[10px] text-gray-400 mb-2">Deliveries (x) vs Success % (y), bubble size = pending</p>
+              <ResponsiveContainer width="100%" height={180}>
+                <ScatterChart margin={{ top: 5, right: 10, bottom: 5, left: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis type="number" dataKey="count" name="Deliveries" tick={{ fontSize: 9 }} tickLine={false} />
+                  <YAxis type="number" dataKey="successRate" name="Success %" domain={[0, 100]} tick={{ fontSize: 9 }} tickLine={false} />
+                  <ZAxis type="number" dataKey="pending" range={[60, 400]} name="Pending" />
+                  <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ fontSize: '11px' }} formatter={(val: number, name: string) => [name === 'successRate' ? `${val}%` : val, name]} />
+                  <Scatter
+                    data={deliveryByAreaEnhanced.map(r => ({ ...r, pending: Math.max(r.pending ?? 0, 1) }))}
+                    fill="#2563EB"
+                    fillOpacity={0.7}
+                  />
+                </ScatterChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* Area table — full width, expanded */}
+          {deliveryByAreaEnhanced.length > 0 && (
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
               <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Area Detail</h3>
                 <button
-                  onClick={() => exportCSV(deliveryByAreaData as unknown as Record<string, unknown>[], ['area', 'count'], 'area-deliveries')}
+                  onClick={() => exportCSV(deliveryByAreaEnhanced as unknown as Record<string, unknown>[], ['area', 'count', 'pending', 'delivered', 'successRate'], 'area-deliveries')}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   <Download className="w-3.5 h-3.5" /> Export
@@ -2028,13 +2273,17 @@ export default function AdminDashboardPage(): React.ReactElement {
                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-left w-12">#</th>
                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-left">Area</th>
                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">Deliveries</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">Share</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">Share %</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">Pending</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">Success %</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-center">Risk</th>
                     </tr>
                   </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                  {deliveryByAreaData.map((row, i) => {
-                    const total = deliveryByAreaData.reduce((s, r) => s + (r.count || 0), 0);
-                    const share = total > 0 ? ((row.count / total) * 100).toFixed(1) : 0;
+                  {deliveryByAreaEnhanced.map((row, i) => {
+                    const total = deliveryByAreaEnhanced.reduce((s, r) => s + r.count, 0);
+                    const share = total > 0 ? ((row.count / total) * 100).toFixed(1) : '0';
+                    const risk = riskFromSuccessRate(row.successRate ?? 0);
                     return (
                       <tr key={row.area || i} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                         <td className="px-4 py-3 text-sm text-gray-400 dark:text-gray-500">{i + 1}</td>
@@ -2042,7 +2291,16 @@ export default function AdminDashboardPage(): React.ReactElement {
                           <span className="flex items-center gap-2"><MapPin className="w-3.5 h-3.5 text-gray-400" />{row.area}</span>
                         </td>
                         <td className="px-4 py-3 text-sm text-right font-bold text-primary-600 dark:text-primary-400">{row.count}</td>
-                        <td className="px-4 py-3 text-sm text-right text-gray-500 dark:text-gray-400">{share}%</td>
+                        <td className="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-400">{share}%</td>
+                        <td className="px-4 py-3 text-sm text-right text-yellow-600 dark:text-yellow-400">{row.pending ?? 0}</td>
+                        <td className="px-4 py-3 text-sm text-right">
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${(row.successRate ?? 0) >= 80 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : (row.successRate ?? 0) >= 50 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                            {(row.successRate ?? 0).toFixed(1)}%
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-center">
+                          <RiskBadge level={risk} />
+                        </td>
                       </tr>
                     );
                   })}
@@ -2057,26 +2315,50 @@ export default function AdminDashboardPage(): React.ReactElement {
       {/* ══════════════ BY PRODUCT TAB ══════════════ */}
       {activeTab === 'by-product' && (
         <div className="space-y-4">
-          {/* Compact strip */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {/* KPI strip — original + extra */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
             {[
               { label: 'Top Items', value: topItemsData.length, icon: FileText, color: 'blue' },
               { label: 'Total Qty', value: topItemsData.reduce((s,r)=>s+(r.count||0),0), icon: Package, color: 'indigo' },
               { label: 'Top Item', value: topItemsData[0]?.item?.slice(0, 20) || '—', icon: Target, color: 'emerald' },
               { label: 'Count', value: topItemsData[0]?.count ?? '—', icon: TrendingUp, color: 'yellow' },
-            ].map(({ label, value, icon: Icon, color }) => {
+              { label: 'Top SKU Share', value: `${productKpis.top1Share.toFixed(1)}%`, icon: Target, color: 'blue', tooltip: 'Top SKU volume as % of total' },
+              { label: 'Top 3 SKU Share', value: `${productKpis.top3Share.toFixed(1)}%`, icon: TrendingUp, color: 'indigo', tooltip: 'Top 3 SKUs combined share' },
+              { label: 'Concentration', value: productKpis.concentration, icon: Package, color: 'emerald', tooltip: 'Product concentration level (High/Medium/Low)' },
+              { label: 'DQ Issues', value: productKpis.dqIssues, icon: AlertCircle, color: 'red', tooltip: 'Items with missing PNC or description' },
+            ].map(({ label, value, icon: Icon, color, tooltip }) => {
               const c = KPI_COLOR_MAP[color];
               return (
                 <div key={label} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-3 flex items-center gap-3">
                   <div className={`p-2 rounded-lg ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{label}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate flex items-center gap-1">
+                      {tooltip ? <MetricTooltip term={label} definition={tooltip} /> : label}
+                    </p>
                     <p className={`text-sm font-bold ${c.val} truncate`}>{value}</p>
                   </div>
                 </div>
               );
             })}
           </div>
+
+          {/* Product Insights panel */}
+          {productInsights.length > 0 && (
+            <InsightPanel title="Product Insights" insights={productInsights} />
+          )}
+
+          {/* Product Data Quality Alerts — compact */}
+          {productKpis.dqIssues > 0 && (
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+              <h3 className="text-xs font-semibold text-amber-800 dark:text-amber-200 mb-2">Product Data Quality Alerts</h3>
+              <p className="text-sm text-amber-700 dark:text-amber-300">{productKpis.dqIssues} item(s) have missing PNC or description — review for data completeness.</p>
+              <ul className="mt-1 text-xs text-amber-600 dark:text-amber-400 list-disc list-inside">
+                {topItemsWithQuality.filter(r => r.dataQuality !== 'ok').slice(0, 5).map((r, i) => (
+                  <li key={i}>{r.item || 'Unspecified'} {r.pnc === '-' || !r.pnc ? '(no PNC)' : ''}</li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* Filter bar */}
           <div className="flex flex-wrap gap-2 items-center">
@@ -2105,23 +2387,30 @@ export default function AdminDashboardPage(): React.ReactElement {
 
           {/* Two-column: Chart | Table */}
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-            {/* Chart — left */}
+            {/* Chart — left, with Pareto overlay */}
             <div>
               {topItemsData.length > 0 ? (
                 <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-6">
-                  <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Top Items by Quantity</h2>
+                  <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Top Items by Quantity + Cumulative Share</h2>
                   <ResponsiveContainer width="100%" height={Math.max(200, Math.min(topItemsData.length * 40, 400))}>
-                    <BarChart
-                      data={topItemsData.map(r => ({ ...r, label: `${r.item || ''} [${r.pnc || ''}]` }))}
+                    <ComposedChart
+                      data={topItemsData.map((r, i) => {
+                        const total = topItemsData.reduce((s, x) => s + (x.count ?? 0), 0);
+                        const cum = topItemsData.slice(0, i + 1).reduce((s, x) => s + (x.count ?? 0), 0);
+                        return { ...r, label: `${(r.item || '').slice(0, 24)}${(r.item || '').length > 24 ? '…' : ''}`, count: r.count, cumPct: total > 0 ? sharePct(cum, total) : 0 };
+                      })}
                       layout="vertical"
                       margin={{ left: 10, right: 50, top: 5, bottom: 5 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
                       <XAxis type="number" tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} />
                       <YAxis type="category" dataKey="label" width={180} tick={{ fontSize: 10, fill: '#374151' }} tickLine={false} axisLine={false} />
-                      <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '12px' }} />
-                      <Bar dataKey="count" fill="#2563EB" radius={[0, 4, 4, 0]} name="Quantity" isAnimationActive={false} />
-                    </BarChart>
+                      <YAxis type="number" yAxisId="pct" orientation="right" domain={[0, 100]} tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `${v}%`} width={45} tickLine={false} axisLine={false} />
+                      <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '12px' }} formatter={(val: number, name: string, props: { payload?: { cumPct?: number } }) => (name === 'Cum. Share' ? [`${(props?.payload?.cumPct ?? val).toFixed(1)}%`, name] : [val, name])} />
+                      <Legend wrapperStyle={{ fontSize: '12px' }} />
+                      <Bar dataKey="count" fill="#2563EB" radius={[0, 4, 4, 0]} name="Quantity" isAnimationActive />
+                      <Line type="monotone" dataKey="cumPct" name="Cum. Share" stroke="#f59e0b" strokeWidth={2} strokeDasharray="4 4" dot={{ r: 2 }} yAxisId="pct" isAnimationActive />
+                    </ComposedChart>
                   </ResponsiveContainer>
                 </div>
               ) : (
@@ -2131,11 +2420,35 @@ export default function AdminDashboardPage(): React.ReactElement {
               )}
             </div>
 
-            {/* Items table — right */}
+            {/* Product Portfolio Matrix */}
+            {topItemsData.length > 0 && (
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-4">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">Product Portfolio Matrix</h3>
+                <p className="text-[10px] text-gray-400 mb-2">Volume (x) vs Share % (y)</p>
+                <ResponsiveContainer width="100%" height={160}>
+                  <ScatterChart margin={{ top: 5, right: 10, bottom: 5, left: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis type="number" dataKey="count" name="Volume" tick={{ fontSize: 9 }} tickLine={false} />
+                    <YAxis type="number" dataKey="sharePct" name="Share %" tick={{ fontSize: 9 }} tickLine={false} />
+                    <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ fontSize: '11px' }} formatter={(val: number, name: string) => [name === 'sharePct' ? `${val}%` : val, name]} />
+                    <Scatter
+                      data={topItemsData.map((r, i) => {
+                        const total = topItemsData.reduce((s, x) => s + (x.count ?? 0), 0);
+                        return { count: r.count ?? 0, sharePct: total > 0 ? sharePct(r.count ?? 0, total) : 0, name: r.item };
+                      })}
+                      fill="#2563EB"
+                      fillOpacity={0.7}
+                    />
+                  </ScatterChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            {/* Items table — right, expanded */}
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
             <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Item Detail</h3>
-              <button onClick={() => exportCSV(topItemsData as unknown as Record<string, unknown>[], ['item', 'pnc', 'modelId', 'count'], 'top-items')}
+              <button onClick={() => exportCSV(topItemsTableData as unknown as Record<string, unknown>[], ['item', 'pnc', 'modelId', 'count', 'sharePct', 'dataQualityFlag'], 'top-items')}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                 <Download className="w-3.5 h-3.5" /> Export
               </button>
@@ -2148,20 +2461,30 @@ export default function AdminDashboardPage(): React.ReactElement {
                   <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-left">Item Name</th>
                   <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-left">PNC</th>
                   <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-left">Model ID</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">Qty</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">Orders</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">
+                    <MetricTooltip term="Share %" definition="Item volume as % of total" />
+                  </th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-center">Data Quality</th>
                   </tr>
                 </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                {topItemsData.length > 0 ? topItemsData.map((row, idx) => (
+                {topItemsTableData.length > 0 ? topItemsTableData.map((row, idx) => (
                   <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                     <td className="px-4 py-3 text-sm text-gray-400 dark:text-gray-500">{idx + 1}</td>
                     <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{row.item}</td>
                     <td className="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">{row.pnc}</td>
                     <td className="px-4 py-3 text-sm font-mono text-gray-500 dark:text-gray-500">{row.modelId || '—'}</td>
                     <td className="px-4 py-3 text-sm text-right font-bold text-primary-600 dark:text-primary-400">{row.count}</td>
+                    <td className="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-400">{row.sharePct?.toFixed(1) ?? '—'}%</td>
+                    <td className="px-4 py-3 text-sm text-center">
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${row.dataQuality === 'ok' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : row.dataQuality === 'warning' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                        {row.dataQuality === 'ok' ? 'OK' : row.dataQuality === 'warning' ? 'Warning' : 'Missing'}
+                      </span>
+                    </td>
                   </tr>
                 )) : (
-                  <tr><td colSpan={5} className="px-6 py-10 text-center text-gray-400 dark:text-gray-500 text-sm">No product data available</td></tr>
+                  <tr><td colSpan={7} className="px-6 py-10 text-center text-gray-400 dark:text-gray-500 text-sm">No product data available</td></tr>
                 )}
               </tbody>
             </table>
