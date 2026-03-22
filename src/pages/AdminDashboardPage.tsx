@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import api, { setAuthToken } from '../frontend/apiClient';
-import { BarChart, Bar, ComposedChart, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, Line, AreaChart, Area, PieChart, Pie } from 'recharts';
+import { BarChart, Bar, ComposedChart, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, Line, AreaChart, Area, PieChart, Pie, ReferenceLine } from 'recharts';
 import { 
   Package, CheckCircle, XCircle, Clock, MapPin, Users, Activity, 
   Truck, AlertCircle, FileText, Target, TrendingUp,
@@ -88,6 +88,8 @@ interface TrackingDelivery {
   created_at?: string;
   createdAt?: string;
   created?: string;
+  delivered_at?: string;
+  deliveredAt?: string;
   driverName?: string;
   assignedDriverId?: string;
   tracking?: {
@@ -139,11 +141,13 @@ interface TrendChartCardProps {
   data: unknown[];
   dataKey?: string;
   xKey: string;
-  chartType: 'bar' | 'line' | 'stacked' | 'bar-h';
+  chartType: 'bar' | 'line' | 'stacked' | 'bar-h' | 'donut' | 'area' | 'stacked-area' | 'stacked-bar' | 'demand-ma' | 'fulfillment' | 'success-target' | 'lead-time' | 'backlog' | 'status-mix-100' | 'areas-stacked' | 'items-ranked';
   barColor?: string;
+  nameKey?: string;
+  targetValue?: number;
 }
 
-function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey, xKey, chartType, barColor = '#2563EB', nameKey = 'name' }: TrendChartCardProps): React.ReactElement {
+function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey, xKey, chartType, barColor = '#2563EB', nameKey = 'name', targetValue }: TrendChartCardProps): React.ReactElement {
   const FilterBtns = () => (
     <div className="flex rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden text-xs font-medium">
       {(['day', 'month', 'year'] as const).map(p => (
@@ -170,7 +174,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
             <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
             <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} domain={dataKey === 'rate' ? [0, 100] : undefined} unit={dataKey === 'rate' ? '%' : undefined} />
             <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} formatter={dataKey === 'rate' ? (val: number) => [`${val}%`, 'Success Rate'] : undefined} />
-            <Line type="monotone" dataKey={dataKey || 'count'} stroke={barColor} strokeWidth={2} dot={{ r: 3 }} fill="transparent" isAnimationActive={false} />
+            <Line type="monotone" dataKey={dataKey || 'count'} stroke={barColor} strokeWidth={2} dot={{ r: 3 }} fill="transparent" isAnimationActive />
           </ComposedChart>
         </ResponsiveContainer>
       );
@@ -189,7 +193,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
             <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
             <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
             <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
-            <Area type="monotone" dataKey={dataKey || 'count'} stroke={barColor} fill={`url(#areaGrad-${title.replace(/\s/g, '')})`} strokeWidth={2} isAnimationActive={false} />
+            <Area type="monotone" dataKey={dataKey || 'count'} stroke={barColor} fill={`url(#areaGrad-${title.replace(/\s/g, '')})`} strokeWidth={2} isAnimationActive />
           </AreaChart>
         </ResponsiveContainer>
       );
@@ -203,9 +207,9 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
             <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
             <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
             <Legend wrapperStyle={{ fontSize: '10px' }} />
-            <Area type="monotone" dataKey="delivered" stackId="1" stroke="#059669" fill="#059669" fillOpacity={0.6} name="Delivered" isAnimationActive={false} />
-            <Area type="monotone" dataKey="pending" stackId="1" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.6} name="Pending" isAnimationActive={false} />
-            <Area type="monotone" dataKey="cancelled" stackId="1" stroke="#dc2626" fill="#dc2626" fillOpacity={0.6} name="Cancelled" isAnimationActive={false} />
+            <Area type="monotone" dataKey="delivered" stackId="1" stroke="#059669" fill="#059669" fillOpacity={0.6} name="Delivered" isAnimationActive />
+            <Area type="monotone" dataKey="pending" stackId="1" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.6} name="Pending" isAnimationActive />
+            <Area type="monotone" dataKey="cancelled" stackId="1" stroke="#dc2626" fill="#dc2626" fillOpacity={0.6} name="Cancelled" isAnimationActive />
           </AreaChart>
         </ResponsiveContainer>
       );
@@ -219,9 +223,9 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
             <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
             <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
             <Legend wrapperStyle={{ fontSize: '10px' }} />
-            <Bar dataKey="delivered" stackId="a" fill="#059669" name="Delivered" radius={[0, 0, 0, 0]} isAnimationActive={false} />
-            <Bar dataKey="pending" stackId="a" fill="#f59e0b" name="Pending" radius={[0, 0, 0, 0]} isAnimationActive={false} />
-            <Bar dataKey="cancelled" stackId="a" fill="#dc2626" name="Cancelled" radius={[0, 0, 0, 0]} isAnimationActive={false} />
+            <Bar dataKey="delivered" stackId="a" fill="#059669" name="Delivered" radius={[0, 0, 0, 0]} isAnimationActive />
+            <Bar dataKey="pending" stackId="a" fill="#f59e0b" name="Pending" radius={[0, 0, 0, 0]} isAnimationActive />
+            <Bar dataKey="cancelled" stackId="a" fill="#dc2626" name="Cancelled" radius={[0, 0, 0, 0]} isAnimationActive />
           </BarChart>
         </ResponsiveContainer>
       );
@@ -234,7 +238,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
             <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
             <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
             <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
-            <Bar dataKey={dataKey || 'count'} fill={barColor} radius={[4, 4, 0, 0]} maxBarSize={24} isAnimationActive={false} />
+            <Bar dataKey={dataKey || 'count'} fill={barColor} radius={[4, 4, 0, 0]} maxBarSize={24} isAnimationActive />
           </BarChart>
         </ResponsiveContainer>
       );
@@ -247,7 +251,135 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
             <XAxis type="number" tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
             <YAxis type="category" dataKey={xKey} width={80} tick={{ fontSize: 10, fill: '#374151' }} tickLine={false} axisLine={false} />
             <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
-            <Bar dataKey={dataKey || 'count'} fill={barColor} radius={[0, 4, 4, 0]} maxBarSize={16} isAnimationActive={false} />
+            <Bar dataKey={dataKey || 'count'} fill={barColor} radius={[0, 4, 4, 0]} maxBarSize={16} isAnimationActive />
+          </BarChart>
+        </ResponsiveContainer>
+      );
+    }
+    if (chartType === 'demand-ma') {
+      return (
+        <ResponsiveContainer width="100%" height={220}>
+          <ComposedChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+            <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
+            <Legend wrapperStyle={{ fontSize: '10px' }} />
+            <Bar dataKey="count" fill="#2563EB" radius={[4, 4, 0, 0]} maxBarSize={24} name="Requests" isAnimationActive />
+            <Line type="monotone" dataKey="ma" stroke="#f59e0b" strokeWidth={2} strokeDasharray="4 4" dot={{ r: 2 }} name="Moving Avg" isAnimationActive />
+          </ComposedChart>
+        </ResponsiveContainer>
+      );
+    }
+    if (chartType === 'fulfillment') {
+      return (
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+            <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
+            <Legend wrapperStyle={{ fontSize: '10px' }} />
+            <Bar dataKey="created" fill="#3b82f6" radius={[0, 0, 0, 0]} maxBarSize={28} name="Created" isAnimationActive />
+            <Bar dataKey="delivered" fill="#059669" radius={[0, 0, 0, 0]} maxBarSize={28} name="Delivered" isAnimationActive />
+            <Bar dataKey="inTransit" fill="#8b5cf6" radius={[0, 0, 0, 0]} maxBarSize={28} name="In Transit" isAnimationActive />
+            <Bar dataKey="cancelled" fill="#dc2626" radius={[0, 0, 0, 0]} maxBarSize={28} name="Cancelled" isAnimationActive />
+          </BarChart>
+        </ResponsiveContainer>
+      );
+    }
+    if (chartType === 'success-target' && targetValue != null) {
+      return (
+        <ResponsiveContainer width="100%" height={220}>
+          <ComposedChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} domain={[0, 100]} unit="%" />
+            <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} formatter={(val: number) => [`${val}%`, 'Success Rate']} />
+            <ReferenceLine y={targetValue} stroke="#dc2626" strokeDasharray="4 4" strokeWidth={1.5} />
+            <Line type="monotone" dataKey="rate" stroke="#059669" strokeWidth={2} dot={{ r: 3 }} name="Success Rate" isAnimationActive />
+          </ComposedChart>
+        </ResponsiveContainer>
+      );
+    }
+    if (chartType === 'lead-time') {
+      return (
+        <ResponsiveContainer width="100%" height={220}>
+          <ComposedChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} unit="h" />
+            <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
+            <Legend wrapperStyle={{ fontSize: '10px' }} />
+            <Line type="monotone" dataKey="medianHours" stroke="#2563EB" strokeWidth={2} dot={{ r: 3 }} name="Median (h)" isAnimationActive />
+            <Line type="monotone" dataKey="p90Hours" stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="4 4" dot={{ r: 2 }} name="P90 (h)" isAnimationActive />
+          </ComposedChart>
+        </ResponsiveContainer>
+      );
+    }
+    if (chartType === 'backlog') {
+      return (
+        <ResponsiveContainer width="100%" height={220}>
+          <AreaChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+            <defs>
+              <linearGradient id={`backlogGrad-${title.replace(/\s/g, '')}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.4} />
+                <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+            <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
+            <Area type="monotone" dataKey="open" stroke="#8b5cf6" fill={`url(#backlogGrad-${title.replace(/\s/g, '')})`} strokeWidth={2} name="Open / Pending / In Transit" isAnimationActive />
+          </AreaChart>
+        </ResponsiveContainer>
+      );
+    }
+    if (chartType === 'status-mix-100') {
+      return (
+        <ResponsiveContainer width="100%" height={220}>
+          <AreaChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }} stackOffset="expand">
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} domain={[0, 100]} unit="%" tickFormatter={(v) => `${v}%`} />
+            <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} formatter={(val: number) => [`${Number(val).toFixed(1)}%`, undefined]} />
+            <Legend wrapperStyle={{ fontSize: '10px' }} />
+            <Area type="monotone" dataKey="deliveredPct" stackId="1" stroke="#059669" fill="#059669" fillOpacity={0.6} name="Delivered" isAnimationActive />
+            <Area type="monotone" dataKey="pendingPct" stackId="1" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.6} name="Pending" isAnimationActive />
+            <Area type="monotone" dataKey="inTransitPct" stackId="1" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.6} name="In Transit" isAnimationActive />
+            <Area type="monotone" dataKey="cancelledPct" stackId="1" stroke="#dc2626" fill="#dc2626" fillOpacity={0.6} name="Cancelled" isAnimationActive />
+          </AreaChart>
+        </ResponsiveContainer>
+      );
+    }
+    if (chartType === 'areas-stacked') {
+      const topKeys = (d[0] ? Object.keys(d[0]).filter(k => !['key', 'label', 'day'].includes(k) && typeof (d[0] as Record<string, unknown>)[k] === 'number') : []) as string[];
+      return (
+        <ResponsiveContainer width="100%" height={220}>
+          <AreaChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+            <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+            <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
+            <Legend wrapperStyle={{ fontSize: '10px' }} />
+            {topKeys.map((k, i) => {
+              const colors = ['#2563EB', '#059669', '#f59e0b', '#8b5cf6', '#ec4899'];
+              return <Area key={k} type="monotone" dataKey={k} stackId="1" stroke={colors[i % colors.length]} fill={colors[i % colors.length]} fillOpacity={0.6} name={k} isAnimationActive />;
+            })}
+          </AreaChart>
+        </ResponsiveContainer>
+      );
+    }
+    if (chartType === 'items-ranked') {
+      return (
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={d} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
+            <XAxis type="number" tick={{ fontSize: 10, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+            <YAxis type="category" dataKey={xKey} width={90} tick={{ fontSize: 9, fill: '#374151' }} tickLine={false} axisLine={false} />
+            <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} />
+            <Bar dataKey={dataKey || 'count'} fill={barColor} radius={[0, 4, 4, 0]} maxBarSize={16} name="Volume" isAnimationActive />
           </BarChart>
         </ResponsiveContainer>
       );
@@ -274,7 +406,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
               innerRadius="55%"
               outerRadius="85%"
               paddingAngle={1}
-              isAnimationActive={false}
+              isAnimationActive
             />
             <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '11px' }} formatter={(val: number, name: string) => [val, name]} />
           </PieChart>
@@ -294,6 +426,52 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
         <FilterBtns />
       </div>
       {hasData ? renderChart() : <p className="text-center py-10 text-gray-400 dark:text-gray-500 text-xs">No data available</p>}
+    </div>
+  );
+}
+
+function PeakHeatmapCard({ data, title, subtitle }: { data: number[][]; title: string; subtitle: string }): React.ReactElement {
+  const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const maxVal = Math.max(1, ...data.flat());
+  const getOpacity = (v: number) => (maxVal > 0 ? 0.25 + 0.75 * (v / maxVal) : 0);
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm p-4">
+      <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{title}</h2>
+      <p className="pp-page-subtitle text-xs truncate mb-3">{subtitle}</p>
+      <div className="overflow-x-auto -mx-1">
+        <table className="w-full border-collapse text-[10px]">
+          <thead>
+            <tr>
+              <th className="w-8 text-left text-gray-500 dark:text-gray-400 font-medium pr-1"></th>
+              {Array.from({ length: 24 }, (_, h) => (
+                <th key={h} className="w-5 text-center text-gray-500 dark:text-gray-400 font-normal">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {dayLabels.map((day, row) => (
+              <tr key={day}>
+                <td className="text-gray-600 dark:text-gray-400 font-medium py-0.5 pr-1">{day}</td>
+                {Array.from({ length: 24 }, (_, col) => {
+                  const v = data[row]?.[col] ?? 0;
+                  const op = getOpacity(v);
+                  return (
+                    <td key={col} className="p-0.5">
+                      <div
+                        title={`${day} ${col}:00 - ${v} requests`}
+                        className="w-5 h-4 rounded-sm transition-all duration-300 ease-out"
+                        style={{ backgroundColor: v > 0 ? `rgba(37, 99, 235, ${op})` : 'rgba(229, 231, 235, 0.25)' }}
+                      />
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="text-[9px] text-gray-400 mt-1">Hour of day (0–23)</p>
+      </div>
     </div>
   );
 }
@@ -356,6 +534,8 @@ export default function AdminDashboardPage(): React.ReactElement {
   const [trendPeriod4, setTrendPeriod4] = useState<'day' | 'month' | 'year'>('month');
   const [trendPeriod5, setTrendPeriod5] = useState<'day' | 'month' | 'year'>('month');
   const [trendPeriod6, setTrendPeriod6] = useState<'day' | 'month' | 'year'>('month');
+  const [trendPeriod7, setTrendPeriod7] = useState<'day' | 'month' | 'year'>('month');
+  const [trendPeriod8, setTrendPeriod8] = useState<'day' | 'month' | 'year'>('month');
 
   // ─── DATA FETCHING ───
 
@@ -591,22 +771,35 @@ export default function AdminDashboardPage(): React.ReactElement {
       const i = bucketMap[key];
       if (i !== undefined) buckets[i].count++;
     });
-    return buckets.map(b => ({ label: (b as { day?: string }).day ?? b.label, ...b }));
+    const windowSize = trendPeriod1 === 'day' ? 7 : trendPeriod1 === 'month' ? 4 : 3;
+    return buckets.map((b, i) => {
+      const start = Math.max(0, i - windowSize + 1);
+      const slice = buckets.slice(start, i + 1);
+      const sum = slice.reduce((s, x) => s + x.count, 0);
+      const ma = slice.length > 0 ? parseFloat((sum / slice.length).toFixed(1)) : 0;
+      return { label: (b as { day?: string }).day ?? b.label, ...b, ma };
+    });
   }, [deliveries, trendPeriod1, getTimeBuckets]);
 
-  const trend2DeliveredVolume = useMemo(() => {
+  const trend2Fulfillment = useMemo(() => {
     const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
     const isDelivered = (s: string) => ['delivered', 'delivered-with-installation', 'delivered-without-installation'].includes((s || '').toLowerCase());
-    const buckets = getTimeBuckets(trendPeriod2).map(b => ({ ...b, count: 0 }));
+    const isInTransit = (s: string) => ['out-for-delivery', 'in-progress', 'assigned', 'scheduled-confirmed'].includes((s || '').toLowerCase());
+    const isCancelled = (s: string) => ['cancelled', 'rescheduled', 'rejected'].includes((s || '').toLowerCase());
+    const buckets = getTimeBuckets(trendPeriod2).map(b => ({ ...b, created: 0, delivered: 0, inTransit: 0, cancelled: 0 }));
     const bucketMap = Object.fromEntries(buckets.map((b, i) => [b.key, i]));
     list.forEach(d => {
-      if (!isDelivered(d.status || '')) return;
-      const t = d.delivered_at || d.deliveredAt || d.created_at || d.createdAt || d.created;
+      const t = d.created_at || d.createdAt || d.created;
       if (!t) return;
       const dt = new Date(t as string | number);
       const key = trendPeriod2 === 'day' ? dt.toISOString().slice(0, 10) : trendPeriod2 === 'month' ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` : String(dt.getFullYear());
       const i = bucketMap[key];
-      if (i !== undefined) buckets[i].count++;
+      if (i === undefined) return;
+      buckets[i].created++;
+      const s = (d.status || '').toLowerCase();
+      if (isDelivered(s)) buckets[i].delivered++;
+      else if (isInTransit(s)) buckets[i].inTransit++;
+      else if (isCancelled(s)) buckets[i].cancelled++;
     });
     return buckets.map(b => ({ label: (b as { day?: string }).day ?? b.label, ...b }));
   }, [deliveries, trendPeriod2, getTimeBuckets]);
@@ -634,25 +827,97 @@ export default function AdminDashboardPage(): React.ReactElement {
     }));
   }, [deliveries, trendPeriod3, getTimeBuckets]);
 
-  const trend4StatusBreakdown = useMemo(() => {
+  const trend4LeadTime = useMemo(() => {
     const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
-    const buckets = getTimeBuckets(trendPeriod4).map(b => ({ ...b, delivered: 0, pending: 0, cancelled: 0 }));
+    const isDelivered = (s: string) => ['delivered', 'delivered-with-installation', 'delivered-without-installation'].includes((s || '').toLowerCase());
+    const buckets = getTimeBuckets(trendPeriod4).map(b => ({ ...b, leadTimes: [] as number[] }));
+    const bucketMap = Object.fromEntries(buckets.map((b, i) => [b.key, i]));
+    list.forEach(d => {
+      if (!isDelivered(d.status || '')) return;
+      const created = d.created_at || d.createdAt || d.created;
+      const delivered = d.delivered_at || d.deliveredAt || created;
+      if (!created || !delivered) return;
+      const createdDt = new Date(created as string | number);
+      const deliveredDt = new Date(delivered as string | number);
+      const hours = (deliveredDt.getTime() - createdDt.getTime()) / (1000 * 60 * 60);
+      const key = trendPeriod4 === 'day' ? deliveredDt.toISOString().slice(0, 10) : trendPeriod4 === 'month' ? `${deliveredDt.getFullYear()}-${String(deliveredDt.getMonth() + 1).padStart(2, '0')}` : String(deliveredDt.getFullYear());
+      const i = bucketMap[key];
+      if (i !== undefined) buckets[i].leadTimes.push(hours);
+    });
+    return buckets.map(b => {
+      const sorted = [...b.leadTimes].sort((a, b) => a - b);
+      const n = sorted.length;
+      const medianHours = n > 0 ? parseFloat((sorted[Math.floor(n * 0.5)] ?? 0).toFixed(1)) : 0;
+      const p90Hours = n > 0 ? parseFloat((sorted[Math.min(Math.floor(n * 0.9), n - 1)] ?? 0).toFixed(1)) : 0;
+      return { label: (b as { day?: string }).day ?? b.label, ...b, medianHours, p90Hours };
+    });
+  }, [deliveries, trendPeriod4, getTimeBuckets]);
+
+  const trend5Backlog = useMemo(() => {
+    const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
+    const isOpen = (s: string) => ['pending', 'scheduled', 'scheduled-confirmed', 'out-for-delivery', 'in-progress', 'assigned'].includes((s || '').toLowerCase());
+    const buckets = getTimeBuckets(trendPeriod5).map(b => ({ ...b, open: 0 }));
+    const bucketMap = Object.fromEntries(buckets.map((b, i) => [b.key, i]));
+    list.forEach(d => {
+      if (!isOpen(d.status || '')) return;
+      const t = d.created_at || d.createdAt || d.created;
+      if (!t) return;
+      const dt = new Date(t as string | number);
+      const key = trendPeriod5 === 'day' ? dt.toISOString().slice(0, 10) : trendPeriod5 === 'month' ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` : String(dt.getFullYear());
+      const i = bucketMap[key];
+      if (i !== undefined) buckets[i].open++;
+    });
+    return buckets.map(b => ({ label: (b as { day?: string }).day ?? b.label, ...b }));
+  }, [deliveries, trendPeriod5, getTimeBuckets]);
+
+  const trend6StatusMix100 = useMemo(() => {
+    const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
+    const buckets = getTimeBuckets(trendPeriod6).map(b => ({ ...b, delivered: 0, pending: 0, inTransit: 0, cancelled: 0 }));
     const bucketMap = Object.fromEntries(buckets.map((b, i) => [b.key, i]));
     list.forEach(d => {
       const t = d.created_at || d.createdAt || d.created;
       if (!t) return;
       const dt = new Date(t as string | number);
-      const key = trendPeriod4 === 'day' ? dt.toISOString().slice(0, 10) : trendPeriod4 === 'month' ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` : String(dt.getFullYear());
+      const key = trendPeriod6 === 'day' ? dt.toISOString().slice(0, 10) : trendPeriod6 === 'month' ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` : String(dt.getFullYear());
       const i = bucketMap[key];
       if (i !== undefined) {
         const s = (d.status || '').toLowerCase();
         if (['delivered', 'delivered-with-installation', 'delivered-without-installation'].includes(s)) buckets[i].delivered++;
-        else if (['pending', 'scheduled', 'scheduled-confirmed', 'out-for-delivery', 'in-progress'].includes(s)) buckets[i].pending++;
+        else if (['pending', 'scheduled', 'scheduled-confirmed'].includes(s)) buckets[i].pending++;
+        else if (['out-for-delivery', 'in-progress', 'assigned'].includes(s)) buckets[i].inTransit++;
         else if (['cancelled', 'rescheduled', 'rejected'].includes(s)) buckets[i].cancelled++;
       }
     });
-    return buckets.map(b => ({ label: (b as { day?: string }).day ?? b.label, ...b }));
-  }, [deliveries, trendPeriod4, getTimeBuckets]);
+    return buckets.map(b => {
+      const total = b.delivered + b.pending + b.inTransit + b.cancelled;
+      const toPct = (v: number) => total > 0 ? parseFloat(((v / total) * 100).toFixed(1)) : 0;
+      return {
+        label: (b as { day?: string }).day ?? b.label,
+        ...b,
+        deliveredPct: toPct(b.delivered),
+        pendingPct: toPct(b.pending),
+        inTransitPct: toPct(b.inTransit),
+        cancelledPct: toPct(b.cancelled)
+      };
+    });
+  }, [deliveries, trendPeriod6, getTimeBuckets]);
+
+  const trend7Heatmap = useMemo(() => {
+    const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
+    const grid: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
+    const now = new Date();
+    const start = new Date(now.getTime() - 30 * 86400000);
+    list.forEach(d => {
+      const t = d.created_at || d.createdAt || d.created;
+      if (!t) return;
+      const dt = new Date(t as string | number);
+      if (dt < start) return;
+      const day = dt.getDay();
+      const hour = dt.getHours();
+      grid[day][hour]++;
+    });
+    return grid;
+  }, [deliveries]);
 
   const trend5TopItems = useMemo(() => {
     const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
@@ -696,6 +961,46 @@ export default function AdminDashboardPage(): React.ReactElement {
     });
     return Object.entries(areaCount).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([area, count]) => ({ area, count }));
   }, [deliveries, trendPeriod6, areaKeywords]);
+
+  const trend8AreasStacked = useMemo(() => {
+    const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
+    const buckets = getTimeBuckets(trendPeriod7).map(b => ({ ...b } as Record<string, unknown>));
+    const bucketMap = Object.fromEntries(buckets.map((b, i) => [b.key as string, i]));
+    const allAreas: Record<string, number> = {};
+    list.forEach(d => {
+      const meta = (d.metadata || {}) as Record<string, unknown>;
+      const orig = (meta.originalRow || meta._originalRow || {}) as Record<string, unknown>;
+      const addr = ((d.address || '') + ' ' + (orig.City || '')).toLowerCase();
+      let area = 'Other';
+      for (const kw of areaKeywords) {
+        if (addr.includes(kw.toLowerCase())) { area = kw; break; }
+      }
+      allAreas[area] = (allAreas[area] || 0) + 1;
+    });
+    const top5 = Object.entries(allAreas).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([a]) => a);
+    top5.forEach(a => { buckets.forEach(b => { (b as Record<string, number>)[a] = 0; }); });
+    list.forEach(d => {
+      const t = d.created_at || d.createdAt || d.created;
+      if (!t) return;
+      const dt = new Date(t as string | number);
+      const key = trendPeriod7 === 'day' ? dt.toISOString().slice(0, 10) : trendPeriod7 === 'month' ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` : String(dt.getFullYear());
+      const i = bucketMap[key];
+      if (i === undefined) return;
+      const meta = (d.metadata || {}) as Record<string, unknown>;
+      const orig = (meta.originalRow || meta._originalRow || {}) as Record<string, unknown>;
+      const addr = ((d.address || '') + ' ' + (orig.City || '')).toLowerCase();
+      let area = 'Other';
+      for (const kw of areaKeywords) {
+        if (addr.includes(kw.toLowerCase())) { area = kw; break; }
+      }
+      if (top5.includes(area)) (buckets[i] as Record<string, number>)[area]++;
+    });
+    return buckets.map(b => ({
+      label: (b as { day?: string }).day ?? (b as { label?: string }).label,
+      xKey: (b as { day?: string }).day ?? (b as { label?: string }).label,
+      ...b
+    }));
+  }, [deliveries, trendPeriod7, getTimeBuckets, areaKeywords]);
 
   const filteredDeliveries = useMemo<TrackingDelivery[]>(() => {
     const list = (deliveries && Array.isArray(deliveries) ? deliveries : []).slice();
@@ -1124,77 +1429,99 @@ export default function AdminDashboardPage(): React.ReactElement {
             })}
           </div>
 
-          {/* Six trend charts — 3 columns on lg */}
+          {/* Eight trend charts — 3 columns on lg */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* 1. Delivery Requests (total created) — Line: trend over time */}
+            {/* 1. Delivery Demand Trend — Column + moving average */}
             <TrendChartCard
-              title="Delivery Requests"
-              subtitle={trendPeriod1 === 'day' ? 'Total created per day (last 7 days)' : trendPeriod1 === 'month' ? 'Total created per month (last 12 months)' : 'Total created per year (last 5 years)'}
+              title="Delivery Demand Trend"
+              subtitle={trendPeriod1 === 'day' ? 'Total requests per day + 7-day moving avg' : trendPeriod1 === 'month' ? 'Per month + 4-period moving avg' : 'Per year + 3-period moving avg'}
               period={trendPeriod1}
               onPeriodChange={setTrendPeriod1}
               data={trend1DeliveryRequests}
               dataKey="count"
               xKey={trendPeriod1 === 'day' ? 'day' : 'label'}
-              chartType="line"
+              chartType="demand-ma"
               barColor="#2563EB"
             />
-            {/* 2. Delivered Volume (completed only) — Area: volume over time */}
+            {/* 2. Fulfillment Trend — Grouped columns: created vs delivered vs in-transit vs cancelled */}
             <TrendChartCard
-              title="Delivered Volume"
-              subtitle={trendPeriod2 === 'day' ? 'Completed deliveries per day' : trendPeriod2 === 'month' ? 'Completed deliveries per month' : 'Completed deliveries per year'}
+              title="Fulfillment Trend"
+              subtitle="Created vs Delivered vs In Transit vs Cancelled per period"
               period={trendPeriod2}
               onPeriodChange={setTrendPeriod2}
-              data={trend2DeliveredVolume}
-              dataKey="count"
+              data={trend2Fulfillment}
               xKey={trendPeriod2 === 'day' ? 'day' : 'label'}
-              chartType="area"
-              barColor="#059669"
+              chartType="fulfillment"
             />
-            {/* 3. Success Rate Over Time */}
+            {/* 3. Success Rate — Line + 95% target */}
             <TrendChartCard
               title="Success Rate"
-              subtitle={trendPeriod3 === 'day' ? 'Delivery success % per day' : trendPeriod3 === 'month' ? 'Delivery success % per month' : 'Delivery success % per year'}
+              subtitle="Success rate = delivered / total completed requests. Target: 95%"
               period={trendPeriod3}
               onPeriodChange={setTrendPeriod3}
               data={trend3SuccessRate}
               dataKey="rate"
               xKey={trendPeriod3 === 'day' ? 'day' : 'label'}
-              chartType="line"
+              chartType="success-target"
+              targetValue={95}
             />
-            {/* 4. Status Breakdown — Stacked area: composition over time */}
+            {/* 4. Delivery Lead Time Trend — Median + P90 */}
             <TrendChartCard
-              title="Status Breakdown"
-              subtitle={trendPeriod4 === 'day' ? 'Delivered vs Pending vs Cancelled per day' : trendPeriod4 === 'month' ? 'By month' : 'By year'}
+              title="Delivery Lead Time Trend"
+              subtitle="Median and P90 hours from created to delivered"
               period={trendPeriod4}
               onPeriodChange={setTrendPeriod4}
-              data={trend4StatusBreakdown}
-              dataKey={undefined}
+              data={trend4LeadTime}
               xKey={trendPeriod4 === 'day' ? 'day' : 'label'}
-              chartType="stacked-area"
+              chartType="lead-time"
             />
-            {/* 5. Top Items — Donut: share of deliveries by item */}
+            {/* 5. Backlog Trend — Open deliveries over time */}
             <TrendChartCard
-              title="Top Items"
-              subtitle={trendPeriod5 === 'day' ? 'Share by item (last 7 days)' : trendPeriod5 === 'month' ? 'Share by item (last 12 months)' : 'Share by item (last 5 years)'}
+              title="Backlog / Open Deliveries Trend"
+              subtitle={trendPeriod5 === 'day' ? 'Pending + in-transit created per day' : trendPeriod5 === 'month' ? 'Per month' : 'Per year'}
               period={trendPeriod5}
               onPeriodChange={setTrendPeriod5}
+              data={trend5Backlog}
+              xKey={trendPeriod5 === 'day' ? 'day' : 'label'}
+              chartType="backlog"
+            />
+            {/* 6. Status Mix Over Time — 100% stacked area */}
+            <TrendChartCard
+              title="Status Mix Over Time"
+              subtitle="Proportion of delivered, pending, in-transit, cancelled over time"
+              period={trendPeriod6}
+              onPeriodChange={setTrendPeriod6}
+              data={trend6StatusMix100}
+              xKey={trendPeriod6 === 'day' ? 'day' : 'label'}
+              chartType="status-mix-100"
+            />
+            {/* 7. Peak Pattern Analysis — Heatmap */}
+            <PeakHeatmapCard
+              title="Peak Pattern Analysis"
+              subtitle="Request volume by day of week and hour (last 30 days)"
+              data={trend7Heatmap}
+            />
+            {/* 8. Top Areas Trend — Stacked area by top 5 areas */}
+            <TrendChartCard
+              title="Top Areas Trend"
+              subtitle={trendPeriod7 === 'day' ? 'Volume by top 5 areas per day' : trendPeriod7 === 'month' ? 'Per month' : 'Per year'}
+              period={trendPeriod7}
+              onPeriodChange={setTrendPeriod7}
+              data={trend8AreasStacked}
+              xKey="label"
+              chartType="areas-stacked"
+            />
+            {/* 9. Top Items — Ranked horizontal bars */}
+            <TrendChartCard
+              title="Top Items by Volume"
+              subtitle={trendPeriod8 === 'day' ? 'Last 7 days' : trendPeriod8 === 'month' ? 'Last 12 months' : 'Last 5 years'}
+              period={trendPeriod8}
+              onPeriodChange={setTrendPeriod8}
               data={trend5TopItems}
               dataKey="count"
               xKey="item"
-              chartType="donut"
-              nameKey="item"
-            />
-            {/* 6. Top Areas — Donut: share of deliveries by area */}
-            <TrendChartCard
-              title="Top Areas"
-              subtitle={trendPeriod6 === 'day' ? 'Share by area (last 7 days)' : trendPeriod6 === 'month' ? 'Share by area (last 12 months)' : 'Share by area (last 5 years)'}
-              period={trendPeriod6}
-              onPeriodChange={setTrendPeriod6}
-              data={trend6TopAreas}
-              dataKey="count"
-              xKey="area"
-              chartType="donut"
-              nameKey="area"
+              chartType="items-ranked"
+              barColor="#2563EB"
             />
           </div>
         </div>
