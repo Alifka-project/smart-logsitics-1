@@ -49,11 +49,19 @@ router.post('/:id/status', authenticate, async (req: Request, res: Response): Pr
 // body: { status, notes, driverSignature, customerSignature, photos, actualTime, customer, address }
 router.put('/admin/:id/status', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
   const { id: deliveryIdParam } = req.params as { id: string };
-  const { status, notes, driverSignature, customerSignature, photos, actualTime, customer, address } = req.body as {
-    status?: string; notes?: string; driverSignature?: string; customerSignature?: string;
-    photos?: Array<string | { data?: string; name?: string; id?: string; type?: string }>;
-    actualTime?: string; customer?: string; address?: string;
-  };
+  const { status, notes, driverSignature, customerSignature, photos, actualTime, customer, address, scheduledDate } =
+    req.body as {
+      status?: string;
+      notes?: string;
+      driverSignature?: string;
+      customerSignature?: string;
+      photos?: Array<string | { data?: string; name?: string; id?: string; type?: string }>;
+      actualTime?: string;
+      customer?: string;
+      address?: string;
+      /** ISO string — merged into delivery.metadata.scheduledDate */
+      scheduledDate?: string;
+    };
 
   if (!status) return void res.status(400).json({ error: 'status_required' });
 
@@ -96,15 +104,31 @@ router.put('/admin/:id/status', authenticate, requireRole('admin'), async (req: 
 
     console.log(`[Deliveries] Found delivery: id=${existingDelivery.id}, customer=${existingDelivery.customer}`);
 
+    const prevMeta =
+      existingDelivery.metadata && typeof existingDelivery.metadata === 'object'
+        ? (existingDelivery.metadata as Record<string, unknown>)
+        : {};
+    const nextMeta: Record<string, unknown> = {
+      ...prevMeta,
+      statusUpdatedAt: new Date().toISOString(),
+      statusUpdatedBy: req.user?.sub || 'admin',
+      actualTime: actualTime != null ? actualTime : (prevMeta.actualTime ?? null),
+    };
+    if (scheduledDate != null && String(scheduledDate).trim() !== '') {
+      try {
+        const d = new Date(scheduledDate);
+        if (!Number.isNaN(d.getTime())) {
+          nextMeta.scheduledDate = d.toISOString();
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
     // Prepare update data - save POD data to dedicated fields
     const updateData: Record<string, unknown> = {
       status: status,
-      metadata: {
-        ...((existingDelivery.metadata as Record<string, unknown>) || {}),
-        statusUpdatedAt: new Date().toISOString(),
-        statusUpdatedBy: req.user?.sub || 'admin',
-        actualTime: actualTime || null
-      },
+      metadata: nextMeta,
       updatedAt: new Date()
     };
 

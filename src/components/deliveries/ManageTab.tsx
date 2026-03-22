@@ -4,12 +4,12 @@ import useDeliveryStore from '../../store/useDeliveryStore';
 import { generateFileHash } from '../../utils/fileHash';
 import { deliveryToManageOrder, workflowToApiPatch } from '../../utils/deliveryWorkflowMap';
 import type { DeliveryStatus } from '../../types/delivery';
+import type { Delivery } from '../../types';
 import api from '../../frontend/apiClient';
 import { StatusMetricCards } from './StatusMetricCards';
 import { OrdersTable, type OrdersTableTab } from './OrdersTable';
 import { ManageSidebar } from './ManageSidebar';
 import { OrderEditModal } from './OrderEditModal';
-import type { Delivery } from '../../types';
 
 interface ManageTabProps {
   onSwitchToDeliveriesTab: () => void;
@@ -69,6 +69,30 @@ export default function ManageTab({
   const [editDeliveryId, setEditDeliveryId] = useState<string | null>(null);
 
   const manageOrders = useMemo(() => deliveries.map((d) => deliveryToManageOrder(d)), [deliveries]);
+
+  const editingDelivery = useMemo(
+    (): Delivery | null =>
+      editDeliveryId ? (deliveries.find((d) => d.id === editDeliveryId) ?? null) : null,
+    [deliveries, editDeliveryId],
+  );
+
+  const handleOrderEditSaved = useCallback(
+    (updated: { status: string; notes?: string; scheduledDateIso?: string }) => {
+      if (!editDeliveryId) return;
+      const raw = deliveries.find((d) => d.id === editDeliveryId);
+      if (!raw) return;
+      const meta: Record<string, unknown> = { ...((raw.metadata as Record<string, unknown>) || {}) };
+      if (updated.scheduledDateIso) meta.scheduledDate = updated.scheduledDateIso;
+      updateDeliveryStatus(editDeliveryId, updated.status, {
+        metadata: meta as Delivery['metadata'],
+        deliveryNotes: updated.notes !== undefined ? updated.notes : raw.deliveryNotes ?? undefined,
+        conditionNotes: updated.notes !== undefined ? updated.notes : raw.conditionNotes ?? undefined,
+      });
+      setEditDeliveryId(null);
+      onNotifySuccess('Order updated', 'Changes saved.');
+    },
+    [editDeliveryId, deliveries, updateDeliveryStatus, onNotifySuccess],
+  );
 
   const todayStats = useMemo(() => {
     const t0 = startOfToday();
@@ -191,24 +215,6 @@ export default function ManageTab({
     setDeliveryListFilter('confirmed');
     onSwitchToDeliveriesTab();
   }, [setDeliveryListFilter, onSwitchToDeliveriesTab]);
-
-  const editingDelivery = useMemo((): Delivery | null => {
-    if (!editDeliveryId) return null;
-    return deliveries.find((d) => d.id === editDeliveryId) ?? null;
-  }, [deliveries, editDeliveryId]);
-
-  const handleOrderEditSaved = useCallback(
-    (updated: { status: string; notes?: string; scheduledDateIso?: string }) => {
-      if (!editDeliveryId) return;
-      updateDeliveryStatus(editDeliveryId, updated.status, {
-        ...(updated.notes !== undefined ? { deliveryNotes: updated.notes } : {}),
-        ...(updated.scheduledDateIso ? { scheduledDate: updated.scheduledDateIso } : {}),
-      });
-      setEditDeliveryId(null);
-      onNotifySuccess('Order updated', 'Changes saved.');
-    },
-    [editDeliveryId, updateDeliveryStatus, onNotifySuccess],
-  );
 
   return (
     <div className="p-4 lg:p-6 bg-gray-50 dark:bg-gray-900/20 min-h-0 rounded-xl max-w-[1600px] mx-auto w-full">

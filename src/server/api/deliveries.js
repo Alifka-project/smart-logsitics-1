@@ -46,7 +46,8 @@ router.post('/:id/status', authenticate, async (req, res) => {
 // body: { status, notes, driverSignature, customerSignature, photos, actualTime, customer, address }
 router.put('/admin/:id/status', authenticate, requireRole('admin'), async (req, res) => {
   const deliveryIdParam = req.params.id;
-  const { status, notes, driverSignature, customerSignature, photos, actualTime, customer, address } = req.body;
+  const { status, notes, driverSignature, customerSignature, photos, actualTime, customer, address, scheduledDate } =
+    req.body;
 
   if (!status) return res.status(400).json({ error: 'status_required' });
 

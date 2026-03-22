@@ -104,7 +104,8 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
         order.customerName.toLowerCase().includes(q) ||
         order.orderNumber.toLowerCase().includes(q) ||
         order.area.toLowerCase().includes(q) ||
-        order.customerPhone.toLowerCase().includes(q);
+        order.customerPhone.toLowerCase().includes(q) ||
+        order.product.toLowerCase().includes(q);
       return matchesStatus && matchesSearch;
     });
   }, [orders, cardFilter, tableTab, searchQuery]);
@@ -151,7 +152,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
       );
     }
     if (order.status === 'out_for_delivery')
-      return <span className="text-purple-600 dark:text-purple-400">Today</span>;
+      return <span className="font-medium text-[#002D5B] dark:text-blue-200">Today</span>;
     if (order.status === 'unconfirmed')
       return <span className="text-red-600 dark:text-red-400">No response</span>;
     if (order.status === 'uploaded' || order.status === 'sms_sent')
@@ -289,7 +290,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
               </span>
               <input
                 type="search"
-                placeholder="Search…"
+                placeholder="Search name, phone, order, area, product…"
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
                 className="w-full pl-9 pr-3 py-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#002D5B]"

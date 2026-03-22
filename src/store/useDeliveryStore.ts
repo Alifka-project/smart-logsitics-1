@@ -270,10 +270,19 @@ const useDeliveryStore = create<DeliveryStore>((set, get) => ({
     const deliveries = get().deliveries;
     const updated = deliveries.map((delivery) => {
       if (delivery.id === id) {
+        const mergedMeta =
+          updateData?.metadata && typeof updateData.metadata === 'object'
+            ? {
+                ...((delivery.metadata as Record<string, unknown>) || {}),
+                ...(updateData.metadata as Record<string, unknown>),
+              }
+            : delivery.metadata;
+        const { metadata: _drop, ...restUpdate } = updateData || {};
         return {
           ...delivery,
           status,
-          ...updateData,
+          ...restUpdate,
+          metadata: mergedMeta as Delivery['metadata'],
           updatedAt: new Date().toISOString(),
         };
       }

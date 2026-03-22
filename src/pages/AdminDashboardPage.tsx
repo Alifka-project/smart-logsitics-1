@@ -3,8 +3,8 @@ import api, { setAuthToken } from '../frontend/apiClient';
 import { BarChart, Bar, ComposedChart, XAxis, YAxis, ZAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, Line, AreaChart, Area, PieChart, Pie, Cell, ReferenceLine, ScatterChart, Scatter, type PieLabelRenderProps } from 'recharts';
 import { 
   Package, CheckCircle, XCircle, Clock, MapPin, Users, Activity, 
-  Truck, AlertCircle, FileText, Target, TrendingUp, HelpCircle,
-  ChevronUp, ChevronDown, ChevronRight, RefreshCw, Download, ExternalLink
+  Truck, AlertCircle, FileText, Target, TrendingUp,
+  ChevronUp, ChevronDown, ChevronRight, RefreshCw, Download, ArrowUpRight
 } from 'lucide-react';
 import RiskBadge, { riskFromSuccessRate } from '../components/Analytics/RiskBadge';
 import MetricTooltip from '../components/Analytics/MetricTooltip';
@@ -1440,23 +1440,23 @@ export default function AdminDashboardPage(): React.ReactElement {
               const Icon = card.icon;
               const c = KPI_COLOR_MAP[card.color];
               return (
-                <div key={card.id} className="pp-dash-card p-4 sm:p-5 relative w-full min-w-0">
+                <div
+                  key={card.id}
+                  className="pp-dash-card p-4 sm:p-5 relative w-full min-w-0"
+                  title={
+                    card.id === 'rate'
+                      ? 'Success rate = delivered orders ÷ total orders. The trend chart uses the same ratio per day (delivered ÷ dispatched that day).'
+                      : undefined
+                  }
+                >
                   <span className="absolute top-3 right-3 text-gray-300 dark:text-slate-600 pointer-events-none" aria-hidden>
-                    <ExternalLink className="w-3.5 h-3.5" />
+                    <ArrowUpRight className="w-3.5 h-3.5" strokeWidth={2} />
                   </span>
                   <div className="flex items-start gap-3 pr-6">
                     <div className={`p-2.5 rounded-full shrink-0 ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
                     <div className="min-w-0 flex-1">
-                      <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide leading-snug flex items-center gap-1">
+                      <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide leading-snug">
                         {card.label}
-                        {card.id === 'rate' && (
-                          <span
-                            className="inline-flex shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 pointer-events-auto"
-                            title="Success rate = delivered orders ÷ total orders. The trend chart uses the same ratio per day (delivered ÷ dispatched that day)."
-                          >
-                            <HelpCircle className="w-3.5 h-3.5" aria-hidden />
-                          </span>
-                        )}
                       </span>
                       <div className={`text-2xl sm:text-3xl font-bold tracking-tight ${c.val} mt-1`}>{card.value}</div>
                       {card.delta ? (
