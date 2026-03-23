@@ -398,8 +398,8 @@ export default function AdminOperationsPage(): React.ReactElement {
   useEffect(() => {
     const pts = deliveries
       .map((d) => {
-        const lat = d.lat ?? d.Lat ?? d.tracking?.lastLocation?.lat;
-        const lng = d.lng ?? d.Lng ?? d.tracking?.lastLocation?.lng;
+        const lat = d.lat ?? d.Lat;
+        const lng = d.lng ?? d.Lng;
         return lat != null && lng != null ? [Number(lat), Number(lng)] as [number, number] : null;
       })
       .filter(
@@ -538,8 +538,8 @@ export default function AdminOperationsPage(): React.ReactElement {
   };
 
   const deliveriesWithEta = deliveries.map(d => {
-    const lat = d.lat || d.Lat || d.tracking?.lastLocation?.lat || 25.1124;
-    const lng = d.lng || d.Lng || d.tracking?.lastLocation?.lng || 55.1980;
+    const lat = d.lat ?? d.Lat;
+    const lng = d.lng ?? d.Lng;
     const etaMinutes = estimateMinutes(d);
     const itemCount = getItemCount(d);
     return {
