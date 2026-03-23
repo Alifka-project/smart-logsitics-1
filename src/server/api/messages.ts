@@ -41,6 +41,9 @@ router.get('/conversations/:driverId', authenticate, async (req: Request, res: R
         createdAt: true,
         adminId: true,
         driverId: true,
+        attachmentUrl: true,
+        attachmentType: true,
+        attachmentName: true,
         admin: { select: { id: true, fullName: true, username: true } },
         driver: { select: { id: true, fullName: true, username: true } }
       },
@@ -156,6 +159,7 @@ router.get('/unread', authenticate, async (req: Request, res: Response): Promise
 
 /**
  * POST /api/admin/messages/send - Send message to driver (admin or delivery_team)
+ * Accepts optional attachmentUrl (base64 data URL), attachmentType (MIME), attachmentName
  */
 router.post('/send', authenticate, async (req: Request, res: Response): Promise<void> => {
   const userRole = (req.user as AuthUser)?.account?.role || (req.user as AuthUser)?.role;
@@ -163,15 +167,17 @@ router.post('/send', authenticate, async (req: Request, res: Response): Promise<
     res.status(403).json({ error: 'Forbidden - Admin or Delivery Team access required' }); return;
   }
   try {
-    const { driverId, content } = req.body;
+    const { driverId, content, attachmentUrl, attachmentType, attachmentName } = req.body;
     const adminId = (req.user as AuthUser)?.sub;
 
     if (!adminId) {
       res.status(401).json({ error: 'Unauthorized' }); return;
     }
 
-    if (!driverId || !content || !content.trim()) {
-      res.status(400).json({ error: 'Missing required fields: driverId, content' }); return;
+    const hasText = content && content.trim();
+    const hasAttachment = attachmentUrl && attachmentType;
+    if (!driverId || (!hasText && !hasAttachment)) {
+      res.status(400).json({ error: 'Missing required fields: driverId and content or attachment' }); return;
     }
 
     const driver = await prisma.driver.findUnique({
@@ -186,9 +192,14 @@ router.post('/send', authenticate, async (req: Request, res: Response): Promise<
       data: {
         adminId,
         driverId,
-        content: content.trim(),
+        content: hasText ? content.trim() : '',
         senderRole: userRole,
-        isRead: false
+        isRead: false,
+        ...(hasAttachment && {
+          attachmentUrl,
+          attachmentType,
+          attachmentName: attachmentName || null
+        })
       },
       include: {
         admin: { select: { id: true, fullName: true, username: true } },
@@ -200,8 +211,9 @@ router.post('/send', authenticate, async (req: Request, res: Response): Promise<
       messageId: message.id,
       from: adminId,
       to: driverId,
-      senderRole: 'admin',
-      contentPreview: content.substring(0, 30)
+      senderRole: userRole,
+      hasAttachment: !!hasAttachment,
+      contentPreview: hasText ? content.substring(0, 30) : '(attachment only)'
     });
 
     res.json({ 
@@ -316,15 +328,17 @@ router.delete('/conversation/:driverId', authenticate, async (req: Request, res:
  */
 router.post('/driver/send', authenticate, requireRole('driver'), async (req: Request, res: Response): Promise<void> => {
   try {
-    const { content, recipientId } = req.body;
+    const { content, recipientId, attachmentUrl, attachmentType, attachmentName } = req.body;
     const driverId = (req.user as AuthUser)?.sub;
 
     if (!driverId) {
       res.status(401).json({ error: 'Unauthorized' }); return;
     }
 
-    if (!content || !content.trim()) {
-      res.status(400).json({ error: 'Message content is required' }); return;
+    const hasText = content && content.trim();
+    const hasAttachment = attachmentUrl && attachmentType;
+    if (!hasText && !hasAttachment) {
+      res.status(400).json({ error: 'Message content or attachment is required' }); return;
     }
 
     let adminId: string | undefined;
@@ -380,9 +394,14 @@ router.post('/driver/send', authenticate, requireRole('driver'), async (req: Req
       data: {
         adminId: adminId as string,
         driverId,
-        content: content.trim(),
+        content: hasText ? content.trim() : '',
         senderRole: 'driver',
-        isRead: false
+        isRead: false,
+        ...(hasAttachment && {
+          attachmentUrl,
+          attachmentType,
+          attachmentName: attachmentName || null
+        })
       },
       include: {
         admin: { select: { id: true, fullName: true, username: true } },
@@ -395,7 +414,8 @@ router.post('/driver/send', authenticate, requireRole('driver'), async (req: Req
       from: driverId,
       to: adminId,
       senderRole: 'driver',
-      contentPreview: content.substring(0, 30)
+      hasAttachment: !!hasAttachment,
+      contentPreview: hasText ? content.substring(0, 30) : '(attachment only)'
     });
 
     res.json({ success: true, message });
@@ -422,7 +442,17 @@ router.get('/driver', authenticate, requireRole('driver'), async (req: Request, 
       where: {
         driverId
       },
-      include: {
+      select: {
+        id: true,
+        content: true,
+        senderRole: true,
+        isRead: true,
+        createdAt: true,
+        adminId: true,
+        driverId: true,
+        attachmentUrl: true,
+        attachmentType: true,
+        attachmentName: true,
         admin: { 
           select: { 
             id: true, 
@@ -475,7 +505,17 @@ router.get('/driver/:contactId', authenticate, requireRole('driver'), async (req
         driverId,
         adminId: contactId
       },
-      include: {
+      select: {
+        id: true,
+        content: true,
+        senderRole: true,
+        isRead: true,
+        createdAt: true,
+        adminId: true,
+        driverId: true,
+        attachmentUrl: true,
+        attachmentType: true,
+        attachmentName: true,
         admin: { 
           select: { 
             id: true, 

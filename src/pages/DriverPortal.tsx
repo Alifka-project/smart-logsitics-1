@@ -55,6 +55,9 @@ interface DriverMessage {
   senderRole?: string;
   timestamp?: string;
   createdAt?: string;
+  attachmentUrl?: string;
+  attachmentType?: string;
+  attachmentName?: string;
   [key: string]: unknown;
 }
 
@@ -107,6 +110,8 @@ export default function DriverPortal() {
   const [teamMembers, setTeamMembers] = useState<ContactUser[]>([]);
   const [selectedContact, setSelectedContact] = useState<ContactUser | null>(null);
   const [loadingContacts, setLoadingContacts] = useState<boolean>(false);
+  const [attachmentPreview, setAttachmentPreview] = useState<{ url: string; type: string; name: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Routing state
   const [route, setRoute] = useState<DriverRouteData | null>(null);
@@ -630,16 +635,23 @@ export default function DriverPortal() {
   };
 
   const handleSendMessage = async (): Promise<void> => {
-    if (!newMessage.trim() || !selectedContact) return;
+    if ((!newMessage.trim() && !attachmentPreview) || !selectedContact) return;
 
     const messageText = newMessage.trim();
     setSendingMessage(true);
 
     try {
-      const response = await api.post('/messages/driver/send', {
-        content: messageText,
+      const payload: Record<string, string> = {
         recipientId: selectedContact.id
-      });
+      };
+      if (messageText) payload.content = messageText;
+      if (attachmentPreview) {
+        payload.attachmentUrl = attachmentPreview.url;
+        payload.attachmentType = attachmentPreview.type;
+        payload.attachmentName = attachmentPreview.name;
+      }
+
+      const response = await api.post('/messages/driver/send', payload);
 
       if (response.data?.message) {
         const apiMsg = response.data.message as DriverMessage;
@@ -653,6 +665,7 @@ export default function DriverPortal() {
       }
 
       setNewMessage('');
+      setAttachmentPreview(null);
     } catch (sendErr: unknown) {
       const e = sendErr as { message?: string; response?: { data?: { error?: string } } };
       console.error('Failed to send message:', sendErr);
@@ -660,6 +673,27 @@ export default function DriverPortal() {
     } finally {
       setSendingMessage(false);
     }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+    if (file.size > MAX_SIZE) {
+      alert('File is too large. Maximum size is 5 MB.');
+      e.target.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setAttachmentPreview({
+        url: reader.result as string,
+        type: file.type,
+        name: file.name
+      });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   const sendLocationToServer = useCallback(async (locationData: LocationData): Promise<void> => {
@@ -1220,7 +1254,31 @@ export default function DriverPortal() {
                                 ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700 rounded-2xl rounded-tl-sm'
                                 : 'bg-blue-600 dark:bg-blue-500 text-white rounded-2xl rounded-tr-sm'
                             }`}>
-                              <p className="text-sm leading-relaxed">{messageText}</p>
+                              {/* Attachment rendering */}
+                              {msg.attachmentUrl && msg.attachmentType?.startsWith('image/') && (
+                                <a href={msg.attachmentUrl as string} target="_blank" rel="noopener noreferrer" className="block mb-2">
+                                  <img
+                                    src={msg.attachmentUrl as string}
+                                    alt={(msg.attachmentName as string) || 'attachment'}
+                                    className="max-w-full rounded-lg max-h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                  />
+                                </a>
+                              )}
+                              {msg.attachmentUrl && !msg.attachmentType?.startsWith('image/') && (
+                                <a
+                                  href={msg.attachmentUrl as string}
+                                  download={(msg.attachmentName as string) || 'file'}
+                                  className={`flex items-center gap-2 mb-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                    isFromOther
+                                      ? 'bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400 hover:bg-gray-200'
+                                      : 'bg-blue-500 text-white hover:bg-blue-400'
+                                  }`}
+                                >
+                                  <Paperclip className="w-4 h-4 flex-shrink-0" />
+                                  <span className="truncate">{(msg.attachmentName as string) || 'Download file'}</span>
+                                </a>
+                              )}
+                              {messageText && <p className="text-sm leading-relaxed">{messageText}</p>}
                             </div>
                             <p className={`text-[11px] mt-1 px-1 ${isFromOther ? 'text-left text-gray-400 dark:text-gray-500' : 'text-right text-gray-400 dark:text-gray-500'}`}>
                               {formatMessageTimestamp(messageTime)}
@@ -1234,25 +1292,62 @@ export default function DriverPortal() {
                 </div>
 
                 {/* Message input */}
-                <div className="flex-shrink-0 px-4 py-3 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center gap-3 bg-gray-100 dark:bg-gray-700 rounded-full px-4 py-2.5 focus-within:ring-2 focus-within:ring-blue-500 transition-all">
+                <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+                  {/* Attachment preview */}
+                  {attachmentPreview && (
+                    <div className="px-4 pt-3 flex items-center gap-3">
+                      <div className="relative flex items-center gap-2 bg-gray-100 dark:bg-gray-700 rounded-xl px-3 py-2 max-w-xs">
+                        {attachmentPreview.type.startsWith('image/') ? (
+                          <img src={attachmentPreview.url} alt="preview" className="h-10 w-10 object-cover rounded-lg flex-shrink-0" />
+                        ) : (
+                          <div className="h-10 w-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <Paperclip className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                          </div>
+                        )}
+                        <span className="text-xs text-gray-700 dark:text-gray-300 truncate max-w-[140px]">{attachmentPreview.name}</span>
+                        <button
+                          onClick={() => setAttachmentPreview(null)}
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-gray-500 hover:bg-red-500 text-white rounded-full flex items-center justify-center text-xs transition-colors"
+                        >✕</button>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 px-4 py-3">
+                    {/* Hidden file input */}
                     <input
-                      type="text"
-                      value={newMessage}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewMessage(e.target.value)}
-                      onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                        if (e.key === 'Enter' && newMessage.trim() && !sendingMessage) {
-                          void handleSendMessage();
-                        }
-                      }}
-                      placeholder="Type a message…"
-                      disabled={sendingMessage}
-                      className="flex-1 bg-transparent text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none disabled:opacity-50"
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                      className="hidden"
+                      onChange={handleFileSelect}
                     />
                     <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={sendingMessage}
+                      title="Attach file or image"
+                      className="flex-shrink-0 w-9 h-9 flex items-center justify-center text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors disabled:opacity-40"
+                    >
+                      <Paperclip className="w-5 h-5" />
+                    </button>
+                    <div className="flex-1 flex items-center gap-3 bg-gray-100 dark:bg-gray-700 rounded-full px-4 py-2.5 focus-within:ring-2 focus-within:ring-blue-500 transition-all">
+                      <input
+                        type="text"
+                        value={newMessage}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewMessage(e.target.value)}
+                        onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                          if (e.key === 'Enter' && (newMessage.trim() || attachmentPreview) && !sendingMessage) {
+                            void handleSendMessage();
+                          }
+                        }}
+                        placeholder="Type a message…"
+                        disabled={sendingMessage}
+                        className="flex-1 bg-transparent text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none disabled:opacity-50"
+                      />
+                    </div>
+                    <button
                       onClick={() => void handleSendMessage()}
-                      disabled={!newMessage.trim() || sendingMessage}
-                      className="flex-shrink-0 w-8 h-8 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-full flex items-center justify-center transition-colors shadow-sm"
+                      disabled={(!newMessage.trim() && !attachmentPreview) || sendingMessage}
+                      className="flex-shrink-0 w-9 h-9 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-full flex items-center justify-center transition-colors shadow-sm"
                     >
                       {sendingMessage
                         ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

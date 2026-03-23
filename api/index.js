@@ -157,6 +157,17 @@ app.post('/apply-pending-migrations', async (req, res) => {
       results.push({ migration: 'add_po_number_column', status: 'error', detail: e.message });
     }
 
+    // 3. attachment columns on messages
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "messages" ADD COLUMN IF NOT EXISTS "attachment_url" TEXT;`);
+      await prisma.$executeRawUnsafe(`ALTER TABLE "messages" ADD COLUMN IF NOT EXISTS "attachment_type" VARCHAR(100);`);
+      await prisma.$executeRawUnsafe(`ALTER TABLE "messages" ADD COLUMN IF NOT EXISTS "attachment_name" VARCHAR(255);`);
+      await prisma.$executeRawUnsafe(`ALTER TABLE "messages" ALTER COLUMN "content" SET DEFAULT '';`);
+      results.push({ migration: 'add_message_attachments', status: 'ok' });
+    } catch (e) {
+      results.push({ migration: 'add_message_attachments', status: 'error', detail: e.message });
+    }
+
     const allOk = results.every(r => r.status === 'ok');
     return res.status(allOk ? 200 : 207).json({ ok: allOk, results });
   } catch (err) {

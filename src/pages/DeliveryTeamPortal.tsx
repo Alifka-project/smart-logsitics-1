@@ -53,6 +53,9 @@ interface TeamMessage {
   content: string;
   senderRole?: string;
   createdAt?: string;
+  attachmentUrl?: string;
+  attachmentType?: string;
+  attachmentName?: string;
 }
 
 interface SystemAlert {
@@ -91,6 +94,8 @@ export default function DeliveryTeamPortal() {
   const [loadingMessages, setLoadingMessages] = useState<boolean>(false);
   const [sendingMessage, setSendingMessage] = useState<boolean>(false);
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
+  const [attachmentPreview, setAttachmentPreview] = useState<{ url: string; type: string; name: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [messageTemplates] = useState<string[]>([
     'Please update delivery status',
     'New delivery assigned',
@@ -367,16 +372,23 @@ export default function DeliveryTeamPortal() {
   };
 
   const handleSendMessage = async (): Promise<void> => {
-    if (!newMessage.trim() || !selectedContact) return;
+    if ((!newMessage.trim() && !attachmentPreview) || !selectedContact) return;
 
     setSendingMessage(true);
     try {
-      await api.post('/messages/send', {
-        content: newMessage.trim(),
+      const payload: Record<string, string> = {
         driverId: selectedContact.id
-      });
+      };
+      if (newMessage.trim()) payload.content = newMessage.trim();
+      if (attachmentPreview) {
+        payload.attachmentUrl = attachmentPreview.url;
+        payload.attachmentType = attachmentPreview.type;
+        payload.attachmentName = attachmentPreview.name;
+      }
+      await api.post('/messages/send', payload);
       
       setNewMessage('');
+      setAttachmentPreview(null);
       await loadMessages(selectedContact.id, true);
     } catch (err: unknown) {
       console.error('Error sending message:', err);
@@ -384,6 +396,27 @@ export default function DeliveryTeamPortal() {
     } finally {
       setSendingMessage(false);
     }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+    if (file.size > MAX_SIZE) {
+      alert('File is too large. Maximum size is 5 MB.');
+      e.target.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setAttachmentPreview({
+        url: reader.result as string,
+        type: file.type,
+        name: file.name
+      });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   const isContactOnline = (contact: ContactUser): boolean => {
@@ -1077,7 +1110,31 @@ export default function DeliveryTeamPortal() {
                                 ? 'bg-blue-600 dark:bg-blue-500 text-white rounded-2xl rounded-tr-sm'
                                 : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700 rounded-2xl rounded-tl-sm'
                             }`}>
-                              <p className="text-sm leading-relaxed">{msg.content}</p>
+                              {/* Attachment rendering */}
+                              {msg.attachmentUrl && msg.attachmentType?.startsWith('image/') && (
+                                <a href={msg.attachmentUrl} target="_blank" rel="noopener noreferrer" className="block mb-2">
+                                  <img
+                                    src={msg.attachmentUrl}
+                                    alt={msg.attachmentName || 'attachment'}
+                                    className="max-w-full rounded-lg max-h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                  />
+                                </a>
+                              )}
+                              {msg.attachmentUrl && !msg.attachmentType?.startsWith('image/') && (
+                                <a
+                                  href={msg.attachmentUrl}
+                                  download={msg.attachmentName || 'file'}
+                                  className={`flex items-center gap-2 mb-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                    isSent
+                                      ? 'bg-blue-500 text-white hover:bg-blue-400'
+                                      : 'bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400 hover:bg-gray-200'
+                                  }`}
+                                >
+                                  <Paperclip className="w-4 h-4 flex-shrink-0" />
+                                  <span className="truncate">{msg.attachmentName || 'Download file'}</span>
+                                </a>
+                              )}
+                              {msg.content && <p className="text-sm leading-relaxed">{msg.content}</p>}
                             </div>
                             <p className={`text-[11px] mt-1 px-1 text-gray-400 dark:text-gray-500 ${isSent ? 'text-right' : 'text-left'}`}>
                               {formatMessageTimestamp(msg.createdAt)}
@@ -1106,26 +1163,63 @@ export default function DeliveryTeamPortal() {
                 </div>
 
                 {/* Message input */}
-                <div className="flex-shrink-0 px-4 py-3 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center gap-3 bg-gray-100 dark:bg-gray-700 rounded-full px-4 py-2.5 focus-within:ring-2 focus-within:ring-blue-500 transition-all">
+                <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+                  {/* Attachment preview */}
+                  {attachmentPreview && (
+                    <div className="px-4 pt-3 flex items-center gap-3">
+                      <div className="relative flex items-center gap-2 bg-gray-100 dark:bg-gray-700 rounded-xl px-3 py-2 max-w-xs">
+                        {attachmentPreview.type.startsWith('image/') ? (
+                          <img src={attachmentPreview.url} alt="preview" className="h-10 w-10 object-cover rounded-lg flex-shrink-0" />
+                        ) : (
+                          <div className="h-10 w-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <Paperclip className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                          </div>
+                        )}
+                        <span className="text-xs text-gray-700 dark:text-gray-300 truncate max-w-[140px]">{attachmentPreview.name}</span>
+                        <button
+                          onClick={() => setAttachmentPreview(null)}
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-gray-500 hover:bg-red-500 text-white rounded-full flex items-center justify-center text-xs transition-colors"
+                        >✕</button>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 px-4 py-3">
+                    {/* Hidden file input */}
                     <input
-                      type="text"
-                      value={newMessage}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewMessage(e.target.value)}
-                      onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          void handleSendMessage();
-                        }
-                      }}
-                      placeholder="Type a message…"
-                      className="flex-1 bg-transparent text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none disabled:opacity-50"
-                      disabled={sendingMessage}
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                      className="hidden"
+                      onChange={handleFileSelect}
                     />
                     <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={sendingMessage}
+                      title="Attach file or image"
+                      className="flex-shrink-0 w-9 h-9 flex items-center justify-center text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors disabled:opacity-40"
+                    >
+                      <Paperclip className="w-5 h-5" />
+                    </button>
+                    <div className="flex-1 flex items-center gap-3 bg-gray-100 dark:bg-gray-700 rounded-full px-4 py-2.5 focus-within:ring-2 focus-within:ring-blue-500 transition-all">
+                      <input
+                        type="text"
+                        value={newMessage}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewMessage(e.target.value)}
+                        onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            void handleSendMessage();
+                          }
+                        }}
+                        placeholder="Type a message…"
+                        className="flex-1 bg-transparent text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none disabled:opacity-50"
+                        disabled={sendingMessage}
+                      />
+                    </div>
+                    <button
                       onClick={() => void handleSendMessage()}
-                      disabled={sendingMessage || !newMessage.trim()}
-                      className="flex-shrink-0 w-8 h-8 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-full flex items-center justify-center transition-colors shadow-sm"
+                      disabled={sendingMessage || (!newMessage.trim() && !attachmentPreview)}
+                      className="flex-shrink-0 w-9 h-9 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-full flex items-center justify-center transition-colors shadow-sm"
                     >
                       {sendingMessage
                         ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
