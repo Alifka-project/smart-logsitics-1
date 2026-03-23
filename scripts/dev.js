@@ -88,7 +88,7 @@ function waitForDatabase() {
 function createUsers() {
   return new Promise((resolve) => {
     log('cyan', '👤', 'Creating users...');
-    const userProcess = spawn('node', ['src/server/seedUsers.js'], {
+    const userProcess = spawn('node_modules/.bin/tsx', ['src/server/seedUsers.ts'], {
       cwd: PROJECT_ROOT,
       stdio: 'pipe'
     });
@@ -115,7 +115,7 @@ function createUsers() {
 function startBackend() {
   return new Promise((resolve) => {
     log('cyan', '🚀', 'Starting backend server...');
-    const backendProcess = spawn('node', ['src/server/index.js'], {
+    const backendProcess = spawn('node_modules/.bin/tsx', ['src/server/index.ts'], {
       cwd: PROJECT_ROOT,
       stdio: 'pipe',
       env: { ...process.env, NODE_ENV: 'development' }

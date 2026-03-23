@@ -11,9 +11,9 @@
     "test:watch": "vitest",
     "lint": "eslint .",
     "preview": "vite preview",
-    "start:server": "node src/server/index.js",
+    "start:server": "tsx src/server/index.ts",
     "dev:db": "docker-compose up -d db",
-    "dev:start": "./scripts/wait-for-db.sh localhost 5432 node src/server/index.js",
+    "dev:start": "./scripts/wait-for-db.sh localhost 5432 tsx src/server/index.ts",
     "dev:all": "./scripts/dev-all.sh",
     "create-users": "node scripts/create-default-users.js"
   },
