@@ -736,14 +736,14 @@
   /* ── Sticky page tab rail (below global header) ── */
   .pp-sticky-tab-rail {
     position: sticky;
-    top: calc(env(safe-area-inset-top, 0px) + 64px);
+    top: calc(env(safe-area-inset-top, 0px) + 72px);
     z-index: 120;
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
   }
   @media (min-width: 768px) {
     .pp-sticky-tab-rail {
-      top: calc(env(safe-area-inset-top, 0px) + 76px);
+      top: calc(env(safe-area-inset-top, 0px) + 88px);
     }
   }
 
@@ -907,13 +907,20 @@
 
   .manage-orders-table-mobile,
   .table-mobile-cards {
+    width: 100% !important;
     min-width: 100% !important;
     table-layout: auto !important;
+  }
+
+  .manage-orders-table-mobile colgroup,
+  .table-mobile-cards colgroup {
+    display: none !important;
   }
 
   .manage-orders-table-mobile tbody tr,
   .table-mobile-cards tbody tr {
     display: block;
+    width: 100%;
     margin-bottom: 12px;
     padding: 16px;
     background: var(--surface);

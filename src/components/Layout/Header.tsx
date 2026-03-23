@@ -780,7 +780,7 @@ export default function Header({ isAdmin = false }: HeaderProps) {
   if (isAdmin) {
     return (
       <>
-        <header className="min-h-[64px] md:min-h-[76px] sticky top-0 z-[900] shrink-0" style={{ background:'var(--bg)', paddingTop:'env(safe-area-inset-top, 0px)' }}>
+        <header className="fixed inset-x-0 top-0 z-[900] shrink-0" style={{ background:'var(--bg)', paddingTop:'env(safe-area-inset-top, 0px)' }}>
           <div className="header-inner">
             <button className="flex md:hidden items-center justify-center shrink-0 mr-2" onClick={() => setMobileNavOpen(v=>!v)} style={{ width:'34px', height:'34px', borderRadius:'8px', background:'transparent', border:'none', cursor:'pointer', color:MUTED }} aria-label="Open menu"><Menu size={20} /></button>
             <Link to="/admin" className="flex items-center shrink-0 mr-3 md:mr-4" style={{ textDecoration:'none' }}>
@@ -813,6 +813,7 @@ export default function Header({ isAdmin = false }: HeaderProps) {
             </div>
           </div>
         </header>
+        <div className="h-[72px] md:h-[88px] shrink-0" aria-hidden />
         <MobileDrawer>
           {ADMIN_NAV.map(item => (
             <NavLink key={item.path} to={item.path} end={item.exact} onClick={() => setMobileNavOpen(false)} style={({ isActive }) => ({ display:'flex', alignItems:'center', padding:'11px 14px', borderRadius:'10px', fontSize:'14px', fontWeight:isActive?600:400, color:isActive?'var(--primary)':'var(--text2)', background:isActive?'var(--primary-glow)':'transparent', textDecoration:'none', marginBottom:'2px' })}>{item.label}</NavLink>
@@ -827,7 +828,7 @@ export default function Header({ isAdmin = false }: HeaderProps) {
   const logoTo = user?.role==='delivery_team' ? '/delivery-team' : '/driver';
   return (
     <>
-      <header className="min-h-[64px] md:min-h-[76px] sticky top-0 z-[900] shrink-0" style={{ background:'var(--bg)', paddingTop:'env(safe-area-inset-top, 0px)' }}>
+      <header className="fixed inset-x-0 top-0 z-[900] shrink-0" style={{ background:'var(--bg)', paddingTop:'env(safe-area-inset-top, 0px)' }}>
         <div className="header-inner">
           <button className="flex md:hidden items-center justify-center shrink-0 mr-2" onClick={() => setMobileNavOpen(v=>!v)} style={{ width:'34px', height:'34px', borderRadius:'8px', background:'transparent', border:'none', cursor:'pointer', color:MUTED }} aria-label="Open menu"><Menu size={20} /></button>
           <Link to={logoTo} className="flex items-center shrink-0 mr-3 md:mr-4" style={{ textDecoration:'none' }}>
@@ -859,6 +860,7 @@ export default function Header({ isAdmin = false }: HeaderProps) {
           </div>
         </div>
       </header>
+      <div className="h-[72px] md:h-[88px] shrink-0" aria-hidden />
       <MobileDrawer>
         <div style={{ padding:'4px 14px 12px', fontSize:'12px', color:'var(--muted)' }}>Use the tabs inside your portal to navigate.</div>
       </MobileDrawer>
