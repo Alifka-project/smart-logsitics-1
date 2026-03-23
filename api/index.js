@@ -112,6 +112,20 @@ try {
   // Don't exit in serverless - let it fail on first request
 }
 
+// Auto-migration: add any missing columns at startup (idempotent — uses IF NOT EXISTS)
+(async () => {
+  try {
+    const prisma = require('../dist-server/server/db/prisma').default;
+    await prisma.$executeRawUnsafe(`ALTER TABLE "messages" ADD COLUMN IF NOT EXISTS "attachment_url" TEXT;`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE "messages" ADD COLUMN IF NOT EXISTS "attachment_type" VARCHAR(100);`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE "messages" ADD COLUMN IF NOT EXISTS "attachment_name" VARCHAR(255);`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE "messages" ALTER COLUMN "content" SET DEFAULT '';`);
+    console.log('[startup-migration] messages attachment columns: ok');
+  } catch (e) {
+    console.warn('[startup-migration] messages attachment columns skipped:', e.message);
+  }
+})();
+
 // Public API routes (all require database)
 app.use('/auth', require('../dist-server/server/api/auth').default);
 app.use('/sms/webhook', require('../dist-server/server/api/smsWebhook').default);
