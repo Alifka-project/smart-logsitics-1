@@ -138,8 +138,8 @@ router.post('/login', loginLimiter, async (req: Request, res: Response): Promise
     try {
       console.log('Executing Prisma query for user:', sanitizedUsername);
       const startTime = Date.now();
-      driver = await prisma.driver.findUnique({
-        where: { username: sanitizedUsername },
+      driver = await prisma.driver.findFirst({
+        where: { username: { equals: sanitizedUsername, mode: 'insensitive' } },
         include: {
           account: true
         }
