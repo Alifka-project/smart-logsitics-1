@@ -1,6 +1,6 @@
 /**
  * Routing API - Road-following route proxy
- * Primary: Valhalla (valhalla.openstreetmap.de) — free, reliable, great UAE coverage
+ * Primary: Valhalla (valhalla1.openstreetmap.de) — free, reliable, great UAE coverage
  * Fallback: OSRM public demo server
  */
 const express = require('express');
