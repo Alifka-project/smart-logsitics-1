@@ -7,6 +7,19 @@ const router = Router();
 
 type AuthUser = { sub: string; role?: string; account?: { role?: string } };
 
+// Ensure attachment columns exist before any message query runs (idempotent)
+const schemaReady: Promise<void> = (async () => {
+  try {
+    await (prisma as any).$executeRawUnsafe(`ALTER TABLE "messages" ADD COLUMN IF NOT EXISTS "attachment_url" TEXT;`);
+    await (prisma as any).$executeRawUnsafe(`ALTER TABLE "messages" ADD COLUMN IF NOT EXISTS "attachment_type" VARCHAR(100);`);
+    await (prisma as any).$executeRawUnsafe(`ALTER TABLE "messages" ADD COLUMN IF NOT EXISTS "attachment_name" VARCHAR(255);`);
+    await (prisma as any).$executeRawUnsafe(`ALTER TABLE "messages" ALTER COLUMN "content" SET DEFAULT '';`);
+    console.log('[messages] schema migration ok');
+  } catch (e: unknown) {
+    console.warn('[messages] schema migration skipped:', (e as { message?: string }).message);
+  }
+})();
+
 /**
  * GET /api/admin/messages/conversations/:driverId
  * Fetch message history with a specific driver (admin or delivery_team)
@@ -17,6 +30,7 @@ router.get('/conversations/:driverId', authenticate, async (req: Request, res: R
     res.status(403).json({ error: 'Forbidden - Admin or Delivery Team access required' }); return;
   }
   try {
+    await schemaReady;
     const driverId = req.params.driverId as string;
     const adminId = (req.user as AuthUser)?.sub;
     const limit = Math.min(parseInt(req.query.limit as string) || 50, 500);
@@ -167,6 +181,7 @@ router.post('/send', authenticate, async (req: Request, res: Response): Promise<
     res.status(403).json({ error: 'Forbidden - Admin or Delivery Team access required' }); return;
   }
   try {
+    await schemaReady;
     const { driverId, content, attachmentUrl, attachmentType, attachmentName } = req.body;
     const adminId = (req.user as AuthUser)?.sub;
 
@@ -328,6 +343,7 @@ router.delete('/conversation/:driverId', authenticate, async (req: Request, res:
  */
 router.post('/driver/send', authenticate, requireRole('driver'), async (req: Request, res: Response): Promise<void> => {
   try {
+    await schemaReady;
     const { content, recipientId, attachmentUrl, attachmentType, attachmentName } = req.body;
     const driverId = (req.user as AuthUser)?.sub;
 
@@ -432,6 +448,7 @@ router.post('/driver/send', authenticate, requireRole('driver'), async (req: Req
  */
 router.get('/driver', authenticate, requireRole('driver'), async (req: Request, res: Response): Promise<void> => {
   try {
+    await schemaReady;
     const driverId = (req.user as AuthUser)?.sub;
 
     if (!driverId) {
@@ -493,6 +510,7 @@ router.get('/driver', authenticate, requireRole('driver'), async (req: Request, 
  */
 router.get('/driver/:contactId', authenticate, requireRole('driver'), async (req: Request, res: Response): Promise<void> => {
   try {
+    await schemaReady;
     const driverId = (req.user as AuthUser)?.sub;
     const contactId = req.params.contactId as string;
 
@@ -647,6 +665,7 @@ router.post('/:messageId/read', authenticate, requireRole('admin'), async (req: 
 // GET /api/admin/messages/history - Get message history with all drivers
 router.get('/history/all', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
   try {
+    await schemaReady;
     const adminId = (req.user as AuthUser)?.sub;
     if (!adminId) {
       res.status(401).json({ error: 'Unauthorized' }); return;
