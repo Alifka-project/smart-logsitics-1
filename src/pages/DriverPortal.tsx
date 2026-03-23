@@ -90,6 +90,8 @@ export default function DriverPortal() {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
+  const markerAnimationRef = useRef<number | null>(null);
+  const lastAutoPanAtRef = useRef<number>(0);
   const watchIdRef = useRef<number | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isTrackingRef = useRef<boolean>(false);
@@ -226,6 +228,10 @@ export default function DriverPortal() {
 
   const cleanup = useCallback(() => {
     clearTrackingWatchers();
+    if (markerAnimationRef.current !== null) {
+      cancelAnimationFrame(markerAnimationRef.current);
+      markerAnimationRef.current = null;
+    }
     if (mapInstance.current) {
       mapInstance.current.remove();
       mapInstance.current = null;
@@ -322,60 +328,91 @@ export default function DriverPortal() {
     if (!mapInstance.current || !location || !mapReady) return;
 
     const { latitude, longitude } = location;
-
-    // Remove old marker
-    if (markerRef.current && mapInstance.current.hasLayer(markerRef.current)) {
-      mapInstance.current.removeLayer(markerRef.current);
-    }
+    const map = mapInstance.current;
+    const targetLatLng = L.latLng(latitude, longitude);
 
     // Create custom icon with better styling
-    const customIcon = L.divIcon({
+    const truckTrackingIcon = L.divIcon({
       className: 'custom-marker',
       html: `<div style="
-        background-color: #2563eb;
-        width: 32px;
-        height: 32px;
-        border-radius: 50% 50% 50% 0;
-        transform: rotate(-45deg);
-        border: 3px solid white;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        width: 38px;
+        height: 38px;
+        border-radius: 999px;
+        border: 2px solid white;
+        background: radial-gradient(circle at center, rgba(37,99,235,0.35) 0%, rgba(37,99,235,0.15) 55%, rgba(37,99,235,0) 85%);
+        box-shadow: 0 0 0 6px rgba(37,99,235,0.16), 0 4px 12px rgba(0,0,0,0.3);
         position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       ">
-        <div style="
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%) rotate(45deg);
-          width: 12px;
-          height: 12px;
-          background-color: white;
-          border-radius: 50%;
-        "></div>
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M14 18H3V6h11v12z"></path>
+          <path d="M14 10h4l3 3v5h-7"></path>
+          <circle cx="7.5" cy="18.5" r="1.5"></circle>
+          <circle cx="17.5" cy="18.5" r="1.5"></circle>
+        </svg>
       </div>`,
-      iconSize: [32, 32],
-      iconAnchor: [16, 32],
+      iconSize: [38, 38],
+      iconAnchor: [19, 19],
     });
 
-    // Add new marker
-    markerRef.current = L.marker([latitude, longitude], { icon: customIcon })
-      .addTo(mapInstance.current)
-      .bindPopup(`
+    const popupHtml = `
         <div style="font-family: 'DM Sans', 'Inter', -apple-system, sans-serif; font-size: 13px; min-width: 200px;">
-          <div style="font-weight: 600; margin-bottom: 8px; color: #1f2937;">Your Current Location</div>
+          <div style="font-weight: 600; margin-bottom: 8px; color: #1f2937;">Live Truck Location</div>
           <div style="margin-bottom: 4px;"><strong>Coordinates:</strong> ${latitude.toFixed(6)}, ${longitude.toFixed(6)}</div>
           <div style="margin-bottom: 4px;"><strong>Time:</strong> ${new Date(location.timestamp).toLocaleString()}</div>
           ${location.accuracy ? `<div style="margin-bottom: 4px;"><strong>Accuracy:</strong> ±${location.accuracy.toFixed(0)}m</div>` : ''}
           ${location.speed ? `<div><strong>Speed:</strong> ${(location.speed * 3.6).toFixed(1)} km/h</div>` : ''}
         </div>
-      `);
+      `;
 
-    // Smoothly pan and zoom to location unless routing is active
+    // Create marker once, then smoothly animate to new GPS positions.
+    if (!markerRef.current) {
+      markerRef.current = L.marker(targetLatLng, { icon: truckTrackingIcon })
+        .addTo(map)
+        .bindPopup(popupHtml);
+    } else {
+      markerRef.current.setIcon(truckTrackingIcon);
+      markerRef.current.setPopupContent(popupHtml);
+      const startLatLng = markerRef.current.getLatLng();
+      const durationMs = 1200;
+      const startAt = performance.now();
+
+      if (markerAnimationRef.current !== null) {
+        cancelAnimationFrame(markerAnimationRef.current);
+      }
+
+      const animateMarker = (now: number) => {
+        if (!markerRef.current) return;
+        const elapsed = now - startAt;
+        const t = Math.min(1, elapsed / durationMs);
+        // Ease-out interpolation keeps the movement smooth but responsive.
+        const ease = 1 - (1 - t) * (1 - t);
+        const lat = startLatLng.lat + (targetLatLng.lat - startLatLng.lat) * ease;
+        const lng = startLatLng.lng + (targetLatLng.lng - startLatLng.lng) * ease;
+        markerRef.current.setLatLng([lat, lng]);
+        if (t < 1) {
+          markerAnimationRef.current = requestAnimationFrame(animateMarker);
+        } else {
+          markerAnimationRef.current = null;
+        }
+      };
+
+      markerAnimationRef.current = requestAnimationFrame(animateMarker);
+    }
+
+    // Smooth auto-pan with throttle to prevent jumpy map movement.
     const routeData = route as DriverRouteData | null;
     if (!routeData?.coordinates?.length) {
-      mapInstance.current.setView([latitude, longitude], 15, {
-        animate: true,
-        duration: 1.0
-      });
+      const now = Date.now();
+      const center = map.getCenter();
+      const centerDistanceMeters = map.distance(center, targetLatLng);
+      if (centerDistanceMeters > 60 && now - lastAutoPanAtRef.current > 1800) {
+        map.panTo(targetLatLng, { animate: true, duration: 1.2 });
+        if (map.getZoom() < 15) map.setZoom(15, { animate: true });
+        lastAutoPanAtRef.current = now;
+      }
     }
 
     // Add location to history
