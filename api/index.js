@@ -8,10 +8,12 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
-dotenv.config(); // loads .env for local dev
-// Also load .env.production for production credentials (Vercel deploys this file)
+const path = require('path');
+const rootDir = path.join(__dirname, '..');
+dotenv.config({ path: path.join(rootDir, '.env') }); // loads .env for local dev
+// Also load .env.production for production credentials
 // dotenv won't override vars already set by Vercel dashboard
-dotenv.config({ path: '.env.production' });
+dotenv.config({ path: path.join(rootDir, '.env.production') });
 const helmet = require('helmet');
 const cors = require('cors');
 
