@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import cookie from 'cookie';
+import * as cookie from 'cookie';
 import { Request, Response, NextFunction } from 'express';
 import { createSession, getSession, destroySession, verifyCSRF, rotateSession, destroyUserSessions } from './sessionStore';
 
