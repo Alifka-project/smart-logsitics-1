@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 const router = Router();
-const prisma = require('../db/prisma');
+const prisma = require('../db/prisma').default;
 
 const { classifyQuery, INTENTS, DIMENSIONS } = require('../services/ai/classifyQuery');
 const { countDeliveries, getTopCustomers, getTopProducts, getStatusBreakdown, getDeliveryTrend } = require('../services/ai/analyticsExecutor');

@@ -3,7 +3,7 @@ import { Router, Request, Response } from 'express';
 const router = Router();
 const { authenticate, requireRole, requireAnyRole } = require('../auth');
 const sapService = require('../services/sapService.js');
-const prisma = require('../db/prisma');
+const prisma = require('../db/prisma').default;
 const { hashPassword } = require('../auth');
 const cache = require('../cache');
 

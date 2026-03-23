@@ -8,7 +8,10 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
-dotenv.config();
+dotenv.config(); // loads .env for local dev
+// Also load .env.production for production credentials (Vercel deploys this file)
+// dotenv won't override vars already set by Vercel dashboard
+dotenv.config({ path: '.env.production' });
 const helmet = require('helmet');
 const cors = require('cors');
 
@@ -73,7 +76,7 @@ app.get('/health', async (req, res) => {
       });
     }
 
-    const prisma = require('../dist-server/server/db/prisma');
+    const prisma = require('../dist-server/server/db/prisma').default;
 
     await prisma.$queryRaw`SELECT 1`;
     res.json({ ok: true, database: 'connected', orm: 'prisma', ts: new Date().toISOString() });
@@ -107,7 +110,7 @@ app.use('/migrate', require('../dist-server/server/api/migrate').default);
 // Call POST /api/apply-pending-migrations once after deploy, then it's a no-op
 app.post('/apply-pending-migrations', async (req, res) => {
   try {
-    const prisma = require('../dist-server/server/db/prisma');
+    const prisma = require('../dist-server/server/db/prisma').default;
     const results = [];
 
     // 1. admin_notifications table
@@ -167,7 +170,7 @@ app.get('/diag/status', async (req, res) => {
       return res.json({ ...diagCache, cached: true });
     }
 
-    const prisma = require('../dist-server/server/db/prisma');
+    const prisma = require('../dist-server/server/db/prisma').default;
     if (!prisma) {
       return res.status(503).json({
         ok: false,

@@ -6,7 +6,7 @@
 import { Router, Request, Response } from 'express';
 const router = Router();
 const smsService = require('../sms/smsService');
-const prisma = require('../db/prisma');
+const prisma = require('../db/prisma').default;
 
 /**
  * POST /api/customer/confirm-delivery/:token

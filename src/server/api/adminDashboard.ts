@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 const router = Router();
 const { authenticate, requireRole } = require('../auth');
 const sapService = require('../services/sapService.js');
-const prisma = require('../db/prisma');
+const prisma = require('../db/prisma').default;
 const { sortDeliveriesIncompleteLast } = require('../utils/deliveryListSort');
 
 type DeliveryRecord = Record<string, unknown> & {

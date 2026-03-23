@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 const router = Router();
 const { authenticate, requireRole } = require('../auth');
-const prisma = require('../db/prisma');
+const prisma = require('../db/prisma').default;
 
 // GET /api/admin/deliveries/metadata/sample - Shows sample metadata from database
 router.get('/metadata/sample', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {

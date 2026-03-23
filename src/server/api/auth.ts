@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
 const router = Router();
-const prisma = require('../db/prisma');
+const prisma = require('../db/prisma').default;
 const {
   hashPassword,
   comparePassword,
