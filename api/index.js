@@ -11,9 +11,9 @@ const dotenv = require('dotenv');
 const path = require('path');
 const rootDir = path.join(__dirname, '..');
 dotenv.config({ path: path.join(rootDir, '.env') }); // loads .env for local dev
-// Also load .env.production for production credentials
-// dotenv won't override vars already set by Vercel dashboard
-dotenv.config({ path: path.join(rootDir, '.env.production') });
+// Load .env.production with override:true so committed values always win
+// over any stale/incorrect vars set in the Vercel dashboard
+dotenv.config({ path: path.join(rootDir, '.env.production'), override: true });
 const helmet = require('helmet');
 const cors = require('cors');
 
