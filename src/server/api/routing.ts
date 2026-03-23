@@ -8,7 +8,7 @@ import axios from 'axios';
 import { requireRole } from '../auth.js';
 
 const router = Router();
-const VALHALLA_BASE = 'https://valhalla.openstreetmap.de';
+const VALHALLA_BASE = 'https://valhalla1.openstreetmap.de';
 const OSRM_BASE = 'https://router.project-osrm.org';
 
 interface ValhallaLeg {

@@ -8,7 +8,7 @@ const axios = require('axios');
 const { requireRole } = require('../auth.js');
 
 const router = express.Router();
-const VALHALLA_BASE = 'https://valhalla.openstreetmap.de';
+const VALHALLA_BASE = 'https://valhalla1.openstreetmap.de';
 const OSRM_BASE = 'https://router.project-osrm.org';
 
 /** Decode Valhalla's polyline6 encoded shape into [lat, lng] pairs */
