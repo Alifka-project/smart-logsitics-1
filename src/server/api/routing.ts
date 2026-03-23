@@ -3,7 +3,7 @@
  * Primary: Valhalla (valhalla.openstreetmap.de) — free, reliable, great UAE coverage
  * Fallback: OSRM public demo server
  */
-import { Router, Request, Response } from 'express';
+import { Router } from 'express';
 import axios from 'axios';
 import { requireRole } from '../auth.js';
 
@@ -56,7 +56,8 @@ function decodePolyline6(encoded: string): [number, number][] {
  * Body: { locations: [{ lat, lng }] }
  * Returns road-following route coordinates (tries Valhalla first, falls back to OSRM)
  */
-router.post('/osrm', requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+router.post('/osrm', requireRole('admin'), async (req: any, res: any): Promise<void> => {
   const locations = req.body?.locations as Array<{ lat?: number; lng?: number }> | undefined;
   if (!Array.isArray(locations) || locations.length < 2) {
     res.status(400).json({ error: 'At least 2 locations required' });
