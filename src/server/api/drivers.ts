@@ -152,7 +152,7 @@ router.post('/', authenticate, requireRole('admin'), async (req: Request, res: R
 
 // GET /api/admin/drivers/:id
 // Allows admin and delivery_team roles to view driver details
-router.get('/:id', authenticate, requireAnyRole('admin', 'delivery_team'), async (req: Request, res: Response): Promise<void> => {
+router.get('/:id([0-9a-fA-F-]{36})', authenticate, requireAnyRole('admin', 'delivery_team'), async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params as { id: string };
   try {
     const driver = await prisma.driver.findUnique({
@@ -173,7 +173,7 @@ router.get('/:id', authenticate, requireAnyRole('admin', 'delivery_team'), async
 });
 
 // PUT /api/admin/drivers/:id - full update
-router.put('/:id', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+router.put('/:id([0-9a-fA-F-]{36})', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params as { id: string };
   const updates = req.body as {
     email?: string; phone?: string; full_name?: string; fullName?: string;
@@ -251,7 +251,7 @@ router.put('/:id', authenticate, requireRole('admin'), async (req: Request, res:
 });
 
 // PATCH /api/admin/drivers/:id - partial update
-router.patch('/:id', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+router.patch('/:id([0-9a-fA-F-]{36})', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params as { id: string };
   const updates = req.body as {
     email?: string; phone?: string; full_name?: string; fullName?: string;
@@ -327,7 +327,7 @@ router.patch('/:id', authenticate, requireRole('admin'), async (req: Request, re
 });
 
 // DELETE /api/admin/drivers/:id
-router.delete('/:id', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+router.delete('/:id([0-9a-fA-F-]{36})', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params as { id: string };
 
   try {
@@ -357,7 +357,7 @@ router.delete('/:id', authenticate, requireRole('admin'), async (req: Request, r
 });
 
 // POST /api/admin/drivers/:id/reset-password
-router.post('/:id/reset-password', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+router.post('/:id([0-9a-fA-F-]{36})/reset-password', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params as { id: string };
   try {
     // Forward to SAP if endpoint exists (best-effort)
@@ -371,7 +371,7 @@ router.post('/:id/reset-password', authenticate, requireRole('admin'), async (re
 });
 
 // POST /api/admin/drivers/:id/activate-gps - Activate GPS tracking for driver
-router.post('/:id/activate-gps', authenticate, async (req: Request, res: Response): Promise<void> => {
+router.post('/:id([0-9a-fA-F-]{36})/activate-gps', authenticate, async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params as { id: string };
   const { phone, gpsPermission } = req.body as { phone?: string; gpsPermission?: boolean };
 

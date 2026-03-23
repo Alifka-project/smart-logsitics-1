@@ -187,4 +187,14 @@ class ServerCache {
 // Singleton instance
 const cache = new ServerCache();
 
+// Named exports keep CommonJS require('../cache') compatibility in server routes.
+export const get = cache.get.bind(cache);
+export const set = cache.set.bind(cache);
+export const del = cache.delete.bind(cache);
+export const deleteEntry = cache.delete.bind(cache);
+export const invalidatePrefix = cache.invalidatePrefix.bind(cache);
+export const clear = cache.clear.bind(cache);
+export const stats = cache.stats.bind(cache);
+export const getOrFetch = cache.getOrFetch.bind(cache);
+
 export default cache;
