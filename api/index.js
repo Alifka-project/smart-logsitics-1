@@ -96,12 +96,12 @@ try {
 }
 
 // Public API routes (all require database)
-app.use('/auth', require('../dist-server/server/api/auth'));
-app.use('/sms/webhook', require('../dist-server/server/api/smsWebhook'));
-app.use('/customer', require('../dist-server/server/api/customerPortal'));
+app.use('/auth', require('../dist-server/server/api/auth').default);
+app.use('/sms/webhook', require('../dist-server/server/api/smsWebhook').default);
+app.use('/customer', require('../dist-server/server/api/customerPortal').default);
 
 // Migration endpoint (ONE TIME USE - remove after migration)
-app.use('/migrate', require('../dist-server/server/api/migrate'));
+app.use('/migrate', require('../dist-server/server/api/migrate').default);
 
 // Safe schema patch — adds any missing tables/columns without dropping data
 // Call POST /api/apply-pending-migrations once after deploy, then it's a no-op
@@ -149,7 +149,7 @@ app.post('/apply-pending-migrations', async (req, res) => {
 });
 
 app.post('/sms/confirm', async (req, res) => {
-  const smsRouter = require('../dist-server/server/api/sms');
+  const smsRouter = require('../dist-server/server/api/sms').default;
   return smsRouter.confirm(req, res);
 });
 
@@ -280,18 +280,18 @@ app.use((req, res, next) => {
 });
 
 // Protected API routes (all require database)
-app.use('/admin/drivers', require('../dist-server/server/api/drivers'));
-app.use('/admin/notifications', require('../dist-server/server/api/notifications'));
-app.use('/driver', require('../dist-server/server/api/locations'));
-app.use('/admin/dashboard', require('../dist-server/server/api/adminDashboard'));
-app.use('/admin/reports', require('../dist-server/server/api/reports'));
-app.use('/admin/tracking', require('../dist-server/server/api/tracking'));
-app.use('/messages', require('../dist-server/server/api/messages')); // Mount at /messages for both admin and driver routes
-app.use('/ai', require('../dist-server/server/api/ai'));
-app.use('/deliveries', require('../dist-server/server/api/deliveries'));
-app.use('/sms', require('../dist-server/server/api/sms'));
-app.use('/sap', require('../dist-server/server/api/sap'));
-app.use('/routing', require('../dist-server/server/api/routing'));
+app.use('/admin/drivers', require('../dist-server/server/api/drivers').default);
+app.use('/admin/notifications', require('../dist-server/server/api/notifications').default);
+app.use('/driver', require('../dist-server/server/api/locations').default);
+app.use('/admin/dashboard', require('../dist-server/server/api/adminDashboard').default);
+app.use('/admin/reports', require('../dist-server/server/api/reports').default);
+app.use('/admin/tracking', require('../dist-server/server/api/tracking').default);
+app.use('/messages', require('../dist-server/server/api/messages').default); // Mount at /messages for both admin and driver routes
+app.use('/ai', require('../dist-server/server/api/ai').default);
+app.use('/deliveries', require('../dist-server/server/api/deliveries').default);
+app.use('/sms', require('../dist-server/server/api/sms').default);
+app.use('/sap', require('../dist-server/server/api/sap').default);
+app.use('/routing', require('../dist-server/server/api/routing').default);
 
 // Global error handler - catch any unhandled errors
 app.use((err, req, res, next) => {
