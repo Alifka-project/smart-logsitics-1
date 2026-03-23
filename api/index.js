@@ -5,9 +5,6 @@
  * Build: 2026-02-02
  */
 
-// Register tsx so all subsequent require() calls can resolve .ts files directly
-require('tsx/cjs');
-
 const express = require('express');
 const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
@@ -41,10 +38,10 @@ app.use(helmet({
   contentSecurityPolicy: false
 }));
 
-// Server modules — resolved from TypeScript sources via tsx/cjs
-const { authenticate, requireCSRF } = require('../src/server/auth');
-const { validateEnv } = require('../src/server/envCheck');
-const { apiLimiter } = require('../src/server/security/rateLimiter');
+// Server modules — compiled TypeScript (dist-server/)
+const { authenticate, requireCSRF } = require('../dist-server/server/auth');
+const { validateEnv } = require('../dist-server/server/envCheck');
+const { apiLimiter } = require('../dist-server/server/security/rateLimiter');
 
 // Rate limiting
 app.use(apiLimiter);
@@ -76,7 +73,7 @@ app.get('/health', async (req, res) => {
       });
     }
 
-    const prisma = require('../src/server/db/prisma');
+    const prisma = require('../dist-server/server/db/prisma');
 
     await prisma.$queryRaw`SELECT 1`;
     res.json({ ok: true, database: 'connected', orm: 'prisma', ts: new Date().toISOString() });
@@ -99,18 +96,18 @@ try {
 }
 
 // Public API routes (all require database)
-app.use('/auth', require('../src/server/api/auth'));
-app.use('/sms/webhook', require('../src/server/api/smsWebhook'));
-app.use('/customer', require('../src/server/api/customerPortal'));
+app.use('/auth', require('../dist-server/server/api/auth'));
+app.use('/sms/webhook', require('../dist-server/server/api/smsWebhook'));
+app.use('/customer', require('../dist-server/server/api/customerPortal'));
 
 // Migration endpoint (ONE TIME USE - remove after migration)
-app.use('/migrate', require('../src/server/api/migrate'));
+app.use('/migrate', require('../dist-server/server/api/migrate'));
 
 // Safe schema patch — adds any missing tables/columns without dropping data
 // Call POST /api/apply-pending-migrations once after deploy, then it's a no-op
 app.post('/apply-pending-migrations', async (req, res) => {
   try {
-    const prisma = require('../src/server/db/prisma');
+    const prisma = require('../dist-server/server/db/prisma');
     const results = [];
 
     // 1. admin_notifications table
@@ -152,7 +149,7 @@ app.post('/apply-pending-migrations', async (req, res) => {
 });
 
 app.post('/sms/confirm', async (req, res) => {
-  const smsRouter = require('../src/server/api/sms');
+  const smsRouter = require('../dist-server/server/api/sms');
   return smsRouter.confirm(req, res);
 });
 
@@ -170,7 +167,7 @@ app.get('/diag/status', async (req, res) => {
       return res.json({ ...diagCache, cached: true });
     }
 
-    const prisma = require('../src/server/db/prisma');
+    const prisma = require('../dist-server/server/db/prisma');
     if (!prisma) {
       return res.status(503).json({
         ok: false,
@@ -283,18 +280,18 @@ app.use((req, res, next) => {
 });
 
 // Protected API routes (all require database)
-app.use('/admin/drivers', require('../src/server/api/drivers'));
-app.use('/admin/notifications', require('../src/server/api/notifications'));
-app.use('/driver', require('../src/server/api/locations'));
-app.use('/admin/dashboard', require('../src/server/api/adminDashboard'));
-app.use('/admin/reports', require('../src/server/api/reports'));
-app.use('/admin/tracking', require('../src/server/api/tracking'));
-app.use('/messages', require('../src/server/api/messages')); // Mount at /messages for both admin and driver routes
-app.use('/ai', require('../src/server/api/ai'));
-app.use('/deliveries', require('../src/server/api/deliveries'));
-app.use('/sms', require('../src/server/api/sms'));
-app.use('/sap', require('../src/server/api/sap'));
-app.use('/routing', require('../src/server/api/routing'));
+app.use('/admin/drivers', require('../dist-server/server/api/drivers'));
+app.use('/admin/notifications', require('../dist-server/server/api/notifications'));
+app.use('/driver', require('../dist-server/server/api/locations'));
+app.use('/admin/dashboard', require('../dist-server/server/api/adminDashboard'));
+app.use('/admin/reports', require('../dist-server/server/api/reports'));
+app.use('/admin/tracking', require('../dist-server/server/api/tracking'));
+app.use('/messages', require('../dist-server/server/api/messages')); // Mount at /messages for both admin and driver routes
+app.use('/ai', require('../dist-server/server/api/ai'));
+app.use('/deliveries', require('../dist-server/server/api/deliveries'));
+app.use('/sms', require('../dist-server/server/api/sms'));
+app.use('/sap', require('../dist-server/server/api/sap'));
+app.use('/routing', require('../dist-server/server/api/routing'));
 
 // Global error handler - catch any unhandled errors
 app.use((err, req, res, next) => {

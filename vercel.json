@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "prisma generate && npm run build",
+  "buildCommand": "prisma generate && npm run build && npx tsc -p tsconfig.server.json",
   "outputDirectory": "dist",
   "functions": {
     "api/index.js": {
