@@ -213,7 +213,7 @@ export default function DriverPortal() {
     return isOnline;
   };
 
-  const cleanup = useCallback(() => {
+  const clearTrackingWatchers = useCallback(() => {
     if (watchIdRef.current !== null) {
       navigator.geolocation.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
@@ -222,11 +222,15 @@ export default function DriverPortal() {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
+  }, []);
+
+  const cleanup = useCallback(() => {
+    clearTrackingWatchers();
     if (mapInstance.current) {
       mapInstance.current.remove();
       mapInstance.current = null;
     }
-  }, []);
+  }, [clearTrackingWatchers]);
 
   // Keep isTrackingRef in sync with state
   useEffect(() => {
@@ -718,14 +722,16 @@ export default function DriverPortal() {
       return;
     }
 
+    clearTrackingWatchers();
     setError(null);
     setIsTracking(true);
     setLoading(true);
 
-    const options: PositionOptions = {
+    // Balanced defaults: high-accuracy GPS can time out on desktop/indoors.
+    const watchOptions: PositionOptions = {
       enableHighAccuracy: true,
-      timeout: 15000,
-      maximumAge: 0
+      timeout: 30000,
+      maximumAge: 10000
     };
 
     // Watch position for real-time updates
@@ -751,21 +757,22 @@ export default function DriverPortal() {
         switch (err.code) {
           case err.PERMISSION_DENIED:
             errorMessage += 'Permission denied. Please enable location access in your browser settings.';
+            setIsTracking(false);
             break;
           case err.POSITION_UNAVAILABLE:
             errorMessage += 'Location unavailable. Please check your device settings.';
+            setIsTracking(false);
             break;
           case err.TIMEOUT:
-            errorMessage += 'Location request timed out. Please try again.';
+            errorMessage += 'Location update timed out. Retrying automatically...';
             break;
           default:
             errorMessage += err.message;
         }
         setError(errorMessage);
-        setIsTracking(false);
         setLoading(false);
       },
-      options
+      watchOptions
     );
 
     // Periodic backup location sync every 30 seconds
@@ -792,16 +799,20 @@ export default function DriverPortal() {
           void sendLocationToServer(locationData);
         },
         (err: GeolocationPositionError) => console.error('Periodic location error:', err),
-        options
+        {
+          enableHighAccuracy: false,
+          timeout: 30000,
+          maximumAge: 60000
+        }
       );
     }, 30000);
-  }, [sendLocationToServer]);
+  }, [clearTrackingWatchers, sendLocationToServer]);
 
   const stopTracking = useCallback(() => {
-    cleanup();
+    clearTrackingWatchers();
     setIsTracking(false);
     setLoading(false);
-  }, [cleanup]);
+  }, [clearTrackingWatchers]);
 
   const requestLocationPermission = (): void => {
     if (!navigator.geolocation) {
@@ -817,7 +828,7 @@ export default function DriverPortal() {
         startTracking();
       },
       (err: GeolocationPositionError) => {
-        let errorMessage = 'Permission denied: ';
+        let errorMessage = 'Location access error: ';
         switch (err.code) {
           case err.PERMISSION_DENIED:
             errorMessage += 'Please enable location services in your browser settings.';
@@ -826,7 +837,7 @@ export default function DriverPortal() {
             errorMessage += 'Location unavailable. Please check your device.';
             break;
           case err.TIMEOUT:
-            errorMessage += 'Request timed out. Please try again.';
+            errorMessage += 'Request timed out. Please try again in an open area or disable strict GPS mode on your device.';
             break;
           default:
             errorMessage += err.message;
@@ -834,7 +845,7 @@ export default function DriverPortal() {
         setError(errorMessage);
         setLoading(false);
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: false, timeout: 30000, maximumAge: 60000 }
     );
   };
 
