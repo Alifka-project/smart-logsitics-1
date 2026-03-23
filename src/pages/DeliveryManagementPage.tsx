@@ -253,8 +253,8 @@ export default function DeliveryManagementPage({ hideManageTab = false }: Delive
 
       {/* Tab Navigation - hidden when only Deliveries (Driver Portal) */}
       {!hideManageTab && (
-      <div className="border-b border-gray-200 dark:border-gray-700 -mx-2 px-2 sm:mx-0 sm:px-0 overflow-x-auto mt-4 md:mt-6 mb-4 md:mb-6">
-        <nav className="flex space-x-6 sm:space-x-8 min-w-max sm:min-w-0">
+      <div className="rounded-2xl bg-gray-100/80 dark:bg-white/[0.06] p-1.5 border border-gray-200/60 dark:border-white/[0.07] mt-4 md:mt-6 mb-4 md:mb-6">
+        <nav className="flex flex-nowrap gap-1 overflow-x-auto pb-1">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             return (
@@ -266,13 +266,11 @@ export default function DeliveryManagementPage({ hideManageTab = false }: Delive
                     void loadRoute();
                   }
                 }}
-                className={`
-                  flex items-center gap-2 py-3 sm:py-2.5 px-2 sm:px-1 border-b-2 font-medium text-sm whitespace-nowrap touch-manipulation min-h-[44px] sm:min-h-0
-                  ${activeTab === tab.id
-                    ? 'border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-400'
-                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
-                  }
-                `}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap rounded-xl min-h-[44px] touch-manipulation transition-all ${
+                  activeTab === tab.id
+                    ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-white/60 dark:hover:bg-slate-700/50'
+                }`}
               >
                 <Icon className="w-5 h-5" />
                 {tab.label}

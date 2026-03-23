@@ -1,4 +1,5 @@
 import React from 'react';
+import { ArrowUpRight } from 'lucide-react';
 import { STATUS_CONFIG } from '../../config/statusColors';
 import type { DeliveryOrder } from '../../types/delivery';
 
@@ -57,6 +58,9 @@ export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({ orders }) 
                 >
                   <span className="leading-none">{config.icon}</span>
                 </div>
+                <span className="text-gray-300 dark:text-slate-600 pointer-events-none" aria-hidden>
+                  <ArrowUpRight className="w-3.5 h-3.5" strokeWidth={2} />
+                </span>
               </div>
 
               <p
