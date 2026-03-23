@@ -77,7 +77,6 @@ app.get('/health', async (req, res) => {
     }
 
     const prisma = require('../src/server/db/prisma');
-    }
 
     await prisma.$queryRaw`SELECT 1`;
     res.json({ ok: true, database: 'connected', orm: 'prisma', ts: new Date().toISOString() });
@@ -112,6 +111,7 @@ app.use('/migrate', require('../src/server/api/migrate'));
 app.post('/apply-pending-migrations', async (req, res) => {
   try {
     const prisma = require('../src/server/db/prisma');
+    const results = [];
 
     // 1. admin_notifications table
     try {
