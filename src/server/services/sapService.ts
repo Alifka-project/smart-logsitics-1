@@ -8,7 +8,7 @@ interface SapResponse {
   status?: number;
 }
 
-async function call(endpoint: string, method = 'get', data: unknown = null, params: Record<string, unknown> = {}): Promise<SapResponse> {
+export async function call(endpoint: string, method = 'get', data: unknown = null, params: Record<string, unknown> = {}): Promise<SapResponse> {
   try {
     const sapBaseUrl = process.env.SAP_BASE_URL;
     if (!sapBaseUrl) {
@@ -27,7 +27,7 @@ async function call(endpoint: string, method = 'get', data: unknown = null, para
   }
 }
 
-async function ping(): Promise<SapResponse> {
+export async function ping(): Promise<SapResponse> {
   return call('', 'get');
 }
 
