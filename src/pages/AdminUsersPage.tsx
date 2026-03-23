@@ -459,7 +459,7 @@ export default function AdminUsersPage(): React.ReactElement {
       </div>
 
       {/* Tab Navigation — PolicyPilot pill rail */}
-      <div className="rounded-2xl bg-gray-100/80 dark:bg-white/[0.06] p-1.5 border border-gray-200/60 dark:border-white/[0.07]">
+      <div className="pp-sticky-tab-rail rounded-2xl bg-gray-100/80 dark:bg-white/[0.06] p-1.5 border border-gray-200/60 dark:border-white/[0.07]">
         <nav className="flex flex-wrap gap-1 overflow-x-auto">
           {[
             { id: 'accounts', label: 'Accounts', icon: Users },

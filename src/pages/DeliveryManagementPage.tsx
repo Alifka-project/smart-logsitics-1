@@ -253,7 +253,7 @@ export default function DeliveryManagementPage({ hideManageTab = false }: Delive
 
       {/* Tab Navigation - hidden when only Deliveries (Driver Portal) */}
       {!hideManageTab && (
-      <div className="rounded-2xl bg-gray-100/80 dark:bg-white/[0.06] p-1.5 border border-gray-200/60 dark:border-white/[0.07] mt-4 md:mt-6 mb-4 md:mb-6">
+      <div className="pp-sticky-tab-rail rounded-2xl bg-gray-100/80 dark:bg-white/[0.06] p-1.5 border border-gray-200/60 dark:border-white/[0.07] mt-4 md:mt-6 mb-4 md:mb-6">
         <nav className="flex flex-nowrap gap-1 overflow-x-auto pb-1">
           {tabs.map((tab) => {
             const Icon = tab.icon;

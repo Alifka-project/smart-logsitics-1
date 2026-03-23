@@ -733,6 +733,20 @@
     margin-bottom: 24px;
   }
 
+  /* ── Sticky page tab rail (below global header) ── */
+  .pp-sticky-tab-rail {
+    position: sticky;
+    top: calc(env(safe-area-inset-top, 0px) + 64px);
+    z-index: 120;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  @media (min-width: 768px) {
+    .pp-sticky-tab-rail {
+      top: calc(env(safe-area-inset-top, 0px) + 76px);
+    }
+  }
+
   /* ── Legacy aliases ── */
   .card        { @apply pp-card; }
   .stat-card   { @apply pp-stat-card; }

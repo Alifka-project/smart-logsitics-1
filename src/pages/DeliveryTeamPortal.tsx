@@ -486,7 +486,7 @@ export default function DeliveryTeamPortal() {
       </div>
 
       {/* Tab Navigation - bigger gap, scroll on mobile */}
-      <div className="pp-card px-2 py-2 mt-4 md:mt-6 mb-4 md:mb-6 overflow-x-auto">
+      <div className="pp-sticky-tab-rail pp-card px-2 py-2 mt-4 md:mt-6 mb-4 md:mb-6 overflow-x-auto">
         <nav className="flex flex-wrap gap-2 min-w-max md:min-w-0">
           {[
             { id: 'monitoring', label: 'Monitoring', icon: Activity },

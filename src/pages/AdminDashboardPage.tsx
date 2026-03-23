@@ -582,12 +582,9 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
     <div className="pp-dash-card p-5">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 flex items-start gap-2">
-          <span className="mt-0.5 text-gray-300 dark:text-slate-600 hidden sm:inline" aria-hidden>
-            <ArrowUpRight className="w-3.5 h-3.5" strokeWidth={2} />
-          </span>
           <div>
             <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 tracking-tight truncate">{title}</h2>
-            <p className="pp-page-subtitle text-xs truncate mt-0.5">{subtitle}</p>
+            <p className="pp-page-subtitle text-xs mt-0.5 leading-relaxed line-clamp-2">{subtitle}</p>
           </div>
         </div>
         {!hidePeriodFilter && <FilterBtns />}
@@ -607,11 +604,8 @@ function PeakHeatmapCard({ data, title, subtitle }: { data: number[][]; title: s
       <div className="flex items-start justify-between gap-2 mb-3">
         <div>
           <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 tracking-tight truncate">{title}</h2>
-          <p className="pp-page-subtitle text-xs truncate mt-0.5">{subtitle}</p>
+          <p className="pp-page-subtitle text-xs mt-0.5 leading-relaxed line-clamp-2">{subtitle}</p>
         </div>
-        <span className="text-gray-300 dark:text-slate-600 shrink-0" aria-hidden>
-          <ArrowUpRight className="w-3.5 h-3.5" strokeWidth={2} />
-        </span>
       </div>
       <div className="overflow-x-auto -mx-1">
         <table className="w-full border-collapse text-[10px]">
@@ -1540,7 +1534,7 @@ export default function AdminDashboardPage(): React.ReactElement {
         </div>
 
       {/* ── Tab Navigation (PolicyPilot pill rail) ── */}
-      <div className="rounded-2xl bg-gray-100/80 dark:bg-white/[0.06] p-1.5 border border-gray-200/60 dark:border-white/[0.07]">
+      <div className="pp-sticky-tab-rail rounded-2xl bg-gray-100/80 dark:bg-white/[0.06] p-1.5 border border-gray-200/60 dark:border-white/[0.07]">
         <nav className="flex flex-nowrap gap-1 overflow-x-auto pb-1">
           {tabs.map(({ id, label, icon: Icon }) => (
               <button
@@ -1850,7 +1844,7 @@ export default function AdminDashboardPage(): React.ReactElement {
             {/* 2. Fulfillment Trend — Grouped columns: created vs delivered vs pending vs cancelled */}
             <TrendChartCard
               title="Fulfillment Trend"
-              subtitle="Created vs Delivered vs Pending vs Cancelled (no separate in-transit)"
+              subtitle="Created vs Delivered vs Pending vs Cancelled"
               period={trendsGlobalPeriod}
               onPeriodChange={setTrendsGlobalPeriod}
               hidePeriodFilter
@@ -1861,7 +1855,7 @@ export default function AdminDashboardPage(): React.ReactElement {
             {/* 3. Success Rate — Line + 95% target */}
             <TrendChartCard
               title="Success Rate"
-              subtitle="Success rate = delivered / total completed requests. Target: 95%"
+              subtitle="Delivered / total completed requests (target 95%)"
               period={trendsGlobalPeriod}
               onPeriodChange={setTrendsGlobalPeriod}
               hidePeriodFilter
@@ -2021,13 +2015,13 @@ export default function AdminDashboardPage(): React.ReactElement {
           </div>
 
           {/* Two-column layout: Chart | Table */}
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
             {/* Chart — left, with Pareto overlay */}
-            <div className="xl:col-span-1 space-y-4">
+            <div className="xl:col-span-5 space-y-4">
               {topCustomersData.length > 0 ? (
                 <div className="pp-dash-card p-6">
                   <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Top 10 Customers by Orders + Cumulative Share</h2>
-                  <ResponsiveContainer width="100%" height={Math.max(220, Math.min(topCustomersData.length * 42, 400))}>
+                  <ResponsiveContainer width="100%" height={Math.max(260, Math.min(topCustomersData.length * 46, 480))}>
                     <ComposedChart
                       data={topCustomersData.map((r, i) => {
                         const total = topCustomersData.reduce((s, x) => s + (x.orders ?? 0), 0);
@@ -2035,12 +2029,12 @@ export default function AdminDashboardPage(): React.ReactElement {
                         return { name: r.customer, orders: r.orders, delivered: r.delivered, cumPct: total > 0 ? sharePct(cum, total) : 0 };
                       })}
                       layout="vertical"
-                      margin={{ left: 10, right: 50, top: 5, bottom: 5 }}
+                      margin={{ left: 4, right: 20, top: 5, bottom: 5 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" horizontal={false} />
                       <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
-                      <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 11, fill: 'var(--chart-tick-emphasis)' }} tickLine={false} axisLine={false} />
-                      <YAxis type="number" yAxisId="pct" orientation="right" domain={[0, 100]} tick={{ fontSize: 9, fill: 'var(--chart-tick-secondary)' }} tickFormatter={v => `${v}%`} width={45} tickLine={false} axisLine={false} />
+                      <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 11, fill: 'var(--chart-tick-emphasis)' }} tickLine={false} axisLine={false} />
+                      <YAxis type="number" yAxisId="pct" orientation="right" domain={[0, 100]} tick={{ fontSize: 9, fill: 'var(--chart-tick-secondary)' }} tickFormatter={v => `${v}%`} width={36} tickLine={false} axisLine={false} />
                       <Tooltip {...RECHARTS_TOOLTIP_12} formatter={(val: number, name: string, props: { payload?: { cumPct?: number } }) => (name === 'Cum. Share' ? [`${(props?.payload?.cumPct ?? val).toFixed(1)}%`, name] : [val, name])} />
                       <Legend wrapperStyle={{ fontSize: '12px', color: 'var(--chart-legend)' }} />
                       <Bar dataKey="orders" name="Total Orders" fill="#93c5fd" radius={[0, 3, 3, 0]} maxBarSize={18} isAnimationActive />
@@ -2088,7 +2082,7 @@ export default function AdminDashboardPage(): React.ReactElement {
             </div>
 
             {/* Table — right, spans 2 cols */}
-            <div className="xl:col-span-2">
+            <div className="xl:col-span-7">
           <div className="pp-dash-card overflow-hidden">
             <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-700">
               <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Customer Detail — Top {topCustomersData.length}</h3>
@@ -2418,8 +2412,8 @@ export default function AdminDashboardPage(): React.ReactElement {
           </div>
 
           {/* ~40% chart + matrix | ~60% map */}
-          <div className="grid grid-cols-1 xl:grid-cols-5 gap-4 items-start">
-            <div className="xl:col-span-2 flex flex-col gap-4 min-w-0">
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
+            <div className="xl:col-span-5 flex flex-col gap-4 min-w-0">
               <div className="pp-dash-card p-6">
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                   <div>
@@ -2435,11 +2429,11 @@ export default function AdminDashboardPage(): React.ReactElement {
                   </div>
                 </div>
                 {deliveryByAreaEnhanced.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={Math.max(220, deliveryByAreaEnhanced.length * 38)}>
-                    <BarChart data={deliveryByAreaEnhanced} layout="vertical" margin={{ left: 10, right: 50, top: 5, bottom: 5 }}>
+                  <ResponsiveContainer width="100%" height={Math.max(260, deliveryByAreaEnhanced.length * 44)}>
+                    <BarChart data={deliveryByAreaEnhanced} layout="vertical" margin={{ left: 4, right: 20, top: 5, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" horizontal={false} />
                       <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
-                      <YAxis type="category" dataKey="area" width={130} tick={{ fontSize: 12, fill: 'var(--chart-tick-emphasis)' }} tickLine={false} axisLine={false} />
+                      <YAxis type="category" dataKey="area" width={100} tick={{ fontSize: 12, fill: 'var(--chart-tick-emphasis)' }} tickLine={false} axisLine={false} />
                       <Tooltip {...RECHARTS_TOOLTIP_12} />
                       <Bar dataKey="count" name="Deliveries" radius={[0, 4, 4, 0]} fill="#2563EB" isAnimationActive />
                     </BarChart>
@@ -2484,7 +2478,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                 })
                 .filter(r => r.coords);
               return (
-                <div className="xl:col-span-3 pp-dash-card p-6 min-h-0">
+                <div className="xl:col-span-7 pp-dash-card p-6 min-h-0">
                   <div className="mb-3">
                     <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Delivery Hotspot Map — Dubai</h2>
                     <p className="pp-page-subtitle">Circle size = delivery volume · Hover for share %, pending, success</p>
@@ -2660,12 +2654,12 @@ export default function AdminDashboardPage(): React.ReactElement {
           </div>
 
           {/* ~40% charts | ~60% table */}
-          <div className="grid grid-cols-1 xl:grid-cols-5 gap-4 items-start">
-            <div className="xl:col-span-2 flex flex-col gap-4 min-w-0">
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
+            <div className="xl:col-span-5 flex flex-col gap-4 min-w-0">
               {topItemsData.length > 0 ? (
                 <div className="pp-dash-card p-6">
                   <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Top Items by Quantity + Cumulative Share</h2>
-                  <ResponsiveContainer width="100%" height={Math.max(200, Math.min(topItemsData.length * 40, 400))}>
+                  <ResponsiveContainer width="100%" height={Math.max(260, Math.min(topItemsData.length * 44, 500))}>
                     <ComposedChart
                       data={topItemsData.map((r, i) => {
                         const total = topItemsData.reduce((s, x) => s + (x.count ?? 0), 0);
@@ -2673,12 +2667,12 @@ export default function AdminDashboardPage(): React.ReactElement {
                         return { ...r, label: `${(r.item || '').slice(0, 24)}${(r.item || '').length > 24 ? '…' : ''}`, count: r.count, cumPct: total > 0 ? sharePct(cum, total) : 0 };
                       })}
                       layout="vertical"
-                      margin={{ left: 10, right: 50, top: 5, bottom: 5 }}
+                      margin={{ left: 4, right: 20, top: 5, bottom: 5 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" horizontal={false} />
                       <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
-                      <YAxis type="category" dataKey="label" width={180} tick={{ fontSize: 10, fill: 'var(--chart-tick-emphasis)' }} tickLine={false} axisLine={false} />
-                      <YAxis type="number" yAxisId="pct" orientation="right" domain={[0, 100]} tick={{ fontSize: 9, fill: 'var(--chart-tick-secondary)' }} tickFormatter={v => `${v}%`} width={45} tickLine={false} axisLine={false} />
+                      <YAxis type="category" dataKey="label" width={120} tick={{ fontSize: 10, fill: 'var(--chart-tick-emphasis)' }} tickLine={false} axisLine={false} />
+                      <YAxis type="number" yAxisId="pct" orientation="right" domain={[0, 100]} tick={{ fontSize: 9, fill: 'var(--chart-tick-secondary)' }} tickFormatter={v => `${v}%`} width={36} tickLine={false} axisLine={false} />
                       <Tooltip {...RECHARTS_TOOLTIP_12} formatter={(val: number, name: string, props: { payload?: { cumPct?: number } }) => (name === 'Cum. Share' ? [`${(props?.payload?.cumPct ?? val).toFixed(1)}%`, name] : [val, name])} />
                       <Legend wrapperStyle={{ fontSize: '12px', color: 'var(--chart-legend)' }} />
                       <Bar dataKey="count" fill="#2563EB" radius={[0, 4, 4, 0]} name="Quantity" isAnimationActive />
@@ -2716,7 +2710,7 @@ export default function AdminDashboardPage(): React.ReactElement {
               )}
             </div>
 
-            <div className="xl:col-span-3 pp-dash-card overflow-hidden min-w-0">
+            <div className="xl:col-span-7 pp-dash-card overflow-hidden min-w-0">
             <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Item Detail</h3>
               <button onClick={() => exportCSV(topItemsTableData as unknown as Record<string, unknown>[], ['item', 'pnc', 'modelId', 'count', 'sharePct'], 'top-items')}
@@ -2763,7 +2757,7 @@ export default function AdminDashboardPage(): React.ReactElement {
       {activeTab === 'drivers' && (
         <div className="space-y-4">
           {/* Driver KPIs — compact strip */}
-          <div className="pp-kpi-grid">
+          <div className="pp-kpi-grid--fill-4">
             {[
               { label: 'Total Drivers', value: drivers.length, icon: Users, color: 'blue' },
               { label: 'Online', value: driversData.filter(d => onlineUserIds.has(String(d.id))).length, icon: CheckCircle, color: 'green' },
@@ -2772,12 +2766,12 @@ export default function AdminDashboardPage(): React.ReactElement {
             ].map(({ label, value, icon: Icon, color }) => {
               const c = KPI_COLOR_MAP[color];
               return (
-                <div key={label} className="pp-dash-card p-3 sm:p-4 relative flex items-center gap-3 w-full min-w-0 max-w-[280px] pr-9">
+                <div key={label} className="pp-dash-card p-3 sm:p-4 relative flex items-center justify-center gap-3 w-full min-w-0 pr-9">
                   <span className="absolute top-2.5 right-2.5 text-gray-300 dark:text-slate-600 pointer-events-none" aria-hidden>
                     <ArrowUpRight className="w-3.5 h-3.5" strokeWidth={2} />
                   </span>
                   <div className={`p-2.5 rounded-full shrink-0 ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 text-center">
                     <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
                     <p className={`text-xl font-bold ${c.val}`}>{value}</p>
                   </div>
