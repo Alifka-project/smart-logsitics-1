@@ -8,7 +8,7 @@ import DeliveryManagementPage from './DeliveryManagementPage';
 import { calculateDistance } from '../utils/distanceCalculator';
 import { 
   MapPin, Navigation, Activity, RefreshCw, AlertCircle, CheckCircle2, 
-  MessageSquare, Truck, Bell, Paperclip, Send, Clock, MapPinIcon
+  MessageSquare, Truck, Bell, Paperclip, Send, Clock, MapPinIcon, Search
 } from 'lucide-react';
 import type { Delivery } from '../types';
 
@@ -1043,58 +1043,85 @@ export default function DriverPortal() {
         <DeliveryManagementPage hideManageTab />
       )}
 
-      {/* Messages Tab - stacked on mobile, sensible heights */}
+      {/* Messages Tab — two-column chat layout */}
       {activeTab === 'messages' && (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 lg:gap-6 flex flex-col lg:block min-h-0">
-          {/* Contacts List */}
-          <div className="lg:col-span-1 pp-dash-card flex flex-col min-h-0 max-h-[40vh] lg:max-h-none">
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100">Contacts</h3>
+        <div className="flex h-[calc(100vh-280px)] min-h-[520px] rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm">
+          {/* ── LEFT COLUMN: Contacts Panel ── */}
+          <div className="w-72 flex-shrink-0 flex flex-col bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
+            {/* Panel header with search */}
+            <div className="px-4 pt-4 pb-3 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-3">Messages</h3>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Search contacts…"
+                  className="w-full pl-9 pr-3 py-2 text-sm rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 border-0 focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+              </div>
             </div>
-            <div className="divide-y divide-gray-200 dark:divide-gray-700 overflow-y-auto min-h-0 flex-1 max-h-[40vh] lg:max-h-[600px]">
+
+            {/* Contact list */}
+            <div className="flex-1 overflow-y-auto">
               {loadingContacts ? (
-                <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-                  Loading contacts...
+                <div className="flex flex-col items-center justify-center h-32 text-gray-400 dark:text-gray-500 text-sm gap-2">
+                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                  Loading…
                 </div>
               ) : (
                 <>
-                  {/* Team Members Section */}
                   {teamMembers.length > 0 && (
                     <>
-                      <div className="px-4 py-2 bg-gray-50 dark:bg-gray-700/50">
-                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">Team</span>
+                      <div className="px-4 pt-3 pb-1">
+                        <span className="text-[10px] font-bold tracking-widest text-gray-400 dark:text-gray-500 uppercase">Team</span>
                       </div>
                       {teamMembers.map(member => {
                         const isOnline = isContactOnline(member);
-                        
+                        const isSelected = selectedContact?.id === member.id;
+                        const initials = (member.fullName || member.username || '?')[0].toUpperCase();
+                        const roleLabel = member.account?.role === 'admin' ? 'Admin'
+                          : member.account?.role === 'delivery_team' ? 'Delivery'
+                          : member.role || '';
                         return (
                           <button
                             key={member.id}
-                            onClick={() => {
-                              setSelectedContact(member);
-                              void loadMessages(member.id);
-                            }}
-                            className={`w-full p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${ selectedContact?.id === member.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                            onClick={() => { setSelectedContact(member); void loadMessages(member.id); }}
+                            className={`w-full flex items-center gap-3 px-3 py-3 text-left transition-all border-l-4 ${
+                              isSelected
+                                ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-600 dark:border-blue-400'
+                                : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/50'
                             }`}
                           >
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="font-medium text-gray-900 dark:text-gray-100">
-                                {member.fullName || member.username}
-                              </span>
+                            <div className="relative flex-shrink-0">
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold text-sm shadow-sm">
+                                {initials}
+                              </div>
+                              <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-gray-800 ${isOnline ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
                             </div>
-                            <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-                              <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-300'}`} />
-                              {isOnline ? 'Online' : 'Offline'}
-                              <span className="ml-1">• {member.account?.role || member.role}</span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
+                                  {member.fullName || member.username}
+                                </span>
+                                {roleLabel && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 flex-shrink-0 font-medium">
+                                    {roleLabel}
+                                  </span>
+                                )}
+                              </div>
+                              <p className={`text-xs mt-0.5 truncate font-medium ${isOnline ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                                {isOnline ? '● Active now' : '○ Offline'}
+                              </p>
                             </div>
                           </button>
                         );
                       })}
                     </>
                   )}
-                  
+
                   {contacts.length === 0 && (
-                    <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                    <div className="flex flex-col items-center justify-center h-40 text-gray-400 dark:text-gray-500 text-sm gap-2 px-4 text-center">
+                      <MessageSquare className="w-8 h-8 opacity-40" />
                       No contacts available
                     </div>
                   )}
@@ -1103,82 +1130,99 @@ export default function DriverPortal() {
             </div>
           </div>
 
-          {/* Chat Area */}
-          <div className="lg:col-span-3 pp-dash-card flex flex-col min-h-[300px] lg:h-[600px] flex-1 lg:flex-initial">
+          {/* ── RIGHT COLUMN: Chat Panel ── */}
+          <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 min-w-0">
             {selectedContact ? (
               <>
-                {/* Chat Header */}
-                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-3 h-3 rounded-full ${isContactOnline(selectedContact) ? 'bg-green-500' : 'bg-gray-300'}`} />
-                      <div>
-                        <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                          {selectedContact.fullName || selectedContact.username}
-                        </h3>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {isContactOnline(selectedContact) ? 'Online' : 'Offline'}
-                          {selectedContact.account?.role && ` • ${selectedContact.account.role === 'admin' ? 'Admin' : selectedContact.account.role === 'delivery_team' ? 'Delivery Team' : 'Driver'}`}
-                        </p>
+                {/* Chat header */}
+                <div className="flex items-center justify-between px-5 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm flex-shrink-0">
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold shadow-sm">
+                        {(selectedContact.fullName || selectedContact.username || '?')[0].toUpperCase()}
                       </div>
+                      {isContactOnline(selectedContact) && (
+                        <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white dark:border-gray-800" />
+                      )}
                     </div>
-                    <button
-                      onClick={() => void loadMessages(selectedContact.id)}
-                      className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-                    >
-                      <RefreshCw className="w-5 h-5" />
-                    </button>
+                    <div>
+                      <h3 className="font-semibold text-gray-900 dark:text-gray-100 leading-tight">
+                        {selectedContact.fullName || selectedContact.username}
+                      </h3>
+                      <p className="text-xs mt-0.5">
+                        {isContactOnline(selectedContact)
+                          ? <span className="text-green-600 dark:text-green-400 font-medium">Active now</span>
+                          : <span className="text-gray-400 dark:text-gray-500">Offline</span>}
+                        {selectedContact.account?.role && (
+                          <span className="text-gray-400 dark:text-gray-500">
+                            {' '}·{' '}
+                            {selectedContact.account.role === 'admin' ? 'Admin'
+                              : selectedContact.account.role === 'delivery_team' ? 'Delivery Team'
+                              : 'Driver'}
+                          </span>
+                        )}
+                      </p>
+                    </div>
                   </div>
+                  <button
+                    onClick={() => void loadMessages(selectedContact.id)}
+                    title="Refresh messages"
+                    className="p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </button>
                 </div>
 
-                {/* Messages */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {/* Messages area */}
+                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
                   {loadingMessages && messages.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                      Loading messages...
+                    <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-500 gap-2">
+                      <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-sm">Loading messages…</span>
                     </div>
                   ) : messages.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                      No messages yet. Start a conversation!
+                    <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-500 gap-3">
+                      <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                        <MessageSquare className="w-8 h-8 opacity-40" />
+                      </div>
+                      <div className="text-center">
+                        <p className="font-medium text-gray-600 dark:text-gray-400">No messages yet</p>
+                        <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Send a message to start the conversation</p>
+                      </div>
                     </div>
                   ) : (
                     messages.map((msg, idx) => {
                       const isFromOther = msg.senderRole !== 'driver';
                       const messageText = msg.text || msg.content || '';
                       const messageTime = msg.timestamp || msg.createdAt;
-                      
-                      // Role badge configuration
-                      const getRoleBadge = (role: string | undefined): { label: string; color: string } => {
-                        const roleConfig: Record<string, { label: string; color: string }> = {
-                          admin: { label: 'Admin', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
-                          delivery_team: { label: 'Delivery Team', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
-                          sales_ops: { label: 'Sales Ops', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' },
-                          manager: { label: 'Manager', color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' }
-                        };
-                        return roleConfig[role ?? ''] || { label: role ?? '', color: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300' };
+                      const roleConfig: Record<string, { label: string; color: string }> = {
+                        admin: { label: 'Admin', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
+                        delivery_team: { label: 'Delivery', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' },
+                        sales_ops: { label: 'Sales', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' },
+                        manager: { label: 'Manager', color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' }
                       };
-                      
-                      const roleBadge = getRoleBadge(msg.senderRole);
-                      
+                      const roleBadge = roleConfig[msg.senderRole ?? ''] || { label: msg.senderRole ?? '', color: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' };
                       return (
-                        <div
-                          key={idx}
-                          className={`flex ${isFromOther ? 'justify-start' : 'justify-end'}`}
-                        >
-                          <div
-                            className={`max-w-[70%] rounded-lg p-3 ${
-                              isFromOther
-                                ? 'bg-white text-gray-900 border border-gray-200 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700'
-                                : 'bg-blue-600 text-white'
-                            }`}
-                          >
-                            {isFromOther && (
-                              <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium mb-1 ${roleBadge.color}`}>
+                        <div key={idx} className={`flex items-end gap-2 ${isFromOther ? 'justify-start' : 'justify-end'}`}>
+                          {isFromOther && (
+                            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-gray-400 to-gray-600 flex-shrink-0 flex items-center justify-center text-white text-xs font-semibold shadow-sm">
+                              {(selectedContact.fullName || selectedContact.username || '?')[0].toUpperCase()}
+                            </div>
+                          )}
+                          <div className={`max-w-[65%]`}>
+                            {isFromOther && roleBadge.label && (
+                              <span className={`inline-block text-[10px] px-2 py-0.5 rounded-full font-semibold mb-1 ${roleBadge.color}`}>
                                 {roleBadge.label}
                               </span>
                             )}
-                            <p className="text-sm">{messageText}</p>
-                            <p className={`text-xs mt-1 ${isFromOther ? 'text-gray-500 dark:text-gray-400' : 'text-blue-100'}`}>
+                            <div className={`px-4 py-2.5 shadow-sm ${
+                              isFromOther
+                                ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700 rounded-2xl rounded-tl-sm'
+                                : 'bg-blue-600 dark:bg-blue-500 text-white rounded-2xl rounded-tr-sm'
+                            }`}>
+                              <p className="text-sm leading-relaxed">{messageText}</p>
+                            </div>
+                            <p className={`text-[11px] mt-1 px-1 ${isFromOther ? 'text-left text-gray-400 dark:text-gray-500' : 'text-right text-gray-400 dark:text-gray-500'}`}>
                               {formatMessageTimestamp(messageTime)}
                             </p>
                           </div>
@@ -1186,13 +1230,12 @@ export default function DriverPortal() {
                       );
                     })
                   )}
-                  {/* Auto-scroll anchor */}
                   <div ref={messagesEndRef} />
                 </div>
 
-                {/* Message Input */}
-                <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-                  <div className="flex gap-2">
+                {/* Message input */}
+                <div className="flex-shrink-0 px-4 py-3 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center gap-3 bg-gray-100 dark:bg-gray-700 rounded-full px-4 py-2.5 focus-within:ring-2 focus-within:ring-blue-500 transition-all">
                     <input
                       type="text"
                       value={newMessage}
@@ -1202,26 +1245,30 @@ export default function DriverPortal() {
                           void handleSendMessage();
                         }
                       }}
-                      placeholder="Type a message..."
+                      placeholder="Type a message…"
                       disabled={sendingMessage}
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700"
+                      className="flex-1 bg-transparent text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none disabled:opacity-50"
                     />
                     <button
                       onClick={() => void handleSendMessage()}
                       disabled={!newMessage.trim() || sendingMessage}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      className="flex-shrink-0 w-8 h-8 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-full flex items-center justify-center transition-colors shadow-sm"
                     >
-                      <Send className="w-5 h-5" />
-                      Send
+                      {sendingMessage
+                        ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        : <Send className="w-3.5 h-3.5" />}
                     </button>
                   </div>
                 </div>
               </>
             ) : (
-              <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400">
-                <div className="text-center">
-                  <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p>Select a contact to start messaging</p>
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center text-gray-400 dark:text-gray-500">
+                  <div className="w-20 h-20 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
+                    <MessageSquare className="w-10 h-10 opacity-40" />
+                  </div>
+                  <p className="font-medium text-gray-600 dark:text-gray-400 text-lg">Your Messages</p>
+                  <p className="text-sm mt-1">Select a contact to start a conversation</p>
                 </div>
               </div>
             )}
