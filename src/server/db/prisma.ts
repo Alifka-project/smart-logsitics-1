@@ -44,7 +44,6 @@ console.log('[Prisma Init] VERCEL:', process.env.VERCEL ? 'yes' : 'no');
 
 // Singleton pattern for serverless environments (prevents connection pool exhaustion)
 let prisma: PrismaClient | null = null;
-let initError: Error | null = null;
 
 if (global.prisma) {
   console.log('[Prisma Init] Using existing global prisma instance');
@@ -56,7 +55,7 @@ if (global.prisma) {
     prisma = new PrismaClient({
       log: ['error', 'warn'],
       errorFormat: 'pretty',
-      datasources: databaseUrl ? { db: { url: databaseUrl } } : undefined,
+      ...(databaseUrl ? { datasourceUrl: databaseUrl } : {}),
     });
 
     console.log('✅ [Prisma Init] PrismaClient created successfully');
