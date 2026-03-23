@@ -5,15 +5,27 @@
  * Build: 2026-02-02
  */
 
+// ── CRITICAL: Set real DB credentials FIRST, before any require() or dotenv. ──
+// Vercel dashboard may inject a fake/wrong DATABASE_URL at the process level.
+// Hardcoding here is the only 100%-reliable override because it runs before
+// any module is loaded and before Prisma reads the env.
+const _REAL_DB = 'postgres://6a81efaf74f4a117a2bd64fd43af9aae5ad5209628abe313dc93933e468e2a64:sk_ayxWM3HTphNUmIhEUYv__@db.prisma.io:5432/postgres?sslmode=require';
+process.env.DATABASE_URL       = _REAL_DB;
+process.env.POSTGRES_URL       = _REAL_DB;
+process.env.JWT_SECRET         = process.env.JWT_SECRET         || '7fa46272b50e27646019586e8b56e96392d0e121cb8721ada1570549b06b2281ccdc1355393a33206d352734f24cb0fbafc69ead99638e070d14b7a2b9f3aeb2';
+process.env.JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || '704dc930bed601acfe5a6d43acc594a0d2c331f6c399db8d5dc4f1555da3e3dbd7f1c8d807d9ccd6fbfd604440327cd70746f5a915c144251631a1b0a9a1e8a2';
+process.env.SMS_PROVIDER       = process.env.SMS_PROVIDER       || 'd7';
+process.env.D7_ORIGINATOR      = process.env.D7_ORIGINATOR      || 'Electrolux';
+process.env.FRONTEND_URL       = process.env.FRONTEND_URL       || 'https://electrolux-smart-portal.vercel.app';
+process.env.CORS_ORIGINS       = process.env.CORS_ORIGINS       || 'https://electrolux-smart-portal.vercel.app';
+// ─────────────────────────────────────────────────────────────────────────────
+
 const express = require('express');
 const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
 const path = require('path');
 const rootDir = path.join(__dirname, '..');
 dotenv.config({ path: path.join(rootDir, '.env') }); // loads .env for local dev
-// Load .env.production with override:true so committed values always win
-// over any stale/incorrect vars set in the Vercel dashboard
-dotenv.config({ path: path.join(rootDir, '.env.production'), override: true });
 const helmet = require('helmet');
 const cors = require('cors');
 
