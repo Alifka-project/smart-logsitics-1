@@ -13,8 +13,29 @@ declare global {
   var prisma: PrismaClient | null | undefined;
 }
 
-// Use DATABASE_URL for direct connection (standard Prisma setup)
-const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+// Resolve the best available database URL.
+// Priority: DATABASE_URL → POSTGRES_URL → PRISMA_DATABASE_URL (direct, not Accelerate)
+// PRISMA_DATABASE_URL may be an Accelerate URL (prisma+postgres://) which is NOT
+// usable without @prisma/extension-accelerate, so skip it when it uses that protocol.
+function resolveDbUrl(): string | undefined {
+  const candidates = [
+    process.env.DATABASE_URL,
+    process.env.POSTGRES_URL,
+    process.env.PRISMA_DATABASE_URL,
+  ];
+  for (const url of candidates) {
+    if (url && !url.startsWith('prisma+postgres://')) return url;
+  }
+  return undefined;
+}
+
+const databaseUrl = resolveDbUrl();
+
+// Ensure DATABASE_URL is always set to the resolved direct connection URL
+// so Prisma reads the right value regardless of what Vercel injected.
+if (databaseUrl && process.env.DATABASE_URL !== databaseUrl) {
+  process.env.DATABASE_URL = databaseUrl;
+}
 
 console.log('[Prisma Init] Starting initialization...');
 console.log('[Prisma Init] DATABASE_URL is', databaseUrl ? 'SET (length: ' + databaseUrl.length + ')' : 'NOT SET');
@@ -35,6 +56,7 @@ if (global.prisma) {
     prisma = new PrismaClient({
       log: ['error', 'warn'],
       errorFormat: 'pretty',
+      datasources: databaseUrl ? { db: { url: databaseUrl } } : undefined,
     });
 
     console.log('✅ [Prisma Init] PrismaClient created successfully');
@@ -53,7 +75,6 @@ if (global.prisma) {
     console.error('[Prisma Init] DATABASE_URL:', databaseUrl ? 'SET (first 50 chars: ' + databaseUrl.substring(0, 50) + '...)' : 'NOT SET');
     console.error('[Prisma Init] Full error:', e.toString());
     console.error('[Prisma Init] Stack trace:', e.stack);
-    initError = e;
     prisma = null;
 
     // Don't throw in serverless - return null so endpoints can handle gracefully
