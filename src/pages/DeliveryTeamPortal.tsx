@@ -750,7 +750,7 @@ export default function DeliveryTeamPortal() {
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Assign Deliveries to Drivers</h2>
             </div>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <table className="min-w-[760px] divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">PO Number</th>
@@ -1104,7 +1104,7 @@ export default function DeliveryTeamPortal() {
                               {(selectedContact.fullName || selectedContact.username || '?')[0].toUpperCase()}
                             </div>
                           )}
-                          <div className="max-w-[65%]">
+                          <div className="max-w-[88%] sm:max-w-[75%]">
                             <div className={`px-4 py-2.5 shadow-sm ${
                               isSent
                                 ? 'bg-blue-600 dark:bg-blue-500 text-white rounded-2xl rounded-tr-sm'

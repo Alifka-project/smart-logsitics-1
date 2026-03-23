@@ -412,7 +412,7 @@ export default function AdminPODReportPage(): React.ReactElement {
           </div>
           <div className="space-y-4">
             <div>
-              <div className="flex justify-between items-center mb-1.5">
+              <div className="flex flex-wrap justify-between items-center gap-2 mb-1.5">
                 <span className="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-1.5">
                   <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 rounded font-bold">D</span>
                   Driver Signature
@@ -427,7 +427,7 @@ export default function AdminPODReportPage(): React.ReactElement {
               </div>
             </div>
             <div>
-              <div className="flex justify-between items-center mb-1.5">
+              <div className="flex flex-wrap justify-between items-center gap-2 mb-1.5">
                 <span className="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-1.5">
                   <span className="text-xs px-1.5 py-0.5 bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 rounded font-bold">C</span>
                   Customer Signature
@@ -470,7 +470,7 @@ export default function AdminPODReportPage(): React.ReactElement {
               </div>
             </div>
             <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
-              <div className="flex justify-between items-center">
+              <div className="flex flex-wrap justify-between items-center gap-2">
                 <span className="text-sm text-gray-600 dark:text-gray-300">Total Photos Uploaded</span>
                 <span className="text-lg font-bold text-blue-900 dark:text-blue-300">{stats.totalPhotos ?? 0}</span>
               </div>
@@ -486,7 +486,7 @@ export default function AdminPODReportPage(): React.ReactElement {
             <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Daily POD Completion</h3>
           </div>
           <div className="overflow-x-auto">
-            <table className="min-w-full">
+            <table className="min-w-[860px]">
               <thead>
                 <tr className="bg-gray-50 dark:bg-gray-900/40 border-b border-gray-100 dark:border-gray-700">
                   <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Date</th>
@@ -554,7 +554,7 @@ export default function AdminPODReportPage(): React.ReactElement {
             </div>
           </div>
           <div className="overflow-x-auto">
-            <table className="min-w-full">
+            <table className="min-w-[860px]">
               <thead>
                 <tr className="bg-gray-50 dark:bg-gray-900/40 border-b border-gray-100 dark:border-gray-700">
                   <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Driver</th>
@@ -638,7 +638,7 @@ export default function AdminPODReportPage(): React.ReactElement {
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-full">
+          <table className="min-w-[1100px]">
             <thead>
               <tr className="bg-gray-50 dark:bg-gray-900/40 border-b border-gray-100 dark:border-gray-700">
                 <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">PO #</th>

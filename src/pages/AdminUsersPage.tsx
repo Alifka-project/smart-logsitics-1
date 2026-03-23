@@ -596,7 +596,7 @@ export default function AdminUsersPage(): React.ReactElement {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <table className="min-w-[760px] divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">User</th>
@@ -726,7 +726,7 @@ export default function AdminUsersPage(): React.ReactElement {
               <select
                 value={filterRole}
                 onChange={(e) => setFilterRole(e.target.value)}
-                className="px-4 py-2.5 border border-gray-200 dark:border-white/10 rounded-xl bg-white dark:bg-slate-800/90 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/40 text-sm min-w-[140px]"
+                className="px-4 py-2.5 border border-gray-200 dark:border-white/10 rounded-xl bg-white dark:bg-slate-800/90 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/40 text-sm min-w-0 sm:min-w-[140px]"
               >
                 <option value="all">All Roles</option>
                 <option value="admin">Admin</option>
@@ -738,7 +738,7 @@ export default function AdminUsersPage(): React.ReactElement {
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-4 py-2.5 border border-gray-200 dark:border-white/10 rounded-xl bg-white dark:bg-slate-800/90 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/40 text-sm min-w-[130px]"
+                className="px-4 py-2.5 border border-gray-200 dark:border-white/10 rounded-xl bg-white dark:bg-slate-800/90 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/40 text-sm min-w-0 sm:min-w-[130px]"
               >
                 <option value="all">All Status</option>
                 <option value="active">Active</option>
@@ -760,7 +760,7 @@ export default function AdminUsersPage(): React.ReactElement {
             ) : (
               <>
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <table className="min-w-[920px] divide-y divide-gray-200 dark:divide-gray-700">
                     <thead className="bg-gray-50/90 dark:bg-slate-800/80 border-b border-gray-100 dark:border-white/[0.06]">
                       <tr>
                         <th className="px-4 sm:px-6 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">User</th>

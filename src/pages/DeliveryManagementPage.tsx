@@ -330,7 +330,7 @@ export default function DeliveryManagementPage({ hideManageTab = false }: Delive
             <>
               {/* Container: mobile = auto height (page can scroll), desktop = fixed viewport height (no page scroll) */}
               <div
-                className="flex flex-col md:flex-row gap-3 sm:gap-4 items-stretch md:items-start flex-1 min-h-0 min-h-[320px] sm:min-h-[400px] md:min-h-[380px] md:h-[calc(100vh-260px)] md:max-h-[calc(100vh-260px)]"
+                className="flex flex-col md:flex-row gap-3 sm:gap-4 items-stretch md:items-start flex-1 min-h-0 min-h-[320px] sm:min-h-[400px] md:min-h-[380px] lg:h-[calc(100vh-260px)] lg:max-h-[calc(100vh-260px)]"
               >
                 {/* ── Map: top on mobile (fixed height), left on desktop ── */}
                 <div

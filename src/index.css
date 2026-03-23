@@ -891,6 +891,12 @@
     display: none;
   }
 
+  .manage-orders-table-mobile,
+  .table-mobile-cards {
+    min-width: 100% !important;
+    table-layout: auto !important;
+  }
+
   .manage-orders-table-mobile tbody tr,
   .table-mobile-cards tbody tr {
     display: block;
@@ -912,6 +918,19 @@
     border-bottom: 1px solid #f3f4f6;
   }
 
+  .manage-orders-table-mobile tbody td,
+  .manage-orders-table-mobile tbody td[class*="min-w-"],
+  .manage-orders-table-mobile tbody td[class*="max-w-"],
+  .manage-orders-table-mobile tbody td[class*="w-"],
+  .table-mobile-cards tbody td,
+  .table-mobile-cards tbody td[class*="min-w-"],
+  .table-mobile-cards tbody td[class*="max-w-"],
+  .table-mobile-cards tbody td[class*="w-"] {
+    min-width: 0 !important;
+    max-width: none !important;
+    width: auto !important;
+  }
+
   .dark .manage-orders-table-mobile tbody td,
   .dark .table-mobile-cards tbody td {
     border-bottom-color: rgb(55 65 81);
@@ -927,6 +946,8 @@
     content: attr(data-label);
     font-weight: 500;
     color: #6b7280;
+    width: 44%;
+    min-width: 88px;
     flex-shrink: 0;
     margin-right: 8px;
   }
@@ -946,5 +967,11 @@
     overflow-x: auto;
     padding-bottom: 8px;
     -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (max-width: 640px) {
+  .reports-chart-card .recharts-legend-wrapper {
+    display: none !important;
   }
 }

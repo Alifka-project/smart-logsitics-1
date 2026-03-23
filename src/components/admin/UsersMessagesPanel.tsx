@@ -174,7 +174,7 @@ export default function UsersMessagesPanel({
   };
 
   return (
-    <div className="pp-dash-card flex flex-col min-h-[420px] max-h-[min(85vh,900px)] xl:max-h-[calc(100vh-12rem)] overflow-hidden border border-gray-200/80 dark:border-white/[0.08] shadow-sm">
+    <div className="pp-dash-card flex flex-col min-h-[320px] sm:min-h-[420px] max-h-[min(85vh,900px)] xl:max-h-[calc(100vh-12rem)] overflow-hidden border border-gray-200/80 dark:border-white/[0.08] shadow-sm">
       <div className="px-4 py-3 border-b border-gray-100 dark:border-white/[0.07] bg-gradient-to-r from-blue-50/80 to-transparent dark:from-blue-950/20">
         <div className="flex items-center gap-2">
           <div className="p-2 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">

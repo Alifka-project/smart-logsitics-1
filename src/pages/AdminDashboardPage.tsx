@@ -1541,7 +1541,7 @@ export default function AdminDashboardPage(): React.ReactElement {
 
       {/* ── Tab Navigation (PolicyPilot pill rail) ── */}
       <div className="rounded-2xl bg-gray-100/80 dark:bg-white/[0.06] p-1.5 border border-gray-200/60 dark:border-white/[0.07]">
-        <nav className="flex flex-wrap gap-1 overflow-x-auto">
+        <nav className="flex flex-nowrap gap-1 overflow-x-auto pb-1">
           {tabs.map(({ id, label, icon: Icon }) => (
               <button
               key={id}
@@ -2094,7 +2094,7 @@ export default function AdminDashboardPage(): React.ReactElement {
               <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Customer Detail — Top {topCustomersData.length}</h3>
             </div>
             <div className="overflow-x-auto">
-              <table className="min-w-full">
+              <table className="min-w-[980px]">
                 <thead className="bg-gray-50 dark:bg-gray-700/50">
                   <tr>
                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-left w-10">#</th>
@@ -2250,7 +2250,7 @@ export default function AdminDashboardPage(): React.ReactElement {
 
           {/* Table */}
           <div className="overflow-x-auto" ref={deliveryTableRef}>
-            <table className="min-w-full">
+            <table className="min-w-[840px]">
               <thead className="bg-gray-50 dark:bg-gray-700/50">
                 <tr>
                   <SortTh label="PO Number" sortKey="poNumber" current={deliverySortBy} dir={deliverySortDir}
@@ -2547,7 +2547,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                 </button>
               </div>
               <div className="overflow-x-auto">
-              <table className="min-w-full">
+              <table className="min-w-[900px]">
                 <thead className="bg-gray-50 dark:bg-gray-700/50">
                   <tr>
                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-left w-12">#</th>
@@ -2725,7 +2725,7 @@ export default function AdminDashboardPage(): React.ReactElement {
               </button>
             </div>
             <div className="overflow-x-auto">
-            <table className="min-w-full">
+            <table className="min-w-[860px]">
               <thead className="bg-gray-50 dark:bg-gray-700/50">
                 <tr>
                   <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-left w-12">#</th>
@@ -2819,7 +2819,7 @@ export default function AdminDashboardPage(): React.ReactElement {
 
             {/* Table */}
             <div className="overflow-x-auto">
-            <table className="min-w-full">
+            <table className="min-w-[760px]">
               <thead className="bg-gray-50 dark:bg-gray-700/50">
                 <tr>
                   <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-left">Driver</th>

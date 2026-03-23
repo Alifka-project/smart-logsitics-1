@@ -1038,7 +1038,7 @@ export default function DriverPortal() {
             Recent Locations ({locationHistory.length})
           </h2>
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <table className="min-w-[760px] divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 dark:bg-gray-900/40">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Time</th>
@@ -1243,7 +1243,7 @@ export default function DriverPortal() {
                               {(selectedContact.fullName || selectedContact.username || '?')[0].toUpperCase()}
                             </div>
                           )}
-                          <div className={`max-w-[65%]`}>
+                          <div className="max-w-[88%] sm:max-w-[75%]">
                             {isFromOther && roleBadge.label && (
                               <span className={`inline-block text-[10px] px-2 py-0.5 rounded-full font-semibold mb-1 ${roleBadge.color}`}>
                                 {roleBadge.label}

@@ -184,12 +184,12 @@ export default function CustomerConfirmationPage() {
     <div style={{ minHeight: '100vh', background: '#F8FAFC' }}>
       <style>{STYLES}</style>
       <div style={{ background: 'linear-gradient(135deg,#003057,#005082)', padding: '24px 16px 40px' }}>
-        <div style={{ maxWidth: 520, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div style={{ maxWidth: 'min(680px, 100%)', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <div className="shimmer-line" style={{ width: 120, height: 30, marginBottom: 12, opacity: 0.4 }} />
           <div className="shimmer-line" style={{ width: 200, height: 22, opacity: 0.3 }} />
         </div>
       </div>
-      <div style={{ maxWidth: 520, margin: '0 auto', padding: '20px 16px' }}>
+      <div style={{ maxWidth: 'min(680px, 100%)', margin: '0 auto', padding: '20px 16px' }}>
         {[1,2,3].map(i => (
           <div key={i} className="card" style={{ padding: 20, marginBottom: 12 }}>
             <div className="shimmer-line" style={{ height: 14, width: '50%', marginBottom: 10 }} />
@@ -249,7 +249,7 @@ export default function CustomerConfirmationPage() {
 
       {/* ── Header ──────────────────────────────────────────────── */}
       <div style={{ background: 'linear-gradient(135deg, #003057 0%, #005082 100%)', padding: '24px 16px 40px' }}>
-        <div style={{ maxWidth: 520, margin: '0 auto', textAlign: 'center' }}>
+        <div style={{ maxWidth: 'min(680px, 100%)', margin: '0 auto', textAlign: 'center' }}>
           <img src="/elect home.png" alt="Electrolux" style={{ height: 34, filter: 'brightness(0) invert(1)', marginBottom: 14 }} />
           <h1 style={{ color: '#fff', fontSize: 24, fontWeight: 800, marginBottom: 6 }}>Delivery Confirmation</h1>
           <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14 }}>
@@ -258,7 +258,7 @@ export default function CustomerConfirmationPage() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 16px 32px', marginTop: -18 }}>
+      <div style={{ maxWidth: 'min(680px, 100%)', margin: '0 auto', padding: '0 16px 32px', marginTop: -18 }}>
 
         {/* ── Error Banner ──────────────────────────────────────── */}
         {error && (
@@ -375,7 +375,7 @@ export default function CustomerConfirmationPage() {
                 </div>
                 <form onSubmit={(e) => void handleConfirmDelivery(e)} style={{ padding: 18 }}>
                   {/* Date pills – 2 columns */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8, marginBottom: 16 }}>
                     {availableDates.map((date) => {
                       const { day, date: dateLabel } = formatDateShort(date);
                       const isSelected = selectedDate === date;

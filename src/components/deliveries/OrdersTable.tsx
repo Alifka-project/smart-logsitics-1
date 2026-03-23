@@ -323,7 +323,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="manage-orders-table-mobile table-mobile-cards table-fixed min-w-[1130px] border-collapse text-sm">
+        <table className="manage-orders-table-mobile table-mobile-cards table-fixed min-w-[920px] md:min-w-[1130px] border-collapse text-sm">
           <colgroup>
             <col style={{ width: '170px' }} />
             <col style={{ width: '190px' }} />

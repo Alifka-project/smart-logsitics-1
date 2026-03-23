@@ -127,7 +127,7 @@ export default function DriverTrackingMap({ drivers }: DriverTrackingMapProps) {
   return (
     <div
       ref={mapRef}
-      className="h-[500px] w-full rounded-lg bg-gray-100"
+      className="h-[36vh] min-h-[240px] sm:h-[420px] lg:h-[500px] w-full rounded-lg bg-gray-100"
       style={{ position: 'relative' }}
     />
   );

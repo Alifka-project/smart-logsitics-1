@@ -293,13 +293,13 @@ export default function DeliveryMap({
     }
   }, [highlightedIndex]);
 
-  const heightClass = mapClassName ?? 'h-[400px] sm:h-[500px] lg:h-[600px]';
+  const heightClass = mapClassName ?? 'h-[34vh] min-h-[220px] sm:h-[420px] lg:h-[600px]';
 
   return (
     <div
       ref={mapRef}
       className={`w-full rounded-lg bg-gray-100 dark:bg-gray-700 ${heightClass}`}
-      style={{ position: 'relative', zIndex: 1, minHeight: '400px', overflow: 'hidden' }}
+      style={{ position: 'relative', zIndex: 1, minHeight: '220px', overflow: 'hidden' }}
     />
   );
 }

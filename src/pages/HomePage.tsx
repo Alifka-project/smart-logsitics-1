@@ -17,8 +17,8 @@ export default function HomePage() {
   };
 
   return (
-    <div className="h-screen flex items-center justify-center px-4 overflow-hidden">
-      <div className="w-full max-w-4xl max-h-[calc(100vh-40px)] overflow-auto">
+    <div className="min-h-screen flex items-center justify-center px-4 py-4 sm:py-6 overflow-x-hidden">
+      <div className="w-full max-w-4xl max-h-[calc(100dvh-32px)] sm:max-h-[calc(100vh-40px)] overflow-auto">
         {showUpload && !deliveries.length ? (
           <div className="pp-dash-card shadow-xl p-6 sm:p-10 mb-8">
             <div className="text-center mb-8">

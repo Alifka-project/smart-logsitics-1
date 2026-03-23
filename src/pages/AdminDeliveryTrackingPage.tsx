@@ -105,7 +105,7 @@ export default function AdminDeliveryTrackingPage(): React.ReactElement {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="pp-page-header flex justify-between items-center">
+      <div className="pp-page-header flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <div>
           <h1 className="pp-page-title">Real-Time Delivery Tracking</h1>
           <p className="pp-page-subtitle">
@@ -174,7 +174,7 @@ export default function AdminDeliveryTrackingPage(): React.ReactElement {
       <div className="pp-dash-card p-5 transition-colors">
         <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Delivery Status</h2>
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <table className="min-w-[840px] divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-700">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Delivery</th>

@@ -713,7 +713,7 @@ export default function AdminOperationsPage(): React.ReactElement {
           <div className="pp-dash-card p-5 transition-colors">
             <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Driver Status</h2>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <table className="min-w-[760px] divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
                     {['Driver', 'Status', 'Location', 'Last Update'].map(h => (
@@ -794,7 +794,7 @@ export default function AdminOperationsPage(): React.ReactElement {
           <div className="pp-dash-card p-5 transition-colors">
             <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Delivery Status Details</h2>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <table className="min-w-[760px] divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
                     {['Delivery', 'Status', 'Driver', 'Assigned At', 'ETA', 'Items / ETA Item', 'Location'].map(h => (
@@ -891,7 +891,7 @@ export default function AdminOperationsPage(): React.ReactElement {
 
           <div className="pp-dash-card overflow-hidden transition-colors">
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <table className="min-w-[760px] divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
                     {['PO Number', 'Customer', 'Address', 'Status', 'Assigned Driver', 'Change Assignment'].map(h => (
@@ -1029,7 +1029,7 @@ export default function AdminOperationsPage(): React.ReactElement {
             <div className="pp-dash-card p-5">
               <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Delivery Status</h2>
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <table className="min-w-[760px] divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
                       {['Delivery', 'Status', 'Driver', 'Assigned At', 'Location'].map(h => (
@@ -1082,7 +1082,7 @@ export default function AdminOperationsPage(): React.ReactElement {
 
       {/* ══════════ COMMUNICATION ══════════ */}
       {activeTab === 'communication' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-300px)]">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-[420px] lg:h-[calc(100vh-300px)]">
           {/* Contacts Sidebar */}
           <div className="pp-dash-card overflow-hidden flex flex-col transition-colors">
             <div className="p-4 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
@@ -1274,7 +1274,7 @@ export default function AdminOperationsPage(): React.ReactElement {
                       const messageTime = (msg.timestamp || msg.createdAt) as string | undefined;
                       return (
                         <div key={idx} className={`flex ${isAdminMessage ? 'justify-end' : 'justify-start'}`}>
-                          <div className={`max-w-[70%] rounded-lg p-3 ${
+                          <div className={`max-w-[88%] sm:max-w-[75%] rounded-lg p-3 ${
                             isAdminMessage
                               ? 'bg-blue-600 dark:bg-blue-500 text-white'
                               : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-600'

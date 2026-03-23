@@ -415,10 +415,10 @@ export default function AdminReportsPage(): React.ReactElement {
             {reportData?.generatedAt ? new Date(reportData.generatedAt).toLocaleString('en-AE') : '—'}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2 shrink-0">
+        <div className="flex flex-wrap gap-2 shrink-0 w-full sm:w-auto">
           <Link
             to="/admin/reports/pod"
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl bg-blue-900 text-white hover:bg-blue-800 shadow-sm transition-colors"
+            className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2.5 text-sm font-semibold rounded-xl bg-blue-900 text-white hover:bg-blue-800 shadow-sm transition-colors"
           >
             <Image className="w-4 h-4" />
             POD Report
@@ -428,7 +428,7 @@ export default function AdminReportsPage(): React.ReactElement {
             type="button"
             onClick={() => void loadReport('csv')}
             disabled={loading}
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 shadow-sm transition-colors"
+            className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2.5 text-sm font-semibold rounded-xl bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 shadow-sm transition-colors"
           >
             <Download className="w-4 h-4" />
             Export CSV
@@ -437,7 +437,7 @@ export default function AdminReportsPage(): React.ReactElement {
             type="button"
             onClick={() => void loadReport()}
             disabled={loading}
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-2xl border border-gray-200/90 dark:border-white/10 bg-white dark:bg-slate-800/90 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-700 disabled:opacity-50 shadow-sm transition-colors"
+            className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2.5 text-sm font-medium rounded-2xl border border-gray-200/90 dark:border-white/10 bg-white dark:bg-slate-800/90 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-700 disabled:opacity-50 shadow-sm transition-colors"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             {loading ? 'Loading…' : 'Refresh'}
@@ -533,8 +533,8 @@ export default function AdminReportsPage(): React.ReactElement {
             </div>
           </div>
         </div>
-        <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-700/80">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4 pt-4 border-t border-gray-100 dark:border-gray-700/80">
+          <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
               onClick={() => void loadReport()}
@@ -695,7 +695,7 @@ export default function AdminReportsPage(): React.ReactElement {
       {!hasActiveFilters() && dailyBreakdown.length > 0 && (
         <>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
-            <div className="pp-dash-card p-5 sm:p-6">
+            <div className="pp-dash-card p-5 sm:p-6 reports-chart-card">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 tracking-tight mb-4">Daily Breakdown</h2>
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={dailyBreakdown} margin={{ top: 4, right: 4, bottom: 4, left: -10 }}>
@@ -712,7 +712,7 @@ export default function AdminReportsPage(): React.ReactElement {
               </ResponsiveContainer>
             </div>
 
-            <div className="pp-dash-card p-5 sm:p-6">
+            <div className="pp-dash-card p-5 sm:p-6 reports-chart-card">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 tracking-tight mb-4">Status Distribution</h2>
               <ResponsiveContainer width="100%" height={260}>
                 <PieChart>
@@ -739,7 +739,7 @@ export default function AdminReportsPage(): React.ReactElement {
             </div>
           </div>
 
-          <div className="pp-dash-card p-5 sm:p-6">
+          <div className="pp-dash-card p-5 sm:p-6 reports-chart-card">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 tracking-tight mb-4">Daily Delivery Trend</h2>
             <ResponsiveContainer width="100%" height={240}>
               <LineChart data={dailyBreakdown} margin={{ top: 4, right: 4, bottom: 4, left: -10 }}>
@@ -777,7 +777,7 @@ export default function AdminReportsPage(): React.ReactElement {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="min-w-full">
+            <table className="min-w-[980px]">
               <thead>
                 <tr className="bg-gray-50 dark:bg-gray-900/40 border-b border-gray-100 dark:border-gray-700">
                   <SortTh label="PO Number" sortKey="poNumber" sortConfig={sortConfig} onSort={handleSort} />

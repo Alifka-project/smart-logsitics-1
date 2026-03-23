@@ -252,12 +252,12 @@ function Skeleton() {
     <div className="min-h-screen bg-gray-50">
       <style>{STYLES}</style>
       <div style={{ background: 'linear-gradient(135deg, #003057 0%, #005082 100%)', padding: '20px 16px 24px' }}>
-        <div style={{ maxWidth: 520, margin: '0 auto' }}>
+        <div style={{ maxWidth: 'min(680px, 100%)', margin: '0 auto' }}>
           <div className="shimmer-line" style={{ height: 28, width: 120, marginBottom: 12 }} />
           <div className="shimmer-line" style={{ height: 20, width: 180 }} />
         </div>
       </div>
-      <div style={{ maxWidth: 520, margin: '0 auto', padding: '20px 16px' }}>
+      <div style={{ maxWidth: 'min(680px, 100%)', margin: '0 auto', padding: '20px 16px' }}>
         {[1,2,3].map(i => (
           <div key={i} className="card" style={{ padding: 20, marginBottom: 12 }}>
             <div className="shimmer-line" style={{ height: 16, width: '60%', marginBottom: 10 }} />
@@ -354,7 +354,7 @@ export default function CustomerTrackingPage() {
 
       {/* ── Header ──────────────────────────────────────────────────── */}
       <div style={{ background: 'linear-gradient(135deg, #003057 0%, #005082 100%)', padding: '18px 16px 28px' }}>
-        <div style={{ maxWidth: 520, margin: '0 auto' }}>
+        <div style={{ maxWidth: 'min(680px, 100%)', margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <button
               onClick={() => navigate(-1)}
@@ -388,7 +388,7 @@ export default function CustomerTrackingPage() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 16px 32px', marginTop: -12 }}>
+      <div style={{ maxWidth: 'min(680px, 100%)', margin: '0 auto', padding: '0 16px 32px', marginTop: -12 }}>
 
         {/* ── Status Hero Card ─────────────────────────────────────── */}
         <div className="card anim-card anim-card-1" style={{ padding: '18px 18px', marginBottom: 12, background: hero.bg, border: `1px solid ${hero.color}22` }}>
@@ -483,7 +483,7 @@ export default function CustomerTrackingPage() {
         </div>
 
         {/* ── Delivery Date + Driver ───────────────────────────────── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 12 }}>
           {delivery.confirmedDeliveryDate && (
             <div className="card anim-card anim-card-3" style={{ padding: 16 }}>
               <div style={{ width: 36, height: 36, borderRadius: 10, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
