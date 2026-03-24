@@ -687,7 +687,7 @@ export default function AdminOperationsPage(): React.ReactElement {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-            <div className="lg:col-span-4 pp-dash-card overflow-hidden transition-colors">
+            <div className="lg:col-span-3 pp-dash-card overflow-hidden transition-colors">
               <div className="p-4 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600 flex items-center justify-between gap-2">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Live Operations Map (Tracking + Deliveries + Route)</h2>
                 {routeLoading && (
@@ -704,7 +704,68 @@ export default function AdminOperationsPage(): React.ReactElement {
               </div>
             </div>
 
-            <div className="lg:col-span-1 pp-dash-card p-4 transition-colors">
+            <div className="lg:col-span-2 pp-dash-card p-5 transition-colors">
+              <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Active Deliveries ETA</h2>
+              <div className="space-y-3 max-h-[560px] overflow-y-auto pr-1">
+                {deliveriesWithEta.filter(d => d.tracking?.driverId || d.assignedDriverId || d.tracking?.assigned).slice(0, 12).map(delivery => (
+                  <div key={String(delivery.id || delivery.ID || '')} className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        #{String(delivery.id || '').slice(0, 8) || 'N/A'}
+                      </span>
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        delivery.status === 'out-for-delivery'
+                          ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
+                          : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
+                      }`}>
+                        {delivery.status || 'In Progress'}
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400">
+                      {delivery.customer || delivery.Customer || 'Unknown Customer'}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                      ETA: {(delivery as unknown as { etaMinutes?: number }).etaMinutes != null ? `${(delivery as unknown as { etaMinutes?: number }).etaMinutes} min` : 'Calculating...'}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-500">
+                      Items: {(delivery as unknown as { itemCount?: number }).itemCount || 1} • ETA/item: {(delivery as unknown as { etaPerItemMinutes?: number }).etaPerItemMinutes != null ? `${(delivery as unknown as { etaPerItemMinutes?: number }).etaPerItemMinutes} min` : 'N/A'}
+                    </div>
+                  </div>
+                ))}
+                {activeDeliveries.length === 0 && (
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">No active deliveries</div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="pp-dash-card p-5 transition-colors">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Delivery Tracking Overview</h2>
+              <span className="text-xs text-gray-500 dark:text-gray-400">Unified monitoring + tracking view</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Total Deliveries</div>
+                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{deliveries.length}</div>
+              </div>
+              <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4">
+                <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Assigned</div>
+                <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{assignedDeliveries.length}</div>
+              </div>
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4">
+                <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">In Progress</div>
+                <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{inProgressDeliveries.length}</div>
+              </div>
+              <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
+                <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Completed</div>
+                <div className="text-2xl font-bold text-green-600 dark:text-green-400">{completedDeliveries.length}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            <div className="lg:col-span-2 pp-dash-card p-4 transition-colors">
               <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Driver Status</h2>
               <div className="space-y-3 max-h-[560px] overflow-y-auto pr-1">
                 {drivers.map(driver => {
@@ -748,67 +809,6 @@ export default function AdminOperationsPage(): React.ReactElement {
                   );
                 })}
                 {drivers.length === 0 && <div className="text-center py-8 text-gray-500 dark:text-gray-400">No drivers found</div>}
-              </div>
-            </div>
-          </div>
-
-          <div className="pp-dash-card p-5 transition-colors">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Delivery Tracking Overview</h2>
-              <span className="text-xs text-gray-500 dark:text-gray-400">Unified monitoring + tracking view</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-                <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Total Deliveries</div>
-                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{deliveries.length}</div>
-              </div>
-              <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4">
-                <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Assigned</div>
-                <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{assignedDeliveries.length}</div>
-              </div>
-              <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4">
-                <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">In Progress</div>
-                <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{inProgressDeliveries.length}</div>
-              </div>
-              <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
-                <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Completed</div>
-                <div className="text-2xl font-bold text-green-600 dark:text-green-400">{completedDeliveries.length}</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-            <div className="lg:col-span-2 pp-dash-card p-5 transition-colors">
-              <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Active Deliveries ETA</h2>
-              <div className="space-y-3 max-h-[560px] overflow-y-auto">
-                {deliveriesWithEta.filter(d => d.tracking?.driverId || d.assignedDriverId || d.tracking?.assigned).slice(0, 12).map(delivery => (
-                  <div key={String(delivery.id || delivery.ID || '')} className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        #{String(delivery.id || '').slice(0, 8) || 'N/A'}
-                      </span>
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        delivery.status === 'out-for-delivery'
-                          ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
-                          : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
-                      }`}>
-                        {delivery.status || 'In Progress'}
-                      </span>
-                    </div>
-                    <div className="text-xs text-gray-600 dark:text-gray-400">
-                      {delivery.customer || delivery.Customer || 'Unknown Customer'}
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                      ETA: {(delivery as unknown as { etaMinutes?: number }).etaMinutes != null ? `${(delivery as unknown as { etaMinutes?: number }).etaMinutes} min` : 'Calculating...'}
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-500">
-                      Items: {(delivery as unknown as { itemCount?: number }).itemCount || 1} • ETA/item: {(delivery as unknown as { etaPerItemMinutes?: number }).etaPerItemMinutes != null ? `${(delivery as unknown as { etaPerItemMinutes?: number }).etaPerItemMinutes} min` : 'N/A'}
-                    </div>
-                  </div>
-                ))}
-                {activeDeliveries.length === 0 && (
-                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">No active deliveries</div>
-                )}
               </div>
             </div>
 
