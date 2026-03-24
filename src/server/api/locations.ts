@@ -8,6 +8,21 @@ import { authenticate } from '../auth.js';
 const router = Router();
 
 type AuthUser = { sub: string; role?: string; account?: { role?: string } };
+type DbLocationRow = {
+  id?: bigint | number;
+  driverId?: string;
+  latitude?: number;
+  longitude?: number;
+  heading?: number | null;
+  speed?: number | null;
+  accuracy?: number | null;
+  recordedAt?: Date | string;
+};
+
+function getAuthenticatedDriverId(req: Request): string | null {
+  const user = (req.user || {}) as { sub?: string; id?: string };
+  return user.sub || user.id || null;
+}
 
 // ─────────────────────────────────────────────────────────────
 // Haversine distance helper (returns metres)
@@ -108,82 +123,149 @@ router.post('/:id/location', async (req: Request, res: Response): Promise<void> 
   const driverId = req.params.id as string;
   const { latitude, longitude, heading, speed, accuracy, recorded_at } = req.body;
 
-  if (!latitude || !longitude) { res.status(400).json({ error: 'lat_long_required' }); return; }
+  const lat = Number(latitude);
+  const lng = Number(longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    res.status(400).json({ error: 'lat_long_required' });
+    return;
+  }
 
   try {
-    const q = `INSERT INTO live_locations(driver_id, latitude, longitude, heading, speed, accuracy, recorded_at)
-               VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id, driver_id, latitude, longitude, recorded_at`;
-    const vals = [driverId, latitude, longitude, heading || null, speed || null, accuracy || null, recorded_at || new Date().toISOString()];
-    const { rows } = await db.query(q, vals);
+    const created = await prisma.liveLocation.create({
+      data: {
+        driverId,
+        latitude: lat,
+        longitude: lng,
+        heading: heading != null ? Number(heading) : null,
+        speed: speed != null ? Number(speed) : null,
+        accuracy: accuracy != null ? Number(accuracy) : null,
+        recordedAt: recorded_at ? new Date(recorded_at as string) : new Date()
+      }
+    }) as DbLocationRow;
 
-    setImmediate(async () => {
+    setTimeout(async () => {
       try {
-        await db.query(
-          `DELETE FROM live_locations 
-           WHERE driver_id = $1 
-           AND recorded_at < NOW() - INTERVAL '24 hours'`,
-          [driverId]
-        );
+        await prisma.liveLocation.deleteMany({
+          where: {
+            driverId,
+            recordedAt: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+          }
+        });
       } catch (err: unknown) {
         console.error('Location cleanup error:', err);
       }
-    });
+    }, 0);
 
-    setImmediate(() => checkDriverArrival(driverId, latitude, longitude));
+    setTimeout(() => {
+      void checkDriverArrival(driverId, lat, lng);
+    }, 0);
 
     cache.invalidatePrefix('tracking:');
-    res.json({ ok: true, location: rows[0] });
+    res.json({
+      ok: true,
+      location: {
+        id: created.id != null ? String(created.id) : undefined,
+        driver_id: created.driverId,
+        latitude: created.latitude,
+        longitude: created.longitude,
+        recorded_at: created.recordedAt
+      }
+    });
   } catch (err: unknown) {
-    const e = err as { message?: string };
     console.error('POST /api/driver/:id/location', err);
-    res.status(500).json({ error: 'db_error' });
+    res.status(500).json({ error: 'db_error', detail: (err as { message?: string })?.message });
   }
 });
 
 // POST /api/driver/me/location - authenticated driver posts own location
 router.post('/me/location', authenticate, async (req: Request, res: Response): Promise<void> => {
-  const driverId = (req.user as AuthUser).sub;
+  const driverId = getAuthenticatedDriverId(req);
   const { latitude, longitude, heading, speed, accuracy, recorded_at } = req.body;
-  if (!latitude || !longitude) { res.status(400).json({ error: 'lat_long_required' }); return; }
+  if (!driverId) { res.status(401).json({ error: 'unauthorized' }); return; }
+  const lat = Number(latitude);
+  const lng = Number(longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    res.status(400).json({ error: 'lat_long_required' });
+    return;
+  }
   try {
-    const q = `INSERT INTO live_locations(driver_id, latitude, longitude, heading, speed, accuracy, recorded_at)
-               VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id, driver_id, latitude, longitude, recorded_at`;
-    const vals = [driverId, latitude, longitude, heading || null, speed || null, accuracy || null, recorded_at || new Date().toISOString()];
-    const { rows } = await db.query(q, vals);
+    const created = await prisma.liveLocation.create({
+      data: {
+        driverId,
+        latitude: lat,
+        longitude: lng,
+        heading: heading != null ? Number(heading) : null,
+        speed: speed != null ? Number(speed) : null,
+        accuracy: accuracy != null ? Number(accuracy) : null,
+        recordedAt: recorded_at ? new Date(recorded_at as string) : new Date()
+      }
+    }) as DbLocationRow;
 
-    setImmediate(async () => {
+    setTimeout(async () => {
       try {
-        await db.query(
-          `DELETE FROM live_locations 
-           WHERE driver_id = $1 
-           AND recorded_at < NOW() - INTERVAL '24 hours'`,
-          [driverId]
-        );
+        await prisma.liveLocation.deleteMany({
+          where: {
+            driverId,
+            recordedAt: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+          }
+        });
       } catch (err: unknown) {
         console.error('Location cleanup error:', err);
       }
-    });
+    }, 0);
 
-    setImmediate(() => checkDriverArrival(driverId, latitude, longitude));
+    setTimeout(() => {
+      void checkDriverArrival(driverId, lat, lng);
+    }, 0);
 
     cache.invalidatePrefix('tracking:');
-    res.json({ ok: true, location: rows[0] });
+    res.json({
+      ok: true,
+      location: {
+        id: created.id != null ? String(created.id) : undefined,
+        driver_id: created.driverId,
+        latitude: created.latitude,
+        longitude: created.longitude,
+        recorded_at: created.recordedAt
+      }
+    });
   } catch (err: unknown) {
     console.error('POST /api/driver/me/location', err);
-    res.status(500).json({ error: 'db_error' });
+    res.status(500).json({ error: 'db_error', detail: (err as { message?: string })?.message });
   }
 });
 
 // GET /api/driver/me/live - authenticated driver's latest location
 router.get('/me/live', authenticate, async (req: Request, res: Response): Promise<void> => {
-  const driverId = (req.user as AuthUser).sub;
+  const driverId = getAuthenticatedDriverId(req);
+  if (!driverId) { res.status(401).json({ error: 'unauthorized' }); return; }
   try {
-    const { rows } = await db.query('SELECT driver_id, latitude, longitude, recorded_at FROM live_locations WHERE driver_id = $1 ORDER BY recorded_at DESC LIMIT 1', [driverId]);
-    if (!rows.length) { res.status(404).json({ error: 'not_found' }); return; }
-    res.json(rows[0]);
+    const latest = await prisma.liveLocation.findFirst({
+      where: { driverId },
+      orderBy: { recordedAt: 'desc' },
+      select: {
+        driverId: true,
+        latitude: true,
+        longitude: true,
+        recordedAt: true,
+        speed: true,
+        accuracy: true,
+        heading: true
+      }
+    });
+    if (!latest) { res.status(404).json({ error: 'not_found' }); return; }
+    res.json({
+      driver_id: latest.driverId,
+      latitude: latest.latitude,
+      longitude: latest.longitude,
+      recorded_at: latest.recordedAt,
+      speed: latest.speed,
+      accuracy: latest.accuracy,
+      heading: latest.heading
+    });
   } catch (err: unknown) {
     console.error('GET /api/driver/me/live', err);
-    res.status(500).json({ error: 'db_error' });
+    res.status(500).json({ error: 'db_error', detail: (err as { message?: string })?.message });
   }
 });
 
