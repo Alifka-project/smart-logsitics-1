@@ -626,6 +626,13 @@ export default function AdminOperationsPage(): React.ReactElement {
     d => TERMINAL_STATUSES.has((d.status || '').toLowerCase())
   );
 
+  // In Progress = active deliveries that have been picked up and are being delivered.
+  const inProgressDeliveries = activeDeliveries.filter(
+    d => ['in_progress', 'in-progress', 'in-transit', 'out-for-delivery', 'out_for_delivery'].includes(
+      (d.tracking?.status || d.status || '').toLowerCase()
+    )
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
