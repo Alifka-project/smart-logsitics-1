@@ -488,9 +488,17 @@ export default function DeliveryTeamPortal() {
     return lastLogin >= fiveMinutesAgo;
   };
 
+  // Must match TERMINAL_STATUSES in AdminOperationsPage so counts are consistent.
+  const TERMINAL_STATUSES = new Set([
+    'delivered', 'delivered-with-installation', 'delivered-without-installation',
+    'completed', 'pod-completed', 'cancelled', 'rescheduled', 'returned',
+  ]);
+
+  // Active = non-terminal deliveries that have a driver assigned.
   const activeDeliveries = deliveries.filter(d => {
     const dWithTracking = d as unknown as { tracking?: { driverId?: string } };
-    return d.status !== 'delivered' && (dWithTracking.tracking?.driverId || d.assignedDriverId);
+    return !TERMINAL_STATUSES.has((d.status || '').toLowerCase()) &&
+           (dWithTracking.tracking?.driverId || d.assignedDriverId);
   });
 
   if (loading) {
@@ -643,38 +651,46 @@ export default function DeliveryTeamPortal() {
             <div className="pp-card p-4 sm:p-6 flex flex-col min-h-0 flex-1 lg:flex-initial">
               <h2 className="text-lg font-semibold mb-3 sm:mb-4 text-gray-900 dark:text-gray-100">Active Deliveries</h2>
               <div className="space-y-3 flex-1 min-h-0 overflow-y-auto max-h-[50vh] lg:max-h-[500px]">
-                {activeDeliveries.slice(0, 10).map(delivery => {
-                  const dWithTracking = delivery as unknown as { tracking?: { eta?: string } };
+                {activeDeliveries.slice(0, 15).map((delivery, idx) => {
+                  const dWithTracking = delivery as unknown as { tracking?: { eta?: string; driverId?: string } };
+                  const driverId = dWithTracking.tracking?.driverId || delivery.assignedDriverId;
+                  const driver = drivers.find(d => String(d.id) === String(driverId));
+                  const driverName = driver ? (driver.fullName || driver.username) : null;
+                  const rawStatus = (delivery.status || '').toLowerCase();
+                  const statusColor =
+                    rawStatus === 'out-for-delivery' || rawStatus === 'out_for_delivery'
+                      ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
+                      : rawStatus === 'in-progress' || rawStatus === 'in_progress'
+                      ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
+                      : 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300';
+                  const statusLabel = delivery.status
+                    ? delivery.status.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+                    : 'Assigned';
                   return (
-                    <div
-                      key={delivery.id}
-                      className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900 dark:text-gray-100">
+                    <div key={delivery.id || idx}
+                      className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+                      <div className="flex items-start justify-between mb-1">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
                             {delivery.customer || 'Unknown Customer'}
                           </p>
                           <p className="text-xs text-gray-500 dark:text-gray-400">
-                            PO: {delivery.poNumber || (delivery as unknown as { PONumber?: string }).PONumber || 'N/A'}
+                            PO: {delivery.poNumber || (delivery as unknown as { PONumber?: string }).PONumber || '—'}
                           </p>
                         </div>
-                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                          delivery.status === 'out-for-delivery'
-                            ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
-                            : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
-                        }`}>
-                          {delivery.status || 'pending'}
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ml-2 shrink-0 ${statusColor}`}>
+                          {statusLabel}
                         </span>
                       </div>
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
-                        {delivery.address || 'N/A'}
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                        {delivery.address || 'No address'}
                       </p>
-                      {dWithTracking.tracking?.eta && (
-                        <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                          ETA: {new Date(dWithTracking.tracking.eta).toLocaleTimeString()}
-                        </div>
-                      )}
+                      <div className="flex items-center justify-between mt-1.5 text-xs text-gray-400 dark:text-gray-500">
+                        {driverName && <span>🚚 {driverName}</span>}
+                        {dWithTracking.tracking?.eta && (
+                          <span>ETA {new Date(dWithTracking.tracking.eta).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -755,46 +771,43 @@ export default function DeliveryTeamPortal() {
       {activeTab === 'control' && (
         <div className="space-y-6">
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="pp-card p-6">
-              <div className="text-center">
-                <div className="text-sm text-gray-600 dark:text-gray-400">Total Deliveries</div>
-                <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  {deliveries.length}
+          {/* Stats use only non-terminal deliveries so counts match Driver Portal */}
+          {(() => {
+            const activeAll = deliveries.filter(d => !TERMINAL_STATUSES.has((d.status || '').toLowerCase()));
+            const assignedActive = activeAll.filter(d => {
+              const dt = d as unknown as { tracking?: { driverId?: string } };
+              return dt.tracking?.driverId || d.assignedDriverId;
+            });
+            const unassignedActive = activeAll.filter(d => {
+              const dt = d as unknown as { tracking?: { driverId?: string } };
+              return !dt.tracking?.driverId && !d.assignedDriverId;
+            });
+            const completedCount = deliveries.filter(d => TERMINAL_STATUSES.has((d.status || '').toLowerCase())).length;
+            return (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="pp-card p-5 text-center">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Active Orders</div>
+                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{activeAll.length}</div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">need delivery</div>
+                </div>
+                <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-5 text-center">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Assigned</div>
+                  <div className="text-2xl font-bold text-green-600 dark:text-green-400">{assignedActive.length}</div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">with driver</div>
+                </div>
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-xl p-5 text-center">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Unassigned</div>
+                  <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{unassignedActive.length}</div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">needs assignment</div>
+                </div>
+                <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-5 text-center">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Completed</div>
+                  <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{completedCount}</div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">all time</div>
                 </div>
               </div>
-            </div>
-            <div className="bg-green-50 dark:bg-green-900/20 rounded p-4">
-              <div className="text-center">
-                <div className="text-sm text-gray-600 dark:text-gray-400">Assigned</div>
-                <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                  {deliveries.filter(d => {
-                    const dWithTracking = d as unknown as { tracking?: { driverId?: string } };
-                    return dWithTracking.tracking?.driverId || d.assignedDriverId;
-                  }).length}
-                </div>
-              </div>
-            </div>
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded p-4">
-              <div className="text-center">
-                <div className="text-sm text-gray-600 dark:text-gray-400">Unassigned</div>
-                <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-                  {deliveries.filter(d => {
-                    const dWithTracking = d as unknown as { tracking?: { driverId?: string } };
-                    return !dWithTracking.tracking?.driverId && !d.assignedDriverId;
-                  }).length}
-                </div>
-              </div>
-            </div>
-            <div className="bg-blue-50 dark:bg-blue-900/20 rounded p-4">
-              <div className="text-center">
-                <div className="text-sm text-gray-600 dark:text-gray-400">Available Drivers</div>
-                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                  {drivers.length}
-                </div>
-              </div>
-            </div>
-          </div>
+            );
+          })()}
 
           {assignmentMessage && (
             <div className={`p-4 rounded-lg ${
@@ -827,33 +840,48 @@ export default function DeliveryTeamPortal() {
                   {deliveries && deliveries.length > 0 ? (
                     deliveries
                       .filter(delivery => {
-                        const dWithTracking = delivery as unknown as { tracking?: { driverId?: string } };
-                        const currentDriverId = dWithTracking.tracking?.driverId || delivery.assignedDriverId;
-                        return !!currentDriverId;
+                        // Show only active (non-terminal) deliveries — completed/cancelled
+                        // are excluded so the table stays in sync with the Driver Portal.
+                        return !TERMINAL_STATUSES.has((delivery.status || '').toLowerCase());
+                      })
+                      .sort((a, b) => {
+                        // Assigned first, then unassigned
+                        const aHasDriver = !!(( a as unknown as { tracking?: { driverId?: string } }).tracking?.driverId || a.assignedDriverId);
+                        const bHasDriver = !!(( b as unknown as { tracking?: { driverId?: string } }).tracking?.driverId || b.assignedDriverId);
+                        if (aHasDriver && !bHasDriver) return -1;
+                        if (!aHasDriver && bHasDriver) return 1;
+                        return 0;
                       })
                       .map(delivery => {
                         const dWithTracking = delivery as unknown as { tracking?: { driverId?: string } };
                         const currentDriverId = dWithTracking.tracking?.driverId || delivery.assignedDriverId;
                         const currentDriver = drivers.find(d => d.id === currentDriverId);
-                        
+                        const rawStatus = (delivery.status || '').toLowerCase();
+                        const statusColor =
+                          rawStatus === 'out-for-delivery' || rawStatus === 'out_for_delivery'
+                            ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
+                            : rawStatus === 'in-progress' || rawStatus === 'in_progress'
+                            ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
+                            : rawStatus === 'assigned'
+                            ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300';
+                        const statusLabel = delivery.status
+                          ? delivery.status.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+                          : 'Pending';
                         return (
                           <tr key={delivery.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
-                              {delivery.poNumber || (delivery as unknown as { PONumber?: string }).PONumber || 'N/A'}
+                              {delivery.poNumber || (delivery as unknown as { PONumber?: string }).PONumber || '—'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                               {delivery.customer || 'Unknown'}
                             </td>
                             <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate">
-                              {delivery.address || 'N/A'}
+                              {delivery.address || '—'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">
-                              <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                delivery.status === 'delivered' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' :
-                                delivery.status === 'pending' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300' :
-                                'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
-                              }`}>
-                                {delivery.status || 'pending'}
+                              <span className={`px-2 py-1 rounded-full text-xs font-semibold ${statusColor}`}>
+                                {statusLabel}
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -865,7 +893,7 @@ export default function DeliveryTeamPortal() {
                                   </span>
                                 </div>
                               ) : (
-                                <span className="text-gray-400 italic">Not assigned</span>
+                                <span className="text-gray-400 italic">Unassigned</span>
                               )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">

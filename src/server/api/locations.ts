@@ -286,6 +286,12 @@ router.get('/:id/live', async (req: Request, res: Response): Promise<void> => {
 /**
  * GET /api/driver/deliveries - Get driver's assigned deliveries
  */
+// Statuses that require no further action from the driver.
+const DRIVER_TERMINAL_STATUSES = [
+  'delivered', 'delivered-with-installation', 'delivered-without-installation',
+  'completed', 'pod-completed', 'cancelled', 'rescheduled', 'returned',
+];
+
 router.get('/deliveries', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
     const driverId = (req.user as AuthUser)?.sub;
@@ -293,21 +299,21 @@ router.get('/deliveries', authenticate, async (req: Request, res: Response): Pro
       res.status(401).json({ error: 'Unauthorized' }); return;
     }
 
+    // Only return active (non-terminal) deliveries assigned to this driver.
+    // Excluding terminal statuses keeps the driver's list in sync with what
+    // the admin and delivery-team portals consider "active today".
     const deliveries = await prisma.delivery.findMany({
       where: {
-        assignments: {
-          some: {
-            driverId
-          }
-        }
+        assignments: { some: { driverId } },
+        status: { notIn: DRIVER_TERMINAL_STATUSES }
       },
       include: {
         assignments: {
           where: { driverId },
+          orderBy: { assignedAt: 'desc' },
+          take: 1,
           include: {
-            driver: {
-              select: { id: true, fullName: true, username: true }
-            }
+            driver: { select: { id: true, fullName: true, username: true } }
           }
         }
       },
@@ -323,23 +329,31 @@ router.get('/deliveries', authenticate, async (req: Request, res: Response): Pro
       lng: d.lng,
       poNumber: d.poNumber,
       status: d.status,
+      priority: (d as unknown as { priority?: number }).priority ?? null,
+      items: d.items,
+      metadata: d.metadata,
       createdAt: d.createdAt,
       updatedAt: d.updatedAt,
-      assignedAt: d.assignments[0]?.assignedAt,
-      eta: d.assignments[0]?.eta
+      assignedDriverId: driverId,
+      // Expose a tracking sub-object so the driver portal can access driverId
+      // and assignment status the same way the admin/ops portal does.
+      tracking: {
+        assigned: true,
+        driverId,
+        status: d.assignments[0]?.status || 'assigned',
+        assignedAt: d.assignments[0]?.assignedAt || null,
+        eta: d.assignments[0]?.eta || null,
+      }
     }));
 
+    // Contact-complete deliveries first (have both address and phone).
     const withContact: typeof mapped = [];
     const missingContact: typeof mapped = [];
-
     for (const d of mapped) {
       const hasAddress = d.address != null && String(d.address).trim().length > 0;
       const hasPhone = d.phone != null && String(d.phone).trim().length > 0;
-      if (hasAddress && hasPhone) {
-        withContact.push(d);
-      } else {
-        missingContact.push(d);
-      }
+      if (hasAddress && hasPhone) withContact.push(d);
+      else missingContact.push(d);
     }
 
     res.json({
