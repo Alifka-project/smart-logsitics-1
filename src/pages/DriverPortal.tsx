@@ -1299,7 +1299,7 @@ export default function DriverPortal() {
                       };
                       const roleBadge = roleConfig[msg.senderRole ?? ''] || { label: msg.senderRole ?? '', color: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' };
                       return (
-                        <div key={idx} className={`flex items-end gap-2 ${isFromOther ? 'justify-start' : 'justify-end'}`}>
+                        <div key={idx} className={`chat-message-enter flex items-end gap-2 ${isFromOther ? 'justify-start' : 'justify-end'}`}>
                           {isFromOther && (
                             <div className="w-7 h-7 rounded-full bg-gradient-to-br from-gray-400 to-gray-600 flex-shrink-0 flex items-center justify-center text-white text-xs font-semibold shadow-sm">
                               {(selectedContact.fullName || selectedContact.username || '?')[0].toUpperCase()}

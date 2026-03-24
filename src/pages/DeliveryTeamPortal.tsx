@@ -20,7 +20,8 @@ import {
   Navigation as NavigationIcon,
   Circle,
   Package,
-  Search
+  Search,
+  ChevronLeft
 } from 'lucide-react';
 import DeliveryMap from '../components/MapView/DeliveryMap';
 import DeliveryManagementPage from './DeliveryManagementPage';
@@ -932,9 +933,9 @@ export default function DeliveryTeamPortal() {
 
       {/* Communication Tab — two-column chat layout */}
       {activeTab === 'communication' && (
-        <div className="flex h-[calc(100vh-280px)] min-h-[520px] rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="flex md:flex-row h-[calc(100vh-220px)] min-h-[520px] rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm bg-white dark:bg-gray-800">
           {/* ── LEFT COLUMN: Contacts Panel ── */}
-          <div className="w-72 flex-shrink-0 flex flex-col bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
+          <div className={`${selectedContact ? 'hidden md:flex' : 'flex'} w-full md:w-72 md:flex-shrink-0 flex-col bg-white dark:bg-gray-800 md:border-r border-gray-200 dark:border-gray-700`}>
             {/* Panel header with search */}
             <div className="px-4 pt-4 pb-3 border-b border-gray-200 dark:border-gray-700">
               <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-3">Messages</h3>
@@ -1066,12 +1067,19 @@ export default function DeliveryTeamPortal() {
           </div>
 
           {/* ── RIGHT COLUMN: Chat Panel ── */}
-          <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 min-w-0">
+          <div className={`${selectedContact ? 'flex' : 'hidden md:flex'} flex-1 flex-col bg-gray-50 dark:bg-gray-900 min-w-0`}>
             {selectedContact ? (
               <>
                 {/* Chat header */}
                 <div className="flex items-center justify-between px-5 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm flex-shrink-0">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <button
+                      onClick={() => setSelectedContact(null)}
+                      className="md:hidden w-9 h-9 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-300"
+                      title="Back to messages"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
                     <div className="relative">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold shadow-sm">
                         {(selectedContact.fullName || selectedContact.username || '?')[0].toUpperCase()}
@@ -1159,7 +1167,7 @@ export default function DeliveryTeamPortal() {
                       }
 
                       return (
-                        <div key={msg.id} className={`flex items-end gap-2 ${isSent ? 'justify-end' : 'justify-start'}`}>
+                        <div key={msg.id} className={`chat-message-enter flex items-end gap-2 ${isSent ? 'justify-end' : 'justify-start'}`}>
                           {!isSent && (
                             <div className="w-7 h-7 rounded-full bg-gradient-to-br from-gray-400 to-gray-600 flex-shrink-0 flex items-center justify-center text-white text-xs font-semibold shadow-sm">
                               {(selectedContact.fullName || selectedContact.username || '?')[0].toUpperCase()}

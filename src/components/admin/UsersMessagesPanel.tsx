@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import api from '../../frontend/apiClient';
 import { getCurrentUser } from '../../frontend/auth';
-import { MessageSquare, Send, RefreshCw, Search, Circle } from 'lucide-react';
+import { MessageSquare, Send, RefreshCw, Search, Circle, Paperclip, ChevronLeft } from 'lucide-react';
 
 export interface ChatContact {
   id: string;
@@ -18,6 +18,9 @@ interface ChatMsg {
   content: string;
   senderRole?: string;
   createdAt?: string;
+  attachmentUrl?: string;
+  attachmentType?: string;
+  attachmentName?: string;
 }
 
 interface UsersMessagesPanelProps {
@@ -77,6 +80,8 @@ export default function UsersMessagesPanel({
   const [loadingContacts, setLoadingContacts] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
+  const [attachmentPreview, setAttachmentPreview] = useState<{ url: string; type: string; name: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const loadContacts = useCallback(async (): Promise<void> => {
@@ -148,14 +153,22 @@ export default function UsersMessagesPanel({
   }, [contacts, contactSearch]);
 
   const handleSend = async (): Promise<void> => {
-    if (!selected || !newMessage.trim()) return;
+    if (!selected || (!newMessage.trim() && !attachmentPreview)) return;
     setSending(true);
     try {
       await api.post('/messages/send', {
         driverId: selected.id,
-        content: newMessage.trim(),
+        ...(newMessage.trim() ? { content: newMessage.trim() } : {}),
+        ...(attachmentPreview
+          ? {
+              attachmentUrl: attachmentPreview.url,
+              attachmentType: attachmentPreview.type,
+              attachmentName: attachmentPreview.name,
+            }
+          : {}),
       });
       setNewMessage('');
+      setAttachmentPreview(null);
       await loadMessages(selected.id, true);
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: string } }; message?: string };
@@ -171,6 +184,27 @@ export default function UsersMessagesPanel({
     if (meId && String(msg.adminId || '') === meId) return true;
     if (me?.role === 'admin' && msg.senderRole === 'admin') return true;
     return false;
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const MAX_SIZE = 5 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      window.alert('File is too large. Maximum size is 5 MB.');
+      e.target.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setAttachmentPreview({
+        url: reader.result as string,
+        type: file.type,
+        name: file.name,
+      });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   return (
@@ -189,7 +223,7 @@ export default function UsersMessagesPanel({
 
       <div className="flex flex-1 min-h-0 flex-col sm:flex-row">
         {/* Contact list */}
-        <div className="w-full sm:w-[42%] sm:max-w-[220px] shrink-0 border-b sm:border-b-0 sm:border-r border-gray-100 dark:border-white/[0.07] flex flex-col min-h-[140px] sm:min-h-0">
+        <div className={`${selected ? 'hidden sm:flex' : 'flex'} w-full sm:w-[42%] sm:max-w-[220px] shrink-0 border-b sm:border-b-0 sm:border-r border-gray-100 dark:border-white/[0.07] flex-col min-h-[140px] sm:min-h-0`}>
           <div className="p-2 border-b border-gray-100 dark:border-white/[0.07]">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
@@ -241,15 +275,25 @@ export default function UsersMessagesPanel({
         </div>
 
         {/* Thread */}
-        <div className="flex-1 flex flex-col min-h-[220px] min-w-0">
+        <div className={`${selected ? 'flex' : 'hidden sm:flex'} flex-1 flex-col min-h-[220px] min-w-0`}>
           {selected ? (
             <>
               <div className="px-3 py-2 border-b border-gray-100 dark:border-white/[0.07] flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                    {selected.fullName || selected.full_name || selected.username}
+                <div className="min-w-0 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelected(null)}
+                    className="sm:hidden w-8 h-8 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 flex items-center justify-center text-gray-500"
+                    title="Back"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                      {selected.fullName || selected.full_name || selected.username}
+                    </div>
+                    <div className="text-[10px] text-gray-500">{roleLabel(selected.account?.role)}</div>
                   </div>
-                  <div className="text-[10px] text-gray-500">{roleLabel(selected.account?.role)}</div>
                 </div>
                 <button
                   type="button"
@@ -269,7 +313,7 @@ export default function UsersMessagesPanel({
                   messages.map((msg) => {
                     const mine = isMessageMine(msg);
                     return (
-                      <div key={msg.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+                      <div key={msg.id} className={`chat-message-enter flex ${mine ? 'justify-end' : 'justify-start'}`}>
                         <div
                           className={`max-w-[88%] rounded-2xl px-3 py-2 text-sm ${
                             mine
@@ -277,6 +321,29 @@ export default function UsersMessagesPanel({
                               : 'bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 border border-gray-200/80 dark:border-white/10 rounded-bl-sm shadow-sm'
                           }`}
                         >
+                          {msg.attachmentUrl && msg.attachmentType?.startsWith('image/') && (
+                            <a href={msg.attachmentUrl} target="_blank" rel="noopener noreferrer" className="block mb-2">
+                              <img
+                                src={msg.attachmentUrl}
+                                alt={msg.attachmentName || 'attachment'}
+                                className="max-w-full rounded-lg max-h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                              />
+                            </a>
+                          )}
+                          {msg.attachmentUrl && !msg.attachmentType?.startsWith('image/') && (
+                            <a
+                              href={msg.attachmentUrl}
+                              download={msg.attachmentName || 'file'}
+                              className={`flex items-center gap-2 mb-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                mine
+                                  ? 'bg-blue-500 text-white hover:bg-blue-400'
+                                  : 'bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400 hover:bg-gray-200'
+                              }`}
+                            >
+                              <Paperclip className="w-4 h-4 flex-shrink-0" />
+                              <span className="truncate">{msg.attachmentName || 'Download file'}</span>
+                            </a>
+                          )}
                           <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                           <p className={`text-[10px] mt-1 ${mine ? 'text-blue-100' : 'text-gray-400'}`}>
                             {formatTs(msg.createdAt)}
@@ -289,7 +356,41 @@ export default function UsersMessagesPanel({
                 <div ref={messagesEndRef} />
               </div>
               <div className="p-3 border-t border-gray-100 dark:border-white/[0.07] bg-white dark:bg-slate-900/40">
+                {attachmentPreview && (
+                  <div className="pb-2">
+                    <div className="relative flex items-center gap-2 bg-gray-100 dark:bg-gray-700 rounded-xl px-3 py-2 max-w-xs">
+                      {attachmentPreview.type.startsWith('image/') ? (
+                        <img src={attachmentPreview.url} alt="preview" className="h-10 w-10 object-cover rounded-lg flex-shrink-0" />
+                      ) : (
+                        <div className="h-10 w-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <Paperclip className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        </div>
+                      )}
+                      <span className="text-xs text-gray-700 dark:text-gray-300 truncate max-w-[140px]">{attachmentPreview.name}</span>
+                      <button
+                        onClick={() => setAttachmentPreview(null)}
+                        className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-gray-500 hover:bg-red-500 text-white rounded-full flex items-center justify-center text-xs transition-colors"
+                      >✕</button>
+                    </div>
+                  </div>
+                )}
                 <div className="flex gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                    className="hidden"
+                    onChange={handleFileSelect}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={sending}
+                    className="shrink-0 w-10 h-10 inline-flex items-center justify-center rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-slate-800 text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-40"
+                    title="Attach file"
+                  >
+                    <Paperclip className="w-4 h-4" />
+                  </button>
                   <input
                     type="text"
                     value={newMessage}
@@ -307,7 +408,7 @@ export default function UsersMessagesPanel({
                   <button
                     type="button"
                     onClick={() => void handleSend()}
-                    disabled={sending || !newMessage.trim()}
+                    disabled={sending || (!newMessage.trim() && !attachmentPreview)}
                     className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 shadow-sm"
                   >
                     <Send className="w-4 h-4" />
