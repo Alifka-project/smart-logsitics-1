@@ -120,7 +120,7 @@ export default function AdminDriverTrackingPage(): React.ReactElement {
       <div className="pp-dash-card p-5 transition-colors">
         <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Driver Status</h2>
         <div className="overflow-x-auto">
-          <table className="min-w-[760px] divide-y divide-gray-200 dark:divide-gray-700">
+          <table className="pp-mobile-stack-table min-w-[760px] divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-700">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Driver</th>
@@ -137,7 +137,7 @@ export default function AdminDriverTrackingPage(): React.ReactElement {
 
                 return (
                   <tr key={driver.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="px-4 py-3 whitespace-nowrap" data-label="Driver">
                       <div className="flex items-center">
                         <div className={`w-3 h-3 rounded-full mr-3 ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`}></div>
                         <div>
@@ -148,7 +148,7 @@ export default function AdminDriverTrackingPage(): React.ReactElement {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="px-4 py-3 whitespace-nowrap" data-label="Status">
                       <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
                         isOnline 
                           ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' 
@@ -157,7 +157,7 @@ export default function AdminDriverTrackingPage(): React.ReactElement {
                         {driver.tracking?.status || 'offline'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400" data-label="Location">
                       {location ? (
                         <div>
                           <div>{location.lat.toFixed(4)}, {location.lng.toFixed(4)}</div>
@@ -169,7 +169,7 @@ export default function AdminDriverTrackingPage(): React.ReactElement {
                         <span className="text-gray-400 dark:text-gray-500">No location</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400" data-label="Last Update">
                       {location?.timestamp 
                         ? new Date(location.timestamp as string).toLocaleTimeString()
                         : driver.tracking?.lastUpdate

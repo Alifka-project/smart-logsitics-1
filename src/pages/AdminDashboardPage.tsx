@@ -2719,7 +2719,7 @@ export default function AdminDashboardPage(): React.ReactElement {
               </button>
             </div>
             <div className="overflow-x-auto">
-            <table className="min-w-[860px]">
+            <table className="pp-mobile-stack-table min-w-[860px]">
               <thead className="bg-gray-50 dark:bg-gray-700/50">
                 <tr>
                   <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-left w-12">#</th>
@@ -2735,12 +2735,12 @@ export default function AdminDashboardPage(): React.ReactElement {
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                 {topItemsTableData.length > 0 ? topItemsTableData.map((row, idx) => (
                   <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                    <td className="px-4 py-3 text-sm text-gray-400 dark:text-gray-500">{idx + 1}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{row.item}</td>
-                    <td className="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">{row.pnc}</td>
-                    <td className="px-4 py-3 text-sm font-mono text-gray-500 dark:text-gray-500">{row.modelId || '—'}</td>
-                    <td className="px-4 py-3 text-sm text-right font-bold text-blue-600 dark:text-blue-400">{row.count}</td>
-                    <td className="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-400">{row.sharePct?.toFixed(1) ?? '—'}%</td>
+                    <td className="px-4 py-3 text-sm text-gray-400 dark:text-gray-500" data-label="#"> {idx + 1}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100" data-label="Item Name">{row.item}</td>
+                    <td className="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400" data-label="PNC">{row.pnc}</td>
+                    <td className="px-4 py-3 text-sm font-mono text-gray-500 dark:text-gray-500" data-label="Model ID">{row.modelId || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-right font-bold text-blue-600 dark:text-blue-400" data-label="Orders">{row.count}</td>
+                    <td className="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-400" data-label="Share %">{row.sharePct?.toFixed(1) ?? '—'}%</td>
                   </tr>
                 )) : (
                   <tr><td colSpan={6} className="px-6 py-10 text-center text-gray-400 dark:text-gray-500 text-sm">No product data available</td></tr>
@@ -2813,7 +2813,7 @@ export default function AdminDashboardPage(): React.ReactElement {
 
             {/* Table */}
             <div className="overflow-x-auto">
-            <table className="min-w-[760px]">
+            <table className="pp-mobile-stack-table min-w-[760px]">
               <thead className="bg-gray-50 dark:bg-gray-700/50">
                 <tr>
                   <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-left">Driver</th>
@@ -2830,7 +2830,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                   const displayName = driver.fullName || driver.full_name || driver.username || 'Unknown';
                   return (
                     <tr key={driver.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" data-label="Driver">
                         <div className="flex items-center gap-3">
                           <div className="relative flex-shrink-0">
                             <div className="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-sm font-semibold text-blue-700 dark:text-blue-300">
@@ -2844,22 +2844,22 @@ export default function AdminDashboardPage(): React.ReactElement {
                               </div>
                             </div>
                           </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" data-label="Contact">
                         <div className="text-sm text-gray-600 dark:text-gray-400">{driver.email || '—'}</div>
                         <div className="text-xs text-gray-400 dark:text-gray-500">{driver.phone || '—'}</div>
                           </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" data-label="Status">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full ${isOnline ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}`}>
                           <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
                           {isOnline ? 'Online' : 'Offline'}
                               </span>
                           </td>
-                      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400" data-label="Last Seen">
                         {lastSeen
                           ? new Date(lastSeen).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
                           : '—'}
                           </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" data-label="Actions">
                             <button
                           onClick={() => navigate(`/admin/operations?tab=communication&userId=${driver.id}`)}
                           className="text-xs text-blue-600 dark:text-blue-400 hover:underline"

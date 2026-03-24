@@ -784,7 +784,7 @@ export default function AdminReportsPage(): React.ReactElement {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="min-w-[980px]">
+            <table className="pp-mobile-stack-table min-w-[980px]">
               <thead>
                 <tr className="bg-gray-50 dark:bg-gray-900/40 border-b border-gray-100 dark:border-gray-700">
                   <SortTh label="PO Number" sortKey="poNumber" sortConfig={sortConfig} onSort={handleSort} />
@@ -826,12 +826,12 @@ export default function AdminReportsPage(): React.ReactElement {
                             : ''
                         }`}
                       >
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-4 py-3 whitespace-nowrap" data-label="PO Number">
                           <span className="text-sm font-semibold text-blue-900 dark:text-blue-300">
                             {delivery.poNumber || delivery.PONumber || '—'}
                           </span>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-4 py-3 whitespace-nowrap" data-label="Customer">
                           <div className="flex items-center gap-2">
                             <div className="w-7 h-7 rounded-full bg-blue-900/10 flex items-center justify-center flex-shrink-0">
                               <User className="w-3.5 h-3.5 text-blue-900 dark:text-blue-300" />
@@ -841,7 +841,7 @@ export default function AdminReportsPage(): React.ReactElement {
                             </span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 max-w-[180px]">
+                        <td className="px-4 py-3 max-w-[180px]" data-label="Address">
                           <div className="flex items-start gap-1.5">
                             <MapPin className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
                             <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
@@ -849,21 +849,21 @@ export default function AdminReportsPage(): React.ReactElement {
                             </span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
+                        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400" data-label="Phone">
                           {(delivery.phone || delivery.Phone || delivery.telephone1 || '—') as string}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-4 py-3 whitespace-nowrap" data-label="Status">
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full ${badge.cls}`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
                             {formatStatusLabel(status)}
                           </span>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-4 py-3 whitespace-nowrap" data-label="Customer Status">
                           <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getCustomerStatusBadge(customerStatus)}`}>
                             {customerStatus}
                           </span>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-4 py-3 whitespace-nowrap" data-label="POD">
                           {hasPOD ? (
                             <div className="flex flex-col gap-0.5">
                               <span className="flex items-center gap-1 text-xs font-semibold text-green-600 dark:text-green-400">
@@ -892,10 +892,10 @@ export default function AdminReportsPage(): React.ReactElement {
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
+                        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400" data-label="Driver">
                           {(delivery.driver_id || delivery.driverId || delivery.assignedDriverId || '—') as string}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
+                        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400" data-label="Date">
                           {formatDate(delivery.created_at || delivery.createdAt || delivery.created as string | undefined)}
                         </td>
                       </tr>

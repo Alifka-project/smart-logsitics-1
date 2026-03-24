@@ -1011,18 +1011,60 @@
   }
 }
 
-/* Global table responsiveness (mobile + tablet):
-   keep desktop table widths unchanged, but avoid horizontal scrolling on small screens. */
-@media (max-width: 1024px) {
-  .overflow-x-auto > table {
+/* Mobile stacked table cards (explicit opt-in per table).
+   Desktop/tablet layout remains unchanged unless class is applied. */
+@media (max-width: 768px) {
+  .pp-mobile-stack-table thead {
+    display: none;
+  }
+
+  .pp-mobile-stack-table {
     width: 100% !important;
     min-width: 100% !important;
     table-layout: auto !important;
+    border-collapse: separate;
+    border-spacing: 0;
   }
 
-  .overflow-x-auto > table th,
-  .overflow-x-auto > table td {
+  .pp-mobile-stack-table tbody tr {
+    display: block;
+    margin: 0 0 12px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+    box-shadow: var(--shadow1);
+  }
+
+  .pp-mobile-stack-table tbody td {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    padding: 8px 0 !important;
+    border-bottom: 1px solid var(--border);
     white-space: normal !important;
     word-break: break-word;
+    text-align: right;
+  }
+
+  .pp-mobile-stack-table tbody td:last-child {
+    border-bottom: none;
+  }
+
+  .pp-mobile-stack-table tbody td::before {
+    content: attr(data-label);
+    flex: 0 0 42%;
+    min-width: 90px;
+    margin-right: 8px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
   }
 }
