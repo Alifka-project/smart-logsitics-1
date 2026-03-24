@@ -946,8 +946,8 @@ export default function DriverPortal() {
       </div>
 
       {/* Tab Navigation - Orders (map+list) and Messages */}
-      <div className="pp-sticky-tab-rail pp-card px-2 py-2 mt-4 md:mt-6 mb-4 md:mb-6 overflow-x-auto">
-        <nav className="flex flex-wrap gap-2 min-w-max md:min-w-0">
+      <div className="pp-sticky-tab-rail pp-card px-2 py-2 mt-3 md:mt-6 mb-3 md:mb-6 overflow-x-auto">
+        <nav className="flex flex-nowrap gap-2 min-w-max md:min-w-0">
           {[
             { id: 'orders', label: 'My Orders', icon: ClipboardList },
             { id: 'messages', label: 'Messages', icon: MessageSquare }
@@ -957,7 +957,7 @@ export default function DriverPortal() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`pp-nav-pill min-h-[44px] touch-manipulation ${activeTab === tab.id ? 'active' : ''}`}
+                className={`pp-nav-pill min-h-[46px] px-4 touch-manipulation ${activeTab === tab.id ? 'active' : ''}`}
               >
                 <Icon className="w-5 h-5" />
                 {tab.label}
@@ -1002,11 +1002,11 @@ export default function DriverPortal() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-[65%_35%] gap-4 md:gap-6 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-[65%_35%] gap-3 md:gap-6 items-start">
             {/* Left column: order list */}
-            <div className="pp-card p-4 sm:p-6 min-h-[520px]">
-              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100 mb-3">Order list</h2>
-              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-4">Tap an order for POD, call customer, or view details</p>
+            <div className="pp-card p-3 sm:p-6 min-h-[520px]">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Order list</h2>
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-3">Tap one order to update POD, call customer, or check details</p>
               {deliveries.length === 0 ? (
                 <div className="py-8 text-center text-gray-500 dark:text-gray-400">
                   <Truck className="w-12 h-12 mx-auto mb-3 opacity-50" />
@@ -1014,7 +1014,7 @@ export default function DriverPortal() {
                   <p className="text-sm mt-1">Contact your supervisor.</p>
                 </div>
               ) : (
-                <div className="max-h-[560px] overflow-y-auto">
+                <div className="max-h-[68vh] md:max-h-[560px] overflow-y-auto pr-1">
                   <DeliveryTable
                     onSelectDelivery={() => setShowModal(true)}
                     onCloseDetailModal={() => setShowModal(false)}
@@ -1031,9 +1031,27 @@ export default function DriverPortal() {
 
             {/* Right column: route + live telemetry */}
             <div className="space-y-4">
+              {/* Mobile quick status strip */}
+              <div className="lg:hidden pp-card p-3">
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-2">
+                    <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">ETA</div>
+                    <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">{nextEta}</div>
+                  </div>
+                  <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-2">
+                    <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Stops</div>
+                    <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">{deliveries.length}</div>
+                  </div>
+                  <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-2">
+                    <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Speed</div>
+                    <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">{speedKmh}</div>
+                  </div>
+                </div>
+              </div>
+
               <div className="pp-card p-4 sm:p-5">
                 <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Routing & ETA</h3>
-                <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="grid grid-cols-2 gap-2 sm:gap-3 text-sm">
                   <div className="pp-card p-3">
                     <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Next ETA</div>
                     <div className="font-semibold text-gray-900 dark:text-gray-100">{nextEta}</div>
@@ -1057,7 +1075,7 @@ export default function DriverPortal() {
 
               <div className="pp-card p-4 sm:p-5">
                 <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Live Coordinate & Speed</h3>
-                <div className="space-y-3 text-sm">
+                <div className="space-y-2 sm:space-y-3 text-sm">
                   <div className="pp-card p-3">
                     <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Latitude</div>
                     <div className="font-mono font-semibold text-gray-900 dark:text-gray-100">{location ? location.latitude.toFixed(6) : 'N/A'}</div>
@@ -1083,7 +1101,7 @@ export default function DriverPortal() {
                 <div className="relative w-full" style={{ width: '100%', margin: 0, padding: 0 }}>
                   <div
                     ref={mapRef}
-                    className="h-[280px] sm:h-[340px] bg-gray-100 dark:bg-gray-900"
+                    className="h-[240px] sm:h-[340px] bg-gray-100 dark:bg-gray-900"
                     style={{ width: '100%', position: 'relative', zIndex: 1, margin: 0, padding: 0 }}
                   />
                   {!location && mapReady && (
@@ -1112,9 +1130,9 @@ export default function DriverPortal() {
 
       {/* Messages Tab — two-column chat layout */}
       {activeTab === 'messages' && (
-        <div className="flex h-[calc(100vh-280px)] min-h-[520px] rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="flex flex-col md:flex-row h-[calc(100vh-220px)] md:h-[calc(100vh-280px)] min-h-[520px] rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm">
           {/* ── LEFT COLUMN: Contacts Panel ── */}
-          <div className="w-72 flex-shrink-0 flex flex-col bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
+          <div className="w-full md:w-72 flex-shrink-0 flex flex-col bg-white dark:bg-gray-800 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700 max-h-[38vh] md:max-h-none">
             {/* Panel header with search */}
             <div className="px-4 pt-4 pb-3 border-b border-gray-200 dark:border-gray-700">
               <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-3">Messages</h3>
@@ -1198,7 +1216,7 @@ export default function DriverPortal() {
           </div>
 
           {/* ── RIGHT COLUMN: Chat Panel ── */}
-          <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 min-w-0">
+          <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 min-w-0 min-h-[320px]">
             {selectedContact ? (
               <>
                 {/* Chat header */}
