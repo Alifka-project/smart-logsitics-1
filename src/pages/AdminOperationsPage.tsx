@@ -159,6 +159,7 @@ export default function AdminOperationsPage(): React.ReactElement {
   const [unreadByDriverId, setUnreadByDriverId] = useState<Record<string, number>>({});
   const [roadRoute, setRoadRoute] = useState<{ coordinates: [number, number][] } | null>(null);
   const [routeLoading, setRouteLoading] = useState<boolean>(false);
+  const [routeLegDurationsSec, setRouteLegDurationsSec] = useState<number[]>([]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagePollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -324,11 +325,17 @@ export default function AdminOperationsPage(): React.ReactElement {
       if (!document.hidden) void loadOnlineStatus(true);
     }, 90000);
 
+    // Keep operations map/data truly live while page is visible.
+    const trackingInterval = setInterval(() => {
+      if (!document.hidden) void loadData();
+    }, 15000);
+
     return () => {
       document.removeEventListener('visibilitychange', handleVisChange);
       window.removeEventListener('deliveriesUpdated', handleDeliveriesUpdated);
       window.removeEventListener('deliveryStatusUpdated', handleDeliveryStatusUpdated);
       clearInterval(onlineInterval);
+      clearInterval(trackingInterval);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -415,24 +422,35 @@ export default function AdminOperationsPage(): React.ReactElement {
 
     if (pts.length === 0) {
       setRoadRoute(null);
+      setRouteLegDurationsSec([]);
       return;
     }
 
     const locations = [{ lat: 25.0053, lng: 55.0760 }, ...pts.map(([lat, lng]) => ({ lat, lng }))];
     if (locations.length < 2) {
       setRoadRoute(null);
+      setRouteLegDurationsSec([]);
       return;
     }
 
     setRouteLoading(true);
     calculateRoute(locations, deliveries as unknown as import('../types').Delivery[], false)
-      .then((result) => setRoadRoute({ coordinates: result.coordinates }))
+      .then((result) => {
+        setRoadRoute({ coordinates: result.coordinates });
+        const legs = Array.isArray(result.legs) ? result.legs : [];
+        const durations = legs
+          .map((leg) => Number((leg as { duration?: number }).duration))
+          .filter((v) => Number.isFinite(v) && v > 0);
+        setRouteLegDurationsSec(durations);
+      })
       .catch(() => {
         try {
           const fallback = generateFallbackRoute(locations);
           setRoadRoute({ coordinates: fallback.coordinates });
+          setRouteLegDurationsSec([]);
         } catch {
           setRoadRoute({ coordinates: [[25.0053, 55.0760], ...pts] });
+          setRouteLegDurationsSec([]);
         }
       })
       .finally(() => setRouteLoading(false));
@@ -514,7 +532,7 @@ export default function AdminOperationsPage(): React.ReactElement {
     return normalized.split(',').filter(Boolean).length;
   };
 
-  const estimateMinutes = (delivery: OpDelivery): number | null => {
+  const estimateMinutes = (delivery: OpDelivery, index: number): number | null => {
     const etaRaw = delivery?.tracking?.eta;
     if (etaRaw) {
       const etaDate = new Date(etaRaw);
@@ -534,13 +552,24 @@ export default function AdminOperationsPage(): React.ReactElement {
       const mins = (remainingKm / speedKmh) * 60;
       if (Number.isFinite(mins)) return Math.max(0, Math.round(mins));
     }
+
+    // Fallback ETA from current optimized route legs.
+    if (routeLegDurationsSec.length > 0) {
+      const upto = Math.min(index + 1, routeLegDurationsSec.length);
+      if (upto > 0) {
+        const cumulativeSec = routeLegDurationsSec
+          .slice(0, upto)
+          .reduce((sum, sec) => sum + sec, 0);
+        return Math.max(1, Math.round(cumulativeSec / 60));
+      }
+    }
     return null;
   };
 
-  const deliveriesWithEta = deliveries.map(d => {
+  const deliveriesWithEta = deliveries.map((d, index) => {
     const lat = d.lat ?? d.Lat;
     const lng = d.lng ?? d.Lng;
-    const etaMinutes = estimateMinutes(d);
+    const etaMinutes = estimateMinutes(d, index);
     const itemCount = getItemCount(d);
     return {
       ...d,
