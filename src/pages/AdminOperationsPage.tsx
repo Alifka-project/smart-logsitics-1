@@ -686,7 +686,7 @@ export default function AdminOperationsPage(): React.ReactElement {
             ))}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
             <div className="lg:col-span-2 pp-dash-card overflow-hidden transition-colors">
               <div className="p-4 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600 flex items-center justify-between gap-2">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Live Operations Map (Tracking + Deliveries + Route)</h2>
@@ -704,44 +704,9 @@ export default function AdminOperationsPage(): React.ReactElement {
               </div>
             </div>
 
-            <div className="pp-dash-card p-5 transition-colors">
-              <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Active Deliveries ETA</h2>
-              <div className="space-y-3 max-h-[280px] sm:max-h-[380px] lg:max-h-[500px] overflow-y-auto">
-                {deliveriesWithEta.filter(d => d.tracking?.driverId || d.assignedDriverId || d.tracking?.assigned).slice(0, 12).map(delivery => (
-                  <div key={String(delivery.id || delivery.ID || '')} className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        #{String(delivery.id || '').slice(0, 8) || 'N/A'}
-                      </span>
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        delivery.status === 'out-for-delivery'
-                          ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
-                          : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
-                      }`}>
-                        {delivery.status || 'In Progress'}
-                      </span>
-                    </div>
-                    <div className="text-xs text-gray-600 dark:text-gray-400">
-                      {delivery.customer || delivery.Customer || 'Unknown Customer'}
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                      ETA: {(delivery as unknown as { etaMinutes?: number }).etaMinutes != null ? `${(delivery as unknown as { etaMinutes?: number }).etaMinutes} min` : 'Calculating...'}
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-500">
-                      Items: {(delivery as unknown as { itemCount?: number }).itemCount || 1} • ETA/item: {(delivery as unknown as { etaPerItemMinutes?: number }).etaPerItemMinutes != null ? `${(delivery as unknown as { etaPerItemMinutes?: number }).etaPerItemMinutes} min` : 'N/A'}
-                    </div>
-                  </div>
-                ))}
-                {activeDeliveries.length === 0 && (
-                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">No active deliveries</div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="pp-dash-card p-5 transition-colors">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Driver Status</h2>
-            <div className="overflow-x-auto">
+            <div className="lg:col-span-3 pp-dash-card p-5 transition-colors">
+              <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Driver Status</h2>
+              <div className="overflow-x-auto max-h-[560px] overflow-y-auto">
               <table className="min-w-[760px] divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
@@ -793,6 +758,7 @@ export default function AdminOperationsPage(): React.ReactElement {
               </table>
               {drivers.length === 0 && <div className="text-center py-8 text-gray-500 dark:text-gray-400">No drivers found</div>}
             </div>
+            </div>
           </div>
 
           <div className="pp-dash-card p-5 transition-colors">
@@ -800,7 +766,7 @@ export default function AdminOperationsPage(): React.ReactElement {
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Delivery Tracking Overview</h2>
               <span className="text-xs text-gray-500 dark:text-gray-400">Unified monitoring + tracking view</span>
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
                 <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Total Deliveries</div>
                 <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{deliveries.length}</div>
@@ -820,67 +786,104 @@ export default function AdminOperationsPage(): React.ReactElement {
             </div>
           </div>
 
-          <div className="pp-dash-card p-5 transition-colors">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Delivery Status Details</h2>
-            <div className="overflow-x-auto">
-              <table className="min-w-[760px] divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-700">
-                  <tr>
-                    {['Delivery', 'Status', 'Driver', 'Assigned At', 'ETA', 'Items / ETA Item', 'Location'].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {deliveriesWithEta.slice(0, 50).map(delivery => {
-                    const tracking = delivery.tracking || {};
-                    const loc = tracking.lastLocation;
-                    const driverId = tracking.driverId || delivery.assignedDriverId;
-                    const driver = drivers.find(d => String(d.id) === String(driverId));
-                    const driverName = driver
-                      ? (driver.full_name || driver.fullName || driver.username || driver.email || `Driver ${driver.id}`)
-                      : (driverId || 'Unassigned');
-                    return (
-                      <tr key={String(delivery.id || delivery.ID || '')} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                        <td className="px-4 py-3">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{delivery.customer || delivery.Customer || 'Unknown'}</div>
-                            <div className="text-sm text-gray-500 dark:text-gray-400">{String(delivery.address || delivery.Address || 'N/A')}</div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                            tracking.status === 'in_progress' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
-                              : tracking.assigned ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
-                              : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
-                          }`}>
-                            {tracking.status || delivery.status || 'unassigned'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{driverName}</td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{tracking.assignedAt ? new Date(tracking.assignedAt).toLocaleString() : 'N/A'}</td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                          {(delivery as unknown as { etaMinutes?: number }).etaMinutes != null ? `${(delivery as unknown as { etaMinutes?: number }).etaMinutes} min` : 'Calculating...'}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                          {(delivery as unknown as { itemCount?: number }).itemCount || 1} / {(delivery as unknown as { etaPerItemMinutes?: number }).etaPerItemMinutes != null ? `${(delivery as unknown as { etaPerItemMinutes?: number }).etaPerItemMinutes} min` : 'N/A'}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                          {loc ? (
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            <div className="lg:col-span-2 pp-dash-card p-5 transition-colors">
+              <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Active Deliveries ETA</h2>
+              <div className="space-y-3 max-h-[560px] overflow-y-auto">
+                {deliveriesWithEta.filter(d => d.tracking?.driverId || d.assignedDriverId || d.tracking?.assigned).slice(0, 12).map(delivery => (
+                  <div key={String(delivery.id || delivery.ID || '')} className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        #{String(delivery.id || '').slice(0, 8) || 'N/A'}
+                      </span>
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        delivery.status === 'out-for-delivery'
+                          ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
+                          : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
+                      }`}>
+                        {delivery.status || 'In Progress'}
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400">
+                      {delivery.customer || delivery.Customer || 'Unknown Customer'}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                      ETA: {(delivery as unknown as { etaMinutes?: number }).etaMinutes != null ? `${(delivery as unknown as { etaMinutes?: number }).etaMinutes} min` : 'Calculating...'}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-500">
+                      Items: {(delivery as unknown as { itemCount?: number }).itemCount || 1} • ETA/item: {(delivery as unknown as { etaPerItemMinutes?: number }).etaPerItemMinutes != null ? `${(delivery as unknown as { etaPerItemMinutes?: number }).etaPerItemMinutes} min` : 'N/A'}
+                    </div>
+                  </div>
+                ))}
+                {activeDeliveries.length === 0 && (
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">No active deliveries</div>
+                )}
+              </div>
+            </div>
+
+            <div className="lg:col-span-3 pp-dash-card p-5 transition-colors">
+              <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Delivery Status Details</h2>
+              <div className="overflow-x-auto max-h-[560px] overflow-y-auto">
+                <table className="min-w-[760px] divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                      {['Delivery', 'Status', 'Driver', 'Assigned At', 'ETA', 'Items / ETA Item', 'Location'].map(h => (
+                        <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    {deliveriesWithEta.slice(0, 50).map(delivery => {
+                      const tracking = delivery.tracking || {};
+                      const loc = tracking.lastLocation;
+                      const driverId = tracking.driverId || delivery.assignedDriverId;
+                      const driver = drivers.find(d => String(d.id) === String(driverId));
+                      const driverName = driver
+                        ? (driver.full_name || driver.fullName || driver.username || driver.email || `Driver ${driver.id}`)
+                        : (driverId || 'Unassigned');
+                      return (
+                        <tr key={String(delivery.id || delivery.ID || '')} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                          <td className="px-4 py-3">
                             <div>
-                              <div>{loc.lat.toFixed(4)}, {loc.lng.toFixed(4)}</div>
-                              {loc.timestamp && <div className="text-xs text-gray-400">{new Date(loc.timestamp).toLocaleTimeString()}</div>}
+                              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{delivery.customer || delivery.Customer || 'Unknown'}</div>
+                              <div className="text-sm text-gray-500 dark:text-gray-400">{String(delivery.address || delivery.Address || 'N/A')}</div>
                             </div>
-                          ) : <span className="text-gray-400">No location</span>}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {deliveries.length === 0 && <div className="text-center py-8 text-gray-500 dark:text-gray-400">No deliveries found</div>}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                              tracking.status === 'in_progress' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
+                                : tracking.assigned ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
+                                : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
+                            }`}>
+                              {tracking.status || delivery.status || 'unassigned'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{driverName}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{tracking.assignedAt ? new Date(tracking.assignedAt).toLocaleString() : 'N/A'}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                            {(delivery as unknown as { etaMinutes?: number }).etaMinutes != null ? `${(delivery as unknown as { etaMinutes?: number }).etaMinutes} min` : 'Calculating...'}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                            {(delivery as unknown as { itemCount?: number }).itemCount || 1} / {(delivery as unknown as { etaPerItemMinutes?: number }).etaPerItemMinutes != null ? `${(delivery as unknown as { etaPerItemMinutes?: number }).etaPerItemMinutes} min` : 'N/A'}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                            {loc ? (
+                              <div>
+                                <div>{loc.lat.toFixed(4)}, {loc.lng.toFixed(4)}</div>
+                                {loc.timestamp && <div className="text-xs text-gray-400">{new Date(loc.timestamp).toLocaleTimeString()}</div>}
+                              </div>
+                            ) : <span className="text-gray-400">No location</span>}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {deliveries.length === 0 && <div className="text-center py-8 text-gray-500 dark:text-gray-400">No deliveries found</div>}
+              </div>
             </div>
           </div>
+
         </div>
       )}
 
