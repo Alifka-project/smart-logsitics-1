@@ -703,6 +703,8 @@ export default function AdminDashboardPage(): React.ReactElement {
   const [trendsGlobalPeriod, setTrendsGlobalPeriod] = useState<'day' | 'month' | 'year'>('month');
   const [trendsRangeFrom, setTrendsRangeFrom] = useState<string>('');
   const [trendsRangeTo, setTrendsRangeTo] = useState<string>('');
+  // Tracks which preset pill is highlighted; cleared on manual range/period change
+  const [trendsActivePreset, setTrendsActivePreset] = useState<string>('default');
 
   const trendsBucketsConfig = useMemo(
     () => buildTrendBucketsAndRange(trendsGlobalPeriod, trendsRangeFrom, trendsRangeTo),
@@ -714,36 +716,48 @@ export default function AdminDashboardPage(): React.ReactElement {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   }, []);
 
-  const applyTrendPreset = useCallback((preset: 'last7' | 'last30' | 'last90' | 'thisMonth' | 'ytd' | 'clear'): void => {
+  const applyTrendPreset = useCallback((preset: string): void => {
     const now = new Date();
-    if (preset === 'clear') {
-      setTrendsRangeFrom('');
-      setTrendsRangeTo('');
-      return;
+    setTrendsActivePreset(preset);
+    if (preset === 'default') {
+      setTrendsRangeFrom(''); setTrendsRangeTo(''); setTrendsGlobalPeriod('month'); return;
     }
     if (preset === 'last7') {
       setTrendsRangeFrom(fmtYmd(new Date(now.getTime() - 6 * 86400000)));
-      setTrendsRangeTo(fmtYmd(now));
-      return;
+      setTrendsRangeTo(fmtYmd(now)); setTrendsGlobalPeriod('day'); return;
     }
     if (preset === 'last30') {
       setTrendsRangeFrom(fmtYmd(new Date(now.getTime() - 29 * 86400000)));
-      setTrendsRangeTo(fmtYmd(now));
-      return;
-    }
-    if (preset === 'last90') {
-      setTrendsRangeFrom(fmtYmd(new Date(now.getTime() - 89 * 86400000)));
-      setTrendsRangeTo(fmtYmd(now));
-      return;
+      setTrendsRangeTo(fmtYmd(now)); setTrendsGlobalPeriod('day'); return;
     }
     if (preset === 'thisMonth') {
       setTrendsRangeFrom(fmtYmd(new Date(now.getFullYear(), now.getMonth(), 1)));
-      setTrendsRangeTo(fmtYmd(now));
-      return;
+      setTrendsRangeTo(fmtYmd(now)); setTrendsGlobalPeriod('day'); return;
     }
-    if (preset === 'ytd') {
+    if (preset === 'lastMonth') {
+      setTrendsRangeFrom(fmtYmd(new Date(now.getFullYear(), now.getMonth() - 1, 1)));
+      setTrendsRangeTo(fmtYmd(new Date(now.getFullYear(), now.getMonth(), 0)));
+      setTrendsGlobalPeriod('day'); return;
+    }
+    if (preset === 'last90') {
+      setTrendsRangeFrom(fmtYmd(new Date(now.getTime() - 89 * 86400000)));
+      setTrendsRangeTo(fmtYmd(now)); setTrendsGlobalPeriod('month'); return;
+    }
+    if (preset === 'last6m') {
+      setTrendsRangeFrom(fmtYmd(new Date(now.getFullYear(), now.getMonth() - 5, 1)));
+      setTrendsRangeTo(fmtYmd(now)); setTrendsGlobalPeriod('month'); return;
+    }
+    if (preset === 'thisYear') {
       setTrendsRangeFrom(fmtYmd(new Date(now.getFullYear(), 0, 1)));
-      setTrendsRangeTo(fmtYmd(now));
+      setTrendsRangeTo(fmtYmd(now)); setTrendsGlobalPeriod('month'); return;
+    }
+    if (preset === 'lastYear') {
+      setTrendsRangeFrom(fmtYmd(new Date(now.getFullYear() - 1, 0, 1)));
+      setTrendsRangeTo(fmtYmd(new Date(now.getFullYear() - 1, 11, 31)));
+      setTrendsGlobalPeriod('month'); return;
+    }
+    if (preset === 'allTime') {
+      setTrendsRangeFrom(''); setTrendsRangeTo(''); setTrendsGlobalPeriod('year'); return;
     }
   }, [fmtYmd]);
 
@@ -1680,17 +1694,17 @@ export default function AdminDashboardPage(): React.ReactElement {
               <div className="pp-dash-soft-gradient p-5">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 tracking-tight">Needs Attention</h3>
                 <div className="grid grid-cols-2 gap-2 mb-3">
-                  <button onClick={() => { setActiveTab('deliveries'); setDeliveryAttentionFilter('overdue'); setDeliveryStatusFilter('pending'); setDeliveryPage(0); }}
+                  <button onClick={() => { setActiveTab('deliveries'); setDeliveryAttentionFilter('overdue'); setDeliveryStatusFilter('all'); setDeliveryPage(0); }}
                     className="flex flex-col items-center justify-center p-3 rounded-xl bg-white/90 dark:bg-slate-900/50 hover:bg-white dark:hover:bg-slate-800/80 transition-colors text-left cursor-pointer shadow-sm border border-white/60 dark:border-white/10">
                     <span className="text-lg font-bold text-amber-600 dark:text-amber-400">{actionItems.overdue}</span>
                     <span className="text-xs text-gray-600 dark:text-gray-400">Overdue</span>
                   </button>
-                  <button onClick={() => { setActiveTab('deliveries'); setDeliveryAttentionFilter('unassigned'); setDeliveryStatusFilter('pending'); setDeliveryPage(0); }}
+                  <button onClick={() => { setActiveTab('deliveries'); setDeliveryAttentionFilter('unassigned'); setDeliveryStatusFilter('all'); setDeliveryPage(0); }}
                     className="flex flex-col items-center justify-center p-3 rounded-xl bg-white/90 dark:bg-slate-900/50 hover:bg-white dark:hover:bg-slate-800/80 transition-colors text-left cursor-pointer shadow-sm border border-white/60 dark:border-white/10">
                     <span className="text-lg font-bold text-orange-600 dark:text-orange-400">{actionItems.unassigned}</span>
                     <span className="text-xs text-gray-600 dark:text-gray-400">Unassigned</span>
                   </button>
-                  <button onClick={() => { setActiveTab('deliveries'); setDeliveryAttentionFilter('awaiting'); setDeliveryStatusFilter('pending'); setDeliveryPage(0); }}
+                  <button onClick={() => { setActiveTab('deliveries'); setDeliveryAttentionFilter('awaiting'); setDeliveryStatusFilter('all'); setDeliveryPage(0); }}
                     className="flex flex-col items-center justify-center p-3 rounded-xl bg-white/90 dark:bg-slate-900/50 hover:bg-white dark:hover:bg-slate-800/80 transition-colors text-left col-span-2 cursor-pointer shadow-sm border border-white/60 dark:border-white/10">
                     <span className="text-lg font-bold text-purple-600 dark:text-purple-400">{actionItems.unconfirmed}</span>
                     <span className="text-xs text-gray-600 dark:text-gray-400">Awaiting confirmation</span>
@@ -1751,75 +1765,127 @@ export default function AdminDashboardPage(): React.ReactElement {
       {/* ══════════════ TRENDS TAB ══════════════ */}
       {activeTab === 'trends' && (
         <div className="space-y-4">
-          {/* Global trend filters: granularity + date range — single row */}
+          {/* ── Trends filter — unified smart presets ── */}
           <div className="pp-dash-card p-4 sm:p-5 space-y-3">
-            <div className="flex flex-wrap items-end gap-2 sm:gap-3">
-              <div className="inline-flex p-1 rounded-full bg-gray-100 dark:bg-slate-700/50 shrink-0" role="group" aria-label="Trend bucket size">
-                {(['day', 'month', 'year'] as const).map(p => (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => setTrendsGlobalPeriod(p)}
-                    className={`px-3 py-1.5 rounded-full capitalize text-xs font-medium transition-all ${
-                      trendsGlobalPeriod === p
-                        ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm font-semibold'
-                        : 'text-gray-600 dark:text-gray-500 hover:text-gray-900 dark:hover:text-gray-200'
-                    }`}
-                  >
-                    {p === 'day' ? 'Daily' : p === 'month' ? 'Monthly' : 'Yearly'}
-                  </button>
-                ))}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Time Period</h3>
+              {/* Granularity override — secondary, for power users */}
+              <div className="inline-flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
+                <span className="hidden sm:inline">Granularity:</span>
+                <div className="inline-flex p-0.5 rounded-lg bg-gray-100 dark:bg-slate-700/50" role="group">
+                  {(['day', 'month', 'year'] as const).map(p => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => { setTrendsGlobalPeriod(p); setTrendsActivePreset('custom'); }}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                        trendsGlobalPeriod === p
+                          ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+                      }`}
+                    >
+                      {p === 'day' ? 'Day' : p === 'month' ? 'Month' : 'Year'}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <label className="flex flex-col gap-1 text-xs">
-                <span className="font-medium text-gray-600 dark:text-gray-400">From</span>
-                <input
-                  type="date"
-                  value={trendsRangeFrom}
-                  onChange={e => setTrendsRangeFrom(e.target.value)}
-                  className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                />
-              </label>
-              <span className="text-gray-400 pb-2 hidden sm:inline">—</span>
-              <label className="flex flex-col gap-1 text-xs">
-                <span className="font-medium text-gray-600 dark:text-gray-400">To</span>
-                <input
-                  type="date"
-                  value={trendsRangeTo}
-                  onChange={e => setTrendsRangeTo(e.target.value)}
-                  className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                />
-              </label>
-              <span className="text-xs text-gray-500 dark:text-gray-400 pb-2 hidden md:inline">or use a preset:</span>
+            </div>
+
+            {/* Smart preset pills — each sets BOTH range AND granularity */}
+            <div className="space-y-2">
+              <p className="text-[11px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">Short-range (daily view)</p>
               <div className="flex flex-wrap gap-1.5">
                 {([
-                  ['last7', 'Last 7d'],
-                  ['last30', 'Last 30d'],
-                  ['last90', 'Last 90d'],
-                  ['thisMonth', 'This month'],
-                  ['ytd', 'YTD'],
+                  ['default', 'Last 12 Months', 'month'],
+                  ['last7',   'Last 7 Days',    'day'],
+                  ['last30',  'Last 30 Days',   'day'],
+                  ['thisMonth','This Month',    'day'],
+                  ['lastMonth','Last Month',    'day'],
                 ] as const).map(([k, label]) => (
                   <button
                     key={k}
                     type="button"
                     onClick={() => applyTrendPreset(k)}
-                    className="px-2.5 py-1.5 text-xs font-medium rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
+                      trendsActivePreset === k
+                        ? 'bg-[#002D5B] border-[#002D5B] text-white shadow-sm'
+                        : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    }`}
                   >
                     {label}
                   </button>
                 ))}
-                <button
-                  type="button"
-                  onClick={() => applyTrendPreset('clear')}
-                  className="px-2.5 py-1.5 text-xs font-medium rounded-lg border border-transparent text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400"
-                >
-                  Clear range
-                </button>
+              </div>
+              <p className="text-[11px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide pt-1">Long-range (monthly view)</p>
+              <div className="flex flex-wrap gap-1.5">
+                {([
+                  ['last90',  'Last 3 Months', 'month'],
+                  ['last6m',  'Last 6 Months', 'month'],
+                  ['thisYear','This Year',     'month'],
+                  ['lastYear','Last Year',     'month'],
+                  ['allTime', 'All Time',      'year'],
+                ] as const).map(([k, label]) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => applyTrendPreset(k)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
+                      trendsActivePreset === k
+                        ? 'bg-[#002D5B] border-[#002D5B] text-white shadow-sm'
+                        : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
             </div>
-            <p className="text-[11px] text-gray-400 dark:text-gray-500">
+
+            {/* Custom date range */}
+            <details className="group">
+              <summary className="cursor-pointer text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline list-none flex items-center gap-1">
+                <span className="group-open:hidden">▸ Custom date range</span>
+                <span className="hidden group-open:inline">▾ Custom date range</span>
+              </summary>
+              <div className="mt-2 flex flex-wrap items-end gap-2">
+                <label className="flex flex-col gap-1 text-xs">
+                  <span className="font-medium text-gray-600 dark:text-gray-400">From</span>
+                  <input
+                    type="date"
+                    value={trendsRangeFrom}
+                    onChange={e => { setTrendsRangeFrom(e.target.value); setTrendsActivePreset('custom'); }}
+                    className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  />
+                </label>
+                <span className="text-gray-400 pb-1 hidden sm:inline">—</span>
+                <label className="flex flex-col gap-1 text-xs">
+                  <span className="font-medium text-gray-600 dark:text-gray-400">To</span>
+                  <input
+                    type="date"
+                    value={trendsRangeTo}
+                    onChange={e => { setTrendsRangeTo(e.target.value); setTrendsActivePreset('custom'); }}
+                    className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => applyTrendPreset('default')}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                >
+                  Reset
+                </button>
+              </div>
+            </details>
+
+            {/* Status bar */}
+            <p className="text-[11px] text-gray-400 dark:text-gray-500 border-t border-gray-100 dark:border-gray-700 pt-2">
               {trendsRangeFrom || trendsRangeTo
-                ? <>Active range: <strong className="text-gray-600 dark:text-gray-400">{trendsRangeFrom || '…'}</strong> → <strong className="text-gray-600 dark:text-gray-400">{trendsRangeTo || '…'}</strong> · {trendsBucketsConfig.buckets.length} buckets</>
-                : <>Default window (no custom dates) · {trendsBucketsConfig.buckets.length} buckets</>}
+                ? <><strong className="text-gray-600 dark:text-gray-300">{trendsRangeFrom || '…'}</strong> → <strong className="text-gray-600 dark:text-gray-300">{trendsRangeTo || '…'}</strong></>
+                : <span>Default window</span>}
+              {' · '}
+              <span className="capitalize">{trendsGlobalPeriod === 'day' ? 'Daily' : trendsGlobalPeriod === 'month' ? 'Monthly' : 'Yearly'} granularity</span>
+              {' · '}
+              <span>{trendsBucketsConfig.buckets.length} data points</span>
               {trendsBucketsConfig.buckets.length >= TREND_BUCKET_MAX && (
                 <span className="text-amber-600 dark:text-amber-400 ml-1"> — cap reached; narrow the range.</span>
               )}
@@ -2356,15 +2422,15 @@ export default function AdminDashboardPage(): React.ReactElement {
               <div className="pp-dash-soft-gradient p-4">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Needs Attention</h3>
                 <div className="space-y-2">
-                  <button onClick={() => { setDeliveryAttentionFilter('overdue'); setDeliveryStatusFilter('pending'); setDeliveryPage(0); }} className="w-full flex justify-between items-center p-2 rounded-lg bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 text-left cursor-pointer">
+                  <button onClick={() => { setDeliveryAttentionFilter('overdue'); setDeliveryStatusFilter('all'); setDeliveryPage(0); }} className="w-full flex justify-between items-center p-2 rounded-lg bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 text-left cursor-pointer">
                     <span className="text-sm text-gray-700 dark:text-gray-300">Overdue</span>
                     <span className="font-bold text-amber-600">{actionItems.overdue}</span>
                   </button>
-                  <button onClick={() => { setDeliveryAttentionFilter('unassigned'); setDeliveryStatusFilter('pending'); setDeliveryPage(0); }} className="w-full flex justify-between items-center p-2 rounded-lg bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 text-left cursor-pointer">
+                  <button onClick={() => { setDeliveryAttentionFilter('unassigned'); setDeliveryStatusFilter('all'); setDeliveryPage(0); }} className="w-full flex justify-between items-center p-2 rounded-lg bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 text-left cursor-pointer">
                     <span className="text-sm text-gray-700 dark:text-gray-300">Unassigned</span>
                     <span className="font-bold text-orange-600">{actionItems.unassigned}</span>
                   </button>
-                  <button onClick={() => { setDeliveryAttentionFilter('awaiting'); setDeliveryStatusFilter('pending'); setDeliveryPage(0); }} className="w-full flex justify-between items-center p-2 rounded-lg bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 text-left cursor-pointer">
+                  <button onClick={() => { setDeliveryAttentionFilter('awaiting'); setDeliveryStatusFilter('all'); setDeliveryPage(0); }} className="w-full flex justify-between items-center p-2 rounded-lg bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 text-left cursor-pointer">
                     <span className="text-sm text-gray-700 dark:text-gray-300">Awaiting confirmation</span>
                     <span className="font-bold text-purple-600">{actionItems.unconfirmed}</span>
                   </button>
