@@ -165,6 +165,9 @@ export default function AdminOperationsPage(): React.ReactElement {
   const messagePollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const loadingDataRef = useRef<boolean>(false);
   const loadingOnlineStatusRef = useRef<boolean>(false);
+  // Track the last coordinates key so we only recalculate the route when
+  // the actual delivery lat/lng values change, not on every 5-second poll.
+  const lastRouteKeyRef = useRef<string>('');
   const location = useLocation();
 
   const formatMessageTimestamp = (value: string | undefined | null): string => {
@@ -401,7 +404,8 @@ export default function AdminOperationsPage(): React.ReactElement {
     }
   }, [messages]);
 
-  /* Road-following route for map (OSRM) */
+  /* Road-following route for map (OSRM) — only recalculates when the actual
+     delivery coordinates change, not on every 5-second poll cycle. */
   useEffect(() => {
     const pts = deliveries
       .map((d) => {
@@ -423,8 +427,15 @@ export default function AdminOperationsPage(): React.ReactElement {
     if (pts.length === 0) {
       setRoadRoute(null);
       setRouteLegDurationsSec([]);
+      lastRouteKeyRef.current = '';
       return;
     }
+
+    // Build a stable key from the coordinate values — skip recalculation if
+    // coordinates haven't actually changed (prevents OSRM calls every 5 s).
+    const newKey = pts.map(([la, ln]) => `${la.toFixed(4)},${ln.toFixed(4)}`).join('|');
+    if (newKey === lastRouteKeyRef.current) return;
+    lastRouteKeyRef.current = newKey;
 
     const locations = [{ lat: 25.0053, lng: 55.0760 }, ...pts.map(([lat, lng]) => ({ lat, lng }))];
     if (locations.length < 2) {
@@ -915,7 +926,7 @@ export default function AdminOperationsPage(): React.ReactElement {
 
           <div className="pp-dash-card overflow-hidden transition-colors">
             <div className="overflow-x-auto">
-              <table className="min-w-[760px] divide-y divide-gray-200 dark:divide-gray-700">
+              <table className="pp-mobile-stack-table min-w-[760px] divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
                     {['PO Number', 'Customer', 'Address', 'Status', 'Assigned Driver', 'Change Assignment'].map(h => (
@@ -932,16 +943,16 @@ export default function AdminOperationsPage(): React.ReactElement {
                         const currentDriver = drivers.find(d => d.id === currentDriverId);
                         return (
                           <tr key={String(delivery.id || '')} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100" data-label="PO Number">
                               {delivery.poNumber || delivery.PONumber || delivery.metadata?.originalPONumber || 'N/A'}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100" data-label="Customer">
                               {delivery.customer || delivery.Customer || 'Unknown'}
                             </td>
-                            <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate">
+                            <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate" data-label="Address">
                               {String(delivery.address || 'N/A')}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm" data-label="Status">
                               <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
                                 delivery.status === 'delivered' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' :
                                 delivery.status === 'pending'   ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300' :
@@ -950,7 +961,7 @@ export default function AdminOperationsPage(): React.ReactElement {
                                 {delivery.status || 'pending'}
                               </span>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm" data-label="Assigned Driver">
                               {currentDriver ? (
                                 <div className="flex items-center gap-2">
                                   <div className="w-2 h-2 rounded-full bg-green-500" />
@@ -962,7 +973,7 @@ export default function AdminOperationsPage(): React.ReactElement {
                                 <span className="text-gray-400 italic">Not assigned</span>
                               )}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm" data-label="Change Assignment">
                               <select
                                 value={currentDriverId}
                                 onChange={async (e: React.ChangeEvent<HTMLSelectElement>) => {

@@ -195,63 +195,24 @@ function decodePolyline6(encoded: string): [number, number][] {
 async function calculateRouteChunk(
   locations: RouteLocation[],
 ): Promise<{ legs: unknown[]; coordinates: [number, number][]; distance: number; duration: number }> {
-  // ── Primary: Valhalla direct (CORS: Access-Control-Allow-Origin: *) ──────────
-  try {
-    console.log(`[Routing] Calling Valhalla directly with ${locations.length} waypoints`);
-    const valhallaLocations = locations.map((loc) => ({ lon: Number(loc.lng), lat: Number(loc.lat) }));
-    const response = await axios.post<{
-      trip?: {
-        legs?: Array<{ shape: string }>;
-        summary?: { length: number; time: number };
-      };
-    }>(
-      'https://valhalla1.openstreetmap.de/route',
-      { locations: valhallaLocations, costing: 'auto', directions_options: { language: 'en-US' } },
-      { timeout: 30000 },
-    );
+  // Use OSRM directly — Valhalla is CORS-blocked on production deployments and
+  // rate-limits aggressively; OSRM has no CORS restrictions and handles our
+  // waypoint counts reliably.
+  const coords = locations.map((loc) => `${Number(loc.lng)},${Number(loc.lat)}`).join(';');
+  const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=true`;
+  console.log(`[Routing] Calling OSRM with ${locations.length} waypoints`);
+  const response = await axios.get<{
+    code?: string;
+    routes?: Array<{ distance: number; duration: number; geometry: { coordinates: [number, number][] }; legs?: unknown[] }>;
+  }>(url, { timeout: 30000 });
 
-    const trip = response.data?.trip;
-    if (!trip?.legs?.length) throw new Error('Empty Valhalla response');
+  if (!response.data || response.data.code !== 'Ok') throw new Error(`OSRM failed: ${response.data?.code}`);
+  const route = response.data.routes?.[0];
+  if (!route?.geometry?.coordinates) throw new Error('Invalid OSRM response');
 
-    let allCoords: [number, number][] = [];
-    for (const leg of trip.legs) {
-      if (typeof leg.shape === 'string') {
-        allCoords = allCoords.concat(decodePolyline6(leg.shape));
-      }
-    }
-    if (!allCoords.length) throw new Error('No coordinates decoded from Valhalla');
-
-    const distanceM = (trip.summary?.length ?? 0) * 1000;
-    const durationS = trip.summary?.time ?? 0;
-    console.log(`[Routing] Valhalla OK — ${allCoords.length} road-following points`);
-    return { legs: trip.legs, coordinates: allCoords, distance: distanceM, duration: durationS };
-  } catch (valhallaError: unknown) {
-    const ve = valhallaError as { message?: string };
-    console.warn('[Routing] Valhalla direct call failed, trying OSRM:', ve.message);
-  }
-
-  // ── Fallback: OSRM public server ─────────────────────────────────────────────
-  try {
-    const coords = locations.map((loc) => `${Number(loc.lng)},${Number(loc.lat)}`).join(';');
-    const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=true`;
-    console.log(`[Routing] Calling OSRM fallback with ${locations.length} waypoints`);
-    const response = await axios.get<{
-      code?: string;
-      routes?: Array<{ distance: number; duration: number; geometry: { coordinates: [number, number][] }; legs?: unknown[] }>;
-    }>(url, { timeout: 30000 });
-
-    if (!response.data || response.data.code !== 'Ok') throw new Error(`OSRM failed: ${response.data?.code}`);
-    const route = response.data.routes?.[0];
-    if (!route?.geometry?.coordinates) throw new Error('Invalid OSRM response');
-
-    const coordinatesFixed: [number, number][] = route.geometry.coordinates.map((c) => [c[1], c[0]]);
-    console.log(`[Routing] OSRM OK — ${coordinatesFixed.length} road-following points`);
-    return { legs: route.legs || [], coordinates: coordinatesFixed, distance: route.distance, duration: route.duration };
-  } catch (error: unknown) {
-    const err = error as { message?: string };
-    console.error('[Routing] All routing providers failed:', err.message);
-    throw new Error(`Routing failed: ${err.message || 'Unknown error'}`);
-  }
+  const coordinatesFixed: [number, number][] = route.geometry.coordinates.map((c) => [c[1], c[0]]);
+  console.log(`[Routing] OSRM OK — ${coordinatesFixed.length} road-following points`);
+  return { legs: route.legs || [], coordinates: coordinatesFixed, distance: route.distance, duration: route.duration };
 }
 
 export async function calculateRoute(
