@@ -13,7 +13,9 @@ L.Icon.Default.mergeOptions({
 
 interface DeliveryMapProps {
   deliveries: Delivery[];
-  route?: RouteResult | null;
+  // Accept any object that carries coordinates — callers don't need to fill
+  // the full RouteResult shape since only .coordinates is used for rendering.
+  route?: { coordinates: [number, number][] } | RouteResult | null;
   highlightedIndex?: number | null;
   mapClassName?: string;
   driverLocations?: Array<{
