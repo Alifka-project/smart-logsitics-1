@@ -12,7 +12,7 @@ import { useToast } from '../hooks/useToast';
 import { ToastContainer } from '../components/common/Toast';
 import { 
   MapPin, Navigation, RefreshCw, AlertCircle, CheckCircle2, 
-  MessageSquare, Truck, Bell, Paperclip, Send, Search, ClipboardList
+  MessageSquare, Truck, Bell, Paperclip, Send, Search, ClipboardList, ChevronLeft
 } from 'lucide-react';
 import type { Delivery } from '../types';
 
@@ -69,6 +69,7 @@ type EnrichedDelivery = Delivery & {
   routeIndex?: number;
   estimatedEta?: string | null;
   eta?: string | null;
+  distanceFromDriverKm?: number;
 };
 
 interface LatLng {
@@ -549,7 +550,7 @@ export default function DriverPortal() {
       : Infinity;
     const deliveriesChanged = deliverySignature !== lastRouteDeliveriesRef.current;
 
-    if (!deliveriesChanged && originMovedKm < 0.25 && route) {
+    if (!deliveriesChanged && originMovedKm < 0.05 && route) {
       return;
     }
 
@@ -572,24 +573,32 @@ export default function DriverPortal() {
     calculateRouteWithOSRM(routeLocations)
       .then((routeData) => {
         setRoute(routeData as unknown as DriverRouteData);
-        const legs = (routeData.legs || []) as Array<{ duration?: number }>;
+        const legs = (routeData.legs || []) as Array<{ duration?: number; distance?: number }>;
         let cumulativeSeconds = 0;
+        let cumulativeMeters = 0;
         const baseTime = Date.now();
 
         const enriched: EnrichedDelivery[] = orderedWithCoords.map((delivery, index) => {
           cumulativeSeconds += legs[index]?.duration || 0;
+          cumulativeMeters += legs[index]?.distance || 0;
+          const stopCoords = normalizeDeliveryCoords(delivery);
+          const fallbackDistanceKm = stopCoords
+            ? calculateDistance(origin.lat, origin.lng, stopCoords.lat, stopCoords.lng)
+            : null;
           const computedEta = new Date(baseTime + cumulativeSeconds * 1000).toISOString();
           return {
             ...delivery,
             routeIndex: index + 1,
-            estimatedEta: (delivery as EnrichedDelivery).eta || computedEta
+            estimatedEta: (delivery as EnrichedDelivery).eta || computedEta,
+            distanceFromDriverKm: cumulativeMeters > 0 ? cumulativeMeters / 1000 : (fallbackDistanceKm ?? undefined)
           };
         });
 
         const trailing: EnrichedDelivery[] = withoutCoords.map((delivery, index) => ({
           ...delivery,
           routeIndex: enriched.length + index + 1,
-          estimatedEta: (delivery as EnrichedDelivery).eta || null
+          estimatedEta: (delivery as EnrichedDelivery).eta || null,
+          distanceFromDriverKm: undefined
         }));
 
         const final = [...enriched, ...trailing];
@@ -926,16 +935,6 @@ export default function DriverPortal() {
             <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5">Your orders, route, and POD — GPS on when logged in</p>
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <div className={`flex items-center gap-2 px-3 py-2.5 min-h-[44px] rounded-lg shadow-sm transition-all touch-manipulation ${
-              isTracking 
-                ? 'bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800'
-                : 'bg-gray-50 text-gray-600 border border-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600'
-            }`}>
-              <div className={`w-2.5 h-2.5 rounded-full transition-all flex-shrink-0 ${
-                isTracking ? 'bg-green-500 animate-pulse' : 'bg-gray-400 dark:bg-gray-500'
-              }`}></div>
-              <span className="text-sm font-semibold">{isTracking ? 'GPS On' : 'GPS Off'}</span>
-            </div>
             {notifications > 0 && (
               <div className="flex items-center gap-2 px-3 py-2.5 min-h-[44px] bg-red-50 text-red-700 rounded-lg border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800 touch-manipulation">
                 <Bell className="w-4 h-4 flex-shrink-0" />
@@ -1002,6 +1001,45 @@ export default function DriverPortal() {
             </div>
           )}
 
+          {/* Full-width map first (desktop + mobile) */}
+          <div className="pp-card overflow-hidden w-full">
+            <div className="p-3 sm:p-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 dark:from-gray-800 dark:to-gray-900 dark:border-gray-700">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">Location Map</h3>
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-300">
+                  {isRouteLoading ? 'Routing...' : routeError ? routeError : hasRoute ? 'Route updated' : 'No route'}
+                </div>
+              </div>
+            </div>
+            <div className="relative w-full" style={{ width: '100%', margin: 0, padding: 0 }}>
+              <div
+                ref={mapRef}
+                className="h-[300px] sm:h-[420px] lg:h-[560px] bg-gray-100 dark:bg-gray-900"
+                style={{ width: '100%', position: 'relative', zIndex: 1, margin: 0, padding: 0 }}
+              />
+              {!location && mapReady && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-50 bg-opacity-90 z-[1000] dark:bg-gray-900/80">
+                  <div className="pp-card text-center p-4 max-w-sm mx-4">
+                    <MapPin className="w-9 h-9 text-gray-400 dark:text-gray-500 mx-auto mb-2" />
+                    <p className="text-gray-700 dark:text-gray-200 font-medium text-sm">Waiting for GPS…</p>
+                  </div>
+                </div>
+              )}
+              {!mapReady && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+                  <div className="text-center">
+                    <RefreshCw className="w-8 h-8 text-gray-400 dark:text-gray-500 mx-auto mb-2 animate-spin" />
+                    <p className="text-gray-600 dark:text-gray-300 text-sm">Loading map...</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Two columns below map: 65% order list, 35% ETA/telemetry */}
           <div className="grid grid-cols-1 lg:grid-cols-[65%_35%] gap-3 md:gap-6 items-start">
             {/* Left column: order list */}
             <div className="pp-card p-3 sm:p-6 min-h-[520px]">
@@ -1091,29 +1129,6 @@ export default function DriverPortal() {
                 </div>
               </div>
 
-              <div className="pp-card overflow-hidden w-full">
-                <div className="p-3 sm:p-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 dark:from-gray-800 dark:to-gray-900 dark:border-gray-700">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">Location Map</h3>
-                  </div>
-                </div>
-                <div className="relative w-full" style={{ width: '100%', margin: 0, padding: 0 }}>
-                  <div
-                    ref={mapRef}
-                    className="h-[240px] sm:h-[340px] bg-gray-100 dark:bg-gray-900"
-                    style={{ width: '100%', position: 'relative', zIndex: 1, margin: 0, padding: 0 }}
-                  />
-                  {!location && mapReady && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-gray-50 bg-opacity-90 z-[1000] dark:bg-gray-900/80">
-                      <div className="pp-card text-center p-4 max-w-sm mx-4">
-                        <MapPin className="w-9 h-9 text-gray-400 dark:text-gray-500 mx-auto mb-2" />
-                        <p className="text-gray-700 dark:text-gray-200 font-medium text-sm">Waiting for GPS…</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
             </div>
           </div>
 
@@ -1128,100 +1143,96 @@ export default function DriverPortal() {
         </div>
       )}
 
-      {/* Messages Tab — two-column chat layout */}
+      {/* Messages Tab — mobile style: list then open chat card */}
       {activeTab === 'messages' && (
-        <div className="flex flex-col md:flex-row h-[calc(100vh-220px)] md:h-[calc(100vh-280px)] min-h-[520px] rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm">
-          {/* ── LEFT COLUMN: Contacts Panel ── */}
-          <div className="w-full md:w-72 flex-shrink-0 flex flex-col bg-white dark:bg-gray-800 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700 max-h-[38vh] md:max-h-none">
-            {/* Panel header with search */}
-            <div className="px-4 pt-4 pb-3 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-3">Messages</h3>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                <input
-                  type="text"
-                  placeholder="Search contacts…"
-                  className="w-full pl-9 pr-3 py-2 text-sm rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 border-0 focus:ring-2 focus:ring-blue-500 outline-none"
-                />
+        <div className="h-[calc(100vh-220px)] min-h-[520px] rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm bg-white dark:bg-gray-800">
+          {!selectedContact ? (
+            <div className="h-full flex flex-col">
+              <div className="px-4 pt-4 pb-3 border-b border-gray-200 dark:border-gray-700">
+                <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-3">Messages</h3>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Search contacts…"
+                    className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 border-0 focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                {loadingContacts ? (
+                  <div className="flex flex-col items-center justify-center h-32 text-gray-400 dark:text-gray-500 text-sm gap-2">
+                    <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                    Loading…
+                  </div>
+                ) : (
+                  <>
+                    {teamMembers.length > 0 && (
+                      <>
+                        <div className="px-4 pt-3 pb-1">
+                          <span className="text-[10px] font-bold tracking-widest text-gray-400 dark:text-gray-500 uppercase">Team</span>
+                        </div>
+                        {teamMembers.map(member => {
+                          const isOnline = isContactOnline(member);
+                          const initials = (member.fullName || member.username || '?')[0].toUpperCase();
+                          const roleLabel = member.account?.role === 'admin' ? 'Admin'
+                            : member.account?.role === 'delivery_team' ? 'Delivery'
+                            : member.role || '';
+                          return (
+                            <button
+                              key={member.id}
+                              onClick={() => { setSelectedContact(member); void loadMessages(member.id); }}
+                              className="w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/40"
+                            >
+                              <div className="relative flex-shrink-0">
+                                <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold text-sm shadow-sm">
+                                  {initials}
+                                </div>
+                                <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-gray-800 ${isOnline ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-1">
+                                  <span className="font-semibold text-sm text-gray-900 dark:text-gray-100 truncate">
+                                    {member.fullName || member.username}
+                                  </span>
+                                  {roleLabel && (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 flex-shrink-0 font-medium">
+                                      {roleLabel}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className={`text-xs mt-0.5 truncate font-medium ${isOnline ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                                  {isOnline ? '● Active now' : '○ Offline'}
+                                </p>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </>
+                    )}
+                    {contacts.length === 0 && (
+                      <div className="flex flex-col items-center justify-center h-40 text-gray-400 dark:text-gray-500 text-sm gap-2 px-4 text-center">
+                        <MessageSquare className="w-8 h-8 opacity-40" />
+                        No contacts available
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             </div>
-
-            {/* Contact list */}
-            <div className="flex-1 overflow-y-auto">
-              {loadingContacts ? (
-                <div className="flex flex-col items-center justify-center h-32 text-gray-400 dark:text-gray-500 text-sm gap-2">
-                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                  Loading…
-                </div>
-              ) : (
-                <>
-                  {teamMembers.length > 0 && (
-                    <>
-                      <div className="px-4 pt-3 pb-1">
-                        <span className="text-[10px] font-bold tracking-widest text-gray-400 dark:text-gray-500 uppercase">Team</span>
-                      </div>
-                      {teamMembers.map(member => {
-                        const isOnline = isContactOnline(member);
-                        const isSelected = selectedContact?.id === member.id;
-                        const initials = (member.fullName || member.username || '?')[0].toUpperCase();
-                        const roleLabel = member.account?.role === 'admin' ? 'Admin'
-                          : member.account?.role === 'delivery_team' ? 'Delivery'
-                          : member.role || '';
-                        return (
-                          <button
-                            key={member.id}
-                            onClick={() => { setSelectedContact(member); void loadMessages(member.id); }}
-                            className={`w-full flex items-center gap-3 px-3 py-3 text-left transition-all border-l-4 ${
-                              isSelected
-                                ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-600 dark:border-blue-400'
-                                : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                            }`}
-                          >
-                            <div className="relative flex-shrink-0">
-                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold text-sm shadow-sm">
-                                {initials}
-                              </div>
-                              <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-gray-800 ${isOnline ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between gap-1">
-                                <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
-                                  {member.fullName || member.username}
-                                </span>
-                                {roleLabel && (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 flex-shrink-0 font-medium">
-                                    {roleLabel}
-                                  </span>
-                                )}
-                              </div>
-                              <p className={`text-xs mt-0.5 truncate font-medium ${isOnline ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`}>
-                                {isOnline ? '● Active now' : '○ Offline'}
-                              </p>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </>
-                  )}
-
-                  {contacts.length === 0 && (
-                    <div className="flex flex-col items-center justify-center h-40 text-gray-400 dark:text-gray-500 text-sm gap-2 px-4 text-center">
-                      <MessageSquare className="w-8 h-8 opacity-40" />
-                      No contacts available
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* ── RIGHT COLUMN: Chat Panel ── */}
-          <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 min-w-0 min-h-[320px]">
-            {selectedContact ? (
+          ) : (
+            <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900 min-w-0">
               <>
                 {/* Chat header */}
-                <div className="flex items-center justify-between px-5 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm flex-shrink-0">
+                <div className="flex items-center justify-between px-3 sm:px-5 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm flex-shrink-0">
                   <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setSelectedContact(null)}
+                      className="w-9 h-9 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center"
+                      title="Back to messages"
+                    >
+                      <ChevronLeft className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                    </button>
                     <div className="relative">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold shadow-sm">
                         {(selectedContact.fullName || selectedContact.username || '?')[0].toUpperCase()}
@@ -1259,7 +1270,7 @@ export default function DriverPortal() {
                 </div>
 
                 {/* Messages area */}
-                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+                <div className="flex-1 overflow-y-auto px-3 sm:px-5 py-4 space-y-3">
                   {loadingMessages && messages.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-500 gap-2">
                       <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
@@ -1294,7 +1305,7 @@ export default function DriverPortal() {
                               {(selectedContact.fullName || selectedContact.username || '?')[0].toUpperCase()}
                             </div>
                           )}
-                          <div className="max-w-[88%] sm:max-w-[75%]">
+                          <div className="max-w-[90%] sm:max-w-[75%]">
                             {isFromOther && roleBadge.label && (
                               <span className={`inline-block text-[10px] px-2 py-0.5 rounded-full font-semibold mb-1 ${roleBadge.color}`}>
                                 {roleBadge.label}
@@ -1303,7 +1314,7 @@ export default function DriverPortal() {
                             <div className={`px-4 py-2.5 shadow-sm ${
                               isFromOther
                                 ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700 rounded-2xl rounded-tl-sm'
-                                : 'bg-blue-600 dark:bg-blue-500 text-white rounded-2xl rounded-tr-sm'
+                                : 'bg-blue-700 dark:bg-blue-500 text-white rounded-2xl rounded-tr-sm'
                             }`}>
                               {/* Attachment rendering */}
                               {msg.attachmentUrl && msg.attachmentType?.startsWith('image/') && (
@@ -1329,7 +1340,7 @@ export default function DriverPortal() {
                                   <span className="truncate">{(msg.attachmentName as string) || 'Download file'}</span>
                                 </a>
                               )}
-                              {messageText && <p className="text-sm leading-relaxed">{messageText}</p>}
+                              {messageText && <p className="text-sm leading-relaxed font-medium">{messageText}</p>}
                             </div>
                             <p className={`text-[11px] mt-1 px-1 ${isFromOther ? 'text-left text-gray-400 dark:text-gray-500' : 'text-right text-gray-400 dark:text-gray-500'}`}>
                               {formatMessageTimestamp(messageTime)}
@@ -1363,7 +1374,7 @@ export default function DriverPortal() {
                       </div>
                     </div>
                   )}
-                  <div className="flex items-center gap-2 px-4 py-3">
+                  <div className="flex items-center gap-2 px-3 sm:px-4 py-3">
                     {/* Hidden file input */}
                     <input
                       ref={fileInputRef}
@@ -1407,18 +1418,8 @@ export default function DriverPortal() {
                   </div>
                 </div>
               </>
-            ) : (
-              <div className="flex-1 flex items-center justify-center">
-                <div className="text-center text-gray-400 dark:text-gray-500">
-                  <div className="w-20 h-20 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
-                    <MessageSquare className="w-10 h-10 opacity-40" />
-                  </div>
-                  <p className="font-medium text-gray-600 dark:text-gray-400 text-lg">Your Messages</p>
-                  <p className="text-sm mt-1">Select a contact to start a conversation</p>
-                </div>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
 

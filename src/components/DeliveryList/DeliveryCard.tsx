@@ -41,6 +41,13 @@ export default function DeliveryCard({
   onMouseLeave,
 }: DeliveryCardProps) {
   const [showSMSModal, setShowSMSModal] = useState(false);
+  const dynamicDistanceKm =
+    typeof (delivery as Delivery & { distanceFromDriverKm?: number }).distanceFromDriverKm === 'number'
+      ? (delivery as Delivery & { distanceFromDriverKm?: number }).distanceFromDriverKm
+      : delivery.distanceFromWarehouse;
+  const etaRaw = (delivery as Delivery & { estimatedEta?: string | null; eta?: string | null }).estimatedEta
+    || (delivery as Delivery & { estimatedEta?: string | null; eta?: string | null }).eta;
+  const etaText = etaRaw ? new Date(etaRaw).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'N/A';
   const dIdx = dragIndex ?? 0;
   const canDrag = !dragDisabled && typeof dragIndex === 'number';
 
@@ -159,8 +166,11 @@ export default function DeliveryCard({
             <div className="flex items-center gap-1.5 text-xs sm:text-sm">
               <Navigation className="w-3.5 h-3.5 flex-shrink-0 text-blue-500" />
               <span className="font-semibold text-blue-600 dark:text-blue-400">
-                {(delivery.distanceFromWarehouse ?? 0).toFixed(1)} km
+                {(dynamicDistanceKm ?? 0).toFixed(1)} km
               </span>
+            </div>
+            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
+              ETA {etaText}
             </div>
             {delivery.phone && (
               <div className="flex items-center gap-2">
