@@ -204,7 +204,7 @@ export default function AdminUsersPage(): React.ReactElement {
       const allUsers = (usersResponse.data as { data?: UserRecord[] }).data || [];
       
       const now = new Date();
-      const twoMinutesAgo = new Date(now.getTime() - 2 * 60 * 1000);
+      const fifteenMinutesAgo = new Date(now.getTime() - 15 * 60 * 1000);
       
       const online = allUsers.filter(u => {
         if (activeSessionUserIds.size > 0) {
@@ -215,7 +215,7 @@ export default function AdminUsersPage(): React.ReactElement {
         }
         if (!u.account?.lastLogin) return false;
         const lastLogin = new Date(u.account.lastLogin);
-        return lastLogin >= twoMinutesAgo;
+        return lastLogin >= fifteenMinutesAgo;
       });
 
       const loginHistory: ActivityLog[] = allUsers
@@ -225,7 +225,7 @@ export default function AdminUsersPage(): React.ReactElement {
           const userId = u.id?.toString();
           
           const hasActiveSession = activeSessionUserIds.size > 0 && activeSessionUserIds.has(userId);
-          const isOnline = hasActiveSession || lastLogin >= twoMinutesAgo;
+          const isOnline = hasActiveSession || lastLogin >= fifteenMinutesAgo;
           
           return {
             id: u.id,

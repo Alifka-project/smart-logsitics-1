@@ -464,6 +464,8 @@ router.get('/sessions', async (req: Request, res: Response): Promise<void> => {
   }
 
   try {
+    const ONLINE_WINDOW_MINUTES = 15;
+    const onlineCutoff = new Date(Date.now() - ONLINE_WINDOW_MINUTES * 60 * 1000);
     let activeSessions: unknown[] = [];
 
     // In serverless (Vercel), the in-memory sessionStore is always fresh per cold start.
@@ -477,32 +479,59 @@ router.get('/sessions', async (req: Request, res: Response): Promise<void> => {
       // sessionStore unavailable — silent, fall through to DB fallback below
     }
 
-    // DB fallback: users who logged in within the last 5 minutes
-    if (activeSessions.length === 0) {
-      try {
-        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-        const recentUsers = await prisma.driver.findMany({
-          where: { account: { lastLogin: { gte: fiveMinutesAgo } } },
-          select: {
-            id: true,
-            fullName: true,
-            account: { select: { username: true, lastLogin: true, role: true } },
-          },
-        }) as Array<{
-          id: string; fullName?: string;
-          account?: { username?: string; lastLogin?: string; role?: string };
-        }>;
-        activeSessions = recentUsers.map(u => ({
+    // Merge DB signals so users with active GPS are not shown offline.
+    try {
+      const recentUsers = await prisma.driver.findMany({
+        where: {
+          OR: [
+            { account: { lastLogin: { gte: onlineCutoff } } },
+            { liveLocations: { some: { recordedAt: { gte: onlineCutoff } } } },
+          ]
+        },
+        select: {
+          id: true,
+          fullName: true,
+          account: { select: { username: true, lastLogin: true, role: true } },
+          liveLocations: {
+            take: 1,
+            orderBy: { recordedAt: 'desc' },
+            select: { recordedAt: true }
+          }
+        },
+      }) as Array<{
+        id: string;
+        fullName?: string;
+        account?: { username?: string; lastLogin?: string; role?: string };
+        liveLocations?: Array<{ recordedAt?: string | Date }>;
+      }>;
+
+      const merged = new Map<string, { userId: string; username?: string; lastSeen?: string | Date; role?: string }>();
+      for (const s of activeSessions as Array<{ userId?: string; username?: string; lastSeen?: string | Date; role?: string }>) {
+        const userId = s?.userId ? String(s.userId) : '';
+        if (!userId) continue;
+        merged.set(userId, {
+          userId,
+          username: s.username,
+          lastSeen: s.lastSeen,
+          role: s.role
+        });
+      }
+
+      for (const u of recentUsers) {
+        const latestGps = u.liveLocations?.[0]?.recordedAt;
+        const latestSeen = latestGps || u.account?.lastLogin;
+        merged.set(u.id, {
           userId: u.id,
           username: u.account?.username || u.fullName,
-          lastSeen: u.account?.lastLogin,
-          role: u.account?.role,
-        }));
-      } catch (dbErr: unknown) {
-        const e = dbErr as { message?: string };
-        console.warn('GET /api/admin/drivers/sessions DB fallback error:', e.message);
-        // Return empty — frontend has its own fallback
+          lastSeen: latestSeen,
+          role: u.account?.role
+        });
       }
+
+      activeSessions = Array.from(merged.values());
+    } catch (dbErr: unknown) {
+      const e = dbErr as { message?: string };
+      console.warn('GET /api/admin/drivers/sessions DB merge error:', e.message);
     }
 
     return void res.json({ sessions: activeSessions });

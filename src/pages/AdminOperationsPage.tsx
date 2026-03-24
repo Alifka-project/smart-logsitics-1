@@ -323,12 +323,12 @@ export default function AdminOperationsPage(): React.ReactElement {
 
     const onlineInterval = setInterval(() => {
       if (!document.hidden) void loadOnlineStatus(true);
-    }, 90000);
+    }, 15000);
 
     // Keep operations map/data truly live while page is visible.
     const trackingInterval = setInterval(() => {
       if (!document.hidden) void loadData();
-    }, 15000);
+    }, 5000);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisChange);
@@ -499,6 +499,7 @@ export default function AdminOperationsPage(): React.ReactElement {
   };
 
   const isDriverOnline = (driver: OpDriver): boolean => {
+    const ONLINE_FALLBACK_WINDOW_MS = 15 * 60 * 1000;
     const driverAny = driver as any;
     const driverIdStr = driverAny.id?.toString();
     const driverIdNum = driverAny.id;
@@ -512,7 +513,7 @@ export default function AdminOperationsPage(): React.ReactElement {
       return true;
     }
     if (driver.account?.lastLogin) {
-      return new Date(driver.account.lastLogin) >= new Date(Date.now() - 5 * 60 * 1000);
+      return new Date(driver.account.lastLogin) >= new Date(Date.now() - ONLINE_FALLBACK_WINDOW_MS);
     }
     return false;
   };

@@ -3,6 +3,7 @@ import { authenticate, requireAnyRole } from '../auth.js';
 import sapService from '../services/sapService.js';
 import prisma from '../db/prisma.js';
 import cache from '../cache.js';
+import * as db from '../db/index.js';
 
 const router = Router();
 
@@ -141,7 +142,7 @@ router.get('/deliveries', authenticate, requireAnyRole('admin', 'delivery_team')
       });
 
       return deliveries;
-    }, 30000, 120000);
+    }, 5000, 15000);
 
     res.json({
       deliveries: data,
@@ -158,6 +159,7 @@ router.get('/deliveries', authenticate, requireAnyRole('admin', 'delivery_team')
 // Optimized: uses select, server-side cache, single combined query
 router.get('/drivers', authenticate, requireAnyRole('admin', 'delivery_team'), async (req: Request, res: Response): Promise<void> => {
   try {
+    const ONLINE_WINDOW_MINUTES = 15;
     const data = await cache.getOrFetch('tracking:drivers', async () => {
       let prismaDrivers: {
         id: string; username: string | null; email: string | null; phone: string | null;
@@ -205,22 +207,42 @@ router.get('/drivers', authenticate, requireAnyRole('admin', 'delivery_team'), a
       }> = {};
 
       try {
-        const locationsData = await prisma.liveLocation.findMany({
-          distinct: ['driverId'],
-          orderBy: { recordedAt: 'desc' },
-          select: {
-            driverId: true,
-            latitude: true,
-            longitude: true,
-            heading: true,
-            speed: true,
-            accuracy: true,
-            recordedAt: true
-          },
-          take: 100
-        });
-        locationsData.forEach(l => { locationsMap[l.driverId] = l; });
-      } catch (_) { /* locations unavailable */ }
+        const driverIds = prismaDrivers.map(d => d.id).filter(Boolean);
+        if (driverIds.length > 0) {
+          const latestRows = await db.query(
+            `
+              SELECT DISTINCT ON (driver_id)
+                driver_id, latitude, longitude, heading, speed, accuracy, recorded_at
+              FROM live_locations
+              WHERE driver_id = ANY($1::uuid[])
+              ORDER BY driver_id, recorded_at DESC
+            `,
+            [driverIds]
+          );
+          for (const row of latestRows.rows as Array<{
+            driver_id: string;
+            latitude: number;
+            longitude: number;
+            heading: number | null;
+            speed: number | null;
+            accuracy: number | null;
+            recorded_at: string | Date;
+          }>) {
+            locationsMap[row.driver_id] = {
+              driverId: row.driver_id,
+              latitude: Number(row.latitude),
+              longitude: Number(row.longitude),
+              heading: row.heading != null ? Number(row.heading) : null,
+              speed: row.speed != null ? Number(row.speed) : null,
+              accuracy: row.accuracy != null ? Number(row.accuracy) : null,
+              recordedAt: new Date(row.recorded_at)
+            };
+          }
+        }
+      } catch (err: unknown) {
+        const e = err as { message?: string };
+        console.warn('[Tracking] Could not fetch latest live locations:', e.message);
+      }
 
       return prismaDrivers.map(d => {
         const loc = locationsMap[d.id];
@@ -234,7 +256,7 @@ router.get('/drivers', authenticate, requireAnyRole('admin', 'delivery_team'), a
           active: d.active,
           role: d.account?.role || 'driver',
           tracking: {
-            online: loc ? (Date.now() - new Date(loc.recordedAt).getTime()) < 5 * 60 * 1000 : false,
+            online: loc ? (Date.now() - new Date(loc.recordedAt).getTime()) < ONLINE_WINDOW_MINUTES * 60 * 1000 : false,
             location: loc ? {
               lat: loc.latitude,
               lng: loc.longitude,
@@ -249,7 +271,7 @@ router.get('/drivers', authenticate, requireAnyRole('admin', 'delivery_team'), a
           }
         };
       });
-    }, 5000, 30000);
+    }, 2000, 10000);
 
     res.json({
       drivers: data,
