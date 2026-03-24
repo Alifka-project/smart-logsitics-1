@@ -249,7 +249,7 @@ router.get('/drivers', authenticate, requireAnyRole('admin', 'delivery_team'), a
           }
         };
       });
-    }, 15000, 60000);
+    }, 5000, 30000);
 
     res.json({
       drivers: data,

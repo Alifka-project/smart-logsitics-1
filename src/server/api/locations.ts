@@ -2,6 +2,7 @@
 import { Router, Request, Response } from 'express';
 import * as db from '../db/index.js';
 import prisma from '../db/prisma.js';
+import cache from '../cache.js';
 import { authenticate } from '../auth.js';
 
 const router = Router();
@@ -130,6 +131,7 @@ router.post('/:id/location', async (req: Request, res: Response): Promise<void> 
 
     setImmediate(() => checkDriverArrival(driverId, latitude, longitude));
 
+    cache.invalidatePrefix('tracking:');
     res.json({ ok: true, location: rows[0] });
   } catch (err: unknown) {
     const e = err as { message?: string };
@@ -164,6 +166,7 @@ router.post('/me/location', authenticate, async (req: Request, res: Response): P
 
     setImmediate(() => checkDriverArrival(driverId, latitude, longitude));
 
+    cache.invalidatePrefix('tracking:');
     res.json({ ok: true, location: rows[0] });
   } catch (err: unknown) {
     console.error('POST /api/driver/me/location', err);
