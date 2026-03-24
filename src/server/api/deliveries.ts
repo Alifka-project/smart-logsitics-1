@@ -61,7 +61,7 @@ async function updateDeliveryStatusHandler(
     scheduledDate?: string;
   },
   options: { requireAssignment?: boolean; driverId?: string }
-): Promise<{ ok: boolean; delivery?: unknown; error?: string }> {
+): Promise<{ ok: boolean; delivery?: unknown; previousDelivery?: unknown; error?: string }> {
   const { status, notes, driverSignature, customerSignature, photos, actualTime, customer, address, scheduledDate } = body;
   if (!status) return { ok: false, error: 'status_required' };
 
