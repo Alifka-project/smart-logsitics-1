@@ -45,173 +45,211 @@ router.post('/:id/status', authenticate, async (req: Request, res: Response): Pr
   }
 });
 
+// Shared status update logic - used by both admin and driver
+async function updateDeliveryStatusHandler(
+  req: Request,
+  deliveryIdParam: string,
+  body: {
+    status?: string;
+    notes?: string;
+    driverSignature?: string;
+    customerSignature?: string;
+    photos?: Array<string | { data?: string; name?: string; id?: string; type?: string }>;
+    actualTime?: string;
+    customer?: string;
+    address?: string;
+    scheduledDate?: string;
+  },
+  options: { requireAssignment?: boolean; driverId?: string }
+): Promise<{ ok: boolean; delivery?: unknown; error?: string }> {
+  const { status, notes, driverSignature, customerSignature, photos, actualTime, customer, address, scheduledDate } = body;
+  if (!status) return { ok: false, error: 'status_required' };
+
+  let existingDelivery: Record<string, unknown> | null = null;
+  try {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (uuidRegex.test(deliveryIdParam)) {
+      existingDelivery = await prisma.delivery.findUnique({ where: { id: deliveryIdParam } });
+    }
+  } catch {
+    /* ignore */
+  }
+
+  if (!existingDelivery && customer && address) {
+    existingDelivery = await prisma.delivery.findFirst({
+      where: { customer, address },
+      orderBy: { createdAt: 'desc' }
+    });
+  }
+
+  if (!existingDelivery) return { ok: false, error: 'delivery_not_found' };
+
+  if (options.requireAssignment && options.driverId) {
+    const assignment = await prisma.deliveryAssignment.findFirst({
+      where: { deliveryId: existingDelivery.id as string, driverId: options.driverId }
+    });
+    if (!assignment) {
+      return { ok: false, error: 'delivery_not_assigned_to_driver' };
+    }
+  }
+
+  const prevMeta = existingDelivery.metadata && typeof existingDelivery.metadata === 'object'
+    ? (existingDelivery.metadata as Record<string, unknown>) : {};
+  const nextMeta: Record<string, unknown> = {
+    ...prevMeta,
+    statusUpdatedAt: new Date().toISOString(),
+    statusUpdatedBy: req.user?.sub || 'admin',
+    actualTime: actualTime != null ? actualTime : (prevMeta.actualTime ?? null),
+  };
+  if (scheduledDate != null && String(scheduledDate).trim() !== '') {
+    try {
+      const d = new Date(scheduledDate);
+      if (!Number.isNaN(d.getTime())) nextMeta.scheduledDate = d.toISOString();
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const updateData: Record<string, unknown> = {
+    status,
+    metadata: nextMeta,
+    updatedAt: new Date()
+  };
+  if (driverSignature) updateData.driverSignature = driverSignature;
+  if (customerSignature) updateData.customerSignature = customerSignature;
+  if (photos && Array.isArray(photos) && photos.length > 0) {
+    updateData.photos = photos.map((p) => ({
+      data: typeof p === 'string' ? p : ((p as { data?: string }).data || p),
+      name: typeof p === 'object' && p != null ? ((p as { name?: string }).name || null) : null
+    }));
+  }
+  if (notes) {
+    updateData.deliveryNotes = notes;
+    updateData.conditionNotes = notes;
+  }
+  if (['delivered', 'completed', 'delivered-with-installation', 'delivered-without-installation'].includes(status.toLowerCase())) {
+    updateData.deliveredAt = new Date();
+    updateData.deliveredBy = req.user?.username || req.user?.email || req.user?.sub || 'driver';
+    updateData.podCompletedAt = new Date();
+  }
+
+  const updatedDelivery = await prisma.delivery.update({
+    where: { id: existingDelivery.id },
+    data: updateData
+  }) as Record<string, unknown>;
+
+  await prisma.deliveryEvent.create({
+    data: {
+      deliveryId: existingDelivery.id,
+      eventType: 'status_updated',
+      payload: {
+        previousStatus: existingDelivery.status,
+        newStatus: status,
+        notes,
+        actualTime,
+        hasPOD: !!(driverSignature || customerSignature || (photos && photos.length > 0)),
+        photoCount: photos ? photos.length : 0,
+        hasDriverSignature: !!driverSignature,
+        hasCustomerSignature: !!customerSignature,
+        updatedAt: new Date().toISOString()
+      },
+      actorType: req.user?.role || 'driver',
+      actorId: req.user?.sub || null
+    }
+  }).catch((err: unknown) => {
+    console.warn(`[Deliveries] Failed to create audit event:`, (err as Error).message);
+  });
+
+  cache.invalidatePrefix('tracking:');
+  cache.invalidatePrefix('dashboard:');
+  cache.invalidatePrefix('deliveries:list:v2');
+
+  return { ok: true, delivery: updatedDelivery, previousDelivery: existingDelivery };
+}
+
+// PUT /api/deliveries/driver/:id/status - Driver POD/status update (assigned deliveries only)
+router.put('/driver/:id/status', authenticate, requireRole('driver'), async (req: Request, res: Response): Promise<void> => {
+  const { id: deliveryIdParam } = req.params as { id: string };
+  const driverId = (req.user as { sub?: string })?.sub;
+  if (!driverId) {
+    res.status(401).json({ error: 'unauthorized' });
+    return;
+  }
+  const body = req.body as {
+    status?: string;
+    notes?: string;
+    driverSignature?: string;
+    customerSignature?: string;
+    photos?: Array<string | { data?: string; name?: string }>;
+    actualTime?: string;
+    customer?: string;
+    address?: string;
+  };
+  try {
+    const result = await updateDeliveryStatusHandler(req, deliveryIdParam, body, {
+      requireAssignment: true,
+      driverId
+    });
+    if (!result.ok) {
+      const code = result.error === 'delivery_not_found' ? 404 : result.error === 'delivery_not_assigned_to_driver' ? 403 : 400;
+      res.status(code).json({ error: result.error || 'update_failed' });
+      return;
+    }
+    res.json({ ok: true, delivery: result.delivery });
+  } catch (err: unknown) {
+    const e = err as { message?: string };
+    console.error('[Deliveries] Driver status update error:', err);
+    res.status(500).json({ error: 'db_error', detail: e.message });
+  }
+});
+
 // PUT /api/admin/deliveries/:id/status - Update delivery status in database
 // body: { status, notes, driverSignature, customerSignature, photos, actualTime, customer, address }
 router.put('/admin/:id/status', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
   const { id: deliveryIdParam } = req.params as { id: string };
-  const { status, notes, driverSignature, customerSignature, photos, actualTime, customer, address, scheduledDate } =
-    req.body as {
-      status?: string;
-      notes?: string;
-      driverSignature?: string;
-      customerSignature?: string;
-      photos?: Array<string | { data?: string; name?: string; id?: string; type?: string }>;
-      actualTime?: string;
-      customer?: string;
-      address?: string;
-      /** ISO string — merged into delivery.metadata.scheduledDate */
-      scheduledDate?: string;
-    };
-
-  if (!status) return void res.status(400).json({ error: 'status_required' });
+  const body = req.body as {
+    status?: string;
+    notes?: string;
+    driverSignature?: string;
+    customerSignature?: string;
+    photos?: Array<string | { data?: string; name?: string; id?: string; type?: string }>;
+    actualTime?: string;
+    customer?: string;
+    address?: string;
+    scheduledDate?: string;
+  };
 
   try {
-    console.log(`[Deliveries] Updating delivery ${deliveryIdParam} status to ${status}`);
-
-    let existingDelivery: Record<string, unknown> | null = null;
-
-    // Try to find by ID first (if it's a valid UUID)
-    try {
-      // Check if ID looks like a UUID
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (uuidRegex.test(deliveryIdParam)) {
-        existingDelivery = await prisma.delivery.findUnique({
-          where: { id: deliveryIdParam }
-        });
-      }
-    } catch (e) {
-      console.log(`[Deliveries] Could not find by ID ${deliveryIdParam}, trying by customer+address`);
+    console.log(`[Deliveries] Admin updating delivery ${deliveryIdParam} status to ${body.status}`);
+    const result = await updateDeliveryStatusHandler(req, deliveryIdParam, body, {});
+    if (!result.ok) {
+      const code = result.error === 'delivery_not_found' ? 404 : 400;
+      res.status(code).json({ error: result.error || 'update_failed' });
+      return;
     }
-
-    // If not found by ID or ID is not a UUID, try by customer + address
-    if (!existingDelivery && customer && address) {
-      console.log(`[Deliveries] Looking up delivery by customer="${customer}" and address="${address}"`);
-      existingDelivery = await prisma.delivery.findFirst({
-        where: {
-          customer: customer,
-          address: address
-        },
-        orderBy: {
-          createdAt: 'desc'
-        }
-      });
-    }
-
-    if (!existingDelivery) {
-      console.warn(`[Deliveries] Delivery not found: id=${deliveryIdParam}, customer=${customer}, address=${address}`);
-      return void res.status(404).json({ error: 'delivery_not_found' });
-    }
-
-    console.log(`[Deliveries] Found delivery: id=${existingDelivery.id}, customer=${existingDelivery.customer}`);
-
-    const prevMeta =
-      existingDelivery.metadata && typeof existingDelivery.metadata === 'object'
-        ? (existingDelivery.metadata as Record<string, unknown>)
-        : {};
-    const nextMeta: Record<string, unknown> = {
-      ...prevMeta,
-      statusUpdatedAt: new Date().toISOString(),
-      statusUpdatedBy: req.user?.sub || 'admin',
-      actualTime: actualTime != null ? actualTime : (prevMeta.actualTime ?? null),
-    };
-    if (scheduledDate != null && String(scheduledDate).trim() !== '') {
-      try {
-        const d = new Date(scheduledDate);
-        if (!Number.isNaN(d.getTime())) {
-          nextMeta.scheduledDate = d.toISOString();
-        }
-      } catch {
-        /* ignore */
-      }
-    }
-
-    // Prepare update data - save POD data to dedicated fields
-    const updateData: Record<string, unknown> = {
-      status: status,
-      metadata: nextMeta,
-      updatedAt: new Date()
-    };
-
-    // Save POD data to dedicated fields for better querying and reporting
-    if (driverSignature) {
-      updateData.driverSignature = driverSignature;
-    }
-    if (customerSignature) {
-      updateData.customerSignature = customerSignature;
-    }
-    if (photos && Array.isArray(photos) && photos.length > 0) {
-      // Normalize to [{ data, name? }] so DB stores a clean JSON array (support frontend { id, data, name, type })
-      updateData.photos = photos.map((p) => ({
-        data: typeof p === 'string' ? p : ((p as { data?: string; name?: string }).data || p),
-        name: typeof p === 'object' && p != null ? ((p as { name?: string }).name || null) : null
-      }));
-    }
-    if (notes) {
-      updateData.deliveryNotes = notes;
-      updateData.conditionNotes = notes; // Also save to conditionNotes for consistency
-    }
-
-    // Set delivery completion timestamp and delivered by
-    if (['delivered', 'completed', 'delivered-with-installation', 'delivered-without-installation'].includes(status.toLowerCase())) {
-      updateData.deliveredAt = new Date();
-      updateData.deliveredBy = req.user?.username || req.user?.email || req.user?.sub || 'admin';
-      updateData.podCompletedAt = new Date();
-    }
-
-    // Update delivery status in database
-    const updatedDelivery = await prisma.delivery.update({
-      where: { id: existingDelivery.id },
-      data: updateData
-    }) as Record<string, unknown>;
-
-    // Create delivery event for audit
-    await prisma.deliveryEvent.create({
-      data: {
-        deliveryId: existingDelivery.id,
-        eventType: 'status_updated',
-        payload: {
-          previousStatus: existingDelivery.status,
-          newStatus: status,
-          notes: notes,
-          actualTime: actualTime,
-          hasPOD: !!(driverSignature || customerSignature || (photos && photos.length > 0)),
-          photoCount: photos ? photos.length : 0,
-          hasDriverSignature: !!driverSignature,
-          hasCustomerSignature: !!customerSignature,
-          updatedAt: new Date().toISOString()
-        },
-        actorType: req.user?.role || 'admin',
-        actorId: req.user?.sub || null
-      }
-    }).catch((err: unknown) => {
-      const e = err as { message?: string };
-      console.warn(`[Deliveries] Failed to create audit event for ${existingDelivery!.id}:`, e.message);
-    });
-
-    // Invalidate caches so tracking/dashboard pick up the change
-    cache.invalidatePrefix('tracking:');
-    cache.invalidatePrefix('dashboard:');
-    cache.invalidatePrefix('deliveries:list:v2');
+    const updatedDelivery = result.delivery as Record<string, unknown>;
+    const existingDelivery = result.previousDelivery as Record<string, unknown>;
+    const status = body.status || '';
 
     // Create admin notification for status change (fire-and-forget)
     prisma.adminNotification.create({
       data: {
         type: 'status_changed',
         title: 'Delivery Status Updated',
-        message: `${existingDelivery.customer || 'Unknown customer'} — ${existingDelivery.address || 'Unknown address'}: ${existingDelivery.status} → ${status}`,
+        message: `${existingDelivery?.customer || 'Unknown customer'} — ${existingDelivery?.address || 'Unknown address'}: ${existingDelivery?.status} → ${status}`,
         payload: {
-          deliveryId: existingDelivery.id,
-          customer: existingDelivery.customer,
-          address: existingDelivery.address,
-          poNumber: existingDelivery.poNumber,
-          previousStatus: existingDelivery.status,
+          deliveryId: existingDelivery?.id,
+          customer: existingDelivery?.customer,
+          address: existingDelivery?.address,
+          poNumber: existingDelivery?.poNumber,
+          previousStatus: existingDelivery?.status,
           newStatus: status,
           updatedBy: req.user?.username || req.user?.sub || 'admin'
         }
       }
     }).catch((err: unknown) => {
       const e = err as { message?: string };
-      console.warn(`[Deliveries] Failed to create status notification for ${existingDelivery!.id}:`, e.message);
+      console.warn(`[Deliveries] Failed to create status notification:`, e.message);
     });
 
     // Optionally notify customer by SMS for key status changes

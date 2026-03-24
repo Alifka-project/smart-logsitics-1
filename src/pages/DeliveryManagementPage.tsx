@@ -468,6 +468,7 @@ export default function DeliveryManagementPage({ hideManageTab = false }: Delive
         onClose={() => setShowModal(false)}
         onSaveContactSuccess={(msg: string) => success(msg)}
         onSaveContactError={(msg: string) => error(msg)}
+        useDriverEndpoint={hideManageTab}
       />
     </div>
   );

@@ -4,12 +4,15 @@ import api, { setAuthToken } from '../frontend/apiClient';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { calculateRouteWithOSRM } from '../services/osrmRoutingService';
-import DeliveryManagementPage from './DeliveryManagementPage';
+import DeliveryTable from '../components/DeliveryList/DeliveryTable';
+import CustomerModal from '../components/CustomerDetails/CustomerModal';
 import useDeliveryStore from '../store/useDeliveryStore';
 import { calculateDistance } from '../utils/distanceCalculator';
+import { useToast } from '../hooks/useToast';
+import { ToastContainer } from '../components/common/Toast';
 import { 
-  MapPin, Navigation, Activity, RefreshCw, AlertCircle, CheckCircle2, 
-  MessageSquare, Truck, Bell, Paperclip, Send, Clock, MapPinIcon, Search
+  MapPin, Navigation, RefreshCw, AlertCircle, CheckCircle2, 
+  MessageSquare, Truck, Bell, Paperclip, Send, Search, ClipboardList
 } from 'lucide-react';
 import type { Delivery } from '../types';
 
@@ -97,8 +100,8 @@ export default function DriverPortal() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isTrackingRef = useRef<boolean>(false);
 
-  // Tab management
-  const [activeTab, setActiveTab] = useState<string>('tracking');
+  // Tab management: Orders (map+list) and Messages only
+  const [activeTab, setActiveTab] = useState<string>('orders');
 
   // Delivery state
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
@@ -124,6 +127,11 @@ export default function DriverPortal() {
 
   // Notification state
   const [notifications, setNotifications] = useState<number>(0);
+
+  // Orders tab: modal for POD
+  const [showModal, setShowModal] = useState<boolean>(false);
+  const { toasts, removeToast, success, error: toastError } = useToast();
+  const updateDeliveryOrder = useDeliveryStore((s) => s.updateDeliveryOrder);
   
   // Refs for auto-scroll and polling
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -248,13 +256,20 @@ export default function DriverPortal() {
     ensureAuth();
     void loadLatestLocation();
     void loadDeliveries();
-    void loadContacts(); // Load contacts first, then messages will be loaded when contact is selected
+    void loadContacts();
     const notificationInterval = setInterval(() => {
       if (!document.hidden) void loadNotificationCount();
-    }, 60000); // 60s instead of 10s
+    }, 60000);
+    // Auto-start GPS when driver logs in – tracking always on
+    const t = setTimeout(() => {
+      if (navigator.geolocation && !isTrackingRef.current) {
+        requestLocationPermission();
+      }
+    }, 800);
     return () => {
       cleanup();
       clearInterval(notificationInterval);
+      clearTimeout(t);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cleanup]);
@@ -262,7 +277,7 @@ export default function DriverPortal() {
   useEffect(() => {
     const params = new URLSearchParams(routeLocation.search);
     const tab = params.get('tab');
-    if (tab && ['tracking', 'deliveries', 'messages'].includes(tab)) {
+    if (tab && ['orders', 'messages'].includes(tab)) {
       setActiveTab(tab);
     }
   }, [routeLocation.search]);
@@ -313,9 +328,9 @@ export default function DriverPortal() {
     };
   }, []);
 
-  // Invalidate map size when tracking tab becomes active
+  // Invalidate map size when orders tab is active
   useEffect(() => {
-    if (activeTab === 'tracking' && mapInstance.current && mapReady) {
+    if (activeTab === 'orders' && mapInstance.current && mapReady) {
       setTimeout(() => {
         if (mapInstance.current) {
           mapInstance.current.invalidateSize();
@@ -545,7 +560,9 @@ export default function DriverPortal() {
 
     if (routeLocations.length < 2) {
       setRoute(null);
-      setOrderedDeliveries([...orderedWithCoords, ...withoutCoords] as EnrichedDelivery[]);
+      const fallback = [...orderedWithCoords, ...withoutCoords] as EnrichedDelivery[];
+      setOrderedDeliveries(fallback);
+      updateDeliveryOrder(fallback);
       return;
     }
 
@@ -575,7 +592,9 @@ export default function DriverPortal() {
           estimatedEta: (delivery as EnrichedDelivery).eta || null
         }));
 
-        setOrderedDeliveries([...enriched, ...trailing]);
+        const final = [...enriched, ...trailing];
+        setOrderedDeliveries(final);
+        updateDeliveryOrder(final);
         lastRouteOriginRef.current = origin;
         lastRouteDeliveriesRef.current = deliverySignature;
       })
@@ -583,12 +602,14 @@ export default function DriverPortal() {
         console.error('Failed to calculate driver route:', routeErr);
         setRoute(null);
         setRouteError('Routing unavailable');
-        setOrderedDeliveries([...orderedWithCoords, ...withoutCoords] as EnrichedDelivery[]);
+        const fallback = [...orderedWithCoords, ...withoutCoords] as EnrichedDelivery[];
+        setOrderedDeliveries(fallback);
+        updateDeliveryOrder(fallback);
       })
       .finally(() => {
         setIsRouteLoading(false);
       });
-  }, [deliveries, location, route, buildNearestNeighborOrder]);
+  }, [deliveries, location, route, buildNearestNeighborOrder, updateDeliveryOrder]);
 
   const loadLatestLocation = async (): Promise<void> => {
     setLoading(true);
@@ -898,7 +919,7 @@ export default function DriverPortal() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="min-w-0">
             <h1 className="text-xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Driver Portal</h1>
-            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5">Track your location and manage deliveries in real-time</p>
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5">Your orders, route, and POD — GPS on when logged in</p>
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <div className={`flex items-center gap-2 px-3 py-2.5 min-h-[44px] rounded-lg shadow-sm transition-all touch-manipulation ${
@@ -909,7 +930,7 @@ export default function DriverPortal() {
               <div className={`w-2.5 h-2.5 rounded-full transition-all flex-shrink-0 ${
                 isTracking ? 'bg-green-500 animate-pulse' : 'bg-gray-400 dark:bg-gray-500'
               }`}></div>
-              <span className="text-sm font-semibold">{isTracking ? 'Tracking Active' : 'Tracking Off'}</span>
+              <span className="text-sm font-semibold">{isTracking ? 'GPS On' : 'GPS Off'}</span>
             </div>
             {notifications > 0 && (
               <div className="flex items-center gap-2 px-3 py-2.5 min-h-[44px] bg-red-50 text-red-700 rounded-lg border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800 touch-manipulation">
@@ -920,12 +941,11 @@ export default function DriverPortal() {
           </div>
       </div>
 
-      {/* Tab Navigation - bigger gap, scroll on mobile */}
+      {/* Tab Navigation - Orders (map+list) and Messages */}
       <div className="pp-sticky-tab-rail pp-card px-2 py-2 mt-4 md:mt-6 mb-4 md:mb-6 overflow-x-auto">
         <nav className="flex flex-wrap gap-2 min-w-max md:min-w-0">
           {[
-            { id: 'tracking', label: 'Tracking', icon: Navigation },
-            { id: 'deliveries', label: 'Deliveries', icon: Truck },
+            { id: 'orders', label: 'My Orders', icon: ClipboardList },
             { id: 'messages', label: 'Messages', icon: MessageSquare }
           ].map(tab => {
             const Icon = tab.icon;
@@ -937,6 +957,11 @@ export default function DriverPortal() {
               >
                 <Icon className="w-5 h-5" />
                 {tab.label}
+                {tab.id === 'orders' && deliveries.length > 0 && (
+                  <span className="ml-2 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-semibold px-2 py-0.5 rounded-full">
+                    {deliveries.length}
+                  </span>
+                )}
                 {tab.id === 'messages' && notifications > 0 && (
                   <span className="ml-2 bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
                     {notifications}
@@ -951,17 +976,23 @@ export default function DriverPortal() {
       {/* Animated tab content — re-mounts on tab change */}
       <div key={activeTab} className="tab-enter">
 
-      {/* Tracking Tab - mobile: map top, controls/list bottom */}
-      {activeTab === 'tracking' && (
+      {/* Orders Tab - map + order list (POD, customer contact, route) */}
+      {activeTab === 'orders' && (
         <div className="flex flex-col md:block space-y-4 md:space-y-6">
           {/* Error Message */}
           {error && (
             <div className="bg-red-50 border-l-4 border-red-400 rounded-lg p-4 shadow-sm dark:bg-red-900/20 dark:border-red-600">
               <div className="flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-300 mt-0.5 flex-shrink-0" />
-                <div>
-                  <div className="text-red-800 dark:text-red-200 font-semibold mb-1">Error</div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-red-800 dark:text-red-200 font-semibold mb-1">GPS error</div>
                   <div className="text-red-700 dark:text-red-300 text-sm">{error}</div>
+                  <button
+                    onClick={requestLocationPermission}
+                    className="mt-2 text-sm font-medium text-red-700 dark:text-red-300 hover:underline"
+                  >
+                    Retry enabling location
+                  </button>
                 </div>
               </div>
             </div>
@@ -998,8 +1029,8 @@ export default function DriverPortal() {
             <div className="absolute inset-0 flex items-center justify-center bg-gray-50 bg-opacity-90 z-[1000] dark:bg-gray-900/80">
               <div className="pp-card text-center p-4 sm:p-6 max-w-sm mx-4">
                 <MapPin className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
-                <p className="text-gray-700 dark:text-gray-200 font-medium mb-1 text-sm sm:text-base">No location data available</p>
-                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Click "Start Tracking" below to begin</p>
+                <p className="text-gray-700 dark:text-gray-200 font-medium mb-1 text-sm sm:text-base">Waiting for GPS…</p>
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Enable location access so admin can track you</p>
               </div>
             </div>
           )}
@@ -1014,119 +1045,41 @@ export default function DriverPortal() {
         </div>
       </div>
 
-      {/* Control Panel - below map on mobile */}
+      {/* Order list — tap to open POD, shows customer, phone, ETA */}
       <div className="pp-card p-4 sm:p-6 order-2">
-        <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4">Location Controls</h2>
-        <div className="flex flex-wrap gap-2 sm:gap-3">
-          {!isTracking ? (
-            <button
-              onClick={requestLocationPermission}
-              disabled={loading}
-              className="min-h-[44px] px-4 sm:px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 disabled:bg-blue-300 disabled:cursor-not-allowed flex items-center gap-2 font-semibold shadow-sm transition-all touch-manipulation"
-            >
-              <Navigation className="w-5 h-5 flex-shrink-0" />
-              {loading ? 'Starting...' : 'Start Tracking'}
-            </button>
-          ) : (
-            <button
-              onClick={stopTracking}
-              className="min-h-[44px] px-4 sm:px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 active:bg-red-800 flex items-center gap-2 font-semibold shadow-sm transition-all touch-manipulation"
-            >
-              <Activity className="w-5 h-5 flex-shrink-0" />
-              Stop Tracking
-            </button>
-          )}
-          <button
-            onClick={() => void loadLatestLocation()}
-            disabled={loading}
-            className="min-h-[44px] px-4 sm:px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 active:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2 font-semibold shadow-sm transition-all touch-manipulation dark:bg-gray-700 dark:hover:bg-gray-600 dark:active:bg-gray-700"
-          >
-            <RefreshCw className={`w-5 h-5 flex-shrink-0 ${loading ? 'animate-spin' : ''}`} />
-            Refresh Location
-          </button>
-        </div>
-
-        {/* Current Location Info */}
+        <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100 mb-3">Order list</h2>
+        <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-4">Tap an order for POD, call customer, or view details</p>
+        {deliveries.length === 0 ? (
+          <div className="py-8 text-center text-gray-500 dark:text-gray-400">
+            <Truck className="w-12 h-12 mx-auto mb-3 opacity-50" />
+            <p>No orders assigned yet.</p>
+            <p className="text-sm mt-1">Contact your supervisor.</p>
+          </div>
+        ) : (
+          <div className="max-h-[420px] overflow-y-auto">
+            <DeliveryTable
+              onSelectDelivery={() => setShowModal(true)}
+              onCloseDetailModal={() => setShowModal(false)}
+            />
+          </div>
+        )}
         {location && (
-          <div className="mt-6 p-5 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-100 dark:from-blue-900/30 dark:to-indigo-900/30 dark:border-blue-800">
-            <div className="flex items-center gap-2 mb-3">
-              <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100">Current Location</h3>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-              <div className="pp-card p-3">
-                <div className="text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide mb-1">Latitude</div>
-                <div className="font-mono text-gray-900 dark:text-gray-100 font-semibold">{location.latitude.toFixed(6)}</div>
-              </div>
-              <div className="pp-card p-3">
-                <div className="text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide mb-1">Longitude</div>
-                <div className="font-mono text-gray-900 dark:text-gray-100 font-semibold">{location.longitude.toFixed(6)}</div>
-              </div>
-              {location.accuracy && (
-                <div className="pp-card p-3">
-                  <div className="text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide mb-1">Accuracy</div>
-                  <div className="font-mono text-gray-900 dark:text-gray-100 font-semibold">±{location.accuracy.toFixed(0)}m</div>
-                </div>
-              )}
-              <div className="pp-card p-3">
-                <div className="text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide mb-1">Last Update</div>
-                <div className="font-mono text-gray-900 dark:text-gray-100 font-semibold">{new Date(location.timestamp).toLocaleTimeString()}</div>
-              </div>
-              {location.speed && (
-                <div className="pp-card p-3">
-                  <div className="text-gray-600 dark:text-gray-400 text-xs uppercase tracking-wide mb-1">Speed</div>
-                  <div className="font-mono text-gray-900 dark:text-gray-100 font-semibold">{(location.speed * 3.6).toFixed(1)} km/h</div>
-                </div>
-              )}
-            </div>
+          <div className="mt-4 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+            <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+            <span>GPS active — Admin can track your location</span>
           </div>
         )}
       </div>
 
-      {/* Location History */}
-      {locationHistory.length > 0 && (
-        <div className="pp-card p-6">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
-            Recent Locations ({locationHistory.length})
-          </h2>
-          <div className="overflow-x-auto">
-            <table className="min-w-[760px] divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-900/40">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Time</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Coordinates</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Accuracy</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Speed</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {locationHistory.slice(-10).reverse().map((loc, index) => (
-                  <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors">
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-200">
-                      {new Date(loc.timestamp).toLocaleTimeString()}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm font-mono text-gray-900 dark:text-gray-100">
-                      {loc.latitude.toFixed(6)}, {loc.longitude.toFixed(6)}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
-                      {loc.accuracy ? `±${loc.accuracy.toFixed(0)}m` : 'N/A'}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
-                      {loc.speed ? `${(loc.speed * 3.6).toFixed(1)} km/h` : 'N/A'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
+      <CustomerModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        onSaveContactSuccess={(msg: string) => success(msg)}
+        onSaveContactError={(msg: string) => toastError(msg)}
+        useDriverEndpoint
+      />
         </div>
-      )}
-        </div>
-      )}
-
-      {/* Deliveries Tab — hide Manage Delivery Order; drivers only see map/list */}
-      {activeTab === 'deliveries' && (
-        <DeliveryManagementPage hideManageTab />
       )}
 
       {/* Messages Tab — two-column chat layout */}

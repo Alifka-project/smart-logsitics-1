@@ -13,6 +13,8 @@ interface CustomerModalProps {
   onClose: () => void;
   onSaveContactSuccess?: (message: string) => void;
   onSaveContactError?: (message: string) => void;
+  /** When true (e.g. Driver Portal), use driver POD endpoint instead of admin */
+  useDriverEndpoint?: boolean;
 }
 
 export default function CustomerModal({
@@ -20,6 +22,7 @@ export default function CustomerModal({
   onClose,
   onSaveContactSuccess,
   onSaveContactError,
+  useDriverEndpoint = false,
 }: CustomerModalProps) {
   const selectedDelivery = useDeliveryStore((state) => state.selectedDelivery);
   const updateDeliveryStatus = useDeliveryStore((state) => state.updateDeliveryStatus);
@@ -137,7 +140,10 @@ export default function CustomerModal({
       console.log('[CustomerModal] Delivery ID:', selectedDelivery.id);
       console.log('[CustomerModal] Status:', status);
 
-      const response = await api.put(`/deliveries/admin/${selectedDelivery.id}/status`, {
+      const statusUrl = useDriverEndpoint
+        ? `/deliveries/driver/${selectedDelivery.id}/status`
+        : `/deliveries/admin/${selectedDelivery.id}/status`;
+      const response = await api.put(statusUrl, {
         status,
         notes,
         driverSignature,
@@ -272,29 +278,45 @@ export default function CustomerModal({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
               <div>
                 <span className="font-semibold text-gray-700 dark:text-gray-200">Address:</span>
-                <textarea
-                  value={editAddress}
-                  onChange={(e) => {
-                    setEditAddress(e.target.value);
-                    setContactSaved(false);
-                  }}
-                  rows={2}
-                  className="mt-1 w-full px-2 py-1.5 rounded-md border border-blue-200 dark:border-blue-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Delivery address"
-                />
+                {useDriverEndpoint ? (
+                  <p className="mt-1 text-gray-800 dark:text-gray-200 break-words">{selectedDelivery.address || '—'}</p>
+                ) : (
+                  <textarea
+                    value={editAddress}
+                    onChange={(e) => {
+                      setEditAddress(e.target.value);
+                      setContactSaved(false);
+                    }}
+                    rows={2}
+                    className="mt-1 w-full px-2 py-1.5 rounded-md border border-blue-200 dark:border-blue-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Delivery address"
+                  />
+                )}
               </div>
               <div>
                 <span className="font-semibold text-gray-700 dark:text-gray-200">Phone:</span>
-                <input
-                  type="tel"
-                  value={editPhone}
-                  onChange={(e) => {
-                    setEditPhone(e.target.value);
-                    setContactSaved(false);
-                  }}
-                  className="mt-1 w-full px-2 py-1.5 rounded-md border border-blue-200 dark:border-blue-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Customer phone number"
-                />
+                {useDriverEndpoint ? (
+                  <p className="mt-1">
+                    {selectedDelivery.phone ? (
+                      <a href={`tel:${String(selectedDelivery.phone).replace(/\s/g, '')}`} className="text-blue-600 dark:text-blue-400 hover:underline font-medium">
+                        {selectedDelivery.phone}
+                      </a>
+                    ) : (
+                      <span className="text-gray-500 dark:text-gray-400">—</span>
+                    )}
+                  </p>
+                ) : (
+                  <input
+                    type="tel"
+                    value={editPhone}
+                    onChange={(e) => {
+                      setEditPhone(e.target.value);
+                      setContactSaved(false);
+                    }}
+                    className="mt-1 w-full px-2 py-1.5 rounded-md border border-blue-200 dark:border-blue-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Customer phone number"
+                  />
+                )}
               </div>
               <div>
                 <span className="font-semibold text-gray-700 dark:text-gray-200">Items:</span>
@@ -310,25 +332,27 @@ export default function CustomerModal({
               </div>
             </div>
 
-            {contactError && (
+            {!useDriverEndpoint && contactError && (
               <div className="mt-2 text-xs text-red-700 dark:text-red-300">⚠ {contactError}</div>
             )}
-            {contactSaved && !contactError && (
+            {!useDriverEndpoint && contactSaved && !contactError && (
               <div className="mt-2 text-xs text-green-700 dark:text-green-400 font-medium">
                 ✓ Contact details saved and route updated
               </div>
             )}
 
-            <div className="mt-3 flex justify-end">
-              <button
-                type="button"
-                onClick={() => void handleSaveContact()}
-                disabled={isSavingContact}
-                className="px-4 py-3 sm:px-3 sm:py-1.5 text-xs sm:text-sm rounded-lg bg-white text-blue-700 border border-blue-300 hover:bg-blue-50 disabled:opacity-60 disabled:cursor-not-allowed dark:bg-gray-800 dark:text-blue-300 dark:border-blue-700 dark:hover:bg-blue-900/30 touch-manipulation min-h-[44px] sm:min-h-0"
-              >
-                {isSavingContact ? 'Saving…' : 'Save Contact & Recalculate Route'}
-              </button>
-            </div>
+            {!useDriverEndpoint && (
+              <div className="mt-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => void handleSaveContact()}
+                  disabled={isSavingContact}
+                  className="px-4 py-3 sm:px-3 sm:py-1.5 text-xs sm:text-sm rounded-lg bg-white text-blue-700 border border-blue-300 hover:bg-blue-50 disabled:opacity-60 disabled:cursor-not-allowed dark:bg-gray-800 dark:text-blue-300 dark:border-blue-700 dark:hover:bg-blue-900/30 touch-manipulation min-h-[44px] sm:min-h-0"
+                >
+                  {isSavingContact ? 'Saving…' : 'Save Contact & Recalculate Route'}
+                </button>
+              </div>
+            )}
           </div>
 
           <MultipleFileUpload photos={photos} setPhotos={setPhotos} />
