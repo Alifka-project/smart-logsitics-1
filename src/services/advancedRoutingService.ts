@@ -296,7 +296,7 @@ export async function calculateRoute(
     coordinates: finalLocations.map((l) => `(${l.lat.toFixed(4)}, ${l.lng.toFixed(4)})`),
   });
 
-  const chunks = splitLocationsForRouting(finalLocations, 50);
+  const chunks = splitLocationsForRouting(finalLocations, 20);
   console.log(`[Routing] Split ${finalLocations.length} locations into ${chunks.length} chunks`);
 
   let allCoordinates: [number, number][] = [];

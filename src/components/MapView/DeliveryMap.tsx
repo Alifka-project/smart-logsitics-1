@@ -33,7 +33,7 @@ function fitAllMarkersInView(map: L.Map, markers: L.Marker[]): void {
     const group = L.featureGroup(markers);
     const bounds = group.getBounds();
     if (bounds.isValid()) {
-      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14, animate: false });
       setTimeout(() => map?.invalidateSize(), 100);
     }
   } catch (e) {
@@ -248,7 +248,7 @@ export default function DeliveryMap({
         try {
           const bounds = routeLine.getBounds();
           if (bounds.isValid()) {
-            mapInstance.current!.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+            mapInstance.current!.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, animate: false });
             setTimeout(inv, 100);
           }
         } catch (e) {
@@ -269,6 +269,10 @@ export default function DeliveryMap({
       routeLayers.current = [];
       deliveryMarkers.current = [];
       if (mapInstance.current) {
+        // Stop any in-progress zoom/pan animations before removing the map.
+        // Without this, Leaflet fires _onZoomTransitionEnd on the already-destroyed
+        // pane and throws "Cannot read properties of undefined (reading '_leaflet_pos')".
+        try { mapInstance.current.stop(); } catch { /* ignore */ }
         mapInstance.current.remove();
         mapInstance.current = null;
       }
