@@ -890,9 +890,10 @@ router.put('/admin/:id/assign', authenticate, requireAnyRole('admin', 'delivery_
     };
 
     // Invalidate caches after assignment
+    // Use invalidatePrefix so both deliveries:list:v2:active and deliveries:list:v2:all are cleared.
     cache.invalidatePrefix('tracking:');
     cache.invalidatePrefix('dashboard:');
-    cache.delete('deliveries:list:v2');
+    cache.invalidatePrefix('deliveries:list:v2');
 
     res.json({
       ok: true,

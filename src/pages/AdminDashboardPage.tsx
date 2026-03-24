@@ -1504,7 +1504,7 @@ export default function AdminDashboardPage(): React.ReactElement {
 
   const tabs = [
     { id: 'overview',   label: 'Overview',                                  icon: Activity    },
-    { id: 'deliveries', label: `Deliveries (${filteredDeliveries.length})`, icon: Package     },
+    { id: 'deliveries', label: 'Deliveries',                                 icon: Package     },
     { id: 'trends',     label: 'Trends',                                    icon: TrendingUp  },
     { id: 'customers',  label: 'Top Customers',                             icon: Users       },
     { id: 'by-area',    label: 'By Area',                                   icon: MapPin      },

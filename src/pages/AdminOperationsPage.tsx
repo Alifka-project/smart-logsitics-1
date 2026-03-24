@@ -529,9 +529,18 @@ export default function AdminOperationsPage(): React.ReactElement {
     return false;
   };
 
+  // Mirror the server-side TERMINAL_STATUSES list so the ops page consistently
+  // separates "work still to do" from "work already done".
+  const TERMINAL_STATUSES = new Set([
+    'delivered', 'delivered-with-installation', 'delivered-without-installation',
+    'completed', 'pod-completed', 'cancelled', 'rescheduled', 'returned',
+  ]);
+
   const onlineDrivers = drivers.filter(d => isDriverOnline(d));
-  const activeDeliveries = deliveries.filter(d =>
-    d.tracking?.driverId || d.assignedDriverId || d.tracking?.assigned
+
+  // Active = not yet in a terminal status (still needs action).
+  const activeDeliveries = deliveries.filter(
+    d => !TERMINAL_STATUSES.has((d.status || '').toLowerCase())
   );
 
   const getItemCount = (delivery: OpDelivery): number => {
@@ -610,9 +619,14 @@ export default function AdminOperationsPage(): React.ReactElement {
     }))
     .filter(driver => Number.isFinite(Number(driver.lat)) && Number.isFinite(Number(driver.lng)));
 
-  const assignedDeliveries = deliveries.filter(d => d.tracking?.assigned || d.tracking?.driverId || d.assignedDriverId);
-  const inProgressDeliveries = deliveries.filter(d => d.tracking?.status === 'in_progress');
-  const completedDeliveries = deliveries.filter(d => (d.status || '').toLowerCase() === 'delivered');
+  // Assigned = active AND has a driver assigned (in-flight work).
+  const assignedDeliveries = activeDeliveries.filter(
+    d => d.tracking?.driverId || d.assignedDriverId || d.tracking?.assigned
+  );
+  // Completed = any terminal status (delivered, cancelled, returned, etc.).
+  const completedDeliveries = deliveries.filter(
+    d => TERMINAL_STATUSES.has((d.status || '').toLowerCase())
+  );
 
   if (loading) {
     return (
@@ -679,12 +693,15 @@ export default function AdminOperationsPage(): React.ReactElement {
         <div className="space-y-6">
           <div className="pp-kpi-grid pp-kpi-grid--six">
             {([
-              { label: 'Active Deliveries',    value: activeDeliveries.length,                             icon: Truck,        bg: 'bg-blue-50 dark:bg-blue-900/20',     ic: 'text-blue-600 dark:text-blue-400',     val: 'text-blue-700 dark:text-blue-300'    },
-              { label: 'Online Drivers',       value: onlineDrivers.length,                                icon: Users,        bg: 'bg-green-50 dark:bg-green-900/20',   ic: 'text-green-600 dark:text-green-400',   val: 'text-green-700 dark:text-green-300'  },
-              { label: 'Drivers w/ Location',  value: drivers.filter(d => d.tracking?.location).length,  icon: MapPin,       bg: 'bg-purple-50 dark:bg-purple-900/20', ic: 'text-purple-600 dark:text-purple-400', val: 'text-purple-700 dark:text-purple-300'},
-              { label: 'Active Alerts',        value: alerts.length,                                       icon: AlertCircle,  bg: 'bg-red-50 dark:bg-red-900/20',       ic: 'text-red-600 dark:text-red-400',       val: 'text-red-700 dark:text-red-300'      },
-              { label: 'Total Drivers',        value: drivers.length,                                      icon: Activity,     bg: 'bg-indigo-50 dark:bg-indigo-900/20', ic: 'text-indigo-600 dark:text-indigo-400', val: 'text-indigo-700 dark:text-indigo-300'},
-              { label: 'Assigned Deliveries',  value: assignedDeliveries.length,                           icon: Package,      bg: 'bg-amber-50 dark:bg-amber-900/20',   ic: 'text-amber-600 dark:text-amber-400',   val: 'text-amber-700 dark:text-amber-300'  },
+              // "Active" = pending/in-progress, not yet terminal. This is the actionable workload.
+              { label: 'Active Deliveries',   value: activeDeliveries.length,    icon: Truck,       bg: 'bg-blue-50 dark:bg-blue-900/20',     ic: 'text-blue-600 dark:text-blue-400',     val: 'text-blue-700 dark:text-blue-300'    },
+              // "Assigned" = subset of active that already have a driver.
+              { label: 'Assigned to Driver',  value: assignedDeliveries.length,  icon: Package,     bg: 'bg-amber-50 dark:bg-amber-900/20',   ic: 'text-amber-600 dark:text-amber-400',   val: 'text-amber-700 dark:text-amber-300'  },
+              // "Completed" = delivered / cancelled / returned — done, no action needed.
+              { label: 'Completed',           value: completedDeliveries.length, icon: CheckCircle, bg: 'bg-emerald-50 dark:bg-emerald-900/20',ic: 'text-emerald-600 dark:text-emerald-400',val: 'text-emerald-700 dark:text-emerald-300'},
+              { label: 'Online Drivers',      value: onlineDrivers.length,       icon: Users,       bg: 'bg-green-50 dark:bg-green-900/20',   ic: 'text-green-600 dark:text-green-400',   val: 'text-green-700 dark:text-green-300'  },
+              { label: 'Drivers w/ GPS',      value: drivers.filter(d => d.tracking?.location).length, icon: MapPin, bg: 'bg-purple-50 dark:bg-purple-900/20', ic: 'text-purple-600 dark:text-purple-400', val: 'text-purple-700 dark:text-purple-300'},
+              { label: 'Active Alerts',       value: alerts.length,              icon: AlertCircle, bg: 'bg-red-50 dark:bg-red-900/20',       ic: 'text-red-600 dark:text-red-400',       val: 'text-red-700 dark:text-red-300'      },
             ] as { label: string; value: number; icon: React.ElementType; bg: string; ic: string; val: string }[]).map(({ label, value, icon: Icon, bg, ic, val }) => (
               <div key={label} className="pp-dash-card p-4 w-full min-w-0">
                 <div className="flex items-start gap-3">

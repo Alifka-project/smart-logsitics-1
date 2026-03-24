@@ -274,11 +274,6 @@ export default function DeliveryManagementPage({ hideManageTab = false }: Delive
               >
                 <Icon className="w-5 h-5" />
                 {tab.label}
-                {tab.id === 'deliveries' && deliveries.length > 0 && (
-                  <span className="ml-1 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-semibold px-2 py-0.5 rounded-full">
-                    {deliveries.length}
-                  </span>
-                )}
               </button>
             );
           })}
