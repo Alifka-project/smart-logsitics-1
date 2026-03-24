@@ -12,7 +12,7 @@ interface StatItem {
 }
 
 export default function StatsCards() {
-  const deliveries = useDeliveryStore((state) => state.deliveries);
+  const deliveries = useDeliveryStore((state) => state.deliveries ?? []);
 
   const analytics = useMemo(() => {
     return {

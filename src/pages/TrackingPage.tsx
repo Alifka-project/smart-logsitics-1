@@ -33,7 +33,7 @@ const STATUS_MAP: Record<string, StatusInfo> = {
 export default function TrackingPage() {
   const { deliveryId } = useParams<{ deliveryId: string }>();
   const navigate = useNavigate();
-  const [delivery] = useState<Record<string, unknown> | null>(null);
+  const [delivery, setDelivery] = useState<Record<string, unknown> | null>(null);
   const [code, setCode] = useState('');
   const [confirming, setConfirming] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
@@ -41,13 +41,17 @@ export default function TrackingPage() {
 
   useEffect(() => {
     void loadDelivery();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deliveryId]);
 
   const loadDelivery = async (): Promise<void> => {
+    if (!deliveryId) return;
     try {
-      // Public endpoint for delivery info — currently just shows confirmation form
+      const res = await api.get(`/sms/delivery-info/${deliveryId}`);
+      if (res.data?.delivery) setDelivery(res.data.delivery as Record<string, unknown>);
     } catch (e) {
-      console.error('Error loading delivery:', e);
+      // Non-fatal — page still works for code confirmation without delivery details
+      console.warn('Could not load delivery info:', e);
     }
   };
 

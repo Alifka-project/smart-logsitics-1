@@ -197,4 +197,26 @@ router.post('/confirm', confirmHandler);
 // Export confirm handler for public access (without authentication)
 (router as unknown as Record<string, unknown>).confirm = confirmHandler;
 
+// GET /api/sms/delivery-info/:id — public endpoint; returns safe display-only fields
+// Used by the legacy /track/:deliveryId confirmation page.
+router.get('/delivery-info/:id', async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params as { id: string };
+  if (!id) { res.status(400).json({ error: 'id_required' }); return; }
+  try {
+    const result = await db.query(
+      `SELECT id, customer, address, po_number AS "poNumber", status, items
+       FROM deliveries WHERE id = $1 LIMIT 1`,
+      [id]
+    );
+    if (!result.rows.length) { res.status(404).json({ error: 'not_found' }); return; }
+    const row = result.rows[0] as Record<string, unknown>;
+    // Only expose safe display fields — no phone/lat/lng
+    res.json({ ok: true, delivery: { id: row.id, customer: row.customer, address: row.address, poNumber: row.poNumber, status: row.status, items: row.items } });
+  } catch (err: unknown) {
+    const e = err as { message?: string };
+    console.error('[SMS] delivery-info error:', e.message);
+    res.status(500).json({ error: 'db_error' });
+  }
+});
+
 export default router;
