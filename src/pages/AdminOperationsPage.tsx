@@ -126,6 +126,34 @@ function getRoleBadge(role?: string): { label: string; color: string } {
   return roleConfig[role || ''] || { label: role || 'Unknown', color: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' };
 }
 
+/** Map raw status strings to a clean label + Tailwind colour classes. */
+function getStatusDisplay(raw?: string): { label: string; color: string } {
+  const s = (raw || '').toLowerCase().replace(/_/g, '-');
+  const map: Record<string, { label: string; color: string }> = {
+    'out-for-delivery':               { label: 'Out for Delivery',  color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' },
+    'in-progress':                    { label: 'In Progress',        color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300' },
+    'assigned':                       { label: 'Assigned',           color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300' },
+    'pending':                        { label: 'Pending',            color: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' },
+    'delivered':                      { label: 'Delivered',          color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' },
+    'delivered-with-installation':    { label: 'Delivered + Install',color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' },
+    'delivered-without-installation': { label: 'Delivered – No Install', color: 'bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300' },
+    'completed':                      { label: 'Completed',          color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' },
+    'pod-completed':                  { label: 'POD Completed',      color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300' },
+    'cancelled':                      { label: 'Cancelled',          color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' },
+    'rescheduled':                    { label: 'Rescheduled',        color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' },
+    'returned':                       { label: 'Returned',           color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' },
+    'failed':                         { label: 'Failed',             color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' },
+  };
+  return map[s] || { label: raw ? raw.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Unknown', color: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' };
+}
+
+function getPriorityDisplay(priority?: number | string): { label: string; color: string; border: string } {
+  const p = Number(priority);
+  if (p === 1) return { label: 'High',   color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',    border: 'border-l-red-500' };
+  if (p === 2) return { label: 'Medium', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300', border: 'border-l-orange-400' };
+  return               { label: 'Low',   color: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400',   border: 'border-l-gray-300 dark:border-l-gray-600' };
+}
+
 // Statuses that mean delivery work is finished — used both for KPI grouping
 // and to exclude completed stops from the route displayed on the map.
 const TERMINAL_STATUSES = new Set([
@@ -739,37 +767,84 @@ export default function AdminOperationsPage(): React.ReactElement {
             </div>
 
             <div className="lg:col-span-2 pp-dash-card p-5 transition-colors">
-              <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Active Deliveries ETA</h2>
-              <div className="space-y-3 max-h-[560px] overflow-y-auto pr-1">
-                {deliveriesWithEta.filter(d => d.tracking?.driverId || d.assignedDriverId || d.tracking?.assigned).slice(0, 12).map(delivery => (
-                  <div key={String(delivery.id || delivery.ID || '')} className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        #{String(delivery.id || '').slice(0, 8) || 'N/A'}
-                      </span>
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        delivery.status === 'out-for-delivery'
-                          ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
-                          : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
-                      }`}>
-                        {delivery.status || 'In Progress'}
-                      </span>
+              {/* Active (non-terminal) deliveries only, sorted by urgency */}
+              {(() => {
+                const ORDER = ['out-for-delivery','in-progress','in_progress','out_for_delivery','assigned'];
+                const activeEta = deliveriesWithEta
+                  .filter(d => !TERMINAL_STATUSES.has((d.status || '').toLowerCase()))
+                  .sort((a, b) => {
+                    const ai = ORDER.indexOf((a.status || '').toLowerCase());
+                    const bi = ORDER.indexOf((b.status || '').toLowerCase());
+                    const aIdx = ai === -1 ? 99 : ai;
+                    const bIdx = bi === -1 ? 99 : bi;
+                    if (aIdx !== bIdx) return aIdx - bIdx;
+                    return Number((a as unknown as {priority?: number}).priority ?? 3) - Number((b as unknown as {priority?: number}).priority ?? 3);
+                  });
+                return (
+                  <>
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                        Active Deliveries
+                        <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">({activeEta.length})</span>
+                      </h2>
+                      {activeEta.filter(d => ['out-for-delivery','out_for_delivery','in-progress','in_progress'].includes((d.status||'').toLowerCase())).length > 0 && (
+                        <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+                          {activeEta.filter(d => ['out-for-delivery','out_for_delivery','in-progress','in_progress'].includes((d.status||'').toLowerCase())).length} out for delivery
+                        </span>
+                      )}
                     </div>
-                    <div className="text-xs text-gray-600 dark:text-gray-400">
-                      {delivery.customer || delivery.Customer || 'Unknown Customer'}
+                    <div className="space-y-3 max-h-[560px] overflow-y-auto pr-1">
+                      {activeEta.slice(0, 20).map((delivery, stopIdx) => {
+                        const poNum = delivery.poNumber || delivery.PONumber || (delivery.metadata as { originalPONumber?: string })?.originalPONumber || `#${String(delivery.id || delivery.ID || '').slice(0, 8)}`;
+                        const customer = delivery.customer || delivery.Customer || 'Unknown';
+                        const address = String(delivery.address || delivery.Address || '');
+                        const driverId = delivery.tracking?.driverId || delivery.assignedDriverId;
+                        const driver = drivers.find(d => String(d.id) === String(driverId));
+                        const driverName = driver ? (driver.full_name || driver.fullName || driver.username || 'Driver') : null;
+                        const eta = (delivery as unknown as { etaMinutes?: number }).etaMinutes;
+                        const itemCount = (delivery as unknown as { itemCount?: number }).itemCount || 1;
+                        const statusInfo = getStatusDisplay(delivery.status);
+                        const priorityInfo = getPriorityDisplay((delivery as unknown as {priority?: number}).priority);
+                        return (
+                          <div key={String(delivery.id || delivery.ID || stopIdx)}
+                            className={`p-3 border border-gray-200 dark:border-gray-700 rounded-lg border-l-4 ${priorityInfo.border}`}>
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="text-xs font-bold text-gray-500 dark:text-gray-400 shrink-0">Stop {stopIdx + 1}</span>
+                                <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{poNum}</span>
+                              </div>
+                              <span className={`px-2 py-0.5 text-xs font-medium rounded-full shrink-0 ml-2 ${statusInfo.color}`}>
+                                {statusInfo.label}
+                              </span>
+                            </div>
+                            <div className="text-sm text-gray-700 dark:text-gray-300 font-medium truncate">{customer}</div>
+                            {address && (
+                              <div className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">{address.slice(0, 55)}{address.length > 55 ? '…' : ''}</div>
+                            )}
+                            <div className="flex items-center justify-between mt-2 text-xs text-gray-500 dark:text-gray-400">
+                              <div className="flex items-center gap-3">
+                                {driverName && (
+                                  <span>🚚 {driverName}</span>
+                                )}
+                                <span>{itemCount} item{itemCount !== 1 ? 's' : ''}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className={`px-1.5 py-0.5 rounded text-xs ${priorityInfo.color}`}>{priorityInfo.label}</span>
+                                <span className="font-medium text-gray-700 dark:text-gray-300">
+                                  {eta != null ? `ETA ${eta} min` : 'ETA —'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {activeEta.length === 0 && (
+                        <div className="text-center py-8 text-gray-500 dark:text-gray-400">No active deliveries</div>
+                      )}
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                      ETA: {(delivery as unknown as { etaMinutes?: number }).etaMinutes != null ? `${(delivery as unknown as { etaMinutes?: number }).etaMinutes} min` : 'Calculating...'}
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-500">
-                      Items: {(delivery as unknown as { itemCount?: number }).itemCount || 1} • ETA/item: {(delivery as unknown as { etaPerItemMinutes?: number }).etaPerItemMinutes != null ? `${(delivery as unknown as { etaPerItemMinutes?: number }).etaPerItemMinutes} min` : 'N/A'}
-                    </div>
-                  </div>
-                ))}
-                {activeDeliveries.length === 0 && (
-                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">No active deliveries</div>
-                )}
-              </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
 
@@ -847,65 +922,105 @@ export default function AdminOperationsPage(): React.ReactElement {
             </div>
 
             <div className="lg:col-span-3 pp-dash-card p-5 transition-colors">
-              <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Delivery Status Details</h2>
-              <div className="overflow-x-auto max-h-[560px] overflow-y-auto">
-                <table className="min-w-[760px] divide-y divide-gray-200 dark:divide-gray-700">
-                  <thead className="bg-gray-50 dark:bg-gray-700">
-                    <tr>
-                      {['Delivery', 'Status', 'Driver', 'Assigned At', 'ETA', 'Items / ETA Item', 'Location'].map(h => (
-                        <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                    {deliveriesWithEta.slice(0, 50).map(delivery => {
-                      const tracking = delivery.tracking || {};
-                      const loc = tracking.lastLocation;
-                      const driverId = tracking.driverId || delivery.assignedDriverId;
-                      const driver = drivers.find(d => String(d.id) === String(driverId));
-                      const driverName = driver
-                        ? (driver.full_name || driver.fullName || driver.username || driver.email || `Driver ${driver.id}`)
-                        : (driverId || 'Unassigned');
-                      return (
-                        <tr key={String(delivery.id || delivery.ID || '')} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                          <td className="px-4 py-3">
-                            <div>
-                              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{delivery.customer || delivery.Customer || 'Unknown'}</div>
-                              <div className="text-sm text-gray-500 dark:text-gray-400">{String(delivery.address || delivery.Address || 'N/A')}</div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                              tracking.status === 'in_progress' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
-                                : tracking.assigned ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
-                                : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
-                            }`}>
-                              {tracking.status || delivery.status || 'unassigned'}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{driverName}</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{tracking.assignedAt ? new Date(tracking.assignedAt).toLocaleString() : 'N/A'}</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                            {(delivery as unknown as { etaMinutes?: number }).etaMinutes != null ? `${(delivery as unknown as { etaMinutes?: number }).etaMinutes} min` : 'Calculating...'}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                            {(delivery as unknown as { itemCount?: number }).itemCount || 1} / {(delivery as unknown as { etaPerItemMinutes?: number }).etaPerItemMinutes != null ? `${(delivery as unknown as { etaPerItemMinutes?: number }).etaPerItemMinutes} min` : 'N/A'}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                            {loc ? (
-                              <div>
-                                <div>{loc.lat.toFixed(4)}, {loc.lng.toFixed(4)}</div>
-                                {loc.timestamp && <div className="text-xs text-gray-400">{new Date(loc.timestamp).toLocaleTimeString()}</div>}
-                              </div>
-                            ) : <span className="text-gray-400">No location</span>}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                {deliveries.length === 0 && <div className="text-center py-8 text-gray-500 dark:text-gray-400">No deliveries found</div>}
-              </div>
+              {/* On-going deliveries only (non-terminal), sorted by status urgency then priority */}
+              {(() => {
+                const STATUS_ORDER = ['out-for-delivery','out_for_delivery','in-progress','in_progress','assigned','pending'];
+                const ongoingRows = deliveriesWithEta
+                  .filter(d => !TERMINAL_STATUSES.has((d.status || '').toLowerCase()))
+                  .sort((a, b) => {
+                    const ai = STATUS_ORDER.indexOf((a.status || '').toLowerCase());
+                    const bi = STATUS_ORDER.indexOf((b.status || '').toLowerCase());
+                    const aIdx = ai === -1 ? 99 : ai;
+                    const bIdx = bi === -1 ? 99 : bi;
+                    if (aIdx !== bIdx) return aIdx - bIdx;
+                    return Number((a as unknown as {priority?: number}).priority ?? 3) - Number((b as unknown as {priority?: number}).priority ?? 3);
+                  });
+                const now = Date.now();
+                return (
+                  <>
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                        On-Going Deliveries
+                        <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">({ongoingRows.length} active)</span>
+                      </h2>
+                    </div>
+                    <div className="overflow-x-auto max-h-[560px] overflow-y-auto">
+                      <table className="min-w-[720px] w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0 z-10">
+                          <tr>
+                            {['#', 'Order', 'Customer & Address', 'Status', 'Driver', 'Priority', 'ETA', 'GPS'].map(h => (
+                              <th key={h} className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                          {ongoingRows.map((delivery, idx) => {
+                            const tracking = delivery.tracking || {};
+                            const loc = tracking.lastLocation as { lat: number; lng: number; timestamp?: string } | undefined;
+                            const driverId = tracking.driverId || delivery.assignedDriverId;
+                            const driver = drivers.find(d => String(d.id) === String(driverId));
+                            const driverName = driver
+                              ? (driver.full_name || driver.fullName || driver.username || `Driver ${driver.id}`)
+                              : null;
+                            const poNum = delivery.poNumber || delivery.PONumber || (delivery.metadata as { originalPONumber?: string })?.originalPONumber || `—`;
+                            const customer = delivery.customer || delivery.Customer || 'Unknown';
+                            const address = String(delivery.address || delivery.Address || '');
+                            const eta = (delivery as unknown as { etaMinutes?: number }).etaMinutes;
+                            const itemCount = (delivery as unknown as { itemCount?: number }).itemCount || 1;
+                            const statusInfo = getStatusDisplay(delivery.status);
+                            const priorityInfo = getPriorityDisplay((delivery as unknown as {priority?: number}).priority);
+                            // GPS freshness
+                            let gpsCell: React.ReactNode = <span className="text-gray-400 dark:text-gray-500 text-xs">No GPS</span>;
+                            if (loc?.timestamp) {
+                              const ageMins = Math.round((now - new Date(loc.timestamp).getTime()) / 60000);
+                              if (ageMins < 2) {
+                                gpsCell = <span className="flex items-center gap-1 text-green-600 dark:text-green-400 text-xs font-medium"><span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse inline-block" />Live</span>;
+                              } else {
+                                gpsCell = <span className="text-xs text-gray-500 dark:text-gray-400">{ageMins}m ago</span>;
+                              }
+                            } else if (loc) {
+                              gpsCell = <span className="text-xs text-gray-500 dark:text-gray-400">GPS active</span>;
+                            }
+                            return (
+                              <tr key={String(delivery.id || delivery.ID || idx)} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                <td className="px-3 py-3 text-xs text-gray-500 dark:text-gray-400 font-medium whitespace-nowrap">{idx + 1}</td>
+                                <td className="px-3 py-3 whitespace-nowrap">
+                                  <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{poNum}</span>
+                                  <div className="text-xs text-gray-400 dark:text-gray-500">{itemCount} item{itemCount !== 1 ? 's' : ''}</div>
+                                </td>
+                                <td className="px-3 py-3 max-w-[200px]">
+                                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{customer}</div>
+                                  <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{address.slice(0, 50)}{address.length > 50 ? '…' : ''}</div>
+                                </td>
+                                <td className="px-3 py-3 whitespace-nowrap">
+                                  <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${statusInfo.color}`}>
+                                    {statusInfo.label}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                                  {driverName || <span className="text-gray-400 dark:text-gray-500 italic">Unassigned</span>}
+                                </td>
+                                <td className="px-3 py-3 whitespace-nowrap">
+                                  <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${priorityInfo.color}`}>
+                                    {priorityInfo.label}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-3 whitespace-nowrap text-sm font-medium text-gray-700 dark:text-gray-300">
+                                  {eta != null ? `${eta} min` : <span className="text-gray-400 dark:text-gray-500 text-xs">—</span>}
+                                </td>
+                                <td className="px-3 py-3 whitespace-nowrap">{gpsCell}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                      {ongoingRows.length === 0 && (
+                        <div className="text-center py-10 text-gray-500 dark:text-gray-400">No on-going deliveries</div>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
 
