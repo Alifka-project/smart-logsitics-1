@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { randomUUID } from 'crypto';
 const router = Router();
-const { authenticate, requireRole } = require('../auth');
+const { authenticate, requireRole, requireAnyRole } = require('../auth');
 const sapService = require('../services/sapService.js');
 const { autoAssignDeliveries, getAvailableDrivers } = require('../services/autoAssignmentService');
 const { buildBusinessKey, upsertDeliveryByBusinessKey } = require('../services/deliveryDedupService');
@@ -798,8 +798,8 @@ router.get('/', authenticate, async (req: Request, res: Response): Promise<void>
   }
 });
 
-// PUT /api/admin/deliveries/:id/assign - Assign delivery to driver
-router.put('/admin/:id/assign', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+// PUT /api/admin/deliveries/:id/assign - Assign delivery to driver (admin + delivery_team)
+router.put('/admin/:id/assign', authenticate, requireAnyRole('admin', 'delivery_team'), async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params as { id: string };
     const { driverId } = req.body as { driverId?: string };

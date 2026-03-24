@@ -5,6 +5,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { calculateRouteWithOSRM } from '../services/osrmRoutingService';
 import DeliveryManagementPage from './DeliveryManagementPage';
+import useDeliveryStore from '../store/useDeliveryStore';
 import { calculateDistance } from '../utils/distanceCalculator';
 import { 
   MapPin, Navigation, Activity, RefreshCw, AlertCircle, CheckCircle2, 
@@ -617,8 +618,11 @@ export default function DriverPortal() {
     try {
       // Driver gets their assigned deliveries
       const response = await api.get('/driver/deliveries');
-      setDeliveries((response.data?.deliveries as Delivery[]) || []);
-      console.log(`✓ Loaded ${response.data?.deliveries?.length || 0} deliveries`);
+      const driverDeliveries = (response.data?.deliveries as Delivery[]) || [];
+      setDeliveries(driverDeliveries);
+      // Sync to store so Deliveries tab shows same list as tracking map
+      useDeliveryStore.getState().loadDeliveries(driverDeliveries);
+      console.log(`✓ Loaded ${driverDeliveries.length} deliveries`);
     } catch (deliveryErr: unknown) {
       console.error('Failed to load deliveries:', deliveryErr);
       setDeliveries([]);

@@ -22,8 +22,10 @@ import {
   Package,
   Search
 } from 'lucide-react';
-import DriverTrackingMap from '../components/Tracking/DriverTrackingMap';
+import DeliveryMap from '../components/MapView/DeliveryMap';
 import DeliveryManagementPage from './DeliveryManagementPage';
+import { calculateRoute, generateFallbackRoute } from '../services/advancedRoutingService';
+import useDeliveryStore from '../store/useDeliveryStore';
 import type { Delivery, AuthUser } from '../types';
 
 interface ContactUser {
@@ -41,8 +43,12 @@ interface ContactUser {
     location?: {
       lat: number;
       lng: number;
+      speed?: number;
+      timestamp?: string;
     } | null;
     lastUpdate?: string | null;
+    online?: boolean;
+    status?: string;
   };
 }
 
@@ -109,6 +115,10 @@ export default function DeliveryTeamPortal() {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagePollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const location = useLocation();
+
+  // Route for monitoring map (matches Admin Operations)
+  const [monitoringRoute, setMonitoringRoute] = useState<{ coordinates: [number, number][] } | null>(null);
+  const [routeLoading, setRouteLoading] = useState(false);
 
   const formatMessageTimestamp = (value: string | Date | null | undefined): string => {
     if (!value) return '';
@@ -230,45 +240,88 @@ export default function DeliveryTeamPortal() {
     });
   }, [messages, activeTab]);
 
+  // Compute route for monitoring map (same logic as Admin Operations)
+  useEffect(() => {
+    const pts = deliveries
+      .map((d) => {
+        const lat = d.lat ?? (d as unknown as { Lat?: number }).Lat;
+        const lng = d.lng ?? (d as unknown as { Lng?: number }).Lng;
+        return lat != null && lng != null ? [Number(lat), Number(lng)] as [number, number] : null;
+      })
+      .filter(
+        (p): p is [number, number] =>
+          p != null &&
+          Number.isFinite(p[0]) &&
+          Number.isFinite(p[1]) &&
+          p[0] >= -90 && p[0] <= 90 &&
+          p[1] >= -180 && p[1] <= 180,
+      );
+
+    if (pts.length === 0) {
+      setMonitoringRoute(null);
+      return;
+    }
+
+    const locations = [{ lat: 25.0053, lng: 55.0760 }, ...pts.map(([lat, lng]) => ({ lat, lng }))];
+    if (locations.length < 2) {
+      setMonitoringRoute(null);
+      return;
+    }
+
+    setRouteLoading(true);
+    calculateRoute(locations, deliveries, false)
+      .then((result) => setMonitoringRoute({ coordinates: result.coordinates }))
+      .catch(() => {
+        try {
+          const fallback = generateFallbackRoute(locations);
+          setMonitoringRoute({ coordinates: fallback.coordinates });
+        } catch {
+          setMonitoringRoute({ coordinates: [[25.0053, 55.0760], ...pts] });
+        }
+      })
+      .finally(() => setRouteLoading(false));
+  }, [deliveries]);
+
   const loadData = async (): Promise<void> => {
     try {
-      console.log('[DeliveryTeam] Loading data...');
+      console.log('[DeliveryTeam] Loading data (tracking APIs for consistency with Operations)...');
+      // Use tracking APIs so monitoring matches Admin Operations (live GPS, same delivery list)
       const [driversRes, deliveriesRes, contactsRes] = await Promise.all([
-        api.get('/admin/drivers'),
-        api.get('/deliveries'),
-        api.get('/messages/contacts') // Load all contacts
+        api.get('/admin/tracking/drivers').catch(() => ({ data: { drivers: [] } })),
+        api.get('/admin/tracking/deliveries').catch(() => ({ data: { deliveries: [] } })),
+        api.get('/messages/contacts') // Load contacts for messaging
       ]);
 
-      const allDrivers = (driversRes.data?.data || []) as ContactUser[];
-      const driversList = allDrivers.filter(u => u.account?.role === 'driver');
+      const driversList = (driversRes.data?.drivers || []) as ContactUser[];
       setDrivers(driversList);
-      
-      // Set contacts from API response
+
+      const allDeliveries = (deliveriesRes.data?.deliveries || []) as Delivery[];
+      setDeliveries(allDeliveries);
+
+      // Sync to store so Deliveries tab shows same list as monitoring
+      useDeliveryStore.getState().loadDeliveries(allDeliveries);
+
+      // Set contacts from API response (for communication tab)
       const allContacts = (contactsRes.data?.contacts || []) as ContactUser[];
       const teamMembersList = (contactsRes.data?.teamMembers || []) as ContactUser[];
-      const driverContacts = (contactsRes.data?.drivers || []) as ContactUser[];
-      
-      console.log('[DeliveryTeam] Contacts loaded:', {
-        allContacts: allContacts.length,
-        teamMembers: teamMembersList.length,
-        drivers: driverContacts.length,
-        driversFiltered: driversList.length
+
+      console.log('[DeliveryTeam] Loaded:', {
+        drivers: driversList.length,
+        deliveries: allDeliveries.length,
+        contacts: allContacts.length
       });
-      
+
       setContacts(allContacts);
       setTeamMembers(teamMembersList);
-
-      const allDeliveries = (deliveriesRes.data?.data || []) as Delivery[];
-      setDeliveries(allDeliveries);
 
       // Generate alerts
       const newAlerts: SystemAlert[] = [];
       driversList.forEach(driver => {
-        if (!driver.tracking?.lastUpdate) {
+        if (!driver.tracking?.lastUpdate && !driver.tracking?.location) {
           newAlerts.push({
             id: `no-gps-${driver.id}`,
             type: 'warning',
-            driver: driver.fullName || driver.username,
+            driver: driver.fullName || driver.full_name || driver.username,
             message: 'GPS not active',
             timestamp: new Date()
           });
@@ -420,27 +473,18 @@ export default function DeliveryTeamPortal() {
   };
 
   const isContactOnline = (contact: ContactUser): boolean => {
+    // Tracking drivers have live GPS status
+    if (contact.tracking?.online === true) return true;
+
     const userId = contact.id?.toString() || contact.id;
-    
-    // Check sessions first
     if (onlineUserIds.has(userId?.toString()) || onlineUserIds.has(userId)) {
       return true;
     }
-    
-    // Fallback to lastLogin check (5 minutes)
-    if (!contact.account?.lastLogin) {
-      return false;
-    }
-    
+
+    if (!contact.account?.lastLogin) return false;
     const lastLogin = new Date(contact.account.lastLogin);
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-    const isOnline = lastLogin >= fiveMinutesAgo;
-    
-    if (isOnline) {
-      console.debug(`[DeliveryTeam] User ${contact.fullName || contact.username} online via lastLogin:`, lastLogin);
-    }
-    
-    return isOnline;
+    return lastLogin >= fiveMinutesAgo;
   };
 
   const activeDeliveries = deliveries.filter(d => {
@@ -567,13 +611,30 @@ export default function DeliveryTeamPortal() {
           </div>
 
           <div className="flex flex-col lg:grid lg:grid-cols-3 gap-4 lg:gap-6 min-h-0">
-            {/* Live Map - top on mobile, left on desktop */}
+            {/* Live Map - same as Admin Operations: deliveries, route, driver positions */}
             <div className="lg:col-span-2 pp-card overflow-hidden order-first w-full">
-              <div className="p-3 sm:p-4 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Live Map View</h2>
+              <div className="p-3 sm:p-4 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600 flex items-center justify-between gap-2">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Live Operations Map (Tracking + Deliveries + Route)</h2>
+                {routeLoading && (
+                  <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">Calculating route…</span>
+                )}
               </div>
-              <div className="h-[42vh] min-h-[240px] lg:h-[500px]">
-                <DriverTrackingMap drivers={drivers as unknown as import('../types').Driver[]} />
+              <div className="relative">
+                <DeliveryMap
+                  deliveries={deliveries}
+                  route={monitoringRoute}
+                  driverLocations={drivers
+                    .filter((d) => d.tracking?.location && Number.isFinite(d.tracking.location.lat) && Number.isFinite(d.tracking.location.lng))
+                    .map((d) => ({
+                      id: d.id,
+                      name: d.fullName || d.full_name || d.username || 'Driver',
+                      status: d.tracking?.online ? 'online' : 'offline',
+                      speedKmh: d.tracking?.location?.speed != null ? Math.round(d.tracking.location.speed * 3.6) : null,
+                      lat: d.tracking!.location!.lat,
+                      lng: d.tracking!.location!.lng,
+                    }))}
+                  mapClassName="h-[42vh] min-h-[240px] lg:h-[500px]"
+                />
               </div>
             </div>
 
