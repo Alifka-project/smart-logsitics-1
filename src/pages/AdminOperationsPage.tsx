@@ -687,7 +687,7 @@ export default function AdminOperationsPage(): React.ReactElement {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-            <div className="lg:col-span-2 pp-dash-card overflow-hidden transition-colors">
+            <div className="lg:col-span-4 pp-dash-card overflow-hidden transition-colors">
               <div className="p-4 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600 flex items-center justify-between gap-2">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Live Operations Map (Tracking + Deliveries + Route)</h2>
                 {routeLoading && (
@@ -704,60 +704,51 @@ export default function AdminOperationsPage(): React.ReactElement {
               </div>
             </div>
 
-            <div className="lg:col-span-3 pp-dash-card p-5 transition-colors">
+            <div className="lg:col-span-1 pp-dash-card p-4 transition-colors">
               <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Driver Status</h2>
-              <div className="overflow-x-auto max-h-[560px] overflow-y-auto">
-              <table className="min-w-[760px] divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-700">
-                  <tr>
-                    {['Driver', 'Status', 'Location', 'Last Update'].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {drivers.map(driver => {
-                    const driverName = driver.full_name || driver.name || driver.username || 'Unknown';
-                    const online = isDriverOnline(driver);
-                    const loc = driver.tracking?.location;
-                    return (
-                      <tr key={driver.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className={`w-3 h-3 rounded-full mr-3 ${online ? 'bg-green-500' : 'bg-gray-400'}`} />
-                            <div>
-                              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{driverName}</div>
-                              {driver.phone && <div className="text-sm text-gray-500 dark:text-gray-400">{driver.phone}</div>}
-                            </div>
+              <div className="space-y-3 max-h-[560px] overflow-y-auto pr-1">
+                {drivers.map(driver => {
+                  const driverName = driver.full_name || driver.name || driver.username || 'Unknown';
+                  const online = isDriverOnline(driver);
+                  const loc = driver.tracking?.location;
+                  const statusLabel = driver.tracking?.status || (online ? 'online' : 'offline');
+                  const lastSeen = loc?.timestamp || driver.tracking?.lastUpdate;
+                  return (
+                    <div key={driver.id} className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-2.5 h-2.5 rounded-full ${online ? 'bg-green-500' : 'bg-gray-400'}`} />
+                            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{driverName}</span>
                           </div>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${online ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'}`}>
-                            {driver.tracking?.status || 'offline'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                          {loc ? (
-                            <div>
-                              <div>{loc.lat.toFixed(4)}, {loc.lng.toFixed(4)}</div>
-                              {loc.speed != null && <div className="text-xs text-gray-400">{(loc.speed * 3.6).toFixed(0)} km/h</div>}
-                            </div>
-                          ) : <span className="text-gray-400">No location</span>}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                          {loc?.timestamp
-                            ? new Date(loc.timestamp).toLocaleTimeString()
-                            : driver.tracking?.lastUpdate
-                            ? new Date(driver.tracking.lastUpdate).toLocaleTimeString()
-                            : 'N/A'}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {drivers.length === 0 && <div className="text-center py-8 text-gray-500 dark:text-gray-400">No drivers found</div>}
-            </div>
+                          {driver.phone && (
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">{driver.phone}</div>
+                          )}
+                        </div>
+                        <span className={`px-2 py-1 text-[11px] font-semibold rounded-full whitespace-nowrap ${online ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'}`}>
+                          {statusLabel}
+                        </span>
+                      </div>
+                      <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 space-y-1">
+                        <div>
+                          {loc
+                            ? `${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}`
+                            : 'No location'}
+                        </div>
+                        <div>
+                          {loc?.speed != null
+                            ? `${(loc.speed * 3.6).toFixed(0)} km/h`
+                            : 'Speed unavailable'}
+                        </div>
+                        <div>
+                          Last update: {lastSeen ? new Date(lastSeen).toLocaleTimeString() : 'N/A'}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {drivers.length === 0 && <div className="text-center py-8 text-gray-500 dark:text-gray-400">No drivers found</div>}
+              </div>
             </div>
           </div>
 
