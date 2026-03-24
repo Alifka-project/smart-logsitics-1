@@ -912,6 +912,10 @@ export default function DriverPortal() {
   };
 
   const hasRoute = !!(route as DriverRouteData | null)?.coordinates?.length;
+  const routeStats = route as DriverRouteData | null;
+  const nextStop = (orderedDeliveries[0] || deliveries[0]) as EnrichedDelivery | undefined;
+  const nextEta = nextStop ? formatEta(nextStop.eta ?? nextStop.estimatedEta) : 'N/A';
+  const speedKmh = location?.speed != null ? (location.speed * 3.6).toFixed(1) : 'N/A';
 
   return (
     <div className="space-y-4 md:space-y-6 w-full min-w-0">
@@ -978,7 +982,7 @@ export default function DriverPortal() {
 
       {/* Orders Tab - map + order list (POD, customer contact, route) */}
       {activeTab === 'orders' && (
-        <div className="flex flex-col md:block space-y-4 md:space-y-6">
+        <div className="space-y-4 md:space-y-6">
           {/* Error Message */}
           {error && (
             <div className="bg-red-50 border-l-4 border-red-400 rounded-lg p-4 shadow-sm dark:bg-red-900/20 dark:border-red-600">
@@ -998,78 +1002,102 @@ export default function DriverPortal() {
             </div>
           )}
 
-      {/* Map - show first on mobile (top of split) */}
-      <div className="pp-card overflow-hidden w-full order-first md:order-none">
-        <div className="p-3 sm:p-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 dark:from-gray-800 dark:to-gray-900 dark:border-gray-700">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-            <MapPin className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">Location Map</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-[65%_35%] gap-4 md:gap-6 items-start">
+            {/* Left column: order list */}
+            <div className="pp-card p-4 sm:p-6 min-h-[520px]">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100 mb-3">Order list</h2>
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-4">Tap an order for POD, call customer, or view details</p>
+              {deliveries.length === 0 ? (
+                <div className="py-8 text-center text-gray-500 dark:text-gray-400">
+                  <Truck className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p>No orders assigned yet.</p>
+                  <p className="text-sm mt-1">Contact your supervisor.</p>
+                </div>
+              ) : (
+                <div className="max-h-[560px] overflow-y-auto">
+                  <DeliveryTable
+                    onSelectDelivery={() => setShowModal(true)}
+                    onCloseDetailModal={() => setShowModal(false)}
+                  />
+                </div>
+              )}
+              {location && (
+                <div className="mt-4 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                  <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+                  <span>GPS active — Admin can track your location</span>
+                </div>
+              )}
             </div>
-            <div className="text-xs text-gray-500 dark:text-gray-300">
-              {isRouteLoading && 'Routing...'}
-              {!isRouteLoading && routeError && routeError}
-              {!isRouteLoading && !routeError && hasRoute && 'Route updated'}
-            </div>
-          </div>
-        </div>
-        <div className="relative w-full" style={{ width: '100%', margin: 0, padding: 0 }}>
-          <div 
-            ref={mapRef} 
-            className="h-[42vh] min-h-[240px] sm:h-[500px] lg:h-[600px] bg-gray-100 dark:bg-gray-900"
-            style={{ 
-              width: '100%',
-              position: 'relative',
-              zIndex: 1,
-              margin: 0,
-              padding: 0
-            }}
-          />
-          {!location && mapReady && (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-50 bg-opacity-90 z-[1000] dark:bg-gray-900/80">
-              <div className="pp-card text-center p-4 sm:p-6 max-w-sm mx-4">
-                <MapPin className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
-                <p className="text-gray-700 dark:text-gray-200 font-medium mb-1 text-sm sm:text-base">Waiting for GPS…</p>
-                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Enable location access so admin can track you</p>
-              </div>
-            </div>
-          )}
-          {!mapReady && (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-              <div className="text-center">
-                <RefreshCw className="w-8 h-8 text-gray-400 dark:text-gray-500 mx-auto mb-2 animate-spin" />
-                <p className="text-gray-600 dark:text-gray-300 text-sm">Loading map...</p>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
 
-      {/* Order list — tap to open POD, shows customer, phone, ETA */}
-      <div className="pp-card p-4 sm:p-6 order-2">
-        <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100 mb-3">Order list</h2>
-        <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-4">Tap an order for POD, call customer, or view details</p>
-        {deliveries.length === 0 ? (
-          <div className="py-8 text-center text-gray-500 dark:text-gray-400">
-            <Truck className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p>No orders assigned yet.</p>
-            <p className="text-sm mt-1">Contact your supervisor.</p>
+            {/* Right column: route + live telemetry */}
+            <div className="space-y-4">
+              <div className="pp-card p-4 sm:p-5">
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Routing & ETA</h3>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="pp-card p-3">
+                    <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Next ETA</div>
+                    <div className="font-semibold text-gray-900 dark:text-gray-100">{nextEta}</div>
+                  </div>
+                  <div className="pp-card p-3">
+                    <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Stops</div>
+                    <div className="font-semibold text-gray-900 dark:text-gray-100">{deliveries.length}</div>
+                  </div>
+                  <div className="pp-card p-3">
+                    <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Route Legs</div>
+                    <div className="font-semibold text-gray-900 dark:text-gray-100">{routeStats?.legs?.length || 0}</div>
+                  </div>
+                  <div className="pp-card p-3">
+                    <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Route Status</div>
+                    <div className="font-semibold text-gray-900 dark:text-gray-100">
+                      {isRouteLoading ? 'Routing...' : routeError ? routeError : hasRoute ? 'Updated' : 'No route'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pp-card p-4 sm:p-5">
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Live Coordinate & Speed</h3>
+                <div className="space-y-3 text-sm">
+                  <div className="pp-card p-3">
+                    <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Latitude</div>
+                    <div className="font-mono font-semibold text-gray-900 dark:text-gray-100">{location ? location.latitude.toFixed(6) : 'N/A'}</div>
+                  </div>
+                  <div className="pp-card p-3">
+                    <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Longitude</div>
+                    <div className="font-mono font-semibold text-gray-900 dark:text-gray-100">{location ? location.longitude.toFixed(6) : 'N/A'}</div>
+                  </div>
+                  <div className="pp-card p-3">
+                    <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Speed</div>
+                    <div className="font-semibold text-gray-900 dark:text-gray-100">{speedKmh} km/h</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pp-card overflow-hidden w-full">
+                <div className="p-3 sm:p-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 dark:from-gray-800 dark:to-gray-900 dark:border-gray-700">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">Location Map</h3>
+                  </div>
+                </div>
+                <div className="relative w-full" style={{ width: '100%', margin: 0, padding: 0 }}>
+                  <div
+                    ref={mapRef}
+                    className="h-[280px] sm:h-[340px] bg-gray-100 dark:bg-gray-900"
+                    style={{ width: '100%', position: 'relative', zIndex: 1, margin: 0, padding: 0 }}
+                  />
+                  {!location && mapReady && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gray-50 bg-opacity-90 z-[1000] dark:bg-gray-900/80">
+                      <div className="pp-card text-center p-4 max-w-sm mx-4">
+                        <MapPin className="w-9 h-9 text-gray-400 dark:text-gray-500 mx-auto mb-2" />
+                        <p className="text-gray-700 dark:text-gray-200 font-medium text-sm">Waiting for GPS…</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
-        ) : (
-          <div className="max-h-[420px] overflow-y-auto">
-            <DeliveryTable
-              onSelectDelivery={() => setShowModal(true)}
-              onCloseDetailModal={() => setShowModal(false)}
-            />
-          </div>
-        )}
-        {location && (
-          <div className="mt-4 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-            <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0" />
-            <span>GPS active — Admin can track your location</span>
-          </div>
-        )}
-      </div>
 
       <ToastContainer toasts={toasts} onRemove={removeToast} />
       <CustomerModal
