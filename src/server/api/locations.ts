@@ -118,6 +118,65 @@ async function checkDriverArrival(driverId: string, driverLat: number, driverLng
   }
 }
 
+// POST /api/driver/me/location - authenticated driver posts own location
+// IMPORTANT: must be defined before /:id/location to prevent Express matching "me" as an :id param
+router.post('/me/location', authenticate, async (req: Request, res: Response): Promise<void> => {
+  const driverId = getAuthenticatedDriverId(req);
+  const { latitude, longitude, heading, speed, accuracy, recorded_at } = req.body;
+  if (!driverId) { res.status(401).json({ error: 'unauthorized' }); return; }
+  const lat = Number(latitude);
+  const lng = Number(longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    res.status(400).json({ error: 'lat_long_required' });
+    return;
+  }
+  try {
+    const created = await prisma.liveLocation.create({
+      data: {
+        driverId,
+        latitude: lat,
+        longitude: lng,
+        heading: heading != null ? Number(heading) : null,
+        speed: speed != null ? Number(speed) : null,
+        accuracy: accuracy != null ? Number(accuracy) : null,
+        recordedAt: recorded_at ? new Date(recorded_at as string) : new Date()
+      }
+    }) as DbLocationRow;
+
+    setTimeout(async () => {
+      try {
+        await prisma.liveLocation.deleteMany({
+          where: {
+            driverId,
+            recordedAt: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+          }
+        });
+      } catch (err: unknown) {
+        console.error('Location cleanup error:', err);
+      }
+    }, 0);
+
+    setTimeout(() => {
+      void checkDriverArrival(driverId, lat, lng);
+    }, 0);
+
+    cache.invalidatePrefix('tracking:');
+    res.json({
+      ok: true,
+      location: {
+        id: created.id != null ? String(created.id) : undefined,
+        driver_id: created.driverId,
+        latitude: created.latitude,
+        longitude: created.longitude,
+        recorded_at: created.recordedAt
+      }
+    });
+  } catch (err: unknown) {
+    console.error('POST /api/driver/me/location', err);
+    res.status(500).json({ error: 'db_error', detail: (err as { message?: string })?.message });
+  }
+});
+
 // POST /api/driver/:id/location
 router.post('/:id/location', async (req: Request, res: Response): Promise<void> => {
   const driverId = req.params.id as string;
@@ -173,64 +232,6 @@ router.post('/:id/location', async (req: Request, res: Response): Promise<void> 
     });
   } catch (err: unknown) {
     console.error('POST /api/driver/:id/location', err);
-    res.status(500).json({ error: 'db_error', detail: (err as { message?: string })?.message });
-  }
-});
-
-// POST /api/driver/me/location - authenticated driver posts own location
-router.post('/me/location', authenticate, async (req: Request, res: Response): Promise<void> => {
-  const driverId = getAuthenticatedDriverId(req);
-  const { latitude, longitude, heading, speed, accuracy, recorded_at } = req.body;
-  if (!driverId) { res.status(401).json({ error: 'unauthorized' }); return; }
-  const lat = Number(latitude);
-  const lng = Number(longitude);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-    res.status(400).json({ error: 'lat_long_required' });
-    return;
-  }
-  try {
-    const created = await prisma.liveLocation.create({
-      data: {
-        driverId,
-        latitude: lat,
-        longitude: lng,
-        heading: heading != null ? Number(heading) : null,
-        speed: speed != null ? Number(speed) : null,
-        accuracy: accuracy != null ? Number(accuracy) : null,
-        recordedAt: recorded_at ? new Date(recorded_at as string) : new Date()
-      }
-    }) as DbLocationRow;
-
-    setTimeout(async () => {
-      try {
-        await prisma.liveLocation.deleteMany({
-          where: {
-            driverId,
-            recordedAt: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) }
-          }
-        });
-      } catch (err: unknown) {
-        console.error('Location cleanup error:', err);
-      }
-    }, 0);
-
-    setTimeout(() => {
-      void checkDriverArrival(driverId, lat, lng);
-    }, 0);
-
-    cache.invalidatePrefix('tracking:');
-    res.json({
-      ok: true,
-      location: {
-        id: created.id != null ? String(created.id) : undefined,
-        driver_id: created.driverId,
-        latitude: created.latitude,
-        longitude: created.longitude,
-        recorded_at: created.recordedAt
-      }
-    });
-  } catch (err: unknown) {
-    console.error('POST /api/driver/me/location', err);
     res.status(500).json({ error: 'db_error', detail: (err as { message?: string })?.message });
   }
 });

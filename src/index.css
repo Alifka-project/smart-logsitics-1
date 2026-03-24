@@ -1010,3 +1010,19 @@
     display: none !important;
   }
 }
+
+/* Global table responsiveness (mobile + tablet):
+   keep desktop table widths unchanged, but avoid horizontal scrolling on small screens. */
+@media (max-width: 1024px) {
+  .overflow-x-auto > table {
+    width: 100% !important;
+    min-width: 100% !important;
+    table-layout: auto !important;
+  }
+
+  .overflow-x-auto > table th,
+  .overflow-x-auto > table td {
+    white-space: normal !important;
+    word-break: break-word;
+  }
+}

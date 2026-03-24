@@ -164,7 +164,7 @@ router.get('/drivers', authenticate, requireAnyRole('admin', 'delivery_team'), a
       let prismaDrivers: {
         id: string; username: string | null; email: string | null; phone: string | null;
         fullName: string | null; active: boolean | null;
-        account?: { role: string } | null;
+        account?: { role: string; lastLogin?: Date | null } | null;
         status?: { status: string; updatedAt: Date; currentAssignmentId: string | null } | null;
       }[] = [];
 
@@ -180,7 +180,7 @@ router.get('/drivers', authenticate, requireAnyRole('admin', 'delivery_team'), a
             phone: true,
             fullName: true,
             active: true,
-            account: { select: { role: true } },
+            account: { select: { role: true, lastLogin: true } },
             status: { select: { status: true, updatedAt: true, currentAssignmentId: true } }
           }
         });
@@ -255,6 +255,7 @@ router.get('/drivers', authenticate, requireAnyRole('admin', 'delivery_team'), a
           full_name: d.fullName,
           active: d.active,
           role: d.account?.role || 'driver',
+          account: { role: d.account?.role || 'driver', lastLogin: d.account?.lastLogin || null },
           tracking: {
             online: loc ? (Date.now() - new Date(loc.recordedAt).getTime()) < ONLINE_WINDOW_MINUTES * 60 * 1000 : false,
             location: loc ? {
