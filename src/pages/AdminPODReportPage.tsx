@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import api from '../frontend/apiClient';
+import api, { setAuthToken } from '../frontend/apiClient';
 import {
   Download, Filter, Image, CheckCircle, XCircle, AlertTriangle,
   Camera, FileText, User, Clock, ArrowLeft, RefreshCw, Search,
@@ -67,7 +67,8 @@ interface PODFilters {
 }
 
 function ensureAuth(): void {
-  localStorage.getItem('auth_token');
+  const token = localStorage.getItem('auth_token');
+  if (token) setAuthToken(token);
 }
 
 export default function AdminPODReportPage(): React.ReactElement {

@@ -635,10 +635,11 @@ export default function AdminOperationsPage(): React.ReactElement {
   const mapRoute = roadRoute;
 
   const driverLocations = drivers
+    .filter(d => isDriverOnline(d))
     .map(driver => ({
       id: driver.id,
       name: driver.full_name || driver.fullName || driver.username || 'Driver',
-      status: driver.tracking?.status || (isDriverOnline(driver) ? 'online' : 'offline'),
+      status: driver.tracking?.status || 'online',
       speedKmh: driver.tracking?.location?.speed != null ? Math.round(driver.tracking.location.speed * 3.6) : null,
       lat: driver.tracking?.location?.lat,
       lng: driver.tracking?.location?.lng,

@@ -634,7 +634,7 @@ export default function DeliveryTeamPortal() {
                   deliveries={deliveries}
                   route={monitoringRoute}
                   driverLocations={drivers
-                    .filter((d) => d.tracking?.location && Number.isFinite(d.tracking.location.lat) && Number.isFinite(d.tracking.location.lng))
+                    .filter((d) => isContactOnline(d) && d.tracking?.location && Number.isFinite(d.tracking.location.lat) && Number.isFinite(d.tracking.location.lng))
                     .map((d) => ({
                       id: d.id,
                       name: d.fullName || d.full_name || d.username || 'Driver',

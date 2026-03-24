@@ -54,7 +54,8 @@ export default function DriverTrackingMap({ drivers }: DriverTrackingMapProps) {
 
     const validMarkers: L.Marker[] = [];
     drivers.forEach((driver) => {
-      if (driver.tracking?.location) {
+      const isOnline = driver.tracking?.online;
+      if (driver.tracking?.location && isOnline) {
         const { lat, lng, heading } = driver.tracking.location;
         const driverRaw = driver as unknown as Record<string, unknown>;
         const driverName =
@@ -62,14 +63,13 @@ export default function DriverTrackingMap({ drivers }: DriverTrackingMapProps) {
           (driverRaw['name'] as string | undefined) ||
           (driverRaw['username'] as string | undefined) ||
           'Unknown Driver';
-        const isOnline = driver.tracking.online;
 
         const icon = L.divIcon({
           className: 'driver-marker',
           html: `<div style="
             width: 32px;
             height: 32px;
-            background: ${isOnline ? '#10b981' : '#6b7280'};
+            background: #10b981;
             border: 3px solid white;
             border-radius: 50%;
             box-shadow: 0 2px 4px rgba(0,0,0,0.3);
@@ -96,7 +96,7 @@ export default function DriverTrackingMap({ drivers }: DriverTrackingMapProps) {
               <hr style="margin: 4px 0; border: none; border-top: 1px solid #ddd;">
               <div style="margin: 4px 0;">
                 <strong>Status:</strong>
-                <span style="color: ${isOnline ? '#10b981' : '#6b7280'}; font-weight: bold;">
+                <span style="color: #10b981; font-weight: bold;">
                   ${driver.tracking.status ?? 'unknown'}
                 </span><br>
                 <strong>Location:</strong> ${lat.toFixed(4)}, ${lng.toFixed(4)}<br>

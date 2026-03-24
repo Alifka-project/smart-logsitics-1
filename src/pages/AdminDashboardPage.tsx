@@ -1792,53 +1792,32 @@ export default function AdminDashboardPage(): React.ReactElement {
             </div>
 
             {/* Smart preset pills — each sets BOTH range AND granularity */}
-            <div className="space-y-2">
-              <p className="text-[11px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">Short-range (daily view)</p>
-              <div className="flex flex-wrap gap-1.5">
-                {([
-                  ['default', 'Last 12 Months', 'month'],
-                  ['last7',   'Last 7 Days',    'day'],
-                  ['last30',  'Last 30 Days',   'day'],
-                  ['thisMonth','This Month',    'day'],
-                  ['lastMonth','Last Month',    'day'],
-                ] as const).map(([k, label]) => (
-                  <button
-                    key={k}
-                    type="button"
-                    onClick={() => applyTrendPreset(k)}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
-                      trendsActivePreset === k
-                        ? 'bg-[#002D5B] border-[#002D5B] text-white shadow-sm'
-                        : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <p className="text-[11px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide pt-1">Long-range (monthly view)</p>
-              <div className="flex flex-wrap gap-1.5">
-                {([
-                  ['last90',  'Last 3 Months', 'month'],
-                  ['last6m',  'Last 6 Months', 'month'],
-                  ['thisYear','This Year',     'month'],
-                  ['lastYear','Last Year',     'month'],
-                  ['allTime', 'All Time',      'year'],
-                ] as const).map(([k, label]) => (
-                  <button
-                    key={k}
-                    type="button"
-                    onClick={() => applyTrendPreset(k)}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
-                      trendsActivePreset === k
-                        ? 'bg-[#002D5B] border-[#002D5B] text-white shadow-sm'
-                        : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+            <div className="flex flex-wrap gap-1.5">
+              {([
+                ['default',  'Last 12 Months', 'month'],
+                ['last7',    'Last 7 Days',    'day'],
+                ['last30',   'Last 30 Days',   'day'],
+                ['thisMonth','This Month',     'day'],
+                ['lastMonth','Last Month',     'day'],
+                ['last90',   'Last 3 Months',  'month'],
+                ['last6m',   'Last 6 Months',  'month'],
+                ['thisYear', 'This Year',      'month'],
+                ['lastYear', 'Last Year',      'month'],
+                ['allTime',  'All Time',       'year'],
+              ] as const).map(([k, label]) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => applyTrendPreset(k)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
+                    trendsActivePreset === k
+                      ? 'bg-[#002D5B] border-[#002D5B] text-white shadow-sm'
+                      : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
 
             {/* Custom date range */}
