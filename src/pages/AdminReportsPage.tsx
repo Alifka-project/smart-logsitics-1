@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api, { setAuthToken } from '../frontend/apiClient';
 import {
@@ -196,6 +196,7 @@ export default function AdminReportsPage(): React.ReactElement {
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: null, direction: 'asc' });
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [itemsPerPage] = useState<number>(20);
+  const deliveryTableTopRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     ensureAuth();
@@ -343,6 +344,11 @@ export default function AdminReportsPage(): React.ReactElement {
         ? { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' }
         : { key, direction: 'asc' }
     );
+  };
+
+  const goToReportPage = (page: number): void => {
+    setCurrentPage(page);
+    deliveryTableTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const getStatusBadge = (status: string): { cls: string; dot: string } => {
@@ -760,6 +766,7 @@ export default function AdminReportsPage(): React.ReactElement {
       {/* ── Delivery Details Table ── */}
       {reportData?.deliveries && reportData.deliveries.length > 0 && (
         <div className="pp-dash-card overflow-hidden">
+          <div ref={deliveryTableTopRef} />
           <div className="px-5 sm:px-6 py-4 border-b border-gray-100 dark:border-white/[0.07] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 tracking-tight">Delivery Details</h2>
@@ -907,7 +914,7 @@ export default function AdminReportsPage(): React.ReactElement {
               </p>
               <div className="flex items-center gap-1">
                 <button
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  onClick={() => goToReportPage(Math.max(1, currentPage - 1))}
                   disabled={currentPage === 1}
                   className="px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-600"
                 >
@@ -922,7 +929,7 @@ export default function AdminReportsPage(): React.ReactElement {
                   return (
                     <button
                       key={p}
-                      onClick={() => setCurrentPage(p)}
+                      onClick={() => goToReportPage(p)}
                       className={`px-3 py-1.5 text-xs rounded-lg ${
                         currentPage === p
                           ? 'bg-blue-900 text-white font-semibold'
@@ -934,7 +941,7 @@ export default function AdminReportsPage(): React.ReactElement {
                   );
                 })}
                 <button
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  onClick={() => goToReportPage(Math.min(totalPages, currentPage + 1))}
                   disabled={currentPage === totalPages}
                   className="px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-600"
                 >

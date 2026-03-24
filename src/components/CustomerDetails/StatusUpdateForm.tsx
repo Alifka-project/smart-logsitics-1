@@ -18,6 +18,7 @@ interface StatusOption {
   color: string;
   activeClass: string;
   iconActiveClass: string;
+  textActiveClass: string;
   description: string;
 }
 
@@ -35,8 +36,9 @@ const ALL_STATUSES: StatusOption[] = [
     label: 'Scheduled',
     icon: Clock,
     color: 'purple',
-    activeClass: 'border-purple-500 bg-purple-50',
-    iconActiveClass: 'text-purple-600',
+    activeClass: 'border-purple-500 bg-purple-50 dark:border-purple-400 dark:bg-purple-500/20',
+    iconActiveClass: 'text-purple-600 dark:text-purple-300',
+    textActiveClass: 'text-purple-700 dark:text-purple-200',
     description: 'Mark as scheduled',
   },
   {
@@ -44,8 +46,9 @@ const ALL_STATUSES: StatusOption[] = [
     label: 'Out for Delivery',
     icon: Truck,
     color: 'indigo',
-    activeClass: 'border-indigo-500 bg-indigo-50',
-    iconActiveClass: 'text-indigo-600',
+    activeClass: 'border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-500/20',
+    iconActiveClass: 'text-indigo-600 dark:text-indigo-300',
+    textActiveClass: 'text-indigo-700 dark:text-indigo-200',
     description: 'Driver has started delivery',
   },
   {
@@ -53,8 +56,9 @@ const ALL_STATUSES: StatusOption[] = [
     label: 'Delivered (With Installation)',
     icon: Wrench,
     color: 'green',
-    activeClass: 'border-green-500 bg-green-50',
-    iconActiveClass: 'text-green-600',
+    activeClass: 'border-green-500 bg-green-50 dark:border-green-400 dark:bg-green-500/20',
+    iconActiveClass: 'text-green-600 dark:text-green-300',
+    textActiveClass: 'text-green-700 dark:text-green-200',
     description: 'Delivered and installed',
   },
   {
@@ -62,8 +66,9 @@ const ALL_STATUSES: StatusOption[] = [
     label: 'Delivered (No Installation)',
     icon: CheckCircle2,
     color: 'green',
-    activeClass: 'border-green-500 bg-green-50',
-    iconActiveClass: 'text-green-600',
+    activeClass: 'border-green-500 bg-green-50 dark:border-green-400 dark:bg-green-500/20',
+    iconActiveClass: 'text-green-600 dark:text-green-300',
+    textActiveClass: 'text-green-700 dark:text-green-200',
     description: 'Delivered without installation',
   },
   {
@@ -71,8 +76,9 @@ const ALL_STATUSES: StatusOption[] = [
     label: 'Cancelled',
     icon: XCircle,
     color: 'red',
-    activeClass: 'border-red-500 bg-red-50',
-    iconActiveClass: 'text-red-600',
+    activeClass: 'border-red-500 bg-red-50 dark:border-red-400 dark:bg-red-500/20',
+    iconActiveClass: 'text-red-600 dark:text-red-300',
+    textActiveClass: 'text-red-700 dark:text-red-200',
     description: 'Delivery cancelled',
   },
   {
@@ -80,8 +86,9 @@ const ALL_STATUSES: StatusOption[] = [
     label: 'Rejected',
     icon: AlertCircle,
     color: 'red',
-    activeClass: 'border-red-500 bg-red-50',
-    iconActiveClass: 'text-red-600',
+    activeClass: 'border-red-500 bg-red-50 dark:border-red-400 dark:bg-red-500/20',
+    iconActiveClass: 'text-red-600 dark:text-red-300',
+    textActiveClass: 'text-red-700 dark:text-red-200',
     description: 'Delivery rejected',
   },
   {
@@ -89,8 +96,9 @@ const ALL_STATUSES: StatusOption[] = [
     label: 'Rescheduled',
     icon: RotateCcw,
     color: 'orange',
-    activeClass: 'border-orange-500 bg-orange-50',
-    iconActiveClass: 'text-orange-600',
+    activeClass: 'border-orange-500 bg-orange-50 dark:border-orange-400 dark:bg-orange-500/20',
+    iconActiveClass: 'text-orange-600 dark:text-orange-300',
+    textActiveClass: 'text-orange-700 dark:text-orange-200',
     description: 'Reschedule delivery',
   },
 ];
@@ -129,7 +137,7 @@ export default function StatusUpdateForm({
               <span
                 className={`font-medium text-xs sm:text-sm text-center ${
                   status === s.value
-                    ? 'text-gray-800 dark:text-gray-100'
+                    ? s.textActiveClass
                     : 'text-gray-600 dark:text-gray-300'
                 }`}
               >

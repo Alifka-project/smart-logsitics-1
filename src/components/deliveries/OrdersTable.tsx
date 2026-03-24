@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, Search } from 'lucide-react';
 import type { DeliveryOrder, DeliveryStatus } from '../../types/delivery';
 import { STATUS_CONFIG } from '../../config/statusColors';
@@ -109,6 +109,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
 }) => {
   const [rescheduleOrder, setRescheduleOrder] = useState<DeliveryOrder | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const tableTopRef = useRef<HTMLDivElement | null>(null);
   const itemsPerPage = 10;
 
   const filteredOrders = useMemo(() => {
@@ -261,8 +262,18 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
 
   const pages = pageWindow(currentPage, totalPages, 5);
 
+  const scrollToTableTop = (): void => {
+    tableTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const goToPage = (nextPage: number): void => {
+    setCurrentPage(nextPage);
+    scrollToTableTop();
+  };
+
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200/80 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <div ref={tableTopRef} />
       <div className="border-b border-gray-100 px-4 py-4 dark:border-gray-700 sm:px-5">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -434,6 +445,14 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                     </td>
                     <td className="min-w-[100px] max-w-[110px] w-[105px] overflow-hidden px-3 py-2.5 align-middle shrink-0" data-label="Action">
                       <div className="flex flex-nowrap items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => onEditOrder(order.id)}
+                          className="px-2 py-1 text-[11px] font-medium rounded border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                          title="Change status"
+                        >
+                          Status
+                        </button>
                         {getActionButton(order)}
                       </div>
                     </td>
@@ -454,7 +473,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
         <div className="flex gap-1 flex-wrap">
           <button
             type="button"
-            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            onClick={() => goToPage(Math.max(1, currentPage - 1))}
             disabled={currentPage === 1}
             className="px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded text-sm disabled:opacity-50"
           >
@@ -464,7 +483,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
             <button
               key={p}
               type="button"
-              onClick={() => setCurrentPage(p)}
+              onClick={() => goToPage(p)}
               className={`px-3 py-1.5 rounded text-sm ${
                 currentPage === p
                   ? 'bg-[#002D5B] text-white'
@@ -476,7 +495,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
           ))}
           <button
             type="button"
-            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            onClick={() => goToPage(Math.min(totalPages, currentPage + 1))}
             disabled={currentPage === totalPages || sortedOrders.length === 0}
             className="px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded text-sm disabled:opacity-50"
           >
