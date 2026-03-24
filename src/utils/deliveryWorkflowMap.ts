@@ -66,10 +66,9 @@ function deriveWorkflowStatus(d: Delivery, smsSentAt: Date | undefined): Deliver
     return 'delivered';
   }
 
-  const assigned =
-    Boolean(d.assignedDriverId) || Boolean(rec.driverName) || ['out-for-delivery', 'in-transit', 'in-progress'].includes(s);
-
-  if (assigned) return 'out_for_delivery';
+  // Only use the raw status to determine out_for_delivery — a driver being
+  // assigned (assignedDriverId set) does NOT mean the delivery is dispatched.
+  if (['out-for-delivery', 'in-transit', 'in-progress'].includes(s)) return 'out_for_delivery';
 
   if (s === 'confirmed' || s === 'scheduled-confirmed') {
     const target =

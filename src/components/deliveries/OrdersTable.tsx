@@ -57,6 +57,7 @@ interface OrdersTableProps {
   onWhatsApp: (phone: string) => void;
   onTrackDelivery?: (orderId: string) => void;
   onEditOrder: (orderId: string) => void;
+  onMarkOutForDelivery?: (orderId: string) => Promise<void>;
   searchQuery: string;
   onSearchChange: (query: string) => void;
   sortBy: string;
@@ -102,12 +103,14 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
   onWhatsApp,
   onTrackDelivery,
   onEditOrder,
+  onMarkOutForDelivery,
   searchQuery,
   onSearchChange,
   sortBy,
   onSortChange,
 }) => {
   const [rescheduleOrder, setRescheduleOrder] = useState<DeliveryOrder | null>(null);
+  const [markingOFD, setMarkingOFD] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const tableTopRef = useRef<HTMLDivElement | null>(null);
   const itemsPerPage = 10;
@@ -177,57 +180,88 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
     return <span className="text-gray-400">—</span>;
   };
 
+  const ofdButton = (orderId: string) =>
+    onMarkOutForDelivery ? (
+      <button
+        type="button"
+        disabled={markingOFD === orderId}
+        onClick={() => {
+          setMarkingOFD(orderId);
+          void onMarkOutForDelivery(orderId).finally(() => setMarkingOFD(null));
+        }}
+        className="px-3 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded disabled:opacity-60"
+        title="Manually dispatch — mark as out for delivery"
+      >
+        {markingOFD === orderId ? '…' : '🚚 Dispatch'}
+      </button>
+    ) : null;
+
   const getActionButton = (order: DeliveryOrder) => {
     switch (order.status) {
       case 'uploaded':
         return (
-          <button
-            type="button"
-            onClick={() => onResendSMS(order.id)}
-            className="px-3 py-1 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
-          >
-            Send SMS
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => onResendSMS(order.id)}
+              className="px-3 py-1 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              Send SMS
+            </button>
+            {ofdButton(order.id)}
+          </>
         );
       case 'sms_sent':
         return (
-          <button
-            type="button"
-            onClick={() => onResendSMS(order.id)}
-            className="px-3 py-1 text-xs bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 rounded hover:bg-emerald-100 dark:hover:bg-emerald-900/50"
-          >
-            Send SMS
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => onResendSMS(order.id)}
+              className="px-3 py-1 text-xs bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 rounded hover:bg-emerald-100 dark:hover:bg-emerald-900/50"
+            >
+              Send SMS
+            </button>
+            {ofdButton(order.id)}
+          </>
         );
       case 'unconfirmed':
         return (
-          <button
-            type="button"
-            onClick={() => onResendSMS(order.id)}
-            className="px-3 py-1 text-xs bg-red-50 dark:bg-red-900/30 border border-red-300 dark:border-red-800 text-red-700 dark:text-red-300 rounded hover:bg-red-100 dark:hover:bg-red-900/50"
-          >
-            Resend SMS
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => onResendSMS(order.id)}
+              className="px-3 py-1 text-xs bg-red-50 dark:bg-red-900/30 border border-red-300 dark:border-red-800 text-red-700 dark:text-red-300 rounded hover:bg-red-100 dark:hover:bg-red-900/50"
+            >
+              Resend SMS
+            </button>
+            {ofdButton(order.id)}
+          </>
         );
       case 'scheduled':
         return (
-          <button
-            type="button"
-            onClick={() => setRescheduleOrder(order)}
-            className="px-3 py-1 text-xs bg-amber-50 dark:bg-amber-900/30 border border-amber-400 dark:border-amber-700 text-amber-700 dark:text-amber-200 rounded hover:bg-amber-100 dark:hover:bg-amber-900/50"
-          >
-            Reschedule
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => setRescheduleOrder(order)}
+              className="px-3 py-1 text-xs bg-amber-50 dark:bg-amber-900/30 border border-amber-400 dark:border-amber-700 text-amber-700 dark:text-amber-200 rounded hover:bg-amber-100 dark:hover:bg-amber-900/50"
+            >
+              Reschedule
+            </button>
+            {ofdButton(order.id)}
+          </>
         );
       case 'confirmed':
         return (
-          <button
-            type="button"
-            onClick={() => setRescheduleOrder(order)}
-            className="px-3 py-1 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
-          >
-            Reschedule
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => setRescheduleOrder(order)}
+              className="px-3 py-1 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              Reschedule
+            </button>
+            {ofdButton(order.id)}
+          </>
         );
       case 'out_for_delivery':
         return (

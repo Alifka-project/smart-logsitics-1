@@ -142,8 +142,44 @@ export default function ManageTab({
         return;
       }
       const { apiStatus, updateData } = workflowToApiPatch(raw, newStatus, scheduledDate);
-      updateDeliveryStatus(orderId, apiStatus, updateData);
-      onNotifySuccess('Order updated', 'Status saved.');
+      // Persist to the server and update local store
+      api
+        .put(`/deliveries/admin/${orderId}/status`, {
+          status: apiStatus,
+          customer: raw.customer ?? undefined,
+          address: raw.address ?? undefined,
+        })
+        .then(() => {
+          updateDeliveryStatus(orderId, apiStatus, updateData);
+          onNotifySuccess('Order updated', 'Status saved.');
+        })
+        .catch((e: unknown) => {
+          const err = e as { response?: { data?: { error?: string } }; message?: string };
+          onToastError(err?.response?.data?.error ?? err?.message ?? 'Failed to update status');
+        });
+    },
+    [deliveries, updateDeliveryStatus, onNotifySuccess, onToastError],
+  );
+
+  const handleMarkOutForDelivery = useCallback(
+    async (orderId: string): Promise<void> => {
+      const raw = deliveries.find((d) => d.id === orderId);
+      if (!raw) { onToastError('Order not found.'); return; }
+      try {
+        await api.put(`/deliveries/admin/${orderId}/status`, {
+          status: 'out-for-delivery',
+          customer: raw.customer ?? undefined,
+          address: raw.address ?? undefined,
+        });
+        updateDeliveryStatus(orderId, 'out-for-delivery');
+        window.dispatchEvent(new CustomEvent('deliveryStatusUpdated', {
+          detail: { deliveryId: orderId, status: 'out-for-delivery', updatedAt: new Date() },
+        }));
+        onNotifySuccess('Dispatched', 'Delivery marked as out for delivery.');
+      } catch (e: unknown) {
+        const err = e as { response?: { data?: { error?: string } }; message?: string };
+        onToastError(err?.response?.data?.error ?? err?.message ?? 'Failed to dispatch delivery');
+      }
     },
     [deliveries, updateDeliveryStatus, onNotifySuccess, onToastError],
   );
@@ -245,6 +281,7 @@ export default function ManageTab({
             onWhatsApp={handleWhatsApp}
             onTrackDelivery={() => handleTrackDelivery()}
             onEditOrder={(id) => setEditDeliveryId(id)}
+            onMarkOutForDelivery={handleMarkOutForDelivery}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             sortBy={sortBy}
