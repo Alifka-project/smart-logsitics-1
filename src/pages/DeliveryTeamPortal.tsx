@@ -93,6 +93,7 @@ export default function DeliveryTeamPortal() {
   // Control tab state
   const [assigningDelivery, setAssigningDelivery] = useState<string | null>(null);
   const [assignmentMessage, setAssignmentMessage] = useState<AssignmentMessage | null>(null);
+  const [markingOFD, setMarkingOFD] = useState<string | null>(null);
   
   // Communication tab state
   const [selectedContact, setSelectedContact] = useState<ContactUser | null>(null); // Changed from selectedDriver
@@ -834,6 +835,7 @@ export default function DeliveryTeamPortal() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Assigned Driver</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Change Assignment</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -937,12 +939,39 @@ export default function DeliveryTeamPortal() {
                                 ))}
                               </select>
                             </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              {['pending', 'scheduled', 'uploaded', 'confirmed', 'scheduled-confirmed'].includes(rawStatus) && (
+                                <button
+                                  type="button"
+                                  disabled={markingOFD === delivery.id}
+                                  onClick={async () => {
+                                    setMarkingOFD(delivery.id);
+                                    try {
+                                      await api.put(`/deliveries/admin/${delivery.id}/status`, {
+                                        status: 'out-for-delivery',
+                                        customer: delivery.customer,
+                                        address: delivery.address,
+                                      });
+                                      setAssignmentMessage({ type: 'success', text: `✓ ${delivery.customer || 'Delivery'} marked as Out for Delivery` });
+                                      setTimeout(() => { void loadData(); setAssignmentMessage(null); }, 2000);
+                                    } catch {
+                                      setAssignmentMessage({ type: 'error', text: 'Failed to update status' });
+                                    } finally {
+                                      setMarkingOFD(null);
+                                    }
+                                  }}
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded text-xs font-semibold bg-green-600 hover:bg-green-700 text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                                >
+                                  {markingOFD === delivery.id ? 'Updating…' : '🚚 Out for Delivery'}
+                                </button>
+                              )}
+                            </td>
                           </tr>
                         );
                       })
                   ) : (
                     <tr>
-                      <td colSpan={6} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                      <td colSpan={7} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                         No deliveries available
                       </td>
                     </tr>

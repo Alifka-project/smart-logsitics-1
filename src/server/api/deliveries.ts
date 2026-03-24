@@ -205,7 +205,7 @@ router.put('/driver/:id/status', authenticate, requireRole('driver'), async (req
 
 // PUT /api/admin/deliveries/:id/status - Update delivery status in database
 // body: { status, notes, driverSignature, customerSignature, photos, actualTime, customer, address }
-router.put('/admin/:id/status', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_team'), async (req: Request, res: Response): Promise<void> => {
   const { id: deliveryIdParam } = req.params as { id: string };
   const body = req.body as {
     status?: string;
@@ -747,23 +747,44 @@ const TERMINAL_STATUSES = [
 ];
 
 // GET /api/deliveries - Get deliveries from database
-// By default returns ONLY "active" deliveries (non-terminal). To include history,
-// pass ?includeFinished=true from the client.
+// By default returns ONLY "active" deliveries (non-terminal), filtered to
+// today's deliveries: non-confirmed deliveries always show, while
+// scheduled-confirmed deliveries only appear when their confirmedDeliveryDate
+// is today or earlier (future-date picks are hidden until that date).
+// Pass ?includeFinished=true to include all terminal-status deliveries.
 router.get('/', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
     const includeFinished = req.query.includeFinished === 'true';
+
+    // Build a today-scoped date range for filtering confirmed deliveries.
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+    // Cache key scoped to today's date so confirmed-for-future deliveries
+    // automatically become visible on their scheduled date.
+    const dateKey = todayStart.toISOString().split('T')[0];
     const cacheKey = includeFinished
       ? 'deliveries:list:v2:all'
-      : 'deliveries:list:v2:active';
+      : `deliveries:list:v2:active:${dateKey}`;
 
     const deliveries = await cache.getOrFetch(cacheKey, async () => {
-      const whereClause = includeFinished
-        ? {}
-        : {
-            status: {
-              notIn: TERMINAL_STATUSES,
-            },
-          };
+      let whereClause: Record<string, unknown>;
+      if (includeFinished) {
+        whereClause = {};
+      } else {
+        whereClause = {
+          status: { notIn: TERMINAL_STATUSES },
+          // Only show confirmed deliveries whose date is today or earlier.
+          // Unconfirmed deliveries (pending/scheduled/etc.) always show so
+          // admin can dispatch them manually.
+          OR: [
+            { status: { notIn: ['scheduled-confirmed', 'confirmed'] } },
+            { status: { in: ['scheduled-confirmed', 'confirmed'] }, confirmedDeliveryDate: { lte: todayEnd } },
+            { status: { in: ['scheduled-confirmed', 'confirmed'] }, confirmedDeliveryDate: null },
+          ],
+        };
+      }
 
       return prisma.delivery.findMany({
         where: whereClause,
@@ -778,17 +799,15 @@ router.get('/', authenticate, async (req: Request, res: Response): Promise<void>
           items: true,
           metadata: true,
           poNumber: true,
+          confirmationStatus: true,
+          confirmedDeliveryDate: true,
           createdAt: true,
           updatedAt: true,
           assignments: {
             select: {
               driverId: true,
               status: true,
-              driver: {
-                select: {
-                  fullName: true
-                }
-              }
+              driver: { select: { fullName: true } }
             },
             take: 1,
             orderBy: { assignedAt: 'desc' }
@@ -812,6 +831,8 @@ router.get('/', authenticate, async (req: Request, res: Response): Promise<void>
         status: d.status,
         items: d.items,
         metadata: d.metadata,
+        confirmationStatus: d.confirmationStatus,
+        confirmedDeliveryDate: d.confirmedDeliveryDate,
         created_at: d.createdAt,
         createdAt: d.createdAt,
         created: d.createdAt,

@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { MapPin, Package, Phone, Navigation, GripVertical, MessageCircle } from 'lucide-react';
+import { MapPin, Package, Phone, Navigation, GripVertical, MessageCircle, Truck } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import SMSConfirmationModal from './SMSConfirmationModal';
+import api from '../../frontend/apiClient';
+import useDeliveryStore from '../../store/useDeliveryStore';
 import type { Delivery } from '../../types';
 
 interface DeliveryCardProps {
@@ -41,6 +43,8 @@ export default function DeliveryCard({
   onMouseLeave,
 }: DeliveryCardProps) {
   const [showSMSModal, setShowSMSModal] = useState(false);
+  const [markingOutForDelivery, setMarkingOutForDelivery] = useState(false);
+  const updateDeliveryStatus = useDeliveryStore((state) => state.updateDeliveryStatus);
   const dynamicDistanceKm =
     typeof (delivery as Delivery & { distanceFromDriverKm?: number }).distanceFromDriverKm === 'number'
       ? (delivery as Delivery & { distanceFromDriverKm?: number }).distanceFromDriverKm
@@ -61,6 +65,29 @@ export default function DeliveryCard({
     }
   };
 
+  const handleMarkOutForDelivery = async (e: React.MouseEvent): Promise<void> => {
+    e.stopPropagation();
+    if (markingOutForDelivery) return;
+    setMarkingOutForDelivery(true);
+    try {
+      const response = await api.put(`/deliveries/admin/${delivery.id}/status`, {
+        status: 'out-for-delivery',
+        customer: delivery.customer,
+        address: delivery.address,
+      });
+      if (response.data?.ok) {
+        updateDeliveryStatus(delivery.id as string, 'out-for-delivery');
+        window.dispatchEvent(new CustomEvent('deliveryStatusUpdated', {
+          detail: { deliveryId: delivery.id, status: 'out-for-delivery', updatedAt: new Date() },
+        }));
+      }
+    } catch (err) {
+      console.error('[DeliveryCard] Failed to mark out for delivery:', err);
+    } finally {
+      setMarkingOutForDelivery(false);
+    }
+  };
+
   const handleCallClick = (e: React.MouseEvent): void => {
     e.stopPropagation();
     if (delivery.phone) {
@@ -69,6 +96,9 @@ export default function DeliveryCard({
   };
 
   const isP1 = delivery.priority === 1;
+  const canMarkOutForDelivery = ['pending', 'scheduled', 'uploaded', 'confirmed', 'scheduled-confirmed'].includes(
+    (delivery.status || '').toLowerCase(),
+  );
 
   return (
     <div
@@ -193,6 +223,18 @@ export default function DeliveryCard({
                   SMS
                 </button>
               </div>
+            )}
+            {canMarkOutForDelivery && (
+              <button
+                type="button"
+                onClick={(e) => { void handleMarkOutForDelivery(e); }}
+                disabled={markingOutForDelivery}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-600 hover:bg-green-700 text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                title="Manually mark as out for delivery"
+              >
+                <Truck className="w-3.5 h-3.5" />
+                {markingOutForDelivery ? 'Updating…' : 'Out for Delivery'}
+              </button>
             )}
           </div>
         </div>

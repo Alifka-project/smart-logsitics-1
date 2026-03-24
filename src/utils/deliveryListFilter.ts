@@ -35,8 +35,16 @@ export function applyDeliveryListFilter(
   const active = getActiveDeliveriesForList(list);
   switch (safeFilter) {
     case 'pending':
-      return active.filter((d) => (d.status || '').toLowerCase() === 'pending');
+      // "Pending" = any delivery that is awaiting admin/driver action — not yet
+      // out for delivery and not yet confirmed by the customer for a future date.
+      // Includes 'pending' (just uploaded), 'scheduled' (SMS sent, awaiting reply),
+      // and 'uploaded' (ingested but not yet actioned).
+      return active.filter((d) => {
+        const s = (d.status || '').toLowerCase();
+        return s === 'pending' || s === 'scheduled' || s === 'uploaded';
+      });
     case 'confirmed':
+      // "Confirmed" = customer has confirmed their delivery date via the SMS link.
       return active.filter((d) => {
         const s = (d.status || '').toLowerCase();
         return s === 'confirmed' || s === 'scheduled-confirmed';
