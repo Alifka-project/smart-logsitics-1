@@ -160,19 +160,21 @@ function validateLocationsForRouting(
 
 function splitLocationsForRouting(
   locations: RouteLocation[],
-  maxWaypoints = 50,
+  maxWaypoints = 20,
 ): RouteLocation[][] {
   if (locations.length <= maxWaypoints) return [locations];
 
+  // Overlap consecutive chunks by 1 waypoint so their coordinate arrays
+  // connect seamlessly when concatenated — avoids the straight-line jump
+  // that occurs if each chunk restarts from the warehouse.
   const chunks: RouteLocation[][] = [];
-  const warehouse = locations[0];
-  const deliveries = locations.slice(1);
-
-  for (let i = 0; i < deliveries.length; i += maxWaypoints - 2) {
-    const chunk = [warehouse, ...deliveries.slice(i, i + (maxWaypoints - 2))];
-    chunks.push(chunk);
+  let i = 0;
+  while (i < locations.length - 1) {
+    const end = Math.min(i + maxWaypoints, locations.length);
+    chunks.push(locations.slice(i, end));
+    if (end >= locations.length) break;
+    i = end - 1; // start next chunk from the last point of this one
   }
-
   return chunks;
 }
 
@@ -284,8 +286,12 @@ export async function calculateRoute(
         );
 
         if (validCoords.length > 0) {
-          allCoordinates = allCoordinates.concat(validCoords);
-          console.log(`  Chunk ${i + 1}: ${validCoords.length} road-following coordinates`);
+          // Skip the first coordinate of subsequent chunks — it is the same
+          // waypoint as the last coordinate of the previous chunk (overlap),
+          // so appending it would create a duplicate point at the join.
+          const toAppend = i === 0 ? validCoords : validCoords.slice(1);
+          allCoordinates = allCoordinates.concat(toAppend);
+          console.log(`  Chunk ${i + 1}: ${toAppend.length} road-following coordinates (${validCoords.length} raw)`);
         } else {
           console.warn(`  Chunk ${i + 1}: No valid coordinates`);
         }

@@ -19,7 +19,7 @@ import {
   Package
 } from 'lucide-react';
 import DeliveryMap from '../components/MapView/DeliveryMap';
-import { calculateRoute, generateFallbackRoute } from '../services/advancedRoutingService';
+import { calculateRoute } from '../services/advancedRoutingService';
 
 /* ──── Interfaces ──── */
 
@@ -125,6 +125,13 @@ function getRoleBadge(role?: string): { label: string; color: string } {
   };
   return roleConfig[role || ''] || { label: role || 'Unknown', color: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' };
 }
+
+// Statuses that mean delivery work is finished — used both for KPI grouping
+// and to exclude completed stops from the route displayed on the map.
+const TERMINAL_STATUSES = new Set([
+  'delivered', 'delivered-with-installation', 'delivered-without-installation',
+  'completed', 'pod-completed', 'cancelled', 'rescheduled', 'returned',
+]);
 
 /* ──── Component ──── */
 
@@ -405,9 +412,12 @@ export default function AdminOperationsPage(): React.ReactElement {
   }, [messages]);
 
   /* Road-following route for map (OSRM) — only recalculates when the actual
-     delivery coordinates change, not on every 5-second poll cycle. */
+     delivery coordinates change, not on every 5-second poll cycle.
+     Only active (non-terminal) deliveries are routed — completed/cancelled
+     stops are excluded so the route only covers work still to be done. */
   useEffect(() => {
     const pts = deliveries
+      .filter((d) => !TERMINAL_STATUSES.has((d.status || '').toLowerCase()))
       .map((d) => {
         const lat = d.lat ?? d.Lat;
         const lng = d.lng ?? d.Lng;
@@ -455,14 +465,9 @@ export default function AdminOperationsPage(): React.ReactElement {
         setRouteLegDurationsSec(durations);
       })
       .catch(() => {
-        try {
-          const fallback = generateFallbackRoute(locations);
-          setRoadRoute({ coordinates: fallback.coordinates });
-          setRouteLegDurationsSec([]);
-        } catch {
-          setRoadRoute({ coordinates: [[25.0053, 55.0760], ...pts] });
-          setRouteLegDurationsSec([]);
-        }
+        // On OSRM failure show no route rather than confusing straight lines.
+        setRoadRoute(null);
+        setRouteLegDurationsSec([]);
       })
       .finally(() => setRouteLoading(false));
   }, [deliveries]);
@@ -528,13 +533,6 @@ export default function AdminOperationsPage(): React.ReactElement {
     }
     return false;
   };
-
-  // Mirror the server-side TERMINAL_STATUSES list so the ops page consistently
-  // separates "work still to do" from "work already done".
-  const TERMINAL_STATUSES = new Set([
-    'delivered', 'delivered-with-installation', 'delivered-without-installation',
-    'completed', 'pod-completed', 'cancelled', 'rescheduled', 'returned',
-  ]);
 
   const onlineDrivers = drivers.filter(d => isDriverOnline(d));
 
@@ -602,11 +600,11 @@ export default function AdminOperationsPage(): React.ReactElement {
     };
   });
 
-  const validRoutePoints = deliveriesWithEta
-    .map(d => [Number((d as unknown as { lat?: number }).lat), Number((d as unknown as { lng?: number }).lng)] as [number, number])
-    .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180);
-  const fallbackRoute = validRoutePoints.length > 0 ? { coordinates: [[25.0053, 55.0760], ...validRoutePoints] } : null;
-  const mapRoute = roadRoute ?? fallbackRoute;
+  // Use OSRM road-following route only — no straight-line fallback so the map
+  // never shows misleading direct-line segments.  The map simply shows no
+  // route line while OSRM is loading and snaps to the real road path once it
+  // resolves (typically within a few seconds).
+  const mapRoute = roadRoute;
 
   const driverLocations = drivers
     .map(driver => ({
