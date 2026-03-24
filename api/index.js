@@ -321,6 +321,114 @@ app.use((req, res, next) => {
   requireCSRF(req, res, next);
 });
 
+function resolveDriverIdFromAuth(req) {
+  const user = req.user || {};
+  return user.sub || user.id || null;
+}
+
+// Hotfix endpoints for production tracking reliability.
+// Keep here (tracked file) because dist-server is gitignored in this repo.
+app.get('/driver/me/live', async (req, res) => {
+  try {
+    const driverId = resolveDriverIdFromAuth(req);
+    if (!driverId) return res.status(401).json({ error: 'unauthorized' });
+
+    const prisma = require('../dist-server/server/db/prisma').default;
+    const latest = await prisma.liveLocation.findFirst({
+      where: { driverId },
+      orderBy: { recordedAt: 'desc' },
+      select: {
+        driverId: true,
+        latitude: true,
+        longitude: true,
+        recordedAt: true,
+        speed: true,
+        accuracy: true,
+        heading: true
+      }
+    });
+
+    if (!latest) return res.status(404).json({ error: 'not_found' });
+
+    return res.json({
+      driver_id: latest.driverId,
+      latitude: latest.latitude,
+      longitude: latest.longitude,
+      recorded_at: latest.recordedAt,
+      speed: latest.speed,
+      accuracy: latest.accuracy,
+      heading: latest.heading
+    });
+  } catch (err) {
+    console.error('[hotfix] GET /driver/me/live failed:', err);
+    return res.status(500).json({ error: 'db_error', detail: err.message });
+  }
+});
+
+app.post('/driver/me/location', async (req, res) => {
+  try {
+    const driverId = resolveDriverIdFromAuth(req);
+    if (!driverId) return res.status(401).json({ error: 'unauthorized' });
+
+    const { latitude, longitude, heading, speed, accuracy, recorded_at } = req.body || {};
+    const lat = Number(latitude);
+    const lng = Number(longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return res.status(400).json({ error: 'lat_long_required' });
+    }
+
+    const prisma = require('../dist-server/server/db/prisma').default;
+    const created = await prisma.liveLocation.create({
+      data: {
+        driverId,
+        latitude: lat,
+        longitude: lng,
+        heading: heading != null ? Number(heading) : null,
+        speed: speed != null ? Number(speed) : null,
+        accuracy: accuracy != null ? Number(accuracy) : null,
+        recordedAt: recorded_at ? new Date(recorded_at) : new Date()
+      }
+    });
+
+    // Keep table bounded and refresh tracking cache.
+    setTimeout(async () => {
+      try {
+        await prisma.liveLocation.deleteMany({
+          where: {
+            driverId,
+            recordedAt: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+          }
+        });
+      } catch (cleanupErr) {
+        console.error('[hotfix] live_locations cleanup failed:', cleanupErr);
+      }
+    }, 0);
+
+    try {
+      const cache = require('../dist-server/server/cache').default;
+      if (cache && typeof cache.invalidatePrefix === 'function') {
+        cache.invalidatePrefix('tracking:');
+      }
+    } catch (_cacheErr) {
+      // cache is best effort
+    }
+
+    return res.json({
+      ok: true,
+      location: {
+        id: created.id != null ? String(created.id) : undefined,
+        driver_id: created.driverId,
+        latitude: created.latitude,
+        longitude: created.longitude,
+        recorded_at: created.recordedAt
+      }
+    });
+  } catch (err) {
+    console.error('[hotfix] POST /driver/me/location failed:', err);
+    return res.status(500).json({ error: 'db_error', detail: err.message });
+  }
+});
+
 // Protected API routes (all require database)
 app.use('/admin/drivers', require('../dist-server/server/api/drivers').default);
 app.use('/admin/notifications', require('../dist-server/server/api/notifications').default);
