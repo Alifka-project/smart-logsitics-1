@@ -2336,8 +2336,10 @@ export default function AdminDashboardPage(): React.ReactElement {
                                 value={delivery.status || 'pending'}
                             onChange={async e => {
                               const newStatus = e.target.value;
+                              const deliveryId = delivery.id || delivery.ID;
+                              if (!deliveryId) return;
                               try {
-                                await api.put(`/deliveries/admin/${delivery.id || delivery.ID}/status`, { status: newStatus });
+                                await api.put(`/deliveries/admin/${deliveryId}/status`, { status: newStatus });
                                 setDeliveries(prev => prev.map(d =>
                                   (d.id === delivery.id || d.ID === delivery.ID) ? { ...d, status: newStatus } : d
                                 ));
