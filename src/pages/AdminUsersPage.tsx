@@ -898,10 +898,15 @@ export default function AdminUsersPage(): React.ReactElement {
 
       {/* Add/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="pp-dash-card shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto transition-colors">
-            <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[10050]"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="admin-users-modal-title"
+        >
+          <div className="pp-dash-card shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto transition-colors relative z-[1]">
+            <div className="sticky top-0 z-[2] bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
+              <h2 id="admin-users-modal-title" className="text-xl font-semibold text-gray-900 dark:text-gray-100">
                 {editingUser ? 'Edit' : 'Add New'} {activeTab === 'accounts' ? 'Account' : 'Driver'}
               </h2>
               <button
@@ -912,7 +917,7 @@ export default function AdminUsersPage(): React.ReactElement {
               </button>
             </div>
 
-            <form onSubmit={(e) => void handleSubmit(e)} className="p-6 space-y-4">
+            <form onSubmit={(e) => void handleSubmit(e)} className="px-6 pb-6 pt-8 space-y-6">
               {/* Personal Information */}
               <div>
                 <h3 className="text-lg font-medium mb-4 text-gray-900 dark:text-gray-100">Personal Information</h3>
