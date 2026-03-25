@@ -388,7 +388,7 @@ router.put('/admin/:id/contact', authenticate, requireRole('admin'), async (req:
 
     cache.invalidatePrefix('tracking:');
     cache.invalidatePrefix('dashboard:');
-    cache.delete('deliveries:list:v2');
+    cache.del('deliveries:list:v2');
 
     console.log(`[Deliveries] Contact updated for delivery ${existingDelivery.id}`);
 
@@ -649,7 +649,7 @@ router.post('/upload', authenticate, async (req: Request, res: Response): Promis
     // Invalidate caches after bulk upload
     cache.invalidatePrefix('tracking:');
     cache.invalidatePrefix('dashboard:');
-    cache.delete('deliveries:list:v2');
+    cache.del('deliveries:list:v2');
 
     console.log(`[Deliveries] Upload complete: ${results.filter(r => r.saved).length} saved, ${assignmentResults.filter(a => a.success).length} assigned`);
 
@@ -704,7 +704,7 @@ router.post('/bulk-assign', authenticate, requireRole('admin'), async (req: Requ
     // Invalidate caches after bulk assignment
     cache.invalidatePrefix('tracking:');
     cache.invalidatePrefix('dashboard:');
-    cache.delete('deliveries:list:v2');
+    cache.del('deliveries:list:v2');
 
     res.json({
       success: true,

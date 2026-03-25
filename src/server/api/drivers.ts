@@ -151,7 +151,7 @@ router.post('/', authenticate, requireRole('admin'), async (req: Request, res: R
 
     console.log(`✅ User created successfully: ${driver.username}, role: ${driver.role}`);
     // Invalidate caches
-    cache.delete('drivers:list');
+    cache.del('drivers:list');
     cache.invalidatePrefix('contacts:');
     cache.invalidatePrefix('tracking:');
     res.status(201).json(driver);
@@ -252,7 +252,7 @@ router.put('/:id([0-9a-fA-F-]{36})', authenticate, requireRole('admin'), async (
     }) as { username?: string; account?: { role?: string } };
 
     console.log(`✅ User updated successfully: ${updated.username}, role: ${updated.account?.role}`);
-    cache.delete('drivers:list');
+    cache.del('drivers:list');
     cache.invalidatePrefix('contacts:');
     res.json(updated);
   } catch (err: unknown) {
@@ -328,7 +328,7 @@ router.patch('/:id([0-9a-fA-F-]{36})', authenticate, requireRole('admin'), async
       });
     });
 
-    cache.delete('drivers:list');
+    cache.del('drivers:list');
     cache.invalidatePrefix('contacts:');
     res.json(updated);
   } catch (err: unknown) {
@@ -357,7 +357,7 @@ router.delete('/:id([0-9a-fA-F-]{36})', authenticate, requireRole('admin'), asyn
       where: { id }
     });
 
-    cache.delete('drivers:list');
+    cache.del('drivers:list');
     cache.invalidatePrefix('contacts:');
     cache.invalidatePrefix('tracking:');
     res.json({ ok: true, message: 'Driver deleted successfully' });
