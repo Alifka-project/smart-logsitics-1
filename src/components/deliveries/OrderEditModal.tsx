@@ -112,11 +112,11 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
 
   const modal = (
     <div
-      className="fixed inset-0 z-[10050] flex items-center justify-center bg-black/50 p-4 sm:p-6"
+      className="pp-modal-backdrop fixed inset-0 z-[10050] flex items-center justify-center bg-black/50 p-4 sm:p-6"
       role="presentation"
     >
       <div
-        className="flex max-h-[min(92vh,780px)] w-full max-w-md flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800"
+        className="pp-modal-card flex max-h-[min(92vh,780px)] w-full max-w-md flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800"
         role="dialog"
         aria-modal="true"
         aria-labelledby="order-edit-title"

@@ -1114,3 +1114,27 @@
     flex-wrap: wrap;
   }
 }
+
+/* ── Modal / Popup animations ─────────────────────────────── */
+@keyframes pp-backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes pp-card-in {
+  from { opacity: 0; transform: translateY(20px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+}
+
+@keyframes pp-card-out {
+  from { opacity: 1; transform: translateY(0)    scale(1);    }
+  to   { opacity: 0; transform: translateY(20px) scale(0.97); }
+}
+
+.pp-modal-backdrop {
+  animation: pp-backdrop-in 0.2s ease forwards;
+}
+
+.pp-modal-card {
+  animation: pp-card-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}

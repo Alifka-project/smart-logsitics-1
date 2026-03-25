@@ -72,11 +72,11 @@ export default function SMSConfirmationModal({
 
   const modalContent = (
     <div
-      className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+      className="pp-modal-backdrop fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
       style={{ zIndex: 99999, position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
     >
       <div
-        className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl max-w-lg w-full relative my-8 mx-auto border border-gray-200 dark:border-gray-700"
+        className="pp-modal-card bg-white dark:bg-gray-900 rounded-xl shadow-2xl max-w-lg w-full relative my-8 mx-auto border border-gray-200 dark:border-gray-700"
         style={{ maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}
         onClick={(e) => e.stopPropagation()}
       >

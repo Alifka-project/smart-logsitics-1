@@ -230,14 +230,14 @@ export default function CustomerModal({
 
   return ReactDOM.createPortal(
     <div
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-0 sm:p-4"
+      className="pp-modal-backdrop fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-0 sm:p-4"
       onClick={handleBackdropClick}
       role="dialog"
       aria-modal="true"
       aria-labelledby="delivery-confirmation-title"
     >
       <div
-        className="bg-white dark:bg-gray-900 shadow-2xl max-w-4xl w-full h-full sm:h-auto sm:max-h-[90vh] flex flex-col transition-colors rounded-none sm:rounded-lg min-h-0"
+        className="pp-modal-card bg-white dark:bg-gray-900 shadow-2xl max-w-4xl w-full h-full sm:h-auto sm:max-h-[90vh] flex flex-col transition-colors rounded-none sm:rounded-lg min-h-0"
         style={{ maxHeight: '100dvh' }}
         onClick={(e) => e.stopPropagation()}
       >

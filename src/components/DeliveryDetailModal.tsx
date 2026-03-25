@@ -226,12 +226,12 @@ export default function DeliveryDetailModal({
 
   const modalContent = (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+      className="pp-modal-backdrop fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
       style={{ zIndex: 9998, position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
       onClick={onClose}
     >
       <div
-        className="pp-dash-card shadow-2xl max-w-3xl w-full mx-4 sm:mx-auto max-h-[90vh] overflow-y-auto transform transition-all"
+        className="pp-modal-card pp-dash-card shadow-2xl max-w-3xl w-full mx-4 sm:mx-auto max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-800 dark:to-blue-900 border-b border-blue-200 dark:border-blue-700 px-4 py-4 sm:px-6 sm:py-5 flex items-center justify-between rounded-t-lg">

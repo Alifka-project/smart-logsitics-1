@@ -899,14 +899,14 @@ export default function AdminUsersPage(): React.ReactElement {
       {/* Add/Edit Modal */}
       {showModal && (
         <div
-          className="fixed inset-0 z-[10050] flex items-center justify-center p-4 sm:p-6"
+          className="pp-modal-backdrop fixed inset-0 z-[10050] flex items-center justify-center p-4 sm:p-6"
           role="presentation"
           onClick={e => {
             if (e.target === e.currentTarget) closeModal();
           }}
         >
           <div
-            className="flex max-h-[min(90vh,880px)] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800"
+            className="pp-modal-card flex max-h-[min(90vh,880px)] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800"
             role="dialog"
             aria-modal="true"
             aria-labelledby="admin-users-modal-title"
