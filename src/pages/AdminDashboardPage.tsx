@@ -626,7 +626,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
           ? hasData
             ? renderChart(cw)
             : <p className="text-center py-10 text-gray-400 dark:text-gray-500 text-xs">No data available</p>
-          : null
+          : <div className="w-full h-full animate-pulse bg-gray-100 dark:bg-gray-800 rounded-lg" />
         }
       </div>
     </div>
@@ -691,16 +691,18 @@ function ensureAuth(): void {
 export default function AdminDashboardPage(): React.ReactElement {
   const [chartReady, setChartReady] = useState(false);
   useEffect(() => { setChartReady(true); }, []);
-  const heroWrapRef = useRef<HTMLDivElement>(null);
+  // Callback ref: fires whenever the element is attached to the DOM,
+  // even if that happens after an async data load (useEffect with [] would
+  // miss it when there's an early-return loading spinner).
   const [heroCw, setHeroCw] = useState(0);
-  useEffect(() => {
-    const el = heroWrapRef.current;
+  const heroRoRef = useRef<ResizeObserver | null>(null);
+  const heroWrapRef = useCallback((el: HTMLDivElement | null) => {
+    if (heroRoRef.current) { heroRoRef.current.disconnect(); heroRoRef.current = null; }
     if (!el) return;
-    const update = () => { const w = el.getBoundingClientRect().width; if (w > 0) setHeroCw(Math.round(w)); };
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
+    const measure = () => { const w = el.getBoundingClientRect().width; if (w > 0) setHeroCw(Math.round(w)); };
+    requestAnimationFrame(measure);
+    heroRoRef.current = new ResizeObserver(measure);
+    heroRoRef.current.observe(el);
   }, []);
 
   const [data, setData] = useState<DashboardData | null>(null);
