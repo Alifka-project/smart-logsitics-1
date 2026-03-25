@@ -306,6 +306,9 @@ interface TrendChartCardProps {
 }
 
 function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey, xKey, chartType, barColor = '#2563EB', nameKey = 'name', targetValue, hidePeriodFilter = false }: TrendChartCardProps): React.ReactElement {
+  const [chartReady, setChartReady] = React.useState(false);
+  React.useEffect(() => { setChartReady(true); }, []);
+
   const FilterBtns = () => (
     <div className="inline-flex p-1 rounded-xl bg-gray-100/90 dark:bg-slate-700/45 gap-0.5 text-xs font-medium">
       {(['day', 'month', 'year'] as const).map(p => (
@@ -331,7 +334,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
     if (!hasData) return null;
     if (chartType === 'line') {
       return (
-        <ResponsiveContainer width="100%" height={220}>
+        <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
             <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
@@ -344,7 +347,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
     }
     if (chartType === 'area') {
       return (
-        <ResponsiveContainer width="100%" height={220}>
+        <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <defs>
               <linearGradient id={`areaGrad-${title.replace(/\s/g, '')}`} x1="0" y1="0" x2="0" y2="1">
@@ -363,7 +366,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
     }
     if (chartType === 'stacked-area') {
       return (
-        <ResponsiveContainer width="100%" height={220}>
+        <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
             <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
@@ -379,7 +382,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
     }
     if (chartType === 'stacked-bar') {
       return (
-        <ResponsiveContainer width="100%" height={220}>
+        <ResponsiveContainer width="100%" height="100%">
           <BarChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
             <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
@@ -395,7 +398,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
     }
     if (chartType === 'bar') {
       return (
-        <ResponsiveContainer width="100%" height={220}>
+        <ResponsiveContainer width="100%" height="100%">
           <BarChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
             <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
@@ -408,7 +411,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
     }
     if (chartType === 'bar-h') {
       return (
-        <ResponsiveContainer width="100%" height={220}>
+        <ResponsiveContainer width="100%" height="100%">
           <BarChart data={d} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" horizontal={false} />
             <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
@@ -421,7 +424,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
     }
     if (chartType === 'demand-ma') {
       return (
-        <ResponsiveContainer width="100%" height={220}>
+        <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
             <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
@@ -436,7 +439,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
     }
     if (chartType === 'fulfillment') {
       return (
-        <ResponsiveContainer width="100%" height={220}>
+        <ResponsiveContainer width="100%" height="100%">
           <BarChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
             <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
@@ -453,7 +456,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
     }
     if (chartType === 'success-target' && targetValue != null) {
       return (
-        <ResponsiveContainer width="100%" height={220}>
+        <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
             <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
@@ -467,7 +470,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
     }
     if (chartType === 'lead-time') {
       return (
-        <ResponsiveContainer width="100%" height={220}>
+        <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
             <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
@@ -482,7 +485,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
     }
     if (chartType === 'backlog') {
       return (
-        <ResponsiveContainer width="100%" height={220}>
+        <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <defs>
               <linearGradient id={`backlogGrad-${title.replace(/\s/g, '')}`} x1="0" y1="0" x2="0" y2="1">
@@ -501,7 +504,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
     }
     if (chartType === 'status-mix-100') {
       return (
-        <ResponsiveContainer width="100%" height={220}>
+        <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }} stackOffset="expand">
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
             <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
@@ -518,7 +521,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
     if (chartType === 'areas-stacked') {
       const topKeys = (d[0] ? Object.keys(d[0]).filter(k => !['key', 'label', 'day'].includes(k) && typeof (d[0] as Record<string, unknown>)[k] === 'number') : []) as string[];
       return (
-        <ResponsiveContainer width="100%" height={220}>
+        <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
             <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
@@ -535,7 +538,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
     }
     if (chartType === 'items-ranked') {
       return (
-        <ResponsiveContainer width="100%" height={220}>
+        <ResponsiveContainer width="100%" height="100%">
           <BarChart data={d} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" horizontal={false} />
             <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
@@ -557,7 +560,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
         .filter((item) => item.value > 0);
       if (pieData.length === 0) return <p className="text-center py-10 text-gray-400 dark:text-gray-500 text-xs">No data to display</p>;
       return (
-        <ResponsiveContainer width="100%" height={220}>
+        <ResponsiveContainer width="100%" height="100%">
           <PieChart margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
             <Pie
               data={pieData}
@@ -589,7 +592,14 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
         </div>
         {!hidePeriodFilter && <FilterBtns />}
       </div>
-      {hasData ? renderChart() : <p className="text-center py-10 text-gray-400 dark:text-gray-500 text-xs">No data available</p>}
+      <div style={{ width: '100%', height: 220, minHeight: 220 }}>
+        {!chartReady
+          ? null
+          : hasData
+          ? renderChart()
+          : <p className="text-center py-10 text-gray-400 dark:text-gray-500 text-xs">No data available</p>
+        }
+      </div>
     </div>
   );
 }
@@ -650,6 +660,9 @@ function ensureAuth(): void {
 }
 
 export default function AdminDashboardPage(): React.ReactElement {
+  const [chartReady, setChartReady] = useState(false);
+  useEffect(() => { setChartReady(true); }, []);
+
   const [data, setData] = useState<DashboardData | null>(null);
   const [drivers, setDrivers] = useState<AdminDriver[]>([]);
   const [deliveries, setDeliveries] = useState<TrackingDelivery[]>([]);
@@ -1638,23 +1651,25 @@ export default function AdminDashboardPage(): React.ReactElement {
                   </div>
                 </div>
                 <div className="w-full h-[248px] sm:h-[268px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={heroChartData} margin={{ top: 8, right: 24, left: -8, bottom: 4 }} barCategoryGap="12%">
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
-                      <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false}
-                        interval={heroPeriod === '7d' ? 0 : heroPeriod === '30d' ? 4 : 8} />
-                      <YAxis yAxisId="left" tick={{ fontSize: 11, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} width={36} />
-                      <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#f97316' }} tickLine={false} axisLine={false} unit="%" domain={[0, 100]} width={40} />
-                      <Tooltip
-                        {...RECHARTS_TOOLTIP_OVERVIEW}
-                        formatter={(val: number | string, name: string) => (name === 'Success Rate %' ? [`${val}%`, name] : [val, name]) as [React.ReactNode, string]}
-                      />
-                      <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '8px', color: 'var(--chart-legend)' }} />
-                      <Bar yAxisId="left" dataKey="total" fill="#c7d7f9" name="Total Dispatched" radius={[3, 3, 0, 0]} maxBarSize={36} isAnimationActive animationDuration={900} animationEasing="ease-out" />
-                      <Bar yAxisId="left" dataKey="delivered" fill="#2563EB" name="Delivered" radius={[3, 3, 0, 0]} maxBarSize={36} isAnimationActive animationDuration={900} animationEasing="ease-out" />
-                      <Line yAxisId="right" type="monotone" dataKey="rate" stroke="#f97316" name="Success Rate %" dot={false} strokeWidth={2.5} isAnimationActive animationDuration={1100} animationEasing="ease-out" />
-                    </ComposedChart>
-                  </ResponsiveContainer>
+                  {chartReady && (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={heroChartData} margin={{ top: 8, right: 24, left: -8, bottom: 4 }} barCategoryGap="12%">
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+                        <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false}
+                          interval={heroPeriod === '7d' ? 0 : heroPeriod === '30d' ? 4 : 8} />
+                        <YAxis yAxisId="left" tick={{ fontSize: 11, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} width={36} />
+                        <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#f97316' }} tickLine={false} axisLine={false} unit="%" domain={[0, 100]} width={40} />
+                        <Tooltip
+                          {...RECHARTS_TOOLTIP_OVERVIEW}
+                          formatter={(val: number | string, name: string) => (name === 'Success Rate %' ? [`${val}%`, name] : [val, name]) as [React.ReactNode, string]}
+                        />
+                        <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '8px', color: 'var(--chart-legend)' }} />
+                        <Bar yAxisId="left" dataKey="total" fill="#c7d7f9" name="Total Dispatched" radius={[3, 3, 0, 0]} maxBarSize={36} isAnimationActive animationDuration={900} animationEasing="ease-out" />
+                        <Bar yAxisId="left" dataKey="delivered" fill="#2563EB" name="Delivered" radius={[3, 3, 0, 0]} maxBarSize={36} isAnimationActive animationDuration={900} animationEasing="ease-out" />
+                        <Line yAxisId="right" type="monotone" dataKey="rate" stroke="#f97316" name="Success Rate %" dot={false} strokeWidth={2.5} isAnimationActive animationDuration={1100} animationEasing="ease-out" />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  )}
                 </div>
               </div>
 
@@ -2494,20 +2509,22 @@ export default function AdminDashboardPage(): React.ReactElement {
                 <div className="pp-dash-card p-4">
                   <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">Area Performance Matrix</h3>
                   <p className="text-[10px] text-gray-400 mb-2">Deliveries (x) vs Success % (y), bubble size = pending</p>
-                  <ResponsiveContainer width="100%" height={220}>
-                    <ScatterChart margin={{ top: 5, right: 10, bottom: 5, left: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
-                      <XAxis type="number" dataKey="count" name="Deliveries" tick={{ fontSize: 9, fill: 'var(--chart-tick)' }} tickLine={false} />
-                      <YAxis type="number" dataKey="successRate" name="Success %" domain={[0, 100]} tick={{ fontSize: 9, fill: 'var(--chart-tick)' }} tickLine={false} />
-                      <ZAxis type="number" dataKey="pending" range={[60, 400]} name="Pending" />
-                      <Tooltip cursor={{ strokeDasharray: '3 3' }} {...RECHARTS_TOOLTIP} formatter={(val: number, name: string) => [name === 'successRate' ? `${val}%` : val, name]} />
-                      <Scatter
-                        data={deliveryByAreaEnhanced.map(r => ({ ...r, pending: Math.max(r.pending ?? 0, 1) }))}
-                        fill="#2563EB"
-                        fillOpacity={0.7}
-                      />
-                    </ScatterChart>
-                  </ResponsiveContainer>
+                  <div style={{ width: '100%', height: 220, minHeight: 220 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ScatterChart margin={{ top: 5, right: 10, bottom: 5, left: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                        <XAxis type="number" dataKey="count" name="Deliveries" tick={{ fontSize: 9, fill: 'var(--chart-tick)' }} tickLine={false} />
+                        <YAxis type="number" dataKey="successRate" name="Success %" domain={[0, 100]} tick={{ fontSize: 9, fill: 'var(--chart-tick)' }} tickLine={false} />
+                        <ZAxis type="number" dataKey="pending" range={[60, 400]} name="Pending" />
+                        <Tooltip cursor={{ strokeDasharray: '3 3' }} {...RECHARTS_TOOLTIP} formatter={(val: number, name: string) => [name === 'successRate' ? `${val}%` : val, name]} />
+                        <Scatter
+                          data={deliveryByAreaEnhanced.map(r => ({ ...r, pending: Math.max(r.pending ?? 0, 1) }))}
+                          fill="#2563EB"
+                          fillOpacity={0.7}
+                        />
+                      </ScatterChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               )}
             </div>
@@ -2964,36 +2981,38 @@ export default function AdminDashboardPage(): React.ReactElement {
                 ) : driverPanelAnalytics.outcomesPie.length === 0 ? (
                   <p className="text-center text-xs text-gray-400 dark:text-gray-500 py-10">No outcome data.</p>
                 ) : (
-                  <ResponsiveContainer width="100%" height={220}>
-                    <PieChart>
-                      <Pie
-                        data={driverPanelAnalytics.outcomesPie}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        innerRadius="52%"
-                        outerRadius="78%"
-                        paddingAngle={2}
-                        labelLine={false}
-                        label={(props: PieLabelRenderProps) => {
-                          const p = Number(props.percent ?? 0);
-                          return Number.isFinite(p) && p >= 0.06
-                            ? `${Math.round(p * 100)}%`
-                            : '';
-                        }}
-                      >
-                        {driverPanelAnalytics.outcomesPie.map((entry, i) => (
-                          <Cell key={i} fill={entry.fill} stroke="var(--surface)" strokeWidth={1} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        {...RECHARTS_TOOLTIP}
-                        formatter={(v: number, name: string) => [v, name]}
-                      />
-                      <Legend wrapperStyle={{ fontSize: '11px', color: 'var(--chart-legend)' }} />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  <div style={{ width: '100%', height: 220, minHeight: 220 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={driverPanelAnalytics.outcomesPie}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          innerRadius="52%"
+                          outerRadius="78%"
+                          paddingAngle={2}
+                          labelLine={false}
+                          label={(props: PieLabelRenderProps) => {
+                            const p = Number(props.percent ?? 0);
+                            return Number.isFinite(p) && p >= 0.06
+                              ? `${Math.round(p * 100)}%`
+                              : '';
+                          }}
+                        >
+                          {driverPanelAnalytics.outcomesPie.map((entry, i) => (
+                            <Cell key={i} fill={entry.fill} stroke="var(--surface)" strokeWidth={1} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          {...RECHARTS_TOOLTIP}
+                          formatter={(v: number, name: string) => [v, name]}
+                        />
+                        <Legend wrapperStyle={{ fontSize: '11px', color: 'var(--chart-legend)' }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
                 )}
               </div>
             </div>
