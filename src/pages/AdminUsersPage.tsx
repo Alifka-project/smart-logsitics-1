@@ -899,16 +899,17 @@ export default function AdminUsersPage(): React.ReactElement {
       {/* Add/Edit Modal */}
       {showModal && (
         <div
-          className="fixed inset-0 z-[10050] flex items-center justify-center bg-slate-900/[0.26] p-4 backdrop-blur-[8px] dark:bg-black/50 dark:backdrop-blur-md sm:p-6"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="admin-users-modal-title"
+          className="fixed inset-0 z-[10050] flex items-center justify-center bg-black/50 p-4 sm:p-6"
+          role="presentation"
           onClick={e => {
             if (e.target === e.currentTarget) closeModal();
           }}
         >
           <div
-            className="relative z-[1] flex max-h-[min(90vh,880px)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-gray-200/90 bg-white shadow-[0_24px_64px_-12px_rgba(15,23,42,0.22)] dark:border-gray-600/80 dark:bg-gray-800 dark:shadow-[0_24px_64px_-12px_rgba(0,0,0,0.55)]"
+            className="flex max-h-[min(90vh,880px)] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-users-modal-title"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex shrink-0 items-center justify-between gap-4 border-b border-gray-200/90 bg-gray-50/80 px-6 py-4 dark:border-gray-700 dark:bg-gray-900/40">
