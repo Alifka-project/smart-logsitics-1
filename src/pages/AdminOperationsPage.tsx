@@ -946,7 +946,7 @@ export default function AdminOperationsPage(): React.ReactElement {
                       </h2>
                     </div>
                     <div className="overflow-x-auto max-h-[560px] overflow-y-auto">
-                      <table className="min-w-[720px] w-full divide-y divide-gray-200 dark:divide-gray-700">
+                      <table className="pp-mobile-stack-table min-w-[720px] w-full divide-y divide-gray-200 dark:divide-gray-700">
                         <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0 z-10">
                           <tr>
                             {['#', 'Order', 'Customer & Address', 'Status', 'Driver', 'Priority', 'ETA', 'GPS'].map(h => (
@@ -984,32 +984,32 @@ export default function AdminOperationsPage(): React.ReactElement {
                             }
                             return (
                               <tr key={String(delivery.id || delivery.ID || idx)} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                <td className="px-3 py-3 text-xs text-gray-500 dark:text-gray-400 font-medium whitespace-nowrap">{idx + 1}</td>
-                                <td className="px-3 py-3 whitespace-nowrap">
+                                <td className="px-3 py-3 text-xs text-gray-500 dark:text-gray-400 font-medium whitespace-nowrap" data-label="#">{idx + 1}</td>
+                                <td className="px-3 py-3 whitespace-nowrap" data-label="Order">
                                   <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{poNum}</span>
                                   <div className="text-xs text-gray-400 dark:text-gray-500">{itemCount} item{itemCount !== 1 ? 's' : ''}</div>
                                 </td>
-                                <td className="px-3 py-3 max-w-[200px]">
+                                <td className="px-3 py-3 max-w-[200px]" data-label="Customer & Address">
                                   <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{customer}</div>
                                   <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{address.slice(0, 50)}{address.length > 50 ? '…' : ''}</div>
                                 </td>
-                                <td className="px-3 py-3 whitespace-nowrap">
+                                <td className="px-3 py-3 whitespace-nowrap" data-label="Status">
                                   <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${statusInfo.color}`}>
                                     {statusInfo.label}
                                   </span>
                                 </td>
-                                <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                                <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300" data-label="Driver">
                                   {driverName || <span className="text-gray-400 dark:text-gray-500 italic">Unassigned</span>}
                                 </td>
-                                <td className="px-3 py-3 whitespace-nowrap">
+                                <td className="px-3 py-3 whitespace-nowrap" data-label="Priority">
                                   <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${priorityInfo.color}`}>
                                     {priorityInfo.label}
                                   </span>
                                 </td>
-                                <td className="px-3 py-3 whitespace-nowrap text-sm font-medium text-gray-700 dark:text-gray-300">
+                                <td className="px-3 py-3 whitespace-nowrap text-sm font-medium text-gray-700 dark:text-gray-300" data-label="ETA">
                                   {eta != null ? `${eta} min` : <span className="text-gray-400 dark:text-gray-500 text-xs">—</span>}
                                 </td>
-                                <td className="px-3 py-3 whitespace-nowrap">{gpsCell}</td>
+                                <td className="px-3 py-3 whitespace-nowrap" data-label="GPS">{gpsCell}</td>
                               </tr>
                             );
                           })}
@@ -1052,7 +1052,7 @@ export default function AdminOperationsPage(): React.ReactElement {
                 { label: 'Unassigned',       value: deliveries.filter(d => !d.tracking?.driverId && !d.assignedDriverId).length, color: 'text-yellow-600 dark:text-yellow-400', bg: 'bg-yellow-50 dark:bg-yellow-900/20' },
                 { label: 'Available Drivers',value: drivers.length, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-900/20' },
               ].map(({ label, value, color, bg }) => (
-                <div key={label} className="pp-dash-card p-4 w-full min-w-0 max-w-[280px]">
+                <div key={label} className="pp-dash-card p-4 w-full min-w-0">
                   <div className={`rounded-xl p-3 ${bg}`}>
                     <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">{label}</div>
                     <div className={`text-2xl font-bold ${color} mt-1`}>{value}</div>

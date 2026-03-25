@@ -1145,7 +1145,7 @@ export default function DriverPortal() {
 
       {/* Messages Tab — mobile style: list then open chat card */}
       {activeTab === 'messages' && (
-        <div className="h-[calc(100vh-220px)] min-h-[520px] rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm bg-white dark:bg-gray-800">
+        <div className="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm bg-white dark:bg-gray-800" style={{height: 'max(520px, calc(100dvh - 220px))' }}>
           {!selectedContact ? (
             <div className="h-full flex flex-col">
               <div className="px-4 pt-4 pb-3 border-b border-gray-200 dark:border-gray-700">

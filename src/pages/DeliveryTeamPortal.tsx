@@ -826,7 +826,7 @@ export default function DeliveryTeamPortal() {
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Assign Deliveries to Drivers</h2>
             </div>
             <div className="overflow-x-auto">
-              <table className="min-w-[760px] divide-y divide-gray-200 dark:divide-gray-700">
+              <table className="pp-mobile-stack-table min-w-[760px] divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">PO Number</th>
@@ -872,21 +872,21 @@ export default function DeliveryTeamPortal() {
                           : 'Pending';
                         return (
                           <tr key={delivery.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100" data-label="PO Number">
                               {delivery.poNumber || (delivery as unknown as { PONumber?: string }).PONumber || '—'}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100" data-label="Customer">
                               {delivery.customer || 'Unknown'}
                             </td>
-                            <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate">
+                            <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate" data-label="Address">
                               {delivery.address || '—'}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm" data-label="Status">
                               <span className={`px-2 py-1 rounded-full text-xs font-semibold ${statusColor}`}>
                                 {statusLabel}
                               </span>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm" data-label="Assigned Driver">
                               {currentDriver ? (
                                 <div className="flex items-center gap-2">
                                   <div className="w-2 h-2 rounded-full bg-green-500"></div>
@@ -898,7 +898,7 @@ export default function DeliveryTeamPortal() {
                                 <span className="text-gray-400 italic">Unassigned</span>
                               )}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm" data-label="Change Assignment">
                               <select
                                 value={currentDriverId || ''}
                                 onChange={async (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -939,7 +939,7 @@ export default function DeliveryTeamPortal() {
                                 ))}
                               </select>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm" data-label="Actions">
                               {['pending', 'scheduled', 'uploaded', 'confirmed', 'scheduled-confirmed'].includes(rawStatus) && (
                                 <button
                                   type="button"
@@ -990,7 +990,7 @@ export default function DeliveryTeamPortal() {
 
       {/* Communication Tab — two-column chat layout */}
       {activeTab === 'communication' && (
-        <div className="flex md:flex-row h-[calc(100vh-220px)] min-h-[520px] rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm bg-white dark:bg-gray-800">
+        <div className="flex md:flex-row rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm bg-white dark:bg-gray-800" style={{ height: 'max(520px, calc(100dvh - 220px))' }}>
           {/* ── LEFT COLUMN: Contacts Panel ── */}
           <div className={`${selectedContact ? 'hidden md:flex' : 'flex'} w-full md:w-72 md:flex-shrink-0 flex-col bg-white dark:bg-gray-800 md:border-r border-gray-200 dark:border-gray-700`}>
             {/* Panel header with search */}

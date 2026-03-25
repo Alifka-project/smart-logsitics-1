@@ -174,7 +174,7 @@ export default function AdminDeliveryTrackingPage(): React.ReactElement {
       <div className="pp-dash-card p-5 transition-colors">
         <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Delivery Status</h2>
         <div className="overflow-x-auto">
-          <table className="min-w-[840px] divide-y divide-gray-200 dark:divide-gray-700">
+          <table className="pp-mobile-stack-table min-w-[840px] divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-700">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Delivery</th>
@@ -193,13 +193,13 @@ export default function AdminDeliveryTrackingPage(): React.ReactElement {
 
                 return (
                   <tr key={(delivery.id || delivery.ID) as string} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" data-label="Delivery">
                       <div>
                         <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{customerName}</div>
                         <div className="text-sm text-gray-500 dark:text-gray-400">{address}</div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="px-4 py-3 whitespace-nowrap" data-label="Status">
                       <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
                         tracking.status === 'in_progress'
                           ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
@@ -210,16 +210,16 @@ export default function AdminDeliveryTrackingPage(): React.ReactElement {
                         {tracking.status || delivery.status || 'unassigned'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400" data-label="Driver">
                       {tracking.driverId || 'Unassigned'}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {tracking.assignedAt 
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400" data-label="Assigned At">
+                      {tracking.assignedAt
                         ? new Date(tracking.assignedAt).toLocaleString()
                         : 'N/A'
                       }
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400" data-label="Location">
                       {location ? (
                         <div>
                           <div>{location.lat.toFixed(4)}, {location.lng.toFixed(4)}</div>

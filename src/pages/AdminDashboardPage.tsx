@@ -2157,30 +2157,30 @@ export default function AdminDashboardPage(): React.ReactElement {
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                   {topCustomersDataWithMeta.length > 0 ? topCustomersDataWithMeta.map((row, idx) => (
                     <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                      <td className="px-4 py-3 text-sm text-gray-400 dark:text-gray-500">{idx + 1}</td>
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{row.customer || '—'}</td>
-                      <td className="px-4 py-3 text-sm text-right font-bold text-blue-600 dark:text-blue-400">{row.orders ?? 0}</td>
-                      <td className="px-4 py-3 text-sm text-right text-green-600 dark:text-green-400 font-semibold">{row.delivered ?? 0}</td>
-                      <td className="px-4 py-3 text-sm text-right text-yellow-600 dark:text-yellow-400">{row.pending ?? 0}</td>
-                      <td className="px-4 py-3 text-sm text-right text-red-500 dark:text-red-400">{row.cancelled ?? 0}</td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-400">{row.sharePct?.toFixed(1) ?? '—'}%</td>
-                      <td className="px-4 py-3 text-sm text-right">
+                      <td className="px-4 py-3 text-sm text-gray-400 dark:text-gray-500" data-label="#">{idx + 1}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100" data-label="Customer">{row.customer || '—'}</td>
+                      <td className="px-4 py-3 text-sm text-right font-bold text-blue-600 dark:text-blue-400" data-label="Orders">{row.orders ?? 0}</td>
+                      <td className="px-4 py-3 text-sm text-right text-green-600 dark:text-green-400 font-semibold" data-label="Delivered">{row.delivered ?? 0}</td>
+                      <td className="px-4 py-3 text-sm text-right text-yellow-600 dark:text-yellow-400" data-label="Pending">{row.pending ?? 0}</td>
+                      <td className="px-4 py-3 text-sm text-right text-red-500 dark:text-red-400" data-label="Cancelled">{row.cancelled ?? 0}</td>
+                      <td className="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-400" data-label="Share %">{row.sharePct?.toFixed(1) ?? '—'}%</td>
+                      <td className="px-4 py-3 text-sm text-right" data-label="Pending Rate">
                         <span className={row.pendingRate > 20 ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-gray-600 dark:text-gray-400'}>
                           {row.pendingRate?.toFixed(1) ?? '—'}%
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-right">
+                      <td className="px-4 py-3 text-sm text-right" data-label="Success %">
                         <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${(row.successRate ?? 0) >= 80 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : (row.successRate ?? 0) >= 50 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
                           {(row.successRate ?? 0).toFixed(1)}%
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-center">
+                      <td className="px-4 py-3 text-sm text-center" data-label="Risk">
                         <RiskBadge level={row.riskFlag ?? 'low'} />
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400" data-label="Primary Area">
                         {row.primaryArea ? <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-gray-400" />{row.primaryArea}</span> : '—'}
                       </td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-400">{row.totalQuantity ?? '—'}</td>
+                      <td className="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-400" data-label="Total Qty">{row.totalQuantity ?? '—'}</td>
                     </tr>
                   )) : (
                     <tr><td colSpan={12} className="px-6 py-10 text-center text-gray-400 dark:text-gray-500 text-sm">No customer data available</td></tr>
@@ -2313,24 +2313,24 @@ export default function AdminDashboardPage(): React.ReactElement {
                       className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
                       onClick={() => { setSelectedDelivery(delivery); setIsModalOpen(true); }}
                     >
-                      <td className="px-4 py-3 text-sm font-mono text-blue-600 dark:text-blue-400">
+                      <td className="px-4 py-3 text-sm font-mono text-blue-600 dark:text-blue-400" data-label="PO Number">
                         {delivery.poNumber || String(delivery.id || delivery.ID || '').slice(0, 8)}
                           </td>
-                      <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{delivery.customer || 'N/A'}</td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100" data-label="Customer">{delivery.customer || 'N/A'}</td>
+                      <td className="px-4 py-3" data-label="Status">
                         <span className={`inline-block px-2 py-0.5 text-xs font-semibold rounded-full ${STATUS_COLORS[statusKey] || 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>
                           {STATUS_LABELS[statusKey] || delivery.status || 'Pending'}
                             </span>
                           </td>
-                      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400" data-label="Driver">
                         {delivery.driverName || (delivery.tracking?.driverId ? 'Assigned' : 'Unassigned')}
                           </td>
-                      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400" data-label="Date">
                         {(delivery.created_at || delivery.createdAt)
                           ? new Date(delivery.created_at || delivery.createdAt).toLocaleDateString('en-GB')
                               : 'N/A'}
                           </td>
-                      <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                      <td className="px-4 py-3" data-label="Actions" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-2">
                               <select
                                 value={delivery.status || 'pending'}
@@ -2588,7 +2588,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                 </button>
               </div>
               <div className="overflow-x-auto">
-              <table className="min-w-[900px]">
+              <table className="pp-mobile-stack-table w-full min-w-[900px]">
                 <thead className="bg-gray-50 dark:bg-gray-700/50">
                   <tr>
                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-left w-12">#</th>
@@ -2607,19 +2607,19 @@ export default function AdminDashboardPage(): React.ReactElement {
                     const risk = riskFromSuccessRate(row.successRate ?? 0);
                     return (
                       <tr key={row.area || i} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                        <td className="px-4 py-3 text-sm text-gray-400 dark:text-gray-500">{i + 1}</td>
-                        <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">
+                        <td className="px-4 py-3 text-sm text-gray-400 dark:text-gray-500" data-label="#">{i + 1}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100" data-label="Area">
                           <span className="flex items-center gap-2"><MapPin className="w-3.5 h-3.5 text-gray-400" />{row.area}</span>
                         </td>
-                        <td className="px-4 py-3 text-sm text-right font-bold text-blue-600 dark:text-blue-400">{row.count}</td>
-                        <td className="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-400">{share}%</td>
-                        <td className="px-4 py-3 text-sm text-right text-yellow-600 dark:text-yellow-400">{row.pending ?? 0}</td>
-                        <td className="px-4 py-3 text-sm text-right">
+                        <td className="px-4 py-3 text-sm text-right font-bold text-blue-600 dark:text-blue-400" data-label="Deliveries">{row.count}</td>
+                        <td className="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-400" data-label="Share %">{share}%</td>
+                        <td className="px-4 py-3 text-sm text-right text-yellow-600 dark:text-yellow-400" data-label="Pending">{row.pending ?? 0}</td>
+                        <td className="px-4 py-3 text-sm text-right" data-label="Success %">
                           <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${(row.successRate ?? 0) >= 80 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : (row.successRate ?? 0) >= 50 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
                             {(row.successRate ?? 0).toFixed(1)}%
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-sm text-center">
+                        <td className="px-4 py-3 text-sm text-center" data-label="Risk">
                           <RiskBadge level={risk} />
                         </td>
                       </tr>

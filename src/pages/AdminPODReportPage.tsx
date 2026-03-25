@@ -487,7 +487,7 @@ export default function AdminPODReportPage(): React.ReactElement {
             <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Daily POD Completion</h3>
           </div>
           <div className="overflow-x-auto">
-            <table className="min-w-[860px]">
+            <table className="pp-mobile-stack-table w-full min-w-[860px]">
               <thead>
                 <tr className="bg-gray-50 dark:bg-gray-900/40 border-b border-gray-100 dark:border-gray-700">
                   <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Date</th>
@@ -503,14 +503,14 @@ export default function AdminPODReportPage(): React.ReactElement {
                   const pct = day.total > 0 ? ((day.withPOD / day.total) * 100).toFixed(1) : '0.0';
                   return (
                     <tr key={day.date} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                      <td className="px-5 py-3 text-sm font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">{day.date}</td>
-                      <td className="px-5 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">{day.total}</td>
-                      <td className="px-5 py-3 whitespace-nowrap">
+                      <td className="px-5 py-3 text-sm font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap" data-label="Date">{day.date}</td>
+                      <td className="px-5 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap" data-label="Total">{day.total}</td>
+                      <td className="px-5 py-3 whitespace-nowrap" data-label="With POD">
                         <span className="inline-flex items-center gap-1 text-sm font-semibold text-green-600 dark:text-green-400">
                           <CheckCircle className="w-3.5 h-3.5" /> {day.withPOD}
                         </span>
                       </td>
-                      <td className="px-5 py-3 whitespace-nowrap">
+                      <td className="px-5 py-3 whitespace-nowrap" data-label="Without POD">
                         {day.withoutPOD > 0 ? (
                           <span className="inline-flex items-center gap-1 text-sm font-semibold text-red-500 dark:text-red-400">
                             <XCircle className="w-3.5 h-3.5" /> {day.withoutPOD}
@@ -519,13 +519,13 @@ export default function AdminPODReportPage(): React.ReactElement {
                           <span className="text-sm text-gray-400">0</span>
                         )}
                       </td>
-                      <td className="px-5 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                      <td className="px-5 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap" data-label="Photos">
                         <span className="inline-flex items-center gap-1">
                           <Camera className="w-3.5 h-3.5 text-gray-400" />
                           {day.totalPhotos}
                         </span>
                       </td>
-                      <td className="px-5 py-3 whitespace-nowrap">
+                      <td className="px-5 py-3 whitespace-nowrap" data-label="Completion">
                         <div className="flex items-center gap-2">
                           <div className="flex-1 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden min-w-[80px]">
                             <div
@@ -555,7 +555,7 @@ export default function AdminPODReportPage(): React.ReactElement {
             </div>
           </div>
           <div className="overflow-x-auto">
-            <table className="min-w-[860px]">
+            <table className="pp-mobile-stack-table w-full min-w-[860px]">
               <thead>
                 <tr className="bg-gray-50 dark:bg-gray-900/40 border-b border-gray-100 dark:border-gray-700">
                   <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Driver</th>
@@ -571,7 +571,7 @@ export default function AdminPODReportPage(): React.ReactElement {
                   const pct = driver.total > 0 ? ((driver.withPOD / driver.total) * 100).toFixed(1) : '0.0';
                   return (
                     <tr key={driver.driverName} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                      <td className="px-5 py-3 whitespace-nowrap">
+                      <td className="px-5 py-3 whitespace-nowrap" data-label="Driver">
                         <div className="flex items-center gap-2">
                           <div className="w-8 h-8 rounded-full bg-blue-900/10 dark:bg-blue-900/20 flex items-center justify-center">
                             <User className="w-4 h-4 text-blue-900 dark:text-blue-300" />
@@ -579,24 +579,24 @@ export default function AdminPODReportPage(): React.ReactElement {
                           <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{driver.driverName || 'Unknown'}</span>
                         </div>
                       </td>
-                      <td className="px-5 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">{driver.total}</td>
-                      <td className="px-5 py-3 whitespace-nowrap">
+                      <td className="px-5 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap" data-label="Total">{driver.total}</td>
+                      <td className="px-5 py-3 whitespace-nowrap" data-label="With POD">
                         <span className="text-sm font-semibold text-green-600 dark:text-green-400">{driver.withPOD}</span>
                       </td>
-                      <td className="px-5 py-3 whitespace-nowrap">
+                      <td className="px-5 py-3 whitespace-nowrap" data-label="Without POD">
                         {driver.withoutPOD > 0 ? (
                           <span className="text-sm font-semibold text-red-500 dark:text-red-400">{driver.withoutPOD}</span>
                         ) : (
                           <span className="text-sm text-gray-400">0</span>
                         )}
                       </td>
-                      <td className="px-5 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                      <td className="px-5 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap" data-label="Photos">
                         <span className="inline-flex items-center gap-1">
                           <Camera className="w-3.5 h-3.5 text-gray-400" />
                           {driver.totalPhotos}
                         </span>
                       </td>
-                      <td className="px-5 py-3 whitespace-nowrap">
+                      <td className="px-5 py-3 whitespace-nowrap" data-label="Completion Rate">
                         <div className="flex items-center gap-2">
                           <div className="flex-1 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden min-w-[100px]">
                             <div
@@ -639,7 +639,7 @@ export default function AdminPODReportPage(): React.ReactElement {
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-[1100px]">
+          <table className="pp-mobile-stack-table w-full min-w-[1100px]">
             <thead>
               <tr className="bg-gray-50 dark:bg-gray-900/40 border-b border-gray-100 dark:border-gray-700">
                 <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">PO #</th>
@@ -667,12 +667,12 @@ export default function AdminPODReportPage(): React.ReactElement {
                       !delivery.hasPOD ? 'bg-red-50/50 dark:bg-red-900/5' : ''
                     }`}
                   >
-                    <td className="px-5 py-3 whitespace-nowrap">
+                    <td className="px-5 py-3 whitespace-nowrap" data-label="PO #">
                       <span className="text-sm font-semibold text-blue-900 dark:text-blue-300">
                         {delivery.poNumber || '—'}
                       </span>
                     </td>
-                    <td className="px-5 py-3">
+                    <td className="px-5 py-3" data-label="Customer">
                       <div className="text-sm font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">
                         {delivery.customer || '—'}
                       </div>
@@ -680,13 +680,13 @@ export default function AdminPODReportPage(): React.ReactElement {
                         {delivery.address}
                       </div>
                     </td>
-                    <td className="px-5 py-3 whitespace-nowrap">
+                    <td className="px-5 py-3 whitespace-nowrap" data-label="Status">
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
                         <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
                         {delivery.status}
                       </span>
                     </td>
-                    <td className="px-5 py-3 whitespace-nowrap">
+                    <td className="px-5 py-3 whitespace-nowrap" data-label="POD Status">
                       {delivery.hasPOD ? (
                         <div className="flex flex-col gap-0.5">
                           <span className="flex items-center gap-1 text-xs font-semibold text-green-600 dark:text-green-400">
@@ -701,7 +701,7 @@ export default function AdminPODReportPage(): React.ReactElement {
                         </span>
                       )}
                     </td>
-                    <td className="px-5 py-3 whitespace-nowrap">
+                    <td className="px-5 py-3 whitespace-nowrap" data-label="Photos">
                       {(delivery.photoCount ?? 0) > 0 ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 text-xs font-semibold rounded-full">
                           <Camera className="w-3 h-3" />
@@ -711,7 +711,7 @@ export default function AdminPODReportPage(): React.ReactElement {
                         <span className="text-xs text-gray-400 dark:text-gray-500">None</span>
                       )}
                     </td>
-                    <td className="px-5 py-3 whitespace-nowrap">
+                    <td className="px-5 py-3 whitespace-nowrap" data-label="Signatures">
                       <div className="flex items-center gap-1.5">
                         {delivery.hasDriverSignature ? (
                           <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 rounded font-semibold" title="Driver Signature">D</span>
@@ -725,10 +725,10 @@ export default function AdminPODReportPage(): React.ReactElement {
                         )}
                       </div>
                     </td>
-                    <td className="px-5 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                    <td className="px-5 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300" data-label="Driver">
                       {delivery.driverName || '—'}
                     </td>
-                    <td className="px-5 py-3 whitespace-nowrap">
+                    <td className="px-5 py-3 whitespace-nowrap" data-label="Delivered At">
                       <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
                         <Clock className="w-3 h-3" />
                         {formatDate(delivery.deliveredAt)}

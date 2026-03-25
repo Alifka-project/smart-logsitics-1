@@ -520,7 +520,7 @@ export default function AdminUsersPage(): React.ReactElement {
             ) : onlineUsers.length > 0 ? (
               <div className="pp-kpi-grid">
                 {onlineUsers.map(user => (
-                  <div key={user.id} className="pp-dash-card p-4 hover:bg-gray-50/80 dark:hover:bg-slate-800/50 transition-all duration-300 animate-fade-in w-full min-w-0 max-w-[280px]">
+                  <div key={user.id} className="pp-dash-card p-4 hover:bg-gray-50/80 dark:hover:bg-slate-800/50 transition-all duration-300 animate-fade-in w-full min-w-0">
                     <div className="flex items-center gap-3">
                       <div className="relative">
                         <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center ring-2 ring-green-500/20">
@@ -596,7 +596,7 @@ export default function AdminUsersPage(): React.ReactElement {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="min-w-[760px] divide-y divide-gray-200 dark:divide-gray-700">
+                <table className="pp-mobile-stack-table min-w-[760px] divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">User</th>
@@ -612,10 +612,10 @@ export default function AdminUsersPage(): React.ReactElement {
                         const isOnline = log.isOnline || onlineUsers.some(u => u.id === log.id);
                         const lastLoginDate = new Date(log.lastLogin);
                         const timeAgo = getTimeAgo(lastLoginDate);
-                        
+
                         return (
                           <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200">
-                            <td className="px-6 py-4 whitespace-nowrap">
+                            <td className="px-6 py-4 whitespace-nowrap" data-label="User">
                               <div className="flex items-center">
                                 <div className="relative flex-shrink-0">
                                   <div className={`h-10 w-10 rounded-full flex items-center justify-center transition-all duration-300 ${
@@ -644,7 +644,7 @@ export default function AdminUsersPage(): React.ReactElement {
                                 </div>
                               </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
+                            <td className="px-6 py-4 whitespace-nowrap" data-label="Role">
                               <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
                                 log.role === 'admin'
                                   ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300'
@@ -658,12 +658,12 @@ export default function AdminUsersPage(): React.ReactElement {
                                   ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300'
                                   : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
                               }`}>
-                                {log.role === 'delivery_team' ? 'Delivery Team' : 
-                                 log.role === 'sales_ops' ? 'Sales Ops' : 
+                                {log.role === 'delivery_team' ? 'Delivery Team' :
+                                 log.role === 'sales_ops' ? 'Sales Ops' :
                                  log.role && log.role.charAt(0).toUpperCase() + log.role.slice(1)}
                               </span>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
+                            <td className="px-6 py-4 whitespace-nowrap" data-label="Last Login">
                               <div className="text-sm text-gray-900 dark:text-gray-100">
                                 {lastLoginDate.toLocaleString()}
                               </div>
@@ -671,10 +671,10 @@ export default function AdminUsersPage(): React.ReactElement {
                                 {isOnline ? 'Active now' : timeAgo}
                               </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
+                            <td className="px-6 py-4 whitespace-nowrap" data-label="IP Address">
                               <div className="text-sm text-gray-900 dark:text-gray-100 font-mono">{log.ip}</div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
+                            <td className="px-6 py-4 whitespace-nowrap" data-label="Status">
                               {isOnline ? (
                                 <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 animate-fade-in shadow-sm">
                                   <div className="relative">
@@ -760,7 +760,7 @@ export default function AdminUsersPage(): React.ReactElement {
             ) : (
               <>
                 <div className="overflow-x-auto">
-                  <table className="min-w-[920px] divide-y divide-gray-200 dark:divide-gray-700">
+                  <table className="pp-mobile-stack-table min-w-[920px] divide-y divide-gray-200 dark:divide-gray-700">
                     <thead className="bg-gray-50/90 dark:bg-slate-800/80 border-b border-gray-100 dark:border-white/[0.06]">
                       <tr>
                         <th className="px-4 sm:px-6 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">User</th>
@@ -777,7 +777,7 @@ export default function AdminUsersPage(): React.ReactElement {
                       {filteredUsers.length > 0 ? (
                         filteredUsers.map(user => (
                           <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                            <td className="px-6 py-4 whitespace-nowrap">
+                            <td className="px-6 py-4 whitespace-nowrap" data-label="User">
                               <div className="flex items-center">
                                 <div className="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                                   <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
@@ -790,12 +790,12 @@ export default function AdminUsersPage(): React.ReactElement {
                                 </div>
                               </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
+                            <td className="px-6 py-4 whitespace-nowrap" data-label="Contact">
                               <div className="text-sm text-gray-900 dark:text-gray-100">{user.email || 'N/A'}</div>
                               <div className="text-sm text-gray-500 dark:text-gray-400">{user.phone || 'N/A'}</div>
                             </td>
                             {activeTab === 'drivers' && (
-                              <td className="px-6 py-4 whitespace-nowrap">
+                              <td className="px-6 py-4 whitespace-nowrap" data-label="License">
                                 <div className="text-sm text-gray-900 dark:text-gray-100">{user.license_number || 'N/A'}</div>
                                 {user.license_expiry && (
                                   <div className="text-sm text-gray-500 dark:text-gray-400">
@@ -804,7 +804,7 @@ export default function AdminUsersPage(): React.ReactElement {
                                 )}
                               </td>
                             )}
-                            <td className="px-6 py-4 whitespace-nowrap">
+                            <td className="px-6 py-4 whitespace-nowrap" data-label="Role">
                               <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
                                 user.account?.role === 'admin'
                                   ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300'
@@ -823,7 +823,7 @@ export default function AdminUsersPage(): React.ReactElement {
                                  (user.account?.role && user.account.role.charAt(0).toUpperCase() + user.account.role.slice(1)) || 'Driver'}
                               </span>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
+                            <td className="px-6 py-4 whitespace-nowrap" data-label="Status">
                               <button
                                 onClick={() => void handleToggleStatus(user.id, user.active)}
                                 className={`px-2 py-1 text-xs font-semibold rounded-full ${
@@ -835,7 +835,7 @@ export default function AdminUsersPage(): React.ReactElement {
                                 {user.active !== false ? 'Active' : 'Inactive'}
                               </button>
                             </td>
-                            <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-right text-sm font-medium" data-label="Actions">
                               <div className="flex items-center justify-end gap-1 sm:gap-2">
                                 <button
                                   type="button"
