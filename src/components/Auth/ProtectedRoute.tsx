@@ -109,7 +109,9 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
             <p className="text-sm text-gray-600 mb-6">
               Your session will expire in{' '}
               <span className="font-semibold text-gray-900">
-                {timeRemaining} minute{timeRemaining !== 1 ? 's' : ''}
+                {timeRemaining >= 60
+                  ? `${Math.floor(timeRemaining / 60)}:${String(timeRemaining % 60).padStart(2, '0')}`
+                  : `${timeRemaining}s`}
               </span>{' '}
               due to inactivity. Would you like to continue?
             </p>

@@ -1,6 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useEffect, Suspense, lazy } from 'react';
-import api from './frontend/apiClient';
 import Header from './components/Layout/Header';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 import useDeliveryStore from './store/useDeliveryStore';
@@ -25,56 +24,6 @@ function App() {
 
   useEffect(() => {
     useDeliveryStore.getState().initializeFromStorage();
-  }, []);
-
-  useEffect(() => {
-    const INACT_MS = import.meta?.env?.VITE_SESSION_INACTIVITY_MS
-      ? parseInt(import.meta.env.VITE_SESSION_INACTIVITY_MS as string, 10)
-      : 15 * 60 * 1000;
-    let lastActivity = Date.now();
-    let timeout: ReturnType<typeof setTimeout> | null = null;
-
-    function reset(): void {
-      lastActivity = Date.now();
-      if (timeout) clearTimeout(timeout);
-      timeout = setTimeout(checkIdle, INACT_MS + 1000);
-    }
-
-    function checkIdle(): void {
-      if (Date.now() - lastActivity >= INACT_MS) {
-        try {
-          api
-            .post('/auth/logout')
-            .catch(() => {})
-            .finally(() => {
-              try {
-                localStorage.removeItem('client_key');
-              } catch {
-                // ignore
-              }
-              window.location.href = '/login';
-            });
-        } catch {
-          try {
-            localStorage.removeItem('client_key');
-          } catch {
-            // ignore
-          }
-          window.location.href = '/login';
-        }
-      } else {
-        reset();
-      }
-    }
-
-    const events = ['click', 'mousemove', 'keydown', 'scroll', 'touchstart'] as const;
-    events.forEach((ev) => window.addEventListener(ev, reset));
-    reset();
-
-    return () => {
-      events.forEach((ev) => window.removeEventListener(ev, reset));
-      if (timeout) clearTimeout(timeout);
-    };
   }, []);
 
   return (
