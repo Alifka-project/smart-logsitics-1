@@ -329,9 +329,10 @@ export default function AdminUsersPage(): React.ReactElement {
       resetForm();
       void loadData();
     } catch (err: unknown) {
-      const e = err as { message?: string; response?: { data?: { error?: string } } };
+      const e = err as { message?: string; response?: { data?: { error?: string; detail?: string } } };
       console.error('Error saving user:', err);
-      alert('Failed to save user: ' + (e?.response?.data?.error || e.message));
+      const msg = e?.response?.data?.detail || e?.response?.data?.error || e.message || 'Unknown error';
+      alert('Failed to save user: ' + msg);
     }
   };
 

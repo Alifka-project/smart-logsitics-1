@@ -106,47 +106,59 @@ router.post('/', authenticate, requireRole('admin'), async (req: Request, res: R
     const role = body.role || 'driver';
     console.log(`[Create User] Creating user with role: ${role}`);
 
-    const driver = await prisma.$transaction(async (tx: unknown) => {
-      const tx_ = tx as { driver: { create: (args: unknown) => Promise<unknown> } };
-      const newDriver = await tx_.driver.create({
-        data: {
-          username: body.username,
-          email: body.email || null,
-          phone: body.phone, // Required - validated above
-          fullName: body.full_name || body.fullName || null,
-          active: body.active !== false,
-          gpsEnabled: false, // Will be enabled when driver activates GPS
-          gpsPermissionGranted: false,
-          account: {
-            create: {
-              passwordHash: passwordHash,
-              role: role
-            }
-          },
-          status: {
-            create: {
-              status: 'offline'
-            }
-          }
-        },
-        include: {
-          account: true,
-          status: true
-        }
-      });
-      return newDriver;
-    }) as { username?: string; account?: { role?: string } };
+    // Create driver and account in a transaction using raw SQL to avoid column mismatch issues
+    const driverId = await prisma.$transaction(async (tx: unknown) => {
+      const tx_ = tx as { $queryRawUnsafe: (sql: string, ...args: unknown[]) => Promise<Array<{ id: string }>> };
 
-    console.log(`✅ User created successfully: ${driver.username}, role: ${driver.account?.role}`);
+      // Insert driver (only columns guaranteed to exist in DB)
+      const driverRows = await tx_.$queryRawUnsafe(
+        `INSERT INTO drivers (username, email, phone, full_name, active, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, now(), now())
+         RETURNING id`,
+        body.username,
+        body.email || null,
+        body.phone,
+        body.full_name || body.fullName || null,
+        body.active !== false
+      );
+      const newId = driverRows[0]?.id;
+      if (!newId) throw new Error('Failed to get new driver id');
+
+      // Insert account
+      await tx_.$queryRawUnsafe(
+        `INSERT INTO accounts (id, driver_id, password_hash, role, created_at)
+         VALUES (gen_random_uuid(), $1, $2, $3, now())`,
+        newId,
+        passwordHash,
+        role
+      );
+
+      // Insert driver_status (best effort — table may not exist in all envs)
+      try {
+        await tx_.$queryRawUnsafe(
+          `INSERT INTO driver_status (driver_id, status, updated_at) VALUES ($1, 'offline', now())
+           ON CONFLICT (driver_id) DO NOTHING`,
+          newId
+        );
+      } catch (_e) {
+        // driver_status table optional
+      }
+
+      return newId;
+    });
+
+    const driver = { id: driverId, username: body.username, role };
+
+    console.log(`✅ User created successfully: ${driver.username}, role: ${driver.role}`);
     // Invalidate caches
     cache.delete('drivers:list');
     cache.invalidatePrefix('contacts:');
     cache.invalidatePrefix('tracking:');
     res.status(201).json(driver);
   } catch (err: unknown) {
-    const e = err as { message?: string };
+    const e = err as { message?: string; code?: string; meta?: unknown };
     console.error('POST /api/admin/drivers', err);
-    res.status(500).json({ error: 'db_error', detail: e.message });
+    res.status(500).json({ error: e.message || 'db_error', detail: e.message, code: e.code, meta: e.meta });
   }
 });
 
