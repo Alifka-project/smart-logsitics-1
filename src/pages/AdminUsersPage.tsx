@@ -899,7 +899,7 @@ export default function AdminUsersPage(): React.ReactElement {
       {/* Add/Edit Modal */}
       {showModal && (
         <div
-          className="fixed inset-0 z-[10050] flex items-center justify-center bg-black/50 p-4 sm:p-6"
+          className="fixed inset-0 z-[10050] flex items-center justify-center p-4 sm:p-6"
           role="presentation"
           onClick={e => {
             if (e.target === e.currentTarget) closeModal();
