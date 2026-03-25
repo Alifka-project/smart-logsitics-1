@@ -320,9 +320,17 @@ function estimateCardWidth(): number {
 
 function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey, xKey, chartType, barColor = '#2563EB', nameKey = 'name', targetValue, hidePeriodFilter = false }: TrendChartCardProps): React.ReactElement {
   // Seed width from viewport estimate so Recharts v3 renders immediately on first paint.
-  // ResponsiveContainer v3 uses its own internal ResizeObserver to refine to the actual
-  // container width; we just need initialDimension > 0 to avoid the initial null render.
-  const [cw] = React.useState<number>(estimateCardWidth);
+  // A ResizeObserver refines to the actual container width after layout.
+  const [cw, setCw] = React.useState<number>(estimateCardWidth);
+  const cardRoRef = React.useRef<ResizeObserver | null>(null);
+  const wrapRef = React.useCallback((el: HTMLDivElement | null) => {
+    if (cardRoRef.current) { cardRoRef.current.disconnect(); cardRoRef.current = null; }
+    if (!el) return;
+    const update = () => { const w = el.getBoundingClientRect().width; if (w > 0) setCw(Math.round(w)); };
+    update();
+    cardRoRef.current = new ResizeObserver(update);
+    cardRoRef.current.observe(el);
+  }, []);
 
   const FilterBtns = () => (
     <div className="inline-flex p-1 rounded-xl bg-gray-100/90 dark:bg-slate-700/45 gap-0.5 text-xs font-medium">
