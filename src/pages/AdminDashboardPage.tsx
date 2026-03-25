@@ -305,37 +305,35 @@ interface TrendChartCardProps {
   hidePeriodFilter?: boolean;
 }
 
+/** Estimate chart card content width from viewport — used as seed so the chart
+ *  renders immediately without waiting for DOM measurement (which can fail on
+ *  mobile when the CSS grid hasn't committed its track widths yet). */
+function estimateCardWidth(): number {
+  if (typeof window === 'undefined') return 320;
+  const vw = window.innerWidth;
+  // app-main has 16px padding each side; pp-dash-card.p-5 gets 14px !important on ≤640px
+  // Grid: grid-cols-1 on <768, md:grid-cols-2 on <1024, lg:grid-cols-3 on ≥1024
+  if (vw < 768)  return Math.max(200, vw - 60);             // 1-col: full width − margins
+  if (vw < 1024) return Math.max(200, Math.floor((vw - 80) / 2));  // 2-col
+  return Math.max(200, Math.floor((vw - 100) / 3));         // 3-col
+}
+
 function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey, xKey, chartType, barColor = '#2563EB', nameKey = 'name', targetValue, hidePeriodFilter = false }: TrendChartCardProps): React.ReactElement {
-  // Measure wrapper width ourselves so ResponsiveContainer never gets width=0.
-  // On mobile / tablet inside a CSS grid, layout may not be resolved when the
-  // component first mounts, so we use useEffect (post-paint) + requestAnimationFrame
-  // to guarantee a non-zero measurement before rendering the chart.
+  // Seed with window-based estimate so the chart renders on first paint even on
+  // mobile where getBoundingClientRect can return 0 before grid tracks resolve.
   const wrapRef = React.useRef<HTMLDivElement>(null);
-  const [cw, setCw] = React.useState(0);
-  React.useEffect(() => {
+  const [cw, setCw] = React.useState<number>(estimateCardWidth);
+  React.useLayoutEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
-    let rafId: number;
-    const measure = () => {
-      const w = el.getBoundingClientRect().width;
-      if (w > 0) {
-        setCw(Math.round(w));
-      } else {
-        // Grid track not resolved yet — retry next frame
-        rafId = requestAnimationFrame(measure);
-      }
-    };
-    // Defer to next animation frame so CSS grid has resolved track widths
-    rafId = requestAnimationFrame(measure);
-    const ro = new ResizeObserver(() => {
+    const update = () => {
       const w = el.getBoundingClientRect().width;
       if (w > 0) setCw(Math.round(w));
-    });
-    ro.observe(el);
-    return () => {
-      cancelAnimationFrame(rafId);
-      ro.disconnect();
     };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
   }, []);
 
   const FilterBtns = () => (
@@ -621,12 +619,10 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
         </div>
         {!hidePeriodFilter && <FilterBtns />}
       </div>
-      <div ref={wrapRef} style={{ width: '100%', height: 220, minHeight: 220, overflow: 'hidden' }}>
-        {cw > 0
-          ? hasData
-            ? renderChart(cw)
-            : <p className="text-center py-10 text-gray-400 dark:text-gray-500 text-xs">No data available</p>
-          : <div className="w-full h-full animate-pulse bg-gray-100 dark:bg-gray-800 rounded-lg" />
+      <div ref={wrapRef} style={{ width: '100%', height: 220, minHeight: 220 }}>
+        {hasData
+          ? renderChart(cw)
+          : <p className="text-center py-10 text-gray-400 dark:text-gray-500 text-xs">No data available</p>
         }
       </div>
     </div>
@@ -689,19 +685,20 @@ function ensureAuth(): void {
 }
 
 export default function AdminDashboardPage(): React.ReactElement {
-  const [chartReady, setChartReady] = useState(false);
-  useEffect(() => { setChartReady(true); }, []);
-  // Callback ref: fires whenever the element is attached to the DOM,
-  // even if that happens after an async data load (useEffect with [] would
-  // miss it when there's an early-return loading spinner).
-  const [heroCw, setHeroCw] = useState(0);
+  // Hero chart width — seeded from window so it renders immediately on mobile.
+  // xl:col-span-2 inside xl:grid-cols-3: on <1280px it's full-width; on ≥1280px ~2/3.
+  const [heroCw, setHeroCw] = useState<number>(() => {
+    if (typeof window === 'undefined') return 320;
+    const vw = window.innerWidth;
+    return Math.max(200, vw < 1280 ? vw - 60 : Math.floor((vw - 100) * 2 / 3));
+  });
   const heroRoRef = useRef<ResizeObserver | null>(null);
   const heroWrapRef = useCallback((el: HTMLDivElement | null) => {
     if (heroRoRef.current) { heroRoRef.current.disconnect(); heroRoRef.current = null; }
     if (!el) return;
-    const measure = () => { const w = el.getBoundingClientRect().width; if (w > 0) setHeroCw(Math.round(w)); };
-    requestAnimationFrame(measure);
-    heroRoRef.current = new ResizeObserver(measure);
+    const update = () => { const w = el.getBoundingClientRect().width; if (w > 0) setHeroCw(Math.round(w)); };
+    update();
+    heroRoRef.current = new ResizeObserver(update);
     heroRoRef.current.observe(el);
   }, []);
 
