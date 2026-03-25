@@ -1089,11 +1089,6 @@
   .text-3xl.font-bold { font-size: 1.5rem; }
   .text-4xl.font-bold { font-size: 1.75rem; }
 
-  /* Charts: reduce chart height slightly on phones */
-  .recharts-wrapper {
-    max-width: 100%;
-  }
-
   /* Prevent action button groups from overflowing on any table row */
   td .flex.items-center {
     flex-wrap: wrap;

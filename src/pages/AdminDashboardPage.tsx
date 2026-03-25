@@ -319,22 +319,10 @@ function estimateCardWidth(): number {
 }
 
 function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey, xKey, chartType, barColor = '#2563EB', nameKey = 'name', targetValue, hidePeriodFilter = false }: TrendChartCardProps): React.ReactElement {
-  // Seed with window-based estimate so the chart renders on first paint even on
-  // mobile where getBoundingClientRect can return 0 before grid tracks resolve.
-  const wrapRef = React.useRef<HTMLDivElement>(null);
-  const [cw, setCw] = React.useState<number>(estimateCardWidth);
-  React.useLayoutEffect(() => {
-    const el = wrapRef.current;
-    if (!el) return;
-    const update = () => {
-      const w = el.getBoundingClientRect().width;
-      if (w > 0) setCw(Math.round(w));
-    };
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+  // Seed width from viewport estimate so Recharts v3 renders immediately on first paint.
+  // ResponsiveContainer v3 uses its own internal ResizeObserver to refine to the actual
+  // container width; we just need initialDimension > 0 to avoid the initial null render.
+  const [cw] = React.useState<number>(estimateCardWidth);
 
   const FilterBtns = () => (
     <div className="inline-flex p-1 rounded-xl bg-gray-100/90 dark:bg-slate-700/45 gap-0.5 text-xs font-medium">
@@ -361,7 +349,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
     if (!hasData) return null;
     if (chartType === 'line') {
       return (
-        <ResponsiveContainer width={width} height={220}>
+        <ResponsiveContainer width="100%" height={220} initialDimension={{ width: width, height: 220 }}>
           <ComposedChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
             <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
@@ -374,7 +362,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
     }
     if (chartType === 'area') {
       return (
-        <ResponsiveContainer width={width} height={220}>
+        <ResponsiveContainer width="100%" height={220} initialDimension={{ width: width, height: 220 }}>
           <AreaChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <defs>
               <linearGradient id={`areaGrad-${title.replace(/\s/g, '')}`} x1="0" y1="0" x2="0" y2="1">
@@ -393,7 +381,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
     }
     if (chartType === 'stacked-area') {
       return (
-        <ResponsiveContainer width={width} height={220}>
+        <ResponsiveContainer width="100%" height={220} initialDimension={{ width: width, height: 220 }}>
           <AreaChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
             <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
@@ -409,7 +397,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
     }
     if (chartType === 'stacked-bar') {
       return (
-        <ResponsiveContainer width={width} height={220}>
+        <ResponsiveContainer width="100%" height={220} initialDimension={{ width: width, height: 220 }}>
           <BarChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
             <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
@@ -425,7 +413,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
     }
     if (chartType === 'bar') {
       return (
-        <ResponsiveContainer width={width} height={220}>
+        <ResponsiveContainer width="100%" height={220} initialDimension={{ width: width, height: 220 }}>
           <BarChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
             <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
@@ -438,7 +426,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
     }
     if (chartType === 'bar-h') {
       return (
-        <ResponsiveContainer width={width} height={220}>
+        <ResponsiveContainer width="100%" height={220} initialDimension={{ width: width, height: 220 }}>
           <BarChart data={d} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" horizontal={false} />
             <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
@@ -451,7 +439,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
     }
     if (chartType === 'demand-ma') {
       return (
-        <ResponsiveContainer width={width} height={220}>
+        <ResponsiveContainer width="100%" height={220} initialDimension={{ width: width, height: 220 }}>
           <ComposedChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
             <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
@@ -466,7 +454,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
     }
     if (chartType === 'fulfillment') {
       return (
-        <ResponsiveContainer width={width} height={220}>
+        <ResponsiveContainer width="100%" height={220} initialDimension={{ width: width, height: 220 }}>
           <BarChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
             <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
@@ -483,7 +471,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
     }
     if (chartType === 'success-target' && targetValue != null) {
       return (
-        <ResponsiveContainer width={width} height={220}>
+        <ResponsiveContainer width="100%" height={220} initialDimension={{ width: width, height: 220 }}>
           <ComposedChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
             <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
@@ -497,7 +485,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
     }
     if (chartType === 'lead-time') {
       return (
-        <ResponsiveContainer width={width} height={220}>
+        <ResponsiveContainer width="100%" height={220} initialDimension={{ width: width, height: 220 }}>
           <ComposedChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
             <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
@@ -512,7 +500,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
     }
     if (chartType === 'backlog') {
       return (
-        <ResponsiveContainer width={width} height={220}>
+        <ResponsiveContainer width="100%" height={220} initialDimension={{ width: width, height: 220 }}>
           <AreaChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <defs>
               <linearGradient id={`backlogGrad-${title.replace(/\s/g, '')}`} x1="0" y1="0" x2="0" y2="1">
@@ -531,7 +519,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
     }
     if (chartType === 'status-mix-100') {
       return (
-        <ResponsiveContainer width={width} height={220}>
+        <ResponsiveContainer width="100%" height={220} initialDimension={{ width: width, height: 220 }}>
           <AreaChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }} stackOffset="expand">
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
             <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
@@ -548,7 +536,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
     if (chartType === 'areas-stacked') {
       const topKeys = (d[0] ? Object.keys(d[0]).filter(k => !['key', 'label', 'day'].includes(k) && typeof (d[0] as Record<string, unknown>)[k] === 'number') : []) as string[];
       return (
-        <ResponsiveContainer width={width} height={220}>
+        <ResponsiveContainer width="100%" height={220} initialDimension={{ width: width, height: 220 }}>
           <AreaChart data={d} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
             <XAxis dataKey={xKey} tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
@@ -565,7 +553,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
     }
     if (chartType === 'items-ranked') {
       return (
-        <ResponsiveContainer width={width} height={220}>
+        <ResponsiveContainer width="100%" height={220} initialDimension={{ width: width, height: 220 }}>
           <BarChart data={d} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" horizontal={false} />
             <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
@@ -587,7 +575,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
         .filter((item) => item.value > 0);
       if (pieData.length === 0) return <p className="text-center py-10 text-gray-400 dark:text-gray-500 text-xs">No data to display</p>;
       return (
-        <ResponsiveContainer width={width} height={220}>
+        <ResponsiveContainer width="100%" height={220} initialDimension={{ width: width, height: 220 }}>
           <PieChart margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
             <Pie
               data={pieData}
@@ -619,7 +607,7 @@ function TrendChartCard({ title, subtitle, period, onPeriodChange, data, dataKey
         </div>
         {!hidePeriodFilter && <FilterBtns />}
       </div>
-      <div ref={wrapRef} style={{ width: '100%', height: 220, minHeight: 220 }}>
+      <div style={{ width: '100%', height: 220, minHeight: 220 }}>
         {hasData
           ? renderChart(cw)
           : <p className="text-center py-10 text-gray-400 dark:text-gray-500 text-xs">No data available</p>
@@ -685,22 +673,13 @@ function ensureAuth(): void {
 }
 
 export default function AdminDashboardPage(): React.ReactElement {
-  // Hero chart width — seeded from window so it renders immediately on mobile.
-  // xl:col-span-2 inside xl:grid-cols-3: on <1280px it's full-width; on ≥1280px ~2/3.
-  const [heroCw, setHeroCw] = useState<number>(() => {
+  // Hero chart seed width — used only as initialDimension so Recharts v3 renders on first paint.
+  // ResponsiveContainer with width="100%" uses its own ResizeObserver to measure the actual size.
+  const heroCw = useState<number>(() => {
     if (typeof window === 'undefined') return 320;
     const vw = window.innerWidth;
     return Math.max(200, vw < 1280 ? vw - 60 : Math.floor((vw - 100) * 2 / 3));
-  });
-  const heroRoRef = useRef<ResizeObserver | null>(null);
-  const heroWrapRef = useCallback((el: HTMLDivElement | null) => {
-    if (heroRoRef.current) { heroRoRef.current.disconnect(); heroRoRef.current = null; }
-    if (!el) return;
-    const update = () => { const w = el.getBoundingClientRect().width; if (w > 0) setHeroCw(Math.round(w)); };
-    update();
-    heroRoRef.current = new ResizeObserver(update);
-    heroRoRef.current.observe(el);
-  }, []);
+  })[0];
 
   const [data, setData] = useState<DashboardData | null>(null);
   const [drivers, setDrivers] = useState<AdminDriver[]>([]);
@@ -1689,9 +1668,8 @@ export default function AdminDashboardPage(): React.ReactElement {
                     ))}
                   </div>
                 </div>
-                <div ref={heroWrapRef} className="w-full h-[248px] sm:h-[268px]">
-                  {heroCw > 0 && (
-                    <ResponsiveContainer width={heroCw} height="100%">
+                <div className="w-full h-[248px] sm:h-[268px]">
+                  <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: heroCw, height: 248 }}>
                       <ComposedChart data={heroChartData} margin={{ top: 8, right: 24, left: -8, bottom: 4 }} barCategoryGap="12%">
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
                         <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false}
@@ -1708,7 +1686,6 @@ export default function AdminDashboardPage(): React.ReactElement {
                         <Line yAxisId="right" type="monotone" dataKey="rate" stroke="#f97316" name="Success Rate %" dot={false} strokeWidth={2.5} isAnimationActive animationDuration={1100} animationEasing="ease-out" />
                       </ComposedChart>
                     </ResponsiveContainer>
-                  )}
                 </div>
               </div>
 
