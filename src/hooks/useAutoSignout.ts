@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { clearAuth, isAuthenticated } from '../frontend/auth';
 import api from '../frontend/apiClient';
@@ -10,11 +10,20 @@ const ACTIVITY_EVENTS = [
   'mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click',
 ] as const;
 
-export function useAutoSignout(): { resetTimer: () => void; signOut: () => Promise<void> } {
+export interface AutoSignoutState {
+  showWarning: boolean;
+  timeRemaining: number;
+  continueSession: () => void;
+  signOut: () => Promise<void>;
+}
+
+export function useAutoSignout(): AutoSignoutState {
   const navigate = useNavigate();
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const warningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
+  const [showWarning, setShowWarning] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState(1);
 
   const resetTimer = (): void => {
     lastActivityRef.current = Date.now();
@@ -27,17 +36,11 @@ export function useAutoSignout(): { resetTimer: () => void; signOut: () => Promi
     const warningTime = INACTIVITY_TIMEOUT - WARNING_TIME;
     warningTimeoutRef.current = setTimeout(() => {
       if (isAuthenticated()) {
-        const timeRemaining = Math.ceil(
+        const remaining = Math.ceil(
           (INACTIVITY_TIMEOUT - (Date.now() - lastActivityRef.current)) / 1000 / 60,
         );
-        const confirmed = window.confirm(
-          `Your session will expire in ${timeRemaining} minute(s) due to inactivity. Click OK to continue your session, or Cancel to sign out now.`,
-        );
-        if (confirmed) {
-          resetTimer();
-        } else {
-          void signOut();
-        }
+        setTimeRemaining(remaining);
+        setShowWarning(true);
       }
     }, warningTime);
 
@@ -45,6 +48,7 @@ export function useAutoSignout(): { resetTimer: () => void; signOut: () => Promi
       if (isAuthenticated()) {
         const timeSinceLastActivity = Date.now() - lastActivityRef.current;
         if (timeSinceLastActivity >= INACTIVITY_TIMEOUT - 30000) {
+          setShowWarning(false);
           void signOut();
         } else {
           resetTimer();
@@ -57,6 +61,7 @@ export function useAutoSignout(): { resetTimer: () => void; signOut: () => Promi
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current);
 
+    setShowWarning(false);
     clearAuth();
 
     try {
@@ -66,10 +71,11 @@ export function useAutoSignout(): { resetTimer: () => void; signOut: () => Promi
     }
 
     navigate('/login', { replace: true });
+  };
 
-    if (window.location.pathname !== '/login') {
-      alert('You have been signed out due to inactivity.');
-    }
+  const continueSession = (): void => {
+    setShowWarning(false);
+    resetTimer();
   };
 
   useEffect(() => {
@@ -129,5 +135,5 @@ export function useAutoSignout(): { resetTimer: () => void; signOut: () => Promi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { resetTimer, signOut };
+  return { showWarning, timeRemaining, continueSession, signOut };
 }
