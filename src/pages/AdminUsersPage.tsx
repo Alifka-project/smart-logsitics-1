@@ -899,174 +899,194 @@ export default function AdminUsersPage(): React.ReactElement {
       {/* Add/Edit Modal */}
       {showModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[10050]"
+          className="fixed inset-0 z-[10050] flex items-center justify-center bg-slate-900/[0.26] p-4 backdrop-blur-[8px] dark:bg-black/50 dark:backdrop-blur-md sm:p-6"
           role="dialog"
           aria-modal="true"
           aria-labelledby="admin-users-modal-title"
+          onClick={e => {
+            if (e.target === e.currentTarget) closeModal();
+          }}
         >
-          <div className="pp-dash-card shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto transition-colors relative z-[1]">
-            <div className="sticky top-0 z-[2] bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
-              <h2 id="admin-users-modal-title" className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+          <div
+            className="relative z-[1] flex max-h-[min(90vh,880px)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-gray-200/90 bg-white shadow-[0_24px_64px_-12px_rgba(15,23,42,0.22)] dark:border-gray-600/80 dark:bg-gray-800 dark:shadow-[0_24px_64px_-12px_rgba(0,0,0,0.55)]"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex shrink-0 items-center justify-between gap-4 border-b border-gray-200/90 bg-gray-50/80 px-6 py-4 dark:border-gray-700 dark:bg-gray-900/40">
+              <h2 id="admin-users-modal-title" className="text-lg font-semibold tracking-tight text-gray-900 dark:text-gray-100">
                 {editingUser ? 'Edit' : 'Add New'} {activeTab === 'accounts' ? 'Account' : 'Driver'}
               </h2>
               <button
+                type="button"
                 onClick={closeModal}
-                className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-gray-500 transition-colors hover:bg-gray-200/80 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+                aria-label="Close"
               >
-                <X className="w-6 h-6" />
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            <form onSubmit={(e) => void handleSubmit(e)} className="px-6 pb-6 pt-8 space-y-6">
-              {/* Personal Information */}
-              <div>
-                <h3 className="text-lg font-medium mb-4 text-gray-900 dark:text-gray-100">Personal Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Username *</label>
-                    <input
-                      type="text"
-                      value={formData.username}
-                      onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                      className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 ${
-                        errors.username ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'
-                      }`}
-                      disabled={!!editingUser}
-                    />
-                    {errors.username && <p className="text-red-500 dark:text-red-400 text-xs mt-1">{errors.username}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name *</label>
-                    <input
-                      type="text"
-                      value={formData.full_name}
-                      onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                      className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 ${
-                        errors.full_name ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'
-                      }`}
-                    />
-                    {errors.full_name && <p className="text-red-500 dark:text-red-400 text-xs mt-1">{errors.full_name}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Email {activeTab === 'accounts' && '*'}
-                    </label>
-                    <input
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 ${
-                        errors.email ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'
-                      }`}
-                    />
-                    {errors.email && <p className="text-red-500 dark:text-red-400 text-xs mt-1">{errors.email}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone *</label>
-                    <input
-                      type="tel"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 ${
-                        errors.phone ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'
-                      }`}
-                    />
-                    {errors.phone && <p className="text-red-500 dark:text-red-400 text-xs mt-1">{errors.phone}</p>}
-                  </div>
+            <form onSubmit={(e) => void handleSubmit(e)} className="flex min-h-0 flex-1 flex-col">
+              <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+                <div className="space-y-6">
+                  {/* Personal Information */}
+                  <section className="rounded-xl border border-gray-100 bg-gray-50/60 p-4 dark:border-gray-700/60 dark:bg-gray-900/35 sm:p-5">
+                    <h3 className="mb-4 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Personal Information
+                    </h3>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div>
+                        <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Username *</label>
+                        <input
+                          type="text"
+                          value={formData.username}
+                          onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                          className={`h-11 w-full rounded-xl border bg-white px-3.5 text-sm text-gray-900 transition-shadow focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/25 dark:bg-gray-800 dark:text-gray-100 ${
+                            errors.username ? 'border-red-500 dark:border-red-500' : 'border-gray-200 dark:border-gray-600'
+                          }`}
+                          disabled={!!editingUser}
+                        />
+                        {errors.username && <p className="mt-1 text-xs text-red-500 dark:text-red-400">{errors.username}</p>}
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Full Name *</label>
+                        <input
+                          type="text"
+                          value={formData.full_name}
+                          onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                          className={`h-11 w-full rounded-xl border bg-white px-3.5 text-sm text-gray-900 transition-shadow focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/25 dark:bg-gray-800 dark:text-gray-100 ${
+                            errors.full_name ? 'border-red-500 dark:border-red-500' : 'border-gray-200 dark:border-gray-600'
+                          }`}
+                        />
+                        {errors.full_name && <p className="mt-1 text-xs text-red-500 dark:text-red-400">{errors.full_name}</p>}
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Email {activeTab === 'accounts' && '*'}
+                        </label>
+                        <input
+                          type="email"
+                          value={formData.email}
+                          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                          className={`h-11 w-full rounded-xl border bg-white px-3.5 text-sm text-gray-900 transition-shadow focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/25 dark:bg-gray-800 dark:text-gray-100 ${
+                            errors.email ? 'border-red-500 dark:border-red-500' : 'border-gray-200 dark:border-gray-600'
+                          }`}
+                        />
+                        {errors.email && <p className="mt-1 text-xs text-red-500 dark:text-red-400">{errors.email}</p>}
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Phone *</label>
+                        <input
+                          type="tel"
+                          value={formData.phone}
+                          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                          className={`h-11 w-full rounded-xl border bg-white px-3.5 text-sm text-gray-900 transition-shadow focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/25 dark:bg-gray-800 dark:text-gray-100 ${
+                            errors.phone ? 'border-red-500 dark:border-red-500' : 'border-gray-200 dark:border-gray-600'
+                          }`}
+                        />
+                        {errors.phone && <p className="mt-1 text-xs text-red-500 dark:text-red-400">{errors.phone}</p>}
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* Driver Specific Fields */}
+                  {activeTab === 'drivers' && (
+                    <section className="rounded-xl border border-gray-100 bg-gray-50/60 p-4 dark:border-gray-700/60 dark:bg-gray-900/35 sm:p-5">
+                      <h3 className="mb-4 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Driver Details
+                      </h3>
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div>
+                          <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">License Number *</label>
+                          <input
+                            type="text"
+                            value={formData.license_number}
+                            onChange={(e) => setFormData({ ...formData, license_number: e.target.value })}
+                            className={`h-11 w-full rounded-xl border bg-white px-3.5 text-sm text-gray-900 transition-shadow focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/25 dark:bg-gray-800 dark:text-gray-100 ${
+                              errors.license_number ? 'border-red-500 dark:border-red-500' : 'border-gray-200 dark:border-gray-600'
+                            }`}
+                          />
+                          {errors.license_number && (
+                            <p className="mt-1 text-xs text-red-500 dark:text-red-400">{errors.license_number}</p>
+                          )}
+                        </div>
+                        <div>
+                          <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">License Expiry</label>
+                          <input
+                            type="date"
+                            value={formData.license_expiry}
+                            onChange={(e) => setFormData({ ...formData, license_expiry: e.target.value })}
+                            className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3.5 text-sm text-gray-900 transition-shadow focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/25 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                          />
+                        </div>
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Account Settings */}
+                  <section className="rounded-xl border border-gray-100 bg-gray-50/60 p-4 dark:border-gray-700/60 dark:bg-gray-900/35 sm:p-5">
+                    <h3 className="mb-4 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Account Settings
+                    </h3>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div>
+                        <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Role *</label>
+                        <select
+                          value={formData.role}
+                          onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                          className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3.5 text-sm text-gray-900 transition-shadow focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/25 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                        >
+                          <option value="admin">Admin</option>
+                          <option value="driver">Driver</option>
+                          <option value="delivery_team">Delivery Team</option>
+                          <option value="sales_ops">Sales Ops</option>
+                          <option value="manager">Manager</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                          {editingUser ? 'New Password (leave blank to keep current)' : 'Password *'}
+                        </label>
+                        <input
+                          type="password"
+                          value={formData.password}
+                          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                          className={`h-11 w-full rounded-xl border bg-white px-3.5 text-sm text-gray-900 transition-shadow focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/25 dark:bg-gray-800 dark:text-gray-100 ${
+                            errors.password ? 'border-red-500 dark:border-red-500' : 'border-gray-200 dark:border-gray-600'
+                          }`}
+                        />
+                        {errors.password && <p className="mt-1 text-xs text-red-500 dark:text-red-400">{errors.password}</p>}
+                      </div>
+                    </div>
+                  </section>
                 </div>
               </div>
 
-              {/* Driver Specific Fields */}
-              {activeTab === 'drivers' && (
-                <div>
-                  <h3 className="text-lg font-medium mb-4 text-gray-900 dark:text-gray-100">Driver Details</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">License Number *</label>
-                      <input
-                        type="text"
-                        value={formData.license_number}
-                        onChange={(e) => setFormData({ ...formData, license_number: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 ${
-                          errors.license_number ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'
-                        }`}
-                      />
-                      {errors.license_number && <p className="text-red-500 dark:text-red-400 text-xs mt-1">{errors.license_number}</p>}
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">License Expiry</label>
-                      <input
-                        type="date"
-                        value={formData.license_expiry}
-                        onChange={(e) => setFormData({ ...formData, license_expiry: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
+              {/* Footer: status + actions on one bar */}
+              <div className="flex shrink-0 flex-col gap-4 border-t border-gray-200/90 bg-white px-6 py-4 dark:border-gray-700 dark:bg-gray-800 sm:flex-row sm:items-center sm:justify-between">
+                <label className="flex cursor-pointer select-none items-center gap-3 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={formData.active}
+                    onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500/30 dark:border-gray-500 dark:bg-gray-800"
+                  />
+                  Account is active
+                </label>
+                <div className="flex flex-wrap justify-end gap-3 sm:shrink-0">
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    className="min-h-11 rounded-xl border border-gray-200 bg-white px-5 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="min-h-11 rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
+                  >
+                    {editingUser ? 'Update' : 'Create'} {activeTab === 'accounts' ? 'Account' : 'Driver'}
+                  </button>
                 </div>
-              )}
-
-              {/* Account Settings */}
-              <div>
-                <h3 className="text-lg font-medium mb-4 text-gray-900 dark:text-gray-100">Account Settings</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role *</label>
-                    <select
-                      value={formData.role}
-                      onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="admin">Admin</option>
-                      <option value="driver">Driver</option>
-                      <option value="delivery_team">Delivery Team</option>
-                      <option value="sales_ops">Sales Ops</option>
-                      <option value="manager">Manager</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      {editingUser ? 'New Password (leave blank to keep current)' : 'Password *'}
-                    </label>
-                    <input
-                      type="password"
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 ${
-                        errors.password ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'
-                      }`}
-                    />
-                    {errors.password && <p className="text-red-500 dark:text-red-400 text-xs mt-1">{errors.password}</p>}
-                  </div>
-                </div>
-                <div className="mt-4">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={formData.active}
-                      onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
-                      className="rounded border-gray-300 dark:border-gray-600"
-                    />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">Active</span>
-                  </label>
-                </div>
-              </div>
-
-              {/* Form Actions */}
-              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2.5 bg-blue-600 text-white rounded-xl font-semibold shadow-sm hover:bg-blue-700"
-                >
-                  {editingUser ? 'Update' : 'Create'} {activeTab === 'accounts' ? 'Account' : 'Driver'}
-                </button>
               </div>
             </form>
           </div>
