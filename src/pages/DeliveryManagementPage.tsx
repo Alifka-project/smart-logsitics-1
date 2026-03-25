@@ -196,7 +196,7 @@ export default function DeliveryManagementPage({ hideManageTab = false }: Delive
       ];
 
   return (
-    <div className="space-y-2 overflow-x-hidden">
+    <div className="space-y-4 overflow-x-hidden">
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
       {/* Cache Alert - responsive and touch-friendly */}
@@ -224,7 +224,7 @@ export default function DeliveryManagementPage({ hideManageTab = false }: Delive
       )}
 
       {/* Header - stacked on mobile, row on desktop; buttons wrap and are touch-friendly */}
-      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 mb-1">
+      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 mb-2">
         <div className="min-w-0">
           <h1 className="pp-page-title text-xl sm:text-3xl">Delivery Management</h1>
           <p className="pp-page-subtitle text-xs sm:text-sm">Manage deliveries, view routes, and track status</p>
@@ -300,7 +300,7 @@ export default function DeliveryManagementPage({ hideManageTab = false }: Delive
 
       {/* ── DELIVERIES TAB (combined split view) ── */}
       {activeTab === 'deliveries' && (
-        <div className={hideManageTab ? 'mt-4 md:mt-6' : ''}>
+        <div className={hideManageTab ? 'mt-4 md:mt-6' : 'mt-2'}>
           {deliveries.length === 0 ? (
             <div className="pp-dash-card p-8 text-center transition-colors">
               <Database className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
@@ -323,7 +323,7 @@ export default function DeliveryManagementPage({ hideManageTab = false }: Delive
             <>
               {/* Container: mobile = auto height (page can scroll), desktop = fixed viewport height (no page scroll) */}
               <div
-                className="flex flex-col md:flex-row gap-3 sm:gap-4 items-stretch md:items-start flex-1 min-h-0 min-h-[320px] sm:min-h-[400px] md:min-h-[380px] lg:h-[calc(100vh-260px)] lg:max-h-[calc(100vh-260px)]"
+                className="flex flex-col md:flex-row gap-4 md:gap-5 items-stretch md:items-start flex-1 min-h-0 min-h-[320px] sm:min-h-[400px] md:min-h-[400px] lg:h-[calc(100vh-300px)] lg:max-h-[calc(100vh-300px)]"
               >
                 {/* ── Map: top on mobile (fixed height), left on desktop ── */}
                 <div
@@ -374,7 +374,7 @@ export default function DeliveryManagementPage({ hideManageTab = false }: Delive
 
               {/* ── List: bottom on mobile (scrollable), right on desktop ── */}
               <div
-                className="w-full md:w-[42%] flex-1 min-h-0 md:h-full flex flex-col gap-3 min-w-0 overflow-hidden"
+                className="w-full md:w-[42%] flex-1 min-h-0 md:h-full flex flex-col gap-4 min-w-0 overflow-hidden"
               >
 
                 {/* Compact Route Stats Card */}
