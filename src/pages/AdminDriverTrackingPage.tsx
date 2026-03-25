@@ -75,7 +75,7 @@ export default function AdminDriverTrackingPage(): React.ReactElement {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="pp-dash-card p-5 transition-colors">
           <div className="flex items-center justify-between">
             <div>
@@ -119,7 +119,7 @@ export default function AdminDriverTrackingPage(): React.ReactElement {
       {/* Driver List */}
       <div className="pp-dash-card p-5 transition-colors">
         <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Driver Status</h2>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-w-full">
           <table className="pp-mobile-stack-table min-w-[760px] divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-700">
               <tr>

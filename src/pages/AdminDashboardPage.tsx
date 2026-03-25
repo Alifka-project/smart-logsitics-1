@@ -1693,7 +1693,7 @@ export default function AdminDashboardPage(): React.ReactElement {
               {/* Exception Queue — PolicyPilot style */}
               <div className="pp-dash-soft-gradient p-5">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 tracking-tight">Needs Attention</h3>
-                <div className="grid grid-cols-2 gap-2 mb-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
                   <button onClick={() => { setActiveTab('deliveries'); setDeliveryAttentionFilter('overdue'); setDeliveryStatusFilter('all'); setDeliveryPage(0); }}
                     className="flex flex-col items-center justify-center p-3 rounded-xl bg-white/90 dark:bg-slate-900/50 hover:bg-white dark:hover:bg-slate-800/80 transition-colors text-left cursor-pointer shadow-sm border border-white/60 dark:border-white/10">
                     <span className="text-lg font-bold text-amber-600 dark:text-amber-400">{actionItems.overdue}</span>
@@ -2064,7 +2064,7 @@ export default function AdminDashboardPage(): React.ReactElement {
             {/* Chart — left, with Pareto overlay */}
             <div className="xl:col-span-5 space-y-4">
               {topCustomersData.length > 0 ? (
-                <div className="pp-dash-card p-6">
+                <div className="pp-dash-card p-4 sm:p-6">
                   <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Top 10 Customers by Orders + Cumulative Share</h2>
                   <ResponsiveContainer width="100%" height={Math.max(260, Math.min(topCustomersData.length * 46, 480))}>
                     <ComposedChart
@@ -2089,7 +2089,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                   </ResponsiveContainer>
                 </div>
               ) : (
-                <div className="pp-dash-card p-6">
+                <div className="pp-dash-card p-4 sm:p-6">
                   <p className="text-center py-8 text-gray-400 dark:text-gray-500 text-sm">No customer data available</p>
                 </div>
               )}
@@ -2133,7 +2133,7 @@ export default function AdminDashboardPage(): React.ReactElement {
               <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Customer Detail — Top {topCustomersData.length}</h3>
             </div>
             <div className="overflow-x-auto">
-              <table className="min-w-[980px]">
+              <table className="pp-mobile-stack-table min-w-[980px]">
                 <thead className="bg-gray-50 dark:bg-gray-700/50">
                   <tr>
                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-left w-10">#</th>
@@ -2289,7 +2289,7 @@ export default function AdminDashboardPage(): React.ReactElement {
 
           {/* Table */}
           <div className="overflow-x-auto" ref={deliveryTableRef}>
-            <table className="min-w-[840px]">
+            <table className="pp-mobile-stack-table min-w-[840px]">
               <thead className="bg-gray-50 dark:bg-gray-700/50">
                 <tr>
                   <SortTh label="PO Number" sortKey="poNumber" current={deliverySortBy} dir={deliverySortDir}
@@ -2459,7 +2459,7 @@ export default function AdminDashboardPage(): React.ReactElement {
           {/* ~40% chart + matrix | ~60% map */}
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
             <div className="xl:col-span-5 flex flex-col gap-4 min-w-0">
-              <div className="pp-dash-card p-6">
+              <div className="pp-dash-card p-4 sm:p-6">
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                   <div>
                     <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Deliveries by Area</h2>
@@ -2702,7 +2702,7 @@ export default function AdminDashboardPage(): React.ReactElement {
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
             <div className="xl:col-span-5 flex flex-col gap-4 min-w-0">
               {topItemsData.length > 0 ? (
-                <div className="pp-dash-card p-6">
+                <div className="pp-dash-card p-4 sm:p-6">
                   <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Top Items by Quantity + Cumulative Share</h2>
                   <ResponsiveContainer width="100%" height={Math.max(260, Math.min(topItemsData.length * 44, 500))}>
                     <ComposedChart
@@ -2726,7 +2726,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                   </ResponsiveContainer>
                 </div>
               ) : (
-                <div className="pp-dash-card p-6">
+                <div className="pp-dash-card p-4 sm:p-6">
                   <p className="text-center py-8 text-gray-400 dark:text-gray-500 text-sm">No product data available</p>
                 </div>
               )}

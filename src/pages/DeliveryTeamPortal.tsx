@@ -571,7 +571,7 @@ export default function DeliveryTeamPortal() {
         <div className="flex flex-col space-y-4 md:space-y-6">
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-            <div className="pp-card p-6">
+            <div className="pp-card p-4 sm:p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Active Drivers</p>
@@ -583,7 +583,7 @@ export default function DeliveryTeamPortal() {
               </div>
             </div>
 
-            <div className="pp-card p-6">
+            <div className="pp-card p-4 sm:p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Active Deliveries</p>
@@ -595,7 +595,7 @@ export default function DeliveryTeamPortal() {
               </div>
             </div>
 
-            <div className="pp-card p-6">
+            <div className="pp-card p-4 sm:p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Completed Today</p>
@@ -607,7 +607,7 @@ export default function DeliveryTeamPortal() {
               </div>
             </div>
 
-            <div className="pp-card p-6">
+            <div className="pp-card p-4 sm:p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Alerts</p>
@@ -703,7 +703,7 @@ export default function DeliveryTeamPortal() {
           </div>
 
           {/* Driver Status Panel */}
-          <div className="pp-card p-6">
+          <div className="pp-card p-4 sm:p-6">
             <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Driver Status</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {drivers.map(driver => {
@@ -743,7 +743,7 @@ export default function DeliveryTeamPortal() {
 
           {/* Alerts Panel */}
           {alerts.length > 0 && (
-            <div className="pp-card p-6">
+            <div className="pp-card p-4 sm:p-6">
               <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">System Alerts</h2>
               <div className="space-y-2">
                 {alerts.slice(0, 5).map(alert => (

@@ -478,7 +478,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                       </div>
                     </td>
                     <td className="min-w-[100px] max-w-[110px] w-[105px] overflow-hidden px-3 py-2.5 align-middle shrink-0" data-label="Action">
-                      <div className="flex flex-nowrap items-center gap-1.5">
+                      <div className="flex flex-wrap items-center gap-1">
                         <button
                           type="button"
                           onClick={() => onEditOrder(order.id)}

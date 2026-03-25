@@ -1068,3 +1068,54 @@
     color: var(--muted);
   }
 }
+
+/* ── Global mobile / small-screen polish ──────────────────────────────── */
+@media (max-width: 640px) {
+  /* Tighter page-level horizontal padding on phones */
+  .space-y-5.w-full,
+  .space-y-4.w-full,
+  .space-y-6.w-full {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  /* All dash cards get less horizontal padding on phones */
+  .pp-dash-card.p-5,
+  .pp-dash-card.p-6 {
+    padding: 14px !important;
+  }
+
+  /* Ensure stat numbers don't overflow */
+  .text-3xl.font-bold { font-size: 1.5rem; }
+  .text-4xl.font-bold { font-size: 1.75rem; }
+
+  /* Charts: reduce chart height slightly on phones */
+  .recharts-wrapper {
+    max-width: 100%;
+  }
+
+  /* Prevent action button groups from overflowing on any table row */
+  td .flex.items-center {
+    flex-wrap: wrap;
+  }
+
+  /* Map containers: always at least 200px tall */
+  .leaflet-container {
+    min-height: 200px;
+  }
+}
+
+/* Touch target minimum size for interactive elements */
+@media (max-width: 768px) {
+  button,
+  [role="button"],
+  a.pp-nav-pill,
+  .touch-manipulation {
+    min-height: 40px;
+  }
+
+  /* Prevent horizontal overflow at root level */
+  .pp-page-header {
+    flex-wrap: wrap;
+  }
+}

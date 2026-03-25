@@ -1202,7 +1202,7 @@ export default function AdminOperationsPage(): React.ReactElement {
             <div className="pp-dash-card p-5">
               <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Delivery Status</h2>
               <div className="overflow-x-auto">
-                <table className="min-w-[760px] divide-y divide-gray-200 dark:divide-gray-700">
+                <table className="pp-mobile-stack-table min-w-[760px] divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
                       {['Delivery', 'Status', 'Driver', 'Assigned At', 'Location'].map(h => (
@@ -1216,11 +1216,11 @@ export default function AdminOperationsPage(): React.ReactElement {
                       const loc = tracking.lastLocation;
                       return (
                         <tr key={String(delivery.id || delivery.ID || '')} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3" data-label="Delivery">
                             <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{delivery.customer || delivery.Customer || 'Unknown'}</div>
                             <div className="text-sm text-gray-500 dark:text-gray-400">{String(delivery.address || delivery.Address || 'N/A')}</div>
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
+                          <td className="px-4 py-3 whitespace-nowrap" data-label="Status">
                             <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
                               tracking.status === 'in_progress' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
                                 : tracking.assigned             ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
@@ -1229,11 +1229,11 @@ export default function AdminOperationsPage(): React.ReactElement {
                               {tracking.status || delivery.status || 'unassigned'}
                             </span>
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{tracking.driverId || 'Unassigned'}</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400" data-label="Driver">{tracking.driverId || 'Unassigned'}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400" data-label="Assigned At">
                             {tracking.assignedAt ? new Date(tracking.assignedAt).toLocaleString() : 'N/A'}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400" data-label="Location">
                             {loc ? (
                               <div>
                                 <div>{loc.lat.toFixed(4)}, {loc.lng.toFixed(4)}</div>

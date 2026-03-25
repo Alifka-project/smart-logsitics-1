@@ -196,7 +196,7 @@ export default function DeliveryManagementPage({ hideManageTab = false }: Delive
       ];
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 overflow-x-hidden">
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
       {/* Cache Alert - responsive and touch-friendly */}
@@ -327,7 +327,7 @@ export default function DeliveryManagementPage({ hideManageTab = false }: Delive
               >
                 {/* ── Map: top on mobile (fixed height), left on desktop ── */}
                 <div
-                  className="relative rounded-xl overflow-hidden shadow-lg border border-gray-200 dark:border-gray-700 w-full md:w-[58%] flex-shrink-0 md:flex-shrink h-[34vh] md:h-full min-h-[220px] md:min-h-0"
+                  className="relative rounded-xl overflow-hidden shadow-lg border border-gray-200 dark:border-gray-700 w-full md:w-[58%] flex-shrink-0 md:flex-shrink h-[40vh] sm:h-[45vh] md:h-full min-h-[220px] md:min-h-0"
                 >
                 {isLoadingRoute && !route ? (
                   <div className="h-full flex items-center justify-center bg-white dark:bg-gray-800">

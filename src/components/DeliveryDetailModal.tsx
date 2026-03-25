@@ -231,17 +231,17 @@ export default function DeliveryDetailModal({
       onClick={onClose}
     >
       <div
-        className="pp-dash-card shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto transform transition-all"
+        className="pp-dash-card shadow-2xl max-w-3xl w-full mx-4 sm:mx-auto max-h-[90vh] overflow-y-auto transform transition-all"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-800 dark:to-blue-900 border-b border-blue-200 dark:border-blue-700 px-6 py-5 flex items-center justify-between rounded-t-lg">
+        <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-800 dark:to-blue-900 border-b border-blue-200 dark:border-blue-700 px-4 py-4 sm:px-6 sm:py-5 flex items-center justify-between rounded-t-lg">
           <h2 className="text-2xl font-bold text-white">Delivery Details</h2>
           <button onClick={onClose} className="text-white hover:text-blue-100 transition-colors">
             <X size={24} />
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
           {success && (
             <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
               <p className="text-green-800 dark:text-green-300 font-medium">✓ {success}</p>
@@ -360,7 +360,7 @@ export default function DeliveryDetailModal({
                 />
 
                 {podUploadFiles.length > 0 && (
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {podUploadFiles.map((f, idx) => (
                       <div
                         key={idx}

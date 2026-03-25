@@ -64,7 +64,7 @@ export const ManageSidebar: React.FC<ManageSidebarProps> = ({
       <div
         {...getRootProps()}
         className={`
-          p-6 bg-white dark:bg-gray-800 rounded-xl border-2 border-dashed cursor-pointer transition-all
+          p-4 sm:p-6 bg-white dark:bg-gray-800 rounded-xl border-2 border-dashed cursor-pointer transition-all
           ${isDragActive ? 'border-[#002D5B] bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'}
           ${isUploading ? 'opacity-50 pointer-events-none' : ''}
         `}
