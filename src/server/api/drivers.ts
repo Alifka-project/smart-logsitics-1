@@ -127,7 +127,7 @@ router.post('/', authenticate, requireRole('admin'), async (req: Request, res: R
       // Insert account
       await tx_.$queryRawUnsafe(
         `INSERT INTO accounts (id, driver_id, password_hash, role, created_at)
-         VALUES (gen_random_uuid(), $1, $2, $3, now())`,
+         VALUES (gen_random_uuid(), $1::uuid, $2, $3, now())`,
         newId,
         passwordHash,
         role
@@ -136,7 +136,7 @@ router.post('/', authenticate, requireRole('admin'), async (req: Request, res: R
       // Insert driver_status (best effort — table may not exist in all envs)
       try {
         await tx_.$queryRawUnsafe(
-          `INSERT INTO driver_status (driver_id, status, updated_at) VALUES ($1, 'offline', now())
+          `INSERT INTO driver_status (driver_id, status, updated_at) VALUES ($1::uuid, 'offline', now())
            ON CONFLICT (driver_id) DO NOTHING`,
           newId
         );
