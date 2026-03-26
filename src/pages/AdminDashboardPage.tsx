@@ -2387,134 +2387,6 @@ export default function AdminDashboardPage(): React.ReactElement {
       {/* ══════════════ DELIVERIES TAB ══════════════ */}
       {activeTab === 'deliveries' && (
         <div className="space-y-4">
-          {/* Compact strip — 6 delivery metrics */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            {[
-              { label: 'Total', value: filteredDeliveries.length, icon: Package, color: 'blue' },
-              { label: 'Delivered', value: filteredDeliveries.filter(d => ['delivered','delivered-with-installation','delivered-without-installation'].includes((d.status||'').toLowerCase())).length, icon: CheckCircle, color: 'green' },
-              { label: 'Pending Orders', value: filteredDeliveries.filter(d => ['pending','uploaded'].includes((d.status||'').toLowerCase())).length, icon: Clock, color: 'yellow' },
-              { label: "Today's Delivery", value: filteredDeliveries.filter(d => {
-                const t = d.created_at || d.createdAt || d.created;
-                if (!t) return false;
-                const dt = new Date(t as string | number);
-                const today = new Date();
-                return dt.toDateString() === today.toDateString();
-              }).length, icon: Truck, color: 'indigo' },
-              { label: 'Confirmed', value: filteredDeliveries.filter(d => (d.status||'').toLowerCase() === 'scheduled-confirmed').length, icon: Target, color: 'emerald' },
-              { label: 'Cancelled', value: filteredDeliveries.filter(d => ['cancelled','rejected','rescheduled'].includes((d.status||'').toLowerCase())).length, icon: XCircle, color: 'red' },
-            ].map(({ label, value, icon: Icon, color }) => {
-              const c = KPI_COLOR_MAP[color];
-              return (
-                <div key={label} className="pp-dash-card p-3 relative flex items-center gap-3 pr-9">
-                  <span className="absolute top-2.5 right-2.5 text-gray-300 dark:text-slate-600 pointer-events-none" aria-hidden>
-                    <ArrowUpRight className="w-3.5 h-3.5" strokeWidth={2} />
-                  </span>
-                  <div className={`p-2.5 rounded-full shrink-0 ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
-                  <div className="min-w-0">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
-                    <p className={`text-lg font-bold ${c.val}`}>{value}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Delivery Performance Charts */}
-          <div className="pp-dash-card p-5">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-5">Delivery Performance</h3>
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
-
-              {/* Donut — outcome proportion (2/5 width) */}
-              {(() => {
-                const inProgress = Math.max(0, mgmtKpis.total - mgmtKpis.onTime.count - mgmtKpis.delay.count - mgmtKpis.cancel.count - mgmtKpis.reschedule.count);
-                const donutData = [
-                  { name: 'On-Time', value: mgmtKpis.onTime.count, fill: '#16a34a' },
-                  { name: 'Delayed', value: mgmtKpis.delay.count, fill: '#f97316' },
-                  { name: 'Cancelled', value: mgmtKpis.cancel.count, fill: '#dc2626' },
-                  { name: 'Rescheduled', value: mgmtKpis.reschedule.count, fill: '#ca8a04' },
-                  { name: 'In Progress', value: inProgress, fill: '#94a3b8' },
-                ].filter(d => d.value > 0);
-                return (
-                  <div className="lg:col-span-2 flex flex-col items-center">
-                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 self-start">Outcome Breakdown</p>
-                    <div className="w-full h-[300px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={donutData}
-                            cx="50%"
-                            cy="46%"
-                            innerRadius="42%"
-                            outerRadius="68%"
-                            paddingAngle={2}
-                            dataKey="value"
-                            isAnimationActive
-                            animationDuration={900}
-                            label={({ name, percent }: PieLabelRenderProps) => `${name} ${((percent as number) * 100).toFixed(1)}%`}
-                            labelLine={true}
-                          >
-                            {donutData.map((entry, i) => (
-                              <Cell key={i} fill={entry.fill} />
-                            ))}
-                          </Pie>
-                          <Tooltip
-                            {...RECHARTS_TOOLTIP_OVERVIEW}
-                            formatter={(val: number | string) => [`${val} orders`, '']}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 mt-1">
-                      {donutData.map(d => (
-                        <div key={d.name} className="flex items-center gap-1.5">
-                          <span className="w-3 h-3 rounded-full shrink-0" style={{ background: d.fill }} />
-                          <span className="text-xs text-gray-600 dark:text-gray-400">{d.name}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Horizontal bar chart — QTY & Rate (3/5 width) */}
-              <div className="lg:col-span-3 flex flex-col">
-                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">QTY &amp; Rate (out of {mgmtKpis.total} orders)</p>
-                <div className="w-full h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      layout="vertical"
-                      data={[
-                        { name: 'On-Time Delivery', count: mgmtKpis.onTime.count, labelText: `${mgmtKpis.onTime.count} orders · ${mgmtKpis.onTime.pct}%`, fill: '#16a34a' },
-                        { name: 'Delayed', count: mgmtKpis.delay.count, labelText: `${mgmtKpis.delay.count} orders · ${mgmtKpis.delay.pct}%`, fill: '#f97316' },
-                        { name: 'Cancelled', count: mgmtKpis.cancel.count, labelText: `${mgmtKpis.cancel.count} orders · ${mgmtKpis.cancel.pct}%`, fill: '#dc2626' },
-                        { name: 'Rescheduled', count: mgmtKpis.reschedule.count, labelText: `${mgmtKpis.reschedule.count} orders · ${mgmtKpis.reschedule.pct}%`, fill: '#ca8a04' },
-                      ]}
-                      margin={{ top: 8, right: 140, left: 8, bottom: 8 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" horizontal={false} />
-                      <XAxis type="number" tick={{ fontSize: 12, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
-                      <YAxis type="category" dataKey="name" tick={{ fontSize: 13, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} width={120} />
-                      <Tooltip
-                        {...RECHARTS_TOOLTIP_OVERVIEW}
-                        formatter={(val: number | string) => [val, 'Orders']}
-                      />
-                      <Bar dataKey="count" radius={[0, 5, 5, 0]} maxBarSize={36} isAnimationActive animationDuration={900}>
-                        {[
-                          { fill: '#16a34a' },
-                          { fill: '#f97316' },
-                          { fill: '#dc2626' },
-                          { fill: '#ca8a04' },
-                        ].map((c, i) => <Cell key={i} fill={c.fill} />)}
-                        <LabelList dataKey="labelText" position="right" style={{ fontSize: 12, fill: 'var(--chart-tick)', fontWeight: 500 }} />
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-            </div>
-          </div>
-
           {/* Two-column: Table | Side widgets */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
             <div className="xl:col-span-2">
@@ -2548,11 +2420,11 @@ export default function AdminDashboardPage(): React.ReactElement {
             <span className="text-gray-400 text-sm">—</span>
             <input type="date" value={deliveryDateTo} onChange={e => { setDeliveryDateTo(e.target.value); setDeliveryPage(0); }}
               className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" />
-                    {(deliverySearch || deliveryStatusFilter !== 'all' || deliveryDateFrom || deliveryDateTo) && (
+                    {(deliverySearch || deliveryStatusFilter !== 'all' || deliveryDateFrom || deliveryDateTo || deliveryAttentionFilter) && (
                       <button
-                        onClick={() => { setDeliverySearch(''); setDeliveryStatusFilter('all'); setDeliveryDateFrom(''); setDeliveryDateTo(''); setDeliveryPage(0); }}
-                className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-red-500 transition-colors"
-              >Clear</button>
+                        onClick={() => { setDeliverySearch(''); setDeliveryStatusFilter('all'); setDeliveryDateFrom(''); setDeliveryDateTo(''); setDeliveryAttentionFilter(null); setDeliveryPage(0); }}
+                className="px-3 py-2 text-sm font-medium text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors flex items-center gap-1"
+              ><XCircle className="w-3.5 h-3.5" /> Clear filters</button>
             )}
             <button
               onClick={() => exportCSV(
@@ -2708,27 +2580,142 @@ export default function AdminDashboardPage(): React.ReactElement {
 
             {/* Side widgets */}
             <div className="space-y-4">
+              {/* Needs Attention */}
               <div className="pp-dash-soft-gradient p-4">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Needs Attention</h3>
-                <div className="space-y-2">
-                  <button onClick={() => { setDeliveryAttentionFilter('overdue'); setDeliveryStatusFilter('all'); setDeliveryPage(0); }} className="w-full flex justify-between items-center p-2 rounded-lg bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 text-left cursor-pointer">
-                    <span className="text-sm text-gray-700 dark:text-gray-300">Pending Orders</span>
-                    <span className="font-bold text-amber-600">{actionItems.overdue}</span>
-                  </button>
-                  <button onClick={() => { setDeliveryAttentionFilter('unassigned'); setDeliveryStatusFilter('all'); setDeliveryPage(0); }} className="w-full flex justify-between items-center p-2 rounded-lg bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 text-left cursor-pointer">
-                    <span className="text-sm text-gray-700 dark:text-gray-300">Unassigned</span>
-                    <span className="font-bold text-orange-600">{actionItems.unassigned}</span>
-                  </button>
-                  <button onClick={() => { setDeliveryAttentionFilter('awaiting'); setDeliveryStatusFilter('all'); setDeliveryPage(0); }} className="w-full flex justify-between items-center p-2 rounded-lg bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 text-left cursor-pointer">
-                    <span className="text-sm text-gray-700 dark:text-gray-300">Awaiting Customer</span>
-                    <span className="font-bold text-purple-600">{actionItems.unconfirmed}</span>
-                  </button>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Needs Attention</h3>
+                  {deliveryAttentionFilter && (
+                    <button
+                      onClick={() => { setDeliveryAttentionFilter(null); setDeliveryPage(0); }}
+                      className="text-xs text-red-500 dark:text-red-400 hover:underline flex items-center gap-0.5"
+                    >
+                      <XCircle className="w-3 h-3" /> Clear
+                    </button>
+                  )}
                 </div>
+                <div className="space-y-2">
+                  {(
+                    [
+                      { key: 'overdue' as const, label: 'Pending Orders', count: actionItems.overdue, color: 'text-amber-600 dark:text-amber-400' },
+                      { key: 'unassigned' as const, label: 'Unassigned', count: actionItems.unassigned, color: 'text-orange-600 dark:text-orange-400' },
+                      { key: 'awaiting' as const, label: 'Awaiting Customer', count: actionItems.unconfirmed, color: 'text-purple-600 dark:text-purple-400' },
+                    ] as const
+                  ).map(({ key, label, count, color }) => (
+                    <button
+                      key={key}
+                      onClick={() => {
+                        if (deliveryAttentionFilter === key) {
+                          setDeliveryAttentionFilter(null);
+                        } else {
+                          setDeliveryAttentionFilter(key);
+                          setDeliveryStatusFilter('all');
+                        }
+                        setDeliveryPage(0);
+                      }}
+                      className={`w-full flex justify-between items-center p-2.5 rounded-lg text-left cursor-pointer transition-colors ${
+                        deliveryAttentionFilter === key
+                          ? 'bg-blue-50 dark:bg-blue-900/30 ring-1 ring-blue-300 dark:ring-blue-700'
+                          : 'bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800'
+                      }`}
+                    >
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{label}</span>
+                      <span className={`font-bold ${color}`}>{count}</span>
+                    </button>
+                  ))}
+                </div>
+                {deliveryAttentionFilter && (
+                  <p className="mt-2 text-xs text-blue-600 dark:text-blue-400 text-center">
+                    Filtering by: <span className="font-semibold">{deliveryAttentionFilter === 'overdue' ? 'Pending Orders' : deliveryAttentionFilter === 'unassigned' ? 'Unassigned' : 'Awaiting Customer'}</span>
+                    {' · '}
+                    <button onClick={() => { setDeliveryAttentionFilter(null); setDeliveryPage(0); }} className="underline hover:no-underline">show all</button>
+                  </p>
+                )}
               </div>
+
+              {/* Delivery Performance Charts — vertical */}
               <div className="pp-dash-card p-4">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">Quick Stats</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Filtered: {filteredDeliveries.length} deliveries</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Cancelled: {filteredDeliveries.filter(d => (d.status||'').toLowerCase() === 'cancelled').length}</p>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">Delivery Performance</h3>
+
+                {/* Donut */}
+                {(() => {
+                  const inProgress = Math.max(0, mgmtKpis.total - mgmtKpis.onTime.count - mgmtKpis.delay.count - mgmtKpis.cancel.count - mgmtKpis.reschedule.count);
+                  const donutData = [
+                    { name: 'On-Time', value: mgmtKpis.onTime.count, fill: '#16a34a' },
+                    { name: 'Delayed', value: mgmtKpis.delay.count, fill: '#f97316' },
+                    { name: 'Cancelled', value: mgmtKpis.cancel.count, fill: '#dc2626' },
+                    { name: 'Rescheduled', value: mgmtKpis.reschedule.count, fill: '#ca8a04' },
+                    { name: 'In Progress', value: inProgress, fill: '#94a3b8' },
+                  ].filter(d => d.value > 0);
+                  return (
+                    <div className="mb-5">
+                      <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Outcome Breakdown</p>
+                      <div className="w-full h-[220px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={donutData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius="38%"
+                              outerRadius="62%"
+                              paddingAngle={2}
+                              dataKey="value"
+                              isAnimationActive
+                              animationDuration={900}
+                            >
+                              {donutData.map((entry, i) => (
+                                <Cell key={i} fill={entry.fill} />
+                              ))}
+                            </Pie>
+                            <Tooltip
+                              {...RECHARTS_TOOLTIP_OVERVIEW}
+                              formatter={(val: number | string) => [`${val} orders`, '']}
+                            />
+                            <Legend
+                              iconType="circle"
+                              iconSize={8}
+                              wrapperStyle={{ fontSize: '11px', color: 'var(--chart-legend)' }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Horizontal bar chart */}
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">QTY &amp; Rate</p>
+                <div className="w-full h-[200px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      layout="vertical"
+                      data={[
+                        { name: 'On-Time', count: mgmtKpis.onTime.count, labelText: `${mgmtKpis.onTime.count} (${mgmtKpis.onTime.pct}%)`, fill: '#16a34a' },
+                        { name: 'Delayed', count: mgmtKpis.delay.count, labelText: `${mgmtKpis.delay.count} (${mgmtKpis.delay.pct}%)`, fill: '#f97316' },
+                        { name: 'Cancelled', count: mgmtKpis.cancel.count, labelText: `${mgmtKpis.cancel.count} (${mgmtKpis.cancel.pct}%)`, fill: '#dc2626' },
+                        { name: 'Rescheduled', count: mgmtKpis.reschedule.count, labelText: `${mgmtKpis.reschedule.count} (${mgmtKpis.reschedule.pct}%)`, fill: '#ca8a04' },
+                      ]}
+                      margin={{ top: 4, right: 72, left: 4, bottom: 4 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" horizontal={false} />
+                      <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} width={68} />
+                      <Tooltip
+                        {...RECHARTS_TOOLTIP_OVERVIEW}
+                        formatter={(val: number | string) => [val, 'Orders']}
+                      />
+                      <Bar dataKey="count" radius={[0, 4, 4, 0]} maxBarSize={28} isAnimationActive animationDuration={900}>
+                        {[
+                          { fill: '#16a34a' },
+                          { fill: '#f97316' },
+                          { fill: '#dc2626' },
+                          { fill: '#ca8a04' },
+                        ].map((c, i) => <Cell key={i} fill={c.fill} />)}
+                        <LabelList dataKey="labelText" position="right" style={{ fontSize: 11, fill: 'var(--chart-tick)' }} />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
           </div>
