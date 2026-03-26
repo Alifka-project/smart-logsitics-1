@@ -179,6 +179,17 @@ export default function DeliveryCard({
             )}
           </div>
 
+          {(delivery.poNumber || delivery.metadata?.originalDeliveryNumber || (delivery as unknown as { _originalDeliveryNumber?: string })._originalDeliveryNumber) && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-gray-400 dark:text-gray-500">
+              {delivery.poNumber && (
+                <span>PO: <span className="font-mono text-gray-600 dark:text-gray-300">{String(delivery.poNumber)}</span></span>
+              )}
+              {((delivery.metadata as { originalDeliveryNumber?: string } | null | undefined)?.originalDeliveryNumber || (delivery as unknown as { _originalDeliveryNumber?: string })._originalDeliveryNumber) && (
+                <span>Del: <span className="font-mono text-gray-600 dark:text-gray-300">{(delivery.metadata as { originalDeliveryNumber?: string } | null | undefined)?.originalDeliveryNumber || (delivery as unknown as { _originalDeliveryNumber?: string })._originalDeliveryNumber}</span></span>
+              )}
+            </div>
+          )}
+
           <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 flex items-start gap-1.5">
             <span className="flex-shrink-0" aria-hidden>
               📍

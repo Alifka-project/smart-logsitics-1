@@ -133,9 +133,15 @@ export function deliveryToManageOrder(delivery: Delivery): DeliveryOrder {
     parseOptDate((meta as Record<string, unknown>).confirmedAt) ??
     parseOptDate((meta as Record<string, unknown>).confirmed_at);
 
+  const deliveryNumber =
+    (meta.originalDeliveryNumber != null && String(meta.originalDeliveryNumber).trim()) ||
+    (delivery._originalDeliveryNumber != null && String(delivery._originalDeliveryNumber).trim()) ||
+    null;
+
   return {
     id: delivery.id,
     orderNumber,
+    deliveryNumber,
     customerName: delivery.customer?.trim() || '—',
     customerPhone: delivery.phone != null ? String(delivery.phone).trim() : '—',
     customerEmail,

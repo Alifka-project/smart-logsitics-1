@@ -17,6 +17,7 @@ export type DeliveryStatus =
 export interface DeliveryOrder {
   id: string;
   orderNumber: string;
+  deliveryNumber?: string | null;
   customerName: string;
   customerPhone: string;
   customerEmail?: string;

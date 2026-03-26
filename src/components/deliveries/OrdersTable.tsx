@@ -372,7 +372,8 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
           <colgroup>
             <col style={{ width: '170px' }} />
             <col style={{ width: '190px' }} />
-            <col style={{ width: '125px' }} />
+            <col style={{ width: '120px' }} />
+            <col style={{ width: '120px' }} />
             <col style={{ width: '115px' }} />
             <col style={{ width: '95px' }} />
             <col style={{ width: '1%' }} />
@@ -387,8 +388,11 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
               <th className="min-w-[180px] max-w-[200px] w-[190px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Phone
               </th>
-              <th className="min-w-[120px] max-w-[130px] w-[125px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                Order
+              <th className="min-w-[115px] max-w-[125px] w-[120px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                PO Number
+              </th>
+              <th className="min-w-[115px] max-w-[125px] w-[120px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                Delivery Number
               </th>
               <th className="min-w-[110px] max-w-[120px] w-[115px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Delivery date
@@ -410,7 +414,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700/80">
             {paginatedOrders.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                <td colSpan={9} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                   No orders match the current filters.
                 </td>
               </tr>
@@ -451,9 +455,14 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                         </div>
                       </div>
                     </td>
-                    <td className="min-w-[120px] max-w-[130px] w-[125px] overflow-hidden px-3 py-2.5 align-middle" data-label="Order">
-                      <span className="block truncate font-mono text-[13px] text-gray-700 dark:text-gray-300" title={`Order #${order.orderNumber}`}>
+                    <td className="min-w-[115px] max-w-[125px] w-[120px] overflow-hidden px-3 py-2.5 align-middle" data-label="PO Number">
+                      <span className="block truncate font-mono text-[13px] text-gray-700 dark:text-gray-300" title={`PO #${order.orderNumber}`}>
                         #{order.orderNumber}
+                      </span>
+                    </td>
+                    <td className="min-w-[115px] max-w-[125px] w-[120px] overflow-hidden px-3 py-2.5 align-middle" data-label="Delivery Number">
+                      <span className="block truncate font-mono text-[13px] text-gray-500 dark:text-gray-400" title={order.deliveryNumber ?? ''}>
+                        {order.deliveryNumber ? `#${order.deliveryNumber}` : '—'}
                       </span>
                     </td>
                     <td className="min-w-[110px] max-w-[120px] w-[115px] overflow-hidden px-3 py-2.5 align-middle text-[13px]" data-label="Delivery date">

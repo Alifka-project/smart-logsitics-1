@@ -643,7 +643,7 @@ export default function AdminPODReportPage(): React.ReactElement {
             <thead>
               <tr className="bg-gray-50 dark:bg-gray-900/40 border-b border-gray-100 dark:border-gray-700">
                 <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">PO #</th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Del. #</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Delivery Number</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Customer</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Status</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">POD Status</th>
@@ -673,7 +673,7 @@ export default function AdminPODReportPage(): React.ReactElement {
                         {delivery.poNumber || '—'}
                       </span>
                     </td>
-                    <td className="px-5 py-3 whitespace-nowrap" data-label="Del. #">
+                    <td className="px-5 py-3 whitespace-nowrap" data-label="Delivery Number">
                       <span className="text-sm text-gray-500 dark:text-gray-400">
                         {(delivery as unknown as { metadata?: { originalDeliveryNumber?: string }; _originalDeliveryNumber?: string }).metadata?.originalDeliveryNumber || (delivery as unknown as { _originalDeliveryNumber?: string })._originalDeliveryNumber || '—'}
                       </span>

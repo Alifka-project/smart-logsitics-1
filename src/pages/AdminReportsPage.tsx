@@ -816,7 +816,7 @@ export default function AdminReportsPage(): React.ReactElement {
               <thead>
                 <tr className="bg-gray-50 dark:bg-gray-900/40 border-b border-gray-100 dark:border-gray-700">
                   <SortTh label="PO Number" sortKey="poNumber" sortConfig={sortConfig} onSort={handleSort} />
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Del. #</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Delivery Number</th>
                   <SortTh label="Customer" sortKey="customer" sortConfig={sortConfig} onSort={handleSort} />
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Address</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Phone</th>
@@ -860,7 +860,7 @@ export default function AdminReportsPage(): React.ReactElement {
                             {delivery.poNumber || delivery.PONumber || '—'}
                           </span>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap" data-label="Del. #">
+                        <td className="px-4 py-3 whitespace-nowrap" data-label="Delivery Number">
                           <span className="text-sm text-gray-500 dark:text-gray-400">
                             {(delivery.metadata as { originalDeliveryNumber?: string } | null | undefined)?.originalDeliveryNumber || (delivery as unknown as { _originalDeliveryNumber?: string })._originalDeliveryNumber || '—'}
                           </span>
