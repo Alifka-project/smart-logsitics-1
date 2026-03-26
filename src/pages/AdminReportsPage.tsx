@@ -203,6 +203,19 @@ export default function AdminReportsPage(): React.ReactElement {
     void loadReport();
   }, []);
 
+  // Auto-apply date filter with debounce when dates change
+  const dateDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (dateDebounceRef.current) clearTimeout(dateDebounceRef.current);
+    dateDebounceRef.current = setTimeout(() => {
+      void loadReport();
+    }, 400);
+    return () => {
+      if (dateDebounceRef.current) clearTimeout(dateDebounceRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.startDate, filters.endDate]);
+
   const loadReport = async (exportFormat: string | null = null): Promise<void> => {
     setLoading(true);
     try {
@@ -256,10 +269,17 @@ export default function AdminReportsPage(): React.ReactElement {
   };
 
   const hasActiveFilters = (): boolean =>
-    !!(filters.status || filters.customerStatus || filters.poNumber || filters.podFilter);
+    !!(filters.startDate || filters.endDate || filters.status || filters.customerStatus || filters.poNumber || filters.podFilter);
+
+  const hasDateFilters = (): boolean => !!(filters.startDate || filters.endDate);
+
+  const clearDateFilters = (): void => {
+    setFilters(prev => ({ ...prev, startDate: '', endDate: '' }));
+    setCurrentPage(1);
+  };
 
   const clearFilters = (): void => {
-    setFilters(prev => ({ ...prev, status: '', customerStatus: '', poNumber: '', podFilter: '' }));
+    setFilters({ startDate: '', endDate: '', status: '', customerStatus: '', poNumber: '', podFilter: '' });
     setCurrentPage(1);
   };
 
@@ -470,7 +490,18 @@ export default function AdminReportsPage(): React.ReactElement {
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">To</label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">To</label>
+              {hasDateFilters() && (
+                <button
+                  type="button"
+                  onClick={clearDateFilters}
+                  className="inline-flex items-center gap-1 text-[11px] text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium"
+                >
+                  <X className="w-3 h-3" /> Clear dates
+                </button>
+              )}
+            </div>
             <input
               type="date"
               value={filters.endDate}
@@ -541,22 +572,19 @@ export default function AdminReportsPage(): React.ReactElement {
         </div>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4 pt-4 border-t border-gray-100 dark:border-gray-700/80">
           <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={() => void loadReport()}
-              disabled={loading}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-900 text-white hover:bg-blue-800 disabled:opacity-50 text-sm font-semibold shadow-sm transition-colors"
-            >
-              <Search className="w-4 h-4" />
-              Apply Date Filter
-            </button>
+            {loading && (
+              <span className="inline-flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400">
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Updating…
+              </span>
+            )}
             {hasActiveFilters() && (
               <button
+                type="button"
                 onClick={clearFilters}
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 font-medium transition-colors"
               >
                 <X className="w-4 h-4" />
-                Clear filters
+                Clear all filters
               </button>
             )}
           </div>
