@@ -732,6 +732,8 @@ export default function AdminDashboardPage(): React.ReactElement {
   const [deliveryDateTo, setDeliveryDateTo] = useState<string>('');
   const [deliverySortBy, setDeliverySortBy] = useState<string>('date');
   const [deliverySortDir, setDeliverySortDir] = useState<string>('desc');
+  const [responseFilter, setResponseFilter] = useState<'Confirmed' | 'Rescheduled' | 'Cancelled' | null>(null);
+  const responseDetailRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -1282,7 +1284,7 @@ export default function AdminDashboardPage(): React.ReactElement {
     const dayAgo = new Date(Date.now() - 86400000);
     return list.filter(d => {
       const q = deliverySearch.trim().toLowerCase();
-      if (q && !((d.poNumber || '').toLowerCase().includes(q) || (d.customer || '').toLowerCase().includes(q) || (d.address || '').toLowerCase().includes(q))) return false;
+      if (q && !((d.poNumber || '').toLowerCase().includes(q) || (d.customer || '').toLowerCase().includes(q) || (d.address || '').toLowerCase().includes(q) || String(d.id || '').toLowerCase().includes(q))) return false;
       if (deliveryStatusFilter !== 'all') {
         const s = (d.status || '').toLowerCase();
         // 'pending' filter covers both 'pending' and 'uploaded' DB statuses (both mean "new order, no action yet")
@@ -1828,56 +1830,83 @@ export default function AdminDashboardPage(): React.ReactElement {
               </div>
 
               {/* Customer Response Detail */}
-              {customerResponseDetail.length > 0 ? (
-                <div className="pp-dash-card p-5">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Customer Response Detail</h3>
-                    <span className="text-xs text-gray-400 dark:text-gray-500">{customerResponseDetail.length} responses</span>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-gray-100 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                          <th className="text-left pb-2 pr-4 font-semibold">Customer</th>
-                          <th className="text-left pb-2 pr-4 font-semibold">Delivery No.</th>
-                          <th className="text-left pb-2 pr-4 font-semibold">Response</th>
-                          <th className="text-left pb-2 pr-4 font-semibold">Date</th>
-                          <th className="text-left pb-2 font-semibold">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
-                        {customerResponseDetail.slice(0, 50).map((row, idx) => (
-                          <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
-                            <td className="py-2.5 pr-4 text-gray-900 dark:text-gray-100 font-medium max-w-[160px] truncate">{row.customer}</td>
-                            <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-400 font-mono text-xs">{row.poNumber}</td>
-                            <td className="py-2.5 pr-4">
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                row.action === 'Confirmed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                                : row.action === 'Rescheduled' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-                                : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                              }`}>
-                                {row.action}
-                              </span>
-                            </td>
-                            <td className="py-2.5 pr-4 text-gray-500 dark:text-gray-400 text-xs">{row.confirmedAt || '—'}</td>
-                            <td className="py-2.5 text-gray-500 dark:text-gray-400 capitalize text-xs">{row.status}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    {customerResponseDetail.length > 50 && (
-                      <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-3">
-                        Showing 50 of {customerResponseDetail.length} responses
+              {(() => {
+                const visibleRows = responseFilter
+                  ? customerResponseDetail.filter(r => r.action === responseFilter)
+                  : customerResponseDetail;
+                const title = responseFilter
+                  ? `${responseFilter === 'Confirmed' ? 'Accepted' : responseFilter} Orders`
+                  : 'Customer Response Detail';
+                return (
+                  <div className="pp-dash-card p-5" ref={responseDetailRef}>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
+                        {responseFilter && (
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                            responseFilter === 'Confirmed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                            : responseFilter === 'Rescheduled' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                            : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                          }`}>{visibleRows.length}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {responseFilter && (
+                          <button type="button" onClick={() => setResponseFilter(null)} className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
+                            ✕ Clear
+                          </button>
+                        )}
+                        <span className="text-xs text-gray-400 dark:text-gray-500">{visibleRows.length} {responseFilter ? '' : 'responses'}</span>
+                      </div>
+                    </div>
+                    {visibleRows.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-gray-100 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                              <th className="text-left pb-2 pr-4 font-semibold">Customer</th>
+                              <th className="text-left pb-2 pr-4 font-semibold">Delivery No.</th>
+                              {!responseFilter && <th className="text-left pb-2 pr-4 font-semibold">Response</th>}
+                              <th className="text-left pb-2 pr-4 font-semibold">Confirmed On</th>
+                              <th className="text-left pb-2 font-semibold">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
+                            {visibleRows.slice(0, 100).map((row, idx) => (
+                              <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+                                <td className="py-2.5 pr-4 text-gray-900 dark:text-gray-100 font-medium max-w-[160px] truncate">{row.customer}</td>
+                                <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-400 font-mono text-xs">{row.poNumber}</td>
+                                {!responseFilter && (
+                                  <td className="py-2.5 pr-4">
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                      row.action === 'Confirmed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                      : row.action === 'Rescheduled' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                                      : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                    }`}>
+                                      {row.action}
+                                    </span>
+                                  </td>
+                                )}
+                                <td className="py-2.5 pr-4 text-gray-500 dark:text-gray-400 text-xs">{row.confirmedAt || '—'}</td>
+                                <td className="py-2.5 text-gray-500 dark:text-gray-400 capitalize text-xs">{row.status}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        {visibleRows.length > 100 && (
+                          <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-3">
+                            Showing 100 of {visibleRows.length} responses
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-6">
+                        {responseFilter ? `No ${responseFilter === 'Confirmed' ? 'accepted' : responseFilter.toLowerCase()} orders found` : 'No customer responses yet'}
                       </p>
                     )}
                   </div>
-                </div>
-              ) : (
-                <div className="pp-dash-card p-5">
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Customer Response Detail</h3>
-                  <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-6">No customer responses yet</p>
-                </div>
-              )}
+                );
+              })()}
             </div>
 
             {/* Right column — ~1/3 side widgets */}
@@ -1912,17 +1941,37 @@ export default function AdminDashboardPage(): React.ReactElement {
               <div className="pp-dash-card p-5">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">Customer Response</h3>
                 <div className="space-y-3">
-                  {[
-                    { label: 'Accepted', value: totals.customerAccepted || 0, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-900/20' },
-                    { label: 'Rescheduled', value: totals.customerRescheduled || 0, color: 'text-yellow-600 dark:text-yellow-400', bg: 'bg-yellow-50 dark:bg-yellow-900/20' },
-                    { label: 'Cancelled', value: totals.customerCancelled || 0, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/20' },
-                  ].map(({ label, value, color, bg }) => (
-                    <div key={label} className={`flex items-center justify-between px-3 py-3 rounded-lg ${bg}`}>
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{label}</span>
+                  {([
+                    { label: 'Accepted', filter: 'Confirmed' as const, value: totals.customerAccepted || 0, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-900/20', ring: 'ring-green-400' },
+                    { label: 'Rescheduled', filter: 'Rescheduled' as const, value: totals.customerRescheduled || 0, color: 'text-yellow-600 dark:text-yellow-400', bg: 'bg-yellow-50 dark:bg-yellow-900/20', ring: 'ring-yellow-400' },
+                    { label: 'Cancelled', filter: 'Cancelled' as const, value: totals.customerCancelled || 0, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/20', ring: 'ring-red-400' },
+                  ] as const).map(({ label, filter, value, color, bg, ring }) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => {
+                        setResponseFilter(f => f === filter ? null : filter);
+                        setTimeout(() => responseDetailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-3 rounded-lg transition-all ${bg} ${responseFilter === filter ? `ring-2 ${ring}` : 'hover:opacity-80'}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-700 dark:text-gray-300">{label}</span>
+                        {responseFilter === filter && <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Filtered</span>}
+                      </div>
                       <span className={`text-xl font-bold ${color}`}>{value}</span>
-                    </div>
+                    </button>
                   ))}
                 </div>
+                {responseFilter && (
+                  <button
+                    type="button"
+                    onClick={() => setResponseFilter(null)}
+                    className="mt-3 w-full text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 text-center"
+                  >
+                    ✕ Clear filter
+                  </button>
+                )}
               </div>
 
               {/* Proof of Delivery */}
