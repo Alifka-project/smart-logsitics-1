@@ -113,8 +113,8 @@ router.post('/', authenticate, requireRole('admin'), async (req: Request, res: R
       // Insert driver (only columns guaranteed to exist in DB)
       const driverRows = await tx_.$queryRawUnsafe(
         `INSERT INTO drivers (id, username, email, phone, full_name, active, created_at, updated_at)
-         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, now(), now())
-         RETURNING id`,
+         VALUES (gen_random_uuid(), $1::varchar, $2::varchar, $3::varchar, $4::varchar, $5::boolean, now(), now())
+         RETURNING id::text`,
         body.username,
         body.email || null,
         body.phone,
@@ -167,16 +167,14 @@ router.post('/', authenticate, requireRole('admin'), async (req: Request, res: R
 router.get('/:id([0-9a-fA-F-]{36})', authenticate, requireAnyRole('admin', 'delivery_team'), async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params as { id: string };
   try {
-    const driver = await prisma.driver.findUnique({
-      where: { id },
-      include: { account: true }
-    });
-
-    if (!driver) {
-      return void res.status(404).json({ error: 'driver_not_found' });
-    }
-
-    res.json(driver);
+    type DR = { id: string; username: string; email: string; phone: string; full_name: string; active: boolean };
+    type AR = { role: string; last_login: string };
+    const [dRows, aRows] = await Promise.all([
+      prisma.$queryRawUnsafe<DR[]>(`SELECT id::text, username, email, phone, full_name, active FROM drivers WHERE id = $1::uuid`, id),
+      prisma.$queryRawUnsafe<AR[]>(`SELECT role, last_login FROM accounts WHERE driver_id = $1::uuid`, id),
+    ]);
+    if (!dRows.length) return void res.status(404).json({ error: 'driver_not_found' });
+    res.json({ ...dRows[0], account: aRows[0] ?? null });
   } catch (err: unknown) {
     const e = err as { message?: string };
     console.error('GET /api/admin/drivers/:id', err);
@@ -193,72 +191,47 @@ router.put('/:id([0-9a-fA-F-]{36})', authenticate, requireRole('admin'), async (
   } || {};
 
   try {
-    const driver = await prisma.driver.findUnique({
-      where: { id },
-      include: { account: true }
-    }) as { id: string; username?: string; account?: { role?: string } } | null;
+    const exists = await prisma.$queryRawUnsafe<Array<{ id: string }>>(`SELECT id::text FROM drivers WHERE id = $1::uuid`, id);
+    if (!exists.length) return void res.status(404).json({ error: 'driver_not_found' });
 
-    if (!driver) {
-      return void res.status(404).json({ error: 'driver_not_found' });
+    // Build SET clause with explicit type casts
+    const setClauses: string[] = [];
+    const params: unknown[] = [];
+    let idx = 1;
+    if (updates.email !== undefined)  { setClauses.push(`email = $${idx}::varchar`);   params.push(updates.email);  idx++; }
+    if (updates.phone !== undefined)  { setClauses.push(`phone = $${idx}::varchar`);   params.push(updates.phone);  idx++; }
+    const fn = updates.full_name || updates.fullName;
+    if (fn !== undefined)             { setClauses.push(`full_name = $${idx}::varchar`); params.push(fn);            idx++; }
+    if (updates.active !== undefined) { setClauses.push(`active = $${idx}::boolean`);  params.push(updates.active); idx++; }
+    setClauses.push('updated_at = now()');
+    params.push(id);
+    if (setClauses.length > 1) {
+      await prisma.$queryRawUnsafe(`UPDATE drivers SET ${setClauses.join(', ')} WHERE id = $${idx}::uuid`, ...params);
     }
-
-    // Prepare update data
-    const driverUpdate: Record<string, unknown> = {
-      email: updates.email !== undefined ? updates.email : undefined,
-      phone: updates.phone !== undefined ? updates.phone : undefined,
-      fullName: updates.full_name || updates.fullName || undefined,
-      active: updates.active !== undefined ? updates.active : undefined
-    };
-
-    // Remove undefined values
-    Object.keys(driverUpdate).forEach(key =>
-      driverUpdate[key] === undefined && delete driverUpdate[key]
-    );
-
-    const accountUpdate: Record<string, unknown> = {};
     if (updates.password) {
-      accountUpdate.passwordHash = await hashPassword(updates.password);
+      const h = await hashPassword(updates.password);
+      await prisma.$queryRawUnsafe(`UPDATE accounts SET password_hash = $1::text WHERE driver_id = $2::uuid`, h, id);
     }
     if (updates.role) {
-      accountUpdate.role = updates.role;
+      await prisma.$queryRawUnsafe(`UPDATE accounts SET role = $1::varchar WHERE driver_id = $2::uuid`, updates.role, id);
     }
 
-    // Update in transaction
-    const updated = await prisma.$transaction(async (tx: unknown) => {
-      const tx_ = tx as {
-        driver: {
-          update: (args: unknown) => Promise<unknown>;
-          findUnique: (args: unknown) => Promise<unknown>;
-        };
-        account: { update: (args: unknown) => Promise<unknown> };
-      };
-      const updatedDriver = await tx_.driver.update({
-        where: { id },
-        data: driverUpdate,
-        include: { account: true }
-      });
+    type DR = { id: string; username: string; email: string; phone: string; full_name: string; active: boolean };
+    type AR = { role: string };
+    const [dr, ar] = await Promise.all([
+      prisma.$queryRawUnsafe<DR[]>(`SELECT id::text, username, email, phone, full_name, active FROM drivers WHERE id = $1::uuid`, id),
+      prisma.$queryRawUnsafe<AR[]>(`SELECT role FROM accounts WHERE driver_id = $1::uuid`, id),
+    ]);
+    const updated = { ...dr[0], account: { role: ar[0]?.role } };
 
-      if (Object.keys(accountUpdate).length > 0 && driver.account) {
-        await tx_.account.update({
-          where: { driverId: id },
-          data: accountUpdate
-        });
-      }
-
-      return await tx_.driver.findUnique({
-        where: { id },
-        include: { account: true }
-      });
-    }) as { username?: string; account?: { role?: string } };
-
-    console.log(`✅ User updated successfully: ${updated.username}, role: ${updated.account?.role}`);
+    console.log(`✅ User updated: ${updated.username}, role: ${updated.account?.role}`);
     cache.del('drivers:list');
     cache.invalidatePrefix('contacts:');
     res.json(updated);
   } catch (err: unknown) {
     const e = err as { message?: string };
     console.error('PUT /api/admin/drivers/:id', err);
-    res.status(500).json({ error: 'db_error', detail: e.message });
+    res.status(500).json({ error: e.message || 'db_error', detail: e.message });
   }
 });
 
@@ -272,61 +245,37 @@ router.patch('/:id([0-9a-fA-F-]{36})', authenticate, requireRole('admin'), async
   if (!Object.keys(updates).length) return void res.status(400).json({ error: 'no_updates' });
 
   try {
-    const driver = await prisma.driver.findUnique({
-      where: { id },
-      include: { account: true }
-    }) as { id: string; account?: { role?: string } } | null;
+    const exists = await prisma.$queryRawUnsafe<Array<{ id: string }>>(`SELECT id::text FROM drivers WHERE id = $1::uuid`, id);
+    if (!exists.length) return void res.status(404).json({ error: 'driver_not_found' });
 
-    if (!driver) {
-      return void res.status(404).json({ error: 'driver_not_found' });
+    const setClauses: string[] = [];
+    const params: unknown[] = [];
+    let idx = 1;
+    if (updates.email !== undefined)  { setClauses.push(`email = $${idx}::varchar`);    params.push(updates.email);  idx++; }
+    if (updates.phone !== undefined)  { setClauses.push(`phone = $${idx}::varchar`);    params.push(updates.phone);  idx++; }
+    const fn = updates.full_name || updates.fullName;
+    if (fn !== undefined)             { setClauses.push(`full_name = $${idx}::varchar`); params.push(fn);             idx++; }
+    if (updates.active !== undefined) { setClauses.push(`active = $${idx}::boolean`);   params.push(updates.active); idx++; }
+    setClauses.push('updated_at = now()');
+    params.push(id);
+    if (setClauses.length > 1) {
+      await prisma.$queryRawUnsafe(`UPDATE drivers SET ${setClauses.join(', ')} WHERE id = $${idx}::uuid`, ...params);
     }
-
-    // Prepare update data
-    const driverUpdate: Record<string, unknown> = {};
-    if (updates.email !== undefined) driverUpdate.email = updates.email;
-    if (updates.phone !== undefined) driverUpdate.phone = updates.phone;
-    if (updates.full_name !== undefined || updates.fullName !== undefined) {
-      driverUpdate.fullName = updates.full_name || updates.fullName;
-    }
-    if (updates.active !== undefined) driverUpdate.active = updates.active;
-
-    const accountUpdate: Record<string, unknown> = {};
     if (updates.password) {
-      accountUpdate.passwordHash = await hashPassword(updates.password);
+      const h = await hashPassword(updates.password);
+      await prisma.$queryRawUnsafe(`UPDATE accounts SET password_hash = $1::text WHERE driver_id = $2::uuid`, h, id);
     }
     if (updates.role) {
-      accountUpdate.role = updates.role;
+      await prisma.$queryRawUnsafe(`UPDATE accounts SET role = $1::varchar WHERE driver_id = $2::uuid`, updates.role, id);
     }
 
-    // Update in transaction
-    const updated = await prisma.$transaction(async (tx: unknown) => {
-      const tx_ = tx as {
-        driver: {
-          update: (args: unknown) => Promise<unknown>;
-          findUnique: (args: unknown) => Promise<unknown>;
-        };
-        account: { update: (args: unknown) => Promise<unknown> };
-      };
-
-      if (Object.keys(driverUpdate).length > 0) {
-        await tx_.driver.update({
-          where: { id },
-          data: driverUpdate
-        });
-      }
-
-      if (Object.keys(accountUpdate).length > 0 && driver.account) {
-        await tx_.account.update({
-          where: { driverId: id },
-          data: accountUpdate
-        });
-      }
-
-      return await tx_.driver.findUnique({
-        where: { id },
-        include: { account: true }
-      });
-    });
+    type DR = { id: string; username: string; email: string; phone: string; full_name: string; active: boolean };
+    type AR = { role: string };
+    const [dr, ar] = await Promise.all([
+      prisma.$queryRawUnsafe<DR[]>(`SELECT id::text, username, email, phone, full_name, active FROM drivers WHERE id = $1::uuid`, id),
+      prisma.$queryRawUnsafe<AR[]>(`SELECT role FROM accounts WHERE driver_id = $1::uuid`, id),
+    ]);
+    const updated = { ...dr[0], account: { role: ar[0]?.role } };
 
     cache.del('drivers:list');
     cache.invalidatePrefix('contacts:');
@@ -334,7 +283,7 @@ router.patch('/:id([0-9a-fA-F-]{36})', authenticate, requireRole('admin'), async
   } catch (err: unknown) {
     const e = err as { message?: string };
     console.error('PATCH /api/admin/drivers/:id', err);
-    res.status(500).json({ error: 'db_error', detail: e.message });
+    res.status(500).json({ error: e.message || 'db_error', detail: e.message });
   }
 });
 
@@ -343,19 +292,11 @@ router.delete('/:id([0-9a-fA-F-]{36})', authenticate, requireRole('admin'), asyn
   const { id } = req.params as { id: string };
 
   try {
-    const driver = await prisma.driver.findUnique({
-      where: { id },
-      include: { account: true }
-    });
+    const rows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(`SELECT id::text FROM drivers WHERE id = $1::uuid`, id);
+    if (!rows.length) return void res.status(404).json({ error: 'driver_not_found' });
 
-    if (!driver) {
-      return void res.status(404).json({ error: 'driver_not_found' });
-    }
-
-    // Delete driver (account will be cascade deleted)
-    await prisma.driver.delete({
-      where: { id }
-    });
+    // Delete driver (account cascades via FK)
+    await prisma.$queryRawUnsafe(`DELETE FROM drivers WHERE id = $1::uuid`, id);
 
     cache.del('drivers:list');
     cache.invalidatePrefix('contacts:');
