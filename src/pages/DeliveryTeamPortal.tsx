@@ -492,6 +492,28 @@ export default function DeliveryTeamPortal() {
     'completed', 'pod-completed', 'cancelled', 'rescheduled', 'returned',
   ]);
 
+  // Needs Attention counts — mirrors AdminDashboardPage logic
+  const actionItems = React.useMemo(() => {
+    const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
+    const dayAgo = new Date(Date.now() - 86400000);
+    const overdue = list.filter(d => {
+      const s = (d.status || '').toLowerCase();
+      return ['pending', 'scheduled'].includes(s) && new Date((d.created_at || d.createdAt || d.created || 0) as string | number) < dayAgo;
+    });
+    const unassigned = list.filter(d => {
+      const s = (d.status || '').toLowerCase();
+      const dt = d as unknown as { tracking?: { driverId?: string } };
+      return ['pending', 'scheduled'].includes(s) && !d.assignedDriverId && !dt.tracking?.driverId;
+    });
+    const awaitingConfirmation = list.filter(d => {
+      const s = (d.status || '').toLowerCase();
+      const conf = String(d.confirmationStatus || '').toLowerCase();
+      const dt = d as unknown as { customerConfirmedAt?: string };
+      return ['pending', 'scheduled', 'uploaded'].includes(s) && conf !== 'confirmed' && !dt.customerConfirmedAt && conf === 'pending';
+    });
+    return { overdue, unassigned, awaitingConfirmation };
+  }, [deliveries]);
+
   // Returns a badge config based on delivery status + confirmationStatus
   const getDeliveryStatusBadge = (delivery: Delivery): { label: string; color: string } => {
     const rawStatus = (delivery.status || '').toLowerCase();
@@ -630,6 +652,90 @@ export default function DeliveryTeamPortal() {
                 </div>
                 <AlertCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
               </div>
+            </div>
+          </div>
+
+          {/* ── Needs Attention + Awaiting Customer Response ── */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Needs Attention panel */}
+            <div className="pp-card p-4 sm:p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <AlertCircle className="w-5 h-5 text-amber-500" />
+                <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Needs Attention</h2>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div
+                  onClick={() => setActiveTab('control')}
+                  className="flex flex-col items-center justify-center p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/30 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors cursor-pointer"
+                >
+                  <span className="text-xl font-bold text-amber-600 dark:text-amber-400">{actionItems.overdue.length}</span>
+                  <span className="text-xs text-amber-700 dark:text-amber-400 mt-0.5 text-center">Overdue</span>
+                </div>
+                <div
+                  onClick={() => setActiveTab('control')}
+                  className="flex flex-col items-center justify-center p-3 rounded-xl bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-800/30 hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors cursor-pointer"
+                >
+                  <span className="text-xl font-bold text-orange-600 dark:text-orange-400">{actionItems.unassigned.length}</span>
+                  <span className="text-xs text-orange-700 dark:text-orange-400 mt-0.5 text-center">Unassigned</span>
+                </div>
+                <div
+                  onClick={() => setActiveTab('control')}
+                  className="flex flex-col items-center justify-center p-3 rounded-xl bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800/30 hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors cursor-pointer"
+                >
+                  <span className="text-xl font-bold text-purple-600 dark:text-purple-400">{actionItems.awaitingConfirmation.length}</span>
+                  <span className="text-xs text-purple-700 dark:text-purple-400 mt-0.5 text-center">Awaiting Customer</span>
+                </div>
+              </div>
+              {(actionItems.overdue.length > 0 || actionItems.unassigned.length > 0 || actionItems.awaitingConfirmation.length > 0) && (
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-3 text-center">Tap any card to go to Delivery Control</p>
+              )}
+            </div>
+
+            {/* Awaiting Customer Response list */}
+            <div className="pp-card p-4 sm:p-5 flex flex-col">
+              <div className="flex items-center gap-2 mb-4">
+                <MessageSquare className="w-5 h-5 text-purple-500" />
+                <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Awaiting Customer Response</h2>
+                {actionItems.awaitingConfirmation.length > 0 && (
+                  <span className="ml-auto px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-bold">
+                    {actionItems.awaitingConfirmation.length}
+                  </span>
+                )}
+              </div>
+              {actionItems.awaitingConfirmation.length === 0 ? (
+                <div className="flex-1 flex items-center justify-center py-6 text-sm text-gray-400 dark:text-gray-500">
+                  <CheckCircle className="w-4 h-4 mr-2 text-green-400" /> All customers responded
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {actionItems.awaitingConfirmation.map((delivery, idx) => {
+                    const sentAgo = (() => {
+                      const t = delivery.updatedAt || delivery.createdAt || delivery.created_at;
+                      if (!t) return null;
+                      const diff = Date.now() - new Date(t as string).getTime();
+                      const h = Math.floor(diff / 3600000);
+                      const m = Math.floor((diff % 3600000) / 60000);
+                      return h > 0 ? `${h}h ago` : `${m}m ago`;
+                    })();
+                    return (
+                      <div key={delivery.id || idx} className="flex items-start gap-3 p-2.5 rounded-lg bg-purple-50 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-800/20">
+                        <Clock className="w-4 h-4 text-purple-500 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                            {delivery.customer || 'Unknown Customer'}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                            {delivery.poNumber ? `PO: ${delivery.poNumber}` : ''} {delivery.address || ''}
+                          </p>
+                        </div>
+                        {sentAgo && (
+                          <span className="text-xs text-purple-600 dark:text-purple-400 shrink-0">{sentAgo}</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
