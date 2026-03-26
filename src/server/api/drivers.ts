@@ -112,8 +112,8 @@ router.post('/', authenticate, requireRole('admin'), async (req: Request, res: R
 
       // Insert driver (only columns guaranteed to exist in DB)
       const driverRows = await tx_.$queryRawUnsafe(
-        `INSERT INTO drivers (username, email, phone, full_name, active, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, now(), now())
+        `INSERT INTO drivers (id, username, email, phone, full_name, active, created_at, updated_at)
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, now(), now())
          RETURNING id`,
         body.username,
         body.email || null,
