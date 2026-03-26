@@ -5,7 +5,16 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // Ignore compiled output, server build output, Vercel/serverless API shim,
+  // root-level utility/test/migration scripts, and config files — none of
+  // these are application source that needs browser-environment linting.
+  globalIgnores([
+    'dist',
+    'dist-server',
+    'api',
+    'scripts',
+    '*.js',     // root-level config & utility scripts (postcss, tailwind, vite, test-*, etc.)
+  ]),
   {
     files: ['**/*.{js,jsx}'],
     extends: [
