@@ -463,6 +463,8 @@ router.get('/', authenticate, requireRole('admin'), async (req: Request, res: Re
     // are not missing delivered/cancelled orders.
     const deliveriesForCharts = deliveries.map(d => ({
       id: d.id,
+      customer: d.customer,
+      poNumber: d.poNumber,
       status: d.status,
       created_at: d.created_at,
       createdAt: d.createdAt,
@@ -473,6 +475,7 @@ router.get('/', authenticate, requireRole('admin'), async (req: Request, res: Re
       assignedDriverId: d.assignedDriverId,
       confirmationStatus: d.confirmationStatus,
       customerConfirmedAt: d.customerConfirmedAt,
+      confirmedDeliveryDate: d.confirmedDeliveryDate,
     }));
 
     const responseData = { drivers, recentLocations, smsRecent, totals, recentCounts, analytics, deliveries: deliveriesForCharts };

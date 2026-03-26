@@ -107,6 +107,8 @@ interface DashboardAnalytics {
 /** Minimal delivery record returned by /admin/dashboard for chart computations. */
 interface DashboardDelivery {
   id?: string;
+  customer?: string | null;
+  poNumber?: string | null;
   status?: string;
   created_at?: string | Date | null;
   createdAt?: string | Date | null;
@@ -118,6 +120,7 @@ interface DashboardDelivery {
   assignedDriverId?: string | null;
   confirmationStatus?: string;
   customerConfirmedAt?: string | null;
+  confirmedDeliveryDate?: string | Date | null;
   [key: string]: unknown;
 }
 
@@ -1500,6 +1503,89 @@ export default function AdminDashboardPage(): React.ReactElement {
     };
   }, [deliveries, drivers]);
 
+  /** Management KPI computations: on-time, delay, cancellation, reschedule rates */
+  const mgmtKpis = useMemo(() => {
+    const total = dashboardDeliveries.length;
+
+    const DELIVERED_STATUSES = ['delivered', 'delivered-with-installation', 'delivered-without-installation', 'completed', 'pod-completed'];
+    const CANCELLED_STATUSES = ['cancelled'];
+    const RESCHEDULED_STATUSES = ['rescheduled'];
+
+    let onTimeCount = 0;
+    let delayCount = 0;
+    let cancelCount = 0;
+    let rescheduleCount = 0;
+
+    for (const d of dashboardDeliveries) {
+      const st = String(d.status || '').toLowerCase();
+      if (CANCELLED_STATUSES.includes(st)) {
+        cancelCount++;
+        continue;
+      }
+      if (RESCHEDULED_STATUSES.includes(st)) {
+        rescheduleCount++;
+        continue;
+      }
+      if (DELIVERED_STATUSES.includes(st)) {
+        const deliveredAt = d.deliveredAt || d.delivered_at;
+        const scheduledDate = d.confirmedDeliveryDate;
+        if (deliveredAt && scheduledDate) {
+          const dDelivered = new Date(deliveredAt as string).setHours(0, 0, 0, 0);
+          const dScheduled = new Date(scheduledDate as string).setHours(0, 0, 0, 0);
+          if (dDelivered <= dScheduled) onTimeCount++;
+          else delayCount++;
+        } else {
+          // No schedule set — count as on-time (delivered without a promised date)
+          onTimeCount++;
+        }
+      }
+    }
+
+    const pct = (n: number) => total > 0 ? Math.round((n / total) * 1000) / 10 : 0;
+
+    return {
+      total,
+      onTime: { count: onTimeCount, pct: pct(onTimeCount) },
+      delay: { count: delayCount, pct: pct(delayCount) },
+      cancel: { count: cancelCount, pct: pct(cancelCount) },
+      reschedule: { count: rescheduleCount, pct: pct(rescheduleCount) },
+    };
+  }, [dashboardDeliveries]);
+
+  /** Per-customer confirmation detail for the linked table */
+  const customerResponseDetail = useMemo(() => {
+    type ResponseRow = {
+      customer: string;
+      poNumber: string;
+      action: 'Confirmed' | 'Rescheduled' | 'Cancelled';
+      confirmedAt: string | null;
+      address: string;
+      status: string;
+    };
+    const rows: ResponseRow[] = [];
+    for (const d of dashboardDeliveries) {
+      const cs = String(d.confirmationStatus || '').toLowerCase();
+      if (!cs || cs === 'pending' || cs === '') continue;
+      let action: ResponseRow['action'] | null = null;
+      if (cs === 'confirmed') action = 'Confirmed';
+      else if (cs === 'rescheduled') action = 'Rescheduled';
+      else if (cs === 'cancelled') action = 'Cancelled';
+      if (!action) continue;
+      rows.push({
+        customer: String(d.customer || '—'),
+        poNumber: String(d.poNumber || '—'),
+        action,
+        confirmedAt: d.customerConfirmedAt ? new Date(d.customerConfirmedAt as string).toLocaleDateString('en-GB') : null,
+        address: String(d.address || '—'),
+        status: String(d.status || '—'),
+      });
+    }
+    // Sort: Confirmed first, then Rescheduled, then Cancelled
+    const order: Record<string, number> = { Confirmed: 0, Rescheduled: 1, Cancelled: 2 };
+    rows.sort((a, b) => (order[a.action] ?? 3) - (order[b.action] ?? 3));
+    return rows;
+  }, [dashboardDeliveries]);
+
   const exportCSV = (rows: Record<string, unknown>[], fields: string[], filename: string): void => {
     const csv = [fields.join(','), ...rows.map(r => fields.map(f => `"${String(r[f] ?? '').replace(/"/g, '""')}"`).join(','))].join('\n');
     const a = document.createElement('a');
@@ -1840,6 +1926,106 @@ export default function AdminDashboardPage(): React.ReactElement {
               </div>
             </div>
           </div>
+
+          {/* ── OBD Performance KPIs ── */}
+          <div className="space-y-3">
+            <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide px-0.5">OBD Performance</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                {
+                  label: 'On-Time Delivery',
+                  count: mgmtKpis.onTime.count,
+                  pct: mgmtKpis.onTime.pct,
+                  color: 'text-green-600 dark:text-green-400',
+                  bg: 'bg-green-50 dark:bg-green-900/20',
+                  bar: 'bg-green-500',
+                },
+                {
+                  label: 'Delay Rate',
+                  count: mgmtKpis.delay.count,
+                  pct: mgmtKpis.delay.pct,
+                  color: 'text-orange-600 dark:text-orange-400',
+                  bg: 'bg-orange-50 dark:bg-orange-900/20',
+                  bar: 'bg-orange-500',
+                },
+                {
+                  label: 'Cancellation Rate',
+                  count: mgmtKpis.cancel.count,
+                  pct: mgmtKpis.cancel.pct,
+                  color: 'text-red-600 dark:text-red-400',
+                  bg: 'bg-red-50 dark:bg-red-900/20',
+                  bar: 'bg-red-500',
+                },
+                {
+                  label: 'OBD Reschedule Rate',
+                  count: mgmtKpis.reschedule.count,
+                  pct: mgmtKpis.reschedule.pct,
+                  color: 'text-yellow-600 dark:text-yellow-400',
+                  bg: 'bg-yellow-50 dark:bg-yellow-900/20',
+                  bar: 'bg-yellow-500',
+                },
+              ].map(kpi => (
+                <div key={kpi.label} className={`pp-dash-card p-4 sm:p-5 ${kpi.bg}`}>
+                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">{kpi.label}</p>
+                  <div className="flex items-baseline gap-2 mb-2">
+                    <span className={`text-3xl font-bold ${kpi.color}`}>{kpi.count}</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">orders</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-white/60 dark:bg-gray-700/60 rounded-full overflow-hidden mb-1">
+                    <div className={`h-full rounded-full transition-all ${kpi.bar}`} style={{ width: `${kpi.pct}%` }} />
+                  </div>
+                  <p className={`text-sm font-semibold ${kpi.color}`}>{kpi.pct}% of total</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Customer Response Detail Table ── */}
+          {customerResponseDetail.length > 0 && (
+            <div className="pp-dash-card p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Customer Response Detail</h3>
+                <span className="text-xs text-gray-400 dark:text-gray-500">{customerResponseDetail.length} responses</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                      <th className="text-left pb-2 pr-4 font-semibold">Customer</th>
+                      <th className="text-left pb-2 pr-4 font-semibold">PO Number</th>
+                      <th className="text-left pb-2 pr-4 font-semibold">Response</th>
+                      <th className="text-left pb-2 pr-4 font-semibold">Confirmed At</th>
+                      <th className="text-left pb-2 font-semibold">Order Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
+                    {customerResponseDetail.slice(0, 50).map((row, idx) => (
+                      <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+                        <td className="py-2.5 pr-4 text-gray-900 dark:text-gray-100 font-medium max-w-[180px] truncate">{row.customer}</td>
+                        <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-400 font-mono text-xs">{row.poNumber}</td>
+                        <td className="py-2.5 pr-4">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
+                            row.action === 'Confirmed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                            : row.action === 'Rescheduled' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                            : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                          }`}>
+                            {row.action}
+                          </span>
+                        </td>
+                        <td className="py-2.5 pr-4 text-gray-500 dark:text-gray-400 text-xs">{row.confirmedAt || '—'}</td>
+                        <td className="py-2.5 text-gray-500 dark:text-gray-400 capitalize text-xs">{row.status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {customerResponseDetail.length > 50 && (
+                  <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-3">
+                    Showing 50 of {customerResponseDetail.length} responses
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
