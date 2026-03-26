@@ -2387,6 +2387,38 @@ export default function AdminDashboardPage(): React.ReactElement {
       {/* ══════════════ DELIVERIES TAB ══════════════ */}
       {activeTab === 'deliveries' && (
         <div className="space-y-4">
+          {/* Compact strip — 6 delivery metrics */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {[
+              { label: 'Total', value: filteredDeliveries.length, icon: Package, color: 'blue' },
+              { label: 'Delivered', value: filteredDeliveries.filter(d => ['delivered','delivered-with-installation','delivered-without-installation'].includes((d.status||'').toLowerCase())).length, icon: CheckCircle, color: 'green' },
+              { label: 'Pending Orders', value: filteredDeliveries.filter(d => ['pending','uploaded'].includes((d.status||'').toLowerCase())).length, icon: Clock, color: 'yellow' },
+              { label: "Today's Delivery", value: filteredDeliveries.filter(d => {
+                const t = d.created_at || d.createdAt || d.created;
+                if (!t) return false;
+                const dt = new Date(t as string | number);
+                const today = new Date();
+                return dt.toDateString() === today.toDateString();
+              }).length, icon: Truck, color: 'indigo' },
+              { label: 'Confirmed', value: filteredDeliveries.filter(d => (d.status||'').toLowerCase() === 'scheduled-confirmed').length, icon: Target, color: 'emerald' },
+              { label: 'Cancelled', value: filteredDeliveries.filter(d => ['cancelled','rejected','rescheduled'].includes((d.status||'').toLowerCase())).length, icon: XCircle, color: 'red' },
+            ].map(({ label, value, icon: Icon, color }) => {
+              const c = KPI_COLOR_MAP[color];
+              return (
+                <div key={label} className="pp-dash-card p-3 relative flex items-center gap-3 pr-9">
+                  <span className="absolute top-2.5 right-2.5 text-gray-300 dark:text-slate-600 pointer-events-none" aria-hidden>
+                    <ArrowUpRight className="w-3.5 h-3.5" strokeWidth={2} />
+                  </span>
+                  <div className={`p-2.5 rounded-full shrink-0 ${c.bg}`}><Icon className={`w-4 h-4 ${c.icon}`} /></div>
+                  <div className="min-w-0">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
+                    <p className={`text-lg font-bold ${c.val}`}>{value}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
           {/* Two-column: Table | Side widgets */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
             <div className="xl:col-span-2">
