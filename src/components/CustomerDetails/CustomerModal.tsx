@@ -275,6 +275,25 @@ export default function CustomerModal({
               {': '}
               {selectedDelivery.customer}
             </h3>
+
+            {/* PO Number + Delivery Number — critical tracking identifiers */}
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <div className="bg-white dark:bg-gray-800 border-2 border-blue-300 dark:border-blue-600 rounded-lg px-3 py-2.5">
+                <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1">PO Number</p>
+                <p className="font-mono font-bold text-blue-900 dark:text-blue-100 text-sm leading-tight">
+                  {selectedDelivery.poNumber || '—'}
+                </p>
+              </div>
+              <div className="bg-white dark:bg-gray-800 border-2 border-indigo-300 dark:border-indigo-600 rounded-lg px-3 py-2.5">
+                <p className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-1">Delivery Number</p>
+                <p className="font-mono font-bold text-indigo-900 dark:text-indigo-100 text-sm leading-tight">
+                  {((selectedDelivery.metadata as { originalDeliveryNumber?: string } | null | undefined)?.originalDeliveryNumber)
+                    || ((selectedDelivery as unknown as { _originalDeliveryNumber?: string })._originalDeliveryNumber)
+                    || '—'}
+                </p>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
               <div>
                 <span className="font-semibold text-gray-700 dark:text-gray-200">Address:</span>
