@@ -762,7 +762,14 @@ export default function AdminOperationsPage(): React.ReactElement {
               </div>
               <div className="relative">
                 <DeliveryMap
-                  deliveries={deliveriesWithEta as unknown as import('../types').Delivery[]}
+                  deliveries={deliveriesWithEta.filter(d =>
+                    // Only show active (non-terminal) deliveries — completed/cancelled from
+                    // previous days must not appear as stale markers on the live map.
+                    !TERMINAL_STATUSES.has((d.status || '').toLowerCase()) &&
+                    // Only render a marker when we have real, finite coordinates.
+                    d.lat != null && d.lng != null &&
+                    Number.isFinite(Number(d.lat)) && Number.isFinite(Number(d.lng))
+                  ) as unknown as import('../types').Delivery[]}
                   route={mapRoute as unknown as import('../types').RouteResult}
                   driverLocations={driverLocations}
                   mapClassName="h-[320px] sm:h-[420px] lg:h-[560px]"

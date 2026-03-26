@@ -38,7 +38,14 @@ router.get('/deliveries', authenticate, requireAnyRole('admin', 'delivery_team')
     const data = await cache.getOrFetch('tracking:deliveries:v2', async () => {
       let dbDeliveries: unknown[] = [];
       try {
+        // Only fetch active (non-terminal) deliveries so the live map never
+        // shows completed/cancelled stops from previous days.
+        const TERMINAL = ['delivered','delivered-with-installation','delivered-without-installation',
+          'completed','pod-completed','cancelled','rescheduled','returned'];
         dbDeliveries = await prisma.delivery.findMany({
+          where: {
+            status: { notIn: TERMINAL }
+          },
           select: {
             id: true,
             customer: true,
@@ -65,7 +72,7 @@ router.get('/deliveries', authenticate, requireAnyRole('admin', 'delivery_team')
             }
           },
           orderBy: { createdAt: 'desc' },
-          take: 2000
+          take: 500
         });
       } catch (err: unknown) {
         const e = err as { message?: string };
