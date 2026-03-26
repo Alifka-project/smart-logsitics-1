@@ -282,7 +282,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
     { key: 'all', label: 'All', count: orders.length },
     {
       key: 'pending',
-      label: 'Pending',
+      label: 'Pending Orders',
       count: orders.filter((o) => ['uploaded', 'sms_sent', 'unconfirmed'].includes(o.status)).length,
     },
     { key: 'confirmed', label: 'Confirmed', count: orders.filter((o) => o.status === 'confirmed').length },

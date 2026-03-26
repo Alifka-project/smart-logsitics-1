@@ -83,7 +83,7 @@ export default function DeliveryTable({
 
   const chips: { id: DeliveryListFilter; label: string }[] = [
     { id: 'all', label: 'All' },
-    { id: 'pending', label: 'Pending' },
+    { id: 'pending', label: 'Pending Orders' },
     { id: 'confirmed', label: 'Confirmed' },
     { id: 'p1', label: 'P1 Only' },
   ];

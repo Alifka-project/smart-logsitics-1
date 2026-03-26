@@ -939,7 +939,7 @@ export default function AdminDashboardPage(): React.ReactElement {
     return [
       { id: 'total', label: 'Total Deliveries', value: totals.total, icon: Package, color: 'blue', delta: pct(totals.total, yTotal) },
       { id: 'delivered', label: 'Delivered', value: totals.delivered, icon: CheckCircle, color: 'green', delta: pct(totals.delivered, yDelivered) },
-      { id: 'pending', label: 'Pending', value: totals.pending, icon: Clock, color: 'yellow', delta: null },
+      { id: 'pending', label: 'Pending Orders', value: totals.pending, icon: Clock, color: 'yellow', delta: null },
       { id: 'cancelled', label: 'Cancelled', value: totals.cancelled, icon: XCircle, color: 'red', delta: null },
       { id: 'rate', label: 'Success Rate', value: `${successRate}%`, icon: Target, color: 'emerald', delta: null },
     ];
@@ -1255,7 +1255,15 @@ export default function AdminDashboardPage(): React.ReactElement {
     return list.filter(d => {
       const q = deliverySearch.trim().toLowerCase();
       if (q && !((d.poNumber || '').toLowerCase().includes(q) || (d.customer || '').toLowerCase().includes(q) || (d.address || '').toLowerCase().includes(q))) return false;
-      if (deliveryStatusFilter !== 'all' && (d.status || '').toLowerCase() !== deliveryStatusFilter) return false;
+      if (deliveryStatusFilter !== 'all') {
+        const s = (d.status || '').toLowerCase();
+        // 'pending' filter covers both 'pending' and 'uploaded' DB statuses (both mean "new order, no action yet")
+        if (deliveryStatusFilter === 'pending') {
+          if (s !== 'pending' && s !== 'uploaded') return false;
+        } else {
+          if (s !== deliveryStatusFilter) return false;
+        }
+      }
       const date = new Date(d.created_at || d.createdAt || 0);
       if (deliveryDateFrom && date < new Date(deliveryDateFrom)) return false;
       if (deliveryDateTo && date > new Date(deliveryDateTo + 'T23:59:59')) return false;
@@ -1510,7 +1518,8 @@ export default function AdminDashboardPage(): React.ReactElement {
   const pagedDeliveries = filteredDeliveries.slice(deliveryPage * PAGE_SIZE, (deliveryPage + 1) * PAGE_SIZE);
 
   const STATUS_LABELS: Record<string, string> = {
-    'pending': 'Pending', 'scheduled': 'Scheduled', 'scheduled-confirmed': 'Confirmed',
+    'pending': 'Pending Order', 'uploaded': 'Pending Order',
+    'scheduled': 'Awaiting Customer', 'scheduled-confirmed': 'Confirmed',
     'out-for-delivery': 'Out for Delivery', 'in-progress': 'In Progress',
     'delivered': 'Delivered', 'delivered-with-installation': 'Delivered + Install',
     'delivered-without-installation': 'Delivered', 'cancelled': 'Cancelled',
@@ -1519,7 +1528,8 @@ export default function AdminDashboardPage(): React.ReactElement {
 
   const STATUS_COLORS: Record<string, string> = {
     'pending': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-    'scheduled': 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
+    'uploaded': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
+    'scheduled': 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
     'scheduled-confirmed': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
     'out-for-delivery': 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
     'in-progress': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
@@ -1706,7 +1716,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                 <div className="space-y-3">
                   {[
                     { label: 'Delivered', value: totals.delivered, color: 'bg-green-500' },
-                    { label: 'Pending', value: totals.pending, color: 'bg-yellow-400' },
+                    { label: 'Pending Orders', value: totals.pending, color: 'bg-yellow-400' },
                     { label: 'Rescheduled', value: totals.rescheduled, color: 'bg-orange-400' },
                     { label: 'Cancelled', value: totals.cancelled, color: 'bg-red-500' },
                   ].map(({ label, value, color }) => {
@@ -1736,7 +1746,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                   <button onClick={() => { setActiveTab('deliveries'); setDeliveryAttentionFilter('overdue'); setDeliveryStatusFilter('all'); setDeliveryPage(0); }}
                     className="flex flex-col items-center justify-center p-3 rounded-xl bg-white/90 dark:bg-slate-900/50 hover:bg-white dark:hover:bg-slate-800/80 transition-colors text-left cursor-pointer shadow-sm border border-white/60 dark:border-white/10">
                     <span className="text-lg font-bold text-amber-600 dark:text-amber-400">{actionItems.overdue}</span>
-                    <span className="text-xs text-gray-600 dark:text-gray-400">Overdue</span>
+                    <span className="text-xs text-gray-600 dark:text-gray-400">Pending Orders</span>
                   </button>
                   <button onClick={() => { setActiveTab('deliveries'); setDeliveryAttentionFilter('unassigned'); setDeliveryStatusFilter('all'); setDeliveryPage(0); }}
                     className="flex flex-col items-center justify-center p-3 rounded-xl bg-white/90 dark:bg-slate-900/50 hover:bg-white dark:hover:bg-slate-800/80 transition-colors text-left cursor-pointer shadow-sm border border-white/60 dark:border-white/10">
@@ -2241,7 +2251,7 @@ export default function AdminDashboardPage(): React.ReactElement {
             {[
               { label: 'Total', value: filteredDeliveries.length, icon: Package, color: 'blue' },
               { label: 'Delivered', value: filteredDeliveries.filter(d => ['delivered','delivered-with-installation','delivered-without-installation'].includes((d.status||'').toLowerCase())).length, icon: CheckCircle, color: 'green' },
-              { label: 'Pending', value: filteredDeliveries.filter(d => ['pending','scheduled'].includes((d.status||'').toLowerCase())).length, icon: Clock, color: 'yellow' },
+              { label: 'Pending Orders', value: filteredDeliveries.filter(d => ['pending','uploaded'].includes((d.status||'').toLowerCase())).length, icon: Clock, color: 'yellow' },
               { label: "Today's Delivery", value: filteredDeliveries.filter(d => {
                 const t = d.created_at || d.createdAt || d.created;
                 if (!t) return false;
@@ -2287,8 +2297,8 @@ export default function AdminDashboardPage(): React.ReactElement {
               className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="all">All Statuses</option>
-                      <option value="pending">Pending</option>
-              <option value="scheduled">Scheduled</option>
+                      <option value="pending">Pending Order</option>
+              <option value="scheduled">Awaiting Customer (SMS sent)</option>
               <option value="scheduled-confirmed">Confirmed</option>
                       <option value="out-for-delivery">Out for Delivery</option>
                       <option value="delivered">Delivered</option>
@@ -2393,8 +2403,8 @@ export default function AdminDashboardPage(): React.ReactElement {
                             onClick={e => e.stopPropagation()}
                             className="px-2 py-1 text-xs border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
                           >
-                            <option value="pending">Pending</option>
-                            <option value="scheduled">Scheduled</option>
+                            <option value="pending">Pending Order</option>
+                            <option value="scheduled">Awaiting Customer</option>
                             <option value="scheduled-confirmed">Confirmed</option>
                             <option value="out-for-delivery">Out for Delivery</option>
                             <option value="delivered">Delivered</option>
@@ -2447,7 +2457,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Needs Attention</h3>
                 <div className="space-y-2">
                   <button onClick={() => { setDeliveryAttentionFilter('overdue'); setDeliveryStatusFilter('all'); setDeliveryPage(0); }} className="w-full flex justify-between items-center p-2 rounded-lg bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 text-left cursor-pointer">
-                    <span className="text-sm text-gray-700 dark:text-gray-300">Overdue</span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">Pending Orders</span>
                     <span className="font-bold text-amber-600">{actionItems.overdue}</span>
                   </button>
                   <button onClick={() => { setDeliveryAttentionFilter('unassigned'); setDeliveryStatusFilter('all'); setDeliveryPage(0); }} className="w-full flex justify-between items-center p-2 rounded-lg bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 text-left cursor-pointer">
@@ -2455,7 +2465,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                     <span className="font-bold text-orange-600">{actionItems.unassigned}</span>
                   </button>
                   <button onClick={() => { setDeliveryAttentionFilter('awaiting'); setDeliveryStatusFilter('all'); setDeliveryPage(0); }} className="w-full flex justify-between items-center p-2 rounded-lg bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 text-left cursor-pointer">
-                    <span className="text-sm text-gray-700 dark:text-gray-300">Awaiting confirmation</span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">Awaiting Customer</span>
                     <span className="font-bold text-purple-600">{actionItems.unconfirmed}</span>
                   </button>
                 </div>

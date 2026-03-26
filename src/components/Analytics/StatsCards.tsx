@@ -27,7 +27,7 @@ export default function StatsCards() {
       }).length,
       pending: deliveries.filter((d) => {
         const s = d.status?.toLowerCase();
-        return s === 'pending' || s === 'scheduled';
+        return s === 'pending' || s === 'uploaded';
       }).length,
       cancelled: deliveries.filter((d) => {
         const s = d.status?.toLowerCase();
@@ -71,18 +71,18 @@ export default function StatsCards() {
       className: 'bg-gradient-to-br from-indigo-500 to-indigo-600',
     },
     {
-      label: 'Pending',
+      label: 'Pending Order',
       value: analytics.pending,
       icon: Clock,
       color: 'yellow',
       className: 'bg-gradient-to-br from-yellow-500 to-yellow-600',
     },
     {
-      label: 'Scheduled',
+      label: 'Awaiting Customer',
       value: analytics.scheduled,
       icon: Clock,
       color: 'purple',
-      className: 'bg-gradient-to-br from-purple-500 to-purple-600',
+      className: 'bg-gradient-to-br from-orange-500 to-orange-600',
     },
     {
       label: 'Cancelled/Rejected',

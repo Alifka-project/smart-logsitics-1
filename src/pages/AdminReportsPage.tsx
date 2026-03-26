@@ -312,7 +312,12 @@ export default function AdminReportsPage(): React.ReactElement {
     let filtered = [...reportData.deliveries];
 
     if (filters.status) {
-      filtered = filtered.filter(d => (d.status || '').toLowerCase() === filters.status.toLowerCase());
+      filtered = filtered.filter(d => {
+        const s = (d.status || '').toLowerCase();
+        // 'pending' filter covers both 'pending' and 'uploaded' DB statuses
+        if (filters.status.toLowerCase() === 'pending') return s === 'pending' || s === 'uploaded';
+        return s === filters.status.toLowerCase();
+      });
     }
     if (filters.customerStatus) {
       filtered = filtered.filter(d =>
@@ -398,10 +403,18 @@ export default function AdminReportsPage(): React.ReactElement {
     return new Date(val).toLocaleDateString('en-AE', { year: 'numeric', month: 'short', day: 'numeric' });
   };
 
+  const STATUS_DISPLAY: Record<string, string> = {
+    'pending': 'Pending Order',
+    'uploaded': 'Pending Order',
+    'scheduled': 'Awaiting Customer',
+    'scheduled-confirmed': 'Confirmed',
+    'out-for-delivery': 'Out for Delivery',
+  };
+
   const formatStatusLabel = (status: string): string => {
-    return status
-      .replace(/-/g, ' ')
-      .replace(/\b\w/g, c => c.toUpperCase());
+    const key = (status || '').toLowerCase();
+    if (STATUS_DISPLAY[key]) return STATUS_DISPLAY[key];
+    return status.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   };
 
   if (!reportData && !loading) {
@@ -520,9 +533,9 @@ export default function AdminReportsPage(): React.ReactElement {
               <option value="delivered">Delivered</option>
               <option value="delivered-with-installation">Delivered (With Installation)</option>
               <option value="delivered-without-installation">Delivered (Without Installation)</option>
-              <option value="pending">Pending</option>
-              <option value="scheduled">Scheduled</option>
-              <option value="scheduled-confirmed">Scheduled Confirmed</option>
+              <option value="pending">Pending Order</option>
+              <option value="scheduled">Awaiting Customer (SMS sent)</option>
+              <option value="scheduled-confirmed">Confirmed (future date set)</option>
               <option value="out-for-delivery">Out for Delivery</option>
               <option value="in-progress">In Progress</option>
               <option value="cancelled">Cancelled</option>
@@ -619,7 +632,7 @@ export default function AdminReportsPage(): React.ReactElement {
           trend="down"
         />
         <ReportMetricCard
-          label="Pending"
+          label="Pending Orders"
           value={stats.pending ?? 0}
           icon={<Clock className="w-5 h-5" />}
           tone="yellow"

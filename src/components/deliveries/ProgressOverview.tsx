@@ -8,8 +8,8 @@ interface ProgressOverviewProps {
 }
 
 const LEGEND = [
-  { key: 'uploaded', label: 'Uploaded / New', color: '#3B82F6' },
-  { key: 'smsSent', label: 'SMS sent', color: '#0F6E56' },
+  { key: 'uploaded', label: 'Pending Order', color: '#3B82F6' },
+  { key: 'smsSent', label: 'Awaiting Customer', color: '#0F6E56' },
   { key: 'confirmed', label: 'Confirmed', color: '#D97706' },
   { key: 'assigned', label: 'Assigned', color: '#7C3AED' },
   { key: 'delivered', label: 'Delivered', color: '#10B981' },
@@ -30,12 +30,12 @@ export default function ProgressOverview({ pipeline, total }: ProgressOverviewPr
         <div
           className="h-full flex-none min-w-0"
           style={{ width: `${w.uploaded}%`, backgroundColor: '#3B82F6' }}
-          title="Uploaded"
+          title="Pending Order"
         />
         <div
           className="h-full flex-none min-w-0"
           style={{ width: `${w.smsSent}%`, backgroundColor: '#0F6E56' }}
-          title="SMS sent"
+          title="Awaiting Customer"
         />
         <div
           className="h-full flex-none min-w-0"

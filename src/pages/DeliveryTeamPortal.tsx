@@ -534,11 +534,14 @@ export default function DeliveryTeamPortal() {
     if (rawStatus === 'assigned') {
       return { label: 'Assigned', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300' };
     }
-    if (rawStatus === 'pending') {
-      return { label: 'Pending', color: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' };
+    if (rawStatus === 'scheduled') {
+      return { label: 'Awaiting Customer', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' };
+    }
+    if (rawStatus === 'pending' || rawStatus === 'uploaded') {
+      return { label: 'Pending Order', color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300' };
     }
     return {
-      label: delivery.status ? delivery.status.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Pending',
+      label: delivery.status ? delivery.status.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Pending Order',
       color: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300',
     };
   };
@@ -669,7 +672,7 @@ export default function DeliveryTeamPortal() {
                   className="flex flex-col items-center justify-center p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/30 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors cursor-pointer"
                 >
                   <span className="text-xl font-bold text-amber-600 dark:text-amber-400">{actionItems.overdue.length}</span>
-                  <span className="text-xs text-amber-700 dark:text-amber-400 mt-0.5 text-center">Overdue</span>
+                  <span className="text-xs text-amber-700 dark:text-amber-400 mt-0.5 text-center">Pending Orders</span>
                 </div>
                 <div
                   onClick={() => setActiveTab('control')}

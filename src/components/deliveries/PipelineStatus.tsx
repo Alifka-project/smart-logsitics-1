@@ -25,7 +25,7 @@ const STAGES: {
 }[] = [
   {
     key: 'uploaded',
-    label: 'Uploaded',
+    label: 'Pending Order',
     sub: 'Awaiting SMS',
     w: 108,
     h: 85,
@@ -38,8 +38,8 @@ const STAGES: {
   },
   {
     key: 'sms_sent',
-    label: 'SMS sent',
-    sub: 'Awaiting OK',
+    label: 'Awaiting Customer',
+    sub: 'SMS sent',
     w: 108,
     h: 85,
     bg: '#D1FAE5',

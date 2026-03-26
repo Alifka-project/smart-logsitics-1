@@ -15,7 +15,7 @@ export type StatusVisualConfig = {
 
 export const STATUS_CONFIG: Record<DeliveryStatus, StatusVisualConfig> = {
   uploaded: {
-    label: 'Uploaded',
+    label: 'Pending Order',
     bgColor: 'bg-blue-50',
     textColor: 'text-blue-600',
     borderColor: 'border-blue-200',
@@ -24,7 +24,8 @@ export const STATUS_CONFIG: Record<DeliveryStatus, StatusVisualConfig> = {
     badgeStyle: 'bg-blue-100 text-blue-700',
   },
   sms_sent: {
-    label: 'SMS Sent',
+    label: 'Awaiting Customer',
+    pillLabel: 'Awaiting',
     bgColor: 'bg-emerald-50',
     textColor: 'text-emerald-600',
     borderColor: 'border-emerald-200',
@@ -33,7 +34,7 @@ export const STATUS_CONFIG: Record<DeliveryStatus, StatusVisualConfig> = {
     badgeStyle: 'bg-emerald-100 text-emerald-700',
   },
   unconfirmed: {
-    label: 'Unconfirmed',
+    label: 'No Response',
     bgColor: 'bg-red-50',
     textColor: 'text-red-600',
     borderColor: 'border-red-400',

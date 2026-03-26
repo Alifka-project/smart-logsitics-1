@@ -8,11 +8,12 @@ interface StatusConfig {
 }
 
 const STATUS_CONFIG: Record<string, StatusConfig> = {
-  'scheduled':                     { dot: 'bg-purple-500',  bg: 'bg-purple-50 dark:bg-purple-900/20',   text: 'text-purple-700 dark:text-purple-300',  label: 'Scheduled'           },
+  'scheduled':                     { dot: 'bg-orange-500',  bg: 'bg-orange-50 dark:bg-orange-900/20',   text: 'text-orange-700 dark:text-orange-300',  label: 'Awaiting Customer'   },
   'scheduled-confirmed':           { dot: 'bg-blue-500',    bg: 'bg-blue-50 dark:bg-blue-900/20',       text: 'text-blue-700 dark:text-blue-300',      label: 'Confirmed'           },
   'out-for-delivery':              { dot: 'bg-indigo-500',  bg: 'bg-indigo-50 dark:bg-indigo-900/20',   text: 'text-indigo-700 dark:text-indigo-300',  label: 'Out for Delivery'    },
   'in-progress':                   { dot: 'bg-blue-500',    bg: 'bg-blue-50 dark:bg-blue-900/20',       text: 'text-blue-700 dark:text-blue-300',      label: 'In Progress'         },
-  'pending':                       { dot: 'bg-yellow-500',  bg: 'bg-yellow-50 dark:bg-yellow-900/20',   text: 'text-yellow-700 dark:text-yellow-300',  label: 'Pending'             },
+  'pending':                       { dot: 'bg-yellow-500',  bg: 'bg-yellow-50 dark:bg-yellow-900/20',   text: 'text-yellow-700 dark:text-yellow-300',  label: 'Pending Order'       },
+  'uploaded':                      { dot: 'bg-yellow-500',  bg: 'bg-yellow-50 dark:bg-yellow-900/20',   text: 'text-yellow-700 dark:text-yellow-300',  label: 'Pending Order'       },
   'delivered':                     { dot: 'bg-green-500',   bg: 'bg-green-50 dark:bg-green-900/20',     text: 'text-green-700 dark:text-green-300',    label: 'Delivered'           },
   'delivered-with-installation':   { dot: 'bg-green-500',   bg: 'bg-green-50 dark:bg-green-900/20',     text: 'text-green-700 dark:text-green-300',    label: 'Delivered + Install' },
   'delivered-without-installation':{ dot: 'bg-green-500',   bg: 'bg-green-50 dark:bg-green-900/20',     text: 'text-green-700 dark:text-green-300',    label: 'Delivered'           },
