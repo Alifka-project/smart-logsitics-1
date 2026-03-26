@@ -431,7 +431,9 @@ router.get('/', authenticate, requireRole('admin'), async (req: Request, res: Re
         }
       }
 
-      if (!['delivered', 'done', 'completed', 'delivered-with-installation', 'delivered-without-installation', 'cancelled', 'canceled', 'rejected', 'rescheduled', 'scheduled', 'scheduled-confirmed', 'out-for-delivery', 'in-progress'].includes(s)) {
+      // Count only genuinely pending orders — never use a catch-all (it wrongly
+      // counts 'returned', 'pod-completed', 'failed', or any new status as pending)
+      if (s === 'pending' || s === 'uploaded') {
         totals.pending++;
       }
     }
