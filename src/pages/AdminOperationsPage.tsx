@@ -796,7 +796,8 @@ export default function AdminOperationsPage(): React.ReactElement {
                     </div>
                     <div className="space-y-3 max-h-[560px] overflow-y-auto pr-1">
                       {activeEta.slice(0, 20).map((delivery, stopIdx) => {
-                        const poNum = delivery.poNumber || delivery.PONumber || (delivery.metadata as { originalPONumber?: string })?.originalPONumber || `#${String(delivery.id || delivery.ID || '').slice(0, 8)}`;
+                        const poNum = delivery.poNumber || delivery.PONumber || (delivery.metadata as { originalPONumber?: string })?.originalPONumber || '';
+                        const deliveryNum = (delivery.metadata as { originalDeliveryNumber?: string } | null | undefined)?.originalDeliveryNumber || (delivery as unknown as { _originalDeliveryNumber?: string })._originalDeliveryNumber || '';
                         const customer = delivery.customer || delivery.Customer || 'Unknown';
                         const address = String(delivery.address || delivery.Address || '');
                         const driverId = delivery.tracking?.driverId || delivery.assignedDriverId;
@@ -812,10 +813,18 @@ export default function AdminOperationsPage(): React.ReactElement {
                             <div className="flex items-center justify-between mb-1">
                               <div className="flex items-center gap-2 min-w-0">
                                 <span className="text-xs font-bold text-gray-500 dark:text-gray-400 shrink-0">Stop {stopIdx + 1}</span>
-                                <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{poNum}</span>
                               </div>
                               <span className={`px-2 py-0.5 text-xs font-medium rounded-full shrink-0 ml-2 ${statusInfo.color}`}>
                                 {statusInfo.label}
+                              </span>
+                            </div>
+                            {/* PO Number + Delivery Number — tracking identifiers */}
+                            <div className="flex flex-wrap gap-x-3 gap-y-0.5 mb-1.5">
+                              <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                                PO: <span className="font-mono font-semibold text-blue-700 dark:text-blue-300">{poNum || '—'}</span>
+                              </span>
+                              <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                                Del: <span className="font-mono font-semibold text-indigo-700 dark:text-indigo-300">{deliveryNum || '—'}</span>
                               </span>
                             </div>
                             <div className="text-sm text-gray-700 dark:text-gray-300 font-medium truncate">{customer}</div>
