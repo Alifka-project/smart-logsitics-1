@@ -5,7 +5,7 @@ import { STATUS_CONFIG } from '../../config/statusColors';
 import { RescheduleModal } from './RescheduleModal';
 import { rescheduleDateToWorkflow } from '../../utils/deliveryWorkflowMap';
 
-export type OrdersTableTab = 'all' | 'pending' | 'confirmed' | 'scheduled' | 'out_for_delivery';
+export type OrdersTableTab = 'all' | 'pending' | 'awaiting_customer' | 'confirmed' | 'scheduled' | 'out_for_delivery';
 
 function OrderStatusPill({
   status,
@@ -69,7 +69,11 @@ function matchesTableTab(order: DeliveryOrder, tab: OrdersTableTab): boolean {
     case 'all':
       return true;
     case 'pending':
-      return ['uploaded', 'sms_sent', 'unconfirmed'].includes(order.status);
+      // Pending Order = new order, no SMS sent yet
+      return order.status === 'uploaded';
+    case 'awaiting_customer':
+      // Awaiting Customer = SMS sent (waiting for reply) OR no response after 48h
+      return order.status === 'sms_sent' || order.status === 'unconfirmed';
     case 'confirmed':
       return order.status === 'confirmed';
     case 'scheduled':
@@ -175,8 +179,10 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
       return <span className="font-medium text-[#002D5B] dark:text-blue-200">Today</span>;
     if (order.status === 'unconfirmed')
       return <span className="text-red-600 dark:text-red-400">No response</span>;
-    if (order.status === 'uploaded' || order.status === 'sms_sent')
-      return <span className="text-blue-600 dark:text-blue-400">Pending SMS</span>;
+    if (order.status === 'sms_sent')
+      return <span className="text-emerald-600 dark:text-emerald-400">Awaiting reply</span>;
+    if (order.status === 'uploaded')
+      return <span className="text-gray-400 dark:text-gray-500">No SMS yet</span>;
     return <span className="text-gray-400">—</span>;
   };
 
@@ -282,14 +288,19 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
     { key: 'all', label: 'All', count: orders.length },
     {
       key: 'pending',
-      label: 'Pending Orders',
-      count: orders.filter((o) => ['uploaded', 'sms_sent', 'unconfirmed'].includes(o.status)).length,
+      label: 'Pending Order',
+      count: orders.filter((o) => o.status === 'uploaded').length,
+    },
+    {
+      key: 'awaiting_customer',
+      label: 'Awaiting Customer',
+      count: orders.filter((o) => o.status === 'sms_sent' || o.status === 'unconfirmed').length,
     },
     { key: 'confirmed', label: 'Confirmed', count: orders.filter((o) => o.status === 'confirmed').length },
     { key: 'scheduled', label: 'Scheduled', count: orders.filter((o) => o.status === 'scheduled').length },
     {
       key: 'out_for_delivery',
-      label: 'Out for delivery',
+      label: 'Out for Delivery',
       count: orders.filter((o) => o.status === 'out_for_delivery').length,
     },
   ];

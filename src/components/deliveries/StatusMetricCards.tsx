@@ -8,11 +8,11 @@ interface StatusMetricCardsProps {
 }
 
 const CARD_DEFS = [
-  { key: 'uploaded', sublabel: 'New', darkIconBg: 'dark:bg-blue-500/30' },
-  { key: 'sms_sent', sublabel: 'Awaiting', darkIconBg: 'dark:bg-emerald-500/30' },
-  { key: 'unconfirmed', sublabel: 'No reply', darkIconBg: 'dark:bg-red-500/35' },
+  { key: 'uploaded', sublabel: 'No SMS sent', darkIconBg: 'dark:bg-blue-500/30' },
+  { key: 'sms_sent', sublabel: 'SMS sent', darkIconBg: 'dark:bg-emerald-500/30' },
+  { key: 'unconfirmed', sublabel: 'No reply 48h+', darkIconBg: 'dark:bg-red-500/35' },
   { key: 'confirmed', sublabel: 'Tomorrow', darkIconBg: 'dark:bg-amber-500/35' },
-  { key: 'scheduled', sublabel: 'Future', darkIconBg: 'dark:bg-indigo-500/30' },
+  { key: 'scheduled', sublabel: 'Future date', darkIconBg: 'dark:bg-indigo-500/30' },
   { key: 'out_for_delivery', sublabel: 'On route', darkIconBg: 'dark:bg-orange-500/30' },
   { key: 'delivered', sublabel: 'Done', darkIconBg: 'dark:bg-green-500/35' },
 ] as const;

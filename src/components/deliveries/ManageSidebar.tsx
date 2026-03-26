@@ -174,7 +174,7 @@ export const ManageSidebar: React.FC<ManageSidebarProps> = ({
 
         {unconfirmedCount > 0 && (
           <div className="mt-3 p-2 bg-white/10 rounded-md">
-            <p className="text-xs text-white/90">⚠️ {unconfirmedCount} orders need attention</p>
+            <p className="text-xs text-white/90">⚠️ {unconfirmedCount} orders with no customer response</p>
           </div>
         )}
       </div>
@@ -197,7 +197,7 @@ export const ManageSidebar: React.FC<ManageSidebarProps> = ({
               onClick={onBulkResendUnconfirmed}
               className="w-full py-2.5 px-3 bg-red-50 dark:bg-red-900/25 text-red-900 dark:text-red-100 rounded-lg text-xs font-medium text-center hover:bg-red-100 dark:hover:bg-red-900/40 border border-red-200/80 dark:border-red-800/50"
             >
-              Resend SMS to {unconfirmedCount} unconfirmed →
+              Resend SMS to {unconfirmedCount} no-response orders →
             </button>
           )}
           {confirmedCount === 0 && unconfirmedCount === 0 && (
