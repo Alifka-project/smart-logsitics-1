@@ -162,6 +162,8 @@ interface TrackingInfoResponse {
 
 interface TrackingDelivery extends Delivery {
   confirmedDeliveryDate?: string;
+  rescheduleReason?: string | null;
+  rescheduledAt?: string | null;
 }
 
 interface TrackingData {
@@ -175,7 +177,7 @@ const TIMELINE_STEPS: TimelineStep[] = [
   { id: 'order_processed', label: 'Order Processed', desc: 'Received & being prepared', icon: Package,
     matchStatuses: ['pending', 'uploaded'], matchEvents: ['delivery_uploaded', 'order_created'] },
   { id: 'order_scheduled', label: 'Order Scheduled', desc: 'Delivery date confirmed', icon: Calendar,
-    matchStatuses: ['scheduled', 'confirmed', 'scheduled-confirmed'], matchEvents: ['customer_confirmed', 'delivery_scheduled'] },
+    matchStatuses: ['scheduled', 'confirmed', 'scheduled-confirmed', 'rescheduled'], matchEvents: ['customer_confirmed', 'delivery_scheduled', 'admin_rescheduled'] },
   { id: 'out_for_delivery', label: 'Out for Delivery', desc: 'On its way to you', icon: Truck,
     matchStatuses: ['out-for-delivery', 'in-transit'], matchEvents: ['out_for_delivery', 'status_updated_out_for_delivery'] },
   { id: 'items_arrived', label: 'Items Arrived', desc: 'Delivered to your address', icon: MapPin,
@@ -414,6 +416,41 @@ export default function CustomerTrackingPage() {
             </div>
           </div>
         </div>
+
+        {/* ── Rescheduled Banner ───────────────────────────────────── */}
+        {delivery.status === 'rescheduled' && (
+          <div className="anim-card anim-card-2" style={{
+            background: '#FFFBEB',
+            border: '1px solid #FCD34D',
+            borderRadius: 16,
+            padding: '14px 18px',
+            marginBottom: 12,
+            display: 'flex',
+            gap: 12,
+            alignItems: 'flex-start',
+          }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Calendar style={{ width: 18, height: 18, color: '#D97706' }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontWeight: 700, fontSize: 14, color: '#92400E', marginBottom: 4 }}>Delivery Rescheduled</p>
+              {delivery.confirmedDeliveryDate && (
+                <p style={{ fontSize: 13, color: '#78350F', marginBottom: 4 }}>
+                  <strong>New delivery date: </strong>
+                  {new Date(delivery.confirmedDeliveryDate).toLocaleDateString('en-AE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                </p>
+              )}
+              {delivery.rescheduleReason && (
+                <p style={{ fontSize: 13, color: '#78350F', marginBottom: 4 }}>
+                  <strong>Reason: </strong>{delivery.rescheduleReason}
+                </p>
+              )}
+              <p style={{ fontSize: 12, color: '#92400E' }}>
+                We apologise for any inconvenience. Your order has been rescheduled by the Electrolux Delivery Team.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* ── 5-Step Progress Timeline ─────────────────────────────── */}
         <div className="card anim-card anim-card-2" style={{ padding: '20px', marginBottom: 12 }}>

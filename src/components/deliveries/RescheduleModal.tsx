@@ -2,14 +2,25 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { DeliveryOrder } from '../../types/delivery';
 
+const RESCHEDULE_REASONS = [
+  'Bad weather conditions',
+  'Vehicle / operational issue',
+  'Route optimization',
+  'Customer area not accessible',
+  'High delivery volume',
+  'Other',
+];
+
 interface RescheduleModalProps {
   order: DeliveryOrder;
   onClose: () => void;
-  onReschedule: (newDate: Date) => void;
+  onReschedule: (newDate: Date, reason: string) => void;
 }
 
 export const RescheduleModal: React.FC<RescheduleModalProps> = ({ order, onClose, onReschedule }) => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [reason, setReason] = useState<string>(RESCHEDULE_REASONS[0]);
+  const [customReason, setCustomReason] = useState<string>('');
 
   useEffect(() => {
     const html = document.documentElement;
@@ -40,6 +51,15 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({ order, onClose
 
   const minDateStr = tomorrow.toISOString().split('T')[0];
 
+  const effectiveReason = reason === 'Other' ? customReason.trim() : reason;
+  const canConfirm = !!selectedDate && effectiveReason.length > 0;
+
+  const handleConfirm = () => {
+    if (selectedDate && canConfirm) {
+      onReschedule(selectedDate, effectiveReason);
+    }
+  };
+
   const modal = (
     <div
       className="pp-modal-backdrop fixed inset-0 z-[10050] flex items-center justify-center bg-black/50 p-4 sm:p-6"
@@ -51,6 +71,7 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({ order, onClose
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Header */}
         <div className="shrink-0 border-b border-gray-100 p-4 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Reschedule Delivery</h3>
@@ -68,7 +89,10 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({ order, onClose
           </p>
         </div>
 
+        {/* Body */}
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4">
+
+          {/* Quick date options */}
           <div>
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Quick options</p>
             <div className="flex gap-2 flex-wrap">
@@ -92,6 +116,7 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({ order, onClose
             </div>
           </div>
 
+          {/* Custom date */}
           <div>
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Or pick a date</p>
             <input
@@ -105,23 +130,53 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({ order, onClose
             />
           </div>
 
+          {/* Reason */}
+          <div>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Reason for rescheduling</p>
+            <select
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#002D5B]"
+            >
+              {RESCHEDULE_REASONS.map((r) => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+            {reason === 'Other' && (
+              <input
+                type="text"
+                placeholder="Please specify the reason…"
+                value={customReason}
+                onChange={(e) => setCustomReason(e.target.value)}
+                className="mt-2 w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#002D5B]"
+              />
+            )}
+          </div>
+
+          {/* Preview */}
           {selectedDate && (
-            <div className="p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+            <div className="p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg space-y-1">
               <p className="text-sm text-amber-800 dark:text-amber-200">
-                📅 New delivery date:{' '}
+                📅 New date:{' '}
                 <strong>
                   {selectedDate.toLocaleDateString('en-GB', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
+                    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
                   })}
                 </strong>
+              </p>
+              {effectiveReason && (
+                <p className="text-sm text-amber-800 dark:text-amber-200">
+                  📋 Reason: <strong>{effectiveReason}</strong>
+                </p>
+              )}
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                Customer will be notified by SMS.
               </p>
             </div>
           )}
         </div>
 
+        {/* Footer */}
         <div className="flex shrink-0 gap-3 border-t border-gray-100 p-4 dark:border-gray-700">
           <button
             type="button"
@@ -132,8 +187,8 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({ order, onClose
           </button>
           <button
             type="button"
-            onClick={() => selectedDate && onReschedule(selectedDate)}
-            disabled={!selectedDate}
+            onClick={handleConfirm}
+            disabled={!canConfirm}
             className="flex-1 py-2 px-4 bg-[#002D5B] text-white rounded-lg hover:bg-[#001f3f] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Confirm Reschedule

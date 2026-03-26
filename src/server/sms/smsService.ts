@@ -294,6 +294,81 @@ async function confirmDelivery(token: string, deliveryDate: Date): Promise<Confi
   }
 }
 
+interface SendRescheduleSmsResult {
+  ok: boolean;
+  messageId?: string;
+  error?: string;
+}
+
+/**
+ * Send admin-initiated reschedule notification SMS to customer
+ */
+async function sendRescheduleSms(
+  deliveryId: string,
+  newDeliveryDate: Date,
+  reason?: string
+): Promise<SendRescheduleSmsResult> {
+  try {
+    const delivery = await prisma.delivery.findUnique({ where: { id: deliveryId } }) as Record<string, unknown> | null;
+    if (!delivery) throw new Error(`Delivery not found: ${deliveryId}`);
+
+    const phone = delivery.phone as string | null;
+    if (!phone) return { ok: false, error: 'no_phone' };
+
+    const normalizedPhone = normalizeUAEPhone(phone) || phone;
+    const customerName = (delivery.customer as string | null) || 'Valued Customer';
+    const poNumber = delivery.poNumber as string | undefined;
+    const poRef = poNumber ? `#${poNumber}` : '';
+
+    const formattedDate = newDeliveryDate.toLocaleDateString('en-AE', {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+    });
+
+    const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
+    const token = delivery.confirmationToken as string | undefined;
+    const trackingLink = token ? `${frontendUrl}/customer-tracking/${token}` : null;
+
+    const reasonText = reason ? reason.trim() : 'operational requirements';
+
+    const smsMessage = `Dear ${customerName},
+
+We regret to inform you that your Electrolux order ${poRef} has been rescheduled.
+
+New delivery date: ${formattedDate}
+Reason: ${reasonText}
+${trackingLink ? `\nTrack your delivery:\n${trackingLink}\n` : ''}
+For assistance, please contact the Electrolux Delivery Team at +971524408687.
+
+Thank you for your understanding,
+Electrolux Delivery Team`;
+
+    const smsResult = await smsAdapter!.sendSms({
+      to: normalizedPhone,
+      body: smsMessage,
+      metadata: { deliveryId, type: 'admin_reschedule_notification' }
+    });
+
+    await (prisma as any).smsLog.create({
+      data: {
+        deliveryId,
+        phoneNumber: normalizedPhone,
+        messageContent: smsMessage,
+        smsProvider: process.env.SMS_PROVIDER || 'd7',
+        externalMessageId: smsResult.messageId,
+        status: smsResult.status || 'sent',
+        sentAt: new Date(),
+        metadata: { type: 'admin_reschedule_notification', newDeliveryDate: newDeliveryDate.toISOString(), reason: reasonText }
+      }
+    });
+
+    return { ok: true, messageId: smsResult.messageId };
+  } catch (error: unknown) {
+    const e = error as Error;
+    console.error('[SMS] Failed to send reschedule SMS:', e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
 interface CustomerTrackingResult {
   delivery: {
     id: unknown;
@@ -303,6 +378,8 @@ interface CustomerTrackingResult {
     items: unknown;
     status: unknown;
     confirmedDeliveryDate: unknown;
+    rescheduleReason: string | null;
+    rescheduledAt: string | null;
     lat: unknown;
     lng: unknown;
   };
@@ -355,6 +432,10 @@ async function getCustomerTracking(token: string): Promise<CustomerTrackingResul
       orderBy: { createdAt: 'asc' }
     });
 
+    const meta = (delivery.metadata && typeof delivery.metadata === 'object')
+      ? delivery.metadata as Record<string, unknown>
+      : {};
+
     return {
       delivery: {
         id: delivery.id,
@@ -364,6 +445,8 @@ async function getCustomerTracking(token: string): Promise<CustomerTrackingResul
         items: delivery.items,
         status: delivery.status,
         confirmedDeliveryDate: delivery.confirmedDeliveryDate,
+        rescheduleReason: (meta.rescheduleReason as string | null) ?? null,
+        rescheduledAt: (meta.rescheduledAt as string | null) ?? null,
         lat: delivery.lat,
         lng: delivery.lng
       },
@@ -383,6 +466,7 @@ async function getCustomerTracking(token: string): Promise<CustomerTrackingResul
 export {
   generateConfirmationToken,
   sendConfirmationSms,
+  sendRescheduleSms,
   validateConfirmationToken,
   confirmDelivery,
   getCustomerTracking,

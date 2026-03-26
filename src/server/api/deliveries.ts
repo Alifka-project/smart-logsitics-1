@@ -1251,4 +1251,98 @@ router.get('/:id/pod', authenticate, async (req: Request, res: Response): Promis
   }
 });
 
+// PUT /api/admin/deliveries/:id/reschedule
+// Admin-initiated reschedule: updates delivery date, sets status to rescheduled, notifies customer by SMS
+router.put('/admin/:id/reschedule', authenticate, requireAnyRole('admin', 'delivery_team'), async (req: Request, res: Response): Promise<void> => {
+  const { id: deliveryId } = req.params as { id: string };
+  const { newDeliveryDate, reason } = req.body as { newDeliveryDate?: string; reason?: string };
+
+  if (!newDeliveryDate) {
+    res.status(400).json({ error: 'new_delivery_date_required' });
+    return;
+  }
+
+  const parsedDate = new Date(newDeliveryDate);
+  if (isNaN(parsedDate.getTime())) {
+    res.status(400).json({ error: 'invalid_delivery_date' });
+    return;
+  }
+
+  try {
+    const existingDelivery = await prisma.delivery.findUnique({ where: { id: deliveryId } }) as Record<string, unknown> | null;
+    if (!existingDelivery) {
+      res.status(404).json({ error: 'delivery_not_found' });
+      return;
+    }
+
+    const prevMeta = existingDelivery.metadata && typeof existingDelivery.metadata === 'object'
+      ? (existingDelivery.metadata as Record<string, unknown>) : {};
+
+    const reasonText = (reason || '').trim() || 'Operational requirements';
+
+    const updatedDelivery = await prisma.delivery.update({
+      where: { id: deliveryId },
+      data: {
+        status: 'rescheduled',
+        confirmedDeliveryDate: parsedDate,
+        metadata: {
+          ...prevMeta,
+          rescheduleReason: reasonText,
+          rescheduledAt: new Date().toISOString(),
+          rescheduledBy: req.user?.username || req.user?.email || req.user?.sub || 'admin',
+          previousStatus: existingDelivery.status,
+          previousDeliveryDate: existingDelivery.confirmedDeliveryDate ?? null,
+        }
+      }
+    }) as Record<string, unknown>;
+
+    // Audit event
+    await prisma.deliveryEvent.create({
+      data: {
+        deliveryId,
+        eventType: 'admin_rescheduled',
+        payload: {
+          previousStatus: existingDelivery.status,
+          previousDeliveryDate: existingDelivery.confirmedDeliveryDate ?? null,
+          newDeliveryDate: parsedDate.toISOString(),
+          reason: reasonText,
+          rescheduledBy: req.user?.username || req.user?.email || req.user?.sub || 'admin',
+          rescheduledAt: new Date().toISOString(),
+        },
+        actorType: 'admin',
+        actorId: req.user?.sub || null
+      }
+    }).catch((err: unknown) => {
+      console.warn('[Deliveries] Failed to create reschedule event:', (err as Error).message);
+    });
+
+    // Notify customer by SMS (fire-and-forget, never block response)
+    if (existingDelivery.phone) {
+      const smsService = require('../sms/smsService');
+      smsService.sendRescheduleSms(deliveryId, parsedDate, reasonText).catch((err: unknown) => {
+        console.warn('[Deliveries] Reschedule SMS failed:', (err as Error).message);
+      });
+    }
+
+    // Invalidate caches
+    cache.invalidatePrefix('tracking:');
+    cache.invalidatePrefix('dashboard:');
+    cache.invalidatePrefix('deliveries:list:v2');
+
+    res.json({
+      ok: true,
+      delivery: {
+        id: updatedDelivery.id,
+        status: updatedDelivery.status,
+        confirmedDeliveryDate: updatedDelivery.confirmedDeliveryDate,
+        rescheduleReason: reasonText,
+      }
+    });
+  } catch (err: unknown) {
+    const e = err as { message?: string };
+    console.error('[Deliveries] Admin reschedule error:', e.message);
+    res.status(500).json({ error: 'reschedule_failed', detail: e.message });
+  }
+});
+
 export default router;

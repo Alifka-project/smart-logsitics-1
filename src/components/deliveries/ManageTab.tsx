@@ -204,6 +204,23 @@ export default function ManageTab({
     [sendSmsForDelivery, onNotifySuccess, onToastError],
   );
 
+  const handleAdminReschedule = useCallback(
+    async (orderId: string, newDate: Date, reason: string) => {
+      try {
+        await api.put(`/deliveries/admin/${orderId}/reschedule`, {
+          newDeliveryDate: newDate.toISOString(),
+          reason,
+        });
+        updateDeliveryStatus(orderId, 'rescheduled');
+        onNotifySuccess('Delivery rescheduled', 'Customer will be notified by SMS.');
+      } catch (e: unknown) {
+        const err = e as { response?: { data?: { error?: string } }; message?: string };
+        onToastError(err?.response?.data?.error ?? err?.message ?? 'Failed to reschedule delivery');
+      }
+    },
+    [updateDeliveryStatus, onNotifySuccess, onToastError],
+  );
+
   const handleBulkResendUnconfirmed = useCallback(async () => {
     const ids = manageOrders.filter((o) => o.status === 'unconfirmed').map((o) => o.id);
     if (ids.length === 0) return;
@@ -276,6 +293,7 @@ export default function ManageTab({
             tableTab={tableTab}
             onTableTabChange={handleTableTabChange}
             onStatusChange={handleStatusChange}
+            onAdminReschedule={(id, d, r) => void handleAdminReschedule(id, d, r)}
             onResendSMS={(id) => void handleResendSMS(id)}
             onCallCustomer={handleCallCustomer}
             onWhatsApp={handleWhatsApp}

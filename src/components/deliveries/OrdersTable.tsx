@@ -52,6 +52,7 @@ interface OrdersTableProps {
   tableTab: OrdersTableTab;
   onTableTabChange: (tab: OrdersTableTab) => void;
   onStatusChange: (orderId: string, newStatus: DeliveryStatus, scheduledDate?: Date) => void;
+  onAdminReschedule?: (orderId: string, newDate: Date, reason: string) => void;
   onResendSMS: (orderId: string) => void;
   onCallCustomer: (phone: string) => void;
   onWhatsApp: (phone: string) => void;
@@ -102,6 +103,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
   tableTab,
   onTableTabChange,
   onStatusChange,
+  onAdminReschedule,
   onResendSMS,
   onCallCustomer,
   onWhatsApp,
@@ -585,9 +587,13 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
         <RescheduleModal
           order={rescheduleOrder}
           onClose={() => setRescheduleOrder(null)}
-          onReschedule={(newDate) => {
-            const workflow = rescheduleDateToWorkflow(newDate);
-            onStatusChange(rescheduleOrder.id, workflow, newDate);
+          onReschedule={(newDate, reason) => {
+            if (onAdminReschedule) {
+              onAdminReschedule(rescheduleOrder.id, newDate, reason);
+            } else {
+              const workflow = rescheduleDateToWorkflow(newDate);
+              onStatusChange(rescheduleOrder.id, workflow, newDate);
+            }
             setRescheduleOrder(null);
           }}
         />
