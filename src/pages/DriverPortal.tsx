@@ -258,6 +258,7 @@ export default function DriverPortal() {
     void loadLatestLocation();
     void loadDeliveries();
     void loadContacts();
+    void loadNotificationCount();
     const notificationInterval = setInterval(() => {
       if (!document.hidden) void loadNotificationCount();
     }, 60000);
@@ -670,9 +671,22 @@ export default function DriverPortal() {
       const team = allContacts.filter(c => c.account?.role === 'admin' || c.account?.role === 'delivery_team');
       setTeamMembers(team);
       setContacts(allContacts);
-      // Auto-select first contact if none selected
+      // Auto-select the contact with the most recent message; fall back to first
       if (!selectedContact && allContacts.length > 0) {
-        setSelectedContact(allContacts[0]);
+        try {
+          const msgResp = await api.get('/messages/driver');
+          const recentMsgs = (msgResp.data?.messages || []) as DriverMessage[];
+          if (recentMsgs.length > 0) {
+            const lastMsg = recentMsgs[recentMsgs.length - 1];
+            const recentAdminId = lastMsg.adminId as string | undefined;
+            const matched = recentAdminId ? allContacts.find(c => c.id === recentAdminId) : undefined;
+            setSelectedContact(matched ?? allContacts[0]);
+          } else {
+            setSelectedContact(allContacts[0]);
+          }
+        } catch {
+          setSelectedContact(allContacts[0]);
+        }
       }
     } catch (contactErr: unknown) {
       console.error('Failed to load contacts:', contactErr);
@@ -691,6 +705,7 @@ export default function DriverPortal() {
     try {
       const response = await api.get(`/messages/driver/${targetContactId}`);
       setMessages((response.data?.messages || []) as DriverMessage[]);
+      void loadNotificationCount();
       if (!silent) console.log(`✓ Loaded ${response.data?.messages?.length || 0} messages`);
     } catch (msgErr: unknown) {
       if (!silent) console.error('Failed to load messages:', msgErr);
@@ -976,12 +991,11 @@ export default function DriverPortal() {
         </nav>
       </div>
 
-      {/* Animated tab content — re-mounts on tab change */}
-      <div key={activeTab} className="tab-enter">
+      {/* Tab content — kept mounted to prevent Leaflet map teardown */}
+      <div>
 
       {/* Orders Tab - map + order list (POD, customer contact, route) */}
-      {activeTab === 'orders' && (
-        <div className="space-y-4 md:space-y-6">
+      <div className={`space-y-4 md:space-y-6${activeTab !== 'orders' ? ' hidden' : ''}`}>
           {/* Error Message */}
           {error && (
             <div className="bg-red-50 border-l-4 border-red-400 rounded-lg p-4 shadow-sm dark:bg-red-900/20 dark:border-red-600">
@@ -1141,11 +1155,9 @@ export default function DriverPortal() {
         useDriverEndpoint
       />
         </div>
-      )}
 
       {/* Messages Tab — mobile style: list then open chat card */}
-      {activeTab === 'messages' && (
-        <div className="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm bg-white dark:bg-gray-800" style={{height: 'max(520px, calc(100dvh - 220px))' }}>
+      <div className={`rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm bg-white dark:bg-gray-800${activeTab !== 'messages' ? ' hidden' : ''}`} style={{height: 'max(520px, calc(100dvh - 220px))' }}>
           {!selectedContact ? (
             <div className="h-full flex flex-col">
               <div className="px-4 pt-4 pb-3 border-b border-gray-200 dark:border-gray-700">
@@ -1421,9 +1433,8 @@ export default function DriverPortal() {
             </div>
           )}
         </div>
-      )}
 
-      </div>{/* end tab-enter wrapper */}
+      </div>{/* end tab wrapper */}
     </div>
   );
 }
