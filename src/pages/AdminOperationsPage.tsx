@@ -1067,7 +1067,7 @@ export default function AdminOperationsPage(): React.ReactElement {
               <table className="pp-mobile-stack-table min-w-[760px] divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
-                    {['PO Number', 'Customer', 'Address', 'Status', 'Assigned Driver', 'Change Assignment'].map(h => (
+                    {['PO Number', 'Del. #', 'Customer', 'Address', 'Status', 'Assigned Driver', 'Change Assignment'].map(h => (
                       <th key={h} className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">{h}</th>
                     ))}
                   </tr>
@@ -1083,6 +1083,9 @@ export default function AdminOperationsPage(): React.ReactElement {
                           <tr key={String(delivery.id || '')} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100" data-label="PO Number">
                               {delivery.poNumber || delivery.PONumber || delivery.metadata?.originalPONumber || 'N/A'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400" data-label="Del. #">
+                              {(delivery.metadata as { originalDeliveryNumber?: string } | null | undefined)?.originalDeliveryNumber || (delivery as unknown as { _originalDeliveryNumber?: string })._originalDeliveryNumber || '—'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100" data-label="Customer">
                               {delivery.customer || delivery.Customer || 'Unknown'}

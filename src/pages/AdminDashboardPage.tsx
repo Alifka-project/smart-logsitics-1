@@ -2333,6 +2333,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                 <tr>
                   <SortTh label="PO Number" sortKey="poNumber" current={deliverySortBy} dir={deliverySortDir}
                     onSort={k => { if (deliverySortBy === k) setDeliverySortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setDeliverySortBy(k); setDeliverySortDir('asc'); } setDeliveryPage(0); }} />
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-left">Del. #</th>
                   <SortTh label="Customer" sortKey="customer" current={deliverySortBy} dir={deliverySortDir}
                     onSort={k => { if (deliverySortBy === k) setDeliverySortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setDeliverySortBy(k); setDeliverySortDir('asc'); } setDeliveryPage(0); }} />
                   <SortTh label="Status" sortKey="status" current={deliverySortBy} dir={deliverySortDir}
@@ -2354,7 +2355,10 @@ export default function AdminDashboardPage(): React.ReactElement {
                     >
                       <td className="px-4 py-3 text-sm font-mono text-blue-600 dark:text-blue-400" data-label="PO Number">
                         {delivery.poNumber || String(delivery.id || delivery.ID || '').slice(0, 8)}
-                          </td>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400" data-label="Del. #">
+                        {(delivery.metadata as { originalDeliveryNumber?: string } | null | undefined)?.originalDeliveryNumber || (delivery as unknown as { _originalDeliveryNumber?: string })._originalDeliveryNumber || '—'}
+                      </td>
                       <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100" data-label="Customer">{delivery.customer || 'N/A'}</td>
                       <td className="px-4 py-3" data-label="Status">
                         <span className={`inline-block px-2 py-0.5 text-xs font-semibold rounded-full ${STATUS_COLORS[statusKey] || 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>
