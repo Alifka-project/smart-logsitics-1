@@ -1778,104 +1778,7 @@ export default function AdminDashboardPage(): React.ReactElement {
             })}
           </div>
 
-          {/* ── Row 2: Delivery Performance Charts (management view) ── */}
-          <div className="pp-dash-card p-5">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">Delivery Performance</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-              {/* Left: Donut chart — outcome proportion */}
-              <div className="flex flex-col items-center">
-                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3 self-start">Outcome Breakdown</p>
-                {(() => {
-                  const pending = Math.max(0, mgmtKpis.total - mgmtKpis.onTime.count - mgmtKpis.delay.count - mgmtKpis.cancel.count - mgmtKpis.reschedule.count);
-                  const donutData = [
-                    { name: 'On-Time', value: mgmtKpis.onTime.count, fill: '#16a34a' },
-                    { name: 'Delayed', value: mgmtKpis.delay.count, fill: '#f97316' },
-                    { name: 'Cancelled', value: mgmtKpis.cancel.count, fill: '#dc2626' },
-                    { name: 'Rescheduled', value: mgmtKpis.reschedule.count, fill: '#ca8a04' },
-                    { name: 'In Progress', value: pending, fill: '#94a3b8' },
-                  ].filter(d => d.value > 0);
-                  return (
-                    <div className="w-full flex flex-col items-center">
-                      <div className="w-full h-[200px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={donutData}
-                              cx="50%"
-                              cy="50%"
-                              innerRadius="52%"
-                              outerRadius="78%"
-                              paddingAngle={2}
-                              dataKey="value"
-                              isAnimationActive
-                              animationDuration={900}
-                            >
-                              {donutData.map((entry, i) => (
-                                <Cell key={i} fill={entry.fill} />
-                              ))}
-                            </Pie>
-                            <Tooltip
-                              {...RECHARTS_TOOLTIP_OVERVIEW}
-                              formatter={(val: number | string) => [`${val} orders`, '']}
-                            />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      </div>
-                      {/* Legend */}
-                      <div className="flex flex-wrap justify-center gap-x-4 gap-y-1.5 mt-1">
-                        {donutData.map(d => (
-                          <div key={d.name} className="flex items-center gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: d.fill }} />
-                            <span className="text-xs text-gray-600 dark:text-gray-400">{d.name}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-
-              {/* Right: Horizontal bar chart — QTY per metric */}
-              <div className="flex flex-col">
-                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">QTY &amp; Rate</p>
-                <div className="flex-1 w-full h-[200px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      layout="vertical"
-                      data={[
-                        { name: 'On-Time', count: mgmtKpis.onTime.count, labelText: `${mgmtKpis.onTime.count} (${mgmtKpis.onTime.pct}%)`, fill: '#16a34a' },
-                        { name: 'Delayed', count: mgmtKpis.delay.count, labelText: `${mgmtKpis.delay.count} (${mgmtKpis.delay.pct}%)`, fill: '#f97316' },
-                        { name: 'Cancelled', count: mgmtKpis.cancel.count, labelText: `${mgmtKpis.cancel.count} (${mgmtKpis.cancel.pct}%)`, fill: '#dc2626' },
-                        { name: 'Rescheduled', count: mgmtKpis.reschedule.count, labelText: `${mgmtKpis.reschedule.count} (${mgmtKpis.reschedule.pct}%)`, fill: '#ca8a04' },
-                      ]}
-                      margin={{ top: 0, right: 80, left: 4, bottom: 0 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" horizontal={false} />
-                      <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
-                      <YAxis type="category" dataKey="name" tick={{ fontSize: 12, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} width={76} />
-                      <Tooltip
-                        {...RECHARTS_TOOLTIP_OVERVIEW}
-                        formatter={(val: number | string) => [val, 'Orders']}
-                      />
-                      <Bar dataKey="count" radius={[0, 4, 4, 0]} maxBarSize={22} isAnimationActive animationDuration={900}>
-                        {[
-                          { fill: '#16a34a' },
-                          { fill: '#f97316' },
-                          { fill: '#dc2626' },
-                          { fill: '#ca8a04' },
-                        ].map((c, i) => <Cell key={i} fill={c.fill} />)}
-                        <LabelList dataKey="labelText" position="right" style={{ fontSize: 11, fill: 'var(--chart-tick)' }} />
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-            </div>
-          </div>
-
-          {/* ── Row 3: Two-column layout ── */}
+          {/* ── Row 2: Two-column layout ── */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 xl:gap-4">
             {/* Left column — ~2/3 */}
             <div className="xl:col-span-2 space-y-3">
@@ -2514,6 +2417,102 @@ export default function AdminDashboardPage(): React.ReactElement {
                 </div>
               );
             })}
+          </div>
+
+          {/* Delivery Performance Charts */}
+          <div className="pp-dash-card p-5">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-5">Delivery Performance</h3>
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
+
+              {/* Donut — outcome proportion (2/5 width) */}
+              {(() => {
+                const inProgress = Math.max(0, mgmtKpis.total - mgmtKpis.onTime.count - mgmtKpis.delay.count - mgmtKpis.cancel.count - mgmtKpis.reschedule.count);
+                const donutData = [
+                  { name: 'On-Time', value: mgmtKpis.onTime.count, fill: '#16a34a' },
+                  { name: 'Delayed', value: mgmtKpis.delay.count, fill: '#f97316' },
+                  { name: 'Cancelled', value: mgmtKpis.cancel.count, fill: '#dc2626' },
+                  { name: 'Rescheduled', value: mgmtKpis.reschedule.count, fill: '#ca8a04' },
+                  { name: 'In Progress', value: inProgress, fill: '#94a3b8' },
+                ].filter(d => d.value > 0);
+                return (
+                  <div className="lg:col-span-2 flex flex-col items-center">
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 self-start">Outcome Breakdown</p>
+                    <div className="w-full h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={donutData}
+                            cx="50%"
+                            cy="46%"
+                            innerRadius="42%"
+                            outerRadius="68%"
+                            paddingAngle={2}
+                            dataKey="value"
+                            isAnimationActive
+                            animationDuration={900}
+                            label={({ name, percent }: PieLabelRenderProps) => `${name} ${((percent as number) * 100).toFixed(1)}%`}
+                            labelLine={true}
+                          >
+                            {donutData.map((entry, i) => (
+                              <Cell key={i} fill={entry.fill} />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            {...RECHARTS_TOOLTIP_OVERVIEW}
+                            formatter={(val: number | string) => [`${val} orders`, '']}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 mt-1">
+                      {donutData.map(d => (
+                        <div key={d.name} className="flex items-center gap-1.5">
+                          <span className="w-3 h-3 rounded-full shrink-0" style={{ background: d.fill }} />
+                          <span className="text-xs text-gray-600 dark:text-gray-400">{d.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Horizontal bar chart — QTY & Rate (3/5 width) */}
+              <div className="lg:col-span-3 flex flex-col">
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">QTY &amp; Rate (out of {mgmtKpis.total} orders)</p>
+                <div className="w-full h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      layout="vertical"
+                      data={[
+                        { name: 'On-Time Delivery', count: mgmtKpis.onTime.count, labelText: `${mgmtKpis.onTime.count} orders · ${mgmtKpis.onTime.pct}%`, fill: '#16a34a' },
+                        { name: 'Delayed', count: mgmtKpis.delay.count, labelText: `${mgmtKpis.delay.count} orders · ${mgmtKpis.delay.pct}%`, fill: '#f97316' },
+                        { name: 'Cancelled', count: mgmtKpis.cancel.count, labelText: `${mgmtKpis.cancel.count} orders · ${mgmtKpis.cancel.pct}%`, fill: '#dc2626' },
+                        { name: 'Rescheduled', count: mgmtKpis.reschedule.count, labelText: `${mgmtKpis.reschedule.count} orders · ${mgmtKpis.reschedule.pct}%`, fill: '#ca8a04' },
+                      ]}
+                      margin={{ top: 8, right: 140, left: 8, bottom: 8 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" horizontal={false} />
+                      <XAxis type="number" tick={{ fontSize: 12, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: 13, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} width={120} />
+                      <Tooltip
+                        {...RECHARTS_TOOLTIP_OVERVIEW}
+                        formatter={(val: number | string) => [val, 'Orders']}
+                      />
+                      <Bar dataKey="count" radius={[0, 5, 5, 0]} maxBarSize={36} isAnimationActive animationDuration={900}>
+                        {[
+                          { fill: '#16a34a' },
+                          { fill: '#f97316' },
+                          { fill: '#dc2626' },
+                          { fill: '#ca8a04' },
+                        ].map((c, i) => <Cell key={i} fill={c.fill} />)}
+                        <LabelList dataKey="labelText" position="right" style={{ fontSize: 12, fill: 'var(--chart-tick)', fontWeight: 500 }} />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+            </div>
           </div>
 
           {/* Two-column: Table | Side widgets */}
