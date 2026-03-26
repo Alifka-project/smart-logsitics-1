@@ -1519,27 +1519,36 @@ export default function AdminDashboardPage(): React.ReactElement {
 
   const STATUS_LABELS: Record<string, string> = {
     'pending': 'Pending Order', 'uploaded': 'Pending Order',
-    'scheduled': 'Awaiting Customer', 'scheduled-confirmed': 'Confirmed',
-    'out-for-delivery': 'Out for Delivery', 'in-progress': 'In Progress',
+    'scheduled': 'Awaiting Customer', 'confirmed': 'Confirmed',
+    'scheduled-confirmed': 'Confirmed', 'out-for-delivery': 'Out for Delivery',
+    'in-transit': 'In Transit', 'in-progress': 'In Progress', 'assigned': 'Assigned',
     'delivered': 'Delivered', 'delivered-with-installation': 'Delivered + Install',
-    'delivered-without-installation': 'Delivered', 'cancelled': 'Cancelled',
-    'rejected': 'Rejected', 'rescheduled': 'Rescheduled', 'returned': 'Returned',
+    'delivered-without-installation': 'Delivered (no install)',
+    'completed': 'Completed', 'pod-completed': 'POD Completed',
+    'cancelled': 'Cancelled', 'rejected': 'Rejected',
+    'rescheduled': 'Rescheduled', 'returned': 'Returned', 'failed': 'Failed',
   };
 
   const STATUS_COLORS: Record<string, string> = {
     'pending': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
     'uploaded': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
     'scheduled': 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
+    'confirmed': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
     'scheduled-confirmed': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
     'out-for-delivery': 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
+    'in-transit': 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
     'in-progress': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+    'assigned': 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
     'delivered': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
     'delivered-with-installation': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
     'delivered-without-installation': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+    'completed': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+    'pod-completed': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300',
     'cancelled': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
     'rejected': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
     'rescheduled': 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
     'returned': 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
+    'failed': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
   };
 
   const KPI_COLOR_MAP: Record<string, { bg: string; icon: string; val: string }> = {
@@ -2403,14 +2412,32 @@ export default function AdminDashboardPage(): React.ReactElement {
                             onClick={e => e.stopPropagation()}
                             className="px-2 py-1 text-xs border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
                           >
+                            {/* Dynamic fallback — shows current status if it's not in the list below */}
+                            {!['pending','uploaded','scheduled','scheduled-confirmed','confirmed',
+                               'out-for-delivery','in-transit','in-progress','delivered',
+                               'delivered-with-installation','delivered-without-installation',
+                               'completed','pod-completed','cancelled','rescheduled','returned',
+                               'failed','assigned'].includes((delivery.status || 'pending').toLowerCase()) && (
+                              <option value={delivery.status || 'pending'}>
+                                {STATUS_LABELS[(delivery.status || '').toLowerCase()] || delivery.status || 'Pending Order'}
+                              </option>
+                            )}
                             <option value="pending">Pending Order</option>
+                            <option value="uploaded">Pending Order (uploaded)</option>
                             <option value="scheduled">Awaiting Customer</option>
-                            <option value="scheduled-confirmed">Confirmed</option>
+                            <option value="confirmed">Confirmed (tomorrow)</option>
+                            <option value="scheduled-confirmed">Confirmed (future date)</option>
                             <option value="out-for-delivery">Out for Delivery</option>
+                            <option value="in-transit">In Transit</option>
+                            <option value="in-progress">In Progress</option>
                             <option value="delivered">Delivered</option>
+                            <option value="delivered-with-installation">Delivered + Install</option>
                             <option value="delivered-without-installation">Delivered (no install)</option>
+                            <option value="completed">Completed</option>
+                            <option value="pod-completed">POD Completed</option>
                             <option value="cancelled">Cancelled</option>
                             <option value="rescheduled">Rescheduled</option>
+                            <option value="returned">Returned / Failed</option>
                               </select>
                               <button
                             onClick={() => { setSelectedDelivery(delivery); setIsModalOpen(true); }}
