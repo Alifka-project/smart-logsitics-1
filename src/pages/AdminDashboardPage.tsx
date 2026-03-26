@@ -104,9 +104,27 @@ interface DashboardAnalytics {
   deliveryByWeek?: WeekItem[];
 }
 
+/** Minimal delivery record returned by /admin/dashboard for chart computations. */
+interface DashboardDelivery {
+  id?: string;
+  status?: string;
+  created_at?: string | Date | null;
+  createdAt?: string | Date | null;
+  created?: string | Date | null;
+  delivered_at?: string | Date | null;
+  deliveredAt?: string | Date | null;
+  address?: string;
+  metadata?: Record<string, unknown>;
+  assignedDriverId?: string | null;
+  confirmationStatus?: string;
+  customerConfirmedAt?: string | null;
+  [key: string]: unknown;
+}
+
 interface DashboardData {
   totals?: DashboardTotals;
   analytics?: DashboardAnalytics;
+  deliveries?: DashboardDelivery[];
   generatedAt?: string;
   error?: string;
 }
@@ -692,6 +710,9 @@ export default function AdminDashboardPage(): React.ReactElement {
   const [data, setData] = useState<DashboardData | null>(null);
   const [drivers, setDrivers] = useState<AdminDriver[]>([]);
   const [deliveries, setDeliveries] = useState<TrackingDelivery[]>([]);
+  // Full history (all statuses, last 90 days) from /admin/dashboard — used for chart computations.
+  // Tracking API returns only active deliveries (for live map), so charts must use this separate list.
+  const [dashboardDeliveries, setDashboardDeliveries] = useState<DashboardDelivery[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [activeTab, setActiveTab] = useState<string>('overview');
@@ -841,7 +862,9 @@ export default function AdminDashboardPage(): React.ReactElement {
       ]);
 
       if (dashboardResp.status === 'fulfilled') {
-        setData(dashboardResp.value.data as DashboardData);
+        const dashData = dashboardResp.value.data as DashboardData;
+        setData(dashData);
+        setDashboardDeliveries(dashData.deliveries || []);
         setLastUpdate(new Date());
       } else {
         setData({ error: 'fetch_failed' });
@@ -922,7 +945,7 @@ export default function AdminDashboardPage(): React.ReactElement {
   };
 
   const kpiCards = useMemo<KpiCard[]>(() => {
-    const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
+    const list = dashboardDeliveries && Array.isArray(dashboardDeliveries) ? dashboardDeliveries : [];
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const yesterdayStart = new Date(todayStart.getTime() - 86400000);
@@ -943,10 +966,10 @@ export default function AdminDashboardPage(): React.ReactElement {
       { id: 'cancelled', label: 'Cancelled', value: totals.cancelled, icon: XCircle, color: 'red', delta: null },
       { id: 'rate', label: 'Success Rate', value: `${successRate}%`, icon: Target, color: 'emerald', delta: null },
     ];
-  }, [deliveries, totals]);
+  }, [dashboardDeliveries, totals]);
 
   const actionItems = useMemo(() => {
-    const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
+    const list = dashboardDeliveries && Array.isArray(dashboardDeliveries) ? dashboardDeliveries : [];
     const dayAgo = new Date(Date.now() - 86400000);
     const overdue = list.filter(d => {
       const s = (d.status || '').toLowerCase();
@@ -954,7 +977,7 @@ export default function AdminDashboardPage(): React.ReactElement {
     }).length;
     const unassigned = list.filter(d => {
       const s = (d.status || '').toLowerCase();
-      return ['pending', 'scheduled'].includes(s) && !d.assignedDriverId && !d.tracking?.driverId;
+      return ['pending', 'scheduled'].includes(s) && !d.assignedDriverId;
     }).length;
     const unconfirmed = list.filter(d => {
       const s = (d.status || '').toLowerCase();
@@ -962,10 +985,10 @@ export default function AdminDashboardPage(): React.ReactElement {
       return ['pending', 'scheduled'].includes(s) && conf !== 'confirmed' && !d.customerConfirmedAt;
     }).length;
     return { overdue, unassigned, unconfirmed };
-  }, [deliveries]);
+  }, [dashboardDeliveries]);
 
   const heroChartData = useMemo(() => {
-    const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
+    const list = dashboardDeliveries && Array.isArray(dashboardDeliveries) ? dashboardDeliveries : [];
     const days = heroPeriod === '7d' ? 7 : heroPeriod === '30d' ? 30 : 90;
     const now = new Date();
     const start = new Date(now.getTime() - days * 86400000);
@@ -988,7 +1011,7 @@ export default function AdminDashboardPage(): React.ReactElement {
     return Object.values(buckets).map(b => ({
       ...b, rate: b.total > 0 ? parseFloat(((b.delivered / b.total) * 100).toFixed(1)) : 0
     }));
-  }, [deliveries, heroPeriod]);
+  }, [dashboardDeliveries, heroPeriod]);
 
   const areaKeywords = useMemo(() => [
     'Marina', 'Jumeirah', 'Jebel Ali', 'Business Bay', 'Downtown', 'Deira', 'Bur Dubai',
@@ -997,7 +1020,7 @@ export default function AdminDashboardPage(): React.ReactElement {
   ], []);
 
   const trend1DeliveryRequests = useMemo(() => {
-    const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
+    const list = dashboardDeliveries && Array.isArray(dashboardDeliveries) ? dashboardDeliveries : [];
     const { buckets: baseBuckets, rangeStart, rangeEnd } = trendsBucketsConfig;
     const buckets = baseBuckets.map(b => ({ ...b, count: 0 }));
     const bucketMap = Object.fromEntries(buckets.map((b, i) => [b.key, i]));
@@ -1017,10 +1040,10 @@ export default function AdminDashboardPage(): React.ReactElement {
       const ma = slice.length > 0 ? parseFloat((sum / slice.length).toFixed(1)) : 0;
       return { label: (b as { day?: string }).day ?? b.label, ...b, ma };
     });
-  }, [deliveries, trendsGlobalPeriod, trendsBucketsConfig]);
+  }, [dashboardDeliveries, trendsGlobalPeriod, trendsBucketsConfig]);
 
   const trend2Fulfillment = useMemo(() => {
-    const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
+    const list = dashboardDeliveries && Array.isArray(dashboardDeliveries) ? dashboardDeliveries : [];
     const isDelivered = (s: string) => ['delivered', 'delivered-with-installation', 'delivered-without-installation'].includes((s || '').toLowerCase());
     const isCancelled = (s: string) => ['cancelled', 'rescheduled', 'rejected'].includes((s || '').toLowerCase());
     const { buckets: baseBuckets, rangeStart, rangeEnd } = trendsBucketsConfig;
@@ -1040,10 +1063,10 @@ export default function AdminDashboardPage(): React.ReactElement {
       else buckets[i].pendingActive++;
     });
     return buckets.map(b => ({ label: (b as { day?: string }).day ?? b.label, ...b }));
-  }, [deliveries, trendsGlobalPeriod, trendsBucketsConfig]);
+  }, [dashboardDeliveries, trendsGlobalPeriod, trendsBucketsConfig]);
 
   const trend3SuccessRate = useMemo(() => {
-    const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
+    const list = dashboardDeliveries && Array.isArray(dashboardDeliveries) ? dashboardDeliveries : [];
     const isDelivered = (s: string) => ['delivered', 'delivered-with-installation', 'delivered-without-installation'].includes((s || '').toLowerCase());
     const { buckets: baseBuckets, rangeStart, rangeEnd } = trendsBucketsConfig;
     const buckets = baseBuckets.map(b => ({ ...b, total: 0, delivered: 0, rate: 0 }));
@@ -1064,10 +1087,10 @@ export default function AdminDashboardPage(): React.ReactElement {
       ...b,
       rate: b.total > 0 ? parseFloat(((b.delivered / b.total) * 100).toFixed(1)) : 0
     }));
-  }, [deliveries, trendsGlobalPeriod, trendsBucketsConfig]);
+  }, [dashboardDeliveries, trendsGlobalPeriod, trendsBucketsConfig]);
 
   const trend4LeadTime = useMemo(() => {
-    const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
+    const list = dashboardDeliveries && Array.isArray(dashboardDeliveries) ? dashboardDeliveries : [];
     const isDelivered = (s: string) => ['delivered', 'delivered-with-installation', 'delivered-without-installation'].includes((s || '').toLowerCase());
     const { buckets: baseBuckets, rangeStart, rangeEnd } = trendsBucketsConfig;
     const buckets = baseBuckets.map(b => ({ ...b, leadTimes: [] as number[] }));
@@ -1092,10 +1115,10 @@ export default function AdminDashboardPage(): React.ReactElement {
       const p90Hours = n > 0 ? parseFloat((sorted[Math.min(Math.floor(n * 0.9), n - 1)] ?? 0).toFixed(1)) : 0;
       return { label: (b as { day?: string }).day ?? b.label, ...b, medianHours, p90Hours };
     });
-  }, [deliveries, trendsGlobalPeriod, trendsBucketsConfig]);
+  }, [dashboardDeliveries, trendsGlobalPeriod, trendsBucketsConfig]);
 
   const trend5Backlog = useMemo(() => {
-    const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
+    const list = dashboardDeliveries && Array.isArray(dashboardDeliveries) ? dashboardDeliveries : [];
     const isOpen = (s: string) => ['pending', 'scheduled', 'scheduled-confirmed', 'out-for-delivery', 'in-progress', 'assigned'].includes((s || '').toLowerCase());
     const { buckets: baseBuckets, rangeStart, rangeEnd } = trendsBucketsConfig;
     const buckets = baseBuckets.map(b => ({ ...b, open: 0 }));
@@ -1110,10 +1133,10 @@ export default function AdminDashboardPage(): React.ReactElement {
       if (i !== undefined) buckets[i].open++;
     });
     return buckets.map(b => ({ label: (b as { day?: string }).day ?? b.label, ...b }));
-  }, [deliveries, trendsGlobalPeriod, trendsBucketsConfig]);
+  }, [dashboardDeliveries, trendsGlobalPeriod, trendsBucketsConfig]);
 
   const trend6StatusMix100 = useMemo(() => {
-    const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
+    const list = dashboardDeliveries && Array.isArray(dashboardDeliveries) ? dashboardDeliveries : [];
     const { buckets: baseBuckets, rangeStart, rangeEnd } = trendsBucketsConfig;
     const buckets = baseBuckets.map(b => ({ ...b, delivered: 0, pending: 0, cancelled: 0 }));
     const bucketMap = Object.fromEntries(buckets.map((b, i) => [b.key, i]));
@@ -1141,10 +1164,10 @@ export default function AdminDashboardPage(): React.ReactElement {
         cancelledPct: toPct(b.cancelled)
       };
     });
-  }, [deliveries, trendsGlobalPeriod, trendsBucketsConfig]);
+  }, [dashboardDeliveries, trendsGlobalPeriod, trendsBucketsConfig]);
 
   const trend7Heatmap = useMemo(() => {
-    const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
+    const list = dashboardDeliveries && Array.isArray(dashboardDeliveries) ? dashboardDeliveries : [];
     const grid: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
     const { rangeStart, rangeEnd } = trendsBucketsConfig;
     const customRange = Boolean(trendsRangeFrom || trendsRangeTo);
@@ -1160,12 +1183,12 @@ export default function AdminDashboardPage(): React.ReactElement {
       grid[day][hour]++;
     });
     return grid;
-  }, [deliveries, trendsBucketsConfig, trendsRangeFrom, trendsRangeTo]);
+  }, [dashboardDeliveries, trendsBucketsConfig, trendsRangeFrom, trendsRangeTo]);
 
   const trend5TopItems = useMemo(() => {
-    const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
+    const list = dashboardDeliveries && Array.isArray(dashboardDeliveries) ? dashboardDeliveries : [];
     const { rangeStart, rangeEnd } = trendsBucketsConfig;
-    const inRange = (t: string | number) => deliveryCreatedInTrendRange(t, rangeStart, rangeEnd);
+    const inRange = (t: unknown) => deliveryCreatedInTrendRange(t, rangeStart, rangeEnd);
     const itemCount: Record<string, number> = {};
     list.forEach(d => {
       const t = d.created_at || d.createdAt || d.created;
@@ -1177,12 +1200,12 @@ export default function AdminDashboardPage(): React.ReactElement {
       itemCount[display] = (itemCount[display] || 0) + 1;
     });
     return Object.entries(itemCount).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([item, count]) => ({ item, count }));
-  }, [deliveries, trendsBucketsConfig]);
+  }, [dashboardDeliveries, trendsBucketsConfig]);
 
   const trend6TopAreas = useMemo(() => {
-    const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
+    const list = dashboardDeliveries && Array.isArray(dashboardDeliveries) ? dashboardDeliveries : [];
     const { rangeStart, rangeEnd } = trendsBucketsConfig;
-    const inRange = (t: string | number) => deliveryCreatedInTrendRange(t, rangeStart, rangeEnd);
+    const inRange = (t: unknown) => deliveryCreatedInTrendRange(t, rangeStart, rangeEnd);
     const areaCount: Record<string, number> = {};
     list.forEach(d => {
       const t = d.created_at || d.createdAt || d.created;
@@ -1197,10 +1220,10 @@ export default function AdminDashboardPage(): React.ReactElement {
       areaCount[area] = (areaCount[area] || 0) + 1;
     });
     return Object.entries(areaCount).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([area, count]) => ({ area, count }));
-  }, [deliveries, trendsBucketsConfig, areaKeywords]);
+  }, [dashboardDeliveries, trendsBucketsConfig, areaKeywords]);
 
   const trend8AreasStacked = useMemo(() => {
-    const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
+    const list = dashboardDeliveries && Array.isArray(dashboardDeliveries) ? dashboardDeliveries : [];
     const { buckets: baseBuckets, rangeStart, rangeEnd } = trendsBucketsConfig;
     const buckets = baseBuckets.map(b => ({ ...b } as Record<string, unknown>));
     const bucketMap = Object.fromEntries(buckets.map((b, i) => [b.key as string, i]));
@@ -1240,7 +1263,7 @@ export default function AdminDashboardPage(): React.ReactElement {
       xKey: (b as { day?: string }).day ?? (b as { label?: string }).label,
       ...b
     }));
-  }, [deliveries, trendsGlobalPeriod, trendsBucketsConfig, areaKeywords]);
+  }, [dashboardDeliveries, trendsGlobalPeriod, trendsBucketsConfig, areaKeywords]);
 
   const filteredDeliveries = useMemo<TrackingDelivery[]>(() => {
     const list = (deliveries && Array.isArray(deliveries) ? deliveries : []).slice();
@@ -1292,7 +1315,7 @@ export default function AdminDashboardPage(): React.ReactElement {
 
   type AreaRowEnhanced = AreaItem & { pending?: number; delivered?: number; successRate?: number };
   const deliveryByAreaEnhanced = useMemo<AreaRowEnhanced[]>(() => {
-    const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
+    const list = dashboardDeliveries && Array.isArray(dashboardDeliveries) ? dashboardDeliveries : [];
     const byArea: Record<string, { count: number; pending: number; delivered: number }> = {};
     list.forEach(d => {
       const meta = (d.metadata || {}) as Record<string, unknown>;
@@ -1318,7 +1341,7 @@ export default function AdminDashboardPage(): React.ReactElement {
       }))
       .sort((a, b) => b.count - a.count)
       .slice(0, chartTopN);
-  }, [deliveries, areaKeywords, chartTopN]);
+  }, [dashboardDeliveries, areaKeywords, chartTopN]);
 
   const topItemsData = useMemo<ItemItem[]>(() => {
     const minQty = Number(topItemsMinQty) || 0;

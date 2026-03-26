@@ -457,7 +457,25 @@ router.get('/', authenticate, requireRole('admin'), async (req: Request, res: Re
 
     const analytics = computeAnalytics(deliveries);
 
-    const responseData = { drivers, recentLocations, smsRecent, totals, recentCounts, analytics };
+    // Include a minimal delivery list for frontend chart computations.
+    // The tracking API returns only active deliveries (live map use-case), so
+    // the dashboard must supply its own full history so trend/area/status charts
+    // are not missing delivered/cancelled orders.
+    const deliveriesForCharts = deliveries.map(d => ({
+      id: d.id,
+      status: d.status,
+      created_at: d.created_at,
+      createdAt: d.createdAt,
+      delivered_at: d.delivered_at,
+      deliveredAt: d.deliveredAt,
+      address: d.address,
+      metadata: d.metadata,
+      assignedDriverId: d.assignedDriverId,
+      confirmationStatus: d.confirmationStatus,
+      customerConfirmedAt: d.customerConfirmedAt,
+    }));
+
+    const responseData = { drivers, recentLocations, smsRecent, totals, recentCounts, analytics, deliveries: deliveriesForCharts };
 
     dashboardCache = responseData;
     dashboardCacheTime = Date.now();
