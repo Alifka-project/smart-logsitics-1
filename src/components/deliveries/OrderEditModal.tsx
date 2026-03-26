@@ -137,11 +137,27 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
             </button>
           </div>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            #{order.orderNumber} · {order.customerName}
+            {order.customerName}
           </p>
         </div>
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4">
+          {/* PO + Delivery Number — critical tracking info */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg px-3 py-2">
+              <p className="text-[10px] font-bold text-blue-700 dark:text-blue-300 uppercase tracking-widest">PO Number</p>
+              <p className="font-mono font-bold text-blue-900 dark:text-blue-100 text-sm mt-0.5">
+                {order.orderNumber || '—'}
+              </p>
+            </div>
+            <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700 rounded-lg px-3 py-2">
+              <p className="text-[10px] font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-widest">Delivery Number</p>
+              <p className="font-mono font-bold text-indigo-900 dark:text-indigo-100 text-sm mt-0.5">
+                {order.deliveryNumber || '—'}
+              </p>
+            </div>
+          </div>
+
           <div>
             <label htmlFor="edit-status" className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
               Status

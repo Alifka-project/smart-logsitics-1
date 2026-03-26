@@ -254,16 +254,29 @@ export default function DeliveryDetailModal({
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-              <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-2">
+          {/* PO + Delivery Number — highlighted banner */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-3">
+              <label className="block text-[10px] font-bold text-blue-700 dark:text-blue-300 uppercase tracking-widest mb-1">
                 PO Number
               </label>
-              <p className="text-gray-900 dark:text-gray-100 font-mono text-lg">
-                {(delivery.poNumber as string) || (delivery['PONumber'] as string) || 'N/A'}
+              <p className="text-blue-900 dark:text-blue-100 font-mono font-bold text-base leading-tight">
+                {(delivery.poNumber as string) || (delivery['PONumber'] as string) || '—'}
               </p>
             </div>
+            <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700 rounded-lg p-3">
+              <label className="block text-[10px] font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-widest mb-1">
+                Delivery Number
+              </label>
+              <p className="text-indigo-900 dark:text-indigo-100 font-mono font-bold text-base leading-tight">
+                {((delivery.metadata as { originalDeliveryNumber?: string } | null | undefined)?.originalDeliveryNumber)
+                  || ((delivery as unknown as { _originalDeliveryNumber?: string })._originalDeliveryNumber)
+                  || '—'}
+              </p>
+            </div>
+          </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
               <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-2">
                 Customer

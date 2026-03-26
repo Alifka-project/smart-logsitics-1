@@ -98,6 +98,24 @@ export default function SMSConfirmationModal({
         <div className="p-6 space-y-4 overflow-y-auto flex-1">
           {!result ? (
             <>
+              {/* PO + Delivery Number — always visible for tracking */}
+              <div className="grid grid-cols-2 gap-2 mb-1">
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg px-3 py-2">
+                  <p className="text-[10px] font-bold text-blue-700 dark:text-blue-300 uppercase tracking-widest">PO Number</p>
+                  <p className="font-mono font-bold text-blue-900 dark:text-blue-100 text-sm mt-0.5">
+                    {delivery.poNumber || '—'}
+                  </p>
+                </div>
+                <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700 rounded-lg px-3 py-2">
+                  <p className="text-[10px] font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-widest">Delivery Number</p>
+                  <p className="font-mono font-bold text-indigo-900 dark:text-indigo-100 text-sm mt-0.5">
+                    {((delivery.metadata as { originalDeliveryNumber?: string } | null | undefined)?.originalDeliveryNumber)
+                      || ((delivery as unknown as { _originalDeliveryNumber?: string })._originalDeliveryNumber)
+                      || '—'}
+                  </p>
+                </div>
+              </div>
+
               <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg space-y-2">
                 <div>
                   <p className="text-sm text-gray-500 dark:text-gray-400">Customer</p>
