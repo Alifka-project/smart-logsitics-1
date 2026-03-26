@@ -1740,7 +1740,7 @@ export default function AdminDashboardPage(): React.ReactElement {
       {/* ══════════════ OVERVIEW TAB ══════════════ */}
       {activeTab === 'overview' && (
         <div className="space-y-3">
-          {/* KPI Strip — full-width grid so all 5 metrics share one row on large screens */}
+          {/* ── Row 1: Volume KPI Strip ── */}
           <div className="pp-kpi-grid--fill">
             {kpiCards.map(card => {
               const Icon = card.icon;
@@ -1778,7 +1778,61 @@ export default function AdminDashboardPage(): React.ReactElement {
             })}
           </div>
 
-          {/* Two-column main content */}
+          {/* ── Row 2: Delivery Performance KPIs (management view) ── */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              {
+                label: 'On-Time Delivery',
+                count: mgmtKpis.onTime.count,
+                pct: mgmtKpis.onTime.pct,
+                color: 'text-green-600 dark:text-green-400',
+                bg: 'bg-green-50 dark:bg-green-900/20',
+                bar: 'bg-green-500',
+                tooltip: 'Delivered on or before the confirmed delivery date',
+              },
+              {
+                label: 'Delay Rate',
+                count: mgmtKpis.delay.count,
+                pct: mgmtKpis.delay.pct,
+                color: 'text-orange-600 dark:text-orange-400',
+                bg: 'bg-orange-50 dark:bg-orange-900/20',
+                bar: 'bg-orange-500',
+                tooltip: 'Delivered after the confirmed delivery date',
+              },
+              {
+                label: 'Cancellation Rate',
+                count: mgmtKpis.cancel.count,
+                pct: mgmtKpis.cancel.pct,
+                color: 'text-red-600 dark:text-red-400',
+                bg: 'bg-red-50 dark:bg-red-900/20',
+                bar: 'bg-red-500',
+                tooltip: 'Orders that were cancelled',
+              },
+              {
+                label: 'Reschedule Rate',
+                count: mgmtKpis.reschedule.count,
+                pct: mgmtKpis.reschedule.pct,
+                color: 'text-yellow-600 dark:text-yellow-400',
+                bg: 'bg-yellow-50 dark:bg-yellow-900/20',
+                bar: 'bg-yellow-500',
+                tooltip: 'Orders rescheduled by customer or operations',
+              },
+            ].map(kpi => (
+              <div key={kpi.label} className={`pp-dash-card p-4 sm:p-5 ${kpi.bg}`} title={kpi.tooltip}>
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">{kpi.label}</p>
+                <div className="flex items-baseline gap-2 mb-2">
+                  <span className={`text-3xl font-bold ${kpi.color}`}>{kpi.count}</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">orders</span>
+                </div>
+                <div className="w-full h-1.5 bg-white/60 dark:bg-gray-700/60 rounded-full overflow-hidden mb-1">
+                  <div className={`h-full rounded-full transition-all ${kpi.bar}`} style={{ width: `${kpi.pct}%` }} />
+                </div>
+                <p className={`text-sm font-semibold ${kpi.color}`}>{kpi.pct}% of total</p>
+              </div>
+            ))}
+          </div>
+
+          {/* ── Row 3: Two-column layout ── */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 xl:gap-4">
             {/* Left column — ~2/3 */}
             <div className="xl:col-span-2 space-y-3">
@@ -1825,39 +1879,62 @@ export default function AdminDashboardPage(): React.ReactElement {
                 </div>
               </div>
 
-              {/* Delivery Status Breakdown */}
-              <div className="pp-dash-card p-5">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Delivery Status</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 mb-4">
-                  Share of all orders (same headline totals as the KPI strip). Percentages are of total orders.
-                </p>
-                <div className="space-y-3">
-                  {[
-                    { label: 'Delivered', value: totals.delivered, color: 'bg-green-500' },
-                    { label: 'Pending Orders', value: totals.pending, color: 'bg-yellow-400' },
-                    { label: 'Rescheduled', value: totals.rescheduled, color: 'bg-orange-400' },
-                    { label: 'Cancelled', value: totals.cancelled, color: 'bg-red-500' },
-                  ].map(({ label, value, color }) => {
-                    const pct = totals.total > 0 ? ((value / totals.total) * 100).toFixed(1) : 0;
-                    return (
-                      <div key={label}>
-                        <div className="flex justify-between text-xs mb-1">
-                          <span className="text-gray-600 dark:text-gray-400">{label}</span>
-                          <span className="font-semibold text-gray-900 dark:text-gray-100">{value} <span className="text-gray-400 font-normal">({pct}%)</span></span>
-                        </div>
-                        <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                          <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
-                        </div>
-                      </div>
-                    );
-                  })}
+              {/* Customer Response Detail */}
+              {customerResponseDetail.length > 0 ? (
+                <div className="pp-dash-card p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Customer Response Detail</h3>
+                    <span className="text-xs text-gray-400 dark:text-gray-500">{customerResponseDetail.length} responses</span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-100 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                          <th className="text-left pb-2 pr-4 font-semibold">Customer</th>
+                          <th className="text-left pb-2 pr-4 font-semibold">Delivery No.</th>
+                          <th className="text-left pb-2 pr-4 font-semibold">Response</th>
+                          <th className="text-left pb-2 pr-4 font-semibold">Date</th>
+                          <th className="text-left pb-2 font-semibold">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
+                        {customerResponseDetail.slice(0, 50).map((row, idx) => (
+                          <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+                            <td className="py-2.5 pr-4 text-gray-900 dark:text-gray-100 font-medium max-w-[160px] truncate">{row.customer}</td>
+                            <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-400 font-mono text-xs">{row.poNumber}</td>
+                            <td className="py-2.5 pr-4">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                row.action === 'Confirmed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                : row.action === 'Rescheduled' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                                : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                              }`}>
+                                {row.action}
+                              </span>
+                            </td>
+                            <td className="py-2.5 pr-4 text-gray-500 dark:text-gray-400 text-xs">{row.confirmedAt || '—'}</td>
+                            <td className="py-2.5 text-gray-500 dark:text-gray-400 capitalize text-xs">{row.status}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {customerResponseDetail.length > 50 && (
+                      <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-3">
+                        Showing 50 of {customerResponseDetail.length} responses
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="pp-dash-card p-5">
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Customer Response Detail</h3>
+                  <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-6">No customer responses yet</p>
+                </div>
+              )}
             </div>
 
             {/* Right column — ~1/3 side widgets */}
             <div className="space-y-3">
-              {/* Exception Queue — PolicyPilot style */}
+              {/* Exception Queue */}
               <div className="pp-dash-soft-gradient p-5">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 tracking-tight">Needs Attention</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
@@ -1883,7 +1960,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                 </button>
               </div>
 
-              {/* Customer Response */}
+              {/* Customer Response Summary */}
               <div className="pp-dash-card p-5">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">Customer Response</h3>
                 <div className="space-y-3">
@@ -1926,106 +2003,6 @@ export default function AdminDashboardPage(): React.ReactElement {
               </div>
             </div>
           </div>
-
-          {/* ── OBD Performance KPIs ── */}
-          <div className="space-y-3">
-            <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide px-0.5">OBD Performance</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {[
-                {
-                  label: 'On-Time Delivery',
-                  count: mgmtKpis.onTime.count,
-                  pct: mgmtKpis.onTime.pct,
-                  color: 'text-green-600 dark:text-green-400',
-                  bg: 'bg-green-50 dark:bg-green-900/20',
-                  bar: 'bg-green-500',
-                },
-                {
-                  label: 'Delay Rate',
-                  count: mgmtKpis.delay.count,
-                  pct: mgmtKpis.delay.pct,
-                  color: 'text-orange-600 dark:text-orange-400',
-                  bg: 'bg-orange-50 dark:bg-orange-900/20',
-                  bar: 'bg-orange-500',
-                },
-                {
-                  label: 'Cancellation Rate',
-                  count: mgmtKpis.cancel.count,
-                  pct: mgmtKpis.cancel.pct,
-                  color: 'text-red-600 dark:text-red-400',
-                  bg: 'bg-red-50 dark:bg-red-900/20',
-                  bar: 'bg-red-500',
-                },
-                {
-                  label: 'OBD Reschedule Rate',
-                  count: mgmtKpis.reschedule.count,
-                  pct: mgmtKpis.reschedule.pct,
-                  color: 'text-yellow-600 dark:text-yellow-400',
-                  bg: 'bg-yellow-50 dark:bg-yellow-900/20',
-                  bar: 'bg-yellow-500',
-                },
-              ].map(kpi => (
-                <div key={kpi.label} className={`pp-dash-card p-4 sm:p-5 ${kpi.bg}`}>
-                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">{kpi.label}</p>
-                  <div className="flex items-baseline gap-2 mb-2">
-                    <span className={`text-3xl font-bold ${kpi.color}`}>{kpi.count}</span>
-                    <span className="text-sm text-gray-500 dark:text-gray-400">orders</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-white/60 dark:bg-gray-700/60 rounded-full overflow-hidden mb-1">
-                    <div className={`h-full rounded-full transition-all ${kpi.bar}`} style={{ width: `${kpi.pct}%` }} />
-                  </div>
-                  <p className={`text-sm font-semibold ${kpi.color}`}>{kpi.pct}% of total</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* ── Customer Response Detail Table ── */}
-          {customerResponseDetail.length > 0 && (
-            <div className="pp-dash-card p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Customer Response Detail</h3>
-                <span className="text-xs text-gray-400 dark:text-gray-500">{customerResponseDetail.length} responses</span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-100 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                      <th className="text-left pb-2 pr-4 font-semibold">Customer</th>
-                      <th className="text-left pb-2 pr-4 font-semibold">PO Number</th>
-                      <th className="text-left pb-2 pr-4 font-semibold">Response</th>
-                      <th className="text-left pb-2 pr-4 font-semibold">Confirmed At</th>
-                      <th className="text-left pb-2 font-semibold">Order Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
-                    {customerResponseDetail.slice(0, 50).map((row, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
-                        <td className="py-2.5 pr-4 text-gray-900 dark:text-gray-100 font-medium max-w-[180px] truncate">{row.customer}</td>
-                        <td className="py-2.5 pr-4 text-gray-600 dark:text-gray-400 font-mono text-xs">{row.poNumber}</td>
-                        <td className="py-2.5 pr-4">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
-                            row.action === 'Confirmed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                            : row.action === 'Rescheduled' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-                            : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                          }`}>
-                            {row.action}
-                          </span>
-                        </td>
-                        <td className="py-2.5 pr-4 text-gray-500 dark:text-gray-400 text-xs">{row.confirmedAt || '—'}</td>
-                        <td className="py-2.5 text-gray-500 dark:text-gray-400 capitalize text-xs">{row.status}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {customerResponseDetail.length > 50 && (
-                  <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-3">
-                    Showing 50 of {customerResponseDetail.length} responses
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
         </div>
       )}
 
