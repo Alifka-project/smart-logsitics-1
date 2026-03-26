@@ -329,13 +329,13 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
           </div>
         </div>
 
-        <div className="mt-4 space-y-2">
+        <div className="mt-4 flex flex-wrap items-center gap-2">
           {/* Search bar */}
-          <div className="relative">
+          <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
             <input
               type="search"
-              placeholder="Search by name, phone, order #, area, or product…"
+              placeholder="Search name, phone, order #, area…"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               className="w-full pl-9 pr-9 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#002D5B] focus:border-transparent"
@@ -352,57 +352,52 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
             )}
           </div>
 
-          {/* Filters row: status dropdown + sort + results/clear */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Status filter */}
-            <div className="relative">
-              <SlidersHorizontal className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
-              <select
-                value={tableTab}
-                onChange={(e) => onTableTabChange(e.target.value as OrdersTableTab)}
-                className="appearance-none pl-8 pr-8 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#002D5B] cursor-pointer"
-              >
-                {filterTabs.map((tab) => (
-                  <option key={tab.key} value={tab.key}>
-                    {tab.label} ({tab.count})
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
-            </div>
-
-            {/* Sort */}
-            <div className="relative">
-              <select
-                value={sortBy}
-                onChange={(e) => onSortChange(e.target.value)}
-                className="appearance-none pl-3 pr-8 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#002D5B] cursor-pointer"
-              >
-                <option value="newest">↓ Newest first</option>
-                <option value="oldest">↑ Oldest first</option>
-                <option value="customer">A–Z Customer</option>
-                <option value="area">A–Z Area</option>
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
-            </div>
-
-            {/* Results count + clear filters */}
-            <div className="ml-auto flex items-center gap-2">
-              {(tableTab !== 'all' || searchQuery) && (
-                <button
-                  type="button"
-                  onClick={() => { onTableTabChange('all'); onSearchChange(''); }}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                >
-                  <X className="h-3 w-3" />
-                  Clear filters
-                </button>
-              )}
-              <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
-                {sortedOrders.length} {sortedOrders.length === 1 ? 'order' : 'orders'}
-              </span>
-            </div>
+          {/* Status filter */}
+          <div className="relative shrink-0">
+            <SlidersHorizontal className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
+            <select
+              value={tableTab}
+              onChange={(e) => onTableTabChange(e.target.value as OrdersTableTab)}
+              className="appearance-none pl-8 pr-8 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#002D5B] cursor-pointer"
+            >
+              {filterTabs.map((tab) => (
+                <option key={tab.key} value={tab.key}>
+                  {tab.label} ({tab.count})
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
           </div>
+
+          {/* Sort */}
+          <div className="relative shrink-0">
+            <select
+              value={sortBy}
+              onChange={(e) => onSortChange(e.target.value)}
+              className="appearance-none pl-3 pr-8 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#002D5B] cursor-pointer"
+            >
+              <option value="newest">↓ Newest</option>
+              <option value="oldest">↑ Oldest</option>
+              <option value="customer">A–Z Customer</option>
+              <option value="area">A–Z Area</option>
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
+          </div>
+
+          {/* Clear filters + results count */}
+          {(tableTab !== 'all' || searchQuery) && (
+            <button
+              type="button"
+              onClick={() => { onTableTabChange('all'); onSearchChange(''); }}
+              className="shrink-0 flex items-center gap-1 px-2.5 py-2 rounded-lg text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+            >
+              <X className="h-3 w-3" />
+              Clear
+            </button>
+          )}
+          <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400 tabular-nums">
+            {sortedOrders.length} {sortedOrders.length === 1 ? 'order' : 'orders'}
+          </span>
         </div>
       </div>
 
