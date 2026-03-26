@@ -6,9 +6,9 @@ import {
   MapPin, 
   Activity, 
   Users, 
-  AlertCircle, 
-  CheckCircle, 
-  XCircle, 
+  AlertCircle,
+  CheckCircle,
+  XCircle,
   Clock,
   RefreshCw,
   Truck,
@@ -87,7 +87,6 @@ export default function DeliveryTeamPortal() {
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [alerts, setAlerts] = useState<SystemAlert[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   
   // Control tab state
@@ -148,14 +147,12 @@ export default function DeliveryTeamPortal() {
 
     void loadData();
 
-    if (autoRefresh) {
-      const interval = setInterval(() => {
-        if (!document.hidden) void loadData();
-      }, 60000); // 60s instead of 10s
+    const interval = setInterval(() => {
+      if (!document.hidden) void loadData();
+    }, 60000);
 
-      return () => clearInterval(interval);
-    }
-  }, [autoRefresh]);
+    return () => clearInterval(interval);
+  }, []);
 
   // Load online users after contacts are loaded
   useEffect(() => {
@@ -495,6 +492,35 @@ export default function DeliveryTeamPortal() {
     'completed', 'pod-completed', 'cancelled', 'rescheduled', 'returned',
   ]);
 
+  // Returns a badge config based on delivery status + confirmationStatus
+  const getDeliveryStatusBadge = (delivery: Delivery): { label: string; color: string } => {
+    const rawStatus = (delivery.status || '').toLowerCase();
+    const confirmStatus = (delivery.confirmationStatus || '').toLowerCase();
+
+    if (rawStatus === 'out-for-delivery' || rawStatus === 'out_for_delivery') {
+      return { label: 'Out for Delivery', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' };
+    }
+    if (rawStatus === 'in-progress' || rawStatus === 'in_progress') {
+      return { label: 'In Progress', color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300' };
+    }
+    if (rawStatus === 'confirmed' || rawStatus === 'scheduled-confirmed') {
+      return { label: 'Customer Confirmed', color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' };
+    }
+    if (confirmStatus === 'pending' || confirmStatus === 'unconfirmed') {
+      return { label: 'Awaiting Customer', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' };
+    }
+    if (rawStatus === 'assigned') {
+      return { label: 'Assigned', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300' };
+    }
+    if (rawStatus === 'pending') {
+      return { label: 'Pending', color: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' };
+    }
+    return {
+      label: delivery.status ? delivery.status.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Pending',
+      color: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300',
+    };
+  };
+
   // Active = non-terminal deliveries that have a driver assigned.
   const activeDeliveries = deliveries.filter(d => {
     const dWithTracking = d as unknown as { tracking?: { driverId?: string } };
@@ -521,21 +547,8 @@ export default function DeliveryTeamPortal() {
             <h1 className="text-xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Delivery Team Portal</h1>
             <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5">Monitor drivers, manage deliveries, and coordinate operations</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <button
-              onClick={() => setAutoRefresh(!autoRefresh)}
-              className={`min-h-[44px] px-3 sm:px-4 py-2 rounded-lg flex items-center gap-2 touch-manipulation ${
-                autoRefresh
-                  ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300'
-                  : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
-              }`}
-            >
-              <RefreshCw className={`w-4 h-4 flex-shrink-0 ${autoRefresh ? 'animate-spin' : ''}`} />
-              <span className="text-sm font-medium">{autoRefresh ? 'Auto-refresh ON' : 'Auto-refresh OFF'}</span>
-            </button>
-            <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-              Last update: {lastUpdate.toLocaleTimeString()}
-            </div>
+          <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+            Last update: {lastUpdate.toLocaleTimeString()}
           </div>
       </div>
 
@@ -657,16 +670,7 @@ export default function DeliveryTeamPortal() {
                   const driverId = dWithTracking.tracking?.driverId || delivery.assignedDriverId;
                   const driver = drivers.find(d => String(d.id) === String(driverId));
                   const driverName = driver ? (driver.fullName || driver.username) : null;
-                  const rawStatus = (delivery.status || '').toLowerCase();
-                  const statusColor =
-                    rawStatus === 'out-for-delivery' || rawStatus === 'out_for_delivery'
-                      ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
-                      : rawStatus === 'in-progress' || rawStatus === 'in_progress'
-                      ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
-                      : 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300';
-                  const statusLabel = delivery.status
-                    ? delivery.status.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-                    : 'Assigned';
+                  const { label: statusLabel, color: statusColor } = getDeliveryStatusBadge(delivery);
                   return (
                     <div key={delivery.id || idx}
                       className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
@@ -859,17 +863,7 @@ export default function DeliveryTeamPortal() {
                         const currentDriverId = dWithTracking.tracking?.driverId || delivery.assignedDriverId;
                         const currentDriver = drivers.find(d => d.id === currentDriverId);
                         const rawStatus = (delivery.status || '').toLowerCase();
-                        const statusColor =
-                          rawStatus === 'out-for-delivery' || rawStatus === 'out_for_delivery'
-                            ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
-                            : rawStatus === 'in-progress' || rawStatus === 'in_progress'
-                            ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
-                            : rawStatus === 'assigned'
-                            ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300'
-                            : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300';
-                        const statusLabel = delivery.status
-                          ? delivery.status.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-                          : 'Pending';
+                        const { label: statusLabel, color: statusColor } = getDeliveryStatusBadge(delivery);
                         return (
                           <tr key={delivery.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100" data-label="PO Number">
