@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, Search } from 'lucide-react';
+import { ChevronDown, Search, X, SlidersHorizontal } from 'lucide-react';
 import type { DeliveryOrder, DeliveryStatus } from '../../types/delivery';
 import { STATUS_CONFIG } from '../../config/statusColors';
 import { RescheduleModal } from './RescheduleModal';
@@ -324,55 +324,83 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
           <div>
             <h2 className="text-lg font-semibold tracking-tight text-gray-900 dark:text-white">Delivery Orders</h2>
             <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-              Use tabs and search below — status cards above are summary only.
+              Filter by status, search, and sort below — KPI cards above are summary only.
             </p>
           </div>
         </div>
 
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mt-4">
-          <div className="flex gap-2 overflow-x-auto pb-2 lg:pb-0 scrollbar-thin">
-            {filterTabs.map((tab) => (
+        <div className="mt-4 space-y-2">
+          {/* Search bar */}
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
+            <input
+              type="search"
+              placeholder="Search by name, phone, order #, area, or product…"
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="w-full pl-9 pr-9 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#002D5B] focus:border-transparent"
+            />
+            {searchQuery && (
               <button
-                key={tab.key}
                 type="button"
-                onClick={() => onTableTabChange(tab.key)}
-                className={`
-                  px-3 py-1.5 rounded-lg text-sm whitespace-nowrap flex-shrink-0 transition-colors
-                  ${
-                    tableTab === tab.key
-                      ? 'bg-[#002D5B] text-white'
-                      : 'bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                  }
-                `}
+                onClick={() => onSearchChange('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                aria-label="Clear search"
               >
-                {tab.label} <span className="ml-1 opacity-70">{tab.count}</span>
+                <X className="h-4 w-4" />
               </button>
-            ))}
+            )}
           </div>
 
-          <div className="flex gap-2 flex-col sm:flex-row">
-            <div className="relative flex-1 lg:w-52">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
-              <input
-                type="search"
-                placeholder="Search name, phone, order, area, product…"
-                value={searchQuery}
-                onChange={(e) => onSearchChange(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#002D5B]"
-              />
+          {/* Filters row: status dropdown + sort + results/clear */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Status filter */}
+            <div className="relative">
+              <SlidersHorizontal className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
+              <select
+                value={tableTab}
+                onChange={(e) => onTableTabChange(e.target.value as OrdersTableTab)}
+                className="appearance-none pl-8 pr-8 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#002D5B] cursor-pointer"
+              >
+                {filterTabs.map((tab) => (
+                  <option key={tab.key} value={tab.key}>
+                    {tab.label} ({tab.count})
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
             </div>
+
+            {/* Sort */}
             <div className="relative">
               <select
                 value={sortBy}
                 onChange={(e) => onSortChange(e.target.value)}
-                className="w-full appearance-none bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg pl-3 pr-8 py-1.5 text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#002D5B]"
+                className="appearance-none pl-3 pr-8 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#002D5B] cursor-pointer"
               >
-                <option value="newest">Newest</option>
-                <option value="oldest">Oldest</option>
-                <option value="customer">Customer A–Z</option>
-                <option value="area">Area</option>
+                <option value="newest">↓ Newest first</option>
+                <option value="oldest">↑ Oldest first</option>
+                <option value="customer">A–Z Customer</option>
+                <option value="area">A–Z Area</option>
               </select>
-              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500 dark:text-gray-400" aria-hidden />
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
+            </div>
+
+            {/* Results count + clear filters */}
+            <div className="ml-auto flex items-center gap-2">
+              {(tableTab !== 'all' || searchQuery) && (
+                <button
+                  type="button"
+                  onClick={() => { onTableTabChange('all'); onSearchChange(''); }}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  <X className="h-3 w-3" />
+                  Clear filters
+                </button>
+              )}
+              <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
+                {sortedOrders.length} {sortedOrders.length === 1 ? 'order' : 'orders'}
+              </span>
             </div>
           </div>
         </div>
