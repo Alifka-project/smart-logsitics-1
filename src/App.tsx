@@ -36,7 +36,7 @@ function App() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              background: 'var(--bg)',
+              background: 'linear-gradient(135deg, #002D5B 0%, #005082 100%)',
             }}
           >
             <div
@@ -44,20 +44,20 @@ function App() {
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                gap: '16px',
+                gap: '20px',
               }}
             >
               <img
                 src="/elect home.png"
                 alt="Electrolux"
-                style={{ height: '36px', objectFit: 'contain', opacity: 0.9 }}
+                style={{ height: '40px', objectFit: 'contain', filter: 'brightness(0) invert(1)', opacity: 0.95 }}
               />
               <div
                 style={{
-                  width: '22px',
-                  height: '22px',
-                  border: '2.5px solid var(--primary)',
-                  borderTopColor: 'transparent',
+                  width: '24px',
+                  height: '24px',
+                  border: '2.5px solid rgba(255,255,255,0.3)',
+                  borderTopColor: '#ffffff',
                   borderRadius: '50%',
                   animation: 'spin 0.8s linear infinite',
                 }}

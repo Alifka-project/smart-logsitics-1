@@ -181,9 +181,9 @@ const TIMELINE_STEPS: TimelineStep[] = [
   { id: 'out_for_delivery', label: 'Out for Delivery', desc: 'On its way to you', icon: Truck,
     matchStatuses: ['out-for-delivery', 'in-transit'], matchEvents: ['out_for_delivery', 'status_updated_out_for_delivery'] },
   { id: 'items_arrived', label: 'Items Arrived', desc: 'Delivered to your address', icon: MapPin,
-    matchStatuses: ['delivered', 'delivered-with-installation', 'delivered-without-installation'], matchEvents: ['delivery_completed', 'status_updated_delivered'] },
+    matchStatuses: [], matchEvents: ['delivery_completed', 'status_updated_delivered'] },
   { id: 'order_finished', label: 'Order Finished', desc: 'All done — thank you!', icon: Star,
-    matchStatuses: ['finished', 'completed', 'pod-completed'], matchEvents: ['pod_completed', 'order_finished'] },
+    matchStatuses: ['delivered', 'delivered-with-installation', 'delivered-without-installation', 'finished', 'completed', 'pod-completed'], matchEvents: ['pod_completed', 'order_finished'] },
 ];
 
 function resolveCurrentStep(status: string | null | undefined, timeline: TrackingEvent[] | undefined): number {

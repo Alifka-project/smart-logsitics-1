@@ -118,6 +118,7 @@ interface DashboardDelivery {
   address?: string;
   metadata?: Record<string, unknown>;
   assignedDriverId?: string | null;
+  driverName?: string | null;
   confirmationStatus?: string;
   customerConfirmedAt?: string | null;
   confirmedDeliveryDate?: string | Date | null;
@@ -1269,7 +1270,8 @@ export default function AdminDashboardPage(): React.ReactElement {
   }, [dashboardDeliveries, trendsGlobalPeriod, trendsBucketsConfig, areaKeywords]);
 
   const filteredDeliveries = useMemo<TrackingDelivery[]>(() => {
-    const list = (deliveries && Array.isArray(deliveries) ? deliveries : []).slice();
+    // Use dashboardDeliveries so ALL statuses (delivered, cancelled, etc.) are visible
+    const list = (dashboardDeliveries && Array.isArray(dashboardDeliveries) ? dashboardDeliveries : []).slice() as unknown as TrackingDelivery[];
     const dir = deliverySortDir === 'asc' ? 1 : -1;
     list.sort((a, b) => {
       if (deliverySortBy === 'customer') return dir * (a.customer || '').toLowerCase().localeCompare((b.customer || '').toLowerCase());
@@ -1300,7 +1302,7 @@ export default function AdminDashboardPage(): React.ReactElement {
       } else if (deliveryAttentionFilter === 'unassigned') {
         const s = (d.status || '').toLowerCase();
         if (!['pending', 'scheduled'].includes(s)) return false;
-        if (d.assignedDriverId || d.tracking?.driverId) return false;
+        if (d.assignedDriverId) return false;
       } else if (deliveryAttentionFilter === 'awaiting') {
         const s = (d.status || '').toLowerCase();
         const conf = String(d.confirmationStatus || '').toLowerCase();
@@ -1309,7 +1311,7 @@ export default function AdminDashboardPage(): React.ReactElement {
       }
       return true;
     });
-  }, [deliveries, deliverySearch, deliveryStatusFilter, deliveryDateFrom, deliveryDateTo, deliveryAttentionFilter, deliverySortBy, deliverySortDir]);
+  }, [dashboardDeliveries, deliverySearch, deliveryStatusFilter, deliveryDateFrom, deliveryDateTo, deliveryAttentionFilter, deliverySortBy, deliverySortDir]);
 
   const deliveryByAreaData = useMemo<AreaItem[]>(() => {
     const arr = (data?.analytics?.deliveryByArea || []).slice().sort((a, b) => (b.count ?? 0) - (a.count ?? 0));
@@ -2443,9 +2445,12 @@ export default function AdminDashboardPage(): React.ReactElement {
               <option value="scheduled-confirmed">Confirmed</option>
                       <option value="out-for-delivery">Out for Delivery</option>
                       <option value="delivered">Delivered</option>
+              <option value="delivered-with-installation">Delivered + Install</option>
               <option value="delivered-without-installation">Delivered (no install)</option>
+              <option value="pod-completed">POD Completed</option>
                       <option value="cancelled">Cancelled</option>
               <option value="rescheduled">Rescheduled</option>
+              <option value="returned">Returned / Failed</option>
                     </select>
             <input type="date" value={deliveryDateFrom} onChange={e => { setDeliveryDateFrom(e.target.value); setDeliveryPage(0); }}
               className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" />
@@ -2517,7 +2522,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                             </span>
                           </td>
                       <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400" data-label="Driver">
-                        {delivery.driverName || (delivery.tracking?.driverId ? 'Assigned' : 'Unassigned')}
+                        {delivery.driverName || (delivery.assignedDriverId ? 'Assigned' : 'Unassigned')}
                           </td>
                       <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400" data-label="Date">
                         {(delivery.created_at || delivery.createdAt)
@@ -2534,8 +2539,8 @@ export default function AdminDashboardPage(): React.ReactElement {
                               if (!deliveryId) return;
                               try {
                                 await api.put(`/deliveries/admin/${deliveryId}/status`, { status: newStatus });
-                                setDeliveries(prev => prev.map(d =>
-                                  (d.id === delivery.id || d.ID === delivery.ID) ? { ...d, status: newStatus } : d
+                                setDashboardDeliveries(prev => prev.map(d =>
+                                  d.id === delivery.id ? { ...d, status: newStatus } : d
                                 ));
                                       void loadDashboardData();
                                 window.dispatchEvent(new CustomEvent('deliveryStatusUpdated', { detail: { deliveryId: delivery.id || delivery.ID, newStatus } }));

@@ -473,6 +473,7 @@ router.get('/', authenticate, requireRole('admin'), async (req: Request, res: Re
       address: d.address,
       metadata: d.metadata,
       assignedDriverId: d.assignedDriverId,
+      driverName: d.driverName,
       confirmationStatus: d.confirmationStatus,
       customerConfirmedAt: d.customerConfirmedAt,
       confirmedDeliveryDate: d.confirmedDeliveryDate,
