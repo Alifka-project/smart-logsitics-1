@@ -2409,10 +2409,10 @@ export default function AdminDashboardPage(): React.ReactElement {
                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">Pending</th>
                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">Cancelled</th>
                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">
-                      <MetricTooltip term="Share %" definition="Customer orders as % of total" />
+                      <MetricTooltip term="Share %" definition="This customer's order share out of all customer orders in the current dataset." />
                     </th>
                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">
-                      <MetricTooltip term="Pending Rate" definition="Pending orders as % of customer total" />
+                      <MetricTooltip term="Pending Rate" definition="Pending orders divided by this customer's total orders. Higher values may indicate scheduling or fulfillment delays." />
                     </th>
                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">Success %</th>
                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-center">Risk</th>
@@ -2842,9 +2842,9 @@ export default function AdminDashboardPage(): React.ReactElement {
               { label: 'Active Areas', value: deliveryByAreaData.length, icon: MapPin, color: 'blue' },
               { label: 'Total Deliveries', value: deliveryByAreaData.reduce((s,r)=>s+(r.count||0),0), icon: Package, color: 'indigo' },
               { label: 'Top Region', value: deliveryByAreaData[0]?.area || '—', icon: Target, color: 'emerald' },
-              { label: 'Top Area Share', value: `${areaKpis.topShare.toFixed(1)}%`, icon: TrendingUp, color: 'yellow', tooltip: 'Top area deliveries as % of total' },
-              { label: 'Avg Area Success', value: `${areaKpis.avgSuccess.toFixed(1)}%`, icon: CheckCircle, color: 'green', tooltip: 'Average success rate across areas' },
-              { label: 'Largest Backlog', value: areaKpis.largestBacklog?.area ?? '—', icon: Clock, color: 'yellow', tooltip: 'Area with most pending deliveries' },
+              { label: 'Top Area Share', value: `${areaKpis.topShare.toFixed(1)}%`, icon: TrendingUp, color: 'yellow', tooltip: 'Share of total deliveries handled by the busiest area. High values can indicate capacity concentration, so monitor whether one zone is overloaded.' },
+              { label: 'Avg Area Success', value: `${areaKpis.avgSuccess.toFixed(1)}%`, icon: CheckCircle, color: 'green', tooltip: 'Average delivery success rate across all active areas. Use this to track service consistency between zones and quickly spot declining performance.' },
+              { label: 'Largest Backlog', value: areaKpis.largestBacklog?.area ?? '—', icon: Clock, color: 'yellow', tooltip: 'Area currently holding the highest pending volume. Prioritize this zone for driver allocation or route optimization to prevent delays.' },
             ].map(({ label, value, icon: Icon, color, tooltip }) => {
               const c = KPI_COLOR_MAP[color];
               return (
@@ -3051,8 +3051,8 @@ export default function AdminDashboardPage(): React.ReactElement {
               { label: 'Total Qty', value: topItemsData.reduce((s,r)=>s+(r.count||0),0), icon: Package, color: 'indigo' },
               { label: 'Best Seller', value: topItemsData[0]?.item?.slice(0, 18) || '—', icon: Target, color: 'emerald' },
               { label: 'Best Seller Qty', value: topItemsData[0]?.count ?? '—', icon: TrendingUp, color: 'yellow' },
-              { label: 'Top SKU Share', value: `${productKpis.top1Share.toFixed(1)}%`, icon: Target, color: 'blue', tooltip: 'Top SKU volume as % of total' },
-              { label: 'Concentration', value: productKpis.concentration, icon: Activity, color: 'emerald', tooltip: 'Product concentration level (High/Medium/Low)' },
+              { label: 'Top SKU Share', value: `${productKpis.top1Share.toFixed(1)}%`, icon: Target, color: 'blue', tooltip: 'Percentage of total quantity contributed by your highest-volume SKU. If this grows too much, inventory and demand risk become concentrated on one item.' },
+              { label: 'Concentration', value: productKpis.concentration, icon: Activity, color: 'emerald', tooltip: 'Overall product mix concentration (High/Medium/Low). High means fewer SKUs drive most volume; low means demand is spread more evenly across products.' },
             ].map(({ label, value, icon: Icon, color, tooltip }) => {
               const c = KPI_COLOR_MAP[color];
               return (
@@ -3183,7 +3183,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                   <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-left">Model ID</th>
                   <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">Orders</th>
                   <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase text-right">
-                    <MetricTooltip term="Share %" definition="Item volume as % of total" />
+                    <MetricTooltip term="Share %" definition="This item's quantity share out of total product volume in the current view." />
                   </th>
                   </tr>
                 </thead>
