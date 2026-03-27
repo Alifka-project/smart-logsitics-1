@@ -1814,7 +1814,14 @@ export default function AdminDashboardPage(): React.ReactElement {
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
                         <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false}
                           interval={heroPeriod === '7d' ? 0 : heroPeriod === '30d' ? 4 : 8} />
-                        <YAxis yAxisId="left" tick={{ fontSize: 11, fill: 'var(--chart-tick)' }} tickLine={false} axisLine={false} width={36} />
+                        <YAxis
+                          yAxisId="left"
+                          tick={{ fontSize: 11, fill: 'var(--chart-tick)' }}
+                          tickLine={false}
+                          axisLine={false}
+                          width={36}
+                          allowDecimals={false}
+                        />
                         <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#f97316' }} tickLine={false} axisLine={false} unit="%" domain={[0, 100]} width={40} />
                         <Tooltip
                           {...RECHARTS_TOOLTIP_OVERVIEW}
@@ -2227,9 +2234,27 @@ export default function AdminDashboardPage(): React.ReactElement {
               { label: 'Total Customers', value: topCustomersData.length, icon: Users, color: 'blue' },
               { label: 'Total Orders', value: topCustomersData.reduce((s, r) => s + (r.orders ?? 0), 0), icon: Package, color: 'indigo' },
               { label: 'Delivered', value: topCustomersData.reduce((s, r) => s + (r.delivered ?? 0), 0), icon: CheckCircle, color: 'green' },
-              { label: 'Top 1 Share', value: `${customerKpis.top1Share.toFixed(1)}%`, icon: Target, color: 'blue', tooltip: 'Top customer orders as % of total' },
-              { label: 'Top 3 Share', value: `${customerKpis.top3Share.toFixed(1)}%`, icon: TrendingUp, color: 'indigo', tooltip: 'Top 3 customers combined share' },
-              { label: 'Avg Success Rate', value: `${customerKpis.avgSuccess.toFixed(1)}%`, icon: Activity, color: 'emerald', tooltip: 'Average delivery success rate across customers' },
+              {
+                label: 'Top 1 Share',
+                value: `${customerKpis.top1Share.toFixed(1)}%`,
+                icon: Target,
+                color: 'blue',
+                tooltip: 'Share of all orders from your #1 customer. High value means revenue concentration risk; if this keeps increasing, diversify the customer mix to reduce dependency.',
+              },
+              {
+                label: 'Top 3 Share',
+                value: `${customerKpis.top3Share.toFixed(1)}%`,
+                icon: TrendingUp,
+                color: 'indigo',
+                tooltip: 'Combined share of orders from your top 3 customers. Use this to track portfolio balance: lower is usually healthier, while very high values indicate over-reliance on a few accounts.',
+              },
+              {
+                label: 'Avg Success Rate',
+                value: `${customerKpis.avgSuccess.toFixed(1)}%`,
+                icon: Activity,
+                color: 'emerald',
+                tooltip: 'Average delivery success rate across listed customers. If this drops, review failed/pending clusters by customer and area to find service issues or scheduling bottlenecks.',
+              },
             ].map(({ label, value, icon: Icon, color, tooltip }) => {
               const c = KPI_COLOR_MAP[color];
               return (
