@@ -749,7 +749,7 @@ export default function AdminReportsPage(): React.ReactElement {
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                   <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--muted)' }} />
                   <YAxis tick={{ fontSize: 11, fill: 'var(--muted)' }} />
-                  <Tooltip contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text)', fontSize: 12 }} />
+                  <Tooltip wrapperStyle={{ zIndex: 9999 }} contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', color: 'var(--text)', fontSize: 13, padding: '10px 14px', minWidth: 130, boxShadow: '0 8px 24px -4px rgba(0,0,0,0.18)' }} />
                   <Legend wrapperStyle={{ fontSize: 12, color: 'var(--text2)' }} />
                   <Bar dataKey="delivered" stackId="a" fill={CHART_COLORS.delivered} name="Delivered" radius={[0,0,0,0]} />
                   <Bar dataKey="cancelled" stackId="a" fill={CHART_COLORS.cancelled} name="Cancelled" />
@@ -779,7 +779,7 @@ export default function AdminReportsPage(): React.ReactElement {
                       <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text)', fontSize: 12 }} />
+                  <Tooltip wrapperStyle={{ zIndex: 9999 }} contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', color: 'var(--text)', fontSize: 13, padding: '10px 14px', minWidth: 130, boxShadow: '0 8px 24px -4px rgba(0,0,0,0.18)' }} />
                   <Legend wrapperStyle={{ fontSize: 12, color: 'var(--text2)' }} />
                 </PieChart>
               </ResponsiveContainer>
@@ -793,7 +793,7 @@ export default function AdminReportsPage(): React.ReactElement {
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--muted)' }} />
                 <YAxis tick={{ fontSize: 11, fill: 'var(--muted)' }} />
-                <Tooltip contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text)', fontSize: 12 }} />
+                <Tooltip wrapperStyle={{ zIndex: 9999 }} contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', color: 'var(--text)', fontSize: 13, padding: '10px 14px', minWidth: 130, boxShadow: '0 8px 24px -4px rgba(0,0,0,0.18)' }} />
                 <Legend wrapperStyle={{ fontSize: 12, color: 'var(--text2)' }} />
                 <Line type="monotone" dataKey="delivered" stroke={CHART_COLORS.delivered} strokeWidth={2} dot={false} name="Delivered" />
                 <Line type="monotone" dataKey="cancelled" stroke={CHART_COLORS.cancelled} strokeWidth={2} dot={false} name="Cancelled" />

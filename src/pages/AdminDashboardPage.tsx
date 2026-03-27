@@ -22,27 +22,29 @@ import type { Driver } from '../types';
 
 /** Recharts default tooltip — theme via --chart-* in index.css (:root / .dark) */
 const RECHARTS_TOOLTIP = {
+  wrapperStyle: { zIndex: 9999, outline: 'none' },
   contentStyle: {
     backgroundColor: 'var(--chart-tooltip-bg)',
     border: '1px solid var(--chart-tooltip-border)',
     borderRadius: '12px',
-    fontSize: '11px',
+    fontSize: '13px',
     color: 'var(--chart-tooltip-fg)',
+    padding: '10px 14px',
+    minWidth: '130px',
+    boxShadow: '0 8px 24px -4px rgba(0,0,0,0.18), 0 2px 8px -2px rgba(0,0,0,0.12)',
   },
-  labelStyle: { color: 'var(--chart-tooltip-fg)', fontWeight: 600 as const },
-  itemStyle: { color: 'var(--chart-tooltip-fg)' },
+  labelStyle: { color: 'var(--chart-tooltip-fg)', fontWeight: 600 as const, marginBottom: '4px' },
+  itemStyle: { color: 'var(--chart-tooltip-fg)', fontSize: '13px', padding: '2px 0' },
 };
 const RECHARTS_TOOLTIP_12 = {
   ...RECHARTS_TOOLTIP,
-  contentStyle: { ...RECHARTS_TOOLTIP.contentStyle, fontSize: '12px' },
+  contentStyle: { ...RECHARTS_TOOLTIP.contentStyle, fontSize: '13px' },
 };
-/** Overview hero chart tooltip — 12px + shadow */
+/** Overview hero chart tooltip */
 const RECHARTS_TOOLTIP_OVERVIEW = {
   ...RECHARTS_TOOLTIP,
   contentStyle: {
     ...RECHARTS_TOOLTIP.contentStyle,
-    fontSize: '12px',
-    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.12)',
   },
 };
 
