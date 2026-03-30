@@ -406,7 +406,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="manage-orders-table-mobile table-mobile-cards table-fixed min-w-[920px] md:min-w-[1130px] border-collapse text-sm">
+        <table className="manage-orders-table-mobile table-mobile-cards table-fixed min-w-[1060px] md:min-w-[1280px] border-collapse text-sm">
           <colgroup>
             <col style={{ width: '170px' }} />
             <col style={{ width: '190px' }} />
@@ -414,6 +414,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
             <col style={{ width: '120px' }} />
             <col style={{ width: '115px' }} />
             <col style={{ width: '95px' }} />
+            <col style={{ width: '130px' }} />
             <col style={{ width: '1%' }} />
             <col style={{ width: '145px' }} />
             <col style={{ width: '105px' }} />
@@ -438,8 +439,11 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
               <th className="min-w-[90px] max-w-[100px] w-[95px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Area
               </th>
+              <th className="min-w-[120px] max-w-[140px] w-[130px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                Model
+              </th>
               <th className="whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                Model / Description
+                Product Description
               </th>
               <th className="min-w-[140px] max-w-[150px] w-[145px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Status
@@ -452,7 +456,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700/80">
             {paginatedOrders.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                <td colSpan={10} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                   No orders match the current filters.
                 </td>
               </tr>
@@ -511,29 +515,21 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                         {order.area}
                       </span>
                     </td>
-                    <td className="min-w-0 overflow-hidden px-3 py-2.5 align-middle" data-label="Model / Description">
-                      <div className="flex min-w-0 flex-col gap-0.5">
-                        {order.model ? (
-                          <span
-                            className="block truncate font-medium text-[13px] leading-snug text-gray-900 dark:text-white"
-                            title={order.model}
-                          >
-                            {order.model}
-                          </span>
-                        ) : null}
-                        {order.productDescription ? (
-                          <span
-                            className="line-clamp-2 block break-words text-[12px] leading-snug text-gray-500 dark:text-gray-400"
-                            title={order.productDescription}
-                          >
-                            {order.productDescription}
-                          </span>
-                        ) : !order.model ? (
-                          <span className="block truncate text-[13px] text-gray-800 dark:text-gray-200" title={order.product}>
-                            {order.product}
-                          </span>
-                        ) : null}
-                      </div>
+                    <td className="min-w-[120px] max-w-[140px] w-[130px] overflow-hidden px-3 py-2.5 align-middle" data-label="Model">
+                      <span
+                        className="block truncate text-[13px] leading-snug text-gray-800 dark:text-gray-200"
+                        title={order.model ?? '—'}
+                      >
+                        {order.model || '—'}
+                      </span>
+                    </td>
+                    <td className="min-w-0 overflow-hidden px-3 py-2.5 align-middle" data-label="Product Description">
+                      <span
+                        className="line-clamp-2 block break-words text-[13px] leading-snug text-gray-800 dark:text-gray-200"
+                        title={order.productDescription ?? order.product}
+                      >
+                        {order.productDescription || order.product}
+                      </span>
                     </td>
                     <td className="min-w-[140px] max-w-[150px] w-[145px] overflow-hidden px-3 py-2.5 align-middle" data-label="Status">
                       <div className="inline-flex max-w-full">
