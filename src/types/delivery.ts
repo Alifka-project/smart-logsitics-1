@@ -25,6 +25,8 @@ export interface DeliveryOrder {
   address: string;
   product: string;
   productSKU?: string;
+  model?: string;
+  productDescription?: string;
   status: DeliveryStatus;
   uploadedAt: Date;
   smssentAt?: Date;

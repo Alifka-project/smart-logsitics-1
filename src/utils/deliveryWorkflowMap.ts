@@ -129,6 +129,14 @@ export function deliveryToManageOrder(delivery: Delivery): DeliveryOrder {
     (meta as Record<string, unknown>).sku;
   const productSKU = skuRaw != null && String(skuRaw).trim() ? String(skuRaw).trim() : undefined;
 
+  const origRow = (
+    (meta.originalRow ?? meta._originalRow ?? rec._originalRow) as Record<string, unknown> | undefined
+  ) ?? {};
+  const modelRaw = origRow['MODEL ID'] ?? origRow['Model ID'] ?? origRow['model_id'] ?? origRow['ModelID'] ?? origRow['Model'] ?? origRow['model'];
+  const model = modelRaw != null && String(modelRaw).trim() ? String(modelRaw).trim() : undefined;
+  const descRaw = origRow['Description'] ?? origRow['description'] ?? origRow['Product Description'] ?? origRow['product_description'];
+  const productDescription = descRaw != null && String(descRaw).trim() ? String(descRaw).trim() : undefined;
+
   const confirmedAt =
     parseOptDate((meta as Record<string, unknown>).confirmedAt) ??
     parseOptDate((meta as Record<string, unknown>).confirmed_at);
@@ -149,6 +157,8 @@ export function deliveryToManageOrder(delivery: Delivery): DeliveryOrder {
     address: delivery.address?.trim() || '—',
     product: delivery.items?.trim() || '—',
     productSKU,
+    model,
+    productDescription,
     status,
     uploadedAt,
     smssentAt: smsSentAt,

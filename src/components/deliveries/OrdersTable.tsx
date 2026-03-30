@@ -131,7 +131,9 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
         order.orderNumber.toLowerCase().includes(q) ||
         order.area.toLowerCase().includes(q) ||
         order.customerPhone.toLowerCase().includes(q) ||
-        order.product.toLowerCase().includes(q);
+        order.product.toLowerCase().includes(q) ||
+        (order.model?.toLowerCase().includes(q) ?? false) ||
+        (order.productDescription?.toLowerCase().includes(q) ?? false);
       return matchesStatus && matchesSearch;
     });
   }, [orders, tableTab, searchQuery]);
@@ -437,7 +439,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                 Area
               </th>
               <th className="whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                Product
+                Model / Description
               </th>
               <th className="min-w-[140px] max-w-[150px] w-[145px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Status
@@ -509,13 +511,29 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                         {order.area}
                       </span>
                     </td>
-                    <td className="min-w-0 overflow-hidden px-3 py-2.5 align-middle" data-label="Product">
-                      <span
-                        className="line-clamp-2 block break-words text-[13px] leading-snug text-gray-800 dark:text-gray-200"
-                        title={order.product}
-                      >
-                        {order.product}
-                      </span>
+                    <td className="min-w-0 overflow-hidden px-3 py-2.5 align-middle" data-label="Model / Description">
+                      <div className="flex min-w-0 flex-col gap-0.5">
+                        {order.model ? (
+                          <span
+                            className="block truncate font-medium text-[13px] leading-snug text-gray-900 dark:text-white"
+                            title={order.model}
+                          >
+                            {order.model}
+                          </span>
+                        ) : null}
+                        {order.productDescription ? (
+                          <span
+                            className="line-clamp-2 block break-words text-[12px] leading-snug text-gray-500 dark:text-gray-400"
+                            title={order.productDescription}
+                          >
+                            {order.productDescription}
+                          </span>
+                        ) : !order.model ? (
+                          <span className="block truncate text-[13px] text-gray-800 dark:text-gray-200" title={order.product}>
+                            {order.product}
+                          </span>
+                        ) : null}
+                      </div>
                     </td>
                     <td className="min-w-[140px] max-w-[150px] w-[145px] overflow-hidden px-3 py-2.5 align-middle" data-label="Status">
                       <div className="inline-flex max-w-full">
