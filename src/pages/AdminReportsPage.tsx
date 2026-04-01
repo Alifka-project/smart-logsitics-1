@@ -765,7 +765,10 @@ export default function AdminReportsPage(): React.ReactElement {
               <ResponsiveContainer width="100%" height={260}>
                 <PieChart>
                   <Pie
-                    data={statusDistribution}
+                    data={statusDistribution.map((row) => ({
+                      ...row,
+                      name: formatStatusLabel(String(row.status || 'Unknown')),
+                    }))}
                     cx="50%" cy="50%"
                     outerRadius={95}
                     innerRadius={40}
@@ -774,13 +777,18 @@ export default function AdminReportsPage(): React.ReactElement {
                       const p = Number(props.percent ?? 0);
                       return `${Number.isFinite(p) ? Math.round(p * 100) : 0}%`;
                     }}
+                    nameKey="name"
                     dataKey="count"
                   >
                     {statusDistribution.map((_, i) => (
                       <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip wrapperStyle={{ zIndex: 9999 }} contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', color: 'var(--text)', fontSize: 13, padding: '10px 14px', minWidth: 130, boxShadow: '0 8px 24px -4px rgba(0,0,0,0.18)' }} />
+                  <Tooltip
+                    wrapperStyle={{ zIndex: 9999 }}
+                    contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', color: 'var(--text)', fontSize: 13, padding: '10px 14px', minWidth: 130, boxShadow: '0 8px 24px -4px rgba(0,0,0,0.18)' }}
+                    formatter={(value: number | string, name: string) => [value, name === 'count' ? 'Orders' : name]}
+                  />
                   <Legend wrapperStyle={{ fontSize: 12, color: 'var(--text2)' }} />
                 </PieChart>
               </ResponsiveContainer>
