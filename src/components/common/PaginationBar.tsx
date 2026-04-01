@@ -48,7 +48,7 @@ export default function PaginationBar({
         </p>
 
         {/* buttons */}
-        <div className="flex items-center justify-center lg:justify-end gap-1.5 flex-wrap rounded-xl border border-gray-200/80 bg-gray-50/80 p-1.5 dark:border-gray-700 dark:bg-gray-800/80">
+        <div className="flex items-center justify-center lg:justify-end gap-1.5 flex-wrap">
           <button onClick={() => onPageChange(page - 1)} disabled={page <= 1}
             className={`${btn} ${off} ${dis} px-3`}>
             ← Prev
