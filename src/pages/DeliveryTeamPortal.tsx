@@ -142,7 +142,11 @@ export default function DeliveryTeamPortal() {
   interface DashData { totals?: DashTotals; deliveries?: DashDelivery[]; generatedAt?: string; }
   const [dashData, setDashData] = useState<DashData | null>(null);
   const [reportsLoading, setReportsLoading] = useState(false);
-  const [reportsPeriod, setReportsPeriod] = useState<'7d' | '30d' | '90d'>('30d');
+  const [reportsPeriod, setReportsPeriod] = useState<'7d' | '30d' | '90d'>('90d');
+  // POD table filters
+  const [podSearch, setPodSearch] = useState('');
+  const [podStatusFilter, setPodStatusFilter] = useState('all');
+  const [podDriverFilter, setPodDriverFilter] = useState('all');
 
   // Route for monitoring map (matches Admin Operations)
   const [monitoringRoute, setMonitoringRoute] = useState<{ coordinates: [number, number][] } | null>(null);
@@ -689,16 +693,57 @@ export default function DeliveryTeamPortal() {
       .sort((a, b) => b.assigned - a.assigned);
   }, [reportsDeliveries]);
 
-  const podDeliveries = useMemo(() => {
-    return reportsDeliveries
-      .filter(d => DELIVERED_STATUSES.has((d.status ?? '').toLowerCase()))
-      .sort((a, b) => {
-        const ta = new Date((a.delivered_at ?? a.deliveredAt ?? a.created_at ?? a.createdAt ?? 0) as string).getTime();
-        const tb = new Date((b.delivered_at ?? b.deliveredAt ?? b.created_at ?? b.createdAt ?? 0) as string).getTime();
-        return tb - ta;
-      })
-      .slice(0, 100);
+  // Extract PNC / Model ID / item description from delivery metadata (same fields as adminDashboard.ts)
+  const extractItemMeta = useCallback((d: DashDelivery): { pnc: string; modelId: string; description: string } => {
+    const meta = (d.metadata as Record<string, unknown>) ?? {};
+    const orig = ((meta.originalRow ?? meta._originalRow ?? {}) as Record<string, unknown>);
+    const pnc = String(orig['Material'] ?? orig['material'] ?? orig['Material Number'] ?? orig['PNC'] ?? orig['pnc'] ?? '').trim();
+    const modelId = String(orig['MODEL ID'] ?? orig['Model ID'] ?? orig['model_id'] ?? orig['ModelID'] ?? orig['Model'] ?? orig['model'] ?? '').trim();
+    const description = String(orig['Description'] ?? orig['description'] ?? d.items ?? meta['items'] ?? '').trim();
+    return { pnc: pnc || '—', modelId: modelId || '—', description: description || '—' };
+  }, []);
+
+  // Unique driver names for filter dropdown
+  const podDriverOptions = useMemo(() => {
+    const names = new Set<string>();
+    for (const d of reportsDeliveries) {
+      if (d.driverName) names.add(d.driverName as string);
+    }
+    return Array.from(names).sort();
   }, [reportsDeliveries]);
+
+  // All deliveries in period with filters applied — NO status pre-filter, shows all 117
+  const podDeliveries = useMemo(() => {
+    const q = podSearch.toLowerCase().trim();
+    return reportsDeliveries
+      .filter(d => {
+        const s = (d.status ?? '').toLowerCase();
+        // Status filter
+        if (podStatusFilter === 'delivered' && !DELIVERED_STATUSES.has(s)) return false;
+        if (podStatusFilter === 'cancelled' && !CANCELLED_STATUSES.has(s)) return false;
+        if (podStatusFilter === 'pending' && s !== 'pending' && s !== 'uploaded') return false;
+        if (podStatusFilter === 'rescheduled' && s !== 'rescheduled') return false;
+        if (podStatusFilter === 'returned' && s !== 'returned') return false;
+        if (podStatusFilter === 'out-for-delivery' && s !== 'out-for-delivery') return false;
+        // Driver filter
+        if (podDriverFilter !== 'all' && (d.driverName as string | undefined) !== podDriverFilter) return false;
+        // Search
+        if (q) {
+          const { pnc, modelId, description } = extractItemMeta(d);
+          const haystack = [
+            d.poNumber, d.id, d.customer, d.address, d.driverName,
+            pnc, modelId, description,
+          ].map(v => String(v ?? '').toLowerCase()).join(' ');
+          if (!haystack.includes(q)) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        const ta = new Date((a.created_at ?? a.createdAt ?? 0) as string).getTime();
+        const tb = new Date((b.created_at ?? b.createdAt ?? 0) as string).getTime();
+        return tb - ta;
+      });
+  }, [reportsDeliveries, podSearch, podStatusFilter, podDriverFilter, extractItemMeta]);
 
   const CHART_COLORS = { delivered: '#22c55e', cancelled: '#ef4444', rescheduled: '#f59e0b', returned: '#8b5cf6', pending: '#94a3b8' };
   const PIE_PALETTE = ['#22c55e','#ef4444','#f59e0b','#3b82f6','#8b5cf6','#94a3b8','#06b6d4'];
@@ -1807,95 +1852,215 @@ export default function DeliveryTeamPortal() {
                 )}
               </div>
 
-              {/* POD Report */}
+              {/* POD Report — All Deliveries */}
               <div className="pp-card p-5">
-                <div className="flex items-center justify-between mb-4">
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                   <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                     <FileText className="w-5 h-5 text-purple-500" />
-                    POD Report — Delivered Orders
+                    Delivery Report
                     <span className="ml-1 px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-xs font-normal">
-                      {podDeliveries.length} records
+                      {podDeliveries.length} / {reportsDeliveries.length} records
                     </span>
                   </h3>
-                  <button
-                    onClick={() => {
-                      const header = 'PO Number,Customer,Address,Driver,Delivered Date,Status\n';
-                      const rows = podDeliveries.map(d => [
-                        d.poNumber ?? d.id ?? '',
-                        d.customer ?? '',
-                        (d.address ?? '').replace(/,/g, ' '),
-                        d.driverName ?? 'Unassigned',
-                        d.delivered_at ?? d.deliveredAt ?? d.created_at ?? d.createdAt ?? '',
-                        d.status ?? '',
-                      ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-                      const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8' });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url; a.download = `pod-report-${reportsPeriod}.csv`; a.click();
-                      URL.revokeObjectURL(url);
-                    }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                  >
-                    <Download className="w-4 h-4" />
-                    Export CSV
-                  </button>
+                  {/* Download buttons */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Client-side CSV of current filtered view */}
+                    <button
+                      onClick={() => {
+                        const header = 'No,Delivery ID,PO Number,Customer,Address,PNC (Material),Model ID,Description,Driver,Date,Status\n';
+                        const rows = podDeliveries.map((d, i) => {
+                          const { pnc, modelId, description } = extractItemMeta(d);
+                          const dateRaw = d.delivered_at ?? d.deliveredAt ?? d.created_at ?? d.createdAt ?? '';
+                          const dateStr = dateRaw ? new Date(dateRaw as string).toLocaleDateString('en-GB') : '';
+                          return [
+                            i + 1,
+                            d.id ?? '',
+                            d.poNumber ?? '',
+                            d.customer ?? '',
+                            d.address ?? '',
+                            pnc,
+                            modelId,
+                            description,
+                            d.driverName ?? 'Unassigned',
+                            dateStr,
+                            d.status ?? '',
+                          ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
+                        }).join('\n');
+                        const blob = new Blob(['\uFEFF' + header + rows], { type: 'text/csv;charset=utf-8' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url; a.download = `delivery-report-${reportsPeriod}-${new Date().toISOString().slice(0,10)}.csv`; a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                    >
+                      <Download className="w-4 h-4" />
+                      Export CSV
+                    </button>
+                    {/* Server-side POD report with photos (delivered only) */}
+                    <button
+                      onClick={() => {
+                        const token = localStorage.getItem('auth_token') ?? '';
+                        const clientKey = localStorage.getItem('client_key') ?? '';
+                        const base = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
+                        const url = `${base}/api/admin/reports/pod?format=html&auth=${encodeURIComponent(token)}&clientKey=${encodeURIComponent(clientKey)}`;
+                        window.open(url, '_blank', 'noopener,noreferrer');
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium transition-colors"
+                    >
+                      <FileText className="w-4 h-4" />
+                      POD Report (HTML)
+                    </button>
+                  </div>
                 </div>
 
-                {/* POD summary row */}
-                <div className="flex gap-4 mb-4">
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 text-sm">
-                    <CheckCircle className="w-4 h-4" />
-                    POD Completed: <span className="font-bold ml-1">{reportsTotals.podCompleted}</span>
+                {/* Summary chips */}
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {[
+                    { label: 'Total', value: reportsDeliveries.length, color: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' },
+                    { label: 'Delivered', value: reportsTotals.delivered, color: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' },
+                    { label: 'POD Completed', value: reportsTotals.podCompleted, color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300' },
+                    { label: 'With Installation', value: reportsDeliveries.filter(d => d.status === 'delivered-with-installation').length, color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' },
+                    { label: 'Cancelled', value: reportsTotals.cancelled, color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' },
+                    { label: 'Returned', value: reportsDeliveries.filter(d => (d.status ?? '').toLowerCase() === 'returned').length, color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' },
+                  ].map(({ label, value, color }) => (
+                    <span key={label} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${color}`}>
+                      <span className="font-bold text-sm">{value}</span> {label}
+                    </span>
+                  ))}
+                </div>
+
+                {/* Filters row */}
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {/* Search */}
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-1 min-w-[180px]">
+                    <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    <input
+                      type="text"
+                      value={podSearch}
+                      onChange={e => setPodSearch(e.target.value)}
+                      placeholder="Search PO#, customer, PNC, model…"
+                      className="flex-1 bg-transparent text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 outline-none"
+                    />
+                    {podSearch && (
+                      <button onClick={() => setPodSearch('')} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs">✕</button>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 text-sm">
-                    <Truck className="w-4 h-4" />
-                    With Installation: <span className="font-bold ml-1">{reportsDeliveries.filter(d => d.status === 'delivered-with-installation').length}</span>
-                  </div>
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-sm">
-                    <Package className="w-4 h-4" />
-                    No Installation: <span className="font-bold ml-1">{reportsDeliveries.filter(d => d.status === 'delivered-without-installation').length}</span>
-                  </div>
+                  {/* Status filter */}
+                  <select
+                    value={podStatusFilter}
+                    onChange={e => setPodStatusFilter(e.target.value)}
+                    className="px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="delivered">Delivered</option>
+                    <option value="cancelled">Cancelled</option>
+                    <option value="rescheduled">Rescheduled</option>
+                    <option value="returned">Returned</option>
+                    <option value="pending">Pending</option>
+                    <option value="out-for-delivery">Out for Delivery</option>
+                  </select>
+                  {/* Driver filter */}
+                  <select
+                    value={podDriverFilter}
+                    onChange={e => setPodDriverFilter(e.target.value)}
+                    className="px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">All Drivers</option>
+                    {podDriverOptions.map(name => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
+                  {/* Clear filters */}
+                  {(podSearch || podStatusFilter !== 'all' || podDriverFilter !== 'all') && (
+                    <button
+                      onClick={() => { setPodSearch(''); setPodStatusFilter('all'); setPodDriverFilter('all'); }}
+                      className="px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                    >
+                      Clear filters
+                    </button>
+                  )}
                 </div>
 
                 {podDeliveries.length === 0 ? (
-                  <p className="text-sm text-gray-400 dark:text-gray-500 py-6 text-center">No delivered orders in this period</p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500 py-8 text-center">No deliveries match the current filters</p>
                 ) : (
-                  <div className="overflow-x-auto max-h-96 overflow-y-auto rounded-lg border border-gray-100 dark:border-gray-800">
-                    <table className="w-full text-sm">
-                      <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800/90">
-                        <tr className="border-b border-gray-200 dark:border-gray-700">
-                          <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">PO #</th>
-                          <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Customer</th>
-                          <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden md:table-cell">Address</th>
-                          <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Driver</th>
-                          <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Delivered</th>
-                          <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                        {podDeliveries.map((d) => {
-                          const deliveredDate = d.delivered_at ?? d.deliveredAt ?? d.created_at ?? d.createdAt;
-                          const formattedDate = deliveredDate ? new Date(deliveredDate as string).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
-                          const s = (d.status ?? '').toLowerCase();
-                          const statusLabel = s === 'pod-completed' ? 'POD Completed' : s === 'delivered-with-installation' ? 'With Installation' : s === 'delivered-without-installation' ? 'No Installation' : s === 'completed' || s === 'done' ? 'Completed' : 'Delivered';
-                          const statusColor = s === 'pod-completed' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300' : s === 'delivered-with-installation' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : s === 'delivered-without-installation' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300';
-                          return (
-                            <tr key={String(d.id ?? Math.random())} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                              <td className="py-2.5 px-3 font-mono text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">{d.poNumber ?? String(d.id ?? '').slice(0,8)}</td>
-                              <td className="py-2.5 px-3 font-medium text-gray-900 dark:text-gray-100 max-w-[140px] truncate">{d.customer ?? '—'}</td>
-                              <td className="py-2.5 px-3 text-gray-500 dark:text-gray-400 hidden md:table-cell max-w-[180px] truncate">{d.address ?? '—'}</td>
-                              <td className="py-2.5 px-3 text-gray-700 dark:text-gray-300">{d.driverName ?? <span className="text-gray-400">Unassigned</span>}</td>
-                              <td className="py-2.5 px-3 text-gray-500 dark:text-gray-400 whitespace-nowrap text-xs">{formattedDate}</td>
-                              <td className="py-2.5 px-3">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${statusColor}`}>
-                                  {statusLabel}
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                  <div className="overflow-x-auto rounded-lg border border-gray-100 dark:border-gray-800">
+                    <div className="max-h-[520px] overflow-y-auto">
+                      <table className="w-full text-sm min-w-[900px]">
+                        <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800/95 z-10">
+                          <tr className="border-b border-gray-200 dark:border-gray-700">
+                            <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap w-8">#</th>
+                            <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Delivery No.</th>
+                            <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Customer</th>
+                            <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">PNC (Material)</th>
+                            <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Model ID</th>
+                            <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden lg:table-cell">Description</th>
+                            <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden md:table-cell">Address</th>
+                            <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Driver</th>
+                            <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Date</th>
+                            <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                          {podDeliveries.map((d, idx) => {
+                            const { pnc, modelId, description } = extractItemMeta(d);
+                            const dateRaw = d.delivered_at ?? d.deliveredAt ?? d.created_at ?? d.createdAt;
+                            const formattedDate = dateRaw ? new Date(dateRaw as string).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
+                            const s = (d.status ?? '').toLowerCase();
+                            const statusLabel =
+                              s === 'pod-completed' ? 'POD Completed' :
+                              s === 'delivered-with-installation' ? 'With Install' :
+                              s === 'delivered-without-installation' ? 'No Install' :
+                              s === 'completed' || s === 'done' || s === 'delivered' || s === 'finished' ? 'Delivered' :
+                              s === 'cancelled' || s === 'canceled' ? 'Cancelled' :
+                              s === 'rescheduled' ? 'Rescheduled' :
+                              s === 'returned' ? 'Returned' :
+                              s === 'out-for-delivery' ? 'Out for Delivery' :
+                              s === 'pending' || s === 'uploaded' ? 'Pending' :
+                              (d.status ?? 'Unknown');
+                            const statusColor =
+                              s === 'pod-completed' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300' :
+                              DELIVERED_STATUSES.has(s) ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' :
+                              CANCELLED_STATUSES.has(s) ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
+                              s === 'rescheduled' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' :
+                              s === 'returned' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' :
+                              s === 'out-for-delivery' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' :
+                              'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400';
+                            return (
+                              <tr key={String(d.id ?? idx)} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                                <td className="py-2.5 px-3 text-xs text-gray-400 dark:text-gray-500">{idx + 1}</td>
+                                <td className="py-2.5 px-3 whitespace-nowrap">
+                                  <span className="font-mono text-xs text-gray-700 dark:text-gray-300">{d.poNumber ?? '—'}</span>
+                                  {d.id && <span className="block font-mono text-[10px] text-gray-400 dark:text-gray-600">{String(d.id).slice(0,8)}</span>}
+                                </td>
+                                <td className="py-2.5 px-3 font-medium text-gray-900 dark:text-gray-100 max-w-[140px]">
+                                  <span className="block truncate">{d.customer ?? '—'}</span>
+                                </td>
+                                <td className="py-2.5 px-3 font-mono text-xs text-blue-700 dark:text-blue-400 whitespace-nowrap">{pnc}</td>
+                                <td className="py-2.5 px-3 font-mono text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">{modelId}</td>
+                                <td className="py-2.5 px-3 text-gray-500 dark:text-gray-400 hidden lg:table-cell max-w-[160px]">
+                                  <span className="block truncate text-xs">{description}</span>
+                                </td>
+                                <td className="py-2.5 px-3 text-gray-500 dark:text-gray-400 hidden md:table-cell max-w-[150px]">
+                                  <span className="block truncate text-xs">{d.address ?? '—'}</span>
+                                </td>
+                                <td className="py-2.5 px-3 text-gray-700 dark:text-gray-300 whitespace-nowrap text-xs">
+                                  {d.driverName ?? <span className="text-gray-400 italic">Unassigned</span>}
+                                </td>
+                                <td className="py-2.5 px-3 text-gray-500 dark:text-gray-400 whitespace-nowrap text-xs">{formattedDate}</td>
+                                <td className="py-2.5 px-3">
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${statusColor}`}>
+                                    {statusLabel}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
               </div>
