@@ -1904,13 +1904,29 @@ export default function DeliveryTeamPortal() {
                         const token = localStorage.getItem('auth_token') ?? '';
                         const clientKey = localStorage.getItem('client_key') ?? '';
                         const base = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
-                        const url = `${base}/api/admin/reports/pod?format=html&auth=${encodeURIComponent(token)}&clientKey=${encodeURIComponent(clientKey)}`;
-                        window.open(url, '_blank', 'noopener,noreferrer');
+                        const apiUrl = `${base}/api/admin/reports/pod?format=html`;
+                        void fetch(apiUrl, {
+                          headers: {
+                            'Authorization': token ? `Bearer ${token}` : '',
+                            'X-Client-Key': clientKey,
+                          },
+                        }).then(async (res) => {
+                          if (!res.ok) throw new Error('Failed to download');
+                          const blob = await res.blob();
+                          const url = window.URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `pod-report-${new Date().toISOString().slice(0,10)}.html`;
+                          document.body.appendChild(a);
+                          a.click();
+                          window.URL.revokeObjectURL(url);
+                          document.body.removeChild(a);
+                        }).catch(() => alert('Failed to download POD report'));
                       }}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium transition-colors"
                     >
                       <FileText className="w-4 h-4" />
-                      POD Report (HTML)
+                      Download POD Report
                     </button>
                   </div>
                 </div>
