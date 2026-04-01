@@ -143,10 +143,14 @@ export default function DeliveryTeamPortal() {
   const [dashData, setDashData] = useState<DashData | null>(null);
   const [reportsLoading, setReportsLoading] = useState(false);
   const [reportsPeriod, setReportsPeriod] = useState<'7d' | '30d' | '90d'>('90d');
-  // POD table filters & pagination
+  // POD table filters, sort & pagination (independent from top period filter)
   const [podSearch, setPodSearch] = useState('');
   const [podStatusFilter, setPodStatusFilter] = useState('all');
   const [podDriverFilter, setPodDriverFilter] = useState('all');
+  const [podDateFrom, setPodDateFrom] = useState('');
+  const [podDateTo, setPodDateTo] = useState('');
+  const [podSortKey, setPodSortKey] = useState<string>('date');
+  const [podSortDir, setPodSortDir] = useState<'asc' | 'desc'>('desc');
   const [podPage, setPodPage] = useState(1);
   const podTableRef = useRef<HTMLDivElement | null>(null);
   const POD_PAGE_SIZE = 20;
@@ -252,10 +256,10 @@ export default function DeliveryTeamPortal() {
     }
   }, [activeTab, loadReportsData]);
 
-  // Reset page to 1 whenever filters or period change
+  // Reset page to 1 whenever table filters change
   useEffect(() => {
     setPodPage(1);
-  }, [podSearch, podStatusFilter, podDriverFilter, reportsPeriod]);
+  }, [podSearch, podStatusFilter, podDriverFilter, podDateFrom, podDateTo, podSortKey, podSortDir]);
 
   // Load unread counts when in communication tab - 60s, pause when hidden
   useEffect(() => {
@@ -711,47 +715,70 @@ export default function DeliveryTeamPortal() {
     return { pnc: pnc || '—', modelId: modelId || '—', description: description || '—' };
   }, []);
 
-  // Unique driver names for filter dropdown
+  // Raw full list — NOT filtered by the top period selector
+  const allDashDeliveries = useMemo((): DashDelivery[] => dashData?.deliveries ?? [], [dashData]);
+
+  // Unique driver names for filter dropdown (from full list)
   const podDriverOptions = useMemo(() => {
     const names = new Set<string>();
-    for (const d of reportsDeliveries) {
+    for (const d of allDashDeliveries) {
       if (d.driverName) names.add(d.driverName as string);
     }
     return Array.from(names).sort();
-  }, [reportsDeliveries]);
+  }, [allDashDeliveries]);
 
-  // All deliveries in period with filters applied — NO status pre-filter, shows all 117
+  // Table deliveries — independent filters + sort, never affected by top period
   const podDeliveries = useMemo(() => {
     const q = podSearch.toLowerCase().trim();
-    return reportsDeliveries
-      .filter(d => {
-        const s = (d.status ?? '').toLowerCase();
-        // Status filter
-        if (podStatusFilter === 'delivered' && !DELIVERED_STATUSES.has(s)) return false;
-        if (podStatusFilter === 'cancelled' && !CANCELLED_STATUSES.has(s)) return false;
-        if (podStatusFilter === 'pending' && s !== 'pending' && s !== 'uploaded') return false;
-        if (podStatusFilter === 'rescheduled' && s !== 'rescheduled') return false;
-        if (podStatusFilter === 'returned' && s !== 'returned') return false;
-        if (podStatusFilter === 'out-for-delivery' && s !== 'out-for-delivery') return false;
-        // Driver filter
-        if (podDriverFilter !== 'all' && (d.driverName as string | undefined) !== podDriverFilter) return false;
-        // Search
-        if (q) {
-          const { pnc, modelId, description } = extractItemMeta(d);
-          const haystack = [
-            d.poNumber, d.id, d.customer, d.address, d.driverName,
-            pnc, modelId, description,
-          ].map(v => String(v ?? '').toLowerCase()).join(' ');
-          if (!haystack.includes(q)) return false;
-        }
-        return true;
-      })
-      .sort((a, b) => {
+    const fromTs = podDateFrom ? new Date(podDateFrom + 'T00:00:00').getTime() : null;
+    const toTs   = podDateTo   ? new Date(podDateTo   + 'T23:59:59').getTime() : null;
+
+    const filtered = allDashDeliveries.filter(d => {
+      const s = (d.status ?? '').toLowerCase();
+      if (podStatusFilter === 'delivered'       && !DELIVERED_STATUSES.has(s))               return false;
+      if (podStatusFilter === 'cancelled'       && !CANCELLED_STATUSES.has(s))               return false;
+      if (podStatusFilter === 'pending'         && s !== 'pending' && s !== 'uploaded')      return false;
+      if (podStatusFilter === 'rescheduled'     && s !== 'rescheduled')                      return false;
+      if (podStatusFilter === 'returned'        && s !== 'returned')                         return false;
+      if (podStatusFilter === 'out-for-delivery'&& s !== 'out-for-delivery')                 return false;
+      if (podDriverFilter !== 'all' && (d.driverName as string | undefined) !== podDriverFilter) return false;
+      // Date range (uses created_at as the reference date)
+      if (fromTs !== null || toTs !== null) {
+        const t = new Date((d.created_at ?? d.createdAt ?? 0) as string).getTime();
+        if (fromTs !== null && t < fromTs) return false;
+        if (toTs   !== null && t > toTs)   return false;
+      }
+      if (q) {
+        const { pnc, modelId, description } = extractItemMeta(d);
+        const haystack = [d.poNumber, d.id, d.customer, d.address, d.driverName, pnc, modelId, description]
+          .map(v => String(v ?? '').toLowerCase()).join(' ');
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    });
+
+    // Sort
+    filtered.sort((a, b) => {
+      let va = '', vb = '';
+      if (podSortKey === 'date') {
         const ta = new Date((a.created_at ?? a.createdAt ?? 0) as string).getTime();
         const tb = new Date((b.created_at ?? b.createdAt ?? 0) as string).getTime();
-        return tb - ta;
-      });
-  }, [reportsDeliveries, podSearch, podStatusFilter, podDriverFilter, extractItemMeta]);
+        return podSortDir === 'asc' ? ta - tb : tb - ta;
+      }
+      if (podSortKey === 'poNumber')  { va = String(a.poNumber ?? '');  vb = String(b.poNumber ?? ''); }
+      if (podSortKey === 'customer')  { va = String(a.customer ?? '');  vb = String(b.customer ?? ''); }
+      if (podSortKey === 'driver')    { va = String(a.driverName ?? '');vb = String(b.driverName ?? ''); }
+      if (podSortKey === 'status')    { va = String(a.status ?? '');    vb = String(b.status ?? ''); }
+      if (podSortKey === 'address')   { va = String(a.address ?? '');   vb = String(b.address ?? ''); }
+      if (podSortKey === 'pnc')       { va = extractItemMeta(a).pnc;   vb = extractItemMeta(b).pnc; }
+      if (podSortKey === 'modelId')   { va = extractItemMeta(a).modelId; vb = extractItemMeta(b).modelId; }
+      if (podSortKey === 'description'){ va = extractItemMeta(a).description; vb = extractItemMeta(b).description; }
+      const cmp = va.localeCompare(vb, undefined, { sensitivity: 'base' });
+      return podSortDir === 'asc' ? cmp : -cmp;
+    });
+
+    return filtered;
+  }, [allDashDeliveries, podSearch, podStatusFilter, podDriverFilter, podDateFrom, podDateTo, podSortKey, podSortDir, extractItemMeta]);
 
   const CHART_COLORS = { delivered: '#22c55e', cancelled: '#ef4444', rescheduled: '#f59e0b', returned: '#8b5cf6', pending: '#94a3b8' };
   const PIE_PALETTE = ['#22c55e','#ef4444','#f59e0b','#3b82f6','#8b5cf6','#94a3b8','#06b6d4'];
@@ -1853,17 +1880,27 @@ export default function DeliveryTeamPortal() {
                       ))}
                     </div>
 
-                    {/* Filters */}
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-1 min-w-[180px]">
-                        <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    {/* Filters — single compact row */}
+                    <div className="flex flex-wrap items-center gap-2 mb-4">
+                      {/* Search */}
+                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-1 min-w-[160px]">
+                        <Search className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
                         <input type="text" value={podSearch} onChange={e => setPodSearch(e.target.value)}
-                          placeholder="Search PO#, customer, PNC, model…"
-                          className="flex-1 bg-transparent text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 outline-none" />
-                        {podSearch && <button onClick={() => setPodSearch('')} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs">✕</button>}
+                          placeholder="Search PO#, customer, PNC…"
+                          className="flex-1 bg-transparent text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 outline-none min-w-0" />
+                        {podSearch && <button onClick={() => setPodSearch('')} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-[10px] flex-shrink-0">✕</button>}
                       </div>
+                      {/* Date from */}
+                      <input type="date" value={podDateFrom} onChange={e => setPodDateFrom(e.target.value)}
+                        title="From date"
+                        className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-blue-500 w-[130px]" />
+                      {/* Date to */}
+                      <input type="date" value={podDateTo} onChange={e => setPodDateTo(e.target.value)}
+                        title="To date"
+                        className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-blue-500 w-[130px]" />
+                      {/* Status */}
                       <select value={podStatusFilter} onChange={e => setPodStatusFilter(e.target.value)}
-                        className="px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-blue-500">
+                        className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="all">All Statuses</option>
                         <option value="delivered">Delivered</option>
                         <option value="cancelled">Cancelled</option>
@@ -1872,15 +1909,17 @@ export default function DeliveryTeamPortal() {
                         <option value="pending">Pending</option>
                         <option value="out-for-delivery">Out for Delivery</option>
                       </select>
+                      {/* Driver */}
                       <select value={podDriverFilter} onChange={e => setPodDriverFilter(e.target.value)}
-                        className="px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-blue-500">
+                        className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="all">All Drivers</option>
                         {podDriverOptions.map(name => <option key={name} value={name}>{name}</option>)}
                       </select>
-                      {(podSearch || podStatusFilter !== 'all' || podDriverFilter !== 'all') && (
-                        <button onClick={() => { setPodSearch(''); setPodStatusFilter('all'); setPodDriverFilter('all'); }}
-                          className="px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                          Clear filters
+                      {/* Clear */}
+                      {(podSearch || podStatusFilter !== 'all' || podDriverFilter !== 'all' || podDateFrom || podDateTo) && (
+                        <button onClick={() => { setPodSearch(''); setPodStatusFilter('all'); setPodDriverFilter('all'); setPodDateFrom(''); setPodDateTo(''); }}
+                          className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors whitespace-nowrap">
+                          Clear all
                         </button>
                       )}
                     </div>
@@ -1894,15 +1933,37 @@ export default function DeliveryTeamPortal() {
                             <thead className="bg-gray-50 dark:bg-gray-800/95">
                               <tr className="border-b border-gray-200 dark:border-gray-700">
                                 <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-8">#</th>
-                                <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Delivery No.</th>
-                                <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Customer</th>
-                                <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">PNC (Material)</th>
-                                <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Model ID</th>
-                                <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden lg:table-cell">Description</th>
-                                <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden md:table-cell">Address</th>
-                                <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Driver</th>
-                                <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Date</th>
-                                <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                                {([
+                                  { key: 'poNumber',     label: 'Delivery No.',    cls: 'whitespace-nowrap' },
+                                  { key: 'customer',     label: 'Customer',         cls: '' },
+                                  { key: 'pnc',          label: 'PNC (Material)',   cls: 'whitespace-nowrap' },
+                                  { key: 'modelId',      label: 'Model ID',         cls: 'whitespace-nowrap' },
+                                  { key: 'description',  label: 'Description',      cls: 'hidden lg:table-cell' },
+                                  { key: 'address',      label: 'Address',          cls: 'hidden md:table-cell' },
+                                  { key: 'driver',       label: 'Driver',           cls: '' },
+                                  { key: 'date',         label: 'Date',             cls: 'whitespace-nowrap' },
+                                  { key: 'status',       label: 'Status',           cls: '' },
+                                ] as { key: string; label: string; cls: string }[]).map(col => (
+                                  <th
+                                    key={col.key}
+                                    onClick={() => {
+                                      if (podSortKey === col.key) {
+                                        setPodSortDir(d => d === 'asc' ? 'desc' : 'asc');
+                                      } else {
+                                        setPodSortKey(col.key);
+                                        setPodSortDir('asc');
+                                      }
+                                    }}
+                                    className={`text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors ${col.cls}`}
+                                  >
+                                    <span className="inline-flex items-center gap-1">
+                                      {col.label}
+                                      <span className="text-[10px] leading-none">
+                                        {podSortKey === col.key ? (podSortDir === 'asc' ? '▲' : '▼') : '⇅'}
+                                      </span>
+                                    </span>
+                                  </th>
+                                ))}
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
