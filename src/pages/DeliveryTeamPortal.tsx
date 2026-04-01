@@ -1728,25 +1728,14 @@ export default function DeliveryTeamPortal() {
                 Delivery performance, success rates, and POD records
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              {/* Period selector */}
-              <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1 gap-1">
-                {(['7d','30d','90d'] as const).map(p => (
-                  <button key={p} onClick={() => setReportsPeriod(p)}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${reportsPeriod === p ? 'bg-white dark:bg-gray-700 text-blue-700 dark:text-blue-300 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
-                    {p === '7d' ? 'Last 7d' : p === '30d' ? 'Last 30d' : 'Last 90d'}
-                  </button>
-                ))}
-              </div>
-              <button
-                onClick={() => void loadReportsData(true)}
-                disabled={reportsLoading}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors disabled:opacity-50"
-              >
-                <RefreshCw className={`w-4 h-4 ${reportsLoading ? 'animate-spin' : ''}`} />
-                Refresh
-              </button>
-            </div>
+            <button
+              onClick={() => void loadReportsData(true)}
+              disabled={reportsLoading}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${reportsLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
           </div>
 
           {reportsLoading && !dashData ? (
@@ -1815,7 +1804,7 @@ export default function DeliveryTeamPortal() {
                         <FileText className="w-5 h-5 text-purple-500" />
                         Delivery Report
                         <span className="ml-1 px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-xs font-normal">
-                          {podDeliveries.length} / {reportsDeliveries.length} records
+                          {podDeliveries.length} / {allDashDeliveries.length} records
                         </span>
                       </h3>
                       <div className="flex items-center gap-2 flex-wrap">
@@ -1831,7 +1820,7 @@ export default function DeliveryTeamPortal() {
                             const blob = new Blob(['\uFEFF' + header + rows], { type: 'text/csv;charset=utf-8' });
                             const url = URL.createObjectURL(blob);
                             const a = document.createElement('a');
-                            a.href = url; a.download = `delivery-report-${reportsPeriod}-${new Date().toISOString().slice(0,10)}.csv`; a.click();
+                            a.href = url; a.download = `delivery-report-${new Date().toISOString().slice(0,10)}.csv`; a.click();
                             URL.revokeObjectURL(url);
                           }}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
@@ -1864,15 +1853,15 @@ export default function DeliveryTeamPortal() {
                       </div>
                     </div>
 
-                    {/* Summary chips */}
+                    {/* Summary chips — always based on full dataset (independent of chart period) */}
                     <div className="flex flex-wrap gap-2 mb-4">
                       {[
-                        { label: 'Total', value: reportsDeliveries.length, color: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' },
-                        { label: 'Delivered', value: reportsTotals.delivered, color: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' },
-                        { label: 'POD Completed', value: reportsTotals.podCompleted, color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300' },
-                        { label: 'With Installation', value: reportsDeliveries.filter(d => d.status === 'delivered-with-installation').length, color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' },
-                        { label: 'Cancelled', value: reportsTotals.cancelled, color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' },
-                        { label: 'Returned', value: reportsDeliveries.filter(d => (d.status ?? '').toLowerCase() === 'returned').length, color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' },
+                        { label: 'Total', value: allDashDeliveries.length, color: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' },
+                        { label: 'Delivered', value: allDashDeliveries.filter(d => DELIVERED_STATUSES.has((d.status ?? '').toLowerCase())).length, color: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' },
+                        { label: 'POD Completed', value: allDashDeliveries.filter(d => (d.status ?? '').toLowerCase() === 'pod-completed').length, color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300' },
+                        { label: 'With Installation', value: allDashDeliveries.filter(d => d.status === 'delivered-with-installation').length, color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' },
+                        { label: 'Cancelled', value: allDashDeliveries.filter(d => CANCELLED_STATUSES.has((d.status ?? '').toLowerCase())).length, color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' },
+                        { label: 'Returned', value: allDashDeliveries.filter(d => (d.status ?? '').toLowerCase() === 'returned').length, color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' },
                       ].map(({ label, value, color }) => (
                         <span key={label} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${color}`}>
                           <span className="font-bold text-sm">{value}</span> {label}
@@ -2071,7 +2060,17 @@ export default function DeliveryTeamPortal() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 {/* Delivery Trend */}
                 <div className="pp-card p-5 lg:col-span-2">
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Delivery Trend</h3>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Delivery Trend</h3>
+                    <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-0.5 gap-0.5">
+                      {(['7d','30d','90d'] as const).map(p => (
+                        <button key={p} onClick={() => setReportsPeriod(p)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${reportsPeriod === p ? 'bg-white dark:bg-gray-700 text-blue-700 dark:text-blue-300 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
+                          {p === '7d' ? '7d' : p === '30d' ? '30d' : '90d'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   {trendData.length === 0 ? (
                     <div className="flex items-center justify-center h-44 text-gray-400 dark:text-gray-500 text-sm">No data for this period</div>
                   ) : (
@@ -2092,7 +2091,10 @@ export default function DeliveryTeamPortal() {
 
                 {/* Status Distribution */}
                 <div className="pp-card p-5">
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Status Breakdown</h3>
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                    Status Breakdown
+                    <span className="ml-2 text-xs font-normal text-gray-400 dark:text-gray-500">({reportsPeriod === '7d' ? 'last 7 days' : reportsPeriod === '30d' ? 'last 30 days' : 'last 90 days'})</span>
+                  </h3>
                   {statusDistribution.length === 0 ? (
                     <div className="flex items-center justify-center h-44 text-gray-400 dark:text-gray-500 text-sm">No data</div>
                   ) : (
