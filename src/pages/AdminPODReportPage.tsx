@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import api, { setAuthToken } from '../frontend/apiClient';
+import PaginationBar from '../components/common/PaginationBar';
 import {
   Download, Filter, Image, CheckCircle, XCircle, AlertTriangle,
   Camera, FileText, User, Clock, ArrowLeft, RefreshCw, Search,
@@ -572,36 +573,13 @@ export default function AdminPODReportPage(): React.ReactElement {
                 })}
               </tbody>
             </table>
-            {dailyTotalPages > 1 && (
-              <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 px-5 pb-4">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Showing {(dailyPage - 1) * POD_PAGE_SIZE + 1}–{Math.min(dailyPage * POD_PAGE_SIZE, dailyBreakdown.length)} of {dailyBreakdown.length}
-                </p>
-                <div className="flex items-center gap-1">
-                  <button onClick={() => goToDailyPage(dailyPage - 1)} disabled={dailyPage <= 1}
-                    className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                    ← Prev
-                  </button>
-                  {(() => {
-                    const half = 2;
-                    let start = Math.max(1, dailyPage - half);
-                    let end = Math.min(dailyTotalPages, start + 4);
-                    if (end - start < 4) start = Math.max(1, end - 4);
-                    const nums: number[] = [];
-                    for (let i = start; i <= end; i++) nums.push(i);
-                    return (<>
-                      {start > 1 && (<><button onClick={() => goToDailyPage(1)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">1</button>{start > 2 && <span className="px-1 text-gray-400 text-sm">…</span>}</>)}
-                      {nums.map(n => (<button key={n} onClick={() => goToDailyPage(n)} className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${n === dailyPage ? 'bg-blue-600 border-blue-600 text-white font-semibold' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>{n}</button>))}
-                      {end < dailyTotalPages && (<>{end < dailyTotalPages - 1 && <span className="px-1 text-gray-400 text-sm">…</span>}<button onClick={() => goToDailyPage(dailyTotalPages)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">{dailyTotalPages}</button></>)}
-                    </>);
-                  })()}
-                  <button onClick={() => goToDailyPage(dailyPage + 1)} disabled={dailyPage >= dailyTotalPages}
-                    className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                    Next →
-                  </button>
-                </div>
-              </div>
-            )}
+            <PaginationBar
+              page={dailyPage}
+              totalPages={dailyTotalPages}
+              pageSize={POD_PAGE_SIZE}
+              total={dailyBreakdown.length}
+              onPageChange={goToDailyPage}
+            />
           </div>
         </div>
       )}
@@ -673,36 +651,13 @@ export default function AdminPODReportPage(): React.ReactElement {
                 })}
               </tbody>
             </table>
-            {driverTotalPages > 1 && (
-              <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 px-5 pb-4">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Showing {(driverPage - 1) * POD_PAGE_SIZE + 1}–{Math.min(driverPage * POD_PAGE_SIZE, driverBreakdown.length)} of {driverBreakdown.length}
-                </p>
-                <div className="flex items-center gap-1">
-                  <button onClick={() => goToDriverPage(driverPage - 1)} disabled={driverPage <= 1}
-                    className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                    ← Prev
-                  </button>
-                  {(() => {
-                    const half = 2;
-                    let start = Math.max(1, driverPage - half);
-                    let end = Math.min(driverTotalPages, start + 4);
-                    if (end - start < 4) start = Math.max(1, end - 4);
-                    const nums: number[] = [];
-                    for (let i = start; i <= end; i++) nums.push(i);
-                    return (<>
-                      {start > 1 && (<><button onClick={() => goToDriverPage(1)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">1</button>{start > 2 && <span className="px-1 text-gray-400 text-sm">…</span>}</>)}
-                      {nums.map(n => (<button key={n} onClick={() => goToDriverPage(n)} className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${n === driverPage ? 'bg-blue-600 border-blue-600 text-white font-semibold' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>{n}</button>))}
-                      {end < driverTotalPages && (<>{end < driverTotalPages - 1 && <span className="px-1 text-gray-400 text-sm">…</span>}<button onClick={() => goToDriverPage(driverTotalPages)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">{driverTotalPages}</button></>)}
-                    </>);
-                  })()}
-                  <button onClick={() => goToDriverPage(driverPage + 1)} disabled={driverPage >= driverTotalPages}
-                    className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                    Next →
-                  </button>
-                </div>
-              </div>
-            )}
+            <PaginationBar
+              page={driverPage}
+              totalPages={driverTotalPages}
+              pageSize={POD_PAGE_SIZE}
+              total={driverBreakdown.length}
+              onPageChange={goToDriverPage}
+            />
           </div>
         </div>
       )}
@@ -836,36 +791,13 @@ export default function AdminPODReportPage(): React.ReactElement {
               )}
             </tbody>
           </table>
-          {deliveriesTotalPages > 1 && (
-            <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 px-5 pb-4">
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Showing {(deliveriesPage - 1) * POD_PAGE_SIZE + 1}–{Math.min(deliveriesPage * POD_PAGE_SIZE, deliveries.length)} of {deliveries.length}
-              </p>
-              <div className="flex items-center gap-1">
-                <button onClick={() => goToDeliveriesPage(deliveriesPage - 1)} disabled={deliveriesPage <= 1}
-                  className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                  ← Prev
-                </button>
-                {(() => {
-                  const half = 2;
-                  let start = Math.max(1, deliveriesPage - half);
-                  let end = Math.min(deliveriesTotalPages, start + 4);
-                  if (end - start < 4) start = Math.max(1, end - 4);
-                  const nums: number[] = [];
-                  for (let i = start; i <= end; i++) nums.push(i);
-                  return (<>
-                    {start > 1 && (<><button onClick={() => goToDeliveriesPage(1)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">1</button>{start > 2 && <span className="px-1 text-gray-400 text-sm">…</span>}</>)}
-                    {nums.map(n => (<button key={n} onClick={() => goToDeliveriesPage(n)} className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${n === deliveriesPage ? 'bg-blue-600 border-blue-600 text-white font-semibold' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>{n}</button>))}
-                    {end < deliveriesTotalPages && (<>{end < deliveriesTotalPages - 1 && <span className="px-1 text-gray-400 text-sm">…</span>}<button onClick={() => goToDeliveriesPage(deliveriesTotalPages)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">{deliveriesTotalPages}</button></>)}
-                  </>);
-                })()}
-                <button onClick={() => goToDeliveriesPage(deliveriesPage + 1)} disabled={deliveriesPage >= deliveriesTotalPages}
-                  className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                  Next →
-                </button>
-              </div>
-            </div>
-          )}
+          <PaginationBar
+            page={deliveriesPage}
+            totalPages={deliveriesTotalPages}
+            pageSize={POD_PAGE_SIZE}
+            total={deliveries.length}
+            onPageChange={goToDeliveriesPage}
+          />
         </div>
       </div>
     </div>

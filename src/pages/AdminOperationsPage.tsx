@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import DeliveryMap from '../components/MapView/DeliveryMap';
 import { calculateRoute } from '../services/advancedRoutingService';
+import PaginationBar from '../components/common/PaginationBar';
 
 /* ──── Interfaces ──── */
 
@@ -1056,36 +1057,13 @@ export default function AdminOperationsPage(): React.ReactElement {
                         <div className="text-center py-10 text-gray-500 dark:text-gray-400">No on-going deliveries</div>
                       )}
                     </div>
-                    {ongoingTotalPages > 1 && (
-                      <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          Showing {(ongoingPage - 1) * OPS_PAGE_SIZE + 1}–{Math.min(ongoingPage * OPS_PAGE_SIZE, ongoingRows.length)} of {ongoingRows.length}
-                        </p>
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => goToOngoingPage(ongoingPage - 1, ongoingTotalPages)} disabled={ongoingPage <= 1}
-                            className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                            ← Prev
-                          </button>
-                          {(() => {
-                            const half = 2;
-                            let start = Math.max(1, ongoingPage - half);
-                            let end = Math.min(ongoingTotalPages, start + 4);
-                            if (end - start < 4) start = Math.max(1, end - 4);
-                            const nums: number[] = [];
-                            for (let i = start; i <= end; i++) nums.push(i);
-                            return (<>
-                              {start > 1 && (<><button onClick={() => goToOngoingPage(1, ongoingTotalPages)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">1</button>{start > 2 && <span className="px-1 text-gray-400 text-sm">…</span>}</>)}
-                              {nums.map(n => (<button key={n} onClick={() => goToOngoingPage(n, ongoingTotalPages)} className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${n === ongoingPage ? 'bg-blue-600 border-blue-600 text-white font-semibold' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>{n}</button>))}
-                              {end < ongoingTotalPages && (<>{end < ongoingTotalPages - 1 && <span className="px-1 text-gray-400 text-sm">…</span>}<button onClick={() => goToOngoingPage(ongoingTotalPages, ongoingTotalPages)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">{ongoingTotalPages}</button></>)}
-                            </>);
-                          })()}
-                          <button onClick={() => goToOngoingPage(ongoingPage + 1, ongoingTotalPages)} disabled={ongoingPage >= ongoingTotalPages}
-                            className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                            Next →
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                    <PaginationBar
+                      page={ongoingPage}
+                      totalPages={ongoingTotalPages}
+                      pageSize={OPS_PAGE_SIZE}
+                      total={ongoingRows.length}
+                      onPageChange={(n) => goToOngoingPage(n, ongoingTotalPages)}
+                    />
                   </>
                 );
               })()}
@@ -1231,36 +1209,13 @@ export default function AdminOperationsPage(): React.ReactElement {
                   )}
                 </tbody>
               </table>
-              {controlTotalPages > 1 && (
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 px-4 pb-4">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Showing {(controlPage - 1) * OPS_PAGE_SIZE + 1}–{Math.min(controlPage * OPS_PAGE_SIZE, assignedDeliveriesControl.length)} of {assignedDeliveriesControl.length}
-                  </p>
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => goToControlPage(controlPage - 1, controlTotalPages)} disabled={controlPage <= 1}
-                      className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                      ← Prev
-                    </button>
-                    {(() => {
-                      const half = 2;
-                      let start = Math.max(1, controlPage - half);
-                      let end = Math.min(controlTotalPages, start + 4);
-                      if (end - start < 4) start = Math.max(1, end - 4);
-                      const nums: number[] = [];
-                      for (let i = start; i <= end; i++) nums.push(i);
-                      return (<>
-                        {start > 1 && (<><button onClick={() => goToControlPage(1, controlTotalPages)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">1</button>{start > 2 && <span className="px-1 text-gray-400 text-sm">…</span>}</>)}
-                        {nums.map(n => (<button key={n} onClick={() => goToControlPage(n, controlTotalPages)} className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${n === controlPage ? 'bg-blue-600 border-blue-600 text-white font-semibold' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>{n}</button>))}
-                        {end < controlTotalPages && (<>{end < controlTotalPages - 1 && <span className="px-1 text-gray-400 text-sm">…</span>}<button onClick={() => goToControlPage(controlTotalPages, controlTotalPages)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">{controlTotalPages}</button></>)}
-                      </>);
-                    })()}
-                    <button onClick={() => goToControlPage(controlPage + 1, controlTotalPages)} disabled={controlPage >= controlTotalPages}
-                      className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                      Next →
-                    </button>
-                  </div>
-                </div>
-              )}
+              <PaginationBar
+                page={controlPage}
+                totalPages={controlTotalPages}
+                pageSize={OPS_PAGE_SIZE}
+                total={assignedDeliveriesControl.length}
+                onPageChange={(n) => goToControlPage(n, controlTotalPages)}
+              />
             </div>
               );
             })()}
@@ -1358,16 +1313,13 @@ export default function AdminOperationsPage(): React.ReactElement {
                   </tbody>
                 </table>
                 {deliveries.length === 0 && <div className="text-center py-8 text-gray-500 dark:text-gray-400">No deliveries found</div>}
-                {dsTotal > 1 && (
-                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Showing {(deliveryStatusPage - 1) * OPS_PAGE_SIZE + 1}–{Math.min(deliveryStatusPage * OPS_PAGE_SIZE, deliveries.length)} of {deliveries.length}</p>
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => goToDsPage(deliveryStatusPage - 1)} disabled={deliveryStatusPage <= 1} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">← Prev</button>
-                      {(() => { const half = 2; let s2 = Math.max(1, deliveryStatusPage - half); let e2 = Math.min(dsTotal, s2 + 4); if (e2 - s2 < 4) s2 = Math.max(1, e2 - 4); const ns: number[] = []; for (let i = s2; i <= e2; i++) ns.push(i); return (<>{s2 > 1 && (<><button onClick={() => goToDsPage(1)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">1</button>{s2 > 2 && <span className="px-1 text-gray-400 text-sm">…</span>}</>)}{ns.map(n => (<button key={n} onClick={() => goToDsPage(n)} className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${n === deliveryStatusPage ? 'bg-blue-600 border-blue-600 text-white font-semibold' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>{n}</button>))}{e2 < dsTotal && (<>{e2 < dsTotal - 1 && <span className="px-1 text-gray-400 text-sm">…</span>}<button onClick={() => goToDsPage(dsTotal)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">{dsTotal}</button></>)}</>); })()}
-                      <button onClick={() => goToDsPage(deliveryStatusPage + 1)} disabled={deliveryStatusPage >= dsTotal} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Next →</button>
-                    </div>
-                  </div>
-                )}
+                <PaginationBar
+                  page={deliveryStatusPage}
+                  totalPages={dsTotal}
+                  pageSize={OPS_PAGE_SIZE}
+                  total={deliveries.length}
+                  onPageChange={goToDsPage}
+                />
                   </>);
                 })()}
               </div>

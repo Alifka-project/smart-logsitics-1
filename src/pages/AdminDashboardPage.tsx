@@ -14,6 +14,7 @@ import DeliveryDetailModal from '../components/DeliveryDetailModal';
 import { MapContainer, TileLayer, CircleMarker, Tooltip as MapTooltip, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { Driver } from '../types';
+import PaginationBar from '../components/common/PaginationBar';
 
 /**
  * Visual language follows PolicyPilot-style dashboards (airy cards, pill controls, blue accent).
@@ -2674,39 +2675,13 @@ export default function AdminDashboardPage(): React.ReactElement {
           </div>
 
           {/* Pagination */}
-          {totalPages > 1 && (
-  <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
-    <p className="text-xs text-gray-500 dark:text-gray-400">
-      Showing {deliveryPage * PAGE_SIZE + 1}–{Math.min((deliveryPage + 1) * PAGE_SIZE, filteredDeliveries.length)} of {filteredDeliveries.length}
-    </p>
-    <div className="flex items-center gap-1">
-      <button onClick={() => { setDeliveryPage(p => p - 1); deliveryTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
-        disabled={deliveryPage <= 0}
-        className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-        ← Prev
-      </button>
-      {(() => {
-        const cp = deliveryPage + 1;
-        const half = 2;
-        let start = Math.max(1, cp - half);
-        let end = Math.min(totalPages, start + 4);
-        if (end - start < 4) start = Math.max(1, end - 4);
-        const nums: number[] = [];
-        for (let i = start; i <= end; i++) nums.push(i);
-        return (<>
-          {start > 1 && (<><button onClick={() => { setDeliveryPage(0); deliveryTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">1</button>{start > 2 && <span className="px-1 text-gray-400 text-sm">…</span>}</>)}
-          {nums.map(n => (<button key={n} onClick={() => { setDeliveryPage(n - 1); deliveryTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }} className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${n === cp ? 'bg-blue-600 border-blue-600 text-white font-semibold' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>{n}</button>))}
-          {end < totalPages && (<>{end < totalPages - 1 && <span className="px-1 text-gray-400 text-sm">…</span>}<button onClick={() => { setDeliveryPage(totalPages - 1); deliveryTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">{totalPages}</button></>)}
-        </>);
-      })()}
-      <button onClick={() => { setDeliveryPage(p => p + 1); deliveryTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
-        disabled={deliveryPage >= totalPages - 1}
-        className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-        Next →
-      </button>
-    </div>
-  </div>
-)}
+          <PaginationBar
+            page={deliveryPage + 1}
+            totalPages={totalPages}
+            pageSize={PAGE_SIZE}
+            total={filteredDeliveries.length}
+            onPageChange={(n) => { setDeliveryPage(n - 1); deliveryTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
+          />
         </div>
             </div>
 

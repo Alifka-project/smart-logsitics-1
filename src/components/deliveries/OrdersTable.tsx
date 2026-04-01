@@ -3,6 +3,7 @@ import { ChevronDown, Search, X, SlidersHorizontal } from 'lucide-react';
 import type { DeliveryOrder, DeliveryStatus } from '../../types/delivery';
 import { STATUS_CONFIG } from '../../config/statusColors';
 import { RescheduleModal } from './RescheduleModal';
+import PaginationBar from '../common/PaginationBar';
 import { rescheduleDateToWorkflow } from '../../utils/deliveryWorkflowMap';
 
 export type OrdersTableTab = 'all' | 'pending' | 'awaiting_customer' | 'confirmed' | 'scheduled' | 'out_for_delivery';
@@ -544,38 +545,13 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
         </table>
       </div>
 
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            {sortedOrders.length === 0
-              ? '0 orders'
-              : `Showing ${(currentPage - 1) * itemsPerPage + 1}–${Math.min(currentPage * itemsPerPage, sortedOrders.length)} of ${sortedOrders.length}`}
-          </p>
-          <div className="flex items-center gap-1">
-            <button type="button" onClick={() => goToPage(currentPage - 1)} disabled={currentPage <= 1}
-              className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-              ← Prev
-            </button>
-            {(() => {
-              const half = 2;
-              let start = Math.max(1, currentPage - half);
-              let end = Math.min(totalPages, start + 4);
-              if (end - start < 4) start = Math.max(1, end - 4);
-              const nums: number[] = [];
-              for (let i = start; i <= end; i++) nums.push(i);
-              return (<>
-                {start > 1 && (<><button type="button" onClick={() => goToPage(1)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">1</button>{start > 2 && <span className="px-1 text-gray-400 text-sm">…</span>}</>)}
-                {nums.map(n => (<button type="button" key={n} onClick={() => goToPage(n)} className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${n === currentPage ? 'bg-blue-600 border-blue-600 text-white font-semibold' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>{n}</button>))}
-                {end < totalPages && (<>{end < totalPages - 1 && <span className="px-1 text-gray-400 text-sm">…</span>}<button type="button" onClick={() => goToPage(totalPages)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">{totalPages}</button></>)}
-              </>);
-            })()}
-            <button type="button" onClick={() => goToPage(currentPage + 1)} disabled={currentPage >= totalPages}
-              className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-              Next →
-            </button>
-          </div>
-        </div>
-      )}
+      <PaginationBar
+        page={currentPage}
+        totalPages={totalPages}
+        pageSize={itemsPerPage}
+        total={sortedOrders.length}
+        onPageChange={goToPage}
+      />
 
       {rescheduleOrder && (
         <RescheduleModal

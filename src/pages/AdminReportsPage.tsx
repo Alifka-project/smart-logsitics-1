@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import PaginationBar from '../components/common/PaginationBar';
 import api, { setAuthToken } from '../frontend/apiClient';
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
@@ -954,36 +955,13 @@ export default function AdminReportsPage(): React.ReactElement {
           </div>
 
           {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Showing {(currentPage - 1) * itemsPerPage + 1}–{Math.min(currentPage * itemsPerPage, sortedDeliveries.length)} of {sortedDeliveries.length}
-              </p>
-              <div className="flex items-center gap-1">
-                <button onClick={() => goToReportPage(currentPage - 1)} disabled={currentPage <= 1}
-                  className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                  ← Prev
-                </button>
-                {(() => {
-                  const half = 2;
-                  let start = Math.max(1, currentPage - half);
-                  let end = Math.min(totalPages, start + 4);
-                  if (end - start < 4) start = Math.max(1, end - 4);
-                  const nums: number[] = [];
-                  for (let i = start; i <= end; i++) nums.push(i);
-                  return (<>
-                    {start > 1 && (<><button onClick={() => goToReportPage(1)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">1</button>{start > 2 && <span className="px-1 text-gray-400 text-sm">…</span>}</>)}
-                    {nums.map(n => (<button key={n} onClick={() => goToReportPage(n)} className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${n === currentPage ? 'bg-blue-600 border-blue-600 text-white font-semibold' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>{n}</button>))}
-                    {end < totalPages && (<>{end < totalPages - 1 && <span className="px-1 text-gray-400 text-sm">…</span>}<button onClick={() => goToReportPage(totalPages)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">{totalPages}</button></>)}
-                  </>);
-                })()}
-                <button onClick={() => goToReportPage(currentPage + 1)} disabled={currentPage >= totalPages}
-                  className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                  Next →
-                </button>
-              </div>
-            </div>
-          )}
+          <PaginationBar
+            page={currentPage}
+            totalPages={totalPages}
+            pageSize={itemsPerPage}
+            total={sortedDeliveries.length}
+            onPageChange={goToReportPage}
+          />
         </div>
       )}
     </div>

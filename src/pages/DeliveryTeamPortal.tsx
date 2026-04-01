@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import api from '../frontend/apiClient';
+import PaginationBar from '../components/common/PaginationBar';
 import { getCurrentUser } from '../frontend/auth';
 import {
   MapPin,
@@ -2006,50 +2007,13 @@ export default function DeliveryTeamPortal() {
                         </div>
 
                         {/* Pagination */}
-                        {totalPages > 1 && (
-                          <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              Showing {(safePage - 1) * POD_PAGE_SIZE + 1}–{Math.min(safePage * POD_PAGE_SIZE, podDeliveries.length)} of {podDeliveries.length}
-                            </p>
-                            <div className="flex items-center gap-1">
-                              <button
-                                onClick={() => goToPage(safePage - 1)}
-                                disabled={safePage <= 1}
-                                className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                              >
-                                ← Prev
-                              </button>
-                              {start > 1 && (
-                                <>
-                                  <button onClick={() => goToPage(1)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">1</button>
-                                  {start > 2 && <span className="px-1 text-gray-400 text-sm">…</span>}
-                                </>
-                              )}
-                              {pageNums.map(n => (
-                                <button
-                                  key={n}
-                                  onClick={() => goToPage(n)}
-                                  className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${n === safePage ? 'bg-blue-600 border-blue-600 text-white font-semibold' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-                                >
-                                  {n}
-                                </button>
-                              ))}
-                              {end < totalPages && (
-                                <>
-                                  {end < totalPages - 1 && <span className="px-1 text-gray-400 text-sm">…</span>}
-                                  <button onClick={() => goToPage(totalPages)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">{totalPages}</button>
-                                </>
-                              )}
-                              <button
-                                onClick={() => goToPage(safePage + 1)}
-                                disabled={safePage >= totalPages}
-                                className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                              >
-                                Next →
-                              </button>
-                            </div>
-                          </div>
-                        )}
+                        <PaginationBar
+                          page={safePage}
+                          totalPages={totalPages}
+                          pageSize={POD_PAGE_SIZE}
+                          total={podDeliveries.length}
+                          onPageChange={goToPage}
+                        />
                       </>
                     )}
                   </div>

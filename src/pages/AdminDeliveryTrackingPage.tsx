@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import api, { setAuthToken } from '../frontend/apiClient';
+import PaginationBar from '../components/common/PaginationBar';
 import DeliveryMap from '../components/MapView/DeliveryMap';
 import { Package, MapPin, Clock, CheckCircle } from 'lucide-react';
 
@@ -245,36 +246,13 @@ export default function AdminDeliveryTrackingPage(): React.ReactElement {
               })}
             </tbody>
           </table>
-          {trackTotalPages > 1 && (
-            <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Showing {(trackPage - 1) * TRACK_PAGE_SIZE + 1}–{Math.min(trackPage * TRACK_PAGE_SIZE, deliveries.length)} of {deliveries.length}
-              </p>
-              <div className="flex items-center gap-1">
-                <button onClick={() => goToPage(trackPage - 1)} disabled={trackPage <= 1}
-                  className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                  ← Prev
-                </button>
-                {(() => {
-                  const half = 2;
-                  let start = Math.max(1, trackPage - half);
-                  let end = Math.min(trackTotalPages, start + 4);
-                  if (end - start < 4) start = Math.max(1, end - 4);
-                  const nums: number[] = [];
-                  for (let i = start; i <= end; i++) nums.push(i);
-                  return (<>
-                    {start > 1 && (<><button onClick={() => goToPage(1)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">1</button>{start > 2 && <span className="px-1 text-gray-400 text-sm">…</span>}</>)}
-                    {nums.map(n => (<button key={n} onClick={() => goToPage(n)} className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${n === trackPage ? 'bg-blue-600 border-blue-600 text-white font-semibold' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>{n}</button>))}
-                    {end < trackTotalPages && (<>{end < trackTotalPages - 1 && <span className="px-1 text-gray-400 text-sm">…</span>}<button onClick={() => goToPage(trackTotalPages)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">{trackTotalPages}</button></>)}
-                  </>);
-                })()}
-                <button onClick={() => goToPage(trackPage + 1)} disabled={trackPage >= trackTotalPages}
-                  className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                  Next →
-                </button>
-              </div>
-            </div>
-          )}
+          <PaginationBar
+            page={trackPage}
+            totalPages={trackTotalPages}
+            pageSize={TRACK_PAGE_SIZE}
+            total={deliveries.length}
+            onPageChange={goToPage}
+          />
           {deliveries.length === 0 && (
             <div className="text-center py-8 text-gray-500 dark:text-gray-400">No deliveries found</div>
           )}

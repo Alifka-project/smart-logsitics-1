@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import api from '../frontend/apiClient';
 import UsersMessagesPanel from '../components/admin/UsersMessagesPanel';
+import PaginationBar from '../components/common/PaginationBar';
 import { 
   Users, 
   UserPlus, 
@@ -729,36 +730,13 @@ export default function AdminUsersPage(): React.ReactElement {
                     )}
                   </tbody>
                 </table>
-                {logsTotalPages > 1 && (
-                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 px-4 pb-4">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Showing {(logsPage - 1) * LOGS_PAGE_SIZE + 1}–{Math.min(logsPage * LOGS_PAGE_SIZE, activityLogs.length)} of {activityLogs.length}
-                    </p>
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => goToLogsPage(logsPage - 1)} disabled={logsPage <= 1}
-                        className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                        ← Prev
-                      </button>
-                      {(() => {
-                        const half = 2;
-                        let start = Math.max(1, logsPage - half);
-                        let end = Math.min(logsTotalPages, start + 4);
-                        if (end - start < 4) start = Math.max(1, end - 4);
-                        const nums: number[] = [];
-                        for (let i = start; i <= end; i++) nums.push(i);
-                        return (<>
-                          {start > 1 && (<><button onClick={() => goToLogsPage(1)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">1</button>{start > 2 && <span className="px-1 text-gray-400 text-sm">…</span>}</>)}
-                          {nums.map(n => (<button key={n} onClick={() => goToLogsPage(n)} className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${n === logsPage ? 'bg-blue-600 border-blue-600 text-white font-semibold' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>{n}</button>))}
-                          {end < logsTotalPages && (<>{end < logsTotalPages - 1 && <span className="px-1 text-gray-400 text-sm">…</span>}<button onClick={() => goToLogsPage(logsTotalPages)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">{logsTotalPages}</button></>)}
-                        </>);
-                      })()}
-                      <button onClick={() => goToLogsPage(logsPage + 1)} disabled={logsPage >= logsTotalPages}
-                        className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                        Next →
-                      </button>
-                    </div>
-                  </div>
-                )}
+                <PaginationBar
+                  page={logsPage}
+                  totalPages={logsTotalPages}
+                  pageSize={LOGS_PAGE_SIZE}
+                  total={activityLogs.length}
+                  onPageChange={goToLogsPage}
+                />
               </div>
             )}
           </div>
@@ -936,36 +914,13 @@ export default function AdminUsersPage(): React.ReactElement {
                     </tbody>
                   </table>
                 </div>
-                {usersTotalPages > 1 && (
-                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 px-4 pb-4">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Showing {(usersPage - 1) * USERS_PAGE_SIZE + 1}–{Math.min(usersPage * USERS_PAGE_SIZE, filteredUsers.length)} of {filteredUsers.length}
-                    </p>
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => goToUsersPage(usersPage - 1)} disabled={usersPage <= 1}
-                        className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                        ← Prev
-                      </button>
-                      {(() => {
-                        const half = 2;
-                        let start = Math.max(1, usersPage - half);
-                        let end = Math.min(usersTotalPages, start + 4);
-                        if (end - start < 4) start = Math.max(1, end - 4);
-                        const nums: number[] = [];
-                        for (let i = start; i <= end; i++) nums.push(i);
-                        return (<>
-                          {start > 1 && (<><button onClick={() => goToUsersPage(1)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">1</button>{start > 2 && <span className="px-1 text-gray-400 text-sm">…</span>}</>)}
-                          {nums.map(n => (<button key={n} onClick={() => goToUsersPage(n)} className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${n === usersPage ? 'bg-blue-600 border-blue-600 text-white font-semibold' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>{n}</button>))}
-                          {end < usersTotalPages && (<>{end < usersTotalPages - 1 && <span className="px-1 text-gray-400 text-sm">…</span>}<button onClick={() => goToUsersPage(usersTotalPages)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">{usersTotalPages}</button></>)}
-                        </>);
-                      })()}
-                      <button onClick={() => goToUsersPage(usersPage + 1)} disabled={usersPage >= usersTotalPages}
-                        className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                        Next →
-                      </button>
-                    </div>
-                  </div>
-                )}
+                <PaginationBar
+                  page={usersPage}
+                  totalPages={usersTotalPages}
+                  pageSize={USERS_PAGE_SIZE}
+                  total={filteredUsers.length}
+                  onPageChange={goToUsersPage}
+                />
               </>
             )}
           </div>
