@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { authenticate, requireRole } from '../auth.js';
+import { authenticate, requireRole, requireAnyRole } from '../auth.js';
 import sapService from '../services/sapService.js';
 import prisma from '../db/prisma.js';
 import { sortDeliveriesIncompleteLast } from '../utils/deliveryListSort.js';
@@ -506,7 +506,7 @@ function generateHTMLReportWithImages(
 }
 
 // GET /api/admin/reports/pod - Dedicated POD Report
-router.get('/pod', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+router.get('/pod', authenticate, requireAnyRole('admin', 'delivery_team'), async (req: Request, res: Response): Promise<void> => {
   try {
     const { startDate, endDate, podStatus, format } = req.query as Record<string, string | undefined>;
 

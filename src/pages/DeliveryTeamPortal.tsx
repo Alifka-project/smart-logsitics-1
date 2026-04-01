@@ -1,11 +1,11 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import api from '../frontend/apiClient';
 import { getCurrentUser } from '../frontend/auth';
-import { 
-  MapPin, 
-  Activity, 
-  Users, 
+import {
+  MapPin,
+  Activity,
+  Users,
   AlertCircle,
   CheckCircle,
   XCircle,
@@ -21,8 +21,16 @@ import {
   Circle,
   Package,
   Search,
-  ChevronLeft
+  ChevronLeft,
+  BarChart2,
+  TrendingUp,
+  FileText,
+  Download
 } from 'lucide-react';
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  Cell, PieChart, Pie, CartesianGrid, Legend
+} from 'recharts';
 import DeliveryMap from '../components/MapView/DeliveryMap';
 import DeliveryManagementPage from './DeliveryManagementPage';
 import { calculateRoute, generateFallbackRoute } from '../services/advancedRoutingService';
@@ -117,6 +125,25 @@ export default function DeliveryTeamPortal() {
   const messagePollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const location = useLocation();
 
+  // Reports & Analytics tab state
+  interface DashTotals {
+    total: number; delivered: number; cancelled: number; rescheduled: number;
+    pending: number; returned?: number; withPOD: number; withoutPOD: number;
+    customerAccepted: number; customerCancelled: number; customerRescheduled: number;
+    [key: string]: number | undefined;
+  }
+  interface DashDelivery {
+    id?: string; customer?: string | null; poNumber?: string | null; status?: string;
+    created_at?: string | null; createdAt?: string | null; delivered_at?: string | null;
+    deliveredAt?: string | null; address?: string; driverName?: string | null;
+    assignedDriverId?: string | null; confirmationStatus?: string;
+    [key: string]: unknown;
+  }
+  interface DashData { totals?: DashTotals; deliveries?: DashDelivery[]; generatedAt?: string; }
+  const [dashData, setDashData] = useState<DashData | null>(null);
+  const [reportsLoading, setReportsLoading] = useState(false);
+  const [reportsPeriod, setReportsPeriod] = useState<'7d' | '30d' | '90d'>('30d');
+
   // Route for monitoring map (matches Admin Operations)
   const [monitoringRoute, setMonitoringRoute] = useState<{ coordinates: [number, number][] } | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
@@ -137,6 +164,20 @@ export default function DeliveryTeamPortal() {
     if (days < 7) return `${days}d ago`;
     return date.toLocaleDateString();
   };
+
+  // Must be declared before any useEffect that references it
+  const loadReportsData = useCallback(async (force = false): Promise<void> => {
+    if (dashData && !force) return;
+    setReportsLoading(true);
+    try {
+      const res = await api.get('/admin/dashboard');
+      setDashData(res.data as DashData);
+    } catch (err) {
+      console.error('[DeliveryTeam] Failed to load reports data:', err);
+    } finally {
+      setReportsLoading(false);
+    }
+  }, [dashData]);
 
   useEffect(() => {
     const currentUser = getCurrentUser();
@@ -196,6 +237,13 @@ export default function DeliveryTeamPortal() {
       }
     }
   }, [location.search, contacts, selectedContact, activeTab]);
+
+  // Load reports data when reports tab is active
+  useEffect(() => {
+    if (activeTab === 'reports') {
+      void loadReportsData();
+    }
+  }, [activeTab, loadReportsData]);
 
   // Load unread counts when in communication tab - 60s, pause when hidden
   useEffect(() => {
@@ -553,6 +601,115 @@ export default function DeliveryTeamPortal() {
            (dWithTracking.tracking?.driverId || d.assignedDriverId);
   });
 
+  // ─── Reports computed values ────────────────────────────────────────────────
+  const DELIVERED_STATUSES = new Set(['delivered','delivered-with-installation','delivered-without-installation','completed','pod-completed','finished','done']);
+  const CANCELLED_STATUSES = new Set(['cancelled','canceled','rejected']);
+
+  const reportsDeliveries = useMemo((): DashDelivery[] => {
+    const list = dashData?.deliveries ?? [];
+    const now = Date.now();
+    const msBack = reportsPeriod === '7d' ? 7 : reportsPeriod === '30d' ? 30 : 90;
+    const cutoff = now - msBack * 86400000;
+    return list.filter(d => {
+      const t = new Date((d.created_at ?? d.createdAt ?? 0) as string).getTime();
+      return t >= cutoff;
+    });
+  }, [dashData, reportsPeriod]);
+
+  const reportsTotals = useMemo(() => {
+    let total = 0, delivered = 0, cancelled = 0, rescheduled = 0, returned = 0, pending = 0, podCompleted = 0;
+    for (const d of reportsDeliveries) {
+      total++;
+      const s = (d.status ?? '').toLowerCase();
+      if (DELIVERED_STATUSES.has(s)) delivered++;
+      if (CANCELLED_STATUSES.has(s)) cancelled++;
+      if (s === 'rescheduled') rescheduled++;
+      if (s === 'returned') returned++;
+      if (s === 'pending' || s === 'uploaded') pending++;
+      if (s === 'pod-completed') podCompleted++;
+    }
+    const successRate = total > 0 ? Math.round((delivered / total) * 100) : 0;
+    return { total, delivered, cancelled, rescheduled, returned, pending, podCompleted, successRate };
+  }, [reportsDeliveries]);
+
+  const trendData = useMemo(() => {
+    const days = reportsPeriod === '7d' ? 7 : reportsPeriod === '30d' ? 30 : 90;
+    const buckets: Record<string, { date: string; delivered: number; cancelled: number; rescheduled: number; total: number }> = {};
+    const now = new Date();
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const key = `${String(d.getMonth() + 1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+      buckets[key] = { date: key, delivered: 0, cancelled: 0, rescheduled: 0, total: 0 };
+    }
+    for (const d of reportsDeliveries) {
+      const raw = d.delivered_at ?? d.deliveredAt ?? d.created_at ?? d.createdAt;
+      if (!raw) continue;
+      const dt = new Date(raw as string);
+      const key = `${String(dt.getMonth() + 1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')}`;
+      if (!buckets[key]) continue;
+      buckets[key].total++;
+      const s = (d.status ?? '').toLowerCase();
+      if (DELIVERED_STATUSES.has(s)) buckets[key].delivered++;
+      else if (CANCELLED_STATUSES.has(s)) buckets[key].cancelled++;
+      else if (s === 'rescheduled') buckets[key].rescheduled++;
+    }
+    // For shorter ranges show every label; for 90d thin out labels
+    return Object.values(buckets).map((b, i, arr) => ({
+      ...b,
+      date: days <= 30 || i % 5 === 0 || i === arr.length - 1 ? b.date : '',
+    }));
+  }, [reportsDeliveries, reportsPeriod]);
+
+  const statusDistribution = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const d of reportsDeliveries) {
+      const s = (d.status ?? 'unknown').toLowerCase();
+      const label = DELIVERED_STATUSES.has(s) ? 'Delivered' : CANCELLED_STATUSES.has(s) ? 'Cancelled' : s === 'rescheduled' ? 'Rescheduled' : s === 'returned' ? 'Returned' : s === 'out-for-delivery' ? 'Out for Delivery' : s === 'pending' || s === 'uploaded' ? 'Pending' : 'Other';
+      map[label] = (map[label] ?? 0) + 1;
+    }
+    return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+  }, [reportsDeliveries]);
+
+  const driverPerformance = useMemo(() => {
+    const map: Record<string, { name: string; assigned: number; delivered: number; cancelled: number; podCompleted: number }> = {};
+    for (const d of reportsDeliveries) {
+      const id = (d.assignedDriverId as string) ?? '';
+      const name = (d.driverName as string) ?? (id ? `Driver ${id.slice(0,6)}` : 'Unassigned');
+      if (!id) continue;
+      if (!map[id]) map[id] = { name, assigned: 0, delivered: 0, cancelled: 0, podCompleted: 0 };
+      map[id].assigned++;
+      const s = (d.status ?? '').toLowerCase();
+      if (DELIVERED_STATUSES.has(s)) map[id].delivered++;
+      if (CANCELLED_STATUSES.has(s)) map[id].cancelled++;
+      if (s === 'pod-completed') map[id].podCompleted++;
+    }
+    return Object.values(map)
+      .map(r => ({ ...r, successRate: r.assigned > 0 ? Math.round((r.delivered / r.assigned) * 100) : 0 }))
+      .sort((a, b) => b.assigned - a.assigned);
+  }, [reportsDeliveries]);
+
+  const podDeliveries = useMemo(() => {
+    return reportsDeliveries
+      .filter(d => DELIVERED_STATUSES.has((d.status ?? '').toLowerCase()))
+      .sort((a, b) => {
+        const ta = new Date((a.delivered_at ?? a.deliveredAt ?? a.created_at ?? a.createdAt ?? 0) as string).getTime();
+        const tb = new Date((b.delivered_at ?? b.deliveredAt ?? b.created_at ?? b.createdAt ?? 0) as string).getTime();
+        return tb - ta;
+      })
+      .slice(0, 100);
+  }, [reportsDeliveries]);
+
+  const CHART_COLORS = { delivered: '#22c55e', cancelled: '#ef4444', rescheduled: '#f59e0b', returned: '#8b5cf6', pending: '#94a3b8' };
+  const PIE_PALETTE = ['#22c55e','#ef4444','#f59e0b','#3b82f6','#8b5cf6','#94a3b8','#06b6d4'];
+  const TOOLTIP_STYLE = {
+    wrapperStyle: { zIndex: 9999 },
+    contentStyle: { background: 'var(--chart-tooltip-bg, #fff)', border: '1px solid var(--chart-tooltip-border, #e5e7eb)', borderRadius: '12px', fontSize: '13px', color: 'var(--chart-tooltip-fg, #111)', padding: '10px 14px', minWidth: '130px', boxShadow: '0 8px 24px -4px rgba(0,0,0,0.18)' },
+    labelStyle: { fontWeight: 600, marginBottom: '4px' },
+    itemStyle: { fontSize: '13px', padding: '2px 0' },
+  };
+  // ────────────────────────────────────────────────────────────────────────────
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -584,7 +741,8 @@ export default function DeliveryTeamPortal() {
             { id: 'monitoring', label: 'Monitoring', icon: Activity },
             { id: 'control', label: 'Delivery Control', icon: Settings },
             { id: 'deliveries', label: 'Deliveries', icon: Package },
-            { id: 'communication', label: 'Communication', icon: MessageSquare }
+            { id: 'communication', label: 'Communication', icon: MessageSquare },
+            { id: 'reports', label: 'Reports & Analytics', icon: BarChart2 },
           ].map(tab => {
             const Icon = tab.icon;
             return (
@@ -1473,6 +1631,276 @@ export default function DeliveryTeamPortal() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* ── Reports & Analytics Tab ─────────────────────────────────────── */}
+      {activeTab === 'reports' && (
+        <div className="space-y-6">
+          {/* Header row */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                <BarChart2 className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                Reports &amp; Analytics
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                Delivery performance, success rates, and POD records
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {/* Period selector */}
+              <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1 gap-1">
+                {(['7d','30d','90d'] as const).map(p => (
+                  <button key={p} onClick={() => setReportsPeriod(p)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${reportsPeriod === p ? 'bg-white dark:bg-gray-700 text-blue-700 dark:text-blue-300 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
+                    {p === '7d' ? 'Last 7d' : p === '30d' ? 'Last 30d' : 'Last 90d'}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => void loadReportsData(true)}
+                disabled={reportsLoading}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                <RefreshCw className={`w-4 h-4 ${reportsLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+            </div>
+          </div>
+
+          {reportsLoading && !dashData ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-3" />
+                <p className="text-gray-500 dark:text-gray-400 text-sm">Loading analytics…</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* KPI Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                {[
+                  { label: 'Total Orders', value: reportsTotals.total, icon: Package, color: 'blue' },
+                  { label: 'Delivered', value: reportsTotals.delivered, icon: CheckCircle, color: 'green' },
+                  { label: 'Success Rate', value: `${reportsTotals.successRate}%`, icon: TrendingUp, color: 'emerald' },
+                  { label: 'Cancelled', value: reportsTotals.cancelled, icon: XCircle, color: 'red' },
+                  { label: 'Rescheduled', value: reportsTotals.rescheduled, icon: Clock, color: 'amber' },
+                  { label: 'POD Completed', value: reportsTotals.podCompleted, icon: FileText, color: 'purple' },
+                ].map(({ label, value, icon: Icon, color }) => {
+                  const colorMap: Record<string, string> = {
+                    blue: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20',
+                    green: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20',
+                    emerald: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20',
+                    red: 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20',
+                    amber: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20',
+                    purple: 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20',
+                  };
+                  return (
+                    <div key={label} className="pp-card p-4">
+                      <div className={`inline-flex p-2 rounded-lg mb-2 ${colorMap[color]}`}>
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{label}</p>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Charts row */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                {/* Delivery Trend */}
+                <div className="pp-card p-5 lg:col-span-2">
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Delivery Trend</h3>
+                  {trendData.length === 0 ? (
+                    <div className="flex items-center justify-center h-44 text-gray-400 dark:text-gray-500 text-sm">No data for this period</div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={220}>
+                      <BarChart data={trendData} margin={{ top: 4, right: 4, bottom: 4, left: -12 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid, #e5e7eb)" />
+                        <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--chart-tick, #6b7280)' }} />
+                        <YAxis tick={{ fontSize: 11, fill: 'var(--chart-tick, #6b7280)' }} allowDecimals={false} />
+                        <Tooltip {...TOOLTIP_STYLE} />
+                        <Legend wrapperStyle={{ fontSize: 12 }} />
+                        <Bar dataKey="delivered" name="Delivered" fill={CHART_COLORS.delivered} radius={[3,3,0,0]} stackId="a" />
+                        <Bar dataKey="cancelled" name="Cancelled" fill={CHART_COLORS.cancelled} radius={[0,0,0,0]} stackId="a" />
+                        <Bar dataKey="rescheduled" name="Rescheduled" fill={CHART_COLORS.rescheduled} radius={[3,3,0,0]} stackId="a" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+
+                {/* Status Distribution */}
+                <div className="pp-card p-5">
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Status Breakdown</h3>
+                  {statusDistribution.length === 0 ? (
+                    <div className="flex items-center justify-center h-44 text-gray-400 dark:text-gray-500 text-sm">No data</div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={220}>
+                      <PieChart>
+                        <Pie data={statusDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} innerRadius={36}
+                          label={false}
+                          labelLine={false}>
+                          {statusDistribution.map((_, i) => (
+                            <Cell key={i} fill={PIE_PALETTE[i % PIE_PALETTE.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip {...TOOLTIP_STYLE} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  )}
+                  {/* Legend */}
+                  <div className="mt-2 space-y-1">
+                    {statusDistribution.map((item, i) => (
+                      <div key={item.name} className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
+                        <span className="flex items-center gap-1.5">
+                          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: PIE_PALETTE[i % PIE_PALETTE.length] }} />
+                          {item.name}
+                        </span>
+                        <span className="font-medium text-gray-800 dark:text-gray-200">{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Driver Performance */}
+              <div className="pp-card p-5">
+                <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+                  <Users className="w-5 h-5 text-blue-500" />
+                  Driver Performance
+                </h3>
+                {driverPerformance.length === 0 ? (
+                  <p className="text-sm text-gray-400 dark:text-gray-500 py-4 text-center">No driver data for this period</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-200 dark:border-gray-700">
+                          <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Driver</th>
+                          <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Assigned</th>
+                          <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Delivered</th>
+                          <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Cancelled</th>
+                          <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Success %</th>
+                          <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">POD</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                        {driverPerformance.map((dr) => (
+                          <tr key={dr.name} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                            <td className="py-2.5 px-3 font-medium text-gray-900 dark:text-gray-100">{dr.name}</td>
+                            <td className="py-2.5 px-3 text-right text-gray-700 dark:text-gray-300">{dr.assigned}</td>
+                            <td className="py-2.5 px-3 text-right text-green-600 dark:text-green-400 font-medium">{dr.delivered}</td>
+                            <td className="py-2.5 px-3 text-right text-red-500 dark:text-red-400">{dr.cancelled}</td>
+                            <td className="py-2.5 px-3 text-right">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${dr.successRate >= 80 ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : dr.successRate >= 60 ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'}`}>
+                                {dr.successRate}%
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 text-right text-purple-600 dark:text-purple-400">{dr.podCompleted}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* POD Report */}
+              <div className="pp-card p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-purple-500" />
+                    POD Report — Delivered Orders
+                    <span className="ml-1 px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-xs font-normal">
+                      {podDeliveries.length} records
+                    </span>
+                  </h3>
+                  <button
+                    onClick={() => {
+                      const header = 'PO Number,Customer,Address,Driver,Delivered Date,Status\n';
+                      const rows = podDeliveries.map(d => [
+                        d.poNumber ?? d.id ?? '',
+                        d.customer ?? '',
+                        (d.address ?? '').replace(/,/g, ' '),
+                        d.driverName ?? 'Unassigned',
+                        d.delivered_at ?? d.deliveredAt ?? d.created_at ?? d.createdAt ?? '',
+                        d.status ?? '',
+                      ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+                      const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url; a.download = `pod-report-${reportsPeriod}.csv`; a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                  >
+                    <Download className="w-4 h-4" />
+                    Export CSV
+                  </button>
+                </div>
+
+                {/* POD summary row */}
+                <div className="flex gap-4 mb-4">
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 text-sm">
+                    <CheckCircle className="w-4 h-4" />
+                    POD Completed: <span className="font-bold ml-1">{reportsTotals.podCompleted}</span>
+                  </div>
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 text-sm">
+                    <Truck className="w-4 h-4" />
+                    With Installation: <span className="font-bold ml-1">{reportsDeliveries.filter(d => d.status === 'delivered-with-installation').length}</span>
+                  </div>
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-sm">
+                    <Package className="w-4 h-4" />
+                    No Installation: <span className="font-bold ml-1">{reportsDeliveries.filter(d => d.status === 'delivered-without-installation').length}</span>
+                  </div>
+                </div>
+
+                {podDeliveries.length === 0 ? (
+                  <p className="text-sm text-gray-400 dark:text-gray-500 py-6 text-center">No delivered orders in this period</p>
+                ) : (
+                  <div className="overflow-x-auto max-h-96 overflow-y-auto rounded-lg border border-gray-100 dark:border-gray-800">
+                    <table className="w-full text-sm">
+                      <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800/90">
+                        <tr className="border-b border-gray-200 dark:border-gray-700">
+                          <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">PO #</th>
+                          <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Customer</th>
+                          <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden md:table-cell">Address</th>
+                          <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Driver</th>
+                          <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Delivered</th>
+                          <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                        {podDeliveries.map((d) => {
+                          const deliveredDate = d.delivered_at ?? d.deliveredAt ?? d.created_at ?? d.createdAt;
+                          const formattedDate = deliveredDate ? new Date(deliveredDate as string).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
+                          const s = (d.status ?? '').toLowerCase();
+                          const statusLabel = s === 'pod-completed' ? 'POD Completed' : s === 'delivered-with-installation' ? 'With Installation' : s === 'delivered-without-installation' ? 'No Installation' : s === 'completed' || s === 'done' ? 'Completed' : 'Delivered';
+                          const statusColor = s === 'pod-completed' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300' : s === 'delivered-with-installation' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : s === 'delivered-without-installation' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300';
+                          return (
+                            <tr key={String(d.id ?? Math.random())} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                              <td className="py-2.5 px-3 font-mono text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">{d.poNumber ?? String(d.id ?? '').slice(0,8)}</td>
+                              <td className="py-2.5 px-3 font-medium text-gray-900 dark:text-gray-100 max-w-[140px] truncate">{d.customer ?? '—'}</td>
+                              <td className="py-2.5 px-3 text-gray-500 dark:text-gray-400 hidden md:table-cell max-w-[180px] truncate">{d.address ?? '—'}</td>
+                              <td className="py-2.5 px-3 text-gray-700 dark:text-gray-300">{d.driverName ?? <span className="text-gray-400">Unassigned</span>}</td>
+                              <td className="py-2.5 px-3 text-gray-500 dark:text-gray-400 whitespace-nowrap text-xs">{formattedDate}</td>
+                              <td className="py-2.5 px-3">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${statusColor}`}>
+                                  {statusLabel}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
 
