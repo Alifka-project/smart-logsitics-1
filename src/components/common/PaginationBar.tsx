@@ -34,24 +34,25 @@ export default function PaginationBar({
   for (let i = start; i <= end; i++) nums.push(i);
 
   /* ── shared button styles ── */
-  const btn  = 'inline-flex items-center justify-center h-7 min-w-[28px] px-2 rounded-lg text-xs font-medium border transition-colors select-none';
+  const btn  = 'inline-flex items-center justify-center h-8 min-w-[34px] px-2.5 rounded-lg text-xs font-medium border transition-colors select-none whitespace-nowrap';
   const off  = 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700';
   const on   = 'border-blue-600 bg-blue-600 text-white';
   const dis  = 'disabled:opacity-35 disabled:cursor-not-allowed';
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700/60">
-      {/* count */}
-      <p className="text-[11px] text-gray-400 dark:text-gray-500 text-center sm:text-left shrink-0 leading-none">
-        Showing <span className="font-medium text-gray-600 dark:text-gray-300">{from}–{to}</span> of <span className="font-medium text-gray-600 dark:text-gray-300">{total}</span>
-      </p>
+    <div className="mt-3 border-t border-gray-100 px-4 py-3 dark:border-gray-700/60 sm:px-5">
+      <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
+        {/* count */}
+        <p className="text-xs text-gray-500 dark:text-gray-400 text-center lg:text-left shrink-0 leading-none">
+          Showing <span className="font-semibold text-gray-700 dark:text-gray-200">{from}-{to}</span> of <span className="font-semibold text-gray-700 dark:text-gray-200">{total}</span>
+        </p>
 
-      {/* buttons */}
-      <div className="flex items-center justify-center sm:justify-end gap-1 flex-wrap">
-        <button onClick={() => onPageChange(page - 1)} disabled={page <= 1}
-          className={`${btn} ${off} ${dis} px-2.5`}>
-          ← Prev
-        </button>
+        {/* buttons */}
+        <div className="flex items-center justify-center lg:justify-end gap-1.5 flex-wrap rounded-xl border border-gray-200/80 bg-gray-50/80 p-1.5 dark:border-gray-700 dark:bg-gray-800/80">
+          <button onClick={() => onPageChange(page - 1)} disabled={page <= 1}
+            className={`${btn} ${off} ${dis} px-3`}>
+            ← Prev
+          </button>
 
         {start > 1 && (
           <>
@@ -74,10 +75,11 @@ export default function PaginationBar({
           </>
         )}
 
-        <button onClick={() => onPageChange(page + 1)} disabled={page >= totalPages}
-          className={`${btn} ${off} ${dis} px-2.5`}>
-          Next →
-        </button>
+          <button onClick={() => onPageChange(page + 1)} disabled={page >= totalPages}
+            className={`${btn} ${off} ${dis} px-3`}>
+            Next →
+          </button>
+        </div>
       </div>
     </div>
   );
