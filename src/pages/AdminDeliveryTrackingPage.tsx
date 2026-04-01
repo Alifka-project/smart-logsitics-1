@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import api, { setAuthToken } from '../frontend/apiClient';
 import DeliveryMap from '../components/MapView/DeliveryMap';
 import { Package, MapPin, Clock, CheckCircle } from 'lucide-react';
@@ -42,10 +42,14 @@ function ensureAuth(): void {
   if (token) setAuthToken(token);
 }
 
+const TRACK_PAGE_SIZE = 20;
+
 export default function AdminDeliveryTrackingPage(): React.ReactElement {
   const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [trackPage, setTrackPage] = useState(1);
+  const trackTableRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     ensureAuth();
@@ -92,6 +96,11 @@ export default function AdminDeliveryTrackingPage(): React.ReactElement {
   }
 
   const deliveries: TrackingDelivery[] = trackingData?.deliveries || [];
+  const trackTotalPages = Math.max(1, Math.ceil(deliveries.length / TRACK_PAGE_SIZE));
+  const goToPage = (n: number): void => {
+    setTrackPage(Math.max(1, Math.min(n, trackTotalPages)));
+    trackTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
   const assignedDeliveries = deliveries.filter(d => d.tracking?.assigned);
   const inProgressDeliveries = deliveries.filter(d => d.tracking?.status === 'in_progress');
   const completedDeliveries = deliveries.filter(d => (d.status || '').toLowerCase() === 'delivered');
@@ -171,7 +180,7 @@ export default function AdminDeliveryTrackingPage(): React.ReactElement {
       )}
 
       {/* Delivery List */}
-      <div className="pp-dash-card p-5 transition-colors">
+      <div className="pp-dash-card p-5 transition-colors" ref={trackTableRef}>
         <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Delivery Status</h2>
         <div className="overflow-x-auto">
           <table className="pp-mobile-stack-table min-w-[840px] divide-y divide-gray-200 dark:divide-gray-700">
@@ -185,7 +194,7 @@ export default function AdminDeliveryTrackingPage(): React.ReactElement {
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {deliveries.slice(0, 50).map(delivery => {
+              {deliveries.slice((trackPage - 1) * TRACK_PAGE_SIZE, trackPage * TRACK_PAGE_SIZE).map(delivery => {
                 const customerName = delivery.customer || delivery.Customer || 'Unknown';
                 const address = delivery.address || delivery.Address || 'N/A';
                 const tracking = delivery.tracking || {};
@@ -236,6 +245,36 @@ export default function AdminDeliveryTrackingPage(): React.ReactElement {
               })}
             </tbody>
           </table>
+          {trackTotalPages > 1 && (
+            <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Showing {(trackPage - 1) * TRACK_PAGE_SIZE + 1}–{Math.min(trackPage * TRACK_PAGE_SIZE, deliveries.length)} of {deliveries.length}
+              </p>
+              <div className="flex items-center gap-1">
+                <button onClick={() => goToPage(trackPage - 1)} disabled={trackPage <= 1}
+                  className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                  ← Prev
+                </button>
+                {(() => {
+                  const half = 2;
+                  let start = Math.max(1, trackPage - half);
+                  let end = Math.min(trackTotalPages, start + 4);
+                  if (end - start < 4) start = Math.max(1, end - 4);
+                  const nums: number[] = [];
+                  for (let i = start; i <= end; i++) nums.push(i);
+                  return (<>
+                    {start > 1 && (<><button onClick={() => goToPage(1)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">1</button>{start > 2 && <span className="px-1 text-gray-400 text-sm">…</span>}</>)}
+                    {nums.map(n => (<button key={n} onClick={() => goToPage(n)} className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${n === trackPage ? 'bg-blue-600 border-blue-600 text-white font-semibold' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>{n}</button>))}
+                    {end < trackTotalPages && (<>{end < trackTotalPages - 1 && <span className="px-1 text-gray-400 text-sm">…</span>}<button onClick={() => goToPage(trackTotalPages)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">{trackTotalPages}</button></>)}
+                  </>);
+                })()}
+                <button onClick={() => goToPage(trackPage + 1)} disabled={trackPage >= trackTotalPages}
+                  className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                  Next →
+                </button>
+              </div>
+            </div>
+          )}
           {deliveries.length === 0 && (
             <div className="text-center py-8 text-gray-500 dark:text-gray-400">No deliveries found</div>
           )}

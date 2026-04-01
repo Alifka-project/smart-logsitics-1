@@ -199,6 +199,12 @@ export default function AdminOperationsPage(): React.ReactElement {
   const [routeLoading, setRouteLoading] = useState<boolean>(false);
   const [routeLegDurationsSec, setRouteLegDurationsSec] = useState<number[]>([]);
 
+  const [ongoingPage, setOngoingPage] = useState(1);
+  const [controlPage, setControlPage] = useState(1);
+  const [deliveryStatusPage, setDeliveryStatusPage] = useState(1);
+  const ongoingTableRef = useRef<HTMLDivElement | null>(null);
+  const controlTableRef = useRef<HTMLDivElement | null>(null);
+  const deliveryStatusTableRef = useRef<HTMLDivElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagePollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const loadingDataRef = useRef<boolean>(false);
@@ -665,6 +671,16 @@ export default function AdminOperationsPage(): React.ReactElement {
     )
   );
 
+  const OPS_PAGE_SIZE = 20;
+  const goToOngoingPage = (n: number, total: number): void => {
+    setOngoingPage(Math.max(1, Math.min(n, total)));
+    ongoingTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  const goToControlPage = (n: number, total: number): void => {
+    setControlPage(Math.max(1, Math.min(n, total)));
+    controlTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -941,7 +957,7 @@ export default function AdminOperationsPage(): React.ReactElement {
               </div>
             </div>
 
-            <div className="lg:col-span-3 pp-dash-card p-5 transition-colors">
+            <div className="lg:col-span-3 pp-dash-card p-5 transition-colors" ref={ongoingTableRef}>
               {/* On-going deliveries only (non-terminal), sorted by status urgency then priority */}
               {(() => {
                 const STATUS_ORDER = ['out-for-delivery','out_for_delivery','in-progress','in_progress','assigned','pending'];
@@ -956,6 +972,8 @@ export default function AdminOperationsPage(): React.ReactElement {
                     return Number((a as unknown as {priority?: number}).priority ?? 3) - Number((b as unknown as {priority?: number}).priority ?? 3);
                   });
                 const now = Date.now();
+                const ongoingTotalPages = Math.max(1, Math.ceil(ongoingRows.length / OPS_PAGE_SIZE));
+                const pagedOngoing = ongoingRows.slice((ongoingPage - 1) * OPS_PAGE_SIZE, ongoingPage * OPS_PAGE_SIZE);
                 return (
                   <>
                     <div className="flex items-center justify-between mb-4">
@@ -974,7 +992,7 @@ export default function AdminOperationsPage(): React.ReactElement {
                           </tr>
                         </thead>
                         <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                          {ongoingRows.map((delivery, idx) => {
+                          {pagedOngoing.map((delivery, idx) => {
                             const tracking = delivery.tracking || {};
                             const loc = tracking.lastLocation as { lat: number; lng: number; timestamp?: string } | undefined;
                             const driverId = tracking.driverId || delivery.assignedDriverId;
@@ -1038,6 +1056,36 @@ export default function AdminOperationsPage(): React.ReactElement {
                         <div className="text-center py-10 text-gray-500 dark:text-gray-400">No on-going deliveries</div>
                       )}
                     </div>
+                    {ongoingTotalPages > 1 && (
+                      <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Showing {(ongoingPage - 1) * OPS_PAGE_SIZE + 1}–{Math.min(ongoingPage * OPS_PAGE_SIZE, ongoingRows.length)} of {ongoingRows.length}
+                        </p>
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => goToOngoingPage(ongoingPage - 1, ongoingTotalPages)} disabled={ongoingPage <= 1}
+                            className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                            ← Prev
+                          </button>
+                          {(() => {
+                            const half = 2;
+                            let start = Math.max(1, ongoingPage - half);
+                            let end = Math.min(ongoingTotalPages, start + 4);
+                            if (end - start < 4) start = Math.max(1, end - 4);
+                            const nums: number[] = [];
+                            for (let i = start; i <= end; i++) nums.push(i);
+                            return (<>
+                              {start > 1 && (<><button onClick={() => goToOngoingPage(1, ongoingTotalPages)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">1</button>{start > 2 && <span className="px-1 text-gray-400 text-sm">…</span>}</>)}
+                              {nums.map(n => (<button key={n} onClick={() => goToOngoingPage(n, ongoingTotalPages)} className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${n === ongoingPage ? 'bg-blue-600 border-blue-600 text-white font-semibold' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>{n}</button>))}
+                              {end < ongoingTotalPages && (<>{end < ongoingTotalPages - 1 && <span className="px-1 text-gray-400 text-sm">…</span>}<button onClick={() => goToOngoingPage(ongoingTotalPages, ongoingTotalPages)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">{ongoingTotalPages}</button></>)}
+                            </>);
+                          })()}
+                          <button onClick={() => goToOngoingPage(ongoingPage + 1, ongoingTotalPages)} disabled={ongoingPage >= ongoingTotalPages}
+                            className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                            Next →
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </>
                 );
               })()}
@@ -1081,7 +1129,12 @@ export default function AdminOperationsPage(): React.ReactElement {
             </div>
           </div>
 
-          <div className="pp-dash-card overflow-hidden transition-colors">
+          <div className="pp-dash-card overflow-hidden transition-colors" ref={controlTableRef}>
+            {(() => {
+              const assignedDeliveriesControl = deliveries.filter(delivery => !!(delivery.tracking?.driverId || delivery.assignedDriverId));
+              const controlTotalPages = Math.max(1, Math.ceil(assignedDeliveriesControl.length / OPS_PAGE_SIZE));
+              const pagedControl = assignedDeliveriesControl.slice((controlPage - 1) * OPS_PAGE_SIZE, controlPage * OPS_PAGE_SIZE);
+              return (
             <div className="overflow-x-auto">
               <table className="pp-mobile-stack-table min-w-[760px] divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-700">
@@ -1093,8 +1146,7 @@ export default function AdminOperationsPage(): React.ReactElement {
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {deliveries.length > 0 ? (
-                    deliveries
-                      .filter(delivery => !!(delivery.tracking?.driverId || delivery.assignedDriverId))
+                    pagedControl
                       .map(delivery => {
                         const currentDriverId = delivery.tracking?.driverId || delivery.assignedDriverId || '';
                         const currentDriver = drivers.find(d => d.id === currentDriverId);
@@ -1179,7 +1231,39 @@ export default function AdminOperationsPage(): React.ReactElement {
                   )}
                 </tbody>
               </table>
+              {controlTotalPages > 1 && (
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 px-4 pb-4">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Showing {(controlPage - 1) * OPS_PAGE_SIZE + 1}–{Math.min(controlPage * OPS_PAGE_SIZE, assignedDeliveriesControl.length)} of {assignedDeliveriesControl.length}
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => goToControlPage(controlPage - 1, controlTotalPages)} disabled={controlPage <= 1}
+                      className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                      ← Prev
+                    </button>
+                    {(() => {
+                      const half = 2;
+                      let start = Math.max(1, controlPage - half);
+                      let end = Math.min(controlTotalPages, start + 4);
+                      if (end - start < 4) start = Math.max(1, end - 4);
+                      const nums: number[] = [];
+                      for (let i = start; i <= end; i++) nums.push(i);
+                      return (<>
+                        {start > 1 && (<><button onClick={() => goToControlPage(1, controlTotalPages)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">1</button>{start > 2 && <span className="px-1 text-gray-400 text-sm">…</span>}</>)}
+                        {nums.map(n => (<button key={n} onClick={() => goToControlPage(n, controlTotalPages)} className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${n === controlPage ? 'bg-blue-600 border-blue-600 text-white font-semibold' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>{n}</button>))}
+                        {end < controlTotalPages && (<>{end < controlTotalPages - 1 && <span className="px-1 text-gray-400 text-sm">…</span>}<button onClick={() => goToControlPage(controlTotalPages, controlTotalPages)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">{controlTotalPages}</button></>)}
+                      </>);
+                    })()}
+                    <button onClick={() => goToControlPage(controlPage + 1, controlTotalPages)} disabled={controlPage >= controlTotalPages}
+                      className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                      Next →
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
+              );
+            })()}
           </div>
         </div>
       )}
@@ -1221,9 +1305,14 @@ export default function AdminOperationsPage(): React.ReactElement {
               </div>
             )}
 
-            <div className="pp-dash-card p-5">
+            <div className="pp-dash-card p-5" ref={deliveryStatusTableRef}>
               <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Delivery Status</h2>
               <div className="overflow-x-auto">
+                {(() => {
+                  const dsTotal = Math.max(1, Math.ceil(deliveries.length / OPS_PAGE_SIZE));
+                  const pagedDs = deliveries.slice((deliveryStatusPage - 1) * OPS_PAGE_SIZE, deliveryStatusPage * OPS_PAGE_SIZE);
+                  const goToDsPage = (n: number): void => { setDeliveryStatusPage(Math.max(1, Math.min(n, dsTotal))); deliveryStatusTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+                  return (<>
                 <table className="pp-mobile-stack-table min-w-[760px] divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
@@ -1233,7 +1322,7 @@ export default function AdminOperationsPage(): React.ReactElement {
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                    {deliveries.slice(0, 50).map(delivery => {
+                    {pagedDs.map(delivery => {
                       const tracking = delivery.tracking || {};
                       const loc = tracking.lastLocation;
                       return (
@@ -1269,6 +1358,18 @@ export default function AdminOperationsPage(): React.ReactElement {
                   </tbody>
                 </table>
                 {deliveries.length === 0 && <div className="text-center py-8 text-gray-500 dark:text-gray-400">No deliveries found</div>}
+                {dsTotal > 1 && (
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Showing {(deliveryStatusPage - 1) * OPS_PAGE_SIZE + 1}–{Math.min(deliveryStatusPage * OPS_PAGE_SIZE, deliveries.length)} of {deliveries.length}</p>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => goToDsPage(deliveryStatusPage - 1)} disabled={deliveryStatusPage <= 1} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">← Prev</button>
+                      {(() => { const half = 2; let s2 = Math.max(1, deliveryStatusPage - half); let e2 = Math.min(dsTotal, s2 + 4); if (e2 - s2 < 4) s2 = Math.max(1, e2 - 4); const ns: number[] = []; for (let i = s2; i <= e2; i++) ns.push(i); return (<>{s2 > 1 && (<><button onClick={() => goToDsPage(1)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">1</button>{s2 > 2 && <span className="px-1 text-gray-400 text-sm">…</span>}</>)}{ns.map(n => (<button key={n} onClick={() => goToDsPage(n)} className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${n === deliveryStatusPage ? 'bg-blue-600 border-blue-600 text-white font-semibold' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>{n}</button>))}{e2 < dsTotal && (<>{e2 < dsTotal - 1 && <span className="px-1 text-gray-400 text-sm">…</span>}<button onClick={() => goToDsPage(dsTotal)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">{dsTotal}</button></>)}</>); })()}
+                      <button onClick={() => goToDsPage(deliveryStatusPage + 1)} disabled={deliveryStatusPage >= dsTotal} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Next →</button>
+                    </div>
+                  </div>
+                )}
+                  </>);
+                })()}
               </div>
             </div>
           </div>

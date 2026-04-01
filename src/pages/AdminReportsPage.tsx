@@ -955,44 +955,31 @@ export default function AdminReportsPage(): React.ReactElement {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 Showing {(currentPage - 1) * itemsPerPage + 1}–{Math.min(currentPage * itemsPerPage, sortedDeliveries.length)} of {sortedDeliveries.length}
               </p>
               <div className="flex items-center gap-1">
-                <button
-                  onClick={() => goToReportPage(Math.max(1, currentPage - 1))}
-                  disabled={currentPage === 1}
-                  className="px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-600"
-                >
-                  Previous
+                <button onClick={() => goToReportPage(currentPage - 1)} disabled={currentPage <= 1}
+                  className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                  ← Prev
                 </button>
-                {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
-                  let p: number;
-                  if (totalPages <= 7) p = i + 1;
-                  else if (currentPage <= 4) p = i + 1;
-                  else if (currentPage >= totalPages - 3) p = totalPages - 6 + i;
-                  else p = currentPage - 3 + i;
-                  return (
-                    <button
-                      key={p}
-                      onClick={() => goToReportPage(p)}
-                      className={`px-3 py-1.5 text-xs rounded-lg ${
-                        currentPage === p
-                          ? 'bg-blue-900 text-white font-semibold'
-                          : 'border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
-                      }`}
-                    >
-                      {p}
-                    </button>
-                  );
-                })}
-                <button
-                  onClick={() => goToReportPage(Math.min(totalPages, currentPage + 1))}
-                  disabled={currentPage === totalPages}
-                  className="px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-600"
-                >
-                  Next
+                {(() => {
+                  const half = 2;
+                  let start = Math.max(1, currentPage - half);
+                  let end = Math.min(totalPages, start + 4);
+                  if (end - start < 4) start = Math.max(1, end - 4);
+                  const nums: number[] = [];
+                  for (let i = start; i <= end; i++) nums.push(i);
+                  return (<>
+                    {start > 1 && (<><button onClick={() => goToReportPage(1)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">1</button>{start > 2 && <span className="px-1 text-gray-400 text-sm">…</span>}</>)}
+                    {nums.map(n => (<button key={n} onClick={() => goToReportPage(n)} className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${n === currentPage ? 'bg-blue-600 border-blue-600 text-white font-semibold' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>{n}</button>))}
+                    {end < totalPages && (<>{end < totalPages - 1 && <span className="px-1 text-gray-400 text-sm">…</span>}<button onClick={() => goToReportPage(totalPages)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">{totalPages}</button></>)}
+                  </>);
+                })()}
+                <button onClick={() => goToReportPage(currentPage + 1)} disabled={currentPage >= totalPages}
+                  className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                  Next →
                 </button>
               </div>
             </div>

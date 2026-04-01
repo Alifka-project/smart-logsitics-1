@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import api, { setAuthToken } from '../frontend/apiClient';
 import {
@@ -71,6 +71,8 @@ function ensureAuth(): void {
   if (token) setAuthToken(token);
 }
 
+const POD_PAGE_SIZE = 20;
+
 export default function AdminPODReportPage(): React.ReactElement {
   const [reportData, setReportData] = useState<PODReportData | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -79,6 +81,12 @@ export default function AdminPODReportPage(): React.ReactElement {
     endDate: new Date().toISOString().split('T')[0],
     podStatus: 'all',
   });
+  const [dailyPage, setDailyPage] = useState(1);
+  const [driverPage, setDriverPage] = useState(1);
+  const [deliveriesPage, setDeliveriesPage] = useState(1);
+  const dailyTableRef = useRef<HTMLDivElement | null>(null);
+  const driverTableRef = useRef<HTMLDivElement | null>(null);
+  const deliveriesTableRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     ensureAuth();
@@ -133,6 +141,9 @@ export default function AdminPODReportPage(): React.ReactElement {
 
   const handleFilterChange = (key: keyof PODFilters, value: string): void => {
     setFilters(prev => ({ ...prev, [key]: value }));
+    setDailyPage(1);
+    setDriverPage(1);
+    setDeliveriesPage(1);
   };
 
   const formatDate = (val: string | null | undefined): string => {
@@ -182,6 +193,26 @@ export default function AdminPODReportPage(): React.ReactElement {
   const deliveries: PODDelivery[] = reportData?.deliveries || [];
   const dailyBreakdown: DailyBreakdownItem[] = reportData?.dailyBreakdown || [];
   const driverBreakdown: DriverBreakdownItem[] = reportData?.driverBreakdown || [];
+
+  const dailyTotalPages = Math.max(1, Math.ceil(dailyBreakdown.length / POD_PAGE_SIZE));
+  const driverTotalPages = Math.max(1, Math.ceil(driverBreakdown.length / POD_PAGE_SIZE));
+  const deliveriesTotalPages = Math.max(1, Math.ceil(deliveries.length / POD_PAGE_SIZE));
+  const pagedDaily = dailyBreakdown.slice((dailyPage - 1) * POD_PAGE_SIZE, dailyPage * POD_PAGE_SIZE);
+  const pagedDriver = driverBreakdown.slice((driverPage - 1) * POD_PAGE_SIZE, driverPage * POD_PAGE_SIZE);
+  const pagedDeliveries = deliveries.slice((deliveriesPage - 1) * POD_PAGE_SIZE, deliveriesPage * POD_PAGE_SIZE);
+
+  const goToDailyPage = (n: number): void => {
+    setDailyPage(Math.max(1, Math.min(n, dailyTotalPages)));
+    dailyTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  const goToDriverPage = (n: number): void => {
+    setDriverPage(Math.max(1, Math.min(n, driverTotalPages)));
+    driverTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  const goToDeliveriesPage = (n: number): void => {
+    setDeliveriesPage(Math.max(1, Math.min(n, deliveriesTotalPages)));
+    deliveriesTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const overallPct = (stats.totalDelivered ?? 0) > 0
     ? Math.round(((stats.withPOD ?? 0) / (stats.totalDelivered as number)) * 100)
@@ -482,7 +513,7 @@ export default function AdminPODReportPage(): React.ReactElement {
 
       {/* ── Daily Breakdown Table ── */}
       {dailyBreakdown.length > 0 && (
-        <div className="pp-card overflow-hidden">
+        <div className="pp-card overflow-hidden" ref={dailyTableRef}>
           <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
             <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Daily POD Completion</h3>
           </div>
@@ -499,7 +530,7 @@ export default function AdminPODReportPage(): React.ReactElement {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50 dark:divide-gray-700/60">
-                {dailyBreakdown.map((day) => {
+                {pagedDaily.map((day) => {
                   const pct = day.total > 0 ? ((day.withPOD / day.total) * 100).toFixed(1) : '0.0';
                   return (
                     <tr key={day.date} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
@@ -541,13 +572,43 @@ export default function AdminPODReportPage(): React.ReactElement {
                 })}
               </tbody>
             </table>
+            {dailyTotalPages > 1 && (
+              <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 px-5 pb-4">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Showing {(dailyPage - 1) * POD_PAGE_SIZE + 1}–{Math.min(dailyPage * POD_PAGE_SIZE, dailyBreakdown.length)} of {dailyBreakdown.length}
+                </p>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => goToDailyPage(dailyPage - 1)} disabled={dailyPage <= 1}
+                    className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                    ← Prev
+                  </button>
+                  {(() => {
+                    const half = 2;
+                    let start = Math.max(1, dailyPage - half);
+                    let end = Math.min(dailyTotalPages, start + 4);
+                    if (end - start < 4) start = Math.max(1, end - 4);
+                    const nums: number[] = [];
+                    for (let i = start; i <= end; i++) nums.push(i);
+                    return (<>
+                      {start > 1 && (<><button onClick={() => goToDailyPage(1)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">1</button>{start > 2 && <span className="px-1 text-gray-400 text-sm">…</span>}</>)}
+                      {nums.map(n => (<button key={n} onClick={() => goToDailyPage(n)} className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${n === dailyPage ? 'bg-blue-600 border-blue-600 text-white font-semibold' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>{n}</button>))}
+                      {end < dailyTotalPages && (<>{end < dailyTotalPages - 1 && <span className="px-1 text-gray-400 text-sm">…</span>}<button onClick={() => goToDailyPage(dailyTotalPages)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">{dailyTotalPages}</button></>)}
+                    </>);
+                  })()}
+                  <button onClick={() => goToDailyPage(dailyPage + 1)} disabled={dailyPage >= dailyTotalPages}
+                    className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                    Next →
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {/* ── Driver POD Performance ── */}
       {driverBreakdown.length > 0 && (
-        <div className="pp-card overflow-hidden">
+        <div className="pp-card overflow-hidden" ref={driverTableRef}>
           <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
             <div className="flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-blue-900 dark:text-blue-300" />
@@ -567,7 +628,7 @@ export default function AdminPODReportPage(): React.ReactElement {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50 dark:divide-gray-700/60">
-                {driverBreakdown.map((driver) => {
+                {pagedDriver.map((driver) => {
                   const pct = driver.total > 0 ? ((driver.withPOD / driver.total) * 100).toFixed(1) : '0.0';
                   return (
                     <tr key={driver.driverName} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
@@ -612,12 +673,42 @@ export default function AdminPODReportPage(): React.ReactElement {
                 })}
               </tbody>
             </table>
+            {driverTotalPages > 1 && (
+              <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 px-5 pb-4">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Showing {(driverPage - 1) * POD_PAGE_SIZE + 1}–{Math.min(driverPage * POD_PAGE_SIZE, driverBreakdown.length)} of {driverBreakdown.length}
+                </p>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => goToDriverPage(driverPage - 1)} disabled={driverPage <= 1}
+                    className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                    ← Prev
+                  </button>
+                  {(() => {
+                    const half = 2;
+                    let start = Math.max(1, driverPage - half);
+                    let end = Math.min(driverTotalPages, start + 4);
+                    if (end - start < 4) start = Math.max(1, end - 4);
+                    const nums: number[] = [];
+                    for (let i = start; i <= end; i++) nums.push(i);
+                    return (<>
+                      {start > 1 && (<><button onClick={() => goToDriverPage(1)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">1</button>{start > 2 && <span className="px-1 text-gray-400 text-sm">…</span>}</>)}
+                      {nums.map(n => (<button key={n} onClick={() => goToDriverPage(n)} className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${n === driverPage ? 'bg-blue-600 border-blue-600 text-white font-semibold' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>{n}</button>))}
+                      {end < driverTotalPages && (<>{end < driverTotalPages - 1 && <span className="px-1 text-gray-400 text-sm">…</span>}<button onClick={() => goToDriverPage(driverTotalPages)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">{driverTotalPages}</button></>)}
+                    </>);
+                  })()}
+                  <button onClick={() => goToDriverPage(driverPage + 1)} disabled={driverPage >= driverTotalPages}
+                    className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                    Next →
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {/* ── Delivery Details Table ── */}
-      <div className="pp-card overflow-hidden">
+      <div className="pp-card overflow-hidden" ref={deliveriesTableRef}>
         <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
@@ -661,7 +752,7 @@ export default function AdminPODReportPage(): React.ReactElement {
                   </td>
                 </tr>
               ) : (
-                deliveries.map((delivery) => (
+                pagedDeliveries.map((delivery) => (
                   <tr
                     key={delivery.id}
                     className={`transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/30 ${
@@ -745,6 +836,36 @@ export default function AdminPODReportPage(): React.ReactElement {
               )}
             </tbody>
           </table>
+          {deliveriesTotalPages > 1 && (
+            <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 px-5 pb-4">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Showing {(deliveriesPage - 1) * POD_PAGE_SIZE + 1}–{Math.min(deliveriesPage * POD_PAGE_SIZE, deliveries.length)} of {deliveries.length}
+              </p>
+              <div className="flex items-center gap-1">
+                <button onClick={() => goToDeliveriesPage(deliveriesPage - 1)} disabled={deliveriesPage <= 1}
+                  className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                  ← Prev
+                </button>
+                {(() => {
+                  const half = 2;
+                  let start = Math.max(1, deliveriesPage - half);
+                  let end = Math.min(deliveriesTotalPages, start + 4);
+                  if (end - start < 4) start = Math.max(1, end - 4);
+                  const nums: number[] = [];
+                  for (let i = start; i <= end; i++) nums.push(i);
+                  return (<>
+                    {start > 1 && (<><button onClick={() => goToDeliveriesPage(1)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">1</button>{start > 2 && <span className="px-1 text-gray-400 text-sm">…</span>}</>)}
+                    {nums.map(n => (<button key={n} onClick={() => goToDeliveriesPage(n)} className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${n === deliveriesPage ? 'bg-blue-600 border-blue-600 text-white font-semibold' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>{n}</button>))}
+                    {end < deliveriesTotalPages && (<>{end < deliveriesTotalPages - 1 && <span className="px-1 text-gray-400 text-sm">…</span>}<button onClick={() => goToDeliveriesPage(deliveriesTotalPages)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">{deliveriesTotalPages}</button></>)}
+                  </>);
+                })()}
+                <button onClick={() => goToDeliveriesPage(deliveriesPage + 1)} disabled={deliveriesPage >= deliveriesTotalPages}
+                  className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                  Next →
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

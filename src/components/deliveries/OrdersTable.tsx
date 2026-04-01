@@ -86,17 +86,6 @@ function matchesTableTab(order: DeliveryOrder, tab: OrdersTableTab): boolean {
   }
 }
 
-function pageWindow(current: number, total: number, max = 5): number[] {
-  if (total <= 0) return [];
-  if (total <= max) return Array.from({ length: total }, (_, i) => i + 1);
-  let start = Math.max(1, current - Math.floor(max / 2));
-  let end = start + max - 1;
-  if (end > total) {
-    end = total;
-    start = Math.max(1, end - max + 1);
-  }
-  return Array.from({ length: end - start + 1 }, (_, i) => start + i);
-}
 
 export const OrdersTable: React.FC<OrdersTableProps> = ({
   orders,
@@ -119,7 +108,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
   const [markingOFD, setMarkingOFD] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const tableTopRef = useRef<HTMLDivElement | null>(null);
-  const itemsPerPage = 10;
+  const itemsPerPage = 20;
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
@@ -308,8 +297,6 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
       count: orders.filter((o) => o.status === 'out_for_delivery').length,
     },
   ];
-
-  const pages = pageWindow(currentPage, totalPages, 5);
 
   const scrollToTableTop = (): void => {
     tableTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -557,45 +544,38 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
         </table>
       </div>
 
-      <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <span className="text-sm text-gray-600 dark:text-gray-400">
-          {sortedOrders.length === 0
-            ? '0 orders'
-            : `Showing ${(currentPage - 1) * itemsPerPage + 1}–${Math.min(currentPage * itemsPerPage, sortedOrders.length)} of ${sortedOrders.length}`}
-        </span>
-        <div className="flex gap-1 flex-wrap">
-          <button
-            type="button"
-            onClick={() => goToPage(Math.max(1, currentPage - 1))}
-            disabled={currentPage === 1}
-            className="px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded text-sm disabled:opacity-50"
-          >
-            ←
-          </button>
-          {pages.map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => goToPage(p)}
-              className={`px-3 py-1.5 rounded text-sm ${
-                currentPage === p
-                  ? 'bg-[#002D5B] text-white'
-                  : 'bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-              }`}
-            >
-              {p}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {sortedOrders.length === 0
+              ? '0 orders'
+              : `Showing ${(currentPage - 1) * itemsPerPage + 1}–${Math.min(currentPage * itemsPerPage, sortedOrders.length)} of ${sortedOrders.length}`}
+          </p>
+          <div className="flex items-center gap-1">
+            <button type="button" onClick={() => goToPage(currentPage - 1)} disabled={currentPage <= 1}
+              className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+              ← Prev
             </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => goToPage(Math.min(totalPages, currentPage + 1))}
-            disabled={currentPage === totalPages || sortedOrders.length === 0}
-            className="px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded text-sm disabled:opacity-50"
-          >
-            →
-          </button>
+            {(() => {
+              const half = 2;
+              let start = Math.max(1, currentPage - half);
+              let end = Math.min(totalPages, start + 4);
+              if (end - start < 4) start = Math.max(1, end - 4);
+              const nums: number[] = [];
+              for (let i = start; i <= end; i++) nums.push(i);
+              return (<>
+                {start > 1 && (<><button type="button" onClick={() => goToPage(1)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">1</button>{start > 2 && <span className="px-1 text-gray-400 text-sm">…</span>}</>)}
+                {nums.map(n => (<button type="button" key={n} onClick={() => goToPage(n)} className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${n === currentPage ? 'bg-blue-600 border-blue-600 text-white font-semibold' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>{n}</button>))}
+                {end < totalPages && (<>{end < totalPages - 1 && <span className="px-1 text-gray-400 text-sm">…</span>}<button type="button" onClick={() => goToPage(totalPages)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">{totalPages}</button></>)}
+              </>);
+            })()}
+            <button type="button" onClick={() => goToPage(currentPage + 1)} disabled={currentPage >= totalPages}
+              className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+              Next →
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {rescheduleOrder && (
         <RescheduleModal

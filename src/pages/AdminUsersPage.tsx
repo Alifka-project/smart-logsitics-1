@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import api from '../frontend/apiClient';
 import UsersMessagesPanel from '../components/admin/UsersMessagesPanel';
 import { 
@@ -66,6 +66,9 @@ interface UserFormData {
   vehicle_id: string;
 }
 
+const USERS_PAGE_SIZE = 20;
+const LOGS_PAGE_SIZE = 20;
+
 export default function AdminUsersPage(): React.ReactElement {
   const [activeTab, setActiveTab] = useState<string>('accounts');
   const [accounts, setAccounts] = useState<UserRecord[]>([]);
@@ -94,13 +97,23 @@ export default function AdminUsersPage(): React.ReactElement {
   const [errors, setErrors] = useState<Record<string, string>>({});
   /** Opens the side chat with this user (Accounts / Drivers tabs) */
   const [chatFocusUserId, setChatFocusUserId] = useState<string | null>(null);
+  const [usersPage, setUsersPage] = useState(1);
+  const [logsPage, setLogsPage] = useState(1);
+  const usersTableRef = useRef<HTMLDivElement | null>(null);
+  const logsTableRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     void loadData();
     if (activeTab === 'logs') {
       void loadActivityLogs();
     }
+    setUsersPage(1);
+    setLogsPage(1);
   }, [activeTab]);
+
+  useEffect(() => {
+    setUsersPage(1);
+  }, [searchTerm, filterRole, filterStatus]);
 
   useEffect(() => {
     if (activeTab === 'logs') {
@@ -424,6 +437,19 @@ export default function AdminUsersPage(): React.ReactElement {
   };
 
   const filteredUsers = getFilteredUsers();
+  const usersTotalPages = Math.max(1, Math.ceil(filteredUsers.length / USERS_PAGE_SIZE));
+  const logsTotalPages = Math.max(1, Math.ceil(activityLogs.length / LOGS_PAGE_SIZE));
+  const pagedUsers = filteredUsers.slice((usersPage - 1) * USERS_PAGE_SIZE, usersPage * USERS_PAGE_SIZE);
+  const pagedLogs = activityLogs.slice((logsPage - 1) * LOGS_PAGE_SIZE, logsPage * LOGS_PAGE_SIZE);
+
+  const goToUsersPage = (n: number): void => {
+    setUsersPage(Math.max(1, Math.min(n, usersTotalPages)));
+    usersTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  const goToLogsPage = (n: number): void => {
+    setLogsPage(Math.max(1, Math.min(n, logsTotalPages)));
+    logsTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const getTimeAgo = (date: Date): string => {
     const now = new Date();
@@ -562,7 +588,7 @@ export default function AdminUsersPage(): React.ReactElement {
           </div>
 
           {/* Login History */}
-          <div className="pp-dash-card overflow-hidden transition-colors">
+          <div className="pp-dash-card overflow-hidden transition-colors" ref={logsTableRef}>
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Clock className="w-5 h-5 text-gray-600 dark:text-gray-400" />
@@ -609,7 +635,7 @@ export default function AdminUsersPage(): React.ReactElement {
                   </thead>
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {activityLogs.length > 0 ? (
-                      activityLogs.map(log => {
+                      pagedLogs.map(log => {
                         const isOnline = log.isOnline || onlineUsers.some(u => u.id === log.id);
                         const lastLoginDate = new Date(log.lastLogin);
                         const timeAgo = getTimeAgo(lastLoginDate);
@@ -703,6 +729,36 @@ export default function AdminUsersPage(): React.ReactElement {
                     )}
                   </tbody>
                 </table>
+                {logsTotalPages > 1 && (
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 px-4 pb-4">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Showing {(logsPage - 1) * LOGS_PAGE_SIZE + 1}–{Math.min(logsPage * LOGS_PAGE_SIZE, activityLogs.length)} of {activityLogs.length}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => goToLogsPage(logsPage - 1)} disabled={logsPage <= 1}
+                        className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                        ← Prev
+                      </button>
+                      {(() => {
+                        const half = 2;
+                        let start = Math.max(1, logsPage - half);
+                        let end = Math.min(logsTotalPages, start + 4);
+                        if (end - start < 4) start = Math.max(1, end - 4);
+                        const nums: number[] = [];
+                        for (let i = start; i <= end; i++) nums.push(i);
+                        return (<>
+                          {start > 1 && (<><button onClick={() => goToLogsPage(1)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">1</button>{start > 2 && <span className="px-1 text-gray-400 text-sm">…</span>}</>)}
+                          {nums.map(n => (<button key={n} onClick={() => goToLogsPage(n)} className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${n === logsPage ? 'bg-blue-600 border-blue-600 text-white font-semibold' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>{n}</button>))}
+                          {end < logsTotalPages && (<>{end < logsTotalPages - 1 && <span className="px-1 text-gray-400 text-sm">…</span>}<button onClick={() => goToLogsPage(logsTotalPages)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">{logsTotalPages}</button></>)}
+                        </>);
+                      })()}
+                      <button onClick={() => goToLogsPage(logsPage + 1)} disabled={logsPage >= logsTotalPages}
+                        className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                        Next →
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -750,7 +806,7 @@ export default function AdminUsersPage(): React.ReactElement {
           </div>
 
           {/* Users Table */}
-          <div className="pp-dash-card overflow-hidden transition-colors border border-gray-200/80 dark:border-white/[0.07] shadow-sm">
+          <div className="pp-dash-card overflow-hidden transition-colors border border-gray-200/80 dark:border-white/[0.07] shadow-sm" ref={usersTableRef}>
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <div className="text-center">
@@ -776,7 +832,7 @@ export default function AdminUsersPage(): React.ReactElement {
                     </thead>
                     <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                       {filteredUsers.length > 0 ? (
-                        filteredUsers.map(user => (
+                        pagedUsers.map(user => (
                           <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                             <td className="px-6 py-4 whitespace-nowrap" data-label="User">
                               <div className="flex items-center">
@@ -880,6 +936,36 @@ export default function AdminUsersPage(): React.ReactElement {
                     </tbody>
                   </table>
                 </div>
+                {usersTotalPages > 1 && (
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 px-4 pb-4">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Showing {(usersPage - 1) * USERS_PAGE_SIZE + 1}–{Math.min(usersPage * USERS_PAGE_SIZE, filteredUsers.length)} of {filteredUsers.length}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => goToUsersPage(usersPage - 1)} disabled={usersPage <= 1}
+                        className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                        ← Prev
+                      </button>
+                      {(() => {
+                        const half = 2;
+                        let start = Math.max(1, usersPage - half);
+                        let end = Math.min(usersTotalPages, start + 4);
+                        if (end - start < 4) start = Math.max(1, end - 4);
+                        const nums: number[] = [];
+                        for (let i = start; i <= end; i++) nums.push(i);
+                        return (<>
+                          {start > 1 && (<><button onClick={() => goToUsersPage(1)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">1</button>{start > 2 && <span className="px-1 text-gray-400 text-sm">…</span>}</>)}
+                          {nums.map(n => (<button key={n} onClick={() => goToUsersPage(n)} className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${n === usersPage ? 'bg-blue-600 border-blue-600 text-white font-semibold' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>{n}</button>))}
+                          {end < usersTotalPages && (<>{end < usersTotalPages - 1 && <span className="px-1 text-gray-400 text-sm">…</span>}<button onClick={() => goToUsersPage(usersTotalPages)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">{usersTotalPages}</button></>)}
+                        </>);
+                      })()}
+                      <button onClick={() => goToUsersPage(usersPage + 1)} disabled={usersPage >= usersTotalPages}
+                        className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                        Next →
+                      </button>
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>
