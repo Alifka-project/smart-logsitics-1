@@ -34,7 +34,7 @@ export default function PaginationBar({
   for (let i = start; i <= end; i++) nums.push(i);
 
   /* ── shared button styles ── */
-  const btn  = 'inline-flex items-center justify-center h-7 min-w-[28px] px-2 rounded text-xs font-medium border transition-colors select-none';
+  const btn  = 'inline-flex items-center justify-center h-7 min-w-[28px] px-2 rounded-lg text-xs font-medium border transition-colors select-none';
   const off  = 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700';
   const on   = 'border-blue-600 bg-blue-600 text-white';
   const dis  = 'disabled:opacity-35 disabled:cursor-not-allowed';
