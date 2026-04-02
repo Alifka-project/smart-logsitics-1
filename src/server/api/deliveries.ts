@@ -697,7 +697,7 @@ router.post('/bulk-assign', authenticate, requireRole('admin'), async (req: Requ
     // Invalidate caches after bulk assignment
     cache.invalidatePrefix('tracking:');
     cache.invalidatePrefix('dashboard:');
-    cache.del('deliveries:list:v2');
+    cache.invalidatePrefix('deliveries:list:v2');
 
     res.json({
       success: true,

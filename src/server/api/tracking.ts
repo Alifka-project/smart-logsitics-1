@@ -176,11 +176,12 @@ router.get('/drivers', authenticate, requireAnyRole('admin', 'delivery_team'), a
       }[] = [];
 
       try {
+        // For the monitoring map, show all active drivers regardless of account linkage.
+        // The assignment endpoint enforces role='driver' separately; here we just need
+        // to know who is in the field. Drivers without a linked account are included so
+        // the map is never silently empty.
         const dbDrivers = await prisma.driver.findMany({
-          where: {
-            active: true,
-            account: { role: 'driver' }
-          },
+          where: { active: true },
           select: {
             id: true,
             username: true,
@@ -192,17 +193,16 @@ router.get('/drivers', authenticate, requireAnyRole('admin', 'delivery_team'), a
             status: { select: { status: true, updatedAt: true, currentAssignmentId: true } }
           }
         });
-        // JS-level safety: only include accounts that are explicitly role='driver'
-        prismaDrivers = dbDrivers.filter(d => d.account?.role === 'driver');
+        // Keep only role='driver' accounts for the assignment dropdown; drivers without
+        // an account are still surfaced in monitoring with role='driver' as a safe default.
+        prismaDrivers = dbDrivers.filter(d => !d.account || d.account.role === 'driver');
       } catch (e: unknown) {
         const err = e as { message?: string };
         console.warn('[Tracking] Could not fetch Prisma drivers:', err.message);
       }
 
-      // SAP fallback removed: showing unfiltered mock data to admins could expose
-      // non-driver accounts in the assignment dropdown. If no DB drivers exist, return empty.
       if (prismaDrivers.length === 0) {
-        console.warn('[Tracking] No active drivers with role=driver found in database.');
+        console.warn('[Tracking] No active drivers found in database.');
         return [];
       }
 
