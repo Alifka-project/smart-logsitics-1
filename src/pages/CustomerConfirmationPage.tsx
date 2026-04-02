@@ -109,6 +109,8 @@ export default function CustomerConfirmationPage() {
   const [success, setSuccess] = useState<boolean>(false);
   const [isAlreadyConfirmed, setIsAlreadyConfirmed] = useState<boolean>(false);
   const [agreed, setAgreed] = useState<boolean>(false);
+  const [exceedsTruckCapacity, setExceedsTruckCapacity] = useState<boolean>(false);
+  const [truckMaxItems, setTruckMaxItems] = useState<number>(30);
 
   useEffect(() => { void fetchDeliveryDetails(); }, [token]);
 
@@ -123,10 +125,15 @@ export default function CustomerConfirmationPage() {
         return;
       }
       setDelivery(data.delivery as ConfirmationDelivery);
-      setAvailableDates((data.availableDates as string[]) || []);
+      const dates = (data.availableDates as string[]) || [];
+      setAvailableDates(dates);
       setIsAlreadyConfirmed((data.isAlreadyConfirmed as boolean) || false);
-      if ((data.availableDates as string[])?.length > 0) {
-        setSelectedDate((data.availableDates as string[])[0]);
+      setExceedsTruckCapacity(!!(data.exceedsTruckCapacity as boolean));
+      if (typeof data.truckMaxItems === 'number') setTruckMaxItems(data.truckMaxItems as number);
+      if (dates.length > 0) {
+        setSelectedDate(dates[0]);
+      } else {
+        setSelectedDate('');
       }
     } catch (err: unknown) {
       const e = err as { message?: string };
@@ -373,7 +380,26 @@ export default function CustomerConfirmationPage() {
                   <Calendar style={{ width: 15, height: 15, color: '#64748b' }} />
                   <h2 style={{ fontWeight: 700, fontSize: 15, color: '#1e293b' }}>Select Delivery Date</h2>
                 </div>
+                {exceedsTruckCapacity ? (
+                  <div style={{ padding: 18 }}>
+                    <p style={{ fontSize: 14, color: '#b45309', lineHeight: 1.6, margin: 0 }}>
+                      This order exceeds the standard truck capacity ({truckMaxItems} items per delivery). Please call the Electrolux Delivery Team at{' '}
+                      <a href="tel:+971524408687" style={{ color: '#003057', fontWeight: 700 }}>+971 52 440 8687</a>
+                      {' '}to schedule this shipment.
+                    </p>
+                  </div>
+                ) : availableDates.length === 0 ? (
+                  <div style={{ padding: 18 }}>
+                    <p style={{ fontSize: 14, color: '#64748b', lineHeight: 1.6, margin: 0 }}>
+                      All delivery slots in the next booking window are full ({truckMaxItems} items per truck per day). Please try again later or contact{' '}
+                      <a href="tel:+971524408687" style={{ color: '#003057', fontWeight: 700 }}>+971 52 440 8687</a>.
+                    </p>
+                  </div>
+                ) : (
                 <form onSubmit={(e) => void handleConfirmDelivery(e)} style={{ padding: 18 }}>
+                  <p style={{ fontSize: 12, color: '#64748b', marginBottom: 14, lineHeight: 1.5 }}>
+                    Dates shown have space on our trucks (max {truckMaxItems} items per day). Sundays are not available.
+                  </p>
                   {/* Date pills – 2 columns */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8, marginBottom: 16 }}>
                     {availableDates.map((date) => {
@@ -434,6 +460,7 @@ export default function CustomerConfirmationPage() {
                     )}
                   </button>
                 </form>
+                )}
               </div>
             )}
           </>

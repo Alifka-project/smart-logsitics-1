@@ -629,29 +629,22 @@ router.post('/upload', authenticate, async (req: Request, res: Response): Promis
       }
     }
 
-    // Auto-assign deliveries to drivers
-    const assignmentResults = await autoAssignDeliveries(deliveryIds) as Array<{
-      deliveryId: string; success: boolean; assignment?: { driverId?: string; driverName?: string }; error?: string;
-    }>;
-
-    // Merge results
-    const mergedResults = results.map(result => {
-      const assignment = assignmentResults.find(a => a.deliveryId === result.deliveryId);
-      return {
-        ...result,
-        assigned: assignment?.success || false,
-        driverId: assignment?.assignment?.driverId || null,
-        driverName: assignment?.assignment?.driverName || null,
-        assignmentError: assignment?.error || null
-      };
-    });
+    // Driver assignment runs after the customer confirms a delivery date (SMS flow), not on raw upload.
+    const mergedResults = results.map(result => ({
+      ...result,
+      assigned: false,
+      driverId: null as string | null,
+      driverName: null as string | null,
+      assignmentError: null as string | null,
+      assignmentPendingCustomerConfirm: true
+    }));
 
     // Invalidate caches after bulk upload
     cache.invalidatePrefix('tracking:');
     cache.invalidatePrefix('dashboard:');
     cache.del('deliveries:list:v2');
 
-    console.log(`[Deliveries] Upload complete: ${results.filter(r => r.saved).length} saved, ${assignmentResults.filter(a => a.success).length} assigned`);
+    console.log(`[Deliveries] Upload complete: ${results.filter(r => r.saved).length} saved (assignment after customer confirms date)`);
 
     // Fetch the saved deliveries from database to return with full data including UUIDs
     const savedDeliveries = await prisma.delivery.findMany({
@@ -678,7 +671,7 @@ router.post('/upload', authenticate, async (req: Request, res: Response): Promis
       success: true,
       count: deliveryIds.length,
       saved: results.filter(r => r.saved).length,
-      assigned: assignmentResults.filter(a => a.success).length,
+      assigned: 0,
       results: mergedResults,
       deliveries: savedDeliveries  // Return full delivery objects with UUIDs
     });
@@ -868,6 +861,18 @@ router.put('/admin/:id/assign', authenticate, requireAnyRole('admin', 'delivery_
     }
 
     console.log(`[Deliveries] Assigning delivery ${id} to driver ${driverId}`);
+
+    const targetDriver = await prisma.driver.findUnique({
+      where: { id: driverId },
+      include: { account: { select: { role: true } } }
+    });
+
+    if (!targetDriver || !targetDriver.account || targetDriver.account.role !== 'driver') {
+      return void res.status(400).json({
+        error: 'invalid_driver',
+        message: 'Assignments are only allowed for accounts with the driver role.'
+      });
+    }
 
     // Verify delivery exists
     const delivery = await prisma.delivery.findUnique({

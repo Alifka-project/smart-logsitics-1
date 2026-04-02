@@ -7,6 +7,15 @@ import crypto from 'crypto';
 import prisma from '../db/prisma';
 import { normalizeUAEPhone } from '../utils/phoneUtils';
 import { SmsSendOptions, SmsSendResult } from './adapter';
+import {
+  assertSlotAvailable,
+  dubaiDayRangeUtc,
+  getAvailableDatesForDeliveryId,
+  TRUCK_MAX_ITEMS_PER_DAY
+} from '../services/deliveryCapacityService';
+
+const cache = require('../cache');
+const { autoAssignDelivery } = require('../services/autoAssignmentService');
 
 interface SmsAdapterLike {
   sendSms(options: SmsSendOptions): Promise<SmsSendResult>;
@@ -214,9 +223,9 @@ interface ConfirmDeliveryResult {
 }
 
 /**
- * Confirm delivery and set delivery date
+ * Confirm delivery and set delivery date (YYYY-MM-DD, Dubai calendar day).
  */
-async function confirmDelivery(token: string, deliveryDate: Date): Promise<ConfirmDeliveryResult> {
+async function confirmDelivery(token: string, deliveryDateInput: Date | string): Promise<ConfirmDeliveryResult> {
   try {
     if (!token) {
       throw new Error('Token is required');
@@ -227,29 +236,58 @@ async function confirmDelivery(token: string, deliveryDate: Date): Promise<Confi
       throw new Error(validation.error);
     }
 
+    if (validation.alreadyConfirmed) {
+      throw new Error('This delivery was already confirmed.');
+    }
+
     const delivery = validation.delivery!;
 
-    // Update delivery with confirmation
-    const updatedDelivery = await prisma.delivery.update({
-      where: { id: delivery.id as string },
-      data: {
-        confirmationStatus: 'confirmed',
-        customerConfirmedAt: new Date(),
-        confirmedDeliveryDate: deliveryDate,
-        // Use scheduled-confirmed to align with dashboards / reports
-        status: 'scheduled-confirmed'
-      } as Record<string, unknown>
+    const iso =
+      typeof deliveryDateInput === 'string'
+        ? deliveryDateInput.split('T')[0]
+        : new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Dubai',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+          }).format(new Date(deliveryDateInput));
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+      throw new Error('Invalid delivery date');
+    }
+
+    const meta =
+      delivery.metadata && typeof delivery.metadata === 'object'
+        ? (delivery.metadata as Record<string, unknown>)
+        : null;
+
+    const deliveryId = delivery.id as string;
+    const itemsStr = delivery.items as string | null | undefined;
+
+    const confirmedAt = dubaiDayRangeUtc(iso).start;
+
+    const updatedDelivery = await prisma.$transaction(async tx => {
+      await assertSlotAvailable(tx, deliveryId, iso, itemsStr, meta);
+      return tx.delivery.update({
+        where: { id: deliveryId },
+        data: {
+          confirmationStatus: 'confirmed',
+          customerConfirmedAt: new Date(),
+          confirmedDeliveryDate: confirmedAt,
+          status: 'scheduled-confirmed'
+        }
+      });
     });
 
-    // Log confirmation event
     await (prisma as any).deliveryEvent.create({
       data: {
-        deliveryId: delivery.id as string,
+        deliveryId,
         eventType: 'customer_confirmed',
         payload: {
           confirmedAt: new Date().toISOString(),
-          selectedDate: deliveryDate.toISOString(),
-          token: token.substring(0, 8) + '...', // masked for security
+          selectedDate: confirmedAt.toISOString(),
+          selectedDateDubai: iso,
+          token: token.substring(0, 8) + '...',
           customerName: delivery.customer || null,
           customerPhone: delivery.phone || null
         },
@@ -257,20 +295,28 @@ async function confirmDelivery(token: string, deliveryDate: Date): Promise<Confi
       }
     });
 
-    // Send confirmation SMS
+    try {
+      await autoAssignDelivery(deliveryId);
+    } catch (assignErr: unknown) {
+      console.error('[SMS] Auto-assign after confirmation failed:', assignErr);
+    }
+
+    cache.invalidatePrefix('tracking:');
+    cache.invalidatePrefix('dashboard:');
+    cache.invalidatePrefix('deliveries:list:v2');
+
     if (delivery.phone) {
       try {
-        const confirmationMessage = `Thank you for confirming your Electrolux delivery for ${new Date(deliveryDate).toLocaleDateString()}. You can now track your order in real-time using this link.`;
+        const confirmationMessage = `Thank you for confirming your Electrolux delivery for ${iso}. You can now track your order in real-time using this link.`;
         await smsAdapter!.sendSms({
           to: delivery.phone as string,
           body: confirmationMessage,
-          metadata: { deliveryId: delivery.id as string, type: 'confirmation_received' }
+          metadata: { deliveryId, type: 'confirmation_received' }
         });
 
-        // Log confirmation SMS
         await (prisma as any).smsLog.create({
           data: {
-            deliveryId: delivery.id as string,
+            deliveryId,
             phoneNumber: delivery.phone as string,
             messageContent: confirmationMessage,
             smsProvider: process.env.SMS_PROVIDER || 'twilio',
@@ -389,6 +435,12 @@ interface CustomerTrackingResult {
     events: unknown[];
     eta: unknown;
   };
+  scheduling?: {
+    availableDates: string[];
+    orderItemCount: number;
+    exceedsTruckCapacity: boolean;
+    truckMaxItems: number;
+  };
 }
 
 /**
@@ -405,7 +457,7 @@ async function getCustomerTracking(token: string): Promise<CustomerTrackingResul
 
     // Get assignment info
     const assignment = await (prisma as any).deliveryAssignment.findFirst({
-      where: { deliveryId: delivery.id as string, status: 'assigned' },
+      where: { deliveryId: delivery.id as string, status: { in: ['assigned', 'in_progress'] } },
       include: {
         driver: {
           select: {
@@ -436,6 +488,13 @@ async function getCustomerTracking(token: string): Promise<CustomerTrackingResul
       ? delivery.metadata as Record<string, unknown>
       : {};
 
+    const slot = await getAvailableDatesForDeliveryId(
+      prisma,
+      delivery.id as string,
+      delivery.items as string | null | undefined,
+      meta
+    );
+
     return {
       delivery: {
         id: delivery.id,
@@ -455,6 +514,12 @@ async function getCustomerTracking(token: string): Promise<CustomerTrackingResul
         driverLocation,
         events,
         eta: (assignment as Record<string, unknown> | null)?.eta
+      },
+      scheduling: {
+        availableDates: slot.availableDates,
+        orderItemCount: slot.orderItemCount,
+        exceedsTruckCapacity: slot.exceedsTruckCapacity,
+        truckMaxItems: TRUCK_MAX_ITEMS_PER_DAY
       }
     };
   } catch (error: unknown) {

@@ -4,6 +4,8 @@
  */
 
 import { Router, Request, Response } from 'express';
+import { getAvailableDatesForDeliveryId, TRUCK_MAX_ITEMS_PER_DAY } from '../services/deliveryCapacityService';
+
 const router = Router();
 const smsService = require('../sms/smsService');
 const prisma = require('../db/prisma').default;
@@ -26,13 +28,12 @@ router.post('/confirm-delivery/:token', async (req: Request, res: Response): Pro
       return void res.status(400).json({ error: 'delivery_date_required' });
     }
 
-    const date = new Date(deliveryDate);
-    if (isNaN(date.getTime())) {
+    const iso = String(deliveryDate).trim().split('T')[0];
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
       return void res.status(400).json({ error: 'invalid_delivery_date' });
     }
 
-    // Confirm delivery
-    const result = await smsService.confirmDelivery(token, date);
+    const result = await smsService.confirmDelivery(token, iso);
 
     return void res.json({
       ok: true,
@@ -93,20 +94,18 @@ router.get('/confirm-delivery/:token', async (req: Request, res: Response): Prom
       }
     }
 
-    // Generate 7 working days (Sunday = day off in UAE; Saturday is a working day)
-    const availableDates: Date[] = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    let dayOffset = 1;
-    while (availableDates.length < 7) {
-      const date = new Date(today);
-      date.setDate(date.getDate() + dayOffset);
-      dayOffset++;
-      // Skip Sundays only (0 = Sunday). Saturday (6) is a working day in UAE.
-      if (date.getDay() !== 0) {
-        availableDates.push(date);
-      }
-    }
+    const fullDelivery = validation.delivery as Record<string, unknown>;
+    const meta =
+      fullDelivery.metadata && typeof fullDelivery.metadata === 'object'
+        ? (fullDelivery.metadata as Record<string, unknown>)
+        : null;
+
+    const slot = await getAvailableDatesForDeliveryId(
+      prisma,
+      delivery.id,
+      (fullDelivery.items as string | null | undefined) ?? null,
+      meta
+    );
 
     return void res.json({
       ok: true,
@@ -121,7 +120,10 @@ router.get('/confirm-delivery/:token', async (req: Request, res: Response): Prom
         confirmedStatus: delivery.confirmationStatus,
         createdAt: delivery.createdAt
       },
-      availableDates: availableDates.map(d => d.toISOString().split('T')[0]),
+      availableDates: slot.availableDates,
+      orderItemCount: slot.orderItemCount,
+      exceedsTruckCapacity: slot.exceedsTruckCapacity,
+      truckMaxItems: TRUCK_MAX_ITEMS_PER_DAY,
       isAlreadyConfirmed: validation.alreadyConfirmed || false
     });
   } catch (error: unknown) {
@@ -207,9 +209,9 @@ router.get('/tracking/:token', async (req: Request, res: Response): Promise<void
       tracking: {
         status: tracking.delivery.status,
         eta: tracking.tracking.eta,
-        driver: tracking.tracking.assignment ? {
-          name: tracking.tracking.assignment.driver.fullName,
-          phone: tracking.tracking.assignment.driver.phone
+        driver: tracking.tracking.assignment?.driver ? {
+          name: (tracking.tracking.assignment.driver as { fullName?: string }).fullName,
+          phone: (tracking.tracking.assignment.driver as { phone?: string }).phone
         } : null,
         driverLocation: tracking.tracking.driverLocation ? {
           latitude: tracking.tracking.driverLocation.latitude,
@@ -219,6 +221,7 @@ router.get('/tracking/:token', async (req: Request, res: Response): Promise<void
           recordedAt: tracking.tracking.driverLocation.recordedAt
         } : null
       },
+      scheduling: tracking.scheduling ?? null,
       timeline
     });
   } catch (error: unknown) {

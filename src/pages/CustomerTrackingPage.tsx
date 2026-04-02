@@ -166,10 +166,18 @@ interface TrackingDelivery extends Delivery {
   rescheduledAt?: string | null;
 }
 
+interface SchedulingInfo {
+  availableDates: string[];
+  orderItemCount: number;
+  exceedsTruckCapacity: boolean;
+  truckMaxItems: number;
+}
+
 interface TrackingData {
   delivery: TrackingDelivery;
   tracking: TrackingInfoResponse;
   timeline?: TrackingEvent[];
+  scheduling?: SchedulingInfo | null;
 }
 
 // ── Timeline steps ───────────────────────────────────────────────────────────
@@ -331,7 +339,7 @@ export default function CustomerTrackingPage() {
 
   if (!tracking) return null;
 
-  const { delivery, tracking: trackingInfo, timeline } = tracking;
+  const { delivery, tracking: trackingInfo, timeline, scheduling } = tracking;
   const currentStep = resolveCurrentStep(delivery.status, timeline);
   const hero = STATUS_HERO[currentStep] || STATUS_HERO[0];
 
@@ -416,6 +424,33 @@ export default function CustomerTrackingPage() {
             </div>
           </div>
         </div>
+
+        {/* ── Delivery slot availability (live from routing capacity) ─ */}
+        {scheduling && (
+          <div className="card anim-card anim-card-2" style={{ padding: '14px 18px', marginBottom: 12, border: '1px solid #e2e8f0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <Calendar style={{ width: 16, height: 16, color: '#003057' }} />
+              <span style={{ fontWeight: 700, fontSize: 14, color: '#1e293b' }}>Delivery capacity</span>
+            </div>
+            {scheduling.exceedsTruckCapacity ? (
+              <p style={{ fontSize: 13, color: '#b45309', margin: 0 }}>
+                This order ({scheduling.orderItemCount} pcs) is larger than one truck load ({scheduling.truckMaxItems} pcs max). Please contact the Electrolux Delivery Team for special handling.
+              </p>
+            ) : scheduling.availableDates.length === 0 ? (
+              <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>
+                All delivery slots in the next booking window are currently full ({scheduling.truckMaxItems} pcs per truck per day). Our team may contact you to arrange the next available date.
+              </p>
+            ) : (
+              <p style={{ fontSize: 13, color: '#64748b', margin: 0, lineHeight: 1.5 }}>
+                <span style={{ fontWeight: 600, color: '#334155' }}>Next dates with available truck space: </span>
+                {scheduling.availableDates.map(d => new Date(d + 'T12:00:00+04:00').toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })).join(' · ')}
+                <span style={{ display: 'block', marginTop: 6, fontSize: 12, color: '#94a3b8' }}>
+                  Orders are planned up to {scheduling.truckMaxItems} pieces per truck per day (Sundays excluded from booking).
+                </span>
+              </p>
+            )}
+          </div>
+        )}
 
         {/* ── Rescheduled Banner ───────────────────────────────────── */}
         {delivery.status === 'rescheduled' && (
