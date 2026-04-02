@@ -134,7 +134,7 @@ async function findBestDriverForDeliveryDate(
   dayStart: Date,
   dayEnd: Date
 ): Promise<DriverRow | null> {
-  const drivers = (await prisma.driver.findMany({
+  const allFetched = (await prisma.driver.findMany({
     where: driverWhereRoleDriver,
     include: {
       status: true,
@@ -145,7 +145,11 @@ async function findBestDriverForDeliveryDate(
     }
   })) as DriverRow[];
 
+  // JS-level safety filter: only role='driver' accounts (guards against Prisma edge cases)
+  const drivers = allFetched.filter(d => d.account?.role === 'driver');
+
   if (drivers.length === 0) {
+    console.warn('[AutoAssignment] No active drivers with role=driver found for date assignment.');
     return null;
   }
 
@@ -187,7 +191,7 @@ async function findBestDriverForDeliveryDate(
  */
 async function findBestDriver(): Promise<DriverRow | null> {
   try {
-    const drivers = (await prisma.driver.findMany({
+    const allFetched = (await prisma.driver.findMany({
       where: driverWhereRoleDriver,
       include: {
         status: true,
@@ -198,7 +202,11 @@ async function findBestDriver(): Promise<DriverRow | null> {
       }
     })) as DriverRow[];
 
+    // JS-level safety filter: only role='driver' accounts
+    const drivers = allFetched.filter(d => d.account?.role === 'driver');
+
     if (drivers.length === 0) {
+      console.warn('[AutoAssignment] No active drivers with role=driver found.');
       return null;
     }
 
@@ -269,6 +277,14 @@ async function autoAssignDelivery(deliveryId: string): Promise<AssignmentWithDri
 
     if (!driver) {
       console.warn(`[AutoAssignment] No eligible driver account for delivery ${deliveryId}`);
+      return null;
+    }
+
+    // Hard guard: never assign to a non-driver role account
+    if (!driver.account || driver.account.role !== 'driver') {
+      console.error(
+        `[AutoAssignment] BLOCKED: candidate driver ${driver.id} has role="${driver.account?.role ?? 'none'}" — only role="driver" allowed. Delivery ${deliveryId} left unassigned.`
+      );
       return null;
     }
 

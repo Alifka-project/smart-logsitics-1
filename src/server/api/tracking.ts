@@ -178,6 +178,7 @@ router.get('/drivers', authenticate, requireAnyRole('admin', 'delivery_team'), a
       try {
         const dbDrivers = await prisma.driver.findMany({
           where: {
+            active: true,
             account: { role: 'driver' }
           },
           select: {
@@ -191,21 +192,18 @@ router.get('/drivers', authenticate, requireAnyRole('admin', 'delivery_team'), a
             status: { select: { status: true, updatedAt: true, currentAssignmentId: true } }
           }
         });
-        prismaDrivers = dbDrivers;
+        // JS-level safety: only include accounts that are explicitly role='driver'
+        prismaDrivers = dbDrivers.filter(d => d.account?.role === 'driver');
       } catch (e: unknown) {
         const err = e as { message?: string };
         console.warn('[Tracking] Could not fetch Prisma drivers:', err.message);
       }
 
+      // SAP fallback removed: showing unfiltered mock data to admins could expose
+      // non-driver accounts in the assignment dropdown. If no DB drivers exist, return empty.
       if (prismaDrivers.length === 0) {
-        try {
-          const driversResp = await sapService.call('/Drivers', 'get') as { data: unknown };
-          let sapDrivers: unknown[] = [];
-          const sapData = driversResp.data as Record<string, unknown>;
-          if (Array.isArray(sapData?.value)) sapDrivers = sapData.value as unknown[];
-          else if (Array.isArray(driversResp.data)) sapDrivers = driversResp.data as unknown[];
-          return sapDrivers.map(d => ({ ...(d as object), tracking: { online: false, location: null, status: 'offline', lastUpdate: null, assignmentId: null } }));
-        } catch (_) { /* ignore */ }
+        console.warn('[Tracking] No active drivers with role=driver found in database.');
+        return [];
       }
 
       let locationsMap: Record<string, {

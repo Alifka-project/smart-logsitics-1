@@ -5,8 +5,11 @@
 
 import type { PrismaClient } from '@prisma/client';
 
-/** Prisma client or transaction client — both expose `delivery`. */
-type DeliveryDb = Pick<PrismaClient, 'delivery'>;
+/**
+ * Prisma client or transaction client.
+ * Includes `driver` so fleet capacity (numDrivers × truckMax) can be computed.
+ */
+type DeliveryDb = Pick<PrismaClient, 'delivery' | 'driver'>;
 
 export const TRUCK_MAX_ITEMS_PER_DAY = Math.max(
   1,
@@ -123,6 +126,22 @@ const EXCLUDED_FROM_CAPACITY: Set<string> = new Set([
 ]);
 
 /**
+ * Count active drivers whose account has role='driver'.
+ * This determines the total fleet daily capacity (numDrivers × TRUCK_MAX_ITEMS_PER_DAY).
+ * Returns at least 1 so a zero-driver system still has a non-zero capacity ceiling.
+ */
+async function countActiveDeliveryDrivers(db: DeliveryDb): Promise<number> {
+  try {
+    const count = await db.driver.count({
+      where: { active: true, account: { role: 'driver' } }
+    });
+    return Math.max(1, count);
+  } catch {
+    return 1; // safe fallback: treat as single-truck operation
+  }
+}
+
+/**
  * Sum piece counts for deliveries confirmed on this Dubai calendar day (excluding one delivery).
  */
 export async function getTotalItemCountForDeliveryDate(
@@ -160,12 +179,17 @@ export async function getAvailableDatesForDeliveryId(
     return { availableDates: [], orderItemCount, exceedsTruckCapacity: true };
   }
 
+  // Fleet capacity: each active driver has their own truck (TRUCK_MAX_ITEMS_PER_DAY per truck).
+  // A date is available as long as the total fleet still has room for this order.
+  const numDrivers = await countActiveDeliveryDrivers(db);
+  const fleetDailyCapacity = numDrivers * TRUCK_MAX_ITEMS_PER_DAY;
+
   const candidates = getNextSevenEligibleDayIsoStrings();
   const availableDates: string[] = [];
 
   for (const iso of candidates) {
     const used = await getTotalItemCountForDeliveryDate(db, iso, deliveryId);
-    if (used + orderItemCount <= TRUCK_MAX_ITEMS_PER_DAY) {
+    if (used + orderItemCount <= fleetDailyCapacity) {
       availableDates.push(iso);
     }
   }
@@ -193,8 +217,11 @@ export async function assertSlotAvailable(
   if (getDubaiWeekday(isoDate) === 0) {
     throw new Error('Sunday is not available for delivery.');
   }
+  // Use fleet capacity: all active driver trucks combined
+  const numDrivers = await countActiveDeliveryDrivers(db);
+  const fleetDailyCapacity = numDrivers * TRUCK_MAX_ITEMS_PER_DAY;
   const used = await getTotalItemCountForDeliveryDate(db, isoDate, deliveryId);
-  if (used + orderItemCount > TRUCK_MAX_ITEMS_PER_DAY) {
+  if (used + orderItemCount > fleetDailyCapacity) {
     throw new Error(
       'That delivery date is fully booked. Please choose another available date.'
     );
