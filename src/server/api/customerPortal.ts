@@ -179,6 +179,12 @@ router.get('/tracking/:token', async (req: Request, res: Response): Promise<void
           recordedAt: string;
         };
       };
+      scheduling?: {
+        availableDates: string[];
+        orderItemCount: number;
+        exceedsTruckCapacity: boolean;
+        truckMaxItems: number;
+      } | null;
     };
 
     // Parse items if it's a JSON string
