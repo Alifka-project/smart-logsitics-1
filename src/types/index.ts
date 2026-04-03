@@ -72,6 +72,8 @@ export interface Delivery {
   confirmationToken?: string | null;
   tokenExpiresAt?: string | Date | null;
   confirmationStatus?: string | null;
+  confirmedDeliveryDate?: string | Date | null;
+  customerConfirmedAt?: string | Date | null;
   // Computed/enriched fields added on frontend
   distanceFromWarehouse?: number;
   priority?: number;

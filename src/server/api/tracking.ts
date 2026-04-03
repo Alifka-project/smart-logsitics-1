@@ -58,6 +58,11 @@ router.get('/deliveries', authenticate, requireAnyRole('admin', 'delivery_team')
             metadata: true,
             poNumber: true,
             createdAt: true,
+            updatedAt: true,
+            confirmationStatus: true,
+            confirmationToken: true,
+            customerConfirmedAt: true,
+            confirmedDeliveryDate: true,
             assignments: {
               take: 1,
               orderBy: { assignedAt: 'desc' },
@@ -83,7 +88,9 @@ router.get('/deliveries', authenticate, requireAnyRole('admin', 'delivery_team')
       let deliveries = (dbDeliveries as {
         id: string; customer: string | null; address: string | null; phone: string | null;
         lat: number | null; lng: number | null; status: string; items: unknown;
-        metadata: unknown; poNumber: string | null; createdAt: Date;
+        metadata: unknown; poNumber: string | null; createdAt: Date; updatedAt: Date;
+        confirmationStatus: string | null; confirmationToken: string | null;
+        customerConfirmedAt: Date | null; confirmedDeliveryDate: Date | null;
         assignments: { driverId: string | null; status: string; assignedAt: Date | null; driver?: { fullName?: string } | null }[];
       }[]).map(d => ({
         id: d.id,
@@ -99,6 +106,11 @@ router.get('/deliveries', authenticate, requireAnyRole('admin', 'delivery_team')
         created_at: d.createdAt,
         createdAt: d.createdAt,
         created: d.createdAt,
+        updatedAt: d.updatedAt,
+        confirmationStatus: d.confirmationStatus,
+        confirmationToken: d.confirmationToken,
+        customerConfirmedAt: d.customerConfirmedAt,
+        confirmedDeliveryDate: d.confirmedDeliveryDate,
         assignedDriverId: d.assignments?.[0]?.driverId || null,
         driverName: d.assignments?.[0]?.driver?.fullName || null,
         assignmentStatus: d.assignments?.[0]?.status || 'unassigned',

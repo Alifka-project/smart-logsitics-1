@@ -137,7 +137,9 @@ export default function DeliveryTeamPortal() {
     id?: string; customer?: string | null; poNumber?: string | null; status?: string;
     created_at?: string | null; createdAt?: string | null; delivered_at?: string | null;
     deliveredAt?: string | null; address?: string; driverName?: string | null;
-    assignedDriverId?: string | null; confirmationStatus?: string;
+    assignedDriverId?: string | null; confirmationStatus?: string | null;
+    confirmedDeliveryDate?: string | null; customerConfirmedAt?: string | null;
+    confirmationToken?: string | null;
     [key: string]: unknown;
   }
   interface DashData { totals?: DashTotals; deliveries?: DashDelivery[]; generatedAt?: string; }
@@ -570,11 +572,12 @@ export default function DeliveryTeamPortal() {
       const dt = d as unknown as { tracking?: { driverId?: string } };
       return ['pending', 'scheduled'].includes(s) && !d.assignedDriverId && !dt.tracking?.driverId;
     });
+    const PORTAL_TERMINAL = new Set(['delivered','delivered-with-installation','delivered-without-installation','completed','pod-completed','cancelled','rescheduled','returned','out-for-delivery']);
     const awaitingConfirmation = list.filter(d => {
       const s = (d.status || '').toLowerCase();
       const conf = String(d.confirmationStatus || '').toLowerCase();
-      const dt = d as unknown as { customerConfirmedAt?: string };
-      return ['pending', 'scheduled', 'uploaded'].includes(s) && conf !== 'confirmed' && !dt.customerConfirmedAt && conf === 'pending';
+      // Show when SMS has been sent (confirmationStatus = 'pending') and delivery is still active
+      return conf === 'pending' && !PORTAL_TERMINAL.has(s);
     });
     return { overdue, unassigned, awaitingConfirmation };
   }, [deliveries]);
@@ -583,6 +586,9 @@ export default function DeliveryTeamPortal() {
   const getDeliveryStatusBadge = (delivery: Delivery): { label: string; color: string } => {
     const rawStatus = (delivery.status || '').toLowerCase();
     const confirmStatus = (delivery.confirmationStatus || '').toLowerCase();
+    const confirmedDate = delivery.confirmedDeliveryDate
+      ? new Date(delivery.confirmedDeliveryDate as string).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+      : null;
 
     if (rawStatus === 'out-for-delivery' || rawStatus === 'out_for_delivery') {
       return { label: 'Out for Delivery', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' };
@@ -590,19 +596,30 @@ export default function DeliveryTeamPortal() {
     if (rawStatus === 'in-progress' || rawStatus === 'in_progress') {
       return { label: 'In Progress', color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300' };
     }
-    if (rawStatus === 'confirmed' || rawStatus === 'scheduled-confirmed') {
-      return { label: 'Customer Confirmed', color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' };
+    if (rawStatus === 'scheduled-confirmed' || rawStatus === 'confirmed') {
+      const label = confirmedDate ? `Confirmed · ${confirmedDate}` : 'Customer Confirmed';
+      return { label, color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' };
     }
-    if (confirmStatus === 'pending' || confirmStatus === 'unconfirmed') {
+    if (rawStatus === 'cancelled' || rawStatus === 'canceled') {
+      return { label: 'Cancelled', color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' };
+    }
+    if (rawStatus === 'rescheduled') {
+      return { label: confirmedDate ? `Rescheduled · ${confirmedDate}` : 'Rescheduled', color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300' };
+    }
+    if (confirmStatus === 'pending') {
       return { label: 'Awaiting Customer', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' };
     }
     if (rawStatus === 'assigned') {
       return { label: 'Assigned', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300' };
     }
     if (rawStatus === 'scheduled') {
-      return { label: 'Awaiting Customer', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' };
+      return { label: confirmStatus === 'confirmed' ? 'Scheduled' : 'Awaiting Customer', color: confirmStatus === 'confirmed' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' : 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' };
     }
     if (rawStatus === 'pending' || rawStatus === 'uploaded') {
+      // SMS sent but no response yet
+      if (confirmStatus === 'pending') {
+        return { label: 'Awaiting Customer', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' };
+      }
       return { label: 'Pending Order', color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300' };
     }
     return {
