@@ -21,6 +21,7 @@ export type DeliveryStatus =
   | 'cancelled'
   | 'rescheduled'
   | 'returned'
+  | 'order-delay'
   | string; // allow future statuses
 
 export type GeocodeAccuracy = 'HIGH' | 'MEDIUM' | 'LOW' | 'FAILED' | 'UNKNOWN';

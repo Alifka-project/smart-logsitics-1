@@ -102,6 +102,7 @@ export default function DeliveryTeamPortal() {
   const [assigningDelivery, setAssigningDelivery] = useState<string | null>(null);
   const [assignmentMessage, setAssignmentMessage] = useState<AssignmentMessage | null>(null);
   const [markingOFD, setMarkingOFD] = useState<string | null>(null);
+  const [markingDelay, setMarkingDelay] = useState<string | null>(null);
   
   // Communication tab state
   const [selectedContact, setSelectedContact] = useState<ContactUser | null>(null); // Changed from selectedDriver
@@ -579,17 +580,35 @@ export default function DeliveryTeamPortal() {
       // Show when SMS has been sent (confirmationStatus = 'pending') and delivery is still active
       return conf === 'pending' && !PORTAL_TERMINAL.has(s);
     });
-    return { overdue, unassigned, awaitingConfirmation };
+    const orderDelay = list.filter(d => (d.status || '').toLowerCase() === 'order-delay');
+    return { overdue, unassigned, awaitingConfirmation, orderDelay };
   }, [deliveries]);
 
-  // Returns a badge config based on delivery status + confirmationStatus
+  // Returns a badge config based on delivery status + confirmationStatus + confirmedDeliveryDate (Dubai tz)
   const getDeliveryStatusBadge = (delivery: Delivery): { label: string; color: string } => {
     const rawStatus = (delivery.status || '').toLowerCase();
     const confirmStatus = (delivery.confirmationStatus || '').toLowerCase();
-    const confirmedDate = delivery.confirmedDeliveryDate
+
+    // Helper: classify confirmedDeliveryDate relative to Dubai today
+    const classifyShipmentDate = (): 'tomorrow' | 'next' | 'future' | null => {
+      if (!delivery.confirmedDeliveryDate) return null;
+      const DUBAI_OFFSET_MS = 4 * 60 * 60 * 1000;
+      const nowDubai = new Date(Date.now() + DUBAI_OFFSET_MS);
+      const todayMidnightUtc = Date.UTC(nowDubai.getUTCFullYear(), nowDubai.getUTCMonth(), nowDubai.getUTCDate());
+      const confirmedMs = new Date(delivery.confirmedDeliveryDate as string).getTime();
+      const diffDays = Math.floor((confirmedMs - todayMidnightUtc) / 86400000);
+      if (diffDays <= 1) return 'tomorrow';
+      if (diffDays <= 4) return 'next';
+      return 'future';
+    };
+
+    const shortDate = delivery.confirmedDeliveryDate
       ? new Date(delivery.confirmedDeliveryDate as string).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
       : null;
 
+    if (rawStatus === 'order-delay') {
+      return { label: 'Order Delay', color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' };
+    }
     if (rawStatus === 'out-for-delivery' || rawStatus === 'out_for_delivery') {
       return { label: 'Out for Delivery', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' };
     }
@@ -597,14 +616,24 @@ export default function DeliveryTeamPortal() {
       return { label: 'In Progress', color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300' };
     }
     if (rawStatus === 'scheduled-confirmed' || rawStatus === 'confirmed') {
-      const label = confirmedDate ? `Confirmed · ${confirmedDate}` : 'Customer Confirmed';
-      return { label, color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' };
+      const tier = classifyShipmentDate();
+      if (tier === 'tomorrow') {
+        return { label: shortDate ? `Tomorrow Shipment · ${shortDate}` : 'Tomorrow Shipment', color: 'bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300' };
+      }
+      if (tier === 'next') {
+        return { label: shortDate ? `Next Shipment · ${shortDate}` : 'Next Shipment', color: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-300' };
+      }
+      if (tier === 'future') {
+        return { label: shortDate ? `Future Shipment · ${shortDate}` : 'Future Shipment', color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300' };
+      }
+      // No date yet — generic confirmed
+      return { label: 'Customer Confirmed', color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' };
     }
     if (rawStatus === 'cancelled' || rawStatus === 'canceled') {
       return { label: 'Cancelled', color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' };
     }
     if (rawStatus === 'rescheduled') {
-      return { label: confirmedDate ? `Rescheduled · ${confirmedDate}` : 'Rescheduled', color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300' };
+      return { label: shortDate ? `Rescheduled · ${shortDate}` : 'Rescheduled', color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300' };
     }
     if (confirmStatus === 'pending') {
       return { label: 'Awaiting Customer', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' };
@@ -616,7 +645,6 @@ export default function DeliveryTeamPortal() {
       return { label: confirmStatus === 'confirmed' ? 'Scheduled' : 'Awaiting Customer', color: confirmStatus === 'confirmed' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' : 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' };
     }
     if (rawStatus === 'pending' || rawStatus === 'uploaded') {
-      // SMS sent but no response yet
       if (confirmStatus === 'pending') {
         return { label: 'Awaiting Customer', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' };
       }
@@ -921,7 +949,7 @@ export default function DeliveryTeamPortal() {
                 <AlertCircle className="w-5 h-5 text-amber-500" />
                 <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Needs Attention</h2>
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div
                   onClick={() => { document.getElementById('dispatch-table')?.scrollIntoView({ behavior: 'smooth' }); }}
                   className="flex flex-col items-center justify-center p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/30 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors cursor-pointer"
@@ -943,8 +971,15 @@ export default function DeliveryTeamPortal() {
                   <span className="text-xl font-bold text-purple-600 dark:text-purple-400">{actionItems.awaitingConfirmation.length}</span>
                   <span className="text-xs text-purple-700 dark:text-purple-400 mt-0.5 text-center">Awaiting Customer</span>
                 </div>
+                <div
+                  onClick={() => { document.getElementById('dispatch-table')?.scrollIntoView({ behavior: 'smooth' }); }}
+                  className="flex flex-col items-center justify-center p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/30 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors cursor-pointer"
+                >
+                  <span className="text-xl font-bold text-red-600 dark:text-red-400">{actionItems.orderDelay.length}</span>
+                  <span className="text-xs text-red-700 dark:text-red-400 mt-0.5 text-center">Order Delays</span>
+                </div>
               </div>
-              {(actionItems.overdue.length > 0 || actionItems.unassigned.length > 0 || actionItems.awaitingConfirmation.length > 0) && (
+              {(actionItems.overdue.length > 0 || actionItems.unassigned.length > 0 || actionItems.awaitingConfirmation.length > 0 || actionItems.orderDelay.length > 0) && (
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-3 text-center">Tap any card to jump to dispatch table</p>
               )}
             </div>
@@ -1114,11 +1149,11 @@ export default function DeliveryTeamPortal() {
                   <colgroup>
                     <col style={{ width: '80px' }} />   {/* PO # */}
                     <col style={{ width: '90px' }} />   {/* Delivery No. */}
-                    <col style={{ width: '16%' }} />    {/* Customer */}
-                    <col style={{ width: '20%' }} />    {/* Address */}
-                    <col style={{ width: '110px' }} />  {/* Status */}
+                    <col style={{ width: '15%' }} />    {/* Customer */}
+                    <col style={{ width: '18%' }} />    {/* Address */}
+                    <col style={{ width: '150px' }} />  {/* Status */}
                     <col style={{ width: '140px' }} />  {/* Driver */}
-                    <col style={{ width: '100px' }} />  {/* Actions */}
+                    <col style={{ width: '120px' }} />  {/* Actions */}
                   </colgroup>
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
@@ -1200,36 +1235,68 @@ export default function DeliveryTeamPortal() {
                                 </select>
                               </td>
                               <td className="px-3 py-3 text-sm" data-label="Actions">
-                                {['pending', 'scheduled', 'uploaded', 'confirmed', 'scheduled-confirmed'].includes(rawStatus) && (
-                                  <button
-                                    type="button"
-                                    disabled={markingOFD === delivery.id}
-                                    onClick={async () => {
-                                      setMarkingOFD(delivery.id);
-                                      try {
-                                        await api.put(`/deliveries/admin/${delivery.id}/status`, {
-                                          status: 'out-for-delivery',
-                                          customer: delivery.customer,
-                                          address: delivery.address,
-                                        });
-                                        setAssignmentMessage({ type: 'success', text: `✓ ${delivery.customer || 'Delivery'} dispatched — driver notified` });
-                                        setTimeout(() => { void loadData(); setAssignmentMessage(null); }, 2000);
-                                      } catch {
-                                        setAssignmentMessage({ type: 'error', text: 'Failed to dispatch delivery' });
-                                      } finally {
-                                        setMarkingOFD(null);
-                                      }
-                                    }}
-                                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded text-xs font-semibold bg-green-600 hover:bg-green-700 text-white disabled:opacity-60 disabled:cursor-not-allowed"
-                                  >
-                                    {markingOFD === delivery.id ? 'Dispatching…' : '🚚 Dispatch'}
-                                  </button>
-                                )}
-                                {rawStatus === 'out-for-delivery' && (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
-                                    🚛 Out for Delivery
-                                  </span>
-                                )}
+                                <div className="flex flex-col gap-1.5">
+                                  {['pending', 'scheduled', 'uploaded', 'confirmed', 'scheduled-confirmed'].includes(rawStatus) && (
+                                    <button
+                                      type="button"
+                                      disabled={markingOFD === delivery.id || markingDelay === delivery.id}
+                                      onClick={async () => {
+                                        setMarkingOFD(delivery.id);
+                                        try {
+                                          await api.put(`/deliveries/admin/${delivery.id}/status`, {
+                                            status: 'out-for-delivery',
+                                            customer: delivery.customer,
+                                            address: delivery.address,
+                                          });
+                                          setAssignmentMessage({ type: 'success', text: `✓ ${delivery.customer || 'Delivery'} dispatched — driver notified` });
+                                          setTimeout(() => { void loadData(); setAssignmentMessage(null); }, 2000);
+                                        } catch {
+                                          setAssignmentMessage({ type: 'error', text: 'Failed to dispatch delivery' });
+                                        } finally {
+                                          setMarkingOFD(null);
+                                        }
+                                      }}
+                                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded text-xs font-semibold bg-green-600 hover:bg-green-700 text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                                    >
+                                      {markingOFD === delivery.id ? 'Dispatching…' : '🚚 Dispatch'}
+                                    </button>
+                                  )}
+                                  {['pending', 'scheduled', 'uploaded', 'confirmed', 'scheduled-confirmed'].includes(rawStatus) && (
+                                    <button
+                                      type="button"
+                                      disabled={markingDelay === delivery.id || markingOFD === delivery.id}
+                                      onClick={async () => {
+                                        setMarkingDelay(delivery.id);
+                                        try {
+                                          await api.put(`/deliveries/admin/${delivery.id}/status`, {
+                                            status: 'order-delay',
+                                            customer: delivery.customer,
+                                            address: delivery.address,
+                                          });
+                                          setAssignmentMessage({ type: 'success', text: `⚠ ${delivery.customer || 'Order'} marked delayed — customer notified by SMS` });
+                                          setTimeout(() => { void loadData(); setAssignmentMessage(null); }, 2500);
+                                        } catch {
+                                          setAssignmentMessage({ type: 'error', text: 'Failed to mark order delay' });
+                                        } finally {
+                                          setMarkingDelay(null);
+                                        }
+                                      }}
+                                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded text-xs font-semibold bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 disabled:opacity-60 disabled:cursor-not-allowed"
+                                    >
+                                      {markingDelay === delivery.id ? 'Marking…' : '⚠ Order Delay'}
+                                    </button>
+                                  )}
+                                  {rawStatus === 'order-delay' && (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300">
+                                      ⚠ Delayed
+                                    </span>
+                                  )}
+                                  {rawStatus === 'out-for-delivery' && (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                                      🚛 Out for Delivery
+                                    </span>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                           );

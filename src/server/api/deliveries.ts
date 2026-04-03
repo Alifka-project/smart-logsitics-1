@@ -322,6 +322,30 @@ router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_
           });
         }
 
+        // Order delay: logistics team cannot dispatch — notify customer to reschedule
+        if (lowerStatus === 'order-delay') {
+          const body = `Dear ${customerName},\n\nWe regret to inform you that your Electrolux delivery ${poRef} has been delayed and could not be dispatched as scheduled.\n\nOur delivery team will contact you shortly to arrange a new delivery date at your convenience.\n${trackingLink ? `\nYou can also view your order status at:\n${trackingLink}\n` : ''}\nWe apologise for any inconvenience. For assistance, please contact us at +971524408687.\n\nThank you for your patience,\nElectrolux Delivery Team`;
+
+          const smsResult = await smsService.smsAdapter.sendSms({
+            to: phone,
+            body,
+            metadata: { deliveryId: updatedDelivery.id, type: 'status_order_delay' }
+          }) as { messageId?: string; status?: string };
+
+          await prisma.smsLog.create({
+            data: {
+              deliveryId: updatedDelivery.id as string,
+              phoneNumber: phone,
+              messageContent: body,
+              smsProvider: process.env.SMS_PROVIDER || 'd7',
+              externalMessageId: smsResult.messageId,
+              status: smsResult.status || 'sent',
+              sentAt: new Date(),
+              metadata: { type: 'status_order_delay' }
+            }
+          });
+        }
+
         // Order finished: send final thank-you SMS ONLY once, when moving into a true
         // "finished" state (completed / POD done). Do NOT send when the item just arrives.
         const prevStatus = (String(existingDelivery.status || '')).toLowerCase();
