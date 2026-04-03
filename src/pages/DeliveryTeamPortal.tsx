@@ -89,7 +89,7 @@ interface AssignmentMessage {
 }
 
 export default function DeliveryTeamPortal() {
-  const [activeTab, setActiveTab] = useState<string>('monitoring');
+  const [activeTab, setActiveTab] = useState<string>('operations');
   const [drivers, setDrivers] = useState<ContactUser[]>([]);
   const [contacts, setContacts] = useState<ContactUser[]>([]); // All contacts (drivers + team members)
   const [teamMembers, setTeamMembers] = useState<ContactUser[]>([]); // Admin + delivery_team
@@ -819,8 +819,7 @@ export default function DeliveryTeamPortal() {
       <div className="pp-sticky-tab-rail pp-card px-2 py-2 mt-4 md:mt-6 mb-4 md:mb-6 overflow-x-auto">
         <nav className="flex flex-wrap gap-2 min-w-max md:min-w-0">
           {[
-            { id: 'monitoring', label: 'Monitoring', icon: Activity },
-            { id: 'control', label: 'Delivery Control', icon: Settings },
+            { id: 'operations', label: 'Operations', icon: Activity },
             { id: 'deliveries', label: 'Deliveries', icon: Package },
             { id: 'communication', label: 'Communication', icon: MessageSquare },
             { id: 'reports', label: 'Reports & Analytics', icon: BarChart2 },
@@ -843,63 +842,63 @@ export default function DeliveryTeamPortal() {
       {/* Animated tab content — re-mounts on tab change */}
       <div key={activeTab} className="tab-enter">
 
-      {/* Monitoring Tab - mobile: map top, list bottom */}
-      {activeTab === 'monitoring' && (
-        <div className="flex flex-col space-y-4 md:space-y-6">
-          {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-            <div className="pp-card p-4 sm:p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Active Drivers</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
-                    {drivers.filter(d => isContactOnline(d)).length}
-                  </p>
-                </div>
-                <Users className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-              </div>
-            </div>
+      {/* Operations Tab — two-column: left=map+drivers, right=dispatch table */}
+      {activeTab === 'operations' && (
+        <div className="space-y-4 md:space-y-6">
 
-            <div className="pp-card p-4 sm:p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Active Deliveries</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
-                    {activeDeliveries.length}
-                  </p>
+          {/* ── Unified Stats Row ── */}
+          {(() => {
+            const activeAll = deliveries.filter(d => !TERMINAL_STATUSES.has((d.status || '').toLowerCase()));
+            const assignedActive = activeAll.filter(d => {
+              const dt = d as unknown as { tracking?: { driverId?: string } };
+              return !!(dt.tracking?.driverId || d.assignedDriverId);
+            });
+            const unassignedActive = activeAll.filter(d => {
+              const dt = d as unknown as { tracking?: { driverId?: string } };
+              return !dt.tracking?.driverId && !d.assignedDriverId;
+            });
+            const ofd = activeAll.filter(d => (d.status || '').toLowerCase() === 'out-for-delivery');
+            const onlineDrivers = drivers.filter(d => isContactOnline(d)).length;
+            const completedCount = deliveries.filter(d => TERMINAL_STATUSES.has((d.status || '').toLowerCase())).length;
+            return (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div className="pp-card p-4 text-center">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Active Orders</div>
+                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{activeAll.length}</div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">need delivery</div>
                 </div>
-                <Truck className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-              </div>
-            </div>
-
-            <div className="pp-card p-4 sm:p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Completed Today</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
-                    {deliveries.filter(d => d.status === 'delivered').length}
-                  </p>
+                <div className="pp-card p-4 text-center bg-green-50 dark:bg-green-900/20">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Assigned</div>
+                  <div className="text-2xl font-bold text-green-600 dark:text-green-400">{assignedActive.length}</div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">with driver</div>
                 </div>
-                <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
-              </div>
-            </div>
-
-            <div className="pp-card p-4 sm:p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Alerts</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
-                    {alerts.length}
-                  </p>
+                <div className="pp-card p-4 text-center bg-yellow-50 dark:bg-yellow-900/20">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Unassigned</div>
+                  <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{unassignedActive.length}</div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">needs assignment</div>
                 </div>
-                <AlertCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
+                <div className="pp-card p-4 text-center bg-blue-50 dark:bg-blue-900/20">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Out for Delivery</div>
+                  <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{ofd.length}</div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">in transit</div>
+                </div>
+                <div className="pp-card p-4 text-center bg-emerald-50 dark:bg-emerald-900/20">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Completed</div>
+                  <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{completedCount}</div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">all time</div>
+                </div>
+                <div className="pp-card p-4 text-center bg-indigo-50 dark:bg-indigo-900/20">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Online Drivers</div>
+                  <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{onlineDrivers}</div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">of {drivers.length} total</div>
+                </div>
               </div>
-            </div>
-          </div>
+            );
+          })()}
 
           {/* ── Needs Attention + Awaiting Customer Response ── */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Needs Attention panel */}
+            {/* Needs Attention */}
             <div className="pp-card p-4 sm:p-5">
               <div className="flex items-center gap-2 mb-4">
                 <AlertCircle className="w-5 h-5 text-amber-500" />
@@ -907,21 +906,21 @@ export default function DeliveryTeamPortal() {
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div
-                  onClick={() => setActiveTab('control')}
+                  onClick={() => { document.getElementById('dispatch-table')?.scrollIntoView({ behavior: 'smooth' }); }}
                   className="flex flex-col items-center justify-center p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/30 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors cursor-pointer"
                 >
                   <span className="text-xl font-bold text-amber-600 dark:text-amber-400">{actionItems.overdue.length}</span>
                   <span className="text-xs text-amber-700 dark:text-amber-400 mt-0.5 text-center">Pending Orders</span>
                 </div>
                 <div
-                  onClick={() => setActiveTab('control')}
+                  onClick={() => { document.getElementById('dispatch-table')?.scrollIntoView({ behavior: 'smooth' }); }}
                   className="flex flex-col items-center justify-center p-3 rounded-xl bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-800/30 hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors cursor-pointer"
                 >
                   <span className="text-xl font-bold text-orange-600 dark:text-orange-400">{actionItems.unassigned.length}</span>
                   <span className="text-xs text-orange-700 dark:text-orange-400 mt-0.5 text-center">Unassigned</span>
                 </div>
                 <div
-                  onClick={() => setActiveTab('control')}
+                  onClick={() => { document.getElementById('dispatch-table')?.scrollIntoView({ behavior: 'smooth' }); }}
                   className="flex flex-col items-center justify-center p-3 rounded-xl bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800/30 hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors cursor-pointer"
                 >
                   <span className="text-xl font-bold text-purple-600 dark:text-purple-400">{actionItems.awaitingConfirmation.length}</span>
@@ -929,7 +928,7 @@ export default function DeliveryTeamPortal() {
                 </div>
               </div>
               {(actionItems.overdue.length > 0 || actionItems.unassigned.length > 0 || actionItems.awaitingConfirmation.length > 0) && (
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-3 text-center">Tap any card to go to Delivery Control</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-3 text-center">Tap any card to jump to dispatch table</p>
               )}
             </div>
 
@@ -981,16 +980,19 @@ export default function DeliveryTeamPortal() {
             </div>
           </div>
 
-          <div className="flex flex-col lg:grid lg:grid-cols-3 gap-4 lg:gap-6 min-h-0">
-            {/* Live Map - same as Admin Operations: deliveries, route, driver positions */}
-            <div className="lg:col-span-2 pp-card overflow-hidden order-first w-full">
-              <div className="p-3 sm:p-4 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600 flex items-center justify-between gap-2">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Live Operations Map (Tracking + Deliveries + Route)</h2>
-                {routeLoading && (
-                  <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">Calculating route…</span>
-                )}
-              </div>
-              <div className="relative">
+          {/* ── Two-Column Main: Left=Map+Drivers  Right=Dispatch Table ── */}
+          <div className="grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-4 md:gap-6 items-start">
+
+            {/* ── LEFT COLUMN: Live Map + Driver Status + Alerts ── */}
+            <div className="space-y-4">
+              {/* Live Map */}
+              <div className="pp-card overflow-hidden">
+                <div className="p-3 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600 flex items-center justify-between gap-2">
+                  <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-blue-500" /> Live Operations Map
+                  </h2>
+                  {routeLoading && <span className="text-xs text-blue-600 dark:text-blue-400">Calculating route…</span>}
+                </div>
                 <DeliveryMap
                   deliveries={deliveries}
                   route={monitoringRoute}
@@ -1004,339 +1006,217 @@ export default function DeliveryTeamPortal() {
                       lat: d.tracking!.location!.lat,
                       lng: d.tracking!.location!.lng,
                     }))}
-                  mapClassName="h-[42vh] min-h-[240px] lg:h-[500px]"
+                  mapClassName="h-[260px] md:h-[320px]"
                 />
               </div>
-            </div>
 
-            {/* Active Deliveries List - below map on mobile */}
-            <div className="pp-card p-4 sm:p-6 flex flex-col min-h-0 flex-1 lg:flex-initial">
-              <h2 className="text-lg font-semibold mb-3 sm:mb-4 text-gray-900 dark:text-gray-100">Active Deliveries</h2>
-              <div className="space-y-3 flex-1 min-h-0 overflow-y-auto max-h-[50vh] lg:max-h-[500px]">
-                {activeDeliveries.slice(0, 15).map((delivery, idx) => {
-                  const dWithTracking = delivery as unknown as { tracking?: { eta?: string; driverId?: string } };
-                  const driverId = dWithTracking.tracking?.driverId || delivery.assignedDriverId;
-                  const driver = drivers.find(d => String(d.id) === String(driverId));
-                  const driverName = driver ? (driver.fullName || driver.username) : null;
-                  const { label: statusLabel, color: statusColor } = getDeliveryStatusBadge(delivery);
-                  return (
-                    <div key={delivery.id || idx}
-                      className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
-                      <div className="flex items-start justify-between mb-1">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
-                            {delivery.customer || 'Unknown Customer'}
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            PO: {delivery.poNumber || (delivery as unknown as { PONumber?: string }).PONumber || '—'}
-                          </p>
+              {/* Driver Status */}
+              <div className="pp-card p-4">
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+                  <Users className="w-4 h-4 text-indigo-500" /> Driver Status
+                </h2>
+                {drivers.length === 0 ? (
+                  <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">No drivers available</p>
+                ) : (
+                  <div className="space-y-2">
+                    {drivers.map(driver => {
+                      const isOnline = isContactOnline(driver);
+                      const loc = driver.tracking?.location;
+                      return (
+                        <div key={driver.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isOnline ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                            <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                              {driver.fullName || driver.username}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 shrink-0">
+                            {loc && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />GPS</span>}
+                            <span className={isOnline ? 'text-green-600 dark:text-green-400 font-medium' : ''}>
+                              {isOnline ? 'Online' : 'Offline'}
+                            </span>
+                          </div>
                         </div>
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ml-2 shrink-0 ${statusColor}`}>
-                          {statusLabel}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                        {delivery.address || 'No address'}
-                      </p>
-                      <div className="flex items-center justify-between mt-1.5 text-xs text-gray-400 dark:text-gray-500">
-                        {driverName && <span>🚚 {driverName}</span>}
-                        {dWithTracking.tracking?.eta && (
-                          <span>ETA {new Date(dWithTracking.tracking.eta).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-                {activeDeliveries.length === 0 && (
-                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">No active deliveries</div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
-            </div>
-          </div>
 
-          {/* Driver Status Panel */}
-          <div className="pp-card p-4 sm:p-6">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Driver Status</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {drivers.map(driver => {
-                const isOnline = isContactOnline(driver);
-                const driverLocation = driver.tracking?.location;
-                
-                return (
-                  <div
-                    key={driver.id}
-                    className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 transition-colors"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium text-gray-900 dark:text-gray-100">
-                        {driver.fullName || driver.username}
-                      </span>
-                      <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-300'}`} />
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
-                      <div>Status: {isOnline ? 'Online' : 'Offline'}</div>
-                      {driverLocation && (
-                        <div className="flex items-center gap-1">
-                          <MapPin className="w-3 h-3" />
-                          GPS Active
+              {/* Alerts */}
+              {alerts.length > 0 && (
+                <div className="pp-card p-4">
+                  <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-amber-500" /> Alerts
+                    <span className="ml-auto px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-xs font-bold">{alerts.length}</span>
+                  </h2>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {alerts.slice(0, 8).map(alert => (
+                      <div key={alert.id} className="flex items-start gap-2 p-2.5 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                        <AlertCircle className="w-4 h-4 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+                        <div className="min-w-0">
+                          <p className="text-xs text-gray-900 dark:text-gray-100">
+                            <span className="font-medium">{alert.driver || alert.delivery}:</span> {alert.message}
+                          </p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500">{formatMessageTimestamp(alert.timestamp)}</p>
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    ))}
                   </div>
-                );
-              })}
-              {drivers.length === 0 && (
-                <div className="col-span-full text-center py-8 text-gray-500 dark:text-gray-400">
-                  No drivers available
                 </div>
               )}
             </div>
-          </div>
 
-          {/* Alerts Panel */}
-          {alerts.length > 0 && (
-            <div className="pp-card p-4 sm:p-6">
-              <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">System Alerts</h2>
-              <div className="space-y-2">
-                {alerts.slice(0, 5).map(alert => (
-                  <div
-                    key={alert.id}
-                    className="flex items-center gap-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg"
-                  >
-                    <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-900 dark:text-gray-100">
-                        <span className="font-medium">{alert.driver || alert.delivery}:</span> {alert.message}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {formatMessageTimestamp(alert.timestamp)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+            {/* ── RIGHT COLUMN: Dispatch Control Table ── */}
+            <div id="dispatch-table" className="pp-card overflow-hidden">
+              <div className="p-4 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600 flex items-center justify-between gap-2">
+                <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                  <Truck className="w-4 h-4 text-blue-500" /> Assign & Dispatch
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => void loadData()}
+                  className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" /> Refresh
+                </button>
               </div>
-            </div>
-          )}
-        </div>
-      )}
 
-      {/* Delivery Control Tab */}
-      {activeTab === 'control' && (
-        <div className="space-y-6">
-          {/* Stats Cards */}
-          {/* Stats use only non-terminal deliveries so counts match Driver Portal */}
-          {(() => {
-            const activeAll = deliveries.filter(d => !TERMINAL_STATUSES.has((d.status || '').toLowerCase()));
-            const assignedActive = activeAll.filter(d => {
-              const dt = d as unknown as { tracking?: { driverId?: string } };
-              return dt.tracking?.driverId || d.assignedDriverId;
-            });
-            const unassignedActive = activeAll.filter(d => {
-              const dt = d as unknown as { tracking?: { driverId?: string } };
-              return !dt.tracking?.driverId && !d.assignedDriverId;
-            });
-            const completedCount = deliveries.filter(d => TERMINAL_STATUSES.has((d.status || '').toLowerCase())).length;
-            return (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="pp-card p-5 text-center">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Active Orders</div>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{activeAll.length}</div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">need delivery</div>
+              {assignmentMessage && (
+                <div className={`mx-4 mt-3 p-3 rounded-lg text-sm ${
+                  assignmentMessage.type === 'success'
+                    ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-300'
+                    : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300'
+                }`}>
+                  {assignmentMessage.text}
                 </div>
-                <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-5 text-center">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Assigned</div>
-                  <div className="text-2xl font-bold text-green-600 dark:text-green-400">{assignedActive.length}</div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">with driver</div>
-                </div>
-                <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-xl p-5 text-center">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Unassigned</div>
-                  <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{unassignedActive.length}</div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">needs assignment</div>
-                </div>
-                <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-5 text-center">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Completed</div>
-                  <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{completedCount}</div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">all time</div>
-                </div>
-              </div>
-            );
-          })()}
+              )}
 
-          {assignmentMessage && (
-            <div className={`p-4 rounded-lg ${
-              assignmentMessage.type === 'success'
-                ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-300'
-                : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300'
-            }`}>
-              {assignmentMessage.text}
-            </div>
-          )}
-
-          {/* Deliveries Assignment Table */}
-          <div className="pp-card overflow-hidden">
-            <div className="p-4 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Assign Deliveries to Drivers</h2>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="pp-mobile-stack-table min-w-[760px] divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-700">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">PO Number</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Delivery Number</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Customer</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Address</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Assigned Driver</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Change Assignment</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {deliveries && deliveries.length > 0 ? (
-                    deliveries
-                      .filter(delivery => {
-                        // Show only active (non-terminal) deliveries — completed/cancelled
-                        // are excluded so the table stays in sync with the Driver Portal.
-                        return !TERMINAL_STATUSES.has((delivery.status || '').toLowerCase());
-                      })
-                      .sort((a, b) => {
-                        // Assigned first, then unassigned
-                        const aHasDriver = !!(( a as unknown as { tracking?: { driverId?: string } }).tracking?.driverId || a.assignedDriverId);
-                        const bHasDriver = !!(( b as unknown as { tracking?: { driverId?: string } }).tracking?.driverId || b.assignedDriverId);
-                        if (aHasDriver && !bHasDriver) return -1;
-                        if (!aHasDriver && bHasDriver) return 1;
-                        return 0;
-                      })
-                      .map(delivery => {
-                        const dWithTracking = delivery as unknown as { tracking?: { driverId?: string } };
-                        const currentDriverId = dWithTracking.tracking?.driverId || delivery.assignedDriverId;
-                        const currentDriver = drivers.find(d => d.id === currentDriverId);
-                        const rawStatus = (delivery.status || '').toLowerCase();
-                        const { label: statusLabel, color: statusColor } = getDeliveryStatusBadge(delivery);
-                        return (
-                          <tr key={delivery.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100" data-label="PO Number">
-                              {delivery.poNumber || (delivery as unknown as { PONumber?: string }).PONumber || '—'}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400" data-label="Delivery Number">
-                              {(delivery.metadata as { originalDeliveryNumber?: string } | null | undefined)?.originalDeliveryNumber || (delivery as unknown as { _originalDeliveryNumber?: string })._originalDeliveryNumber || '—'}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100" data-label="Customer">
-                              {delivery.customer || 'Unknown'}
-                            </td>
-                            <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate" data-label="Address">
-                              {delivery.address || '—'}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm" data-label="Status">
-                              <span className={`px-2 py-1 rounded-full text-xs font-semibold ${statusColor}`}>
-                                {statusLabel}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm" data-label="Assigned Driver">
-                              {currentDriver ? (
-                                <div className="flex items-center gap-2">
-                                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                                  <span className="text-gray-900 dark:text-gray-100 font-medium">
-                                    {currentDriver.fullName || currentDriver.username}
-                                  </span>
-                                </div>
-                              ) : (
-                                <span className="text-gray-400 italic">Unassigned</span>
-                              )}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm" data-label="Change Assignment">
-                              <select
-                                value={currentDriverId || ''}
-                                onChange={async (e: React.ChangeEvent<HTMLSelectElement>) => {
-                                  const newDriverId = e.target.value;
-                                  if (!newDriverId) return;
-
-                                  setAssigningDelivery(delivery.id);
-                                  setAssignmentMessage(null);
-
-                                  try {
-                                    await api.put(`/deliveries/admin/${delivery.id}/assign`, { driverId: newDriverId });
-
-                                    setAssignmentMessage({
-                                      type: 'success',
-                                      text: `✓ Delivery assigned to ${drivers.find(d => d.id === newDriverId)?.fullName || 'driver'}`
-                                    });
-
-                                    setTimeout(() => {
-                                      void loadData();
-                                      setAssignmentMessage(null);
-                                    }, 2000);
-                                  } catch {
-                                    setAssignmentMessage({
-                                      type: 'error',
-                                      text: 'Failed to assign delivery'
-                                    });
-                                  } finally {
-                                    setAssigningDelivery(null);
-                                  }
-                                }}
-                                disabled={assigningDelivery === delivery.id}
-                                className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 disabled:opacity-50"
-                              >
-                                {/* Placeholder shown when no driver is assigned */}
-                                {!currentDriverId && (
-                                  <option value="">— Select driver —</option>
-                                )}
-                                {drivers.map(driver => (
-                                  <option key={driver.id} value={driver.id}>
-                                    {driver.fullName || driver.username}
-                                  </option>
-                                ))}
-                              </select>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm" data-label="Actions">
-                              {/* Dispatch button: show for all pre-terminal, non-OFD statuses */}
-                              {['pending', 'scheduled', 'uploaded', 'confirmed', 'scheduled-confirmed'].includes(rawStatus) && (
-                                <button
-                                  type="button"
-                                  disabled={markingOFD === delivery.id}
-                                  onClick={async () => {
-                                    setMarkingOFD(delivery.id);
+              <div className="overflow-x-auto">
+                <table className="pp-mobile-stack-table min-w-[760px] divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">PO #</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Customer</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Address</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Driver</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    {deliveries && deliveries.length > 0 ? (
+                      deliveries
+                        .filter(delivery => !TERMINAL_STATUSES.has((delivery.status || '').toLowerCase()))
+                        .sort((a, b) => {
+                          const aHasDriver = !!(( a as unknown as { tracking?: { driverId?: string } }).tracking?.driverId || a.assignedDriverId);
+                          const bHasDriver = !!(( b as unknown as { tracking?: { driverId?: string } }).tracking?.driverId || b.assignedDriverId);
+                          if (aHasDriver && !bHasDriver) return -1;
+                          if (!aHasDriver && bHasDriver) return 1;
+                          return 0;
+                        })
+                        .map(delivery => {
+                          const dWithTracking = delivery as unknown as { tracking?: { driverId?: string } };
+                          const currentDriverId = dWithTracking.tracking?.driverId || delivery.assignedDriverId;
+                          const currentDriver = drivers.find(d => d.id === currentDriverId);
+                          const rawStatus = (delivery.status || '').toLowerCase();
+                          const { label: statusLabel, color: statusColor } = getDeliveryStatusBadge(delivery);
+                          return (
+                            <tr key={delivery.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100" data-label="PO #">
+                                {delivery.poNumber || (delivery as unknown as { PONumber?: string }).PONumber || '—'}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100" data-label="Customer">
+                                <div className="font-medium truncate max-w-[140px]">{delivery.customer || 'Unknown'}</div>
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 max-w-[160px] truncate" data-label="Address">
+                                {delivery.address || '—'}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm" data-label="Status">
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusColor}`}>
+                                  {statusLabel}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm" data-label="Driver">
+                                <select
+                                  value={currentDriverId || ''}
+                                  onChange={async (e: React.ChangeEvent<HTMLSelectElement>) => {
+                                    const newDriverId = e.target.value;
+                                    if (!newDriverId) return;
+                                    setAssigningDelivery(delivery.id);
+                                    setAssignmentMessage(null);
                                     try {
-                                      await api.put(`/deliveries/admin/${delivery.id}/status`, {
-                                        status: 'out-for-delivery',
-                                        customer: delivery.customer,
-                                        address: delivery.address,
+                                      await api.put(`/deliveries/admin/${delivery.id}/assign`, { driverId: newDriverId });
+                                      setAssignmentMessage({
+                                        type: 'success',
+                                        text: `✓ Assigned to ${drivers.find(d => d.id === newDriverId)?.fullName || 'driver'}`
                                       });
-                                      setAssignmentMessage({ type: 'success', text: `✓ ${delivery.customer || 'Delivery'} dispatched — driver notified` });
                                       setTimeout(() => { void loadData(); setAssignmentMessage(null); }, 2000);
                                     } catch {
-                                      setAssignmentMessage({ type: 'error', text: 'Failed to dispatch delivery' });
+                                      setAssignmentMessage({ type: 'error', text: 'Failed to assign delivery' });
                                     } finally {
-                                      setMarkingOFD(null);
+                                      setAssigningDelivery(null);
                                     }
                                   }}
-                                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded text-xs font-semibold bg-green-600 hover:bg-green-700 text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                                  disabled={assigningDelivery === delivery.id}
+                                  className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-xs text-gray-900 dark:text-gray-100 disabled:opacity-50 max-w-[130px]"
                                 >
-                                  {markingOFD === delivery.id ? 'Dispatching…' : '🚚 Dispatch'}
-                                </button>
-                              )}
-                              {/* Already dispatched — show status badge + allow re-assign driver */}
-                              {rawStatus === 'out-for-delivery' && (
-                                <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
-                                  🚛 Out for Delivery
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })
-                  ) : (
-                    <tr>
-                      <td colSpan={8} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
-                        No deliveries available
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                                  {!currentDriverId && <option value="">— Select driver —</option>}
+                                  {drivers.map(driver => (
+                                    <option key={driver.id} value={driver.id}>
+                                      {driver.fullName || driver.username}
+                                    </option>
+                                  ))}
+                                </select>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm" data-label="Actions">
+                                {['pending', 'scheduled', 'uploaded', 'confirmed', 'scheduled-confirmed'].includes(rawStatus) && (
+                                  <button
+                                    type="button"
+                                    disabled={markingOFD === delivery.id}
+                                    onClick={async () => {
+                                      setMarkingOFD(delivery.id);
+                                      try {
+                                        await api.put(`/deliveries/admin/${delivery.id}/status`, {
+                                          status: 'out-for-delivery',
+                                          customer: delivery.customer,
+                                          address: delivery.address,
+                                        });
+                                        setAssignmentMessage({ type: 'success', text: `✓ ${delivery.customer || 'Delivery'} dispatched — driver notified` });
+                                        setTimeout(() => { void loadData(); setAssignmentMessage(null); }, 2000);
+                                      } catch {
+                                        setAssignmentMessage({ type: 'error', text: 'Failed to dispatch delivery' });
+                                      } finally {
+                                        setMarkingOFD(null);
+                                      }
+                                    }}
+                                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded text-xs font-semibold bg-green-600 hover:bg-green-700 text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                                  >
+                                    {markingOFD === delivery.id ? 'Dispatching…' : '🚚 Dispatch'}
+                                  </button>
+                                )}
+                                {rawStatus === 'out-for-delivery' && (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                                    🚛 Out for Delivery
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })
+                    ) : (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                          No active deliveries
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
+
         </div>
       )}
 
