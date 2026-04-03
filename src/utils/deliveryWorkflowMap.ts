@@ -2,6 +2,7 @@ import type { Delivery } from '../types';
 import type { DeliveryOrder, DeliveryStatus } from '../types/delivery';
 
 const UNCONFIRMED_HOURS = 48;
+const DUBAI_OFFSET_MS = 4 * 60 * 60 * 1000; // UTC+4
 
 function parseOptDate(v: unknown): Date | undefined {
   if (v == null || v === '') return undefined;
@@ -37,6 +38,34 @@ function isFutureBeyondTomorrow(date: Date): boolean {
   return startOfDay(date).getTime() >= startOfDay(dayAfter).getTime();
 }
 
+/**
+ * Classify a confirmedDeliveryDate relative to Dubai "today" into a shipment tier.
+ * - 'tomorrow'  : Day+1 (confirmed for next day)
+ * - 'next'      : Day+2+ but day-before the confirmed date is a no-delivery day
+ *                 (Friday=5 / Saturday=6 / Sunday=0). Covers skip-Sunday and
+ *                 skip-weekend scenarios common in UAE operations.
+ * - 'future'    : Day+2+ on a normal working day
+ */
+export function classifyConfirmedDate(date: Date): 'tomorrow' | 'next' | 'future' {
+  const nowDubai = new Date(Date.now() + DUBAI_OFFSET_MS);
+  const todayMidnightUtcMs = Date.UTC(
+    nowDubai.getUTCFullYear(),
+    nowDubai.getUTCMonth(),
+    nowDubai.getUTCDate(),
+  );
+  const diffDays = Math.floor((date.getTime() - todayMidnightUtcMs) / 86400000);
+
+  if (diffDays <= 1) return 'tomorrow';
+
+  // If the day immediately before the confirmed date is a no-delivery day, the
+  // delivery was pushed past it → label as "Next Shipment".
+  const dayBefore = new Date(date.getTime() - 86400000);
+  const dow = dayBefore.getUTCDay(); // 0=Sun, 5=Fri, 6=Sat
+  if (dow === 0 || dow === 5 || dow === 6) return 'next';
+
+  return 'future';
+}
+
 function priorityFromDelivery(d: Delivery): 'normal' | 'high' | 'urgent' | undefined {
   const n = d.priority;
   if (n === 1) return 'urgent';
@@ -47,10 +76,10 @@ function priorityFromDelivery(d: Delivery): 'normal' | 'high' | 'urgent' | undef
 
 function deriveWorkflowStatus(d: Delivery, smsSentAt: Date | undefined): DeliveryStatus {
   const s = (d.status || '').toLowerCase();
-  const rec = d as Record<string, unknown>;
 
   if (s === 'cancelled') return 'cancelled';
   if (s === 'rescheduled') return 'rescheduled';
+  if (s === 'order-delay') return 'order_delay';
   if (s === 'returned' || s === 'failed' || (s && s.includes('fail'))) return 'failed';
 
   if (
@@ -71,13 +100,31 @@ function deriveWorkflowStatus(d: Delivery, smsSentAt: Date | undefined): Deliver
   if (['out-for-delivery', 'in-transit', 'in-progress'].includes(s)) return 'out_for_delivery';
 
   if (s === 'confirmed' || s === 'scheduled-confirmed') {
+    // Prefer the customer-confirmed delivery date for classification
+    const confirmedDate =
+      parseOptDate(d.confirmedDeliveryDate) ??
+      parseOptDate(d.customerConfirmedAt);
+
+    if (confirmedDate) {
+      const tier = classifyConfirmedDate(confirmedDate);
+      if (tier === 'tomorrow') return 'tomorrow_shipment';
+      if (tier === 'next') return 'next_shipment';
+      return 'future_shipment';
+    }
+
+    // Fallback: use metadata scheduledDate (admin-set)
     const target =
       parseOptDate(d.metadata?.scheduledDate) ??
       parseOptDate((d.metadata as Record<string, unknown> | null)?.scheduled_date) ??
       (d.estimatedTime instanceof Date ? d.estimatedTime : parseOptDate(d.estimatedTime));
 
-    if (target && isFutureBeyondTomorrow(target)) return 'scheduled';
-    return 'confirmed';
+    if (target) {
+      const tier = classifyConfirmedDate(target);
+      if (tier === 'tomorrow') return 'tomorrow_shipment';
+      if (tier === 'next') return 'next_shipment';
+      if (isFutureBeyondTomorrow(target)) return 'future_shipment';
+    }
+    return 'confirmed'; // no date info — generic confirmed
   }
 
   if (s === 'scheduled') {
@@ -146,6 +193,10 @@ export function deliveryToManageOrder(delivery: Delivery): DeliveryOrder {
     (delivery._originalDeliveryNumber != null && String(delivery._originalDeliveryNumber).trim()) ||
     null;
 
+  const confirmedDeliveryDate =
+    parseOptDate(delivery.confirmedDeliveryDate) ??
+    parseOptDate(delivery.customerConfirmedAt);
+
   return {
     id: delivery.id,
     orderNumber,
@@ -163,7 +214,8 @@ export function deliveryToManageOrder(delivery: Delivery): DeliveryOrder {
     uploadedAt,
     smssentAt: smsSentAt,
     confirmedAt,
-    scheduledDate: scheduledDate ?? (status === 'scheduled' ? parseOptDate(delivery.estimatedTime) : undefined),
+    scheduledDate: scheduledDate ?? (['scheduled', 'next_shipment', 'future_shipment'].includes(status) ? parseOptDate(delivery.estimatedTime) : undefined),
+    confirmedDeliveryDate,
     deliveryDate: deliveredAt,
     driverId: delivery.assignedDriverId ?? undefined,
     driverName: (rec.driverName as string) || delivery.driverName || undefined,
@@ -190,9 +242,14 @@ export function workflowToApiPatch(
     case 'unconfirmed':
       return { apiStatus: 'scheduled', updateData: { metadata: meta as Delivery['metadata'] } };
     case 'confirmed':
-      return { apiStatus: 'confirmed', updateData: { metadata: meta as Delivery['metadata'] } };
+    case 'tomorrow_shipment':
+    case 'next_shipment':
+    case 'future_shipment':
+      return { apiStatus: 'scheduled-confirmed', updateData: { metadata: meta as Delivery['metadata'] } };
     case 'scheduled':
       return { apiStatus: 'scheduled-confirmed', updateData: { metadata: meta as Delivery['metadata'] } };
+    case 'order_delay':
+      return { apiStatus: 'order-delay', updateData: { metadata: meta as Delivery['metadata'] } };
     case 'out_for_delivery':
       return { apiStatus: 'out-for-delivery', updateData: { metadata: meta as Delivery['metadata'] } };
     case 'delivered':

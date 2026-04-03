@@ -594,11 +594,15 @@ export default function DeliveryTeamPortal() {
       if (!delivery.confirmedDeliveryDate) return null;
       const DUBAI_OFFSET_MS = 4 * 60 * 60 * 1000;
       const nowDubai = new Date(Date.now() + DUBAI_OFFSET_MS);
-      const todayMidnightUtc = Date.UTC(nowDubai.getUTCFullYear(), nowDubai.getUTCMonth(), nowDubai.getUTCDate());
+      const todayMidnightUtcMs = Date.UTC(nowDubai.getUTCFullYear(), nowDubai.getUTCMonth(), nowDubai.getUTCDate());
       const confirmedMs = new Date(delivery.confirmedDeliveryDate as string).getTime();
-      const diffDays = Math.floor((confirmedMs - todayMidnightUtc) / 86400000);
+      const diffDays = Math.floor((confirmedMs - todayMidnightUtcMs) / 86400000);
       if (diffDays <= 1) return 'tomorrow';
-      if (diffDays <= 4) return 'next';
+      // "Next Shipment" = day immediately before confirmed date is a no-delivery day
+      // (Friday=5 / Saturday=6 / Sunday=0) — delivery bumped past weekend or Sunday.
+      const dayBefore = new Date(confirmedMs - 86400000);
+      const dow = dayBefore.getUTCDay();
+      if (dow === 0 || dow === 5 || dow === 6) return 'next';
       return 'future';
     };
 

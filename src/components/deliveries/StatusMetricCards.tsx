@@ -8,30 +8,32 @@ interface StatusMetricCardsProps {
 }
 
 const CARD_DEFS = [
-  { key: 'uploaded', sublabel: 'No SMS sent', darkIconBg: 'dark:bg-blue-500/30' },
-  { key: 'sms_sent', sublabel: 'SMS sent', darkIconBg: 'dark:bg-emerald-500/30' },
-  { key: 'unconfirmed', sublabel: 'No reply 48h+', darkIconBg: 'dark:bg-red-500/35' },
-  { key: 'confirmed', sublabel: 'Tomorrow', darkIconBg: 'dark:bg-amber-500/35' },
-  { key: 'scheduled', sublabel: 'Future date', darkIconBg: 'dark:bg-indigo-500/30' },
-  { key: 'out_for_delivery', sublabel: 'On route', darkIconBg: 'dark:bg-orange-500/30' },
-  { key: 'delivered', sublabel: 'Done', darkIconBg: 'dark:bg-green-500/35' },
+  { key: 'uploaded',          sublabel: 'No SMS sent',    darkIconBg: 'dark:bg-blue-500/30' },
+  { key: 'sms_sent',          sublabel: 'SMS sent',        darkIconBg: 'dark:bg-emerald-500/30' },
+  { key: 'unconfirmed',       sublabel: 'No reply 48h+',  darkIconBg: 'dark:bg-red-500/35' },
+  { key: 'tomorrow_shipment', sublabel: 'Ships tomorrow',  darkIconBg: 'dark:bg-teal-500/35' },
+  { key: 'next_shipment',     sublabel: 'Skip day',        darkIconBg: 'dark:bg-cyan-500/30' },
+  { key: 'future_shipment',   sublabel: 'Later date',      darkIconBg: 'dark:bg-indigo-500/30' },
+  { key: 'out_for_delivery',  sublabel: 'On route',        darkIconBg: 'dark:bg-orange-500/30' },
+  { key: 'delivered',         sublabel: 'Done',            darkIconBg: 'dark:bg-green-500/35' },
 ] as const;
 
 /** Read-only KPI strip — filters live on the table tabs below (no duplicate click-to-filter). */
 export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({ orders }) => {
   const statusCounts = {
-    uploaded: orders.filter((o) => o.status === 'uploaded').length,
-    sms_sent: orders.filter((o) => o.status === 'sms_sent').length,
-    unconfirmed: orders.filter((o) => o.status === 'unconfirmed').length,
-    confirmed: orders.filter((o) => o.status === 'confirmed').length,
-    scheduled: orders.filter((o) => o.status === 'scheduled').length,
-    out_for_delivery: orders.filter((o) => o.status === 'out_for_delivery').length,
-    delivered: orders.filter((o) => o.status === 'delivered').length,
+    uploaded:          orders.filter((o) => o.status === 'uploaded').length,
+    sms_sent:          orders.filter((o) => o.status === 'sms_sent').length,
+    unconfirmed:       orders.filter((o) => o.status === 'unconfirmed').length,
+    tomorrow_shipment: orders.filter((o) => o.status === 'tomorrow_shipment').length,
+    next_shipment:     orders.filter((o) => o.status === 'next_shipment').length,
+    future_shipment:   orders.filter((o) => o.status === 'future_shipment').length,
+    out_for_delivery:  orders.filter((o) => o.status === 'out_for_delivery').length,
+    delivered:         orders.filter((o) => o.status === 'delivered').length,
   };
 
   return (
     <div className="status-cards-mobile overflow-x-auto pb-1 -mx-1 px-1 lg:mx-0 lg:px-0">
-      <div className="grid grid-cols-2 min-[480px]:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 w-full min-w-0">
+      <div className="grid grid-cols-2 min-[480px]:grid-cols-4 md:grid-cols-4 lg:grid-cols-8 gap-3 w-full min-w-0">
         {CARD_DEFS.map(({ key, sublabel, darkIconBg }) => {
           const config = STATUS_CONFIG[key as keyof typeof statusCounts];
           const count = statusCounts[key as keyof typeof statusCounts];

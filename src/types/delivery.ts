@@ -6,8 +6,12 @@ export type DeliveryStatus =
   | 'uploaded'
   | 'sms_sent'
   | 'unconfirmed'
-  | 'confirmed'
-  | 'scheduled'
+  | 'confirmed'        // legacy fallback (no confirmedDeliveryDate available)
+  | 'tomorrow_shipment'  // confirmed, date = tomorrow
+  | 'next_shipment'      // confirmed, date skips a no-delivery day (Sun/Fri/Sat)
+  | 'future_shipment'    // confirmed, date = 2+ days out
+  | 'scheduled'          // legacy fallback
+  | 'order_delay'        // logistics cannot dispatch
   | 'out_for_delivery'
   | 'delivered'
   | 'failed'
@@ -32,6 +36,7 @@ export interface DeliveryOrder {
   smssentAt?: Date;
   confirmedAt?: Date;
   scheduledDate?: Date;
+  confirmedDeliveryDate?: Date;
   deliveryDate?: Date;
   driverId?: string;
   driverName?: string;

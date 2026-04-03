@@ -6,7 +6,7 @@ import { RescheduleModal } from './RescheduleModal';
 import PaginationBar from '../common/PaginationBar';
 import { rescheduleDateToWorkflow } from '../../utils/deliveryWorkflowMap';
 
-export type OrdersTableTab = 'all' | 'pending' | 'awaiting_customer' | 'confirmed' | 'scheduled' | 'out_for_delivery';
+export type OrdersTableTab = 'all' | 'pending' | 'awaiting_customer' | 'confirmed' | 'scheduled' | 'out_for_delivery' | 'order_delay';
 
 function OrderStatusPill({
   status,
@@ -66,22 +66,27 @@ interface OrdersTableProps {
   onSortChange: (sort: string) => void;
 }
 
+const CONFIRMED_STATUSES = new Set<DeliveryStatus>(['confirmed', 'tomorrow_shipment', 'next_shipment', 'future_shipment']);
+const SCHEDULED_STATUSES = new Set<DeliveryStatus>(['scheduled', 'next_shipment', 'future_shipment']);
+
 function matchesTableTab(order: DeliveryOrder, tab: OrdersTableTab): boolean {
   switch (tab) {
     case 'all':
       return true;
     case 'pending':
-      // Pending Order = new order, no SMS sent yet
       return order.status === 'uploaded';
     case 'awaiting_customer':
-      // Awaiting Customer = SMS sent (waiting for reply) OR no response after 48h
       return order.status === 'sms_sent' || order.status === 'unconfirmed';
     case 'confirmed':
-      return order.status === 'confirmed';
+      // "Confirmed" tab = all customer-confirmed orders (tomorrow/next/future/generic)
+      return CONFIRMED_STATUSES.has(order.status);
     case 'scheduled':
-      return order.status === 'scheduled';
+      // "Scheduled" tab = next + future shipment (confirmed beyond tomorrow)
+      return SCHEDULED_STATUSES.has(order.status);
     case 'out_for_delivery':
       return order.status === 'out_for_delivery';
+    case 'order_delay':
+      return order.status === 'order_delay';
     default:
       return true;
   }
@@ -161,14 +166,35 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
   const paginatedOrders = sortedOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const getDeliveryDateDisplay = (order: DeliveryOrder) => {
-    if (order.status === 'confirmed') return <span className="text-green-600 dark:text-green-400">Tomorrow</span>;
-    if (order.status === 'scheduled' && order.scheduledDate) {
-      return (
-        <span className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-200 rounded text-xs">
-          {order.scheduledDate.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })}
-        </span>
-      );
+    const dateSource = order.confirmedDeliveryDate ?? order.scheduledDate;
+    const fmtDate = (d: Date) =>
+      d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+
+    if (order.status === 'tomorrow_shipment') {
+      const label = dateSource ? fmtDate(dateSource) : 'Tomorrow';
+      return <span className="font-medium text-teal-700 dark:text-teal-300">{label}</span>;
     }
+    if (order.status === 'next_shipment') {
+      return dateSource ? (
+        <span className="px-2 py-0.5 bg-cyan-100 dark:bg-cyan-900/50 text-cyan-700 dark:text-cyan-200 rounded text-xs">
+          {fmtDate(dateSource)}
+        </span>
+      ) : <span className="text-cyan-600 dark:text-cyan-400">Next avail.</span>;
+    }
+    if (order.status === 'future_shipment' || order.status === 'scheduled') {
+      return dateSource ? (
+        <span className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-200 rounded text-xs">
+          {fmtDate(dateSource)}
+        </span>
+      ) : <span className="text-indigo-600 dark:text-indigo-400">Future date</span>;
+    }
+    if (order.status === 'confirmed') {
+      return dateSource ? (
+        <span className="text-amber-600 dark:text-amber-400">{fmtDate(dateSource)}</span>
+      ) : <span className="text-amber-600 dark:text-amber-400">Confirmed</span>;
+    }
+    if (order.status === 'order_delay')
+      return <span className="text-red-600 dark:text-red-400">Delayed</span>;
     if (order.status === 'out_for_delivery')
       return <span className="font-medium text-[#002D5B] dark:text-blue-200">Today</span>;
     if (order.status === 'unconfirmed')
@@ -237,9 +263,45 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
             {ofdButton(order.id)}
           </>
         );
+      case 'tomorrow_shipment':
+        return (
+          <>
+            <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300">
+              Tomorrow Shipment
+            </span>
+            <button
+              type="button"
+              onClick={() => setRescheduleOrder(order)}
+              className="px-3 py-1 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              Reschedule
+            </button>
+            {ofdButton(order.id)}
+          </>
+        );
+      case 'next_shipment':
+        return (
+          <>
+            <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300">
+              Next Shipment
+            </span>
+            <button
+              type="button"
+              onClick={() => setRescheduleOrder(order)}
+              className="px-3 py-1 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              Reschedule
+            </button>
+            {ofdButton(order.id)}
+          </>
+        );
+      case 'future_shipment':
       case 'scheduled':
         return (
           <>
+            <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+              Future Shipment
+            </span>
             <button
               type="button"
               onClick={() => setRescheduleOrder(order)}
@@ -262,6 +324,12 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
             </button>
             {ofdButton(order.id)}
           </>
+        );
+      case 'order_delay':
+        return (
+          <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
+            ⚠ Order Delayed
+          </span>
         );
       case 'out_for_delivery':
         return (
@@ -290,12 +358,25 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
       label: 'Awaiting Customer',
       count: orders.filter((o) => o.status === 'sms_sent' || o.status === 'unconfirmed').length,
     },
-    { key: 'confirmed', label: 'Confirmed', count: orders.filter((o) => o.status === 'confirmed').length },
-    { key: 'scheduled', label: 'Scheduled', count: orders.filter((o) => o.status === 'scheduled').length },
+    {
+      key: 'confirmed',
+      label: 'Confirmed',
+      count: orders.filter((o) => CONFIRMED_STATUSES.has(o.status)).length,
+    },
+    {
+      key: 'scheduled',
+      label: 'Next & Future',
+      count: orders.filter((o) => SCHEDULED_STATUSES.has(o.status)).length,
+    },
     {
       key: 'out_for_delivery',
-      label: 'Out for Delivery',
+      label: 'On Route',
       count: orders.filter((o) => o.status === 'out_for_delivery').length,
+    },
+    {
+      key: 'order_delay',
+      label: 'Order Delay',
+      count: orders.filter((o) => o.status === 'order_delay').length,
     },
   ];
 
