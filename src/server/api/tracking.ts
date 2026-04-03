@@ -38,13 +38,23 @@ router.get('/deliveries', authenticate, requireAnyRole('admin', 'delivery_team')
     const data = await cache.getOrFetch('tracking:deliveries:v2', async () => {
       let dbDeliveries: unknown[] = [];
       try {
-        // Only fetch active (non-terminal) deliveries so the live map never
-        // shows completed/cancelled stops from previous days.
-        const TERMINAL = ['delivered','delivered-with-installation','delivered-without-installation',
-          'completed','pod-completed','cancelled','rescheduled','returned'];
+        // Statuses permanently excluded (never shown on portal/manage tab).
+        const ALWAYS_EXCLUDED = ['cancelled', 'rescheduled', 'returned'];
+        // Delivered-type statuses: excluded beyond 24 h but included for today's card.
+        const DELIVERED_STATUSES = [
+          'delivered', 'delivered-with-installation', 'delivered-without-installation',
+          'completed', 'pod-completed', 'finished',
+        ];
+        const cutoff24h = new Date(Date.now() - 86_400_000); // 24 hours ago
+
         dbDeliveries = await prisma.delivery.findMany({
           where: {
-            status: { notIn: TERMINAL }
+            OR: [
+              // All active (non-terminal) deliveries
+              { status: { notIn: [...ALWAYS_EXCLUDED, ...DELIVERED_STATUSES] } },
+              // Recently delivered (last 24 h) — powers the "Delivered Today" card
+              { status: { in: DELIVERED_STATUSES }, updatedAt: { gte: cutoff24h } },
+            ],
           },
           select: {
             id: true,

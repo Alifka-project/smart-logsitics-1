@@ -195,6 +195,12 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
     }
     if (order.status === 'order_delay')
       return <span className="text-red-600 dark:text-red-400">Delayed</span>;
+    if (order.status === 'delivered') {
+      const dDate = order.deliveryDate ?? order.confirmedDeliveryDate;
+      return dDate ? (
+        <span className="font-medium text-green-600 dark:text-green-400">{fmtDate(dDate)}</span>
+      ) : <span className="font-medium text-green-600 dark:text-green-400">Delivered</span>;
+    }
     if (order.status === 'out_for_delivery')
       return <span className="font-medium text-[#002D5B] dark:text-blue-200">Today</span>;
     if (order.status === 'unconfirmed')
@@ -329,6 +335,12 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
         return (
           <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
             ⚠ Order Delayed
+          </span>
+        );
+      case 'delivered':
+        return (
+          <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+            ✓ Delivered
           </span>
         );
       case 'out_for_delivery':

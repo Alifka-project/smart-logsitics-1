@@ -37,8 +37,7 @@ export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({ orders }) 
         {CARD_DEFS.map(({ key, sublabel, darkIconBg }) => {
           const config = STATUS_CONFIG[key as keyof typeof statusCounts];
           const count = statusCounts[key as keyof typeof statusCounts];
-          const isHighlight = Boolean(config.highlight);
-          const isFaded = key === 'delivered' && count === 0;
+          const isHighlight = Boolean(config.highlight) || (key === 'delivered' && count > 0);
 
           return (
             <div
@@ -47,11 +46,12 @@ export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({ orders }) 
               relative flex flex-col rounded-xl bg-white dark:bg-gray-800/80 p-3 pt-3.5 pb-3.5 text-left
               w-full min-w-0 shadow-sm border
               ${
-                isHighlight
+                key === 'delivered' && count > 0
+                  ? 'border-2 border-green-400/90'
+                  : isHighlight
                   ? 'border-2 border-amber-400/90'
                   : 'border border-gray-200 dark:border-gray-600'
               }
-              ${isFaded ? 'opacity-50' : ''}
             `}
             >
               <div className="flex items-start justify-between gap-2">
