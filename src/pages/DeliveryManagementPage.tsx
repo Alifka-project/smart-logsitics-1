@@ -48,9 +48,17 @@ interface DeliveryManagementPageProps {
 export default function DeliveryManagementPage({ hideManageTab = false }: DeliveryManagementPageProps) {
   const deliveries = useDeliveryStore((state) => state.deliveries ?? []);
   const deliveryListFilter = useDeliveryStore((state) => state.deliveryListFilter ?? 'all');
+  const manageTabFilter = useDeliveryStore((state) => state.manageTabFilter);
   const loadDeliveries = useDeliveryStore((state) => state.loadDeliveries);
   const addCompletedUpload = useDeliveryStore((state) => state.addCompletedUpload);
   const [activeTab, setActiveTab] = useState<string>(hideManageTab ? 'deliveries' : 'manage');
+
+  // When a Needs Attention card sets a filter, switch to the manage sub-tab so the OrdersTable shows
+  useEffect(() => {
+    if (manageTabFilter && !hideManageTab) {
+      setActiveTab('manage');
+    }
+  }, [manageTabFilter, hideManageTab]);
 
   const displayDeliveries = useMemo(
     () => applyDeliveryListFilter(deliveries, deliveryListFilter),

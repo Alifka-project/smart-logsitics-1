@@ -957,30 +957,28 @@ export default function DeliveryTeamPortal() {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {([
-                  { filterKey: 'overdue' as const, count: actionItems.overdue.length, label: 'Pending Orders', bg: 'bg-amber-50 dark:bg-amber-900/20', border: 'border-amber-100 dark:border-amber-800/30', hover: 'hover:bg-amber-100 dark:hover:bg-amber-900/30', countColor: 'text-amber-600 dark:text-amber-400', labelColor: 'text-amber-700 dark:text-amber-400', activeBorder: 'ring-2 ring-amber-400' },
-                  { filterKey: 'unassigned' as const, count: actionItems.unassigned.length, label: 'Unassigned', bg: 'bg-orange-50 dark:bg-orange-900/20', border: 'border-orange-100 dark:border-orange-800/30', hover: 'hover:bg-orange-100 dark:hover:bg-orange-900/30', countColor: 'text-orange-600 dark:text-orange-400', labelColor: 'text-orange-700 dark:text-orange-400', activeBorder: 'ring-2 ring-orange-400' },
-                  { filterKey: 'awaiting' as const, count: actionItems.awaitingConfirmation.length, label: 'Awaiting Customer', bg: 'bg-purple-50 dark:bg-purple-900/20', border: 'border-purple-100 dark:border-purple-800/30', hover: 'hover:bg-purple-100 dark:hover:bg-purple-900/30', countColor: 'text-purple-600 dark:text-purple-400', labelColor: 'text-purple-700 dark:text-purple-400', activeBorder: 'ring-2 ring-purple-400' },
-                  { filterKey: 'delay' as const, count: actionItems.orderDelay.length, label: 'Order Delays', bg: 'bg-red-50 dark:bg-red-900/20', border: 'border-red-100 dark:border-red-800/30', hover: 'hover:bg-red-100 dark:hover:bg-red-900/30', countColor: 'text-red-600 dark:text-red-400', labelColor: 'text-red-700 dark:text-red-400', activeBorder: 'ring-2 ring-red-400' },
-                ] as const).map(({ filterKey, count, label, bg, border, hover, countColor, labelColor, activeBorder }) => {
-                  const isActive = dispatchFilter === filterKey;
-                  return (
-                    <div
-                      key={filterKey}
-                      onClick={() => {
-                        setDispatchFilter(isActive ? 'all' : filterKey);
-                        setTimeout(() => dispatchTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
-                      }}
-                      className={`flex flex-col items-center justify-center p-3 rounded-xl ${bg} border ${isActive ? activeBorder : border} ${hover} transition-colors cursor-pointer select-none`}
-                    >
-                      <span className={`text-xl font-bold ${countColor}`}>{count}</span>
-                      <span className={`text-xs ${labelColor} mt-0.5 text-center`}>{label}</span>
-                      {isActive && <span className="text-[10px] text-gray-400 mt-0.5">● filtered</span>}
-                    </div>
-                  );
-                })}
+                  { tableTab: 'pending',           count: actionItems.overdue.length,              label: 'Pending Orders',    sublabel: 'Pre-dispatch',      bg: 'bg-amber-50 dark:bg-amber-900/20',  border: 'border-amber-100 dark:border-amber-800/30',   hover: 'hover:bg-amber-100 dark:hover:bg-amber-900/30',   countColor: 'text-amber-600 dark:text-amber-400',   labelColor: 'text-amber-700 dark:text-amber-400'   },
+                  { tableTab: 'pending',           count: actionItems.unassigned.length,           label: 'Unassigned',        sublabel: 'Needs driver',      bg: 'bg-orange-50 dark:bg-orange-900/20',border: 'border-orange-100 dark:border-orange-800/30',  hover: 'hover:bg-orange-100 dark:hover:bg-orange-900/30', countColor: 'text-orange-600 dark:text-orange-400', labelColor: 'text-orange-700 dark:text-orange-400' },
+                  { tableTab: 'awaiting_customer', count: actionItems.awaitingConfirmation.length, label: 'Awaiting Customer',  sublabel: 'No confirmation',  bg: 'bg-purple-50 dark:bg-purple-900/20',border: 'border-purple-100 dark:border-purple-800/30',  hover: 'hover:bg-purple-100 dark:hover:bg-purple-900/30', countColor: 'text-purple-600 dark:text-purple-400', labelColor: 'text-purple-700 dark:text-purple-400' },
+                  { tableTab: 'order_delay',       count: actionItems.orderDelay.length,           label: 'Order Delays',      sublabel: 'Needs resolution',  bg: 'bg-red-50 dark:bg-red-900/20',     border: 'border-red-100 dark:border-red-800/30',        hover: 'hover:bg-red-100 dark:hover:bg-red-900/30',       countColor: 'text-red-600 dark:text-red-400',       labelColor: 'text-red-700 dark:text-red-400'       },
+                ] as const).map(({ tableTab: targetTab, count, label, sublabel, bg, border, hover, countColor, labelColor }) => (
+                  <div
+                    key={label}
+                    onClick={() => {
+                      useDeliveryStore.getState().setManageTabFilter(targetTab);
+                      setActiveTab('deliveries');
+                    }}
+                    className={`flex flex-col items-center justify-center p-3 rounded-xl ${bg} border ${border} ${hover} transition-colors cursor-pointer select-none`}
+                    title={`View ${label} in Delivery Orders table`}
+                  >
+                    <span className={`text-xl font-bold ${countColor}`}>{count}</span>
+                    <span className={`text-xs font-semibold ${labelColor} mt-0.5 text-center leading-tight`}>{label}</span>
+                    <span className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 text-center">→ {sublabel}</span>
+                  </div>
+                ))}
               </div>
               {(actionItems.overdue.length > 0 || actionItems.unassigned.length > 0 || actionItems.awaitingConfirmation.length > 0 || actionItems.orderDelay.length > 0) && (
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-3 text-center">Tap any card to filter the dispatch table</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-3 text-center">Tap any card to open the filtered order list in Deliveries tab</p>
               )}
             </div>
 

@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import FileUpload, { type FileUploadHandle } from '../Upload/FileUpload';
 import useDeliveryStore from '../../store/useDeliveryStore';
 import { generateFileHash } from '../../utils/fileHash';
@@ -56,8 +56,18 @@ export default function ManageTab({
   const isFileAlreadyUploaded = useDeliveryStore((s) => s.isFileAlreadyUploaded);
   const updateDeliveryStatus = useDeliveryStore((s) => s.updateDeliveryStatus);
   const setDeliveryListFilter = useDeliveryStore((s) => s.setDeliveryListFilter);
+  const manageTabFilter = useDeliveryStore((s) => s.manageTabFilter);
+  const setManageTabFilter = useDeliveryStore((s) => s.setManageTabFilter);
 
   const [tableTab, setTableTab] = useState<OrdersTableTab>('all');
+
+  // Apply incoming filter from Needs Attention cards then clear it
+  useEffect(() => {
+    if (manageTabFilter) {
+      setTableTab(manageTabFilter as OrdersTableTab);
+      setManageTabFilter(null);
+    }
+  }, [manageTabFilter, setManageTabFilter]);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('newest');
   const [isUploading, setIsUploading] = useState(false);

@@ -34,6 +34,8 @@ interface DeliveryStore {
   isLoading: boolean;
   currentPage: string;
   deliveryListFilter: DeliveryListFilter;
+  /** Set by Needs Attention cards to pre-filter the ManageTab OrdersTable. Cleared after use. */
+  manageTabFilter: string | null;
   recentUploads: UploadRecord[];
   /** Successful file upload hashes (duplicate file prevention). */
   uploadedFileHashes: string[];
@@ -49,6 +51,7 @@ interface DeliveryStore {
   calculateRoute: () => Promise<void>;
   setRoute: (route: RouteResult) => void;
   setDeliveryListFilter: (filter: DeliveryListFilter) => void;
+  setManageTabFilter: (filter: string | null) => void;
 
   beginUploadRecord: (filename: string, fileHash: string) => string;
   completeUploadRecord: (id: string, orderCount: number, fileHash: string) => void;
@@ -131,6 +134,7 @@ const useDeliveryStore = create<DeliveryStore>((set, get) => ({
   isLoading: false,
   currentPage: 'list',
   deliveryListFilter: 'all',
+  manageTabFilter: null,
   recentUploads: loadRecentUploadsFromStorage(),
   uploadedFileHashes: loadHashesFromStorage(),
 
@@ -370,6 +374,10 @@ const useDeliveryStore = create<DeliveryStore>((set, get) => ({
 
   setDeliveryListFilter: (filter: DeliveryListFilter): void => {
     set({ deliveryListFilter: filter });
+  },
+
+  setManageTabFilter: (filter: string | null): void => {
+    set({ manageTabFilter: filter });
   },
 
   isFileAlreadyUploaded: (hash: string): boolean => {
