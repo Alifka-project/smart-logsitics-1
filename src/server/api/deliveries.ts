@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { randomUUID } from 'crypto';
+import { assertSlotAvailable, dubaiDayRangeUtc, getDubaiWeekday, getNextSevenEligibleDayIsoStrings } from '../services/deliveryCapacityService';
 const router = Router();
 const { authenticate, requireRole, requireAnyRole } = require('../auth');
 const sapService = require('../services/sapService.js');
@@ -1288,7 +1289,8 @@ router.get('/:id/pod', authenticate, async (req: Request, res: Response): Promis
 });
 
 // PUT /api/admin/deliveries/:id/reschedule
-// Admin-initiated reschedule: updates delivery date, sets status to rescheduled, notifies customer by SMS
+// Admin-initiated reschedule: validates new date capacity, re-assigns driver, notifies customer.
+// Status is set to scheduled-confirmed (not terminal) so the order stays visible and dispatchable.
 router.put('/admin/:id/reschedule', authenticate, requireAnyRole('admin', 'delivery_team'), async (req: Request, res: Response): Promise<void> => {
   const { id: deliveryId } = req.params as { id: string };
   const { newDeliveryDate, reason } = req.body as { newDeliveryDate?: string; reason?: string };
@@ -1298,14 +1300,30 @@ router.put('/admin/:id/reschedule', authenticate, requireAnyRole('admin', 'deliv
     return;
   }
 
-  const parsedDate = new Date(newDeliveryDate);
-  if (isNaN(parsedDate.getTime())) {
-    res.status(400).json({ error: 'invalid_delivery_date' });
+  // Accept YYYY-MM-DD or ISO datetime; normalise to Dubai calendar date
+  const iso = String(newDeliveryDate).trim().split('T')[0];
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    res.status(400).json({ error: 'invalid_delivery_date', message: 'Use YYYY-MM-DD format.' });
+    return;
+  }
+
+  // Must be a non-Sunday within the next 7 eligible days (same rule as customer portal)
+  if (getDubaiWeekday(iso) === 0) {
+    res.status(400).json({ error: 'invalid_delivery_date', message: 'Sunday deliveries are not available.' });
+    return;
+  }
+  const eligibleDays = getNextSevenEligibleDayIsoStrings();
+  if (!eligibleDays.includes(iso)) {
+    res.status(400).json({ error: 'invalid_delivery_date', message: 'Date must be within the next 7 eligible delivery days.' });
     return;
   }
 
   try {
-    const existingDelivery = await prisma.delivery.findUnique({ where: { id: deliveryId } }) as Record<string, unknown> | null;
+    const existingDelivery = await prisma.delivery.findUnique({
+      where: { id: deliveryId },
+      select: { id: true, status: true, phone: true, items: true, metadata: true, confirmedDeliveryDate: true, confirmationStatus: true }
+    }) as Record<string, unknown> | null;
+
     if (!existingDelivery) {
       res.status(404).json({ error: 'delivery_not_found' });
       return;
@@ -1313,24 +1331,45 @@ router.put('/admin/:id/reschedule', authenticate, requireAnyRole('admin', 'deliv
 
     const prevMeta = existingDelivery.metadata && typeof existingDelivery.metadata === 'object'
       ? (existingDelivery.metadata as Record<string, unknown>) : {};
-
     const reasonText = (reason || '').trim() || 'Operational requirements';
 
+    // Check fleet capacity for the new date (exclude this delivery from count).
+    try {
+      await assertSlotAvailable(prisma, deliveryId, iso, existingDelivery.items as string | null, prevMeta);
+    } catch (slotErr: unknown) {
+      res.status(400).json({ error: 'slot_unavailable', message: (slotErr as Error).message });
+      return;
+    }
+
+    const { start: newDateStart } = dubaiDayRangeUtc(iso);
+
+    // Update delivery: keep it active as scheduled-confirmed with new confirmed date.
     const updatedDelivery = await prisma.delivery.update({
       where: { id: deliveryId },
       data: {
-        status: 'rescheduled',
-        confirmedDeliveryDate: parsedDate,
+        status: 'scheduled-confirmed',
+        confirmationStatus: 'confirmed',
+        confirmedDeliveryDate: newDateStart,
         metadata: {
           ...prevMeta,
           rescheduleReason: reasonText,
           rescheduledAt: new Date().toISOString(),
           rescheduledBy: req.user?.username || req.user?.email || req.user?.sub || 'admin',
           previousStatus: existingDelivery.status,
-          previousDeliveryDate: existingDelivery.confirmedDeliveryDate ?? null,
+          previousDeliveryDate: (existingDelivery.confirmedDeliveryDate as Date | null)?.toISOString() ?? null,
         }
       }
     }) as Record<string, unknown>;
+
+    // Release old driver assignments so we can re-assign for the new date.
+    await prisma.deliveryAssignment.deleteMany({ where: { deliveryId } });
+
+    // Auto-assign the best driver for the new date (respects 30-item truck cap).
+    try {
+      await autoAssignDelivery(deliveryId);
+    } catch (assignErr: unknown) {
+      console.warn('[Deliveries] Reschedule auto-assign failed:', (assignErr as Error).message);
+    }
 
     // Audit event
     await prisma.deliveryEvent.create({
@@ -1339,8 +1378,9 @@ router.put('/admin/:id/reschedule', authenticate, requireAnyRole('admin', 'deliv
         eventType: 'admin_rescheduled',
         payload: {
           previousStatus: existingDelivery.status,
-          previousDeliveryDate: existingDelivery.confirmedDeliveryDate ?? null,
-          newDeliveryDate: parsedDate.toISOString(),
+          previousDeliveryDate: (existingDelivery.confirmedDeliveryDate as Date | null)?.toISOString() ?? null,
+          newDeliveryDate: newDateStart.toISOString(),
+          newDeliveryDateDubai: iso,
           reason: reasonText,
           rescheduledBy: req.user?.username || req.user?.email || req.user?.sub || 'admin',
           rescheduledAt: new Date().toISOString(),
@@ -1352,15 +1392,14 @@ router.put('/admin/:id/reschedule', authenticate, requireAnyRole('admin', 'deliv
       console.warn('[Deliveries] Failed to create reschedule event:', (err as Error).message);
     });
 
-    // Notify customer by SMS (fire-and-forget, never block response)
+    // Notify customer by SMS (fire-and-forget)
     if (existingDelivery.phone) {
       const smsService = require('../sms/smsService');
-      smsService.sendRescheduleSms(deliveryId, parsedDate, reasonText).catch((err: unknown) => {
+      smsService.sendRescheduleSms(deliveryId, newDateStart, reasonText).catch((err: unknown) => {
         console.warn('[Deliveries] Reschedule SMS failed:', (err as Error).message);
       });
     }
 
-    // Invalidate caches
     cache.invalidatePrefix('tracking:');
     cache.invalidatePrefix('dashboard:');
     cache.invalidatePrefix('deliveries:list:v2');
@@ -1371,6 +1410,7 @@ router.put('/admin/:id/reschedule', authenticate, requireAnyRole('admin', 'deliv
         id: updatedDelivery.id,
         status: updatedDelivery.status,
         confirmedDeliveryDate: updatedDelivery.confirmedDeliveryDate,
+        confirmedDeliveryDateDubai: iso,
         rescheduleReason: reasonText,
       }
     });

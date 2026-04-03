@@ -453,7 +453,7 @@ export default function CustomerTrackingPage() {
         )}
 
         {/* ── Rescheduled Banner ───────────────────────────────────── */}
-        {delivery.status === 'rescheduled' && (
+        {(delivery.status === 'rescheduled' || delivery.rescheduledAt) && (
           <div className="anim-card anim-card-2" style={{
             background: '#FFFBEB',
             border: '1px solid #FCD34D',
