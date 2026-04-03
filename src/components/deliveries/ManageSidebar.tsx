@@ -1,5 +1,4 @@
 import React, { useCallback } from 'react';
-import { RefreshCw } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import type { DeliveryOrder } from '../../types/delivery';
 
@@ -12,14 +11,10 @@ const ACCEPT = {
 interface ManageSidebarProps {
   orders: DeliveryOrder[];
   onFileUpload: (file: File) => void;
-  onReloadDB: () => void;
-  onRefresh: () => void;
-  onExport: () => void;
   onDownloadTemplate: () => void;
   onAssignConfirmed?: () => void;
   onBulkResendUnconfirmed?: () => void;
   isUploading: boolean;
-  isReloading?: boolean;
   todayStats: {
     uploads: number;
     totalOrders: number;
@@ -31,14 +26,10 @@ interface ManageSidebarProps {
 export const ManageSidebar: React.FC<ManageSidebarProps> = ({
   orders,
   onFileUpload,
-  onReloadDB,
-  onRefresh,
-  onExport,
   onDownloadTemplate,
   onAssignConfirmed,
   onBulkResendUnconfirmed,
   isUploading,
-  isReloading,
   todayStats,
 }) => {
   const onDrop = useCallback(
@@ -89,33 +80,6 @@ export const ManageSidebar: React.FC<ManageSidebarProps> = ({
             or browse files
           </button>
         </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-2">
-        <button
-          type="button"
-          onClick={onReloadDB}
-          disabled={isReloading}
-          className="flex items-center justify-center gap-1.5 py-2 px-3 bg-[#002D5B] text-white rounded-lg text-xs font-medium hover:bg-[#001f3f] disabled:opacity-60"
-        >
-          <RefreshCw className={`h-5 w-5 flex-shrink-0 ${isReloading ? 'animate-spin' : ''}`} />
-          Reload DB
-        </button>
-        <button
-          type="button"
-          onClick={onRefresh}
-          className="flex items-center justify-center gap-1.5 py-2 px-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
-        >
-          <RefreshCw className="h-5 w-5 flex-shrink-0" />
-          Refresh
-        </button>
-        <button
-          type="button"
-          onClick={onExport}
-          className="py-2 px-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
-        >
-          ↓ Export
-        </button>
       </div>
 
       <div className="bg-[#002D5B] rounded-xl p-4 text-white">

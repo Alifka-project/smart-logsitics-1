@@ -18,9 +18,7 @@ interface ManageTabProps {
   onDuplicateFile: () => void;
   onToastError: (message: string) => void;
   onNotifySuccess: (title: string, message?: string) => void;
-  onReloadFromDatabase: () => void | Promise<void>;
   onExportDeliveries: () => void;
-  isReloadingDatabase?: boolean;
 }
 
 function startOfToday(): Date {
@@ -48,9 +46,7 @@ export default function ManageTab({
   onDuplicateFile,
   onToastError,
   onNotifySuccess,
-  onReloadFromDatabase,
   onExportDeliveries,
-  isReloadingDatabase = false,
 }: ManageTabProps) {
   const fileUploadRef = useRef<FileUploadHandle>(null);
   const pendingHashes = useRef<Set<string>>(new Set());
@@ -327,6 +323,7 @@ export default function ManageTab({
             onTrackDelivery={() => handleTrackDelivery()}
             onEditOrder={(id) => setEditDeliveryId(id)}
             onMarkOutForDelivery={handleMarkOutForDelivery}
+            onExport={onExportDeliveries}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             sortBy={sortBy}
@@ -337,14 +334,10 @@ export default function ManageTab({
           <ManageSidebar
             orders={manageOrders}
             onFileUpload={(f) => void handleFileUpload(f)}
-            onReloadDB={() => void onReloadFromDatabase()}
-            onRefresh={() => window.location.reload()}
-            onExport={onExportDeliveries}
             onDownloadTemplate={downloadTemplateCsv}
             onAssignConfirmed={handleAssignConfirmed}
             onBulkResendUnconfirmed={() => void handleBulkResendUnconfirmed()}
             isUploading={isUploading}
-            isReloading={isReloadingDatabase}
             todayStats={todayStats}
           />
         </div>

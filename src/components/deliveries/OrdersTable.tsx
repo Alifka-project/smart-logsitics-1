@@ -71,6 +71,7 @@ interface OrdersTableProps {
   onTrackDelivery?: (orderId: string) => void;
   onEditOrder: (orderId: string) => void;
   onMarkOutForDelivery?: (orderId: string) => Promise<void>;
+  onExport?: () => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
   sortBy: string;
@@ -110,6 +111,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
   onTrackDelivery,
   onEditOrder,
   onMarkOutForDelivery,
+  onExport,
   searchQuery,
   onSearchChange,
   sortBy,
@@ -410,6 +412,15 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
               Filter by status, search, and sort below — KPI cards above are summary only.
             </p>
           </div>
+          {onExport && (
+            <button
+              type="button"
+              onClick={onExport}
+              className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-[#002D5B] text-white hover:bg-[#001f3f] transition-colors"
+            >
+              ↓ Export
+            </button>
+          )}
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-2">

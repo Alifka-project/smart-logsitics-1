@@ -283,9 +283,7 @@ export default function DeliveryManagementPage({ hideManageTab = false }: Delive
           }
           onToastError={(msg) => error(msg)}
           onNotifySuccess={(title, message) => success(title, message ?? '')}
-          onReloadFromDatabase={() => void handleReloadFromDatabase()}
           onExportDeliveries={handleExport}
-          isReloadingDatabase={isReloading}
         />
       )}
 

@@ -1046,7 +1046,7 @@ export default function DeliveryTeamPortal() {
                   {routeLoading && <span className="text-xs text-blue-600 dark:text-blue-400">Calculating route…</span>}
                 </div>
                 <DeliveryMap
-                  deliveries={deliveries}
+                  deliveries={deliveries.filter(d => (d.status || '').toLowerCase() === 'out-for-delivery')}
                   route={monitoringRoute}
                   driverLocations={drivers
                     .filter((d) => isContactOnline(d) && d.tracking?.location && Number.isFinite(d.tracking.location.lat) && Number.isFinite(d.tracking.location.lng))
