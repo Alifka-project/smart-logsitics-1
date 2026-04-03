@@ -211,7 +211,7 @@ export default function ManageTab({
           newDeliveryDate: newDate.toISOString(),
           reason,
         });
-        updateDeliveryStatus(orderId, 'rescheduled');
+        updateDeliveryStatus(orderId, 'scheduled-confirmed');
         onNotifySuccess('Delivery rescheduled', 'Customer will be notified by SMS.');
       } catch (e: unknown) {
         const err = e as { response?: { data?: { error?: string } }; message?: string };
