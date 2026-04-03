@@ -1250,18 +1250,18 @@ export default function DeliveryTeamPortal() {
                                 onChange={async (e: React.ChangeEvent<HTMLSelectElement>) => {
                                   const newDriverId = e.target.value;
                                   if (!newDriverId) return;
-                                  
+
                                   setAssigningDelivery(delivery.id);
                                   setAssignmentMessage(null);
-                                  
+
                                   try {
                                     await api.put(`/deliveries/admin/${delivery.id}/assign`, { driverId: newDriverId });
-                                    
+
                                     setAssignmentMessage({
                                       type: 'success',
                                       text: `✓ Delivery assigned to ${drivers.find(d => d.id === newDriverId)?.fullName || 'driver'}`
                                     });
-                                    
+
                                     setTimeout(() => {
                                       void loadData();
                                       setAssignmentMessage(null);
@@ -1278,6 +1278,10 @@ export default function DeliveryTeamPortal() {
                                 disabled={assigningDelivery === delivery.id}
                                 className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 disabled:opacity-50"
                               >
+                                {/* Placeholder shown when no driver is assigned */}
+                                {!currentDriverId && (
+                                  <option value="">— Select driver —</option>
+                                )}
                                 {drivers.map(driver => (
                                   <option key={driver.id} value={driver.id}>
                                     {driver.fullName || driver.username}
@@ -1286,6 +1290,7 @@ export default function DeliveryTeamPortal() {
                               </select>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm" data-label="Actions">
+                              {/* Dispatch button: show for all pre-terminal, non-OFD statuses */}
                               {['pending', 'scheduled', 'uploaded', 'confirmed', 'scheduled-confirmed'].includes(rawStatus) && (
                                 <button
                                   type="button"
@@ -1298,18 +1303,24 @@ export default function DeliveryTeamPortal() {
                                         customer: delivery.customer,
                                         address: delivery.address,
                                       });
-                                      setAssignmentMessage({ type: 'success', text: `✓ ${delivery.customer || 'Delivery'} marked as Out for Delivery` });
+                                      setAssignmentMessage({ type: 'success', text: `✓ ${delivery.customer || 'Delivery'} dispatched — driver notified` });
                                       setTimeout(() => { void loadData(); setAssignmentMessage(null); }, 2000);
                                     } catch {
-                                      setAssignmentMessage({ type: 'error', text: 'Failed to update status' });
+                                      setAssignmentMessage({ type: 'error', text: 'Failed to dispatch delivery' });
                                     } finally {
                                       setMarkingOFD(null);
                                     }
                                   }}
                                   className="inline-flex items-center gap-1 px-3 py-1.5 rounded text-xs font-semibold bg-green-600 hover:bg-green-700 text-white disabled:opacity-60 disabled:cursor-not-allowed"
                                 >
-                                  {markingOFD === delivery.id ? 'Updating…' : '🚚 Out for Delivery'}
+                                  {markingOFD === delivery.id ? 'Dispatching…' : '🚚 Dispatch'}
                                 </button>
+                              )}
+                              {/* Already dispatched — show status badge + allow re-assign driver */}
+                              {rawStatus === 'out-for-delivery' && (
+                                <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                                  🚛 Out for Delivery
+                                </span>
                               )}
                             </td>
                           </tr>

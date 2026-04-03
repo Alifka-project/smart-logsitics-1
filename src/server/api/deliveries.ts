@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 const router = Router();
 const { authenticate, requireRole, requireAnyRole } = require('../auth');
 const sapService = require('../services/sapService.js');
-const { autoAssignDeliveries, getAvailableDrivers } = require('../services/autoAssignmentService');
+const { autoAssignDelivery, autoAssignDeliveries, getAvailableDrivers } = require('../services/autoAssignmentService');
 const { buildBusinessKey, upsertDeliveryByBusinessKey } = require('../services/deliveryDedupService');
 const prisma = require('../db/prisma').default;
 const cache = require('../cache');
@@ -137,6 +137,37 @@ async function updateDeliveryStatusHandler(
     where: { id: existingDelivery.id },
     data: updateData
   }) as Record<string, unknown>;
+
+  // When dispatching (out-for-delivery):
+  // 1. Auto-assign a driver if none is assigned yet (so the driver sees the order).
+  // 2. Promote any existing assignment to in_progress so the driver's portal shows
+  //    the delivery as actively in transit.
+  if (status.toLowerCase() === 'out-for-delivery') {
+    try {
+      const activeAssignment = await prisma.deliveryAssignment.findFirst({
+        where: {
+          deliveryId: existingDelivery.id as string,
+          status: { in: ['assigned', 'in_progress'] }
+        }
+      });
+      if (!activeAssignment) {
+        // No driver yet — auto-assign so the order lands in a driver's list.
+        await autoAssignDelivery(existingDelivery.id as string);
+      } else {
+        // Promote to in_progress so the driver knows they're actively en route.
+        await prisma.deliveryAssignment.updateMany({
+          where: {
+            deliveryId: existingDelivery.id as string,
+            status: 'assigned'
+          },
+          data: { status: 'in_progress' }
+        });
+      }
+    } catch (dispatchErr: unknown) {
+      // Non-fatal — log but don't fail the status update.
+      console.warn('[Deliveries] dispatch assignment step failed:', (dispatchErr as Error).message);
+    }
+  }
 
   await prisma.deliveryEvent.create({
     data: {
