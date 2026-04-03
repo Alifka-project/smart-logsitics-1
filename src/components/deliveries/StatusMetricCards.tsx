@@ -5,6 +5,10 @@ import type { DeliveryOrder } from '../../types/delivery';
 
 interface StatusMetricCardsProps {
   orders: DeliveryOrder[];
+  /** Called with the card's status key when clicked. Parent maps to an OrdersTableTab. */
+  onCardClick?: (statusKey: string) => void;
+  /** The currently active filter key — highlights the matching card. */
+  activeKey?: string;
 }
 
 const CARD_DEFS = [
@@ -15,11 +19,10 @@ const CARD_DEFS = [
   { key: 'next_shipment',     sublabel: 'Skip day',        darkIconBg: 'dark:bg-cyan-500/30' },
   { key: 'future_shipment',   sublabel: 'Later date',      darkIconBg: 'dark:bg-indigo-500/30' },
   { key: 'out_for_delivery',  sublabel: 'On route',        darkIconBg: 'dark:bg-orange-500/30' },
-  { key: 'delivered',         sublabel: 'Done',            darkIconBg: 'dark:bg-green-500/35' },
+  { key: 'delivered',         sublabel: 'Today',           darkIconBg: 'dark:bg-green-500/35' },
 ] as const;
 
-/** Read-only KPI strip — filters live on the table tabs below (no duplicate click-to-filter). */
-export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({ orders }) => {
+export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({ orders, onCardClick, activeKey }) => {
   const statusCounts = {
     uploaded:          orders.filter((o) => o.status === 'uploaded').length,
     sms_sent:          orders.filter((o) => o.status === 'sms_sent').length,
@@ -37,22 +40,33 @@ export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({ orders }) 
         {CARD_DEFS.map(({ key, sublabel, darkIconBg }) => {
           const config = STATUS_CONFIG[key as keyof typeof statusCounts];
           const count = statusCounts[key as keyof typeof statusCounts];
-          const isHighlight = Boolean(config.highlight) || (key === 'delivered' && count > 0);
+          const isDelivered = key === 'delivered' && count > 0;
+          const isHighlight = Boolean(config.highlight) || isDelivered;
+          // A card is "active" when the parent's active filter matches this card's key
+          const isActive = activeKey === key;
+          const clickable = Boolean(onCardClick);
 
           return (
             <div
               key={key}
+              role={clickable ? 'button' : undefined}
+              tabIndex={clickable ? 0 : undefined}
+              onClick={() => onCardClick?.(key)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onCardClick?.(key); }}
               className={`
-              relative flex flex-col rounded-xl bg-white dark:bg-gray-800/80 p-3 pt-3.5 pb-3.5 text-left
-              w-full min-w-0 shadow-sm border
-              ${
-                key === 'delivered' && count > 0
+                relative flex flex-col rounded-xl bg-white dark:bg-gray-800/80 p-3 pt-3.5 pb-3.5 text-left
+                w-full min-w-0 shadow-sm border transition-all
+                ${clickable ? 'cursor-pointer select-none' : ''}
+                ${isActive
+                  ? 'ring-2 ring-offset-1 ring-blue-500 border-blue-400 dark:ring-blue-400'
+                  : isDelivered
                   ? 'border-2 border-green-400/90'
                   : isHighlight
                   ? 'border-2 border-amber-400/90'
                   : 'border border-gray-200 dark:border-gray-600'
-              }
-            `}
+                }
+                ${clickable && !isActive ? 'hover:shadow-md hover:border-blue-300 dark:hover:border-blue-500' : ''}
+              `}
             >
               <div className="flex items-start justify-between gap-2">
                 <div
@@ -60,14 +74,14 @@ export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({ orders }) 
                 >
                   <span className="leading-none">{config.icon}</span>
                 </div>
-                <span className="text-gray-300 dark:text-slate-600 pointer-events-none" aria-hidden>
-                  <ArrowUpRight className="w-3.5 h-3.5" strokeWidth={2} />
-                </span>
+                {clickable && (
+                  <span className={`pointer-events-none ${isActive ? 'text-blue-400' : 'text-gray-300 dark:text-slate-600'}`} aria-hidden>
+                    <ArrowUpRight className="w-3.5 h-3.5" strokeWidth={2} />
+                  </span>
+                )}
               </div>
 
-              <p
-                className={`mt-2.5 text-xs font-semibold leading-snug ${isHighlight ? config.textColor : 'text-gray-600 dark:text-gray-300'}`}
-              >
+              <p className={`mt-2.5 text-xs font-semibold leading-snug ${isHighlight || isActive ? config.textColor : 'text-gray-600 dark:text-gray-300'}`}>
                 {config.label}
               </p>
 

@@ -39,7 +39,9 @@ router.get('/deliveries', authenticate, requireAnyRole('admin', 'delivery_team')
       let dbDeliveries: unknown[] = [];
       try {
         // Statuses permanently excluded (never shown on portal/manage tab).
-        const ALWAYS_EXCLUDED = ['cancelled', 'rescheduled', 'returned'];
+        // 'rescheduled' is intentionally NOT here — rescheduled orders must
+        // remain visible until the customer confirms a new date.
+        const ALWAYS_EXCLUDED = ['cancelled', 'returned'];
         // Delivered-type statuses: excluded beyond 24 h but included for today's card.
         const DELIVERED_STATUSES = [
           'delivered', 'delivered-with-installation', 'delivered-without-installation',

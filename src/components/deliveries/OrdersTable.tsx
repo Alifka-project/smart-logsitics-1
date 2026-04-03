@@ -6,7 +6,18 @@ import { RescheduleModal } from './RescheduleModal';
 import PaginationBar from '../common/PaginationBar';
 import { rescheduleDateToWorkflow } from '../../utils/deliveryWorkflowMap';
 
-export type OrdersTableTab = 'all' | 'pending' | 'awaiting_customer' | 'confirmed' | 'scheduled' | 'out_for_delivery' | 'order_delay';
+export type OrdersTableTab =
+  | 'all'
+  | 'pending'
+  | 'awaiting_customer'
+  | 'confirmed'           // all confirmed orders (tomorrow + next + future + generic)
+  | 'tomorrow_shipment'   // specific: tomorrow only
+  | 'next_shipment'       // specific: next (skip-day)
+  | 'future_shipment'     // specific: future date
+  | 'scheduled'           // next + future combined
+  | 'out_for_delivery'
+  | 'order_delay'
+  | 'rescheduled';
 
 function OrderStatusPill({
   status,
@@ -71,24 +82,18 @@ const SCHEDULED_STATUSES = new Set<DeliveryStatus>(['scheduled', 'next_shipment'
 
 function matchesTableTab(order: DeliveryOrder, tab: OrdersTableTab): boolean {
   switch (tab) {
-    case 'all':
-      return true;
-    case 'pending':
-      return order.status === 'uploaded';
-    case 'awaiting_customer':
-      return order.status === 'sms_sent' || order.status === 'unconfirmed';
-    case 'confirmed':
-      // "Confirmed" tab = all customer-confirmed orders (tomorrow/next/future/generic)
-      return CONFIRMED_STATUSES.has(order.status);
-    case 'scheduled':
-      // "Scheduled" tab = next + future shipment (confirmed beyond tomorrow)
-      return SCHEDULED_STATUSES.has(order.status);
-    case 'out_for_delivery':
-      return order.status === 'out_for_delivery';
-    case 'order_delay':
-      return order.status === 'order_delay';
-    default:
-      return true;
+    case 'all':           return true;
+    case 'pending':       return order.status === 'uploaded';
+    case 'awaiting_customer': return order.status === 'sms_sent' || order.status === 'unconfirmed';
+    case 'confirmed':     return CONFIRMED_STATUSES.has(order.status);
+    case 'tomorrow_shipment': return order.status === 'tomorrow_shipment';
+    case 'next_shipment': return order.status === 'next_shipment';
+    case 'future_shipment':   return order.status === 'future_shipment';
+    case 'scheduled':     return SCHEDULED_STATUSES.has(order.status);
+    case 'out_for_delivery':  return order.status === 'out_for_delivery';
+    case 'order_delay':   return order.status === 'order_delay';
+    case 'rescheduled':   return order.status === 'rescheduled';
+    default:              return true;
   }
 }
 
@@ -331,6 +336,21 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
             {ofdButton(order.id)}
           </>
         );
+      case 'rescheduled':
+        return (
+          <>
+            <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300">
+              🔄 Rescheduled
+            </span>
+            <button
+              type="button"
+              onClick={() => setRescheduleOrder(order)}
+              className="px-3 py-1 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              Reschedule
+            </button>
+          </>
+        );
       case 'order_delay':
         return (
           <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
@@ -359,37 +379,15 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
   };
 
   const filterTabs: { key: OrdersTableTab; label: string; count: number }[] = [
-    { key: 'all', label: 'All', count: orders.length },
-    {
-      key: 'pending',
-      label: 'Pending Order',
-      count: orders.filter((o) => o.status === 'uploaded').length,
-    },
-    {
-      key: 'awaiting_customer',
-      label: 'Awaiting Customer',
-      count: orders.filter((o) => o.status === 'sms_sent' || o.status === 'unconfirmed').length,
-    },
-    {
-      key: 'confirmed',
-      label: 'Confirmed',
-      count: orders.filter((o) => CONFIRMED_STATUSES.has(o.status)).length,
-    },
-    {
-      key: 'scheduled',
-      label: 'Next & Future',
-      count: orders.filter((o) => SCHEDULED_STATUSES.has(o.status)).length,
-    },
-    {
-      key: 'out_for_delivery',
-      label: 'On Route',
-      count: orders.filter((o) => o.status === 'out_for_delivery').length,
-    },
-    {
-      key: 'order_delay',
-      label: 'Order Delay',
-      count: orders.filter((o) => o.status === 'order_delay').length,
-    },
+    { key: 'all',              label: 'All',              count: orders.length },
+    { key: 'pending',          label: 'Pending Order',    count: orders.filter((o) => o.status === 'uploaded').length },
+    { key: 'awaiting_customer',label: 'Awaiting Customer',count: orders.filter((o) => o.status === 'sms_sent' || o.status === 'unconfirmed').length },
+    { key: 'tomorrow_shipment',label: 'Tomorrow Shipment',count: orders.filter((o) => o.status === 'tomorrow_shipment').length },
+    { key: 'next_shipment',    label: 'Next Shipment',    count: orders.filter((o) => o.status === 'next_shipment').length },
+    { key: 'future_shipment',  label: 'Future Shipment',  count: orders.filter((o) => o.status === 'future_shipment').length },
+    { key: 'out_for_delivery', label: 'On Route',         count: orders.filter((o) => o.status === 'out_for_delivery').length },
+    { key: 'order_delay',      label: 'Order Delay',      count: orders.filter((o) => o.status === 'order_delay').length },
+    { key: 'rescheduled',      label: 'Rescheduled',      count: orders.filter((o) => o.status === 'rescheduled').length },
   ];
 
   const scrollToTableTop = (): void => {

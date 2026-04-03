@@ -66,6 +66,7 @@ export default function ManageTab({
   const [sortBy, setSortBy] = useState('newest');
   const [isUploading, setIsUploading] = useState(false);
   const [editDeliveryId, setEditDeliveryId] = useState<string | null>(null);
+  const ordersTableRef = useRef<HTMLDivElement | null>(null);
 
   const manageOrders = useMemo(() => deliveries.map((d) => deliveryToManageOrder(d)), [deliveries]);
 
@@ -253,6 +254,28 @@ export default function ManageTab({
     setTableTab(tab);
   }, []);
 
+  // Map StatusMetricCard status key → OrdersTableTab, then scroll to the table
+  const handleCardClick = useCallback((statusKey: string) => {
+    const tabMap: Record<string, OrdersTableTab> = {
+      uploaded:          'pending',
+      sms_sent:          'awaiting_customer',
+      unconfirmed:       'awaiting_customer',
+      tomorrow_shipment: 'tomorrow_shipment',
+      next_shipment:     'next_shipment',
+      future_shipment:   'future_shipment',
+      out_for_delivery:  'out_for_delivery',
+      order_delay:       'order_delay',
+      rescheduled:       'rescheduled',
+      delivered:         'all',
+    };
+    const tab = tabMap[statusKey] ?? 'all';
+    setTableTab(tab);
+    // Slight delay so the tab state settles before scrolling
+    setTimeout(() => {
+      ordersTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  }, []);
+
   const handleTrackDelivery = useCallback(() => {
     onSwitchToDeliveriesTab();
   }, [onSwitchToDeliveriesTab]);
@@ -283,11 +306,15 @@ export default function ManageTab({
       />
 
       <div className="mb-6">
-        <StatusMetricCards orders={manageOrders} />
+        <StatusMetricCards
+          orders={manageOrders}
+          onCardClick={handleCardClick}
+          activeKey={tableTab === 'all' ? undefined : tableTab}
+        />
       </div>
 
       <div className="manage-delivery-layout grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start xl:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="min-w-0">
+        <div ref={ordersTableRef} className="min-w-0">
           <OrdersTable
             orders={manageOrders}
             tableTab={tableTab}

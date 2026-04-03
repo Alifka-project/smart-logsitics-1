@@ -103,6 +103,8 @@ export default function DeliveryTeamPortal() {
   const [assignmentMessage, setAssignmentMessage] = useState<AssignmentMessage | null>(null);
   const [markingOFD, setMarkingOFD] = useState<string | null>(null);
   const [markingDelay, setMarkingDelay] = useState<string | null>(null);
+  const [dispatchFilter, setDispatchFilter] = useState<'all' | 'overdue' | 'unassigned' | 'awaiting' | 'delay'>('all');
+  const dispatchTableRef = useRef<HTMLDivElement | null>(null);
   
   // Communication tab state
   const [selectedContact, setSelectedContact] = useState<ContactUser | null>(null); // Changed from selectedDriver
@@ -954,37 +956,31 @@ export default function DeliveryTeamPortal() {
                 <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Needs Attention</h2>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div
-                  onClick={() => { document.getElementById('dispatch-table')?.scrollIntoView({ behavior: 'smooth' }); }}
-                  className="flex flex-col items-center justify-center p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/30 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors cursor-pointer"
-                >
-                  <span className="text-xl font-bold text-amber-600 dark:text-amber-400">{actionItems.overdue.length}</span>
-                  <span className="text-xs text-amber-700 dark:text-amber-400 mt-0.5 text-center">Pending Orders</span>
-                </div>
-                <div
-                  onClick={() => { document.getElementById('dispatch-table')?.scrollIntoView({ behavior: 'smooth' }); }}
-                  className="flex flex-col items-center justify-center p-3 rounded-xl bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-800/30 hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors cursor-pointer"
-                >
-                  <span className="text-xl font-bold text-orange-600 dark:text-orange-400">{actionItems.unassigned.length}</span>
-                  <span className="text-xs text-orange-700 dark:text-orange-400 mt-0.5 text-center">Unassigned</span>
-                </div>
-                <div
-                  onClick={() => { document.getElementById('dispatch-table')?.scrollIntoView({ behavior: 'smooth' }); }}
-                  className="flex flex-col items-center justify-center p-3 rounded-xl bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800/30 hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors cursor-pointer"
-                >
-                  <span className="text-xl font-bold text-purple-600 dark:text-purple-400">{actionItems.awaitingConfirmation.length}</span>
-                  <span className="text-xs text-purple-700 dark:text-purple-400 mt-0.5 text-center">Awaiting Customer</span>
-                </div>
-                <div
-                  onClick={() => { document.getElementById('dispatch-table')?.scrollIntoView({ behavior: 'smooth' }); }}
-                  className="flex flex-col items-center justify-center p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/30 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors cursor-pointer"
-                >
-                  <span className="text-xl font-bold text-red-600 dark:text-red-400">{actionItems.orderDelay.length}</span>
-                  <span className="text-xs text-red-700 dark:text-red-400 mt-0.5 text-center">Order Delays</span>
-                </div>
+                {([
+                  { filterKey: 'overdue' as const, count: actionItems.overdue.length, label: 'Pending Orders', bg: 'bg-amber-50 dark:bg-amber-900/20', border: 'border-amber-100 dark:border-amber-800/30', hover: 'hover:bg-amber-100 dark:hover:bg-amber-900/30', countColor: 'text-amber-600 dark:text-amber-400', labelColor: 'text-amber-700 dark:text-amber-400', activeBorder: 'ring-2 ring-amber-400' },
+                  { filterKey: 'unassigned' as const, count: actionItems.unassigned.length, label: 'Unassigned', bg: 'bg-orange-50 dark:bg-orange-900/20', border: 'border-orange-100 dark:border-orange-800/30', hover: 'hover:bg-orange-100 dark:hover:bg-orange-900/30', countColor: 'text-orange-600 dark:text-orange-400', labelColor: 'text-orange-700 dark:text-orange-400', activeBorder: 'ring-2 ring-orange-400' },
+                  { filterKey: 'awaiting' as const, count: actionItems.awaitingConfirmation.length, label: 'Awaiting Customer', bg: 'bg-purple-50 dark:bg-purple-900/20', border: 'border-purple-100 dark:border-purple-800/30', hover: 'hover:bg-purple-100 dark:hover:bg-purple-900/30', countColor: 'text-purple-600 dark:text-purple-400', labelColor: 'text-purple-700 dark:text-purple-400', activeBorder: 'ring-2 ring-purple-400' },
+                  { filterKey: 'delay' as const, count: actionItems.orderDelay.length, label: 'Order Delays', bg: 'bg-red-50 dark:bg-red-900/20', border: 'border-red-100 dark:border-red-800/30', hover: 'hover:bg-red-100 dark:hover:bg-red-900/30', countColor: 'text-red-600 dark:text-red-400', labelColor: 'text-red-700 dark:text-red-400', activeBorder: 'ring-2 ring-red-400' },
+                ] as const).map(({ filterKey, count, label, bg, border, hover, countColor, labelColor, activeBorder }) => {
+                  const isActive = dispatchFilter === filterKey;
+                  return (
+                    <div
+                      key={filterKey}
+                      onClick={() => {
+                        setDispatchFilter(isActive ? 'all' : filterKey);
+                        setTimeout(() => dispatchTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+                      }}
+                      className={`flex flex-col items-center justify-center p-3 rounded-xl ${bg} border ${isActive ? activeBorder : border} ${hover} transition-colors cursor-pointer select-none`}
+                    >
+                      <span className={`text-xl font-bold ${countColor}`}>{count}</span>
+                      <span className={`text-xs ${labelColor} mt-0.5 text-center`}>{label}</span>
+                      {isActive && <span className="text-[10px] text-gray-400 mt-0.5">● filtered</span>}
+                    </div>
+                  );
+                })}
               </div>
               {(actionItems.overdue.length > 0 || actionItems.unassigned.length > 0 || actionItems.awaitingConfirmation.length > 0 || actionItems.orderDelay.length > 0) && (
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-3 text-center">Tap any card to jump to dispatch table</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-3 text-center">Tap any card to filter the dispatch table</p>
               )}
             </div>
 
@@ -1124,18 +1120,30 @@ export default function DeliveryTeamPortal() {
             </div>
 
             {/* ── RIGHT COLUMN: Dispatch Control Table ── */}
-            <div id="dispatch-table" className="pp-card overflow-hidden">
+            <div id="dispatch-table" ref={dispatchTableRef} className="pp-card overflow-hidden">
               <div className="p-4 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600 flex items-center justify-between gap-2">
                 <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                   <Truck className="w-4 h-4 text-blue-500" /> Assign & Dispatch
                 </h2>
-                <button
-                  type="button"
-                  onClick={() => void loadData()}
-                  className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" /> Refresh
-                </button>
+                <div className="flex items-center gap-2">
+                  {dispatchFilter !== 'all' && (
+                    <button
+                      type="button"
+                      onClick={() => setDispatchFilter('all')}
+                      className="flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
+                    >
+                      <span>Filtered: {dispatchFilter}</span>
+                      <span className="font-bold">×</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => void loadData()}
+                    className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" /> Refresh
+                  </button>
+                </div>
               </div>
 
               {assignmentMessage && (
@@ -1174,6 +1182,17 @@ export default function DeliveryTeamPortal() {
                     {deliveries && deliveries.length > 0 ? (
                       deliveries
                         .filter(delivery => !TERMINAL_STATUSES.has((delivery.status || '').toLowerCase()))
+                        .filter(delivery => {
+                          if (dispatchFilter === 'all') return true;
+                          const s = (delivery.status || '').toLowerCase();
+                          const dt = delivery as unknown as { tracking?: { driverId?: string } };
+                          const dayAgo = new Date(Date.now() - 86400000);
+                          if (dispatchFilter === 'overdue') return ['pending', 'scheduled'].includes(s) && new Date((delivery.created_at || delivery.createdAt || delivery.created || 0) as string | number) < dayAgo;
+                          if (dispatchFilter === 'unassigned') return ['pending', 'scheduled'].includes(s) && !delivery.assignedDriverId && !dt.tracking?.driverId;
+                          if (dispatchFilter === 'awaiting') { const conf = String(delivery.confirmationStatus || '').toLowerCase(); return conf === 'pending' && !TERMINAL_STATUSES.has(s); }
+                          if (dispatchFilter === 'delay') return s === 'order-delay';
+                          return true;
+                        })
                         .sort((a, b) => {
                           const aHasDriver = !!(( a as unknown as { tracking?: { driverId?: string } }).tracking?.driverId || a.assignedDriverId);
                           const bHasDriver = !!(( b as unknown as { tracking?: { driverId?: string } }).tracking?.driverId || b.assignedDriverId);
