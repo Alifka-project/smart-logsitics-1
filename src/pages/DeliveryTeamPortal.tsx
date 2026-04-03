@@ -36,6 +36,7 @@ import DeliveryMap from '../components/MapView/DeliveryMap';
 import DeliveryManagementPage from './DeliveryManagementPage';
 import { calculateRoute, generateFallbackRoute } from '../services/advancedRoutingService';
 import useDeliveryStore from '../store/useDeliveryStore';
+import { deliveryToManageOrder } from '../utils/deliveryWorkflowMap';
 import type { Delivery, AuthUser } from '../types';
 
 interface ContactUser {
@@ -562,104 +563,56 @@ export default function DeliveryTeamPortal() {
     'completed', 'pod-completed', 'cancelled', 'rescheduled', 'returned',
   ]);
 
-  // Needs Attention counts — mirrors AdminDashboardPage logic
+  // Needs Attention — uses same deliveryToManageOrder workflow as ManageTab so counts are always in sync
   const actionItems = React.useMemo(() => {
     const list = deliveries && Array.isArray(deliveries) ? deliveries : [];
-    const dayAgo = new Date(Date.now() - 86400000);
-    const overdue = list.filter(d => {
-      const s = (d.status || '').toLowerCase();
-      return ['pending', 'scheduled'].includes(s) && new Date((d.created_at || d.createdAt || d.created || 0) as string | number) < dayAgo;
-    });
-    const unassigned = list.filter(d => {
-      const s = (d.status || '').toLowerCase();
-      const dt = d as unknown as { tracking?: { driverId?: string } };
-      return ['pending', 'scheduled'].includes(s) && !d.assignedDriverId && !dt.tracking?.driverId;
-    });
-    const PORTAL_TERMINAL = new Set(['delivered','delivered-with-installation','delivered-without-installation','completed','pod-completed','cancelled','rescheduled','returned','out-for-delivery']);
-    const awaitingConfirmation = list.filter(d => {
-      const s = (d.status || '').toLowerCase();
-      const conf = String(d.confirmationStatus || '').toLowerCase();
-      // Show when SMS has been sent (confirmationStatus = 'pending') and delivery is still active
-      return conf === 'pending' && !PORTAL_TERMINAL.has(s);
-    });
-    const orderDelay = list.filter(d => (d.status || '').toLowerCase() === 'order-delay');
+    // Derive workflow status once for every delivery using the shared helper
+    const orders = list.map(d => ({ raw: d, order: deliveryToManageOrder(d) }));
+
+    // Pending Orders: uploaded (no SMS sent yet)
+    const overdue = orders.filter(({ order }) => order.status === 'uploaded').map(({ raw }) => raw);
+
+    // Unassigned: active non-dispatched orders with no driver
+    const DISPATCH_DONE = new Set(['out_for_delivery', 'order_delay', 'delivered', 'cancelled', 'failed', 'rescheduled']);
+    const unassigned = orders.filter(({ raw, order }) => {
+      if (DISPATCH_DONE.has(order.status)) return false;
+      const dt = raw as unknown as { tracking?: { driverId?: string } };
+      return !raw.assignedDriverId && !dt.tracking?.driverId;
+    }).map(({ raw }) => raw);
+
+    // Awaiting customer: sms_sent or unconfirmed — matches OrdersTable 'awaiting_customer' tab exactly
+    const awaitingConfirmation = orders.filter(({ order }) =>
+      order.status === 'sms_sent' || order.status === 'unconfirmed'
+    ).map(({ raw }) => raw);
+
+    // Order delays: explicit + auto-detected (out-for-delivery/scheduled past due date)
+    const orderDelay = orders.filter(({ order }) => order.status === 'order_delay').map(({ raw }) => raw);
+
     return { overdue, unassigned, awaitingConfirmation, orderDelay };
   }, [deliveries]);
 
-  // Returns a badge config based on delivery status + confirmationStatus + confirmedDeliveryDate (Dubai tz)
+  // Badge derived from the same workflow status as ManageTab — single source of truth
   const getDeliveryStatusBadge = (delivery: Delivery): { label: string; color: string } => {
-    const rawStatus = (delivery.status || '').toLowerCase();
-    const confirmStatus = (delivery.confirmationStatus || '').toLowerCase();
-
-    // Helper: classify confirmedDeliveryDate relative to Dubai today
-    const classifyShipmentDate = (): 'tomorrow' | 'next' | 'future' | null => {
-      if (!delivery.confirmedDeliveryDate) return null;
-      const DUBAI_OFFSET_MS = 4 * 60 * 60 * 1000;
-      const nowDubai = new Date(Date.now() + DUBAI_OFFSET_MS);
-      const todayMidnightUtcMs = Date.UTC(nowDubai.getUTCFullYear(), nowDubai.getUTCMonth(), nowDubai.getUTCDate());
-      const confirmedMs = new Date(delivery.confirmedDeliveryDate as string).getTime();
-      const diffDays = Math.floor((confirmedMs - todayMidnightUtcMs) / 86400000);
-      if (diffDays <= 1) return 'tomorrow';
-      // "Next Shipment" = day immediately before confirmed date is a no-delivery day
-      // (Friday=5 / Saturday=6 / Sunday=0) — delivery bumped past weekend or Sunday.
-      const dayBefore = new Date(confirmedMs - 86400000);
-      const dow = dayBefore.getUTCDay();
-      if (dow === 0 || dow === 5 || dow === 6) return 'next';
-      return 'future';
-    };
-
-    const shortDate = delivery.confirmedDeliveryDate
-      ? new Date(delivery.confirmedDeliveryDate as string).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+    const order = deliveryToManageOrder(delivery);
+    const shortDate = order.confirmedDeliveryDate
+      ? order.confirmedDeliveryDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
       : null;
-
-    if (rawStatus === 'order-delay') {
-      return { label: 'Order Delay', color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' };
+    switch (order.status) {
+      case 'order_delay':       return { label: 'Order Delay',                                                              color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' };
+      case 'out_for_delivery':  return { label: 'On Route',                                                                  color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' };
+      case 'tomorrow_shipment': return { label: shortDate ? `Tomorrow · ${shortDate}` : 'Tomorrow Shipment',                 color: 'bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300' };
+      case 'next_shipment':     return { label: shortDate ? `Next Shipment · ${shortDate}` : 'Next Shipment',               color: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-300' };
+      case 'future_shipment':   return { label: shortDate ? `Future Shipment · ${shortDate}` : 'Future Shipment',           color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300' };
+      case 'confirmed':         return { label: 'Customer Confirmed',                                                        color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' };
+      case 'sms_sent':          return { label: 'Awaiting Customer',                                                         color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' };
+      case 'unconfirmed':       return { label: 'No Response (48h+)',                                                        color: 'bg-rose-100 dark:bg-rose-900/30 text-rose-800 dark:text-rose-300' };
+      case 'uploaded':          return { label: 'Pending Order',                                                             color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300' };
+      case 'rescheduled':       return { label: shortDate ? `Rescheduled · ${shortDate}` : 'Rescheduled',                   color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300' };
+      case 'delivered':         return { label: 'Delivered',                                                                 color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' };
+      case 'cancelled':         return { label: 'Cancelled',                                                                 color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' };
+      case 'failed':            return { label: 'Failed / Returned',                                                         color: 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300' };
+      default:                  return { label: delivery.status?.replace(/-/g, ' ') || 'Pending', color: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' };
     }
-    if (rawStatus === 'out-for-delivery' || rawStatus === 'out_for_delivery') {
-      return { label: 'Out for Delivery', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' };
-    }
-    if (rawStatus === 'in-progress' || rawStatus === 'in_progress') {
-      return { label: 'In Progress', color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300' };
-    }
-    if (rawStatus === 'scheduled-confirmed' || rawStatus === 'confirmed') {
-      const tier = classifyShipmentDate();
-      if (tier === 'tomorrow') {
-        return { label: shortDate ? `Tomorrow Shipment · ${shortDate}` : 'Tomorrow Shipment', color: 'bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300' };
-      }
-      if (tier === 'next') {
-        return { label: shortDate ? `Next Shipment · ${shortDate}` : 'Next Shipment', color: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-300' };
-      }
-      if (tier === 'future') {
-        return { label: shortDate ? `Future Shipment · ${shortDate}` : 'Future Shipment', color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300' };
-      }
-      // No date yet — generic confirmed
-      return { label: 'Customer Confirmed', color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' };
-    }
-    if (rawStatus === 'cancelled' || rawStatus === 'canceled') {
-      return { label: 'Cancelled', color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' };
-    }
-    if (rawStatus === 'rescheduled') {
-      return { label: shortDate ? `Rescheduled · ${shortDate}` : 'Rescheduled', color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300' };
-    }
-    if (confirmStatus === 'pending') {
-      return { label: 'Awaiting Customer', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' };
-    }
-    if (rawStatus === 'assigned') {
-      return { label: 'Assigned', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300' };
-    }
-    if (rawStatus === 'scheduled') {
-      return { label: confirmStatus === 'confirmed' ? 'Scheduled' : 'Awaiting Customer', color: confirmStatus === 'confirmed' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' : 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' };
-    }
-    if (rawStatus === 'pending' || rawStatus === 'uploaded') {
-      if (confirmStatus === 'pending') {
-        return { label: 'Awaiting Customer', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' };
-      }
-      return { label: 'Pending Order', color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300' };
-    }
-    return {
-      label: delivery.status ? delivery.status.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Pending Order',
-      color: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300',
-    };
   };
 
   // Active = non-terminal deliveries that have a driver assigned.

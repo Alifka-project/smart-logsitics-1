@@ -95,9 +95,24 @@ function deriveWorkflowStatus(d: Delivery, smsSentAt: Date | undefined): Deliver
     return 'delivered';
   }
 
-  // Only use the raw status to determine out_for_delivery — a driver being
-  // assigned (assignedDriverId set) does NOT mean the delivery is dispatched.
-  if (['out-for-delivery', 'in-transit', 'in-progress'].includes(s)) return 'out_for_delivery';
+  // Helper: is a date strictly before Dubai today (i.e. overdue)?
+  const isOverdue = (date: Date): boolean => {
+    const nowDubai = new Date(Date.now() + DUBAI_OFFSET_MS);
+    const todayMidnightUtcMs = Date.UTC(
+      nowDubai.getUTCFullYear(),
+      nowDubai.getUTCMonth(),
+      nowDubai.getUTCDate(),
+    );
+    return date.getTime() < todayMidnightUtcMs;
+  };
+
+  // Out-for-delivery: auto-delay if the confirmed delivery date has passed
+  if (['out-for-delivery', 'in-transit', 'in-progress'].includes(s)) {
+    const confirmedDate =
+      parseOptDate(d.confirmedDeliveryDate) ?? parseOptDate(d.customerConfirmedAt);
+    if (confirmedDate && isOverdue(confirmedDate)) return 'order_delay';
+    return 'out_for_delivery';
+  }
 
   if (s === 'confirmed' || s === 'scheduled-confirmed') {
     // Prefer the customer-confirmed delivery date for classification
@@ -106,6 +121,8 @@ function deriveWorkflowStatus(d: Delivery, smsSentAt: Date | undefined): Deliver
       parseOptDate(d.customerConfirmedAt);
 
     if (confirmedDate) {
+      // Auto-delay: confirmed date has passed without delivery
+      if (isOverdue(confirmedDate)) return 'order_delay';
       const tier = classifyConfirmedDate(confirmedDate);
       if (tier === 'tomorrow') return 'tomorrow_shipment';
       if (tier === 'next') return 'next_shipment';
@@ -119,6 +136,7 @@ function deriveWorkflowStatus(d: Delivery, smsSentAt: Date | undefined): Deliver
       (d.estimatedTime instanceof Date ? d.estimatedTime : parseOptDate(d.estimatedTime));
 
     if (target) {
+      if (isOverdue(target)) return 'order_delay';
       const tier = classifyConfirmedDate(target);
       if (tier === 'tomorrow') return 'tomorrow_shipment';
       if (tier === 'next') return 'next_shipment';
