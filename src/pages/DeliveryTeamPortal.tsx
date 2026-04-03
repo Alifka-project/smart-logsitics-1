@@ -1095,16 +1095,18 @@ export default function DeliveryTeamPortal() {
               <div className="overflow-x-auto">
                 <table className="w-full divide-y divide-gray-200 dark:divide-gray-700 table-fixed">
                   <colgroup>
-                    <col style={{ width: '90px' }} />   {/* PO # */}
-                    <col style={{ width: '18%' }} />    {/* Customer */}
-                    <col style={{ width: '22%' }} />    {/* Address */}
-                    <col style={{ width: '120px' }} />  {/* Status */}
-                    <col style={{ width: '145px' }} />  {/* Driver */}
-                    <col style={{ width: '110px' }} />  {/* Actions */}
+                    <col style={{ width: '80px' }} />   {/* PO # */}
+                    <col style={{ width: '90px' }} />   {/* Delivery No. */}
+                    <col style={{ width: '16%' }} />    {/* Customer */}
+                    <col style={{ width: '20%' }} />    {/* Address */}
+                    <col style={{ width: '110px' }} />  {/* Status */}
+                    <col style={{ width: '140px' }} />  {/* Driver */}
+                    <col style={{ width: '100px' }} />  {/* Actions */}
                   </colgroup>
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">PO #</th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Del. No.</th>
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Customer</th>
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Address</th>
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
@@ -1133,6 +1135,9 @@ export default function DeliveryTeamPortal() {
                             <tr key={delivery.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                               <td className="px-3 py-3 text-sm font-medium text-gray-900 dark:text-gray-100 truncate" data-label="PO #">
                                 {delivery.poNumber || (delivery as unknown as { PONumber?: string }).PONumber || '—'}
+                              </td>
+                              <td className="px-3 py-3 text-sm text-gray-500 dark:text-gray-400 truncate" data-label="Del. No.">
+                                {(delivery as unknown as { metadata?: { originalDeliveryNumber?: string } }).metadata?.originalDeliveryNumber || '—'}
                               </td>
                               <td className="px-3 py-3 text-sm text-gray-900 dark:text-gray-100 truncate" data-label="Customer">
                                 <span className="font-medium">{delivery.customer || 'Unknown'}</span>
@@ -2030,6 +2035,209 @@ export default function DeliveryTeamPortal() {
                   </div>
                 )}
               </div>
+
+              {/* ── Tomorrow's Delivery Schedule ─────────────── */}
+              {(() => {
+                const DUBAI_OFFSET_MS = 4 * 60 * 60 * 1000;
+                const nowDubai = new Date(Date.now() + DUBAI_OFFSET_MS);
+                const tomorrowDubai = new Date(nowDubai);
+                tomorrowDubai.setUTCDate(tomorrowDubai.getUTCDate() + 1);
+                const tomorrowIso = tomorrowDubai.toISOString().slice(0, 10); // YYYY-MM-DD
+
+                const tomorrowRows = allDashDeliveries.filter(d => {
+                  const raw = d.confirmedDeliveryDate as string | null | undefined;
+                  if (!raw) return false;
+                  return raw.slice(0, 10) === tomorrowIso;
+                });
+
+                const totalItems = tomorrowRows.reduce((sum, d) => {
+                  try {
+                    const items = typeof d.items === 'string' ? JSON.parse(d.items) : (Array.isArray(d.items) ? d.items : []);
+                    return sum + (Array.isArray(items) ? items.reduce((s: number, it: { quantity?: number }) => s + (Number(it.quantity) || 1), 0) : 1);
+                  } catch { return sum + 1; }
+                }, 0);
+
+                // Group by driver
+                const byDriver: Record<string, { name: string; rows: typeof tomorrowRows; items: number }> = {};
+                for (const d of tomorrowRows) {
+                  const driverName = (d.driverName as string | null | undefined) || 'Unassigned';
+                  if (!byDriver[driverName]) byDriver[driverName] = { name: driverName, rows: [], items: 0 };
+                  byDriver[driverName].rows.push(d);
+                  try {
+                    const items = typeof d.items === 'string' ? JSON.parse(d.items) : (Array.isArray(d.items) ? d.items : []);
+                    byDriver[driverName].items += Array.isArray(items) ? items.reduce((s: number, it: { quantity?: number }) => s + (Number(it.quantity) || 1), 0) : 1;
+                  } catch { byDriver[driverName].items += 1; }
+                }
+
+                const handlePrintTomorrow = () => {
+                  const rows = tomorrowRows.map((d, i) => {
+                    let itemsStr = '';
+                    try {
+                      const items = typeof d.items === 'string' ? JSON.parse(d.items) : (Array.isArray(d.items) ? d.items : []);
+                      if (Array.isArray(items)) {
+                        itemsStr = items.map((it: { description?: string; pnc?: string; quantity?: number }) =>
+                          `${it.description || it.pnc || ''}${it.quantity && it.quantity > 1 ? ` x${it.quantity}` : ''}`
+                        ).filter(Boolean).join(', ');
+                      }
+                    } catch { /* ignore */ }
+                    const dName = (d.driverName as string | null | undefined) || 'Unassigned';
+                    return `<tr>
+                      <td>${i + 1}</td>
+                      <td>${d.poNumber ?? '—'}</td>
+                      <td>${(d as unknown as { metadata?: { originalDeliveryNumber?: string } }).metadata?.originalDeliveryNumber ?? '—'}</td>
+                      <td>${d.customer ?? '—'}</td>
+                      <td>${d.address ?? '—'}</td>
+                      <td>${itemsStr || '—'}</td>
+                      <td>${dName}</td>
+                    </tr>`;
+                  }).join('');
+                  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Tomorrow's Delivery Schedule – ${tomorrowIso}</title>
+                  <style>body{font-family:Arial,sans-serif;font-size:11px;margin:20px}h1{font-size:14px;margin-bottom:4px}p{margin:2px 0 10px;color:#555}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:5px 7px;text-align:left}th{background:#f0f0f0;font-size:10px;text-transform:uppercase}tr:nth-child(even){background:#fafafa}@media print{button{display:none}}</style></head>
+                  <body><h1>Tomorrow's Delivery Schedule — ${tomorrowIso}</h1>
+                  <p>${tomorrowRows.length} orders &nbsp;·&nbsp; ${totalItems} items total</p>
+                  <table><thead><tr><th>#</th><th>PO #</th><th>Del. No.</th><th>Customer</th><th>Address</th><th>Items</th><th>Driver</th></tr></thead><tbody>${rows}</tbody></table>
+                  <script>window.print();</script></body></html>`;
+                  const w = window.open('', '_blank');
+                  if (w) { w.document.write(html); w.document.close(); }
+                };
+
+                return (
+                  <div className="pp-card p-5">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                      <div>
+                        <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                          <Truck className="w-5 h-5 text-orange-500" />
+                          Tomorrow's Delivery Schedule
+                          <span className="ml-1 px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 text-xs font-normal">
+                            {tomorrowIso}
+                          </span>
+                        </h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                          {tomorrowRows.length} orders &middot; {totalItems} items &middot; {Object.keys(byDriver).length} driver{Object.keys(byDriver).length !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={handlePrintTomorrow}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium transition-colors"
+                        >
+                          <FileText className="w-4 h-4" />
+                          Print Schedule
+                        </button>
+                        <button
+                          onClick={() => {
+                            const header = 'No,PO #,Delivery No.,Customer,Address,Items,Driver,Confirmed Date\n';
+                            const csvRows = tomorrowRows.map((d, i) => {
+                              let itemsStr = '';
+                              try {
+                                const items = typeof d.items === 'string' ? JSON.parse(d.items) : (Array.isArray(d.items) ? d.items : []);
+                                if (Array.isArray(items)) itemsStr = items.map((it: { description?: string; pnc?: string; quantity?: number }) => `${it.description || it.pnc || ''}${it.quantity && it.quantity > 1 ? ` x${it.quantity}` : ''}`).filter(Boolean).join(' | ');
+                              } catch { /* ignore */ }
+                              const dName = (d.driverName as string | null | undefined) || 'Unassigned';
+                              return [i + 1, d.poNumber ?? '', (d as unknown as { metadata?: { originalDeliveryNumber?: string } }).metadata?.originalDeliveryNumber ?? '', d.customer ?? '', d.address ?? '', itemsStr, dName, tomorrowIso].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
+                            }).join('\n');
+                            const blob = new Blob(['\uFEFF' + header + csvRows], { type: 'text/csv;charset=utf-8' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url; a.download = `tomorrow-schedule-${tomorrowIso}.csv`; a.click();
+                            URL.revokeObjectURL(url);
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                        >
+                          <Download className="w-4 h-4" />
+                          Export CSV
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Driver summary chips */}
+                    {Object.values(byDriver).length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        {Object.values(byDriver).map(dr => (
+                          <span key={dr.name} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300">
+                            <Users className="w-3 h-3" />
+                            <span className="font-semibold">{dr.name}</span>
+                            <span className="opacity-70">— {dr.rows.length} orders / {dr.items} items</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {tomorrowRows.length === 0 ? (
+                      <div className="text-center py-10">
+                        <Package className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                        <p className="text-sm text-gray-500 dark:text-gray-400">No deliveries scheduled for tomorrow ({tomorrowIso})</p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Deliveries appear here once customers confirm a date</p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto rounded-lg border border-gray-100 dark:border-gray-800">
+                        <table className="w-full text-sm min-w-[700px] table-fixed">
+                          <colgroup>
+                            <col style={{ width: '32px' }} />
+                            <col style={{ width: '80px' }} />
+                            <col style={{ width: '90px' }} />
+                            <col style={{ width: '14%' }} />
+                            <col style={{ width: '20%' }} />
+                            <col style={{ width: '25%' }} />
+                            <col style={{ width: '13%' }} />
+                          </colgroup>
+                          <thead className="bg-gray-50 dark:bg-gray-800/95 border-b border-gray-200 dark:border-gray-700">
+                            <tr>
+                              <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">#</th>
+                              <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">PO #</th>
+                              <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Del. No.</th>
+                              <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Customer</th>
+                              <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Address</th>
+                              <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Items</th>
+                              <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Driver</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                            {tomorrowRows.map((d, i) => {
+                              let itemsStr = '—';
+                              let itemCount = 0;
+                              try {
+                                const items = typeof d.items === 'string' ? JSON.parse(d.items) : (Array.isArray(d.items) ? d.items : []);
+                                if (Array.isArray(items) && items.length > 0) {
+                                  itemsStr = items.map((it: { description?: string; pnc?: string; quantity?: number }) =>
+                                    `${it.description || it.pnc || ''}${it.quantity && it.quantity > 1 ? ` ×${it.quantity}` : ''}`
+                                  ).filter(Boolean).join(', ');
+                                  itemCount = items.reduce((s: number, it: { quantity?: number }) => s + (Number(it.quantity) || 1), 0);
+                                }
+                              } catch { /* ignore */ }
+                              const dName = (d.driverName as string | null | undefined) || 'Unassigned';
+                              const delivNo = (d as unknown as { metadata?: { originalDeliveryNumber?: string } }).metadata?.originalDeliveryNumber;
+                              return (
+                                <tr key={d.id ?? i} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                                  <td className="py-2.5 px-3 text-xs text-gray-400 dark:text-gray-500">{i + 1}</td>
+                                  <td className="py-2.5 px-3 text-xs font-semibold text-blue-700 dark:text-blue-300 truncate">{d.poNumber ?? '—'}</td>
+                                  <td className="py-2.5 px-3 text-xs text-gray-500 dark:text-gray-400 truncate">{delivNo ?? '—'}</td>
+                                  <td className="py-2.5 px-3 text-xs font-medium text-gray-900 dark:text-gray-100 truncate">{d.customer ?? '—'}</td>
+                                  <td className="py-2.5 px-3 text-xs text-gray-500 dark:text-gray-400 truncate">{d.address ?? '—'}</td>
+                                  <td className="py-2.5 px-3 text-xs text-gray-600 dark:text-gray-300 truncate">
+                                    {itemsStr !== '—' ? (
+                                      <span title={itemsStr}>
+                                        {itemCount > 0 && <span className="mr-1 font-semibold text-orange-600 dark:text-orange-400">[{itemCount}]</span>}
+                                        {itemsStr}
+                                      </span>
+                                    ) : '—'}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-xs truncate">
+                                    <span className={`font-medium ${dName === 'Unassigned' ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-700 dark:text-gray-300'}`}>
+                                      {dName}
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
             </>
           )}
         </div>
