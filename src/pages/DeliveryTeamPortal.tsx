@@ -685,8 +685,22 @@ export default function DeliveryTeamPortal() {
   const statusDistribution = useMemo(() => {
     const map: Record<string, number> = {};
     for (const d of reportsDeliveries) {
-      const s = (d.status ?? 'unknown').toLowerCase();
-      const label = DELIVERED_STATUSES.has(s) ? 'Delivered' : CANCELLED_STATUSES.has(s) ? 'Cancelled' : s === 'rescheduled' ? 'Rescheduled' : s === 'returned' ? 'Returned' : s === 'out-for-delivery' ? 'Out for Delivery' : s === 'pending' || s === 'uploaded' ? 'Pending' : 'Other';
+      const ws = deliveryToManageOrder(d as unknown as Delivery).status;
+      const label =
+        ws === 'delivered'         ? 'Delivered' :
+        ws === 'out_for_delivery'  ? 'On Route' :
+        ws === 'tomorrow_shipment' ? 'Tomorrow Shipment' :
+        ws === 'next_shipment'     ? 'Next Shipment' :
+        ws === 'future_shipment'   ? 'Future Shipment' :
+        ws === 'order_delay'       ? 'Order Delay' :
+        ws === 'sms_sent'          ? 'Awaiting Customer' :
+        ws === 'unconfirmed'       ? 'Unconfirmed' :
+        ws === 'confirmed'         ? 'Confirmed' :
+        ws === 'rescheduled'       ? 'Rescheduled' :
+        ws === 'failed'            ? 'Failed / Returned' :
+        ws === 'cancelled'         ? 'Cancelled' :
+        ws === 'uploaded'          ? 'Pending' :
+        'Other';
       map[label] = (map[label] ?? 0) + 1;
     }
     return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
@@ -723,6 +737,14 @@ export default function DeliveryTeamPortal() {
   // Raw full list — NOT filtered by the top period selector
   const allDashDeliveries = useMemo((): DashDelivery[] => dashData?.deliveries ?? [], [dashData]);
 
+  // Enrich each dashboard delivery with its derived workflow status (same logic as ManageTab)
+  const allDashWithWorkflow = useMemo(() =>
+    allDashDeliveries.map(d => ({
+      d,
+      ws: deliveryToManageOrder(d as unknown as Delivery).status,
+    })),
+  [allDashDeliveries]);
+
   // Unique driver names for filter dropdown (from full list)
   const podDriverOptions = useMemo(() => {
     const names = new Set<string>();
@@ -733,19 +755,15 @@ export default function DeliveryTeamPortal() {
   }, [allDashDeliveries]);
 
   // Table deliveries — independent filters + sort, never affected by top period
-  const podDeliveries = useMemo(() => {
+  // Returns { d, ws } pairs so row renderer can use workflow status for labels/colors
+  const podDeliveries = useMemo((): { d: DashDelivery; ws: string }[] => {
     const q = podSearch.toLowerCase().trim();
     const fromTs = podDateFrom ? new Date(podDateFrom + 'T00:00:00').getTime() : null;
     const toTs   = podDateTo   ? new Date(podDateTo   + 'T23:59:59').getTime() : null;
 
-    const filtered = allDashDeliveries.filter(d => {
-      const s = (d.status ?? '').toLowerCase();
-      if (podStatusFilter === 'delivered'       && !DELIVERED_STATUSES.has(s))               return false;
-      if (podStatusFilter === 'cancelled'       && !CANCELLED_STATUSES.has(s))               return false;
-      if (podStatusFilter === 'pending'         && s !== 'pending' && s !== 'uploaded')      return false;
-      if (podStatusFilter === 'rescheduled'     && s !== 'rescheduled')                      return false;
-      if (podStatusFilter === 'returned'        && s !== 'returned')                         return false;
-      if (podStatusFilter === 'out-for-delivery'&& s !== 'out-for-delivery')                 return false;
+    const filtered = allDashWithWorkflow.filter(({ d, ws }) => {
+      // Filter by workflow status (covers all derived statuses including tomorrow_shipment, order_delay, etc.)
+      if (podStatusFilter !== 'all' && ws !== podStatusFilter) return false;
       if (podDriverFilter !== 'all' && (d.driverName as string | undefined) !== podDriverFilter) return false;
       // Date range (uses created_at as the reference date)
       if (fromTs !== null || toTs !== null) {
@@ -764,26 +782,27 @@ export default function DeliveryTeamPortal() {
 
     // Sort
     filtered.sort((a, b) => {
-      let va = '', vb = '';
+      const ad = a.d; const bd = b.d;
       if (podSortKey === 'date') {
-        const ta = new Date((a.created_at ?? a.createdAt ?? 0) as string).getTime();
-        const tb = new Date((b.created_at ?? b.createdAt ?? 0) as string).getTime();
+        const ta = new Date((ad.created_at ?? ad.createdAt ?? 0) as string).getTime();
+        const tb = new Date((bd.created_at ?? bd.createdAt ?? 0) as string).getTime();
         return podSortDir === 'asc' ? ta - tb : tb - ta;
       }
-      if (podSortKey === 'poNumber')  { va = String(a.poNumber ?? '');  vb = String(b.poNumber ?? ''); }
-      if (podSortKey === 'customer')  { va = String(a.customer ?? '');  vb = String(b.customer ?? ''); }
-      if (podSortKey === 'driver')    { va = String(a.driverName ?? '');vb = String(b.driverName ?? ''); }
-      if (podSortKey === 'status')    { va = String(a.status ?? '');    vb = String(b.status ?? ''); }
-      if (podSortKey === 'address')   { va = String(a.address ?? '');   vb = String(b.address ?? ''); }
-      if (podSortKey === 'pnc')       { va = extractItemMeta(a).pnc;   vb = extractItemMeta(b).pnc; }
-      if (podSortKey === 'modelId')   { va = extractItemMeta(a).modelId; vb = extractItemMeta(b).modelId; }
-      if (podSortKey === 'description'){ va = extractItemMeta(a).description; vb = extractItemMeta(b).description; }
+      let va = '', vb = '';
+      if (podSortKey === 'poNumber')  { va = String(ad.poNumber ?? '');  vb = String(bd.poNumber ?? ''); }
+      if (podSortKey === 'customer')  { va = String(ad.customer ?? '');  vb = String(bd.customer ?? ''); }
+      if (podSortKey === 'driver')    { va = String(ad.driverName ?? '');vb = String(bd.driverName ?? ''); }
+      if (podSortKey === 'status')    { va = a.ws;                       vb = b.ws; }
+      if (podSortKey === 'address')   { va = String(ad.address ?? '');   vb = String(bd.address ?? ''); }
+      if (podSortKey === 'pnc')       { va = extractItemMeta(ad).pnc;   vb = extractItemMeta(bd).pnc; }
+      if (podSortKey === 'modelId')   { va = extractItemMeta(ad).modelId; vb = extractItemMeta(bd).modelId; }
+      if (podSortKey === 'description'){ va = extractItemMeta(ad).description; vb = extractItemMeta(bd).description; }
       const cmp = va.localeCompare(vb, undefined, { sensitivity: 'base' });
       return podSortDir === 'asc' ? cmp : -cmp;
     });
 
     return filtered;
-  }, [allDashDeliveries, podSearch, podStatusFilter, podDriverFilter, podDateFrom, podDateTo, podSortKey, podSortDir, extractItemMeta]);
+  }, [allDashWithWorkflow, podSearch, podStatusFilter, podDriverFilter, podDateFrom, podDateTo, podSortKey, podSortDir, extractItemMeta]);
 
   const CHART_COLORS = { delivered: '#22c55e', cancelled: '#ef4444', rescheduled: '#f59e0b', returned: '#8b5cf6', pending: '#94a3b8' };
   const PIE_PALETTE = ['#22c55e','#ef4444','#f59e0b','#3b82f6','#8b5cf6','#94a3b8','#06b6d4'];
@@ -1828,11 +1847,11 @@ export default function DeliveryTeamPortal() {
                         <button
                           onClick={() => {
                             const header = 'No,Delivery ID,PO Number,Customer,Address,PNC (Material),Model ID,Description,Driver,Date,Status\n';
-                            const rows = podDeliveries.map((d, i) => {
+                            const rows = podDeliveries.map(({ d, ws }, i) => {
                               const { pnc, modelId, description } = extractItemMeta(d);
                               const dateRaw = d.delivered_at ?? d.deliveredAt ?? d.created_at ?? d.createdAt ?? '';
                               const dateStr = dateRaw ? new Date(dateRaw as string).toLocaleDateString('en-GB') : '';
-                              return [i + 1, d.id ?? '', d.poNumber ?? '', d.customer ?? '', d.address ?? '', pnc, modelId, description, d.driverName ?? 'Unassigned', dateStr, d.status ?? ''].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
+                              return [i + 1, d.id ?? '', d.poNumber ?? '', d.customer ?? '', d.address ?? '', pnc, modelId, description, d.driverName ?? 'Unassigned', dateStr, ws].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
                             }).join('\n');
                             const blob = new Blob(['\uFEFF' + header + rows], { type: 'text/csv;charset=utf-8' });
                             const url = URL.createObjectURL(blob);
@@ -1873,12 +1892,13 @@ export default function DeliveryTeamPortal() {
                     {/* Summary chips — always based on full dataset (independent of chart period) */}
                     <div className="flex flex-wrap gap-2 mb-4">
                       {[
-                        { label: 'Total', value: allDashDeliveries.length, color: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' },
-                        { label: 'Delivered', value: allDashDeliveries.filter(d => DELIVERED_STATUSES.has((d.status ?? '').toLowerCase())).length, color: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' },
-                        { label: 'POD Completed', value: allDashDeliveries.filter(d => (d.status ?? '').toLowerCase() === 'pod-completed').length, color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300' },
-                        { label: 'With Installation', value: allDashDeliveries.filter(d => d.status === 'delivered-with-installation').length, color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' },
-                        { label: 'Cancelled', value: allDashDeliveries.filter(d => CANCELLED_STATUSES.has((d.status ?? '').toLowerCase())).length, color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' },
-                        { label: 'Returned', value: allDashDeliveries.filter(d => (d.status ?? '').toLowerCase() === 'returned').length, color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' },
+                        { label: 'Total', value: allDashWithWorkflow.length, color: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' },
+                        { label: 'Tomorrow Shipment', value: allDashWithWorkflow.filter(({ ws }) => ws === 'tomorrow_shipment').length, color: 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300' },
+                        { label: 'On Route', value: allDashWithWorkflow.filter(({ ws }) => ws === 'out_for_delivery').length, color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' },
+                        { label: 'Order Delay', value: allDashWithWorkflow.filter(({ ws }) => ws === 'order_delay').length, color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' },
+                        { label: 'Delivered', value: allDashWithWorkflow.filter(({ ws }) => ws === 'delivered').length, color: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' },
+                        { label: 'Cancelled', value: allDashWithWorkflow.filter(({ ws }) => ws === 'cancelled').length, color: 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400' },
+                        { label: 'Failed / Returned', value: allDashWithWorkflow.filter(({ ws }) => ws === 'failed').length, color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' },
                       ].map(({ label, value, color }) => (
                         <span key={label} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${color}`}>
                           <span className="font-bold text-sm">{value}</span> {label}
@@ -1908,12 +1928,19 @@ export default function DeliveryTeamPortal() {
                       <select value={podStatusFilter} onChange={e => setPodStatusFilter(e.target.value)}
                         className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="all">All Statuses</option>
-                        <option value="delivered">Delivered</option>
-                        <option value="cancelled">Cancelled</option>
+                        <option value="out_for_delivery">On Route (Out for Delivery)</option>
+                        <option value="tomorrow_shipment">Tomorrow Shipment</option>
+                        <option value="next_shipment">Next Shipment</option>
+                        <option value="future_shipment">Future Shipment</option>
+                        <option value="order_delay">Order Delay</option>
+                        <option value="sms_sent">Awaiting Customer (SMS Sent)</option>
+                        <option value="unconfirmed">Unconfirmed (48h+)</option>
+                        <option value="uploaded">Pending Upload</option>
+                        <option value="confirmed">Customer Confirmed</option>
                         <option value="rescheduled">Rescheduled</option>
-                        <option value="returned">Returned</option>
-                        <option value="pending">Pending</option>
-                        <option value="out-for-delivery">Out for Delivery</option>
+                        <option value="delivered">Delivered</option>
+                        <option value="failed">Failed / Returned</option>
+                        <option value="cancelled">Cancelled</option>
                       </select>
                       {/* Driver */}
                       <select value={podDriverFilter} onChange={e => setPodDriverFilter(e.target.value)}
@@ -1973,30 +2000,39 @@ export default function DeliveryTeamPortal() {
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                              {pageRows.map((d, idx) => {
+                              {pageRows.map(({ d, ws }, idx) => {
                                 const globalIdx = (safePage - 1) * POD_PAGE_SIZE + idx;
                                 const { pnc, modelId, description } = extractItemMeta(d);
                                 const dateRaw = d.delivered_at ?? d.deliveredAt ?? d.created_at ?? d.createdAt;
                                 const formattedDate = dateRaw ? new Date(dateRaw as string).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
-                                const s = (d.status ?? '').toLowerCase();
                                 const statusLabel =
-                                  s === 'pod-completed' ? 'POD Completed' :
-                                  s === 'delivered-with-installation' ? 'With Install' :
-                                  s === 'delivered-without-installation' ? 'No Install' :
-                                  DELIVERED_STATUSES.has(s) ? 'Delivered' :
-                                  s === 'cancelled' || s === 'canceled' ? 'Cancelled' :
-                                  s === 'rescheduled' ? 'Rescheduled' :
-                                  s === 'returned' ? 'Returned' :
-                                  s === 'out-for-delivery' ? 'Out for Delivery' :
-                                  s === 'pending' || s === 'uploaded' ? 'Pending' :
-                                  (d.status ?? 'Unknown');
+                                  ws === 'out_for_delivery'  ? 'On Route' :
+                                  ws === 'tomorrow_shipment' ? 'Tomorrow Shipment' :
+                                  ws === 'next_shipment'     ? 'Next Shipment' :
+                                  ws === 'future_shipment'   ? 'Future Shipment' :
+                                  ws === 'order_delay'       ? 'Order Delay' :
+                                  ws === 'sms_sent'          ? 'Awaiting Customer' :
+                                  ws === 'unconfirmed'       ? 'Unconfirmed (48h+)' :
+                                  ws === 'uploaded'          ? 'Pending' :
+                                  ws === 'confirmed'         ? 'Customer Confirmed' :
+                                  ws === 'rescheduled'       ? 'Rescheduled' :
+                                  ws === 'delivered'         ? 'Delivered' :
+                                  ws === 'failed'            ? 'Failed / Returned' :
+                                  ws === 'cancelled'         ? 'Cancelled' :
+                                  ws;
                                 const statusColor =
-                                  s === 'pod-completed' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300' :
-                                  DELIVERED_STATUSES.has(s) ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' :
-                                  CANCELLED_STATUSES.has(s) ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
-                                  s === 'rescheduled' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' :
-                                  s === 'returned' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' :
-                                  s === 'out-for-delivery' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' :
+                                  ws === 'out_for_delivery'  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' :
+                                  ws === 'tomorrow_shipment' ? 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300' :
+                                  ws === 'next_shipment'     ? 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300' :
+                                  ws === 'future_shipment'   ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300' :
+                                  ws === 'order_delay'       ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
+                                  ws === 'sms_sent'          ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' :
+                                  ws === 'unconfirmed'       ? 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300' :
+                                  ws === 'confirmed'         ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' :
+                                  ws === 'rescheduled'       ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' :
+                                  ws === 'delivered'         ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' :
+                                  ws === 'failed'            ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' :
+                                  ws === 'cancelled'         ? 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400' :
                                   'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400';
                                 return (
                                   <tr key={String(d.id ?? idx)} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
