@@ -980,8 +980,8 @@ export default function DeliveryTeamPortal() {
             </div>
           </div>
 
-          {/* ── Two-Column Main: Left=Map+Drivers  Right=Dispatch Table ── */}
-          <div className="grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-4 md:gap-6 items-start">
+          {/* ── Two-Column Main: Left=Map+Drivers  Right=Dispatch Table (50/50) ── */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6 items-start">
 
             {/* ── LEFT COLUMN: Live Map + Driver Status + Alerts ── */}
             <div className="space-y-4">
@@ -1093,15 +1093,23 @@ export default function DeliveryTeamPortal() {
               )}
 
               <div className="overflow-x-auto">
-                <table className="pp-mobile-stack-table min-w-[760px] divide-y divide-gray-200 dark:divide-gray-700">
+                <table className="w-full divide-y divide-gray-200 dark:divide-gray-700 table-fixed">
+                  <colgroup>
+                    <col style={{ width: '90px' }} />   {/* PO # */}
+                    <col style={{ width: '18%' }} />    {/* Customer */}
+                    <col style={{ width: '22%' }} />    {/* Address */}
+                    <col style={{ width: '120px' }} />  {/* Status */}
+                    <col style={{ width: '145px' }} />  {/* Driver */}
+                    <col style={{ width: '110px' }} />  {/* Actions */}
+                  </colgroup>
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">PO #</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Customer</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Address</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Driver</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actions</th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">PO #</th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Customer</th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Address</th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Driver</th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -1123,21 +1131,21 @@ export default function DeliveryTeamPortal() {
                           const { label: statusLabel, color: statusColor } = getDeliveryStatusBadge(delivery);
                           return (
                             <tr key={delivery.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100" data-label="PO #">
+                              <td className="px-3 py-3 text-sm font-medium text-gray-900 dark:text-gray-100 truncate" data-label="PO #">
                                 {delivery.poNumber || (delivery as unknown as { PONumber?: string }).PONumber || '—'}
                               </td>
-                              <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100" data-label="Customer">
-                                <div className="font-medium truncate max-w-[140px]">{delivery.customer || 'Unknown'}</div>
+                              <td className="px-3 py-3 text-sm text-gray-900 dark:text-gray-100 truncate" data-label="Customer">
+                                <span className="font-medium">{delivery.customer || 'Unknown'}</span>
                               </td>
-                              <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 max-w-[160px] truncate" data-label="Address">
+                              <td className="px-3 py-3 text-sm text-gray-500 dark:text-gray-400 truncate" data-label="Address">
                                 {delivery.address || '—'}
                               </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm" data-label="Status">
-                                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusColor}`}>
+                              <td className="px-3 py-3 text-sm" data-label="Status">
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${statusColor}`}>
                                   {statusLabel}
                                 </span>
                               </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm" data-label="Driver">
+                              <td className="px-3 py-3 text-sm" data-label="Driver">
                                 <select
                                   value={currentDriverId || ''}
                                   onChange={async (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -1159,7 +1167,7 @@ export default function DeliveryTeamPortal() {
                                     }
                                   }}
                                   disabled={assigningDelivery === delivery.id}
-                                  className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-xs text-gray-900 dark:text-gray-100 disabled:opacity-50 max-w-[130px]"
+                                  className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-xs text-gray-900 dark:text-gray-100 disabled:opacity-50"
                                 >
                                   {!currentDriverId && <option value="">— Select driver —</option>}
                                   {drivers.map(driver => (
@@ -1169,7 +1177,7 @@ export default function DeliveryTeamPortal() {
                                   ))}
                                 </select>
                               </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm" data-label="Actions">
+                              <td className="px-3 py-3 text-sm" data-label="Actions">
                                 {['pending', 'scheduled', 'uploaded', 'confirmed', 'scheduled-confirmed'].includes(rawStatus) && (
                                   <button
                                     type="button"
