@@ -80,6 +80,37 @@ export default function DeliveryManagementPage({ hideManageTab = false }: Delive
     setShowCacheAlert(hasFake);
   }, []);
 
+  // Auto-fetch deliveries from the server when the store is empty on mount.
+  // Tries the tracking API first (includes all active incl. future-confirmed),
+  // falls back to the regular deliveries endpoint.
+  useEffect(() => {
+    if (useDeliveryStore.getState().deliveries.length > 0) return;
+    const fetchInitial = async () => {
+      try {
+        const res = await api.get('/admin/tracking/deliveries');
+        const list = (res.data?.deliveries ?? []) as Delivery[];
+        if (list.length > 0) {
+          loadDeliveries(list);
+          addCompletedUpload('Auto-loaded from server', list.length);
+        }
+      } catch {
+        // Tracking API not accessible (e.g. non-admin) — fall back to /deliveries
+        try {
+          const res = await api.get('/deliveries?includeFinished=false');
+          const list = (res.data?.deliveries ?? []) as Delivery[];
+          if (list.length > 0) {
+            loadDeliveries(list);
+            addCompletedUpload('Auto-loaded from server', list.length);
+          }
+        } catch {
+          // Both failed — user can click Reload from Database manually
+        }
+      }
+    };
+    void fetchInitial();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Recalculate route when the visible delivery list changes while on the deliveries tab
   // (Upload → loadDeliveries updates store → displayDeliveries changes → route recalculates)
   useEffect(() => {

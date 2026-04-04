@@ -49,9 +49,18 @@ export default function DeliveryCard({
     typeof (delivery as Delivery & { distanceFromDriverKm?: number }).distanceFromDriverKm === 'number'
       ? (delivery as Delivery & { distanceFromDriverKm?: number }).distanceFromDriverKm
       : delivery.distanceFromWarehouse;
+  // ETA: prefer explicit estimatedEta/eta fields (set by routing service), then
+  // fall back to the store-calculated estimatedTime (based on stop sequence).
   const etaRaw = (delivery as Delivery & { estimatedEta?: string | null; eta?: string | null }).estimatedEta
-    || (delivery as Delivery & { estimatedEta?: string | null; eta?: string | null }).eta;
-  const etaText = etaRaw ? new Date(etaRaw).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'N/A';
+    || (delivery as Delivery & { estimatedEta?: string | null; eta?: string | null }).eta
+    || (delivery.estimatedTime instanceof Date ? delivery.estimatedTime.toISOString()
+        : typeof delivery.estimatedTime === 'string' ? delivery.estimatedTime : null);
+  const etaText = etaRaw
+    ? (() => {
+        const d = new Date(etaRaw);
+        return isNaN(d.getTime()) ? 'N/A' : d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      })()
+    : 'N/A';
   const dIdx = dragIndex ?? 0;
   const canDrag = !dragDisabled && typeof dragIndex === 'number';
 

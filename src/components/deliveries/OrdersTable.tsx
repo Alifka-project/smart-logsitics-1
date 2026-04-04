@@ -607,10 +607,10 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                         <button
                           type="button"
                           onClick={() => onEditOrder(order.id)}
-                          className="px-2.5 py-1 text-[11px] font-semibold rounded-md border border-[#002D5B]/30 bg-[#002D5B]/5 text-[#002D5B] hover:bg-[#002D5B] hover:text-white dark:border-blue-500/40 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-700 dark:hover:text-white transition-colors"
-                          title="Edit order details and status"
+                          className="px-3 py-1.5 text-[11px] font-semibold rounded border border-[#002D5B]/30 bg-[#002D5B]/5 text-[#002D5B] hover:bg-[#002D5B] hover:text-white dark:border-blue-500/40 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-700 dark:hover:text-white transition-colors whitespace-nowrap"
+                          title="Update order status and details"
                         >
-                          Edit Order
+                          Update Status
                         </button>
                         {getActionButton(order)}
                       </div>
