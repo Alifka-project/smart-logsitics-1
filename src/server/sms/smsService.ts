@@ -21,22 +21,17 @@ interface SmsAdapterLike {
   sendSms(options: SmsSendOptions): Promise<SmsSendResult>;
 }
 
-// Initialize SMS adapter — D7 Networks primary, Twilio fallback, then mock
+// Initialize SMS adapter — D7 Networks is the active provider.
+// Twilio adapter is disabled (kept as reference in twilioAdapter.ts).
+// To re-enable Twilio: swap the import below and set SMS_PROVIDER=twilio.
 let smsAdapter: SmsAdapterLike | null = null;
-const smsProvider = process.env.SMS_PROVIDER || 'd7';
 
 try {
-  if (smsProvider === 'd7' || process.env.D7_API_TOKEN) {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const D7Adapter = require('./d7Adapter').default;
-    smsAdapter = new D7Adapter(process.env) as SmsAdapterLike;
-    console.log('[SMS] D7 Networks adapter initialized');
-  } else {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const TwilioAdapter = require('./twilioAdapter').default;
-    smsAdapter = new TwilioAdapter(process.env) as SmsAdapterLike;
-    console.log('[SMS] Twilio adapter initialized');
-  }
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const D7Adapter = require('./d7Adapter').default;
+  smsAdapter = new D7Adapter(process.env) as SmsAdapterLike;
+  console.log('[SMS] D7 Networks adapter initialized');
+  // Twilio (disabled): const TwilioAdapter = require('./twilioAdapter').default;
 } catch (e: unknown) {
   const err = e as Error;
   console.warn('[SMS] Adapter init failed, using mock:', err.message);
@@ -141,7 +136,7 @@ Electrolux Delivery Team`;
         deliveryId,
         phoneNumber: finalPhone,
         messageContent: smsMessage,
-        smsProvider: process.env.SMS_PROVIDER || 'twilio',
+        smsProvider: process.env.SMS_PROVIDER || 'd7',
         externalMessageId: smsResult.messageId,
         status: smsResult.status || 'sent',
         sentAt: new Date(),
@@ -319,7 +314,7 @@ async function confirmDelivery(token: string, deliveryDateInput: Date | string):
             deliveryId,
             phoneNumber: delivery.phone as string,
             messageContent: confirmationMessage,
-            smsProvider: process.env.SMS_PROVIDER || 'twilio',
+            smsProvider: process.env.SMS_PROVIDER || 'd7',
             status: 'sent',
             sentAt: new Date(),
             metadata: { type: 'confirmation_received' }

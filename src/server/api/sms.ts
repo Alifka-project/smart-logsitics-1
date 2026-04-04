@@ -12,14 +12,16 @@ interface SmsAdapter {
   sendSms: (opts: { to: string; body: string; metadata?: Record<string, unknown> }) => Promise<{ messageId: string; status: string }>;
 }
 
-// Initialize SMS adapter (Twilio or mock)
+// Initialize SMS adapter — D7 Networks is the active provider.
+// Twilio adapter is kept in codebase but disabled (not currently used).
 let smsAdapter: SmsAdapter;
 try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const TwilioAdapter = require('../sms/twilioAdapter.js').default;
-  smsAdapter = new TwilioAdapter(process.env) as SmsAdapter;
+  const D7Adapter = require('../sms/d7Adapter.js').default;
+  smsAdapter = new D7Adapter(process.env) as SmsAdapter;
+  console.log('[SMS] D7 Networks adapter initialized');
 } catch (e) {
-  console.warn('[SMS] Twilio adapter not available, SMS sending will be mocked');
+  console.warn('[SMS] D7 adapter not available, SMS sending will be mocked');
   smsAdapter = {
     sendSms: async ({ to, body }: { to: string; body: string }) => {
       console.log(`[SMS MOCK] Would send to ${to}: ${body}`);
@@ -27,6 +29,10 @@ try {
     }
   };
 }
+
+// NOTE: Twilio adapter is kept in src/server/sms/twilioAdapter.ts as a reference
+// implementation but is NOT active. To re-enable, swap the D7Adapter import above.
+// const TwilioAdapter = require('../sms/twilioAdapter.js').default;
 
 // POST /api/sms/send - Send SMS
 router.post('/send', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
@@ -50,7 +56,7 @@ router.post('/send', authenticate, requireRole('admin'), async (req: Request, re
         [
           deliveryId || null,
           to,
-          'twilio',
+          process.env.SMS_PROVIDER || 'd7',
           result.messageId,
           result.status,
           JSON.stringify({ body, sentBy: (req.user as AuthUser).sub, timestamp: new Date().toISOString() })
@@ -64,7 +70,7 @@ router.post('/send', authenticate, requireRole('admin'), async (req: Request, re
   } catch (err: unknown) {
     const e = err as { message?: string };
     console.error('sms/send error', err);
-    res.status(500).json({ error: 'sms_send_failed', detail: e.message });
+    res.status(500).json({ error: 'sms_send_failed' });
   }
 });
 
@@ -137,7 +143,7 @@ Delivery ID: ${deliveryId}`;
   } catch (err: unknown) {
     const e = err as { message?: string };
     console.error('sms/send-confirmation error', err);
-    res.status(500).json({ error: 'sms_confirmation_failed', detail: e.message });
+    res.status(500).json({ error: 'sms_confirmation_failed' });
   }
 });
 
@@ -203,7 +209,7 @@ const confirmHandler = async (req: Request, res: Response): Promise<void> => {
   } catch (err: unknown) {
     const e = err as { message?: string };
     console.error('sms/confirm error', err);
-    res.status(500).json({ error: 'confirmation_failed', detail: e.message });
+    res.status(500).json({ error: 'confirmation_failed' });
   }
 };
 

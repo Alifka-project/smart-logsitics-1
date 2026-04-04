@@ -1,3 +1,9 @@
+/**
+ * Twilio SMS Adapter — DISABLED (not currently in use)
+ * D7 Networks is the active SMS provider.
+ * This file is kept as a reference implementation.
+ * To re-enable: update smsService.ts and api/sms.ts to import this adapter.
+ */
 import SmsAdapter, { SmsConfig, SmsSendOptions, SmsSendResult, WebhookResult } from './adapter';
 import axios from 'axios';
 import { normalizeUAEPhone, isValidUAEPhone } from '../utils/phoneUtils';

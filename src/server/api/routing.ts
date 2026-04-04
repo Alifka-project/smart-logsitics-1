@@ -5,7 +5,7 @@
  */
 import { Router } from 'express';
 import axios from 'axios';
-import { requireRole } from '../auth.js';
+import { authenticate, requireRole } from '../auth.js';
 
 const router = Router();
 const VALHALLA_BASE = 'https://valhalla1.openstreetmap.de';
@@ -57,7 +57,7 @@ function decodePolyline6(encoded: string): [number, number][] {
  * Returns road-following route coordinates (tries Valhalla first, falls back to OSRM)
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-router.post('/osrm', requireRole('admin'), async (req: any, res: any): Promise<void> => {
+router.post('/osrm', authenticate, requireRole('admin'), async (req: any, res: any): Promise<void> => {
   const locations = req.body?.locations as Array<{ lat?: number; lng?: number }> | undefined;
   if (!Array.isArray(locations) || locations.length < 2) {
     res.status(400).json({ error: 'At least 2 locations required' });

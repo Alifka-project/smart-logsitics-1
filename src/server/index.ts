@@ -206,6 +206,7 @@ import aiRouter from './api/ai.js';
 import deliveriesRouter from './api/deliveries.js';
 import sapRouter from './api/sap.js';
 import sapIngestionRouter from './api/sap-ingestion.js';
+import routingRouter from './api/routing.js';
 
 app.use('/api/admin/drivers', driversRouter);
 app.use('/api/driver', locationsRouter);
@@ -220,6 +221,7 @@ app.use('/api/deliveries', deliveriesRouter);
 app.use('/api/sms', smsRouter);
 app.use('/api/sap', sapRouter);
 app.use('/api/sap-ingestion', sapIngestionRouter);
+app.use('/api/routing', routingRouter);
 
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
