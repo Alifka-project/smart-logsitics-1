@@ -37,6 +37,7 @@ import DeliveryManagementPage from './DeliveryManagementPage';
 import { calculateRoute, generateFallbackRoute } from '../services/advancedRoutingService';
 import useDeliveryStore from '../store/useDeliveryStore';
 import { deliveryToManageOrder } from '../utils/deliveryWorkflowMap';
+import { isDubaiPublicHoliday } from '../utils/dubaiHolidays';
 import type { Delivery, AuthUser } from '../types';
 
 interface ContactUser {
@@ -2195,6 +2196,12 @@ export default function DeliveryTeamPortal() {
                 tomorrowDubai.setUTCDate(tomorrowDubai.getUTCDate() + 1);
                 const tomorrowIso = tomorrowDubai.toISOString().slice(0, 10); // YYYY-MM-DD
 
+                // Check if tomorrow is a non-working day (Sunday or UAE public holiday)
+                const tomorrowDow = tomorrowDubai.getUTCDay(); // 0=Sun
+                const tomorrowIsSunday = tomorrowDow === 0;
+                const tomorrowIsHoliday = isDubaiPublicHoliday(tomorrowIso);
+                const tomorrowIsNonWorkingDay = tomorrowIsSunday || tomorrowIsHoliday;
+
                 const tomorrowRows = allDashDeliveries.filter(d => {
                   const raw = d.confirmedDeliveryDate as string | null | undefined;
                   if (!raw) return false;
@@ -2259,12 +2266,24 @@ export default function DeliveryTeamPortal() {
                         <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                           <Truck className="w-5 h-5 text-orange-500" />
                           Tomorrow's Delivery Schedule
-                          <span className="ml-1 px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 text-xs font-normal">
+                          <span className={`ml-1 px-2 py-0.5 rounded-full text-xs font-normal ${tomorrowIsNonWorkingDay ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' : 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300'}`}>
                             {tomorrowIso}
                           </span>
+                          {tomorrowIsSunday && (
+                            <span className="px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs font-medium">
+                              Sunday — No Delivery
+                            </span>
+                          )}
+                          {!tomorrowIsSunday && tomorrowIsHoliday && (
+                            <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-xs font-medium">
+                              Public Holiday — No Delivery
+                            </span>
+                          )}
                         </h3>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                          {tomorrowRows.length} orders &middot; {totalItems} items &middot; {Object.keys(byDriver).length} driver{Object.keys(byDriver).length !== 1 ? 's' : ''}
+                          {tomorrowIsNonWorkingDay
+                            ? 'No deliveries scheduled — non-working day'
+                            : `${tomorrowRows.length} orders · ${totalItems} items · ${Object.keys(byDriver).length} driver${Object.keys(byDriver).length !== 1 ? 's' : ''}`}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -2314,7 +2333,20 @@ export default function DeliveryTeamPortal() {
                       </div>
                     )}
 
-                    {tomorrowRows.length === 0 ? (
+                    {tomorrowIsNonWorkingDay ? (
+                      <div className="flex items-start gap-3 rounded-lg border border-amber-200 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-900/20 px-4 py-4">
+                        <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                            {tomorrowIsSunday ? 'Sunday — No deliveries operate on Sundays' : 'UAE Public Holiday — No deliveries on this date'}
+                          </p>
+                          <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+                            {tomorrowIso} is a non-working day. No delivery schedule is required.
+                            {tomorrowRows.length > 0 && ` ${tomorrowRows.length} order(s) were found with this date — please reschedule them.`}
+                          </p>
+                        </div>
+                      </div>
+                    ) : tomorrowRows.length === 0 ? (
                       <div className="text-center py-10">
                         <Package className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
                         <p className="text-sm text-gray-500 dark:text-gray-400">No deliveries scheduled for tomorrow ({tomorrowIso})</p>

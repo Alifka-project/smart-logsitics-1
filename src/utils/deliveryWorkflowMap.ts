@@ -1,5 +1,6 @@
 import type { Delivery } from '../types';
 import type { DeliveryOrder, DeliveryStatus } from '../types/delivery';
+import { isDubaiPublicHoliday } from './dubaiHolidays';
 
 const UNCONFIRMED_HOURS = 24;
 const DUBAI_OFFSET_MS = 4 * 60 * 60 * 1000; // UTC+4
@@ -43,10 +44,10 @@ export function isTodayDate(date: Date): boolean {
 
 /**
  * Classify a confirmedDeliveryDate relative to Dubai "today" into a shipment tier.
- * - 'tomorrow'  : Day+1 (confirmed for next day)
- * - 'next'      : Day+2+ but day-before the confirmed date is a no-delivery day
- *                 (Friday=5 / Saturday=6 / Sunday=0). Covers skip-Sunday and
- *                 skip-weekend scenarios common in UAE operations.
+ * - 'tomorrow'  : Day+1 (confirmed for the next calendar day)
+ * - 'next'      : Day+2+ but the day immediately before the confirmed date is a
+ *                 non-working day (Sunday, Friday, Saturday, or UAE public holiday).
+ *                 Covers skip-weekend and skip-holiday scenarios.
  * - 'future'    : Day+2+ on a normal working day
  */
 export function classifyConfirmedDate(date: Date): 'tomorrow' | 'next' | 'future' {
@@ -54,12 +55,18 @@ export function classifyConfirmedDate(date: Date): 'tomorrow' | 'next' | 'future
 
   if (diffDays <= 1) return 'tomorrow';
 
-  // If the day immediately before the confirmed date is a no-delivery day, the
-  // delivery was pushed past it → label as "Next Shipment".
+  // If the day immediately before the confirmed date is a non-working day
+  // (Sunday=0, Friday=5, Saturday=6, or a UAE public holiday), the delivery
+  // was pushed past it → label as "Next Shipment".
   const [vy, vm, vd] = dubaiYMD(date.getTime());
   const dayBeforeUtc = Date.UTC(vy, vm, vd) - 86400000;
-  const dow = new Date(dayBeforeUtc).getUTCDay(); // 0=Sun, 5=Fri, 6=Sat
-  if (dow === 0 || dow === 5 || dow === 6) return 'next';
+  const dayBeforeDate = new Date(dayBeforeUtc);
+  const dow = dayBeforeDate.getUTCDay(); // 0=Sun, 5=Fri, 6=Sat
+  // ISO string of the day before (YYYY-MM-DD) for holiday lookup
+  const dayBeforeIso = dayBeforeDate.toISOString().slice(0, 10);
+  if (dow === 0 || dow === 5 || dow === 6 || isDubaiPublicHoliday(dayBeforeIso)) {
+    return 'next';
+  }
 
   return 'future';
 }

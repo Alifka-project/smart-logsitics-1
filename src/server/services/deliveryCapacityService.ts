@@ -1,9 +1,10 @@
 /**
- * Truck capacity: max pieces per route/day, customer date window (7 eligible days, no Sunday).
- * Uses Asia/Dubai for calendar boundaries.
+ * Truck capacity: max pieces per route/day, customer date window (7 eligible days).
+ * Non-working days: Sundays + UAE public holidays. Uses Asia/Dubai for calendar boundaries.
  */
 
 import type { PrismaClient } from '@prisma/client';
+import { isDubaiPublicHoliday } from '../../utils/dubaiHolidays';
 
 /**
  * Prisma client or transaction client.
@@ -53,13 +54,15 @@ export function addDubaiCalendarDays(isoDate: string, deltaDays: number): string
 }
 
 /**
- * Next 7 eligible delivery days: skip Sundays only; start from tomorrow (Dubai).
+ * Next 7 eligible delivery days: skip Sundays and UAE public holidays.
+ * Starts from tomorrow (Dubai timezone).
  */
 export function getNextSevenEligibleDayIsoStrings(): string[] {
   const out: string[] = [];
   let cursor = addDubaiCalendarDays(getDubaiTodayIso(), 1);
   while (out.length < 7) {
-    if (getDubaiWeekday(cursor) !== 0) {
+    const wd = getDubaiWeekday(cursor);
+    if (wd !== 0 && !isDubaiPublicHoliday(cursor)) {
       out.push(cursor);
     }
     cursor = addDubaiCalendarDays(cursor, 1);
@@ -216,6 +219,9 @@ export async function assertSlotAvailable(
   }
   if (getDubaiWeekday(isoDate) === 0) {
     throw new Error('Sunday is not available for delivery.');
+  }
+  if (isDubaiPublicHoliday(isoDate)) {
+    throw new Error('The selected date is a UAE public holiday. Please choose another available date.');
   }
   // Use fleet capacity: all active driver trucks combined
   const numDrivers = await countActiveDeliveryDrivers(db);
