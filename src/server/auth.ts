@@ -25,14 +25,24 @@ interface TokenPayload {
   [key: string]: unknown;
 }
 
+// In production, JWT secrets MUST be explicitly set — no fallback allowed.
+if (process.env.NODE_ENV === 'production') {
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+    throw new Error('FATAL: JWT_SECRET must be set to a string of at least 32 characters in production');
+  }
+  if (!process.env.JWT_REFRESH_SECRET || process.env.JWT_REFRESH_SECRET.length < 32) {
+    throw new Error('FATAL: JWT_REFRESH_SECRET must be set to a string of at least 32 characters in production');
+  }
+}
+
 const JWT_SECRET = process.env.JWT_SECRET || (() => {
-  console.warn('⚠️  WARNING: JWT_SECRET not set, using default. Change in production!');
-  return 'dev-secret-change-me-in-production';
+  console.warn('⚠️  WARNING: JWT_SECRET not set — using insecure dev default. NEVER deploy this to production!');
+  return 'dev-secret-INSECURE-change-me-in-production-' + Math.random().toString(36);
 })();
 
 const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || (() => {
-  console.warn('⚠️  WARNING: JWT_REFRESH_SECRET not set, using default. Change in production!');
-  return 'dev-refresh-secret-change-me-in-production';
+  console.warn('⚠️  WARNING: JWT_REFRESH_SECRET not set — using insecure dev default. NEVER deploy this to production!');
+  return 'dev-refresh-INSECURE-change-me-in-production-' + Math.random().toString(36);
 })();
 
 const ACCESS_TOKEN_EXP = '1h'; // Access token - increased for serverless cold starts
@@ -157,8 +167,7 @@ function authenticate(req: Request, res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization || '';
   const parts = authHeader.split(' ');
 
-  console.log(`[Auth] authenticate() called for ${req.method} ${req.path}`);
-  console.log(`[Auth] Authorization header: ${authHeader ? authHeader.substring(0, 30) + '...' : 'NOT PROVIDED'}`);
+  // Do not log authorization headers — tokens must not appear in any log stream.
 
   if (parts.length === 2 && parts[0] === 'Bearer') {
     const token = parts[1];

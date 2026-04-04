@@ -1,43 +1,63 @@
 import { URL } from 'url';
 
-function requireEnv(varName: string): void {
-  if (!process.env[varName]) {
-    throw new Error(`Required environment variable ${varName} is missing`);
+function requireEnv(varName: string, minLength = 0): void {
+  const val = process.env[varName];
+  if (!val) {
+    throw new Error(`FATAL: Required environment variable ${varName} is missing`);
+  }
+  if (minLength > 0 && val.length < minLength) {
+    throw new Error(`FATAL: ${varName} must be at least ${minLength} characters long`);
   }
 }
 
 function validateEnv(): void {
-  // Minimal required envs for secure operation.
-  // DATABASE_URL is ALWAYS required (both dev and production)
-  const alwaysRequired = ['DATABASE_URL'];
-  for (const v of alwaysRequired) {
-    if (!process.env[v]) {
-      console.error(`CRITICAL: Required environment variable ${v} is missing`);
-      throw new Error(`Required environment variable ${v} is missing`);
-    }
-  }
+  // DATABASE_URL is always required
+  requireEnv('DATABASE_URL');
 
-  // Require `JWT_SECRET` in production, but allow a development default otherwise.
-  const required: string[] = [];
   if (process.env.NODE_ENV === 'production') {
-    required.push('JWT_SECRET');
+    // All secrets required in production with minimum lengths
+    requireEnv('JWT_SECRET', 32);
+    requireEnv('JWT_REFRESH_SECRET', 32);
+
+    // Warn if SMS provider credentials are missing (non-fatal but important)
+    const smsProvider = process.env.SMS_PROVIDER || '';
+    if (smsProvider === 'twilio' && !process.env.TWILIO_AUTH_TOKEN) {
+      console.warn('WARNING: SMS_PROVIDER=twilio but TWILIO_AUTH_TOKEN is not set — webhook signature verification will fail');
+    }
+    if (smsProvider === 'd7' && !process.env.D7_API_TOKEN) {
+      console.warn('WARNING: SMS_PROVIDER=d7 but D7_API_TOKEN is not set');
+    }
+
+    // CORS must be explicitly configured in production
+    if (!process.env.CORS_ORIGINS) {
+      console.warn('WARNING: CORS_ORIGINS not set in production — all cross-origin requests will be blocked');
+    }
+
+    // HTTPS enforcement should be enabled
+    if (process.env.ENFORCE_HTTPS !== '1') {
+      console.warn('WARNING: ENFORCE_HTTPS is not set to 1 — HTTPS redirect is disabled');
+    }
   } else {
+    // Development: warn about missing secrets but don't exit
     if (!process.env.JWT_SECRET) {
-      // In development we permit a missing JWT_SECRET but warn the developer.
-      // The server code provides a safe development default.
-      // This prevents the server from exiting during local development when env vars are not set.
-      // eslint-disable-next-line no-console
-      console.warn('Warning: JWT_SECRET not set; using development default. Set JWT_SECRET in production.');
+      console.warn('WARNING: JWT_SECRET not set — using insecure development default. Set before deploying.');
     }
   }
-  for (const v of required) requireEnv(v);
 
-  // SAP_BASE_URL is optional but if present validate format
+  // Validate URL formats when present
   if (process.env.SAP_BASE_URL) {
     try {
       new URL(process.env.SAP_BASE_URL);
-    } catch (e: unknown) {
+    } catch {
       throw new Error('SAP_BASE_URL is not a valid URL');
+    }
+  }
+
+  if (process.env.FRONTEND_URL) {
+    try {
+      new URL(process.env.FRONTEND_URL);
+    } catch {
+      throw new Error('FRONTEND_URL is not a valid URL');
     }
   }
 }

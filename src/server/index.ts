@@ -31,17 +31,43 @@ async function cleanupOldMessages(): Promise<void> {
   }
 }
 
-// Log startup info
+// Log startup info — never print secrets or connection strings
 console.log('=== SERVER STARTUP ===');
 console.log('Node Environment:', process.env.NODE_ENV || 'not set');
 console.log('Port:', port);
 console.log('Vercel:', process.env.VERCEL ? 'yes' : 'no');
-console.log('Database URL:', process.env.DATABASE_URL ? 'SET (' + process.env.DATABASE_URL.substring(0, 40) + '...)' : 'NOT SET');
+console.log('Database URL:', process.env.DATABASE_URL ? 'SET' : 'NOT SET');
+console.log('JWT_SECRET:', process.env.JWT_SECRET ? 'SET' : 'NOT SET — using insecure dev default');
 console.log('========================\n');
 
-// Security middlewares
+// Security middlewares — helmet with CSP and HSTS enabled
 app.use(helmet({
-  contentSecurityPolicy: false
+  // Content Security Policy: restrict sources to same-origin and trusted CDNs
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"], // unsafe-inline needed for React build; tighten further with nonces if possible
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+      connectSrc: ["'self'", 'https:'],
+      fontSrc: ["'self'", 'data:', 'https:'],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+      upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null,
+    },
+  },
+  // HTTP Strict Transport Security: force HTTPS for 1 year in production
+  hsts: process.env.NODE_ENV === 'production'
+    ? { maxAge: 31536000, includeSubDomains: true, preload: true }
+    : false,
+  // Prevent MIME-type sniffing
+  noSniff: true,
+  // Deny framing to prevent clickjacking
+  frameguard: { action: 'deny' },
+  // Hide X-Powered-By (also set below)
+  hidePoweredBy: true,
+  // Referrer policy
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
 }));
 
 import { authenticate, requireCSRF } from './auth.js';
@@ -146,13 +172,12 @@ app.get('/api/health', async (req: Request, res: Response) => {
     });
   } catch (error: unknown) {
     const e = error as { message?: string; code?: string };
-    console.error('Health check failed:', e.message);
-    res.status(503).json({ 
-      ok: false, 
-      database: 'disconnected', 
-      error: e.message || 'Database connection required',
-      code: e.code,
-      ts: new Date().toISOString() 
+    // Log full details server-side only — never expose DB errors to clients
+    console.error('Health check failed:', e.message, e.code);
+    res.status(503).json({
+      ok: false,
+      database: 'disconnected',
+      ts: new Date().toISOString()
     });
   }
 });

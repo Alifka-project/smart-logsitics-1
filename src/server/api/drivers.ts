@@ -57,25 +57,9 @@ router.get('/', authenticate, requireAnyRole('admin', 'delivery_team'), async (r
 
     res.json({ data: formattedDrivers, meta: { count: (formattedDrivers as unknown[]).length } });
   } catch (err: unknown) {
-    const e = err as { message?: string; code?: string; name?: string; meta?: unknown; stack?: string };
+    // Log full details server-side; return generic message to client
     console.error('GET /api/admin/drivers error:', err);
-    console.error('Error message:', e.message);
-    console.error('Error code:', e.code);
-    console.error('Error name:', e.name);
-    if (e.meta) {
-      console.error('Error meta:', JSON.stringify(e.meta, null, 2));
-    }
-    console.error('Error stack:', e.stack);
-
-    // More detailed error response
-    res.status(500).json({
-      error: 'db_error',
-      detail: e.message,
-      code: e.code,
-      name: e.name,
-      meta: e.meta,
-      stack: process.env.NODE_ENV === 'development' ? e.stack : undefined
-    });
+    res.status(500).json({ error: 'server_error' });
   }
 });
 
@@ -158,7 +142,7 @@ router.post('/', authenticate, requireRole('admin'), async (req: Request, res: R
   } catch (err: unknown) {
     const e = err as { message?: string; code?: string; meta?: unknown };
     console.error('POST /api/admin/drivers', err);
-    res.status(500).json({ error: e.message || 'db_error', detail: e.message, code: e.code, meta: e.meta });
+    res.status(500).json({ error: 'server_error' });
   }
 });
 
@@ -178,7 +162,7 @@ router.get('/:id([0-9a-fA-F-]{36})', authenticate, requireAnyRole('admin', 'deli
   } catch (err: unknown) {
     const e = err as { message?: string };
     console.error('GET /api/admin/drivers/:id', err);
-    res.status(500).json({ error: 'db_error', detail: e.message });
+    res.status(500).json({ error: 'server_error' });
   }
 });
 
@@ -231,7 +215,7 @@ router.put('/:id([0-9a-fA-F-]{36})', authenticate, requireRole('admin'), async (
   } catch (err: unknown) {
     const e = err as { message?: string };
     console.error('PUT /api/admin/drivers/:id', err);
-    res.status(500).json({ error: e.message || 'db_error', detail: e.message });
+    res.status(500).json({ error: 'server_error' });
   }
 });
 
@@ -283,7 +267,7 @@ router.patch('/:id([0-9a-fA-F-]{36})', authenticate, requireRole('admin'), async
   } catch (err: unknown) {
     const e = err as { message?: string };
     console.error('PATCH /api/admin/drivers/:id', err);
-    res.status(500).json({ error: e.message || 'db_error', detail: e.message });
+    res.status(500).json({ error: 'server_error' });
   }
 });
 
@@ -305,7 +289,7 @@ router.delete('/:id([0-9a-fA-F-]{36})', authenticate, requireRole('admin'), asyn
   } catch (err: unknown) {
     const e = err as { message?: string };
     console.error('DELETE /api/admin/drivers/:id', err);
-    res.status(500).json({ error: 'db_error', detail: e.message });
+    res.status(500).json({ error: 'server_error' });
   }
 });
 
@@ -403,7 +387,7 @@ router.post('/:id([0-9a-fA-F-]{36})/activate-gps', authenticate, async (req: Req
   } catch (err: unknown) {
     const e = err as { message?: string };
     console.error('POST /api/admin/drivers/:id/activate-gps', err);
-    res.status(500).json({ error: 'db_error', detail: e.message });
+    res.status(500).json({ error: 'server_error' });
   }
 });
 

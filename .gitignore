@@ -52,11 +52,11 @@ server.pid
 # Vercel
 .vercel
 
-# Environment variables
-.env.local
-.env.*.local
+# Environment variables — NEVER commit any .env file (contains real credentials)
+.env
+.env.*
+!.env.example
 
 /src/generated/prisma
-.env*.local
 src/server/api/messages-old-backup.js
 test_routes_temp.cjs
