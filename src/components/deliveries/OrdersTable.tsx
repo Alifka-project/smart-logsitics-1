@@ -19,42 +19,16 @@ export type OrdersTableTab =
   | 'order_delay'
   | 'rescheduled';
 
-function OrderStatusPill({
-  status,
-  onClick,
-}: {
-  status: DeliveryStatus;
-  onClick?: () => void;
-}): React.ReactElement {
+function OrderStatusPill({ status }: { status: DeliveryStatus }): React.ReactElement {
   const c = STATUS_CONFIG[status];
   const text = c.pillLabel ?? c.label;
-  const baseClass = `
-    inline-flex max-w-full cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 py-1.5
-    text-xs font-semibold leading-none shadow-sm transition-opacity hover:opacity-90
-    ${c.badgeStyle} ${c.borderColor}
-  `;
-  const content = (
-    <>
+  return (
+    <span
+      className={`inline-flex max-w-full items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 py-1.5 text-xs font-semibold leading-none shadow-sm ${c.badgeStyle} ${c.borderColor}`}
+      title={c.pillLabel ? c.label : undefined}
+    >
       <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-55" aria-hidden />
       {text}
-    </>
-  );
-  if (onClick) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        className={baseClass}
-        title={`Change status — click to edit`}
-        aria-label={`Edit order status: ${text}`}
-      >
-        {content}
-      </button>
-    );
-  }
-  return (
-    <span className={baseClass} title={c.pillLabel ? c.label : undefined}>
-      {content}
     </span>
   );
 }
@@ -625,11 +599,19 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                     </td>
                     <td className="min-w-[140px] max-w-[150px] w-[145px] overflow-hidden px-3 py-2.5 align-middle" data-label="Status">
                       <div className="inline-flex max-w-full">
-                        <OrderStatusPill status={order.status} onClick={() => onEditOrder(order.id)} />
+                        <OrderStatusPill status={order.status} />
                       </div>
                     </td>
                     <td className="min-w-[100px] max-w-[110px] w-[105px] overflow-hidden px-3 py-2.5 align-middle shrink-0" data-label="Action">
                       <div className="flex flex-wrap items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => onEditOrder(order.id)}
+                          className="px-2.5 py-1 text-[11px] font-semibold rounded-md border border-[#002D5B]/30 bg-[#002D5B]/5 text-[#002D5B] hover:bg-[#002D5B] hover:text-white dark:border-blue-500/40 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-700 dark:hover:text-white transition-colors"
+                          title="Update delivery status"
+                        >
+                          Update Status
+                        </button>
                         {getActionButton(order)}
                       </div>
                     </td>
