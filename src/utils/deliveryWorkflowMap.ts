@@ -10,32 +10,35 @@ function parseOptDate(v: unknown): Date | undefined {
   return Number.isNaN(d.getTime()) ? undefined : d;
 }
 
-function startOfDay(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
+/**
+ * Extract [year, month (0-indexed), day] components in Dubai timezone (UTC+4).
+ * Works correctly regardless of whether the Date was stored in UTC or with a
+ * +04:00 offset — both produce the correct Dubai calendar date.
+ */
+function dubaiYMD(utcMs: number): [number, number, number] {
+  const d = new Date(utcMs + DUBAI_OFFSET_MS);
+  return [d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()];
 }
 
-function isSameDay(a: Date, b: Date): boolean {
-  return startOfDay(a).getTime() === startOfDay(b).getTime();
+/**
+ * Integer calendar-day difference between a target date and Dubai today.
+ * Positive = future, 0 = today, negative = past.
+ * Compares Dubai calendar dates only (ignores time-of-day and timezone offsets).
+ */
+function calDiffFromTodayDubai(target: Date): number {
+  const [ty, tm, td] = dubaiYMD(Date.now());
+  const [vy, vm, vd] = dubaiYMD(target.getTime());
+  return Math.round((Date.UTC(vy, vm, vd) - Date.UTC(ty, tm, td)) / 86400000);
 }
 
+/** True if the date falls on tomorrow in Dubai timezone. */
 export function isTomorrowDate(date: Date): boolean {
-  const t = new Date();
-  t.setDate(t.getDate() + 1);
-  return isSameDay(date, t);
+  return calDiffFromTodayDubai(date) === 1;
 }
 
+/** True if the date falls on today in Dubai timezone. */
 export function isTodayDate(date: Date): boolean {
-  return isSameDay(date, new Date());
-}
-
-/** True if delivery day is strictly after tomorrow (calendar). */
-function isFutureBeyondTomorrow(date: Date): boolean {
-  const t = new Date();
-  const dayAfter = new Date(t);
-  dayAfter.setDate(dayAfter.getDate() + 2);
-  return startOfDay(date).getTime() >= startOfDay(dayAfter).getTime();
+  return calDiffFromTodayDubai(date) === 0;
 }
 
 /**
@@ -47,20 +50,15 @@ function isFutureBeyondTomorrow(date: Date): boolean {
  * - 'future'    : Day+2+ on a normal working day
  */
 export function classifyConfirmedDate(date: Date): 'tomorrow' | 'next' | 'future' {
-  const nowDubai = new Date(Date.now() + DUBAI_OFFSET_MS);
-  const todayMidnightUtcMs = Date.UTC(
-    nowDubai.getUTCFullYear(),
-    nowDubai.getUTCMonth(),
-    nowDubai.getUTCDate(),
-  );
-  const diffDays = Math.floor((date.getTime() - todayMidnightUtcMs) / 86400000);
+  const diffDays = calDiffFromTodayDubai(date);
 
   if (diffDays <= 1) return 'tomorrow';
 
   // If the day immediately before the confirmed date is a no-delivery day, the
   // delivery was pushed past it → label as "Next Shipment".
-  const dayBefore = new Date(date.getTime() - 86400000);
-  const dow = dayBefore.getUTCDay(); // 0=Sun, 5=Fri, 6=Sat
+  const [vy, vm, vd] = dubaiYMD(date.getTime());
+  const dayBeforeUtc = Date.UTC(vy, vm, vd) - 86400000;
+  const dow = new Date(dayBeforeUtc).getUTCDay(); // 0=Sun, 5=Fri, 6=Sat
   if (dow === 0 || dow === 5 || dow === 6) return 'next';
 
   return 'future';
@@ -95,16 +93,8 @@ function deriveWorkflowStatus(d: Delivery, smsSentAt: Date | undefined): Deliver
     return 'delivered';
   }
 
-  // Helper: is a date strictly before Dubai today (i.e. overdue)?
-  const isOverdue = (date: Date): boolean => {
-    const nowDubai = new Date(Date.now() + DUBAI_OFFSET_MS);
-    const todayMidnightUtcMs = Date.UTC(
-      nowDubai.getUTCFullYear(),
-      nowDubai.getUTCMonth(),
-      nowDubai.getUTCDate(),
-    );
-    return date.getTime() < todayMidnightUtcMs;
-  };
+  // Helper: is the date's Dubai calendar day strictly before today? (overdue)
+  const isOverdue = (date: Date): boolean => calDiffFromTodayDubai(date) < 0;
 
   // Out-for-delivery: auto-delay if the confirmed delivery date has passed
   if (['out-for-delivery', 'in-transit', 'in-progress'].includes(s)) {
@@ -140,7 +130,7 @@ function deriveWorkflowStatus(d: Delivery, smsSentAt: Date | undefined): Deliver
       const tier = classifyConfirmedDate(target);
       if (tier === 'tomorrow') return 'tomorrow_shipment';
       if (tier === 'next') return 'next_shipment';
-      if (isFutureBeyondTomorrow(target)) return 'future_shipment';
+      if (tier === 'future') return 'future_shipment';
     }
     return 'confirmed'; // no date info — generic confirmed
   }
