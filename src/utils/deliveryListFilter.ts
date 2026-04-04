@@ -3,14 +3,19 @@ import type { Delivery } from '../types';
 export type DeliveryListFilter = 'all' | 'pending' | 'confirmed' | 'p1';
 
 const ACTIVE_STATUSES = new Set([
+  // Pre-dispatch statuses
   'pending',
-  'out-for-delivery',
-  'in-transit',
-  'in-progress',
+  'uploaded',
   'scheduled',
   'confirmed',
   'scheduled-confirmed',
-  'uploaded',
+  // Dispatch / in-transit statuses
+  'out-for-delivery',
+  'in-transit',
+  'in-progress',
+  // Delay — still needs driver/admin action
+  'order-delay',
+  'order_delay',
 ]);
 
 export function isActiveDeliveryListStatus(status: string): boolean {

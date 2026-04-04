@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { authenticate, requireRole } from '../auth.js';
 import * as db from '../db/index.js';
 const sapService = { call: async (..._args: unknown[]): Promise<{ data: Record<string, unknown> }> => ({ data: {} }) };
+const { autoAssignDelivery } = require('../services/autoAssignmentService');
 
 const router = Router();
 
@@ -176,6 +177,20 @@ const confirmHandler = async (req: Request, res: Response): Promise<void> => {
       });
     } catch (updateErr: unknown) {
       console.warn('[SMS] Failed to update delivery status:', updateErr);
+    }
+
+    // Auto-assign a driver if none assigned yet, so drivers can see confirmed
+    // orders before the admin formally dispatches.
+    try {
+      const prisma = require('../db/prisma').default;
+      const existingAssignment = await prisma.deliveryAssignment.findFirst({
+        where: { deliveryId, status: { in: ['assigned', 'in_progress'] } }
+      });
+      if (!existingAssignment) {
+        await autoAssignDelivery(deliveryId as string);
+      }
+    } catch (assignErr: unknown) {
+      console.warn('[SMS] scheduled-confirmed auto-assign failed:', (assignErr as Error).message);
     }
 
     await db.query(

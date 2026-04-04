@@ -139,6 +139,26 @@ async function updateDeliveryStatusHandler(
     data: updateData
   }) as Record<string, unknown>;
 
+  // When an order is confirmed for delivery (scheduled-confirmed):
+  // Auto-assign a driver if none yet, so the driver can see upcoming work
+  // before the admin formally dispatches.
+  if (status.toLowerCase() === 'scheduled-confirmed') {
+    try {
+      const existingAssignment = await prisma.deliveryAssignment.findFirst({
+        where: {
+          deliveryId: existingDelivery.id as string,
+          status: { in: ['assigned', 'in_progress'] }
+        }
+      });
+      if (!existingAssignment) {
+        await autoAssignDelivery(existingDelivery.id as string);
+      }
+    } catch (assignErr: unknown) {
+      // Non-fatal — log but don't fail the status update.
+      console.warn('[Deliveries] scheduled-confirmed auto-assign failed:', (assignErr as Error).message);
+    }
+  }
+
   // When dispatching (out-for-delivery):
   // 1. Auto-assign a driver if none is assigned yet (so the driver sees the order).
   // 2. Promote any existing assignment to in_progress so the driver's portal shows
