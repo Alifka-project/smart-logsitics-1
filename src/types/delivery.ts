@@ -33,7 +33,7 @@ export interface DeliveryOrder {
   productDescription?: string;
   status: DeliveryStatus;
   uploadedAt: Date;
-  smssentAt?: Date;
+  smsSentAt?: Date;
   confirmedAt?: Date;
   scheduledDate?: Date;
   confirmedDeliveryDate?: Date;

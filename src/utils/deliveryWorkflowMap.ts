@@ -230,7 +230,7 @@ export function deliveryToManageOrder(delivery: Delivery): DeliveryOrder {
     productDescription,
     status,
     uploadedAt,
-    smssentAt: smsSentAt,
+    smsSentAt: smsSentAt,
     confirmedAt,
     scheduledDate: scheduledDate ?? (['scheduled', 'next_shipment', 'future_shipment'].includes(status) ? parseOptDate(delivery.estimatedTime) : undefined),
     confirmedDeliveryDate,
