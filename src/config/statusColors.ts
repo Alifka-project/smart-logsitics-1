@@ -15,7 +15,7 @@ export type StatusVisualConfig = {
 
 export const STATUS_CONFIG: Record<DeliveryStatus, StatusVisualConfig> = {
   uploaded: {
-    label: 'Pending Order',
+    label: 'New Order',
     bgColor: 'bg-blue-50',
     textColor: 'text-blue-600',
     borderColor: 'border-blue-200',

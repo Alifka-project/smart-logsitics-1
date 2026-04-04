@@ -310,9 +310,11 @@ export default function DeliveryTeamPortal() {
     });
   }, [messages, activeTab]);
 
-  // Compute route for monitoring map (same logic as Admin Operations)
+  // Compute route for monitoring map — only Out-for-Delivery stops, matching the map markers
   useEffect(() => {
-    const pts = deliveries
+    const ofdDeliveries = deliveries.filter(d => (d.status || '').toLowerCase() === 'out-for-delivery');
+
+    const pts = ofdDeliveries
       .map((d) => {
         const lat = d.lat ?? (d as unknown as { Lat?: number }).Lat;
         const lng = d.lng ?? (d as unknown as { Lng?: number }).Lng;
@@ -339,7 +341,7 @@ export default function DeliveryTeamPortal() {
     }
 
     setRouteLoading(true);
-    calculateRoute(locations, deliveries, false)
+    calculateRoute(locations, ofdDeliveries, false)
       .then((result) => setMonitoringRoute({ coordinates: result.coordinates }))
       .catch(() => {
         try {
@@ -606,7 +608,7 @@ export default function DeliveryTeamPortal() {
       case 'confirmed':         return { label: 'Customer Confirmed',                                                        color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' };
       case 'sms_sent':          return { label: 'Awaiting Customer',                                                         color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' };
       case 'unconfirmed':       return { label: 'No Response (48h+)',                                                        color: 'bg-rose-100 dark:bg-rose-900/30 text-rose-800 dark:text-rose-300' };
-      case 'uploaded':          return { label: 'Pending Order',                                                             color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300' };
+      case 'uploaded':          return { label: 'New Order',                                                                 color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' };
       case 'rescheduled':       return { label: shortDate ? `Rescheduled · ${shortDate}` : 'Rescheduled',                   color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300' };
       case 'delivered':         return { label: 'Delivered',                                                                 color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' };
       case 'cancelled':         return { label: 'Cancelled',                                                                 color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' };
@@ -929,7 +931,7 @@ export default function DeliveryTeamPortal() {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {([
-                  { tableTab: 'pending',           count: actionItems.overdue.length,              label: 'Pending Orders',    sublabel: 'Pre-dispatch',      bg: 'bg-amber-50 dark:bg-amber-900/20',  border: 'border-amber-100 dark:border-amber-800/30',   hover: 'hover:bg-amber-100 dark:hover:bg-amber-900/30',   countColor: 'text-amber-600 dark:text-amber-400',   labelColor: 'text-amber-700 dark:text-amber-400'   },
+                  { tableTab: 'pending',           count: actionItems.overdue.length,              label: 'New Orders',        sublabel: 'No SMS sent yet',   bg: 'bg-blue-50 dark:bg-blue-900/20',    border: 'border-blue-100 dark:border-blue-800/30',     hover: 'hover:bg-blue-100 dark:hover:bg-blue-900/30',     countColor: 'text-blue-600 dark:text-blue-400',     labelColor: 'text-blue-700 dark:text-blue-400'     },
                   { tableTab: 'pending',           count: actionItems.unassigned.length,           label: 'Unassigned',        sublabel: 'Needs driver',      bg: 'bg-orange-50 dark:bg-orange-900/20',border: 'border-orange-100 dark:border-orange-800/30',  hover: 'hover:bg-orange-100 dark:hover:bg-orange-900/30', countColor: 'text-orange-600 dark:text-orange-400', labelColor: 'text-orange-700 dark:text-orange-400' },
                   { tableTab: 'awaiting_customer', count: actionItems.awaitingConfirmation.length, label: 'Awaiting Customer',  sublabel: 'No confirmation',  bg: 'bg-purple-50 dark:bg-purple-900/20',border: 'border-purple-100 dark:border-purple-800/30',  hover: 'hover:bg-purple-100 dark:hover:bg-purple-900/30', countColor: 'text-purple-600 dark:text-purple-400', labelColor: 'text-purple-700 dark:text-purple-400' },
                   { tableTab: 'order_delay',       count: actionItems.orderDelay.length,           label: 'Order Delays',      sublabel: 'Needs resolution',  bg: 'bg-red-50 dark:bg-red-900/20',     border: 'border-red-100 dark:border-red-800/30',        hover: 'hover:bg-red-100 dark:hover:bg-red-900/30',       countColor: 'text-red-600 dark:text-red-400',       labelColor: 'text-red-700 dark:text-red-400'       },
@@ -1935,7 +1937,7 @@ export default function DeliveryTeamPortal() {
                         <option value="order_delay">Order Delay</option>
                         <option value="sms_sent">Awaiting Customer (SMS Sent)</option>
                         <option value="unconfirmed">Unconfirmed (48h+)</option>
-                        <option value="uploaded">Pending Upload</option>
+                        <option value="uploaded">New Order (No SMS sent)</option>
                         <option value="confirmed">Customer Confirmed</option>
                         <option value="rescheduled">Rescheduled</option>
                         <option value="delivered">Delivered</option>

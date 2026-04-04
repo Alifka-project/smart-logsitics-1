@@ -382,7 +382,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
 
   const filterTabs: { key: OrdersTableTab; label: string; count: number }[] = [
     { key: 'all',              label: 'All',              count: orders.length },
-    { key: 'pending',          label: 'Pending Order',    count: orders.filter((o) => o.status === 'uploaded').length },
+    { key: 'pending',          label: 'New Order',        count: orders.filter((o) => o.status === 'uploaded').length },
     { key: 'awaiting_customer',label: 'Awaiting Customer',count: orders.filter((o) => o.status === 'sms_sent' || o.status === 'unconfirmed').length },
     { key: 'tomorrow_shipment',label: 'Tomorrow Shipment',count: orders.filter((o) => o.status === 'tomorrow_shipment').length },
     { key: 'next_shipment',    label: 'Next Shipment',    count: orders.filter((o) => o.status === 'next_shipment').length },
