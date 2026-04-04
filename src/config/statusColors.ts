@@ -34,7 +34,7 @@ export const STATUS_CONFIG: Record<DeliveryStatus, StatusVisualConfig> = {
     badgeStyle: 'bg-emerald-100 text-emerald-700',
   },
   unconfirmed: {
-    label: 'No Response',
+    label: 'No Response (24h+)',
     bgColor: 'bg-red-50',
     textColor: 'text-red-600',
     borderColor: 'border-red-400',

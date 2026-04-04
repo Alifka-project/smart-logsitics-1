@@ -1,7 +1,7 @@
 import type { Delivery } from '../types';
 import type { DeliveryOrder, DeliveryStatus } from '../types/delivery';
 
-const UNCONFIRMED_HOURS = 48;
+const UNCONFIRMED_HOURS = 24;
 const DUBAI_OFFSET_MS = 4 * 60 * 60 * 1000; // UTC+4
 
 function parseOptDate(v: unknown): Date | undefined {

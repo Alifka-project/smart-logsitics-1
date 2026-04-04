@@ -608,7 +608,7 @@ export default function DeliveryTeamPortal() {
       case 'future_shipment':   return { label: shortDate ? `Future Shipment · ${shortDate}` : 'Future Shipment',           color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300' };
       case 'confirmed':         return { label: 'Customer Confirmed',                                                        color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' };
       case 'sms_sent':          return { label: 'Awaiting Customer',                                                         color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' };
-      case 'unconfirmed':       return { label: 'No Response (48h+)',                                                        color: 'bg-rose-100 dark:bg-rose-900/30 text-rose-800 dark:text-rose-300' };
+      case 'unconfirmed':       return { label: 'No Response (24h+)',                                                        color: 'bg-rose-100 dark:bg-rose-900/30 text-rose-800 dark:text-rose-300' };
       case 'uploaded':          return { label: 'Pending Order',                                                             color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300' };
       case 'rescheduled':       return { label: shortDate ? `Rescheduled · ${shortDate}` : 'Rescheduled',                   color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300' };
       case 'delivered':         return { label: 'Delivered',                                                                 color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' };
@@ -697,7 +697,7 @@ export default function DeliveryTeamPortal() {
         ws === 'future_shipment'   ? 'Future Shipment' :
         ws === 'order_delay'       ? 'Order Delay' :
         ws === 'sms_sent'          ? 'Awaiting Customer' :
-        ws === 'unconfirmed'       ? 'Unconfirmed' :
+        ws === 'unconfirmed'       ? 'No Response (24h+)' :
         ws === 'confirmed'         ? 'Confirmed' :
         ws === 'rescheduled'       ? 'Rescheduled' :
         ws === 'failed'            ? 'Failed / Returned' :
@@ -1937,7 +1937,7 @@ export default function DeliveryTeamPortal() {
                         <option value="future_shipment">Future Shipment</option>
                         <option value="order_delay">Order Delay</option>
                         <option value="sms_sent">Awaiting Customer (SMS Sent)</option>
-                        <option value="unconfirmed">Unconfirmed (48h+)</option>
+                        <option value="unconfirmed">No Response (24h+)</option>
                         <option value="uploaded">Pending Order</option>
                         <option value="confirmed">Customer Confirmed</option>
                         <option value="rescheduled">Rescheduled</option>
@@ -2015,8 +2015,8 @@ export default function DeliveryTeamPortal() {
                                   ws === 'future_shipment'   ? 'Future Shipment' :
                                   ws === 'order_delay'       ? 'Order Delay' :
                                   ws === 'sms_sent'          ? 'Awaiting Customer' :
-                                  ws === 'unconfirmed'       ? 'Unconfirmed (48h+)' :
-                                  ws === 'uploaded'          ? 'Pending' :
+                                  ws === 'unconfirmed'       ? 'No Response (24h+)' :
+                                  ws === 'uploaded'          ? 'Pending Order' :
                                   ws === 'confirmed'         ? 'Customer Confirmed' :
                                   ws === 'rescheduled'       ? 'Rescheduled' :
                                   ws === 'delivered'         ? 'Delivered' :

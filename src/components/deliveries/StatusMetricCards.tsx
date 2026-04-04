@@ -12,14 +12,14 @@ interface StatusMetricCardsProps {
 }
 
 const CARD_DEFS = [
-  { key: 'uploaded',          sublabel: 'No SMS sent',    darkIconBg: 'dark:bg-blue-500/30' },
-  { key: 'sms_sent',          sublabel: 'SMS sent',        darkIconBg: 'dark:bg-emerald-500/30' },
-  { key: 'unconfirmed',       sublabel: 'No reply 48h+',  darkIconBg: 'dark:bg-red-500/35' },
+  { key: 'uploaded',          sublabel: 'Awaiting action', darkIconBg: 'dark:bg-blue-500/30' },
+  { key: 'sms_sent',          sublabel: 'Awaiting reply',  darkIconBg: 'dark:bg-emerald-500/30' },
+  { key: 'unconfirmed',       sublabel: 'No reply 24h+',   darkIconBg: 'dark:bg-red-500/35' },
   { key: 'tomorrow_shipment', sublabel: 'Ships tomorrow',  darkIconBg: 'dark:bg-teal-500/35' },
-  { key: 'next_shipment',     sublabel: 'Skip day',        darkIconBg: 'dark:bg-cyan-500/30' },
+  { key: 'next_shipment',     sublabel: 'Next available',  darkIconBg: 'dark:bg-cyan-500/30' },
   { key: 'future_shipment',   sublabel: 'Later date',      darkIconBg: 'dark:bg-indigo-500/30' },
-  { key: 'out_for_delivery',  sublabel: 'On route',        darkIconBg: 'dark:bg-orange-500/30' },
-  { key: 'delivered',         sublabel: 'Today',           darkIconBg: 'dark:bg-green-500/35' },
+  { key: 'out_for_delivery',  sublabel: 'Dispatched',      darkIconBg: 'dark:bg-orange-500/30' },
+  { key: 'delivered',         sublabel: 'Completed',       darkIconBg: 'dark:bg-green-500/35' },
 ] as const;
 
 export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({ orders, onCardClick, activeKey }) => {

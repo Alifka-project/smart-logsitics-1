@@ -6,7 +6,7 @@ import type { DeliveryOrder } from '../../types/delivery';
 import { deliveryToManageOrder } from '../../utils/deliveryWorkflowMap';
 
 const API_STATUS_OPTIONS: { value: string; label: string }[] = [
-  { value: 'pending', label: 'Pending Order (no SMS yet)' },
+  { value: 'pending', label: 'Pending Order' },
   { value: 'uploaded', label: 'Pending Order (uploaded)' },
   { value: 'scheduled', label: 'Awaiting Customer (SMS sent)' },
   { value: 'confirmed', label: 'Confirmed (tomorrow / soon)' },

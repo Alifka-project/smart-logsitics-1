@@ -215,7 +215,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
     if (order.status === 'sms_sent')
       return <span className="text-emerald-600 dark:text-emerald-400">Awaiting reply</span>;
     if (order.status === 'uploaded')
-      return <span className="text-gray-400 dark:text-gray-500">No SMS yet</span>;
+      return <span className="text-gray-400 dark:text-gray-500">Pending</span>;
     return <span className="text-gray-400">—</span>;
   };
 
