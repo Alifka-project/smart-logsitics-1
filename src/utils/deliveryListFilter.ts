@@ -1,6 +1,6 @@
 import type { Delivery } from '../types';
 
-export type DeliveryListFilter = 'all' | 'pending' | 'confirmed' | 'p1';
+export type DeliveryListFilter = 'all' | 'pending' | 'confirmed' | 'p1' | 'out_for_delivery';
 
 const ACTIVE_STATUSES = new Set([
   // Pre-dispatch statuses
@@ -56,6 +56,11 @@ export function applyDeliveryListFilter(
       });
     case 'p1':
       return active.filter((d) => d.priority === 1);
+    case 'out_for_delivery':
+      return active.filter((d) => {
+        const s = (d.status || '').toLowerCase();
+        return s === 'out-for-delivery' || s === 'in-transit' || s === 'in-progress';
+      });
     default:
       return active;
   }

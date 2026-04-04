@@ -2205,7 +2205,21 @@ export default function DeliveryTeamPortal() {
                 const tomorrowRows = allDashDeliveries.filter(d => {
                   const raw = d.confirmedDeliveryDate as string | null | undefined;
                   if (!raw) return false;
-                  return raw.slice(0, 10) === tomorrowIso;
+                  // Convert confirmedDeliveryDate to Dubai calendar date (UTC+4) before comparing.
+                  // Without this, a date stored as "2026-04-05T00:00:00+04:00" (= 2026-04-04T20:00Z)
+                  // would produce the wrong slice("2026-04-04") and appear as today, not tomorrow.
+                  const parsed = new Date(raw);
+                  if (isNaN(parsed.getTime())) return false;
+                  const dubaiMs = parsed.getTime() + DUBAI_OFFSET_MS;
+                  const dubaiIso = new Date(dubaiMs).toISOString().slice(0, 10);
+                  if (dubaiIso !== tomorrowIso) return false;
+                  // Only include orders that are actually scheduled for tomorrow shipment —
+                  // exclude delivered, cancelled, rescheduled, and already-dispatched orders.
+                  const s = (d.status as string | undefined | null || '').toLowerCase();
+                  const excluded = ['delivered', 'delivered-with-installation', 'delivered-without-installation',
+                    'finished', 'completed', 'pod-completed', 'cancelled', 'returned', 'failed',
+                    'out-for-delivery', 'in-transit', 'in-progress'];
+                  return !excluded.includes(s);
                 });
 
                 const totalItems = tomorrowRows.reduce((sum, d) => {
