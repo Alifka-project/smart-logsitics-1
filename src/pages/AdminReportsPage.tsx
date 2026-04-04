@@ -295,7 +295,7 @@ export default function AdminReportsPage(): React.ReactElement {
       status === 'rescheduled' &&
       (delivery.actor_type === 'customer' || delivery.rescheduled_by === 'customer')
     ) return 'Rescheduled';
-    return 'No Response';
+    return 'No Response (24h+)';
   };
 
   const getPODStatus = (delivery: ReportDelivery): boolean => {
@@ -405,11 +405,23 @@ export default function AdminReportsPage(): React.ReactElement {
   };
 
   const STATUS_DISPLAY: Record<string, string> = {
-    'pending': 'Pending Order',
-    'uploaded': 'Pending Order',
-    'scheduled': 'Awaiting Customer',
-    'scheduled-confirmed': 'Confirmed',
-    'out-for-delivery': 'Out for Delivery',
+    'pending':                        'Pending Order',
+    'uploaded':                       'Pending Order',
+    'scheduled':                      'Awaiting Customer',
+    'scheduled-confirmed':            'Confirmed',
+    'out-for-delivery':               'On Route',
+    'in-transit':                     'In Transit',
+    'in-progress':                    'In Progress',
+    'delivered':                      'Delivered',
+    'delivered-with-installation':    'Delivered (With Install)',
+    'delivered-without-installation': 'Delivered (No Install)',
+    'completed':                      'Completed',
+    'pod-completed':                  'POD Completed',
+    'cancelled':                      'Cancelled',
+    'rescheduled':                    'Rescheduled',
+    'returned':                       'Returned',
+    'failed':                         'Failed',
+    'rejected':                       'Rejected',
   };
 
   const formatStatusLabel = (status: string): string => {
@@ -555,7 +567,7 @@ export default function AdminReportsPage(): React.ReactElement {
               <option value="accepted">Accepted</option>
               <option value="cancelled">Cancelled</option>
               <option value="rescheduled">Rescheduled</option>
-              <option value="no response">No Response</option>
+              <option value="no response (24h+)">No Response (24h+)</option>
             </select>
           </div>
           <div>

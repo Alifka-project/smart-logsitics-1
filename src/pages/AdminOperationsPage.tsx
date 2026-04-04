@@ -131,8 +131,10 @@ function getRoleBadge(role?: string): { label: string; color: string } {
 function getStatusDisplay(raw?: string): { label: string; color: string } {
   const s = (raw || '').toLowerCase().replace(/_/g, '-');
   const map: Record<string, { label: string; color: string }> = {
-    'out-for-delivery':               { label: 'Out for Delivery',  color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' },
+    /* Raw DB statuses */
+    'out-for-delivery':               { label: 'On Route',           color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' },
     'in-progress':                    { label: 'In Progress',        color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300' },
+    'in-transit':                     { label: 'In Transit',         color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' },
     'assigned':                       { label: 'Assigned',           color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300' },
     'pending':                        { label: 'Pending Order',      color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300' },
     'uploaded':                       { label: 'Pending Order',      color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300' },
@@ -147,6 +149,14 @@ function getStatusDisplay(raw?: string): { label: string; color: string } {
     'rescheduled':                    { label: 'Rescheduled',        color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' },
     'returned':                       { label: 'Returned',           color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' },
     'failed':                         { label: 'Failed',             color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' },
+    /* Workflow-derived statuses (underscore form) */
+    'out_for_delivery':               { label: 'On Route',           color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' },
+    'sms_sent':                       { label: 'Awaiting Customer',  color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' },
+    'unconfirmed':                    { label: 'No Response (24h+)', color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' },
+    'order_delay':                    { label: 'Order Delay',        color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' },
+    'tomorrow_shipment':              { label: 'Confirmed',          color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300' },
+    'next_shipment':                  { label: 'Confirmed',          color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300' },
+    'future_shipment':                { label: 'Confirmed',          color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300' },
   };
   return map[s] || { label: raw ? raw.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Unknown', color: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' };
 }
