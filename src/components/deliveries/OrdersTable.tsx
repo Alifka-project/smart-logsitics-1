@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, Search, X, SlidersHorizontal } from 'lucide-react';
+import { ChevronDown, Download, FileSpreadsheet, Search, X, SlidersHorizontal } from 'lucide-react';
 import type { DeliveryOrder, DeliveryStatus } from '../../types/delivery';
 import { STATUS_CONFIG } from '../../config/statusColors';
 import { RescheduleModal } from './RescheduleModal';
@@ -415,9 +415,12 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
             <button
               type="button"
               onClick={onExport}
-              className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-[#002D5B] text-white hover:bg-[#001f3f] transition-colors"
+              className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 shadow-sm hover:shadow-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
+              title="Export current filtered orders to Excel"
             >
-              ↓ Export
+              <FileSpreadsheet className="h-4 w-4 shrink-0" aria-hidden />
+              <span>Export Excel</span>
+              <Download className="h-3.5 w-3.5 shrink-0 opacity-75" aria-hidden />
             </button>
           )}
         </div>
@@ -627,14 +630,6 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                     </td>
                     <td className="min-w-[100px] max-w-[110px] w-[105px] overflow-hidden px-3 py-2.5 align-middle shrink-0" data-label="Action">
                       <div className="flex flex-wrap items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => onEditOrder(order.id)}
-                          className="px-2 py-1 text-[11px] font-medium rounded border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-                          title="Change status"
-                        >
-                          Status
-                        </button>
                         {getActionButton(order)}
                       </div>
                     </td>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Database, MapPin, Zap, List, ClipboardList, Download, RefreshCw } from 'lucide-react';
+import { Database, MapPin, Zap, List, ClipboardList, RefreshCw } from 'lucide-react';
 import DeliveryTable from '../components/DeliveryList/DeliveryTable';
 import CustomerModal from '../components/CustomerDetails/CustomerModal';
 import ManageTab from '../components/deliveries/ManageTab';
@@ -237,17 +237,7 @@ export default function DeliveryManagementPage({ hideManageTab = false }: Delive
           <h1 className="pp-page-title text-xl sm:text-3xl">Delivery Management</h1>
           <p className="pp-page-subtitle text-xs sm:text-sm">Manage deliveries, view routes, and track status</p>
         </div>
-        <div className="flex flex-wrap gap-2 sm:flex-nowrap">
-          {deliveries.length > 0 && (
-            <button
-              onClick={() => handleExport('xlsx')}
-              className="flex-1 sm:flex-none min-h-[44px] px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-center gap-2 text-sm touch-manipulation"
-            >
-              <Download className="w-4 h-4 flex-shrink-0" />
-              Export Excel
-            </button>
-          )}
-        </div>
+        <div className="flex flex-wrap gap-2 sm:flex-nowrap" />
       </div>
 
       {/* Tab Navigation - hidden when only Deliveries (Driver Portal) */}
