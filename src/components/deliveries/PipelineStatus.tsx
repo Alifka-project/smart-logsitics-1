@@ -25,7 +25,7 @@ const STAGES: {
 }[] = [
   {
     key: 'uploaded',
-    label: 'New Order',
+    label: 'Uploaded',
     sub: 'Awaiting SMS',
     w: 108,
     h: 85,
