@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import * as XLSX from 'xlsx';
 import useDeliveryStore from '../../store/useDeliveryStore';
 import { useDragAndDrop } from '../../hooks/useDragAndDrop';
 import DeliveryCard from './DeliveryCard';
@@ -15,6 +16,105 @@ interface DeliveryTableProps {
   onSelectDelivery: () => void;
   onCloseDetailModal?: () => void;
   onHoverDelivery?: (index: number | null) => void;
+}
+
+// ─── Export helpers ────────────────────────────────────────────────────────────
+
+function fmtDate(v: unknown): string {
+  if (!v) return '—';
+  const d = new Date(String(v));
+  return isNaN(d.getTime()) ? '—' : d.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function photoSrc(p: unknown): string {
+  if (typeof p === 'string') return p;
+  if (p && typeof p === 'object') {
+    const rec = p as Record<string, unknown>;
+    const raw = rec.data ?? rec.url ?? '';
+    return typeof raw === 'string' ? raw : '';
+  }
+  return '';
+}
+
+function exportToExcel(rows: Delivery[]): void {
+  const data = rows.map((d, i) => ({
+    '#': i + 1,
+    'Customer': d.customer ?? '',
+    'Address': d.address ?? '',
+    'Phone': d.phone ?? '',
+    'PO Number': d.poNumber ?? '',
+    'Delivery Number': (d as unknown as Record<string, unknown>).deliveryNumber as string ?? '',
+    'Status': d.status ?? '',
+    'Items': d.items ?? '',
+    'Notes': d.conditionNotes ?? d.deliveryNotes ?? '',
+    'Delivered At': fmtDate(d.deliveredAt ?? d.podCompletedAt),
+    'POD Photos': d.photos ? (d.photos as unknown[]).length + ' photo(s)' : '—',
+    'Driver Sig': d.driverSignature ? 'Yes' : '—',
+    'Customer Sig': d.customerSignature ? 'Yes' : '—',
+  }));
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Deliveries');
+  const date = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(wb, `driver-deliveries-${date}.xlsx`);
+}
+
+function exportToHTML(rows: Delivery[]): void {
+  const rows_html = rows.map((d, i) => {
+    const photos = (d.photos as unknown[] | null | undefined) ?? [];
+    const photoImgs = photos.map((p, pi) => {
+      const src = photoSrc(p);
+      if (!src) return '';
+      const imgSrc = src.startsWith('data:') || src.startsWith('http') ? src : `data:image/jpeg;base64,${src}`;
+      return `<img src="${imgSrc}" alt="Photo ${pi + 1}" style="max-width:200px;max-height:200px;border-radius:8px;border:1px solid #e5e7eb;object-fit:cover;" />`;
+    }).join('');
+    const sigSection = [
+      d.driverSignature ? `<div><strong>Driver Signature</strong><br/><img src="${d.driverSignature.startsWith('data:') ? d.driverSignature : `data:image/png;base64,${d.driverSignature}`}" style="max-width:200px;border:1px solid #e5e7eb;border-radius:4px;" /></div>` : '',
+      d.customerSignature ? `<div><strong>Customer Signature</strong><br/><img src="${d.customerSignature.startsWith('data:') ? d.customerSignature : `data:image/png;base64,${d.customerSignature}`}" style="max-width:200px;border:1px solid #e5e7eb;border-radius:4px;" /></div>` : '',
+    ].filter(Boolean).join('');
+    const s = (d.status || '').toLowerCase();
+    const isOk = ['delivered','delivered-with-installation','delivered-without-installation','completed','pod-completed'].includes(s);
+    const statusBg = isOk ? '#d1fae5' : s === 'cancelled' ? '#fee2e2' : '#fed7aa';
+    const statusColor = isOk ? '#065f46' : s === 'cancelled' ? '#991b1b' : '#9a3412';
+    return `
+      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:20px 24px;margin-bottom:20px;page-break-inside:avoid;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+          <span style="background:#1e40af;color:#fff;border-radius:50%;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0;">${i+1}</span>
+          <span style="font-size:17px;font-weight:700;color:#111827;">${d.customer ?? '—'}</span>
+          <span style="background:${statusBg};color:${statusColor};padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;">${d.status ?? '—'}</span>
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:13px;color:#374151;">
+          <tr><td style="padding:4px 8px;width:130px;color:#6b7280;font-weight:500;">PO Number</td><td style="padding:4px 8px;font-family:monospace;">${d.poNumber ?? '—'}</td></tr>
+          <tr><td style="padding:4px 8px;color:#6b7280;font-weight:500;">Items</td><td style="padding:4px 8px;">${d.items ?? '—'}</td></tr>
+          <tr><td style="padding:4px 8px;color:#6b7280;font-weight:500;">Address</td><td style="padding:4px 8px;">${d.address ?? '—'}</td></tr>
+          <tr><td style="padding:4px 8px;color:#6b7280;font-weight:500;">Phone</td><td style="padding:4px 8px;">${d.phone ?? '—'}</td></tr>
+          <tr><td style="padding:4px 8px;color:#6b7280;font-weight:500;">Delivered At</td><td style="padding:4px 8px;">${fmtDate(d.deliveredAt ?? d.podCompletedAt)}</td></tr>
+          ${d.conditionNotes ? `<tr><td style="padding:4px 8px;color:#6b7280;font-weight:500;">Notes</td><td style="padding:4px 8px;">${d.conditionNotes}</td></tr>` : ''}
+        </table>
+        ${photoImgs || sigSection ? `
+          <div style="margin-top:14px;border-top:1px solid #f3f4f6;padding-top:14px;">
+            <div style="font-size:12px;font-weight:600;color:#6b7280;margin-bottom:8px;">POD Evidence</div>
+            <div style="display:flex;flex-wrap:wrap;gap:10px;">${photoImgs}${sigSection}</div>
+          </div>
+        ` : ''}
+      </div>`;
+  }).join('');
+
+  const date = new Date().toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><title>Driver Delivery Report — ${date}</title>
+  <style>*{box-sizing:border-box;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f9fafb;padding:24px;color:#111827;}h1{font-size:22px;font-weight:700;margin-bottom:4px;}p.sub{font-size:13px;color:#6b7280;margin-bottom:24px;}@media print{body{background:#fff;padding:12px;}}</style>
+  </head><body>
+  <h1>Driver Delivery Report</h1><p class="sub">Generated: ${date} &nbsp;·&nbsp; ${rows.length} order(s)</p>
+  ${rows_html}
+  </body></html>`;
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `driver-report-${new Date().toISOString().slice(0, 10)}.html`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export default function DeliveryTable({
@@ -98,24 +198,53 @@ export default function DeliveryTable({
     onSelectDelivery();
   };
 
-  const chips: { id: DeliveryListFilter; label: string }[] = [
-    { id: 'all', label: 'All' },
-    { id: 'pending', label: 'Pending Orders' },
-    { id: 'confirmed', label: 'Confirmed' },
-    { id: 'out_for_delivery', label: 'On Route' },
-    { id: 'p1', label: 'P1 Only' },
+  const chips: { id: DeliveryListFilter; label: string; activeClass: string }[] = [
+    { id: 'all',             label: 'All Active',   activeClass: 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900' },
+    { id: 'pending',         label: 'Pending',      activeClass: 'bg-yellow-500 text-white' },
+    { id: 'confirmed',       label: 'Confirmed',    activeClass: 'bg-blue-600 text-white' },
+    { id: 'out_for_delivery',label: 'On Route',     activeClass: 'bg-orange-500 text-white' },
+    { id: 'p1',              label: 'P1 Urgent',    activeClass: 'bg-red-600 text-white' },
+    { id: 'delivered',       label: 'Delivered',    activeClass: 'bg-green-600 text-white' },
   ];
+
+  const isDeliveredFilter = deliveryListFilter === 'delivered';
 
   return (
     <div className="pp-dash-card p-4 sm:p-6 transition-colors">
       <div className="mb-4">
-        <h2 className="text-lg sm:text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">
-          🚚 Delivery Sequence
-        </h2>
-        <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-3">
-          {dragEnabled ? 'Drag to reorder • ' : 'Clear filters to reorder • '}
-          Tap to edit • Sorted by distance
-        </p>
+        <div className="flex items-start justify-between gap-3 mb-2">
+          <div>
+            <h2 className="text-lg sm:text-2xl font-bold text-gray-800 dark:text-gray-100">
+              🚚 Delivery Sequence
+            </h2>
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-0.5">
+              {dragEnabled ? 'Drag to reorder · ' : isDeliveredFilter ? 'Completed orders · ' : 'Clear filters to reorder · '}
+              Tap to view
+            </p>
+          </div>
+          {/* Export buttons — always visible, export current filtered rows */}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => exportToExcel(rows.map(r => r.delivery))}
+              disabled={rows.length === 0}
+              title="Export to Excel"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
+            >
+              📊 Excel
+            </button>
+            <button
+              type="button"
+              onClick={() => exportToHTML(rows.map(r => r.delivery))}
+              disabled={rows.length === 0}
+              title="Export to HTML report (includes POD images)"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
+            >
+              📄 Report
+            </button>
+          </div>
+        </div>
+
         <div className="flex flex-wrap gap-2">
           {chips.map((c) => {
             const count = countForDeliveryListFilter(deliveries, c.id);
@@ -130,7 +259,7 @@ export default function DeliveryTable({
                 }}
                 className={`text-xs sm:text-sm font-medium px-3 py-1.5 rounded-full transition-colors ${
                   active
-                    ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900'
+                    ? c.activeClass
                     : 'border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
                 }`}
               >
@@ -189,8 +318,10 @@ export default function DeliveryTable({
       </div>
 
       {rows.length === 0 && (
-        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-          No active deliveries for this filter. Completed or cancelled stops are hidden from this list.
+        <div className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm">
+          {isDeliveredFilter
+            ? 'No finished deliveries yet. Completed and returned orders will appear here.'
+            : 'No deliveries match this filter.'}
         </div>
       )}
     </div>

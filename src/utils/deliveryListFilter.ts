@@ -1,6 +1,11 @@
 import type { Delivery } from '../types';
 
-export type DeliveryListFilter = 'all' | 'pending' | 'confirmed' | 'p1' | 'out_for_delivery';
+export type DeliveryListFilter = 'all' | 'pending' | 'confirmed' | 'p1' | 'out_for_delivery' | 'delivered';
+
+const DELIVERED_STATUSES = new Set([
+  'delivered', 'delivered-with-installation', 'delivered-without-installation',
+  'completed', 'pod-completed', 'cancelled', 'returned',
+]);
 
 const ACTIVE_STATUSES = new Set([
   // Pre-dispatch statuses
@@ -61,6 +66,9 @@ export function applyDeliveryListFilter(
         const s = (d.status || '').toLowerCase();
         return s === 'out-for-delivery' || s === 'in-transit' || s === 'in-progress';
       });
+    case 'delivered':
+      // Bypass active filter — show terminal (delivered/cancelled/returned) deliveries.
+      return list.filter((d) => DELIVERED_STATUSES.has((d.status || '').toLowerCase()));
     default:
       return active;
   }
