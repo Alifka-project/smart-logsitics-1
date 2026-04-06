@@ -23,9 +23,13 @@ const CARD_DEFS = [
   { key: 'delivered',         sublabel: 'Completed',       darkIconBg: 'dark:bg-green-500/35' },
 ] as const;
 
+// Terminal workflow statuses — excluded from "Pending Orders" total
+const TERMINAL_WF = new Set(['delivered', 'cancelled', 'failed']);
+
 export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({ orders, onCardClick, activeKey }) => {
   const statusCounts = {
-    uploaded:          orders.filter((o) => o.status === 'uploaded').length,
+    // "Pending Orders" = everything not yet delivered/cancelled/failed — same logic as Needs Attention
+    uploaded:          orders.filter((o) => !TERMINAL_WF.has(o.status)).length,
     sms_sent:          orders.filter((o) => o.status === 'sms_sent').length,
     unconfirmed:       orders.filter((o) => o.status === 'unconfirmed').length,
     tomorrow_shipment: orders.filter((o) => o.status === 'tomorrow_shipment').length,
