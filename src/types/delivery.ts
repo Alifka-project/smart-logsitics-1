@@ -43,6 +43,8 @@ export interface DeliveryOrder {
   priority?: 'normal' | 'high' | 'urgent';
   notes?: string;
   failureReason?: string;
+  /** True when the raw DB status is 'rescheduled' — workflow status may be a date bucket. */
+  isRescheduled?: boolean;
 }
 
 /** Optional UI / reporting shape; persisted uploads use `UploadRecord` in the store. */

@@ -289,7 +289,7 @@ router.get('/:id/live', async (req: Request, res: Response): Promise<void> => {
 // Statuses that require no further action from the driver.
 const DRIVER_TERMINAL_STATUSES = [
   'delivered', 'delivered-with-installation', 'delivered-without-installation',
-  'completed', 'pod-completed', 'cancelled', 'rescheduled', 'returned',
+  'completed', 'pod-completed', 'cancelled', 'returned',
 ];
 
 router.get('/deliveries', authenticate, async (req: Request, res: Response): Promise<void> => {
@@ -363,6 +363,60 @@ router.get('/deliveries', authenticate, async (req: Request, res: Response): Pro
   } catch (error: unknown) {
     const e = error as { message?: string };
     console.error('Error fetching driver deliveries:', error);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/**
+ * GET /api/driver/deliveries/finished - Get driver's finished (terminal) deliveries
+ * Returns delivered, cancelled, and returned orders so drivers can review history.
+ */
+const DRIVER_FINISHED_STATUSES = [
+  'delivered', 'delivered-with-installation', 'delivered-without-installation',
+  'completed', 'pod-completed', 'cancelled', 'returned',
+];
+
+router.get('/deliveries/finished', authenticate, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const driverId = (req.user as AuthUser)?.sub;
+    if (!driverId) {
+      res.status(401).json({ error: 'Unauthorized' }); return;
+    }
+
+    const deliveries = await prisma.delivery.findMany({
+      where: {
+        assignments: { some: { driverId } },
+        status: { in: DRIVER_FINISHED_STATUSES }
+      },
+      include: {
+        assignments: {
+          where: { driverId },
+          orderBy: { assignedAt: 'desc' },
+          take: 1,
+        }
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 100, // Limit to most recent 100
+    });
+
+    const mapped = deliveries.map(d => ({
+      id: d.id,
+      customer: d.customer,
+      address: d.address,
+      phone: d.phone,
+      poNumber: d.poNumber,
+      status: d.status,
+      items: d.items,
+      metadata: d.metadata,
+      deliveredAt: (d as unknown as Record<string, unknown>).deliveredAt ?? null,
+      updatedAt: d.updatedAt,
+      createdAt: d.createdAt,
+    }));
+
+    res.json({ success: true, deliveries: mapped });
+  } catch (error: unknown) {
+    const e = error as { message?: string };
+    console.error('Error fetching driver finished deliveries:', error);
     res.status(500).json({ error: e.message });
   }
 });

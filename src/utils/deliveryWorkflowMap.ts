@@ -232,6 +232,8 @@ export function deliveryToManageOrder(delivery: Delivery): DeliveryOrder {
     parseOptDate(delivery.confirmedDeliveryDate) ??
     parseOptDate(delivery.customerConfirmedAt);
 
+  const isRescheduled = (delivery.status || '').toLowerCase() === 'rescheduled';
+
   return {
     id: delivery.id,
     orderNumber,
@@ -257,6 +259,7 @@ export function deliveryToManageOrder(delivery: Delivery): DeliveryOrder {
     priority: priorityFromDelivery(delivery),
     notes: delivery.deliveryNotes ?? delivery.conditionNotes ?? undefined,
     failureReason: status === 'failed' ? (delivery.conditionNotes ?? undefined) : undefined,
+    isRescheduled,
   };
 }
 

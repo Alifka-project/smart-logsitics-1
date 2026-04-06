@@ -67,7 +67,7 @@ function matchesTableTab(order: DeliveryOrder, tab: OrdersTableTab): boolean {
     case 'scheduled':     return SCHEDULED_STATUSES.has(order.status);
     case 'out_for_delivery':  return order.status === 'out_for_delivery';
     case 'order_delay':   return order.status === 'order_delay';
-    case 'rescheduled':   return order.status === 'rescheduled';
+    case 'rescheduled':   return order.status === 'rescheduled' || order.isRescheduled === true;
     default:              return true;
   }
 }
@@ -210,6 +210,25 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
     ) : null;
 
   const getActionButton = (order: DeliveryOrder) => {
+    // Rescheduled orders that have been classified into a date bucket still show the
+    // rescheduled action UI — the "🔄 Rescheduled" label plus a Reschedule button.
+    if (order.isRescheduled && order.status !== 'rescheduled') {
+      return (
+        <>
+          <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300">
+            🔄 Rescheduled
+          </span>
+          <button
+            type="button"
+            onClick={() => setRescheduleOrder(order)}
+            className="px-3 py-1 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
+          >
+            Reschedule
+          </button>
+        </>
+      );
+    }
+
     switch (order.status) {
       case 'uploaded':
         return (
@@ -362,7 +381,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
     { key: 'future_shipment',  label: 'Future Shipment',  count: orders.filter((o) => o.status === 'future_shipment').length },
     { key: 'out_for_delivery', label: 'On Route',         count: orders.filter((o) => o.status === 'out_for_delivery').length },
     { key: 'order_delay',      label: 'Order Delay',      count: orders.filter((o) => o.status === 'order_delay').length },
-    { key: 'rescheduled',      label: 'Rescheduled',      count: orders.filter((o) => o.status === 'rescheduled').length },
+    { key: 'rescheduled',      label: 'Rescheduled',      count: orders.filter((o) => o.isRescheduled === true).length },
   ];
 
   const scrollToTableTop = (): void => {
@@ -598,8 +617,11 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                       </span>
                     </td>
                     <td className="min-w-[140px] max-w-[150px] w-[145px] overflow-hidden px-3 py-2.5 align-middle" data-label="Status">
-                      <div className="inline-flex max-w-full">
-                        <OrderStatusPill status={order.status} />
+                      <div className="inline-flex flex-col gap-1 max-w-full">
+                        <OrderStatusPill status={order.isRescheduled ? 'rescheduled' : order.status} />
+                        {order.isRescheduled && order.status !== 'rescheduled' && (
+                          <OrderStatusPill status={order.status} />
+                        )}
                       </div>
                     </td>
                     <td className="min-w-[100px] max-w-[110px] w-[105px] overflow-hidden px-3 py-2.5 align-middle shrink-0" data-label="Action">

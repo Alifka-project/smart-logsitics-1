@@ -981,7 +981,6 @@ const TERMINAL_STATUSES = [
   'completed',
   'pod-completed',
   'cancelled',
-  'rescheduled',
   'returned',
 ];
 

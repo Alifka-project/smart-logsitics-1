@@ -10,9 +10,9 @@ import useDeliveryStore from '../store/useDeliveryStore';
 import { calculateDistance } from '../utils/distanceCalculator';
 import { useToast } from '../hooks/useToast';
 import { ToastContainer } from '../components/common/Toast';
-import { 
-  MapPin, Navigation, RefreshCw, AlertCircle, CheckCircle2, 
-  MessageSquare, Truck, Bell, Paperclip, Send, Search, ClipboardList, ChevronLeft
+import {
+  MapPin, Navigation, RefreshCw, AlertCircle, CheckCircle2,
+  MessageSquare, Truck, Bell, Paperclip, Send, Search, ClipboardList, ChevronLeft, CheckSquare
 } from 'lucide-react';
 import type { Delivery } from '../types';
 
@@ -101,11 +101,13 @@ export default function DriverPortal() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isTrackingRef = useRef<boolean>(false);
 
-  // Tab management: Orders (map+list) and Messages only
+  // Tab management: Orders (map+list), Messages, and Finished
   const [activeTab, setActiveTab] = useState<string>('orders');
 
   // Delivery state
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
+  const [finishedDeliveries, setFinishedDeliveries] = useState<Delivery[]>([]);
+  const [loadingFinished, setLoadingFinished] = useState<boolean>(false);
   const [, setLoadingDeliveries] = useState<boolean>(false);
 
   // Messaging state
@@ -279,10 +281,18 @@ export default function DriverPortal() {
   useEffect(() => {
     const params = new URLSearchParams(routeLocation.search);
     const tab = params.get('tab');
-    if (tab && ['orders', 'messages'].includes(tab)) {
+    if (tab && ['orders', 'messages', 'finished'].includes(tab)) {
       setActiveTab(tab);
     }
   }, [routeLocation.search]);
+
+  // Load finished deliveries lazily when the tab is first opened
+  useEffect(() => {
+    if (activeTab === 'finished' && finishedDeliveries.length === 0 && !loadingFinished) {
+      void loadFinishedDeliveries();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   // Initialize map once
   useEffect(() => {
@@ -662,6 +672,19 @@ export default function DriverPortal() {
     }
   };
 
+  const loadFinishedDeliveries = async (): Promise<void> => {
+    setLoadingFinished(true);
+    try {
+      const response = await api.get('/driver/deliveries/finished');
+      setFinishedDeliveries((response.data?.deliveries as Delivery[]) || []);
+    } catch (err: unknown) {
+      console.error('Failed to load finished deliveries:', err);
+      setFinishedDeliveries([]);
+    } finally {
+      setLoadingFinished(false);
+    }
+  };
+
   const loadContacts = async (): Promise<void> => {
     try {
       setLoadingContacts(true);
@@ -964,7 +987,8 @@ export default function DriverPortal() {
         <nav className="flex flex-nowrap gap-2 min-w-max md:min-w-0">
           {[
             { id: 'orders', label: 'My Orders', icon: ClipboardList },
-            { id: 'messages', label: 'Messages', icon: MessageSquare }
+            { id: 'messages', label: 'Messages', icon: MessageSquare },
+            { id: 'finished', label: 'Finished', icon: CheckSquare },
           ].map(tab => {
             const Icon = tab.icon;
             return (
@@ -983,6 +1007,11 @@ export default function DriverPortal() {
                 {tab.id === 'messages' && notifications > 0 && (
                   <span className="ml-2 bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
                     {notifications}
+                  </span>
+                )}
+                {tab.id === 'finished' && finishedDeliveries.length > 0 && (
+                  <span className="ml-2 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 text-xs font-semibold px-2 py-0.5 rounded-full">
+                    {finishedDeliveries.length}
                   </span>
                 )}
               </button>
@@ -1433,6 +1462,87 @@ export default function DriverPortal() {
             </div>
           )}
         </div>
+
+      {/* Finished Tab — read-only list of completed/cancelled/returned orders */}
+      <div className={`${activeTab !== 'finished' ? 'hidden' : ''}`}>
+        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden">
+          <div className="px-4 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Finished Deliveries</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Delivered, cancelled, and returned orders</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void loadFinishedDeliveries()}
+              disabled={loadingFinished}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 transition-colors"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingFinished ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+          </div>
+
+          {loadingFinished ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-400 dark:text-gray-500">
+              <div className="w-7 h-7 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm">Loading…</span>
+            </div>
+          ) : finishedDeliveries.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-400 dark:text-gray-500">
+              <CheckSquare className="w-10 h-10 opacity-30" />
+              <span className="text-sm">No finished deliveries yet</span>
+            </div>
+          ) : (
+            <ul className="divide-y divide-gray-100 dark:divide-gray-700">
+              {finishedDeliveries.map((d) => {
+                const s = (d.status || '').toLowerCase();
+                const isDelivered = ['delivered', 'delivered-with-installation', 'delivered-without-installation', 'completed', 'pod-completed'].includes(s);
+                const isCancelled = s === 'cancelled';
+                const statusColor = isDelivered
+                  ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                  : isCancelled
+                  ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                  : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300';
+                const statusLabel = isDelivered ? '✓ Delivered' : isCancelled ? '✕ Cancelled' : '↩ Returned';
+                const rec = d as unknown as Record<string, unknown>;
+                const finishedAt = rec.deliveredAt ? new Date(rec.deliveredAt as string) : d.updatedAt ? new Date(String(d.updatedAt)) : null;
+                return (
+                  <li key={d.id} className="px-4 py-3.5 flex items-start gap-3 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-sm text-gray-900 dark:text-gray-100 truncate">
+                          {d.customer || '—'}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${statusColor}`}>
+                          {statusLabel}
+                        </span>
+                      </div>
+                      {d.items && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">{d.items}</p>
+                      )}
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 truncate">
+                        {d.address || '—'}
+                      </p>
+                      {finishedAt && (
+                        <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">
+                          {finishedAt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          {' '}·{' '}
+                          {finishedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      )}
+                    </div>
+                    {d.poNumber && (
+                      <span className="shrink-0 font-mono text-[11px] text-gray-400 dark:text-gray-500">
+                        #{d.poNumber}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </div>
 
       </div>{/* end tab wrapper */}
     </div>
