@@ -202,6 +202,9 @@ export function deliveryToManageOrder(delivery: Delivery): DeliveryOrder {
     parseOptDate((meta as Record<string, unknown>).confirmed_at);
 
   const deliveryNumber =
+    // Prefer the dedicated DB column (set during upload / dedup)
+    ((rec.deliveryNumber as string | null | undefined) && String(rec.deliveryNumber).trim()) ||
+    // Legacy fallback: stored in metadata during earlier uploads
     (meta.originalDeliveryNumber != null && String(meta.originalDeliveryNumber).trim()) ||
     (delivery._originalDeliveryNumber != null && String(delivery._originalDeliveryNumber).trim()) ||
     null;

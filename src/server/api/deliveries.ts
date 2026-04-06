@@ -773,14 +773,84 @@ router.post('/upload', authenticate, async (req: Request, res: Response): Promis
       }
     }
 
-    // Driver assignment runs after the customer confirms a delivery date (SMS flow), not on raw upload.
+    // ── Post-processing for deliveries that became Out for Delivery via GMD ──────
+    // When Goods Movement Date is received for the first time (outcome === 'dispatched'),
+    // the same side-effects that happen in the admin status handler must also happen here:
+    //   1. Auto-assign a driver (or promote existing assignment to in_progress)
+    //   2. Send the customer an "Out for Delivery" SMS notification
+    const dispatchedIds = results.filter(r => r.outcome === 'dispatched' && r.saved).map(r => r.deliveryId);
+
+    if (dispatchedIds.length > 0) {
+      // Fetch just the fields needed for assignment + SMS
+      const dispatchedRows = await prisma.delivery.findMany({
+        where: { id: { in: dispatchedIds } },
+        select: { id: true, phone: true, customer: true, poNumber: true, confirmationToken: true }
+      }) as Array<{ id: string; phone?: string | null; customer?: string | null; poNumber?: string | null; confirmationToken?: string | null }>;
+
+      for (const d of dispatchedRows) {
+        // 1. Auto-assign / promote driver assignment
+        try {
+          const activeAssignment = await prisma.deliveryAssignment.findFirst({
+            where: { deliveryId: d.id, status: { in: ['assigned', 'in_progress'] } }
+          });
+          if (!activeAssignment) {
+            await autoAssignDelivery(d.id);
+          } else {
+            await prisma.deliveryAssignment.updateMany({
+              where: { deliveryId: d.id, status: 'assigned' },
+              data: { status: 'in_progress' }
+            });
+          }
+        } catch (assignErr: unknown) {
+          console.warn(`[Deliveries/Upload] Auto-assign failed for ${d.id}:`, (assignErr as Error).message);
+        }
+
+        // 2. Notify customer via SMS that their order is out for delivery
+        if (d.phone) {
+          try {
+            const smsService = require('../sms/smsService');
+            const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
+            const trackingLink = d.confirmationToken
+              ? `${frontendUrl}/customer-tracking/${d.confirmationToken}`
+              : null;
+            const customerName = d.customer || 'Valued Customer';
+            const poRef = d.poNumber ? `#${d.poNumber}` : '';
+            const smsBody = `Dear ${customerName},\n\nYour Electrolux order ${poRef} is out for delivery today.\n${trackingLink ? `\nTrack your delivery in real time:\n${trackingLink}\n` : ''}\nFor assistance, please contact the Electrolux Delivery Team at +971524408687.\n\nThank you,\nElectrolux Delivery Team`;
+
+            const smsResult = await smsService.smsAdapter.sendSms({
+              to: d.phone,
+              body: smsBody,
+              metadata: { deliveryId: d.id, type: 'status_out_for_delivery' }
+            }) as { messageId?: string; status?: string };
+
+            await prisma.smsLog.create({
+              data: {
+                deliveryId: d.id,
+                phoneNumber: d.phone,
+                messageContent: smsBody,
+                smsProvider: process.env.SMS_PROVIDER || 'd7',
+                externalMessageId: smsResult.messageId,
+                status: smsResult.status || 'sent',
+                sentAt: new Date(),
+                metadata: { type: 'status_out_for_delivery', triggeredBy: 'gmd_upload' }
+              }
+            });
+            console.log(`[Deliveries/Upload] SMS sent to ${d.phone} for delivery ${d.id}`);
+          } catch (smsErr: unknown) {
+            // Non-fatal — don't fail the upload if SMS fails
+            console.warn(`[Deliveries/Upload] SMS notification failed for ${d.id}:`, (smsErr as Error).message);
+          }
+        }
+      }
+    }
+
     const mergedResults = results.map(result => ({
       ...result,
-      assigned: false,
+      assigned: dispatchedIds.includes(result.deliveryId),
       driverId: null as string | null,
       driverName: null as string | null,
       assignmentError: null as string | null,
-      assignmentPendingCustomerConfirm: true
+      assignmentPendingCustomerConfirm: result.outcome !== 'dispatched'
     }));
 
     // Invalidate caches after bulk upload
@@ -957,6 +1027,8 @@ router.get('/', authenticate, async (req: Request, res: Response): Promise<void>
           items: true,
           metadata: true,
           poNumber: true,
+          deliveryNumber: true,
+          goodsMovementDate: true,
           confirmationStatus: true,
           confirmedDeliveryDate: true,
           createdAt: true,
@@ -989,6 +1061,9 @@ router.get('/', authenticate, async (req: Request, res: Response): Promise<void>
         status: d.status,
         items: d.items,
         metadata: d.metadata,
+        poNumber: d.poNumber,
+        deliveryNumber: d.deliveryNumber ?? null,
+        goodsMovementDate: d.goodsMovementDate ?? null,
         confirmationStatus: d.confirmationStatus,
         confirmedDeliveryDate: d.confirmedDeliveryDate,
         created_at: d.createdAt,

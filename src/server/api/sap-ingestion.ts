@@ -77,10 +77,7 @@ router.post('/ingest', authenticate, requireRole('admin'), async (req: Request, 
           metadata.sapDeliveryNumber ||
           null) as string | null;
 
-        const businessKey = buildBusinessKey({
-          poNumber: poNumberToSave,
-          originalDeliveryNumber
-        });
+        const businessKey = buildBusinessKey(poNumberToSave, originalDeliveryNumber);
 
         const incoming = {
           id: deliveryId,
