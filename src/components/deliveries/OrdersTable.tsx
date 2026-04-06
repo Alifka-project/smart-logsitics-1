@@ -54,11 +54,13 @@ interface OrdersTableProps {
 
 const CONFIRMED_STATUSES = new Set<DeliveryStatus>(['confirmed', 'tomorrow_shipment', 'next_shipment', 'future_shipment']);
 const SCHEDULED_STATUSES = new Set<DeliveryStatus>(['scheduled', 'next_shipment', 'future_shipment']);
+// Terminal workflow statuses — same list as StatusMetricCards so card count === table count
+const PENDING_TERMINAL = new Set<DeliveryStatus>(['delivered', 'cancelled', 'failed']);
 
 function matchesTableTab(order: DeliveryOrder, tab: OrdersTableTab): boolean {
   switch (tab) {
     case 'all':           return true;
-    case 'pending':       return order.status === 'uploaded';
+    case 'pending':       return !PENDING_TERMINAL.has(order.status);
     case 'awaiting_customer': return order.status === 'sms_sent' || order.status === 'unconfirmed';
     case 'confirmed':     return CONFIRMED_STATUSES.has(order.status);
     case 'tomorrow_shipment': return order.status === 'tomorrow_shipment';
@@ -375,6 +377,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
 
   const filterTabs: { key: OrdersTableTab; label: string; count: number }[] = [
     { key: 'all',              label: 'All',              count: orders.length },
+    { key: 'pending',          label: 'Pending Orders',   count: orders.filter((o) => !PENDING_TERMINAL.has(o.status)).length },
     { key: 'awaiting_customer',label: 'Awaiting Customer',count: orders.filter((o) => o.status === 'sms_sent' || o.status === 'unconfirmed').length },
     { key: 'tomorrow_shipment',label: 'Tomorrow Shipment',count: orders.filter((o) => o.status === 'tomorrow_shipment').length },
     { key: 'next_shipment',    label: 'Next Shipment',    count: orders.filter((o) => o.status === 'next_shipment').length },
