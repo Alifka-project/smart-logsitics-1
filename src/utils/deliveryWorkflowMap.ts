@@ -85,22 +85,24 @@ function deriveWorkflowStatus(d: Delivery, smsSentAt: Date | undefined): Deliver
   if (s === 'cancelled') return 'cancelled';
   if (s === 'order-delay') return 'order_delay';
 
-  // Rescheduled: classify by the new confirmed delivery date so the order
-  // appears in the correct operational bucket (tomorrow_shipment, next_shipment,
-  // future_shipment, or order_delay if overdue / no date set).
+  // Rescheduled: classify by the new confirmed delivery date when one is set
+  // and the date is in the future (tomorrow / next slot / later).
+  // If the date is overdue or not set yet, keep as 'rescheduled' — it counts
+  // as a pending order but does NOT appear in order_delay (order_delay is
+  // reserved only for non-rescheduled confirmed orders whose date has passed).
   if (s === 'rescheduled') {
     const confirmedDate =
       parseOptDate(d.confirmedDeliveryDate) ??
       parseOptDate(d.customerConfirmedAt);
 
-    if (confirmedDate) {
-      if (calDiffFromTodayDubai(confirmedDate) < 0) return 'order_delay'; // overdue
+    if (confirmedDate && calDiffFromTodayDubai(confirmedDate) >= 0) {
       const tier = classifyConfirmedDate(confirmedDate);
       if (tier === 'tomorrow') return 'tomorrow_shipment';
       if (tier === 'next')     return 'next_shipment';
       return 'future_shipment';
     }
-    return 'order_delay'; // rescheduled but no new date confirmed yet
+    // No date set, or date is in the past → stays 'rescheduled' (pending, no card)
+    return 'rescheduled';
   }
   if (s === 'returned' || s === 'failed' || (s && s.includes('fail'))) return 'failed';
 
