@@ -2473,7 +2473,13 @@ export default function AdminDashboardPage(): React.ReactElement {
             {[
               { label: 'Total', value: filteredDeliveries.length, icon: Package, color: 'blue' },
               { label: 'Delivered', value: filteredDeliveries.filter(d => ['delivered','delivered-with-installation','delivered-without-installation'].includes((d.status||'').toLowerCase())).length, icon: CheckCircle, color: 'green' },
-              { label: 'Pending Orders', value: filteredDeliveries.filter(d => ['pending','uploaded'].includes((d.status||'').toLowerCase())).length, icon: Clock, color: 'yellow' },
+              { label: 'Pending Orders', value: filteredDeliveries.filter(d => {
+                const s = (d.status || '').toLowerCase();
+                return !['delivered','delivered-with-installation','delivered-without-installation',
+                         'finished','completed','pod-completed',
+                         'cancelled','canceled','rejected',
+                         'returned','failed'].includes(s);
+              }).length, icon: Clock, color: 'yellow' },
               { label: "Today's Delivery", value: filteredDeliveries.filter(d => {
                 const t = d.created_at || d.createdAt || d.created;
                 if (!t) return false;
@@ -2482,7 +2488,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                 return dt.toDateString() === today.toDateString();
               }).length, icon: Truck, color: 'indigo' },
               { label: 'Confirmed', value: filteredDeliveries.filter(d => (d.status||'').toLowerCase() === 'scheduled-confirmed').length, icon: Target, color: 'emerald' },
-              { label: 'Cancelled', value: filteredDeliveries.filter(d => ['cancelled','rejected','rescheduled'].includes((d.status||'').toLowerCase())).length, icon: XCircle, color: 'red' },
+              { label: 'Cancelled', value: filteredDeliveries.filter(d => ['cancelled','canceled','rejected','returned'].includes((d.status||'').toLowerCase())).length, icon: XCircle, color: 'red' },
             ].map(({ label, value, icon: Icon, color }) => {
               const c = KPI_COLOR_MAP[color];
               return (

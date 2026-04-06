@@ -26,8 +26,12 @@ export default function StatsCards() {
         );
       }).length,
       pending: deliveries.filter((d) => {
-        const s = d.status?.toLowerCase();
-        return s === 'pending' || s === 'uploaded';
+        const s = (d.status || '').toLowerCase();
+        // Any order that is not delivered, cancelled, or returned is still a pending order
+        return !['delivered', 'delivered-with-installation', 'delivered-without-installation',
+                 'finished', 'completed', 'pod-completed',
+                 'cancelled', 'canceled', 'rejected',
+                 'returned', 'failed'].includes(s);
       }).length,
       cancelled: deliveries.filter((d) => {
         const s = d.status?.toLowerCase();

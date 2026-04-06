@@ -431,9 +431,12 @@ router.get('/', authenticate, requireAnyRole('admin', 'delivery_team'), async (r
         }
       }
 
-      // Count only genuinely pending orders — never use a catch-all (it wrongly
-      // counts 'returned', 'pod-completed', 'failed', or any new status as pending)
-      if (s === 'pending' || s === 'uploaded') {
+      // Pending = any order that is not yet delivered, cancelled, or returned.
+      // This includes uploaded, scheduled, confirmed, out-for-delivery, rescheduled,
+      // order-delay — i.e. everything still requiring action.
+      const TERMINAL = new Set(['delivered','delivered-with-installation','delivered-without-installation',
+        'finished','completed','pod-completed','cancelled','canceled','rejected','returned','failed']);
+      if (!TERMINAL.has(s)) {
         totals.pending++;
       }
     }
