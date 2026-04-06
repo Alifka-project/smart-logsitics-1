@@ -60,6 +60,7 @@ async function updateDeliveryStatusHandler(
     customer?: string;
     address?: string;
     scheduledDate?: string;
+    goodsMovementDate?: string;
   },
   options: { requireAssignment?: boolean; driverId?: string }
 ): Promise<{ ok: boolean; delivery?: unknown; previousDelivery?: unknown; error?: string }> {
@@ -84,6 +85,20 @@ async function updateDeliveryStatusHandler(
   }
 
   if (!existingDelivery) return { ok: false, error: 'delivery_not_found' };
+
+  // Guard: dispatch statuses require Goods Movement Date to be set on the delivery
+  const DISPATCH_STATUSES_GUARD = new Set(['out-for-delivery', 'in-transit', 'in-progress']);
+  if (status && DISPATCH_STATUSES_GUARD.has(status.toLowerCase())) {
+    const existingGMD = (existingDelivery as Record<string, unknown>).goodsMovementDate;
+    const bodyGMD = (body as Record<string, unknown>).goodsMovementDate;
+    const hasGMD = !!(existingGMD || bodyGMD);
+    if (!hasGMD) {
+      return {
+        ok: false,
+        error: 'goods_movement_date_required',
+      };
+    }
+  }
 
   if (options.requireAssignment && options.driverId) {
     const assignment = await prisma.deliveryAssignment.findFirst({
@@ -116,6 +131,13 @@ async function updateDeliveryStatusHandler(
     metadata: nextMeta,
     updatedAt: new Date()
   };
+  // If a Goods Movement Date is being set for the first time alongside a dispatch status, persist it
+  if (body.goodsMovementDate && !(existingDelivery as Record<string, unknown>).goodsMovementDate) {
+    const gmdDate = new Date(String(body.goodsMovementDate));
+    if (!isNaN(gmdDate.getTime())) {
+      updateData.goodsMovementDate = gmdDate;
+    }
+  }
   if (driverSignature) updateData.driverSignature = driverSignature;
   if (customerSignature) updateData.customerSignature = customerSignature;
   if (photos && Array.isArray(photos) && photos.length > 0) {
@@ -269,6 +291,7 @@ router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_
     customer?: string;
     address?: string;
     scheduledDate?: string;
+    goodsMovementDate?: string;
   };
 
   try {
@@ -640,14 +663,29 @@ router.post('/upload', authenticate, async (req: Request, res: Response): Promis
           : baseMeta;
         const originalDeliveryNumberToSave = (baseMeta.originalDeliveryNumber ?? null) as string | null;
 
-        const businessKey = buildBusinessKey({
-          poNumber: poNumberToSave,
-          originalDeliveryNumber: originalDeliveryNumberToSave
-        });
+        // Extract Goods Movement Date from upload
+        const rawGmd = (delivery as Record<string, unknown>)._goodsMovementDate ?? (delivery as Record<string, unknown>).goodsMovementDate ?? origRow?.['Goods Movement Date'] ?? origRow?.['GoodsMovementDate'] ?? null;
+        const goodsMovementDateToSave: string | null = (() => {
+          if (!rawGmd) return null;
+          const d = new Date(String(rawGmd));
+          return isNaN(d.getTime()) ? null : d.toISOString();
+        })();
+
+        // Delivery Number: normalised version from transform
+        const deliveryNumberToSave: string | null = (() => {
+          const raw = (delivery as Record<string, unknown>)._deliveryNumber ?? (delivery as Record<string, unknown>).deliveryNumber ?? originalDeliveryNumberToSave;
+          if (!raw) return null;
+          const s = String(raw).trim().toUpperCase();
+          return s || null;
+        })();
+
+        const businessKey = buildBusinessKey(poNumberToSave, deliveryNumberToSave);
 
         const deliveryItems = delivery.items;
         const incoming = {
           id: deliveryId,
+          deliveryNumber: deliveryNumberToSave,
+          goodsMovementDate: goodsMovementDateToSave,
           customer: (delivery.customer || delivery.name || null) as string | null,
           address: (delivery.address || null) as string | null,
           phone: (delivery.phone ?? null) as string | null,
@@ -660,11 +698,19 @@ router.post('/upload', authenticate, async (req: Request, res: Response): Promis
           businessKey
         };
 
-        const { delivery: savedDelivery, existed } = await upsertDeliveryByBusinessKey({
+        const upsertResult = await upsertDeliveryByBusinessKey({
           prisma,
           source: 'manual_upload',
           incoming
-        }) as { delivery: Record<string, unknown>; existed: boolean };
+        }) as { delivery: Record<string, unknown>; existed: boolean; skipped: boolean; conflict?: string; gmdUpdated: boolean };
+
+        if (upsertResult.conflict) {
+          console.warn(`[Deliveries/Upload] CONFLICT for delivery ${deliveryId}: ${upsertResult.conflict}`);
+          results.push({ deliveryId, saved: false, error: upsertResult.conflict });
+          continue;
+        }
+
+        const { delivery: savedDelivery, existed } = upsertResult;
 
         console.log(`[Deliveries/Upload] ✓ Saved delivery ${savedDelivery.id} (existed=${!!existed})`);
         const savedMeta = savedDelivery.metadata as Record<string, unknown> | null;

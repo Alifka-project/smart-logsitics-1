@@ -60,6 +60,80 @@ function extractPONumber(row: RawERPRow | null): string | null {
   return null;
 }
 
+/**
+ * Extract and parse the Goods Movement Date (GMD) from an ERP row.
+ * GMD = the date the warehouse physically dispatched / issued the goods.
+ * When filled it acts as the dispatch signal; when blank the order is not yet dispatched.
+ *
+ * Handles: ISO strings, DD.MM.YYYY, MM/DD/YYYY, Excel serial numbers.
+ */
+function parseGoodsMovementDate(row: RawERPRow | null): string | null {
+  if (!row) return null;
+
+  const candidates = [
+    'Goods Movement Date', 'GoodsMovementDate', 'goods_movement_date', 'GMD',
+    'Goods Mvt Date', 'Goods Issue Date', 'GI Date', 'Actual GI Date',
+    'Movement Date', 'Mvt Date', 'Dispatch Date', 'Dispatched Date',
+    'Actual Goods Movement Date', 'GoodsIssuedDate', 'GI_Date',
+    'Posting Date', 'Post Date',
+  ];
+
+  for (const col of candidates) {
+    const val = row[col];
+    if (val === null || val === undefined || val === '') continue;
+    const result = convertToIsoDate(val);
+    if (result) return result;
+  }
+
+  // Fuzzy match: any column whose name contains 'movement', 'dispatch', or 'goods issue'
+  for (const [col, val] of Object.entries(row)) {
+    const lc = col.toLowerCase();
+    if ((lc.includes('movement') || lc.includes('dispatch') || lc.includes('goods issue') || lc.includes('gi date')) && val !== null && val !== undefined && val !== '') {
+      const result = convertToIsoDate(val);
+      if (result) return result;
+    }
+  }
+
+  return null;
+}
+
+function convertToIsoDate(val: unknown): string | null {
+  if (val === null || val === undefined || val === '') return null;
+
+  // Excel serial number (number of days since 1900-01-01)
+  if (typeof val === 'number') {
+    if (val < 1000 || val > 200000) return null; // Not a plausible date serial
+    // Subtract 25569 (days from 1900-01-01 to 1970-01-01), account for Excel 1900 leap year bug
+    const ms = (val - 25569) * 86400000;
+    const d = new Date(ms);
+    if (!isNaN(d.getTime())) return d.toISOString();
+    return null;
+  }
+
+  const str = String(val).trim();
+  if (!str) return null;
+
+  // Already ISO or recognisable by Date constructor (YYYY-MM-DD, YYYY/MM/DD, etc.)
+  let d = new Date(str);
+  if (!isNaN(d.getTime())) return d.toISOString();
+
+  // DD.MM.YYYY (common in SAP/ERP exports)
+  const dmyDot = str.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (dmyDot) {
+    d = new Date(`${dmyDot[3]}-${dmyDot[2].padStart(2, '0')}-${dmyDot[1].padStart(2, '0')}`);
+    if (!isNaN(d.getTime())) return d.toISOString();
+  }
+
+  // DD/MM/YYYY
+  const dmySlash = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (dmySlash) {
+    d = new Date(`${dmySlash[3]}-${dmySlash[2].padStart(2, '0')}-${dmySlash[1].padStart(2, '0')}`);
+    if (!isNaN(d.getTime())) return d.toISOString();
+  }
+
+  return null;
+}
+
 function parseCoordinate(value: unknown): number {
   if (value === null || value === undefined) return NaN;
   if (typeof value === 'number') return value;
@@ -176,6 +250,8 @@ export function transformERPData(data: RawERPRow[]): TransformedDelivery[] {
       _originalCity: (row['City'] || row['city']) as string | null,
       _originalRoute: (row['Route'] || row['route']) as string | null,
       _originalRow: originalRow,
+      _goodsMovementDate: parseGoodsMovementDate(row),
+      _deliveryNumber: ((row['Delivery number'] || row['Delivery Number'] || row['DeliveryNumber'] || row['Delivery No'] || row['Del. No'] || row['Del No'] || row['DeliveryNo']) as string | null) || null,
     };
   });
 }
@@ -274,6 +350,13 @@ export function transformGenericData(data: RawERPRow[]): TransformedDelivery[] {
       }
     }
 
+    // GMD: check for goods movement date column
+    const gmdKey = keys.find(k => {
+      const lc = k.toLowerCase();
+      return lc.includes('movement') || lc.includes('dispatch') || lc.includes('goods issue') || lc === 'gmd' || lc.includes('gi date');
+    });
+    const rawGmd = gmdKey ? row[gmdKey] : null;
+
     return {
       customer: String(customer).trim(),
       address: String(address).trim(),
@@ -286,6 +369,8 @@ export function transformGenericData(data: RawERPRow[]): TransformedDelivery[] {
       _usedDefaultCoords: isNaN(latRaw) || isNaN(lngRaw),
       _originalPONumber: poNumber,
       _originalRow: originalRow,
+      _goodsMovementDate: rawGmd != null ? convertToIsoDate(rawGmd) : null,
+      _deliveryNumber: null, // Generic format doesn't have standard delivery number column
     };
   });
 }

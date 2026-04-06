@@ -80,6 +80,8 @@ model Delivery {
   address                String?
   phone                  String?              @db.VarChar(32)
   poNumber               String?              @db.VarChar(100)
+  deliveryNumber         String?              @unique @map("delivery_number") @db.VarChar(100)
+  goodsMovementDate      DateTime?            @map("goods_movement_date") @db.Timestamptz(6)
   businessKey            String?              @unique @map("business_key") @db.VarChar(255)
   lat                    Float?
   lng                    Float?
@@ -112,6 +114,8 @@ model Delivery {
   @@index([poNumber], map: "idx_delivery_po_number")
   @@index([confirmationToken], map: "idx_delivery_confirmation_token")
   @@index([confirmationStatus], map: "idx_delivery_confirmation_status")
+  @@index([deliveryNumber], map: "idx_delivery_delivery_number")
+  @@index([goodsMovementDate], map: "idx_delivery_gmd")
   @@map("deliveries")
 }
 

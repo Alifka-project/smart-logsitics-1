@@ -56,6 +56,17 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
   });
   const [saving, setSaving] = useState(false);
 
+  const existingGMD = (delivery as unknown as { goodsMovementDate?: string | Date | null }).goodsMovementDate;
+  const [gmdStr, setGmdStr] = useState(() => {
+    if (!existingGMD) return '';
+    const d = new Date(existingGMD as string);
+    return isNaN(d.getTime()) ? '' : toDateInputValue(d);
+  });
+
+  const hasGMD = !!(gmdStr.trim() || existingGMD);
+  const DISPATCH_STATUSES = new Set(['out-for-delivery', 'in-transit', 'in-progress']);
+  const canSave = !saving && !(DISPATCH_STATUSES.has(apiStatus) && !hasGMD);
+
   useEffect(() => {
     const html = document.documentElement;
     const prevBody = document.body.style.overflow;
@@ -83,6 +94,9 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
       };
       if (dateStr.trim()) {
         payload.scheduledDate = new Date(dateStr + 'T12:00:00').toISOString();
+      }
+      if (gmdStr.trim()) {
+        payload.goodsMovementDate = new Date(gmdStr + 'T12:00:00').toISOString();
       }
 
       const response = await api.put(`/deliveries/admin/${delivery.id}/status`, payload);
@@ -194,6 +208,26 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
           </div>
 
           <div>
+            <label htmlFor="edit-gmd" className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
+              Goods Movement Date
+            </label>
+            <input
+              id="edit-gmd"
+              type="date"
+              value={gmdStr}
+              onChange={(e) => setGmdStr(e.target.value)}
+              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#002D5B] dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+            />
+            <p className="mt-1 text-[11px] text-amber-600">Required before dispatching (out-for-delivery / in-transit)</p>
+          </div>
+
+          {DISPATCH_STATUSES.has(apiStatus) && !hasGMD && (
+            <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-xs text-red-700">
+              ⚠ Cannot dispatch: Goods Movement Date is required. Please fill in the date the warehouse issued this order.
+            </div>
+          )}
+
+          <div>
             <label htmlFor="edit-notes" className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
               Notes (internal / customer-visible context)
             </label>
@@ -218,7 +252,7 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
           </button>
           <button
             type="button"
-            disabled={saving}
+            disabled={!canSave}
             onClick={() => void handleSave()}
             className="flex-1 rounded-lg bg-[#002D5B] py-2 text-sm font-medium text-white hover:bg-[#001f3f] disabled:opacity-50"
           >

@@ -75,6 +75,8 @@ export interface Delivery {
   confirmationStatus?: string | null;
   confirmedDeliveryDate?: string | Date | null;
   customerConfirmedAt?: string | Date | null;
+  deliveryNumber?: string | null;
+  goodsMovementDate?: string | Date | null;
   // Computed/enriched fields added on frontend
   distanceFromWarehouse?: number;
   priority?: number;
@@ -218,6 +220,8 @@ export interface TransformedDelivery {
   _originalCity?: string | null;
   _originalRoute?: string | null;
   _originalRow: Record<string, unknown>;
+  _goodsMovementDate?: string | null;
+  _deliveryNumber?: string | null;
 }
 
 export type DataFormat = 'simplified' | 'erp' | 'generic' | 'unknown';

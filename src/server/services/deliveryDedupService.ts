@@ -10,14 +10,21 @@ const TERMINAL_STATUSES = new Set([
   'failed'
 ]);
 
-interface BusinessKeyInput {
-  poNumber?: string | null;
-  originalDeliveryNumber?: string | null;
-}
+// Statuses that require Goods Movement Date to be set.
+// An order CANNOT automatically move to any of these without a GMD.
+const DISPATCH_STATUSES = new Set([
+  'out-for-delivery',
+  'in-transit',
+  'in-progress',
+]);
 
 interface IncomingDelivery {
   id?: string;
   businessKey?: string | null;
+  /** Globally unique delivery number (primary dedup key). */
+  deliveryNumber?: string | null;
+  /** Goods Movement Date — ISO string or null. Null means not yet dispatched. */
+  goodsMovementDate?: string | null;
   customer?: string | null;
   address?: string | null;
   phone?: string | null;
@@ -35,9 +42,15 @@ interface UpsertOptions {
   incoming: IncomingDelivery;
 }
 
-interface UpsertResult {
+export interface UpsertResult {
   delivery: Record<string, unknown>;
   existed: boolean;
+  /** True when a duplicate was detected but nothing needed updating (skip). */
+  skipped: boolean;
+  /** Set when delivery number belongs to a different PO — conflict, do not save. */
+  conflict?: string;
+  /** True when GMD was provided for the first time (dispatch triggered). */
+  gmdUpdated: boolean;
 }
 
 function normalizeKeyPart(value: unknown): string | null {
@@ -47,58 +60,168 @@ function normalizeKeyPart(value: unknown): string | null {
   return str.toUpperCase();
 }
 
-function buildBusinessKey({ poNumber, originalDeliveryNumber }: BusinessKeyInput): string | null {
+function buildBusinessKey(poNumber: string | null | undefined, deliveryNumber: string | null | undefined): string | null {
   const po = normalizeKeyPart(poNumber);
-  const original = normalizeKeyPart(originalDeliveryNumber);
-  if (!po || !original) return null;
-  return `${po}::${original}`;
+  const dn = normalizeKeyPart(deliveryNumber);
+  if (!po || !dn) return null;
+  return `${po}::${dn}`;
 }
 
-async function findExistingDeliveryByBusinessKey(
+function mergeMetadata(
+  existing: Record<string, unknown> | null | undefined,
+  incoming: Record<string, unknown> | null | undefined,
+  source: string | undefined
+): Record<string, unknown> {
+  return {
+    ...(existing || {}),
+    ...(incoming || {}),
+    lastImportedAt: new Date().toISOString(),
+    lastSource: source || 'unknown',
+  };
+}
+
+async function findByDeliveryNumber(
   prisma: PrismaClient,
-  businessKey: string | null
+  deliveryNumber: string | null
 ): Promise<Record<string, unknown> | null> {
-  if (!businessKey) return null;
+  if (!deliveryNumber) return null;
   try {
     return await prisma.delivery.findFirst({
-      where: { businessKey } as Record<string, unknown>
+      where: { deliveryNumber } as Record<string, unknown>,
     }) as Record<string, unknown> | null;
   } catch {
     return null;
   }
 }
 
-function mergeMetadata(
-  existingMetadata: Record<string, unknown> | null | undefined,
-  incomingMetadata: Record<string, unknown> | null | undefined,
-  source: string | undefined
-): Record<string, unknown> {
-  const now = new Date().toISOString();
-  return {
-    ...(existingMetadata || {}),
-    ...(incomingMetadata || {}),
-    lastImportedAt: now,
-    lastSource: source || 'unknown'
-  };
+async function findByBusinessKey(
+  prisma: PrismaClient,
+  businessKey: string | null
+): Promise<Record<string, unknown> | null> {
+  if (!businessKey) return null;
+  try {
+    return await prisma.delivery.findFirst({
+      where: { businessKey } as Record<string, unknown>,
+    }) as Record<string, unknown> | null;
+  } catch {
+    return null;
+  }
 }
 
-async function upsertDeliveryByBusinessKey({ prisma, source, incoming }: UpsertOptions): Promise<UpsertResult> {
-  const { businessKey } = incoming;
+async function logEvent(
+  prisma: PrismaClient,
+  deliveryId: string,
+  eventType: string,
+  payload: Record<string, unknown>
+): Promise<void> {
+  try {
+    await (prisma as unknown as { deliveryEvent: { create: (args: unknown) => Promise<unknown> } }).deliveryEvent.create({
+      data: {
+        deliveryId,
+        eventType,
+        payload,
+        actorType: 'system',
+        actorId: null,
+      },
+    });
+  } catch {
+    // non-critical
+  }
+}
 
-  let existing = await findExistingDeliveryByBusinessKey(prisma, businessKey ?? null);
+export async function upsertDeliveryByBusinessKey({
+  prisma,
+  source,
+  incoming,
+}: UpsertOptions): Promise<UpsertResult> {
+  // ─── Normalise keys ──────────────────────────────────────────────────────
+  const normDeliveryNumber = normalizeKeyPart(
+    incoming.deliveryNumber ??
+    (incoming.metadata as Record<string, unknown> | null | undefined)?.originalDeliveryNumber
+  );
+  const normPO = normalizeKeyPart(incoming.poNumber);
+  const businessKey = buildBusinessKey(normPO, normDeliveryNumber);
 
+  const hasIncomingGMD = !!(incoming.goodsMovementDate && String(incoming.goodsMovementDate).trim());
+  const incomingGMDDate = hasIncomingGMD ? new Date(incoming.goodsMovementDate as string) : null;
+  const validIncomingGMD = incomingGMDDate && !isNaN(incomingGMDDate.getTime()) ? incomingGMDDate : null;
+
+  // ─── Find existing record ─────────────────────────────────────────────────
+  let existing: Record<string, unknown> | null = null;
+
+  // 1. Primary: by normalised delivery number
+  if (normDeliveryNumber) {
+    existing = await findByDeliveryNumber(prisma, normDeliveryNumber);
+  }
+  // 2. Legacy fallback: by business key
+  if (!existing && businessKey) {
+    existing = await findByBusinessKey(prisma, businessKey);
+  }
+  // 3. Last resort: by ID (e.g. browser re-upload of same record)
   if (!existing && incoming.id) {
     try {
       existing = await prisma.delivery.findUnique({
-        where: { id: incoming.id }
+        where: { id: incoming.id },
       }) as Record<string, unknown> | null;
     } catch {
       existing = null;
     }
   }
 
+  // ─── EXISTING RECORD ──────────────────────────────────────────────────────
   if (existing) {
-    const isTerminal = TERMINAL_STATUSES.has((existing.status as string || '').toLowerCase());
+    // ── PO conflict check ────────────────────────────────────────────────────
+    const existingNormPO = normalizeKeyPart(existing.poNumber);
+    if (normPO && existingNormPO && normPO !== existingNormPO) {
+      // Same delivery number, different PO → hard conflict, reject
+      return {
+        delivery: existing,
+        existed: true,
+        skipped: true,
+        conflict: `Delivery number "${normDeliveryNumber}" is already registered under PO "${existing.poNumber}". It cannot be assigned to PO "${incoming.poNumber}".`,
+        gmdUpdated: false,
+      };
+    }
+
+    const isTerminal = TERMINAL_STATUSES.has(
+      ((existing.status as string) || '').toLowerCase()
+    );
+    const existingGMD = existing.goodsMovementDate as Date | null;
+    const hasExistingGMD = !!(existingGMD);
+
+    // ── No new information (both GMD blank) → skip ────────────────────────
+    if (!validIncomingGMD && !hasExistingGMD) {
+      // Pure duplicate — nothing to update
+      await logEvent(prisma, existing.id as string, 'duplicate_upload', {
+        source,
+        reason: 'no_gmd_both_sides',
+        businessKey,
+        deliveryNumber: normDeliveryNumber,
+      });
+      return { delivery: existing, existed: true, skipped: true, gmdUpdated: false };
+    }
+
+    // ── Incoming blank but existing has GMD → don't downgrade → skip ─────
+    if (!validIncomingGMD && hasExistingGMD) {
+      await logEvent(prisma, existing.id as string, 'duplicate_upload', {
+        source,
+        reason: 'no_gmd_incoming_but_existing_has_gmd',
+        businessKey,
+        deliveryNumber: normDeliveryNumber,
+      });
+      return { delivery: existing, existed: true, skipped: true, gmdUpdated: false };
+    }
+
+    // ── Incoming has GMD → UPDATE ──────────────────────────────────────────
+    const gmdUpdated = !hasExistingGMD; // first time GMD is set
+    const prevStatus = (existing.status as string) || 'pending';
+
+    // Determine new status: if GMD just arrived and order is not terminal,
+    // automatically move to out-for-delivery (warehouse dispatched it)
+    let newStatus = prevStatus;
+    if (gmdUpdated && !isTerminal) {
+      newStatus = 'out-for-delivery';
+    }
 
     const updateData: Record<string, unknown> = {
       customer: incoming.customer ?? existing.customer,
@@ -114,43 +237,33 @@ async function upsertDeliveryByBusinessKey({ prisma, source, incoming }: UpsertO
         source
       ),
       businessKey: businessKey || existing.businessKey || null,
-      updatedAt: new Date()
+      deliveryNumber: normDeliveryNumber || existing.deliveryNumber || null,
+      goodsMovementDate: validIncomingGMD,
+      updatedAt: new Date(),
     };
-
-    if (!isTerminal && incoming.status) {
-      updateData.status = incoming.status;
-    }
+    if (!isTerminal) updateData.status = newStatus;
 
     const updated = await prisma.delivery.update({
       where: { id: existing.id as string },
-      data: updateData
+      data: updateData,
     }) as Record<string, unknown>;
 
-    try {
-      await (prisma as any).deliveryEvent.create({
-        data: {
-          deliveryId: existing.id as string,
-          eventType: 'duplicate_upload',
-          payload: {
-            source: source || 'unknown',
-            previousStatus: existing.status,
-            newStatus: updated.status,
-            businessKey,
-            updatedAt: new Date().toISOString()
-          },
-          actorType: 'system',
-          actorId: null
-        }
-      });
-    } catch {
-      // non-critical
-    }
+    await logEvent(prisma, existing.id as string, gmdUpdated ? 'gmd_received_dispatch' : 'gmd_updated', {
+      source,
+      previousStatus: prevStatus,
+      newStatus,
+      gmdUpdated,
+      goodsMovementDate: validIncomingGMD?.toISOString(),
+      businessKey,
+      deliveryNumber: normDeliveryNumber,
+    });
 
-    return {
-      delivery: updated,
-      existed: true
-    };
+    return { delivery: updated, existed: true, skipped: false, gmdUpdated };
   }
+
+  // ─── NEW RECORD ───────────────────────────────────────────────────────────
+  // Determine initial status: if GMD provided, auto-dispatch; else pending
+  const initialStatus = validIncomingGMD ? 'out-for-delivery' : (incoming.status || 'pending');
 
   const createData: Record<string, unknown> = {
     customer: incoming.customer || null,
@@ -159,28 +272,20 @@ async function upsertDeliveryByBusinessKey({ prisma, source, incoming }: UpsertO
     poNumber: incoming.poNumber || null,
     lat: incoming.lat != null ? Number(incoming.lat) : null,
     lng: incoming.lng != null ? Number(incoming.lng) : null,
-    status: incoming.status || 'pending',
+    status: initialStatus,
     items: incoming.items || null,
     metadata: mergeMetadata(null, incoming.metadata, source),
-    businessKey: businessKey || null
+    businessKey: businessKey || null,
+    deliveryNumber: normDeliveryNumber || null,
+    goodsMovementDate: validIncomingGMD || null,
   };
-
   if (incoming.id) {
     createData.id = incoming.id;
   }
 
-  const created = await prisma.delivery.create({
-    data: createData
-  }) as Record<string, unknown>;
+  const created = await prisma.delivery.create({ data: createData }) as Record<string, unknown>;
 
-  return {
-    delivery: created,
-    existed: false
-  };
+  return { delivery: created, existed: false, skipped: false, gmdUpdated: !!validIncomingGMD };
 }
 
-export {
-  buildBusinessKey,
-  findExistingDeliveryByBusinessKey,
-  upsertDeliveryByBusinessKey
-};
+export { buildBusinessKey, normalizeKeyPart };
