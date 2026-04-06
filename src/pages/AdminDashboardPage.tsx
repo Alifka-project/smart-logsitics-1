@@ -197,7 +197,9 @@ function isDeliveredDeliveryStatus(s: string): boolean {
 }
 
 function isCancelledOrRescheduledDeliveryStatus(s: string): boolean {
-  return ['cancelled', 'rejected', 'returned', 'rescheduled'].includes(s);
+  // 'rescheduled' is intentionally excluded — it is an active pending order, not terminal.
+  // Any order that is not delivered/cancelled/returned still needs to be fulfilled.
+  return ['cancelled', 'rejected', 'returned'].includes(s);
 }
 
 interface KpiCard {
@@ -1054,7 +1056,7 @@ export default function AdminDashboardPage(): React.ReactElement {
   const trend2Fulfillment = useMemo(() => {
     const list = dashboardDeliveries && Array.isArray(dashboardDeliveries) ? dashboardDeliveries : [];
     const isDelivered = (s: string) => ['delivered', 'delivered-with-installation', 'delivered-without-installation'].includes((s || '').toLowerCase());
-    const isCancelled = (s: string) => ['cancelled', 'rescheduled', 'rejected'].includes((s || '').toLowerCase());
+    const isCancelled = (s: string) => ['cancelled', 'rejected', 'returned'].includes((s || '').toLowerCase());
     const { buckets: baseBuckets, rangeStart, rangeEnd } = trendsBucketsConfig;
     const buckets = baseBuckets.map(b => ({ ...b, created: 0, delivered: 0, pendingActive: 0, cancelled: 0 }));
     const bucketMap = Object.fromEntries(buckets.map((b, i) => [b.key, i]));
@@ -1158,7 +1160,7 @@ export default function AdminDashboardPage(): React.ReactElement {
       if (i !== undefined) {
         const s = (d.status || '').toLowerCase();
         if (['delivered', 'delivered-with-installation', 'delivered-without-installation'].includes(s)) buckets[i].delivered++;
-        else if (['cancelled', 'rescheduled', 'rejected'].includes(s)) buckets[i].cancelled++;
+        else if (['cancelled', 'rejected', 'returned'].includes(s)) buckets[i].cancelled++;
         else buckets[i].pending++;
       }
     });

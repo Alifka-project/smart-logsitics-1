@@ -77,6 +77,7 @@ export interface Delivery {
   customerConfirmedAt?: string | Date | null;
   deliveryNumber?: string | null;
   goodsMovementDate?: string | Date | null;
+  smsSentAt?: string | Date | null;
   // Computed/enriched fields added on frontend
   distanceFromWarehouse?: number;
   priority?: number;

@@ -170,6 +170,17 @@ async function updateDeliveryStatusHandler(
     data: updateData
   }) as Record<string, unknown>;
 
+  // Close any active assignment when delivery reaches a terminal state
+  if (['delivered', 'completed', 'delivered-with-installation', 'delivered-without-installation',
+       'cancelled', 'returned', 'failed'].includes(status.toLowerCase())) {
+    await prisma.deliveryAssignment.updateMany({
+      where: { deliveryId: existingDelivery.id as string, status: { in: ['assigned', 'in_progress'] } },
+      data: { status: 'completed' }
+    }).catch((e: unknown) => {
+      console.warn('[Deliveries] Failed to close assignment:', (e as Error).message);
+    });
+  }
+
   // When an order is confirmed for delivery (scheduled-confirmed):
   // Auto-assign a driver if none yet, so the driver can see upcoming work
   // before the admin formally dispatches.
@@ -1029,6 +1040,7 @@ router.get('/', authenticate, async (req: Request, res: Response): Promise<void>
           poNumber: true,
           deliveryNumber: true,
           goodsMovementDate: true,
+          smsSentAt: true,
           confirmationStatus: true,
           confirmedDeliveryDate: true,
           createdAt: true,
@@ -1064,6 +1076,7 @@ router.get('/', authenticate, async (req: Request, res: Response): Promise<void>
         poNumber: d.poNumber,
         deliveryNumber: d.deliveryNumber ?? null,
         goodsMovementDate: d.goodsMovementDate ?? null,
+        smsSentAt: d.smsSentAt ?? null,
         confirmationStatus: d.confirmationStatus,
         confirmedDeliveryDate: d.confirmedDeliveryDate,
         created_at: d.createdAt,
@@ -1270,13 +1283,16 @@ router.post('/:id/send-sms', authenticate, requireRole('admin'), async (req: Req
     const poRef = delivery.poNumber ? `#${delivery.poNumber}` : '';
     const smsBody = `Dear ${customerName},\n\nYour Electrolux order ${poRef} is ready for delivery.\n\nPlease confirm your preferred delivery date using the link below:\n${confirmationLink}\n\nFor assistance, please contact the Electrolux Delivery Team at +971524408687.\n\nThank you,\nElectrolux Delivery Team`;
 
-    // Persist the token to the delivery record immediately
+    // Persist the token and mark delivery as 'scheduled' (awaiting customer confirmation).
+    // smsSentAt enables the admin portal to correctly show sms_sent → unconfirmed transition.
     await prisma.delivery.update({
       where: { id: delivery.id },
       data: {
         confirmationToken: token,
         tokenExpiresAt: expiresAt,
-        confirmationStatus: 'pending'
+        confirmationStatus: 'pending',
+        status: 'scheduled',
+        smsSentAt: new Date()
       }
     });
 
@@ -1551,11 +1567,13 @@ router.put('/admin/:id/reschedule', authenticate, requireAnyRole('admin', 'deliv
 
     const { start: newDateStart } = dubaiDayRangeUtc(iso);
 
-    // Update delivery: keep it active as scheduled-confirmed with new confirmed date.
+    // Update delivery: mark as rescheduled with the new confirmed date.
+    // 'rescheduled' is an active (non-terminal) status — the order still needs to be delivered.
+    // No re-confirmation SMS is needed; customer is notified via their tracking page.
     const updatedDelivery = await prisma.delivery.update({
       where: { id: deliveryId },
       data: {
-        status: 'scheduled-confirmed',
+        status: 'rescheduled',
         confirmationStatus: 'confirmed',
         confirmedDeliveryDate: newDateStart,
         metadata: {
