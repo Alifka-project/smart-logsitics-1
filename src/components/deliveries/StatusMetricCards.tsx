@@ -19,6 +19,7 @@ const CARD_DEFS = [
   { key: 'next_shipment',     sublabel: 'Next available',  darkIconBg: 'dark:bg-cyan-500/30' },
   { key: 'future_shipment',   sublabel: 'Later date',      darkIconBg: 'dark:bg-indigo-500/30' },
   { key: 'out_for_delivery',  sublabel: 'Dispatched',      darkIconBg: 'dark:bg-orange-500/30' },
+  { key: 'order_delay',       sublabel: 'Needs attention', darkIconBg: 'dark:bg-rose-500/35' },
   { key: 'delivered',         sublabel: 'Completed',       darkIconBg: 'dark:bg-green-500/35' },
 ] as const;
 
@@ -31,12 +32,13 @@ export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({ orders, on
     next_shipment:     orders.filter((o) => o.status === 'next_shipment').length,
     future_shipment:   orders.filter((o) => o.status === 'future_shipment').length,
     out_for_delivery:  orders.filter((o) => o.status === 'out_for_delivery').length,
+    order_delay:       orders.filter((o) => o.status === 'order_delay').length,
     delivered:         orders.filter((o) => o.status === 'delivered').length,
   };
 
   return (
     <div className="status-cards-mobile overflow-x-auto pb-1 -mx-1 px-1 lg:mx-0 lg:px-0">
-      <div className="grid grid-cols-2 min-[480px]:grid-cols-4 md:grid-cols-4 lg:grid-cols-8 gap-3 w-full min-w-0">
+      <div className="grid grid-cols-2 min-[480px]:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-3 w-full min-w-0">
         {CARD_DEFS.map(({ key, sublabel, darkIconBg }) => {
           const config = STATUS_CONFIG[key as keyof typeof statusCounts];
           const count = statusCounts[key as keyof typeof statusCounts];
