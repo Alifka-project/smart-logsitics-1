@@ -563,7 +563,7 @@ export default function DeliveryTeamPortal() {
   // Must match TERMINAL_STATUSES in AdminOperationsPage so counts are consistent.
   const TERMINAL_STATUSES = new Set([
     'delivered', 'delivered-with-installation', 'delivered-without-installation',
-    'completed', 'pod-completed', 'cancelled', 'rescheduled', 'returned',
+    'completed', 'pod-completed', 'cancelled', 'returned',
   ]);
 
   // Needs Attention — uses same deliveryToManageOrder workflow as ManageTab so counts are always in sync

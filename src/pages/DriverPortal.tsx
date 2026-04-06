@@ -15,6 +15,7 @@ import {
   MessageSquare, Truck, Bell, Paperclip, Send, Search, ClipboardList, ChevronLeft
 } from 'lucide-react';
 import type { Delivery } from '../types';
+import { isActiveDeliveryListStatus } from '../utils/deliveryListFilter';
 
 // Fix Leaflet default marker icons
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
@@ -981,9 +982,9 @@ export default function DriverPortal() {
               >
                 <Icon className="w-5 h-5" />
                 {tab.label}
-                {tab.id === 'orders' && deliveries.length > 0 && (
+                {tab.id === 'orders' && deliveries.filter(d => isActiveDeliveryListStatus((d.status || '').toLowerCase())).length > 0 && (
                   <span className="ml-2 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-semibold px-2 py-0.5 rounded-full">
-                    {deliveries.length}
+                    {deliveries.filter(d => isActiveDeliveryListStatus((d.status || '').toLowerCase())).length}
                   </span>
                 )}
                 {tab.id === 'messages' && notifications > 0 && (
