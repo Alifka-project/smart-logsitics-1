@@ -86,8 +86,17 @@ async function updateDeliveryStatusHandler(
 
   if (!existingDelivery) return { ok: false, error: 'delivery_not_found' };
 
-  // Guard: dispatch statuses require Goods Movement Date to be set on the delivery
-  const DISPATCH_STATUSES_GUARD = new Set(['out-for-delivery', 'in-transit', 'in-progress']);
+  // Guard: dispatch statuses require Goods Movement Date to be set on the delivery.
+  // Normalise underscore ↔ hyphen variants so both UI formats are covered:
+  //   types/delivery.ts uses out_for_delivery (underscore)
+  //   API / DB stores   out-for-delivery (hyphen)
+  // Rule: without a GMD the warehouse has NOT dispatched the item, so the system
+  // must refuse any attempt to move it into a dispatch status.
+  const DISPATCH_STATUSES_GUARD = new Set([
+    'out-for-delivery', 'out_for_delivery',
+    'dispatched',
+    'on-route', 'on_route',
+  ]);
   if (status && DISPATCH_STATUSES_GUARD.has(status.toLowerCase())) {
     const existingGMD = (existingDelivery as Record<string, unknown>).goodsMovementDate;
     const bodyGMD = (body as Record<string, unknown>).goodsMovementDate;
@@ -610,8 +619,11 @@ router.post('/upload', authenticate, async (req: Request, res: Response): Promis
       return void res.status(400).json({ error: 'no_deliveries_provided' });
     }
 
-    const results: Array<{ deliveryId: string; saved: boolean; error?: string; deduplicated?: boolean }> = [];
+    const results: Array<{ deliveryId: string; saved: boolean; error?: string; deduplicated?: boolean; outcome?: string }> = [];
+    /** IDs of records that were created or updated (included in savedDeliveries response). */
     const deliveryIds: string[] = [];
+    /** IDs of records that were skipped (pure duplicate) — returned in response for UI refresh. */
+    const skippedIds: string[] = [];
 
     // Save deliveries to database with full data
     for (let i = 0; i < deliveries.length; i++) {
@@ -702,48 +714,58 @@ router.post('/upload', authenticate, async (req: Request, res: Response): Promis
           prisma,
           source: 'manual_upload',
           incoming
-        }) as { delivery: Record<string, unknown>; existed: boolean; skipped: boolean; conflict?: string; gmdUpdated: boolean };
+        }) as { delivery: Record<string, unknown>; existed: boolean; skipped: boolean; conflict?: string; gmdUpdated: boolean; outcome: string };
 
         if (upsertResult.conflict) {
-          console.warn(`[Deliveries/Upload] CONFLICT for delivery ${deliveryId}: ${upsertResult.conflict}`);
-          results.push({ deliveryId, saved: false, error: upsertResult.conflict });
+          console.warn(`[Deliveries/Upload] REJECTED delivery ${deliveryId}: ${upsertResult.conflict}`);
+          results.push({ deliveryId, saved: false, error: upsertResult.conflict, outcome: 'rejected' });
           continue;
         }
 
-        const { delivery: savedDelivery, existed } = upsertResult;
+        const { delivery: savedDelivery, existed, skipped, gmdUpdated, outcome: upsertOutcome } = upsertResult;
 
-        console.log(`[Deliveries/Upload] ✓ Saved delivery ${savedDelivery.id} (existed=${!!existed})`);
+        console.log(`[Deliveries/Upload] ✓ ${upsertOutcome} delivery ${savedDelivery.id} (existed=${!!existed}, skipped=${!!skipped}, gmdUpdated=${!!gmdUpdated})`);
         const savedMeta = savedDelivery.metadata as Record<string, unknown> | null;
         if (!savedDelivery.poNumber && !savedMeta?.originalPONumber) {
           console.log(`[Deliveries/Upload] ⚠ Warning: No PO Number found for delivery ${savedDelivery.id}`);
         }
 
-        // Save delivery event for audit
-        await prisma.deliveryEvent.create({
-          data: {
-            deliveryId: savedDelivery.id,
-            eventType: existed ? 'duplicate_upload' : 'uploaded',
-            payload: {
-              customer: delivery.customer || delivery.name,
-              address: delivery.address,
-              phone: delivery.phone,
-              lat: delivery.lat,
-              lng: delivery.lng,
-              uploadDate: new Date().toISOString(),
-              businessKey: savedDelivery.businessKey || businessKey || null,
-              deduplicated: !!existed
-            },
-            actorType: req.user?.role || 'admin',
-            actorId: req.user?.sub || null
+        if (skipped) {
+          // Pure duplicate — dedup service already logged the event. Track separately so
+          // the frontend can refresh the current state without marking it as newly saved.
+          skippedIds.push(savedDelivery.id as string);
+          results.push({ deliveryId: savedDelivery.id as string, saved: false, deduplicated: true, outcome: 'duplicate' });
+        } else {
+          // New record or meaningful update — dedup service already logged gmd_received_dispatch
+          // / dispatch events. Only log 'uploaded' here for brand-new records so we don't
+          // double-log for update cases.
+          if (!existed) {
+            await prisma.deliveryEvent.create({
+              data: {
+                deliveryId: savedDelivery.id,
+                eventType: 'uploaded',
+                payload: {
+                  customer: delivery.customer || delivery.name,
+                  address: delivery.address,
+                  phone: delivery.phone,
+                  lat: delivery.lat,
+                  lng: delivery.lng,
+                  uploadDate: new Date().toISOString(),
+                  businessKey: savedDelivery.businessKey || businessKey || null,
+                  hasGMD: !!goodsMovementDateToSave,
+                },
+                actorType: req.user?.role || 'admin',
+                actorId: req.user?.sub || null
+              }
+            }).catch((err: unknown) => {
+              const e = err as { message?: string };
+              console.warn(`[Deliveries] Failed to create event for ${deliveryId}:`, e.message);
+            });
           }
-        }).catch((err: unknown) => {
-          // Don't fail if event creation fails
-          const e = err as { message?: string };
-          console.warn(`[Deliveries] Failed to create event for ${deliveryId}:`, e.message);
-        });
 
-        deliveryIds.push(savedDelivery.id as string);
-        results.push({ deliveryId: savedDelivery.id as string, saved: true, deduplicated: !!existed });
+          deliveryIds.push(savedDelivery.id as string);
+          results.push({ deliveryId: savedDelivery.id as string, saved: true, deduplicated: !!existed, outcome: upsertOutcome });
+        }
       } catch (error: unknown) {
         const e = error as { message?: string };
         console.error(`[Deliveries] Error saving delivery ${deliveryId}:`, error);
@@ -766,36 +788,57 @@ router.post('/upload', authenticate, async (req: Request, res: Response): Promis
     cache.invalidatePrefix('dashboard:');
     cache.del('deliveries:list:v2');
 
-    console.log(`[Deliveries] Upload complete: ${results.filter(r => r.saved).length} saved (assignment after customer confirms date)`);
+    const newCount = results.filter(r => r.outcome === 'new').length;
+    const dispatchedCount = results.filter(r => r.outcome === 'dispatched').length;
+    const updatedCount = results.filter(r => r.outcome === 'updated').length;
+    const duplicateCount = results.filter(r => r.outcome === 'duplicate').length;
+    const rejectedCount = results.filter(r => r.outcome === 'rejected').length;
 
-    // Fetch the saved deliveries from database to return with full data including UUIDs
+    console.log(`[Deliveries] Upload complete: ${newCount} new, ${dispatchedCount} out-for-delivery (GMD received), ${updatedCount} updated, ${duplicateCount} duplicate (skipped), ${rejectedCount} rejected (PO conflict)`);
+
+    // The delivery fields we always return — includes goodsMovementDate and deliveryNumber
+    // so the frontend can correctly reflect dispatch state after upload.
+    const deliverySelect = {
+      id: true,
+      customer: true,
+      address: true,
+      phone: true,
+      poNumber: true,
+      deliveryNumber: true,
+      goodsMovementDate: true,
+      businessKey: true,
+      lat: true,
+      lng: true,
+      status: true,
+      items: true,
+      metadata: true,
+      createdAt: true,
+      updatedAt: true
+    };
+
+    // Fetch created/updated deliveries with full data including UUIDs
     const savedDeliveries = await prisma.delivery.findMany({
       where: { id: { in: deliveryIds } },
-      select: {
-        id: true,
-        customer: true,
-        address: true,
-        phone: true,
-        poNumber: true,
-        lat: true,
-        lng: true,
-        status: true,
-        items: true,
-        metadata: true,
-        createdAt: true,
-        updatedAt: true
-      }
+      select: deliverySelect
     });
 
-    console.log(`[Deliveries] Returning ${(savedDeliveries as unknown[]).length} deliveries with database IDs to frontend`);
+    // Also fetch skipped deliveries so the frontend can refresh their current state
+    const skippedDeliveries = skippedIds.length > 0
+      ? await prisma.delivery.findMany({ where: { id: { in: skippedIds } }, select: deliverySelect })
+      : [];
+
+    console.log(`[Deliveries] Returning ${(savedDeliveries as unknown[]).length} saved + ${(skippedDeliveries as unknown[]).length} skipped deliveries to frontend`);
 
     res.json({
       success: true,
       count: deliveryIds.length,
       saved: results.filter(r => r.saved).length,
       assigned: 0,
+      /** Breakdown of what happened per delivery row. */
+      summary: { new: newCount, dispatched: dispatchedCount, updated: updatedCount, duplicate: duplicateCount, rejected: rejectedCount },
       results: mergedResults,
-      deliveries: savedDeliveries  // Return full delivery objects with UUIDs
+      deliveries: savedDeliveries,
+      skippedDeliveries,
     });
   } catch (err: unknown) {
     const e = err as { message?: string; stack?: string };

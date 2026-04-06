@@ -10,14 +10,6 @@ const TERMINAL_STATUSES = new Set([
   'failed'
 ]);
 
-// Statuses that require Goods Movement Date to be set.
-// An order CANNOT automatically move to any of these without a GMD.
-const DISPATCH_STATUSES = new Set([
-  'out-for-delivery',
-  'in-transit',
-  'in-progress',
-]);
-
 interface IncomingDelivery {
   id?: string;
   businessKey?: string | null;
@@ -45,12 +37,21 @@ interface UpsertOptions {
 export interface UpsertResult {
   delivery: Record<string, unknown>;
   existed: boolean;
-  /** True when a duplicate was detected but nothing needed updating (skip). */
+  /** True when the record was skipped (duplicate) or rejected (PO conflict). */
   skipped: boolean;
-  /** Set when delivery number belongs to a different PO — conflict, do not save. */
+  /** Set when the delivery number belongs to a different PO — reject. */
   conflict?: string;
-  /** True when GMD was provided for the first time (dispatch triggered). */
+  /** True when Goods Movement Date was provided for the first time (triggers out-for-delivery). */
   gmdUpdated: boolean;
+  /**
+   * Plain-language outcome of the upload for this delivery row.
+   * - 'new'        – first time this delivery number is seen; record created
+   * - 'dispatched' – Goods Movement Date received → delivery is now Out for Delivery
+   * - 'updated'    – Goods Movement Date date changed (was already set previously)
+   * - 'duplicate'  – same delivery number, same PO, no new information; no change made
+   * - 'rejected'   – delivery number already registered under a different PO
+   */
+  outcome: 'new' | 'dispatched' | 'updated' | 'duplicate' | 'rejected';
 }
 
 function normalizeKeyPart(value: unknown): string | null {
@@ -180,6 +181,7 @@ export async function upsertDeliveryByBusinessKey({
         skipped: true,
         conflict: `Delivery number "${normDeliveryNumber}" is already registered under PO "${existing.poNumber}". It cannot be assigned to PO "${incoming.poNumber}".`,
         gmdUpdated: false,
+        outcome: 'rejected',
       };
     }
 
@@ -198,7 +200,7 @@ export async function upsertDeliveryByBusinessKey({
         businessKey,
         deliveryNumber: normDeliveryNumber,
       });
-      return { delivery: existing, existed: true, skipped: true, gmdUpdated: false };
+      return { delivery: existing, existed: true, skipped: true, gmdUpdated: false, outcome: 'duplicate' };
     }
 
     // ── Incoming blank but existing has GMD → don't downgrade → skip ─────
@@ -209,7 +211,7 @@ export async function upsertDeliveryByBusinessKey({
         businessKey,
         deliveryNumber: normDeliveryNumber,
       });
-      return { delivery: existing, existed: true, skipped: true, gmdUpdated: false };
+      return { delivery: existing, existed: true, skipped: true, gmdUpdated: false, outcome: 'duplicate' };
     }
 
     // ── Incoming has GMD → UPDATE ──────────────────────────────────────────
@@ -258,7 +260,7 @@ export async function upsertDeliveryByBusinessKey({
       deliveryNumber: normDeliveryNumber,
     });
 
-    return { delivery: updated, existed: true, skipped: false, gmdUpdated };
+    return { delivery: updated, existed: true, skipped: false, gmdUpdated, outcome: gmdUpdated ? 'dispatched' : 'updated' };
   }
 
   // ─── NEW RECORD ───────────────────────────────────────────────────────────
@@ -285,7 +287,19 @@ export async function upsertDeliveryByBusinessKey({
 
   const created = await prisma.delivery.create({ data: createData }) as Record<string, unknown>;
 
-  return { delivery: created, existed: false, skipped: false, gmdUpdated: !!validIncomingGMD };
+  // If GMD was present on a brand-new record, log that dispatch was already signalled at creation.
+  if (validIncomingGMD) {
+    await logEvent(prisma, created.id as string, 'gmd_received_dispatch', {
+      source,
+      reason: 'new_record_with_gmd',
+      newStatus: initialStatus,
+      goodsMovementDate: validIncomingGMD.toISOString(),
+      businessKey,
+      deliveryNumber: normDeliveryNumber,
+    });
+  }
+
+  return { delivery: created, existed: false, skipped: false, gmdUpdated: !!validIncomingGMD, outcome: 'new' };
 }
 
 export { buildBusinessKey, normalizeKeyPart };

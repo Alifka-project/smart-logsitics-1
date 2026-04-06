@@ -18,6 +18,8 @@ interface FileUploadSuccessPayload {
   geocodedCount: number;
   /** Present when upload was keyed by hash (Manage tab). */
   fileHash?: string;
+  /** Backend processing summary — new/dispatched/skipped/conflict counts. */
+  summary?: UploadSummary;
 }
 
 interface FileUploadErrorPayload {
@@ -49,11 +51,20 @@ interface ExtendedValidationResult extends ValidationResult {
   detectedFormat?: string;
 }
 
+interface UploadSummary {
+  new: number;
+  dispatched: number;
+  updated: number;
+  duplicate: number;
+  rejected: number;
+}
+
 interface SaveResult {
   success: boolean;
   saved?: number;
   assigned?: number;
   deliveries?: Delivery[];
+  summary?: UploadSummary;
   error?: string;
 }
 
@@ -71,6 +82,7 @@ const FileUpload = forwardRef<FileUploadHandle, FileUploadProps>(function FileUp
   const setRoute = useDeliveryStore((state) => state.setRoute);
   const [isLoading, setIsLoading] = useState(false);
   const [validationResult, setValidationResult] = useState<ExtendedValidationResult | null>(null);
+  const [uploadSummary, setUploadSummary] = useState<UploadSummary | null>(null);
   const [showGeocoding, setShowGeocoding] = useState(false);
   const [deliveriesToGeocode, setDeliveriesToGeocode] = useState<Delivery[]>([]);
   const activeUploadIdRef = useRef<string | null>(null);
@@ -156,11 +168,24 @@ const FileUpload = forwardRef<FileUploadHandle, FileUploadProps>(function FileUp
           }),
         );
 
+        // Log backend summary for visibility
+        const summary = response.data.summary as UploadSummary | undefined;
+        if (summary) {
+          console.log(`[FileUpload] Summary: ${summary.new} new, ${summary.dispatched} out-for-delivery, ${summary.updated} updated, ${summary.duplicate} duplicate (skipped), ${summary.rejected} rejected`);
+        }
+
+        // Merge saved + skipped deliveries so the store has the latest state for all rows
+        const allReturned: Delivery[] = [
+          ...(response.data.deliveries ?? []),
+          ...(response.data.skippedDeliveries ?? []),
+        ];
+
         return {
           success: true,
           saved: response.data.saved,
           assigned: response.data.assigned,
-          deliveries: response.data.deliveries ?? [],
+          deliveries: allReturned,
+          summary,
         };
       } else {
         console.error('[FileUpload] Upload response indicates failure:', response.data);
@@ -189,6 +214,7 @@ const FileUpload = forwardRef<FileUploadHandle, FileUploadProps>(function FileUp
 
       setIsLoading(true);
       setValidationResult(null);
+      setUploadSummary(null);
       activeUploadHashRef.current = options?.fileHash ?? '';
       activeUploadIdRef.current = beginUploadRecord(file.name, activeUploadHashRef.current);
 
@@ -265,9 +291,12 @@ const FileUpload = forwardRef<FileUploadHandle, FileUploadProps>(function FileUp
                 );
 
                 void (async () => {
+                  let saveSummary: UploadSummary | undefined;
                   try {
                     const saveResult = await saveDeliveriesAndAssign(validation.validData);
                     console.log('[FileUpload] Successfully saved to database');
+                    saveSummary = saveResult.summary;
+                    if (saveSummary) setUploadSummary(saveSummary);
 
                     if (saveResult.success && saveResult.deliveries?.length) {
                       console.log(
@@ -297,6 +326,7 @@ const FileUpload = forwardRef<FileUploadHandle, FileUploadProps>(function FileUp
                       geocoded: false,
                       geocodedCount: 0,
                       fileHash: hashSnap || undefined,
+                      summary: saveSummary,
                     });
                   }
                 })();
@@ -508,6 +538,17 @@ const FileUpload = forwardRef<FileUploadHandle, FileUploadProps>(function FileUp
                   ? `✓ Successfully loaded ${validationResult.validData.length} deliveries`
                   : 'Validation failed'}
               </p>
+              {validationResult.isValid && uploadSummary && (() => {
+                const parts: string[] = [];
+                if (uploadSummary.new > 0) parts.push(`${uploadSummary.new} new order${uploadSummary.new > 1 ? 's' : ''} registered`);
+                if (uploadSummary.dispatched > 0) parts.push(`${uploadSummary.dispatched} out for delivery (goods movement date received)`);
+                if (uploadSummary.updated > 0) parts.push(`${uploadSummary.updated} delivery date updated`);
+                if (uploadSummary.duplicate > 0) parts.push(`${uploadSummary.duplicate} already registered (skipped)`);
+                if (uploadSummary.rejected > 0) parts.push(`${uploadSummary.rejected} rejected (delivery number in another PO)`);
+                return parts.length > 0 ? (
+                  <p className="text-green-700 text-xs mt-1">{parts.join(' · ')}</p>
+                ) : null;
+              })()}
               {validationResult.detectedFormat && (
                 <p className="text-gray-600 text-xs mt-1">
                   Detected format:{' '}
