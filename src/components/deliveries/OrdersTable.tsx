@@ -212,20 +212,27 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
     ) : null;
 
   const getActionButton = (order: DeliveryOrder) => {
-    // Rescheduled orders that have been classified into a date bucket still show the
-    // rescheduled action UI — the "🔄 Rescheduled" label plus a Reschedule button.
+    // Rescheduled orders classified into a date bucket — show full action set
     if (order.isRescheduled && order.status !== 'rescheduled') {
       return (
         <>
           <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300">
             🔄 Rescheduled
           </span>
+          {ofdButton(order.id)}
           <button
             type="button"
             onClick={() => setRescheduleOrder(order)}
             className="px-3 py-1 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
           >
             Reschedule
+          </button>
+          <button
+            type="button"
+            onClick={() => { if (window.confirm('Cancel this order?')) onStatusChange(order.id, 'cancelled'); }}
+            className="px-3 py-1 text-xs bg-red-50 dark:bg-red-900/30 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-300 rounded hover:bg-red-100 dark:hover:bg-red-900/50"
+          >
+            Cancel
           </button>
         </>
       );
@@ -339,6 +346,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
             <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300">
               🔄 Rescheduled
             </span>
+            {ofdButton(order.id)}
             <button
               type="button"
               onClick={() => setRescheduleOrder(order)}
@@ -346,13 +354,37 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
             >
               Reschedule
             </button>
+            <button
+              type="button"
+              onClick={() => { if (window.confirm('Cancel this order?')) onStatusChange(order.id, 'cancelled'); }}
+              className="px-3 py-1 text-xs bg-red-50 dark:bg-red-900/30 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-300 rounded hover:bg-red-100 dark:hover:bg-red-900/50"
+            >
+              Cancel
+            </button>
           </>
         );
       case 'order_delay':
         return (
-          <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
-            ⚠ Order Delayed
-          </span>
+          <>
+            <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
+              ⚠ Delayed
+            </span>
+            {ofdButton(order.id)}
+            <button
+              type="button"
+              onClick={() => setRescheduleOrder(order)}
+              className="px-3 py-1 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              Reschedule
+            </button>
+            <button
+              type="button"
+              onClick={() => { if (window.confirm('Cancel this order?')) onStatusChange(order.id, 'cancelled'); }}
+              className="px-3 py-1 text-xs bg-red-50 dark:bg-red-900/30 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-300 rounded hover:bg-red-100 dark:hover:bg-red-900/50"
+            >
+              Cancel
+            </button>
+          </>
         );
       case 'delivered':
         return (
