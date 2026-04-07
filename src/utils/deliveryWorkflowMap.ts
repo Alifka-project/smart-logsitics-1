@@ -122,9 +122,16 @@ function deriveWorkflowStatus(d: Delivery, smsSentAt: Date | undefined): Deliver
   // Helper: is the date's Dubai calendar day strictly before today? (overdue)
   const isOverdue = (date: Date): boolean => calDiffFromTodayDubai(date) < 0;
 
-  // Out-for-delivery: once dispatched, always on-route regardless of date.
-  // Do NOT auto-delay dispatched orders — the driver is actively delivering.
+  // Out-for-delivery: on-route unless the planned delivery date has already passed.
+  // If the driver was dispatched but today is after the scheduled/confirmed date,
+  // the order is overdue — classify as order_delay so admin can take action.
   if (['out-for-delivery', 'in-transit', 'in-progress'].includes(s)) {
+    const targetDate =
+      parseOptDate(d.confirmedDeliveryDate) ??
+      parseOptDate(d.customerConfirmedAt) ??
+      parseOptDate((d.metadata as Record<string, unknown> | null)?.scheduledDate as string) ??
+      parseOptDate((d.metadata as Record<string, unknown> | null)?.scheduled_date as string);
+    if (targetDate && isOverdue(targetDate)) return 'order_delay';
     return 'out_for_delivery';
   }
 

@@ -83,7 +83,7 @@ export default function ManageTab({
   );
 
   const handleOrderEditSaved = useCallback(
-    (updated: { status: string; notes?: string; scheduledDateIso?: string }) => {
+    (updated: { status: string; notes?: string; scheduledDateIso?: string; goodsMovementDate?: string }) => {
       if (!editDeliveryId) return;
       const raw = deliveries.find((d) => d.id === editDeliveryId);
       if (!raw) return;
@@ -93,6 +93,7 @@ export default function ManageTab({
         metadata: meta as Delivery['metadata'],
         deliveryNotes: updated.notes !== undefined ? updated.notes : raw.deliveryNotes ?? undefined,
         conditionNotes: updated.notes !== undefined ? updated.notes : raw.conditionNotes ?? undefined,
+        ...(updated.goodsMovementDate ? { goodsMovementDate: updated.goodsMovementDate } : {}),
       });
       setEditDeliveryId(null);
       onNotifySuccess('Order updated', 'Changes saved.');

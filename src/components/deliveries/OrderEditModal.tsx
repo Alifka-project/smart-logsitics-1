@@ -32,7 +32,7 @@ function toDateInputValue(d: Date): string {
 interface OrderEditModalProps {
   delivery: Delivery;
   onClose: () => void;
-  onSaved: (updated: { status: string; notes?: string; scheduledDateIso?: string }) => void;
+  onSaved: (updated: { status: string; notes?: string; scheduledDateIso?: string; goodsMovementDate?: string }) => void;
   onToastError: (message: string) => void;
 }
 
@@ -104,10 +104,13 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
       if (response.data && (response.data as { ok?: boolean }).ok) {
         const scheduledDateIso =
           dateStr.trim() ? new Date(dateStr + 'T12:00:00').toISOString() : undefined;
+        const goodsMovementDate =
+          gmdStr.trim() ? new Date(gmdStr + 'T12:00:00').toISOString() : undefined;
         onSaved({
           status: apiStatus,
           notes: notes.trim() || undefined,
           scheduledDateIso,
+          goodsMovementDate,
         });
         onClose();
       } else {

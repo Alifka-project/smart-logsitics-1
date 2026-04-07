@@ -141,7 +141,7 @@ async function updateDeliveryStatusHandler(
     updatedAt: new Date()
   };
   // If a Goods Movement Date is being set for the first time alongside a dispatch status, persist it
-  if (body.goodsMovementDate && !(existingDelivery as Record<string, unknown>).goodsMovementDate) {
+  if (body.goodsMovementDate) {
     const gmdDate = new Date(String(body.goodsMovementDate));
     if (!isNaN(gmdDate.getTime())) {
       updateData.goodsMovementDate = gmdDate;
@@ -169,6 +169,10 @@ async function updateDeliveryStatusHandler(
     where: { id: existingDelivery.id },
     data: updateData
   }) as Record<string, unknown>;
+
+  // Bust caches so the next admin reload reflects the change immediately
+  cache.invalidatePrefix('tracking:');
+  cache.invalidatePrefix('deliveries:list:');
 
   // Close any active assignment when delivery reaches a terminal state
   if (['delivered', 'completed', 'delivered-with-installation', 'delivered-without-installation',
