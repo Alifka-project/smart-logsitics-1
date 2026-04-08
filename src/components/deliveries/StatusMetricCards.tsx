@@ -46,11 +46,12 @@ export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({ orders, on
         {CARD_DEFS.map(({ key, sublabel, darkIconBg }) => {
           const config = STATUS_CONFIG[key as keyof typeof statusCounts];
           const count = statusCounts[key as keyof typeof statusCounts];
-          const isDelivered = key === 'delivered' && count > 0;
-          const isHighlight = Boolean(config.highlight) || isDelivered;
+          const isHighlight = Boolean(config.highlight);
           // A card is "active" when the parent's active filter matches this card's key
           const isActive = activeKey === key;
           const clickable = Boolean(onCardClick);
+          // highlightRing uses CSS outline (immune to overflow:hidden clipping)
+          const highlightRing = config.highlightRing ?? '';
 
           return (
             <div
@@ -65,13 +66,11 @@ export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({ orders, on
                 ${clickable ? 'cursor-pointer select-none' : ''}
                 ${isActive
                   ? 'ring-2 ring-offset-1 ring-blue-500 border-blue-400 dark:ring-blue-400'
-                  : isDelivered
-                  ? 'ring-2 ring-green-400 border-green-400 bg-green-50 dark:bg-green-900/20 dark:ring-green-500 dark:border-green-500'
                   : isHighlight
-                  ? 'ring-2 ring-amber-400 border-amber-400 bg-amber-50 dark:bg-amber-900/20 dark:ring-amber-500 dark:border-amber-500'
+                  ? `${highlightRing} border-transparent`
                   : 'border-gray-200 dark:border-gray-600'
                 }
-                ${clickable && !isActive ? 'hover:shadow-md hover:border-blue-300 dark:hover:border-blue-500' : ''}
+                ${clickable && !isActive ? 'hover:shadow-md' : ''}
               `}
             >
               <div className="flex items-start justify-between gap-2">
