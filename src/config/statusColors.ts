@@ -115,6 +115,7 @@ export const STATUS_CONFIG: Record<DeliveryStatus, StatusVisualConfig> = {
     icon: '🚚',
     badgeStyle:
       'bg-[#002D5B]/10 text-[#002D5B] dark:bg-blue-400/15 dark:text-blue-100',
+    highlight: true,
   },
   delivered: {
     label: 'Delivered',

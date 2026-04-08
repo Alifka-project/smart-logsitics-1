@@ -41,7 +41,7 @@ export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({ orders, on
   };
 
   return (
-    <div className="status-cards-mobile overflow-x-auto pb-1 -mx-1 px-1 lg:mx-0 lg:px-0">
+    <div className="status-cards-mobile overflow-x-auto py-1 -mx-1 px-1 lg:mx-0 lg:px-0 lg:overflow-x-clip">
       <div className="grid grid-cols-2 min-[480px]:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-3 w-full min-w-0">
         {CARD_DEFS.map(({ key, sublabel, darkIconBg }) => {
           const config = STATUS_CONFIG[key as keyof typeof statusCounts];
