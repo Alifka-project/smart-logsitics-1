@@ -66,9 +66,9 @@ export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({ orders, on
                 ${isActive
                   ? 'ring-2 ring-offset-1 ring-blue-500 border-blue-400 dark:ring-blue-400'
                   : isDelivered
-                  ? 'border-green-400 bg-green-50/40 dark:bg-green-900/10'
+                  ? 'ring-2 ring-green-400 border-green-400 bg-green-50 dark:bg-green-900/20 dark:ring-green-500 dark:border-green-500'
                   : isHighlight
-                  ? 'border-amber-400 bg-amber-50/40 dark:bg-amber-900/10'
+                  ? 'ring-2 ring-amber-400 border-amber-400 bg-amber-50 dark:bg-amber-900/20 dark:ring-amber-500 dark:border-amber-500'
                   : 'border-gray-200 dark:border-gray-600'
                 }
                 ${clickable && !isActive ? 'hover:shadow-md hover:border-blue-300 dark:hover:border-blue-500' : ''}
