@@ -144,23 +144,23 @@ function ActionDropdown({
   };
 
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex flex-col items-stretch gap-1">
       {isOnRoute && (
         <button
           type="button"
           onClick={() => onTrackDelivery?.(order.id)}
-          className="shrink-0 px-2.5 py-1.5 text-[11px] font-semibold rounded border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 whitespace-nowrap transition-colors"
+          className="w-full px-2.5 py-1.5 text-[11px] font-semibold rounded border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 whitespace-nowrap transition-colors"
         >
           Track →
         </button>
       )}
-      <div className="relative shrink-0">
+      <div className="relative">
         <button
           ref={btnRef}
           type="button"
           onClick={handleToggle}
           disabled={dispatching}
-          className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold rounded border border-[#002D5B]/30 bg-[#002D5B]/5 text-[#002D5B] hover:bg-[#002D5B] hover:text-white dark:border-blue-500/40 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-700 dark:hover:text-white transition-colors whitespace-nowrap disabled:opacity-60"
+          className="w-full flex items-center justify-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold rounded border border-[#002D5B]/30 bg-[#002D5B]/5 text-[#002D5B] hover:bg-[#002D5B] hover:text-white dark:border-blue-500/40 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-700 dark:hover:text-white transition-colors whitespace-nowrap disabled:opacity-60"
           title="Update delivery status"
         >
           {dispatching ? 'Dispatching…' : 'Update Status'}

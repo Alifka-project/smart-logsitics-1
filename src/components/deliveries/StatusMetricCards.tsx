@@ -66,10 +66,10 @@ export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({ orders, on
                 ${isActive
                   ? 'ring-2 ring-offset-1 ring-blue-500 border-blue-400 dark:ring-blue-400'
                   : isDelivered
-                  ? 'border-2 border-green-400/90'
+                  ? 'border-green-400 bg-green-50/40 dark:bg-green-900/10'
                   : isHighlight
-                  ? 'border-2 border-amber-400/90'
-                  : 'border border-gray-200 dark:border-gray-600'
+                  ? 'border-amber-400 bg-amber-50/40 dark:bg-amber-900/10'
+                  : 'border-gray-200 dark:border-gray-600'
                 }
                 ${clickable && !isActive ? 'hover:shadow-md hover:border-blue-300 dark:hover:border-blue-500' : ''}
               `}
@@ -91,11 +91,11 @@ export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({ orders, on
                 {config.label}
               </p>
 
-              <div className="mt-2 flex items-end justify-between gap-2 border-t border-gray-100 pt-2.5 dark:border-gray-600">
+              <div className="mt-2 flex items-baseline justify-between gap-2 border-t border-gray-100 pt-2.5 dark:border-gray-600">
                 <span className="text-2xl font-bold tabular-nums leading-none text-gray-900 dark:text-white">
                   {count}
                 </span>
-                <span className="pb-0.5 text-[10px] font-medium text-gray-400 dark:text-gray-500">{sublabel}</span>
+                <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500">{sublabel}</span>
               </div>
             </div>
           );
