@@ -44,7 +44,7 @@ export const STATUS_CONFIG: Record<DeliveryStatus, StatusVisualConfig> = {
     icon: '✗',
     badgeStyle: 'bg-red-100 text-red-700',
     highlight: true,
-    highlightRing: 'outline outline-2 outline-red-500 bg-red-50 dark:bg-red-900/20',
+    highlightRing: 'outline outline-1 outline-red-400 bg-red-50 dark:bg-red-900/20',
   },
   confirmed: {
     label: 'Confirmed',
@@ -55,7 +55,7 @@ export const STATUS_CONFIG: Record<DeliveryStatus, StatusVisualConfig> = {
     icon: '⚡',
     badgeStyle: 'bg-amber-100 text-amber-700',
     highlight: true,
-    highlightRing: 'outline outline-2 outline-amber-500 bg-amber-50 dark:bg-amber-900/20',
+    highlightRing: 'outline outline-1 outline-amber-400 bg-amber-50 dark:bg-amber-900/20',
   },
   tomorrow_shipment: {
     label: 'Tomorrow Shipment',
@@ -67,7 +67,7 @@ export const STATUS_CONFIG: Record<DeliveryStatus, StatusVisualConfig> = {
     icon: '🗓️',
     badgeStyle: 'bg-amber-100 text-amber-700',
     highlight: true,
-    highlightRing: 'outline outline-2 outline-amber-500 bg-amber-50 dark:bg-amber-900/20',
+    highlightRing: 'outline outline-1 outline-amber-400 bg-amber-50 dark:bg-amber-900/20',
   },
   next_shipment: {
     label: 'Next Shipment',
@@ -79,7 +79,7 @@ export const STATUS_CONFIG: Record<DeliveryStatus, StatusVisualConfig> = {
     icon: '📦',
     badgeStyle: 'bg-amber-100 text-amber-700',
     highlight: true,
-    highlightRing: 'outline outline-2 outline-amber-500 bg-amber-50 dark:bg-amber-900/20',
+    highlightRing: 'outline outline-1 outline-amber-400 bg-amber-50 dark:bg-amber-900/20',
   },
   future_shipment: {
     label: 'Future Shipment',
@@ -91,7 +91,7 @@ export const STATUS_CONFIG: Record<DeliveryStatus, StatusVisualConfig> = {
     icon: '📅',
     badgeStyle: 'bg-amber-100 text-amber-700',
     highlight: true,
-    highlightRing: 'outline outline-2 outline-amber-500 bg-amber-50 dark:bg-amber-900/20',
+    highlightRing: 'outline outline-1 outline-amber-400 bg-amber-50 dark:bg-amber-900/20',
   },
   scheduled: {
     label: 'Scheduled',
@@ -111,7 +111,7 @@ export const STATUS_CONFIG: Record<DeliveryStatus, StatusVisualConfig> = {
     icon: '⚠',
     badgeStyle: 'bg-red-100 text-red-700',
     highlight: true,
-    highlightRing: 'outline outline-2 outline-red-500 bg-red-50 dark:bg-red-900/20',
+    highlightRing: 'outline outline-1 outline-red-400 bg-red-50 dark:bg-red-900/20',
   },
   out_for_delivery: {
     label: 'On Route',
@@ -124,7 +124,7 @@ export const STATUS_CONFIG: Record<DeliveryStatus, StatusVisualConfig> = {
     badgeStyle:
       'bg-[#002D5B]/10 text-[#002D5B] dark:bg-blue-400/15 dark:text-blue-100',
     highlight: true,
-    highlightRing: 'outline outline-2 outline-[#002D5B] bg-blue-50/60 dark:bg-blue-900/20',
+    highlightRing: 'outline outline-1 outline-blue-400 bg-blue-50/60 dark:bg-blue-900/20',
   },
   delivered: {
     label: 'Delivered',
@@ -135,7 +135,7 @@ export const STATUS_CONFIG: Record<DeliveryStatus, StatusVisualConfig> = {
     icon: '✓',
     badgeStyle: 'bg-green-100 text-green-700',
     highlight: true,
-    highlightRing: 'outline outline-2 outline-green-500 bg-green-50 dark:bg-green-900/20',
+    highlightRing: 'outline outline-1 outline-green-400 bg-green-50 dark:bg-green-900/20',
   },
   failed: {
     label: 'Failed',
