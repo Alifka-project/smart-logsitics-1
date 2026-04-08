@@ -52,23 +52,9 @@ export function isTodayDate(date: Date): boolean {
  */
 export function classifyConfirmedDate(date: Date): 'tomorrow' | 'next' | 'future' {
   const diffDays = calDiffFromTodayDubai(date);
-
-  if (diffDays <= 1) return 'tomorrow';
-
-  // If the day immediately before the confirmed date is a non-working day
-  // (Sunday=0, Friday=5, Saturday=6, or a UAE public holiday), the delivery
-  // was pushed past it → label as "Next Shipment".
-  const [vy, vm, vd] = dubaiYMD(date.getTime());
-  const dayBeforeUtc = Date.UTC(vy, vm, vd) - 86400000;
-  const dayBeforeDate = new Date(dayBeforeUtc);
-  const dow = dayBeforeDate.getUTCDay(); // 0=Sun, 5=Fri, 6=Sat
-  // ISO string of the day before (YYYY-MM-DD) for holiday lookup
-  const dayBeforeIso = dayBeforeDate.toISOString().slice(0, 10);
-  if (dow === 0 || dow === 5 || dow === 6 || isDubaiPublicHoliday(dayBeforeIso)) {
-    return 'next';
-  }
-
-  return 'future';
+  if (diffDays <= 1) return 'tomorrow';   // today or tomorrow  → Tomorrow Shipment
+  if (diffDays === 2) return 'next';      // day after tomorrow → Next Shipment
+  return 'future';                        // 3+ days out        → Future Shipment
 }
 
 function priorityFromDelivery(d: Delivery): 'normal' | 'high' | 'urgent' | undefined {

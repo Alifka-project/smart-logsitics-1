@@ -7,9 +7,30 @@ import type { DeliveryListFilter } from '../utils/deliveryListFilter';
 
 const WAREHOUSE_LAT = 25.0053;
 const WAREHOUSE_LNG = 55.076;
-const STORAGE_KEY = 'deliveries_data';
-const RECENT_UPLOADS_KEY = 'delivery_recent_uploads';
-const HASHES_KEY = 'delivery_uploaded_file_hashes';
+
+/**
+ * Storage keys scoped to the current user's ID so different accounts on the
+ * same browser cannot see each other's delivery lists or upload histories.
+ */
+function getCurrentUserId(): string {
+  try {
+    const raw = localStorage.getItem('client_user');
+    if (!raw) return 'anonymous';
+    const u = JSON.parse(raw) as { id?: string; sub?: string };
+    return u?.id || u?.sub || 'anonymous';
+  } catch {
+    return 'anonymous';
+  }
+}
+
+function scopedKey(base: string): string {
+  return `${base}:${getCurrentUserId()}`;
+}
+
+const STORAGE_KEY_BASE = 'deliveries_data';
+const RECENT_UPLOADS_KEY_BASE = 'delivery_recent_uploads';
+const HASHES_KEY_BASE = 'delivery_uploaded_file_hashes';
+
 
 export type UploadRecordStatus = 'processing' | 'completed' | 'error';
 
@@ -67,7 +88,7 @@ interface DeliveryStore {
 
 function loadHashesFromStorage(): string[] {
   try {
-    const raw = localStorage.getItem(HASHES_KEY);
+    const raw = localStorage.getItem(scopedKey(HASHES_KEY_BASE));
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     return Array.isArray(parsed)
@@ -80,7 +101,7 @@ function loadHashesFromStorage(): string[] {
 
 function persistHashes(hashes: string[]): void {
   try {
-    localStorage.setItem(HASHES_KEY, JSON.stringify(hashes.slice(0, 500)));
+    localStorage.setItem(scopedKey(HASHES_KEY_BASE), JSON.stringify(hashes.slice(0, 500)));
   } catch {
     /* ignore */
   }
@@ -110,7 +131,7 @@ function normalizeUploadsFromStorage(parsed: unknown): UploadRecord[] {
 
 function loadRecentUploadsFromStorage(): UploadRecord[] {
   try {
-    const raw = localStorage.getItem(RECENT_UPLOADS_KEY);
+    const raw = localStorage.getItem(scopedKey(RECENT_UPLOADS_KEY_BASE));
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     return normalizeUploadsFromStorage(parsed);
@@ -121,7 +142,7 @@ function loadRecentUploadsFromStorage(): UploadRecord[] {
 
 function persistRecentUploads(entries: UploadRecord[]): void {
   try {
-    localStorage.setItem(RECENT_UPLOADS_KEY, JSON.stringify(entries.slice(0, 20)));
+    localStorage.setItem(scopedKey(RECENT_UPLOADS_KEY_BASE), JSON.stringify(entries.slice(0, 20)));
   } catch {
     /* ignore */
   }
@@ -140,7 +161,8 @@ const useDeliveryStore = create<DeliveryStore>((set, get) => ({
 
   initializeFromStorage: (): Delivery[] => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
+      const key = scopedKey(STORAGE_KEY_BASE);
+      const stored = localStorage.getItem(key);
       if (stored) {
         const deliveries: Delivery[] = JSON.parse(stored);
 
@@ -152,7 +174,7 @@ const useDeliveryStore = create<DeliveryStore>((set, get) => ({
         if (hasFakeIds) {
           console.warn('[Store] ⚠️ Detected old fake IDs (delivery-1, etc). Clearing localStorage.');
           console.warn('[Store] Please re-upload your deliveries to get database UUIDs.');
-          localStorage.removeItem(STORAGE_KEY);
+          localStorage.removeItem(key);
           set({ deliveries: [] });
           return [];
         }
@@ -175,7 +197,7 @@ const useDeliveryStore = create<DeliveryStore>((set, get) => ({
 
   saveToStorage: (deliveries: Delivery[]): void => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(deliveries));
+      localStorage.setItem(scopedKey(STORAGE_KEY_BASE), JSON.stringify(deliveries));
     } catch (error) {
       console.error('Failed to save to localStorage:', error);
     }
@@ -360,7 +382,7 @@ const useDeliveryStore = create<DeliveryStore>((set, get) => ({
 
   clearDeliveries: (): void => {
     set({ deliveries: [], selectedDelivery: null });
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(scopedKey(STORAGE_KEY_BASE));
   },
 
   calculateRoute: async (): Promise<void> => {

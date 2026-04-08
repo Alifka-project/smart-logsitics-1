@@ -5,6 +5,7 @@
 
 import { Router, Request, Response } from 'express';
 import { getAvailableDatesForDeliveryId, TRUCK_MAX_ITEMS_PER_DAY } from '../services/deliveryCapacityService';
+import { authenticate, requireAnyRole } from '../auth.js';
 
 const router = Router();
 const smsService = require('../sms/smsService');
@@ -245,7 +246,7 @@ router.get('/tracking/:token', async (req: Request, res: Response): Promise<void
  * Resend confirmation SMS (admin can trigger)
  * Protected endpoint
  */
-router.post('/resend-confirmation/:deliveryId', async (req: Request, res: Response): Promise<void> => {
+router.post('/resend-confirmation/:deliveryId', authenticate, requireAnyRole('admin', 'delivery_team'), async (req: Request, res: Response): Promise<void> => {
   try {
     const { deliveryId } = req.params as { deliveryId: string };
 
@@ -265,17 +266,12 @@ router.post('/resend-confirmation/:deliveryId', async (req: Request, res: Respon
       return void res.status(400).json({ error: 'no_phone_number' });
     }
 
-    // Send confirmation SMS
-    const result = await smsService.sendConfirmationSms(deliveryId, delivery.phone) as {
-      token: string;
-      expiresAt: string;
-    };
+    await smsService.sendConfirmationSms(deliveryId, delivery.phone);
 
+    // Never return the raw token to the caller
     return void res.json({
       ok: true,
-      message: 'Confirmation SMS resent',
-      token: result.token,
-      expiresAt: result.expiresAt
+      message: 'Confirmation SMS resent'
     });
   } catch (error: unknown) {
     const e = error as { message?: string };

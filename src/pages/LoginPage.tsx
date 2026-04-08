@@ -37,7 +37,11 @@ export default function LoginPage() {
             const user = JSON.parse(localStorage.getItem('client_user') ?? '{}') as {
               role?: string;
             };
-            void navigate(user?.role === 'admin' ? '/admin' : '/driver', { replace: true });
+            const destination =
+              user?.role === 'admin' ? '/admin' :
+              user?.role === 'delivery_team' ? '/delivery-team' :
+              '/driver';
+            void navigate(destination, { replace: true });
           }
         })
         .catch(() => {});

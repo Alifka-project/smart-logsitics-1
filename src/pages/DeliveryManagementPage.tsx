@@ -12,6 +12,7 @@ import { ToastContainer } from '../components/common/Toast';
 import { AlertCircle, AlertTriangle } from 'lucide-react';
 import { clearDeliveriesCache, showCacheWarning } from '../utils/clearCacheAndReload';
 import api from '../frontend/apiClient';
+import { getCurrentUser } from '../frontend/auth';
 import type { Delivery } from '../types';
 import { exportAsXlsx, exportAsCsv } from '../utils/exportDeliveries';
 import type { LucideIcon } from 'lucide-react';
@@ -181,15 +182,18 @@ export default function DeliveryManagementPage({ hideManageTab = false }: Delive
         loadDeliveries(freshDeliveries);
         addCompletedUpload('Database reload', freshDeliveries.length);
 
-        // Trigger backend bulk auto-assignment so Operations Control reflects assignments
-        try {
-          const ids = freshDeliveries.map((d) => d.id).filter(Boolean);
-          if (ids.length > 0) {
-            await api.post('/deliveries/bulk-assign', { deliveryIds: ids });
+        // Trigger backend bulk auto-assignment (admin-only — delivery_team uses per-order assignment)
+        const currentUser = getCurrentUser();
+        if (currentUser?.role === 'admin') {
+          try {
+            const ids = freshDeliveries.map((d) => d.id).filter(Boolean);
+            if (ids.length > 0) {
+              await api.post('/deliveries/bulk-assign', { deliveryIds: ids });
+            }
+          } catch (assignErr: unknown) {
+            const e = assignErr as { message?: string };
+            console.warn('Bulk auto-assign after DB reload failed:', e.message || assignErr);
           }
-        } catch (assignErr: unknown) {
-          const e = assignErr as { message?: string };
-          console.warn('Bulk auto-assign after DB reload failed:', e.message || assignErr);
         }
 
         success(`✓ Reloaded ${freshDeliveries.length} deliveries from database with real UUIDs!`);

@@ -165,25 +165,63 @@ async function updateDeliveryStatusHandler(
     updateData.podCompletedAt = new Date();
   }
 
-  const updatedDelivery = await prisma.delivery.update({
-    where: { id: existingDelivery.id },
-    data: updateData
-  }) as Record<string, unknown>;
+  const isTerminalStatus = ['delivered', 'completed', 'delivered-with-installation',
+    'delivered-without-installation', 'cancelled', 'returned', 'failed'].includes(status.toLowerCase());
+
+  // Run delivery update + assignment closure atomically so both succeed or both fail.
+  // Driver status recalculation runs outside the transaction (read-then-write, low-risk).
+  let updatedDelivery: Record<string, unknown>;
+  let affectedDriverIds: string[] = [];
+
+  try {
+    const txResult = await prisma.$transaction(async (tx: typeof prisma) => {
+      const updated = await tx.delivery.update({
+        where: { id: existingDelivery!.id },
+        data: updateData
+      }) as Record<string, unknown>;
+
+      let closedAssignmentDriverIds: string[] = [];
+      if (isTerminalStatus) {
+        const closing = await tx.deliveryAssignment.findMany({
+          where: { deliveryId: existingDelivery!.id as string, status: { in: ['assigned', 'in_progress'] } },
+          select: { driverId: true }
+        });
+        closedAssignmentDriverIds = [...new Set(closing.map((a: { driverId: string }) => a.driverId))];
+        await tx.deliveryAssignment.updateMany({
+          where: { deliveryId: existingDelivery!.id as string, status: { in: ['assigned', 'in_progress'] } },
+          data: { status: 'completed' }
+        });
+      }
+      return { updated, closedAssignmentDriverIds };
+    });
+    updatedDelivery = txResult.updated;
+    affectedDriverIds = txResult.closedAssignmentDriverIds;
+  } catch (txErr: unknown) {
+    console.error('[Deliveries] Status update transaction failed:', (txErr as Error).message);
+    return { ok: false, error: 'status_update_failed' };
+  }
+
+  // After transaction: recalculate driver availability (outside tx — read-then-write is safe here)
+  for (const driverId of affectedDriverIds) {
+    try {
+      const remaining = await prisma.deliveryAssignment.count({
+        where: { driverId, status: { in: ['assigned', 'in_progress'] } }
+      });
+      if (remaining === 0) {
+        await prisma.driverStatus.upsert({
+          where: { driverId },
+          update: { status: 'available', currentAssignmentId: null, updatedAt: new Date() },
+          create: { driverId, status: 'available' }
+        });
+      }
+    } catch (e: unknown) {
+      console.warn('[Deliveries] Failed to reset driver status:', (e as Error).message);
+    }
+  }
 
   // Bust caches so the next admin reload reflects the change immediately
   cache.invalidatePrefix('tracking:');
   cache.invalidatePrefix('deliveries:list:');
-
-  // Close any active assignment when delivery reaches a terminal state
-  if (['delivered', 'completed', 'delivered-with-installation', 'delivered-without-installation',
-       'cancelled', 'returned', 'failed'].includes(status.toLowerCase())) {
-    await prisma.deliveryAssignment.updateMany({
-      where: { deliveryId: existingDelivery.id as string, status: { in: ['assigned', 'in_progress'] } },
-      data: { status: 'completed' }
-    }).catch((e: unknown) => {
-      console.warn('[Deliveries] Failed to close assignment:', (e as Error).message);
-    });
-  }
 
   // When an order is confirmed for delivery (scheduled-confirmed):
   // Auto-assign a driver if none yet, so the driver can see upcoming work
@@ -466,7 +504,7 @@ router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_
 });
 
 // PUT /admin/:id/contact - Update delivery contact details (address, phone, lat, lng)
-router.put('/admin/:id/contact', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+router.put('/admin/:id/contact', authenticate, requireAnyRole('admin', 'delivery_team'), async (req: Request, res: Response): Promise<void> => {
   const { id: deliveryIdParam } = req.params as { id: string };
   const { customer, address, phone, lat, lng } = req.body as {
     customer?: string; address?: string; phone?: string; lat?: unknown; lng?: unknown;
@@ -609,7 +647,7 @@ router.get('/debug/check-po-numbers', authenticate, requireRole('admin'), async 
 });
 
 // POST /api/deliveries/upload - Save uploaded delivery data and auto-assign
-router.post('/upload', authenticate, async (req: Request, res: Response): Promise<void> => {
+router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team'), async (req: Request, res: Response): Promise<void> => {
   try {
     const { deliveries } = req.body as { deliveries?: Record<string, unknown>[] };
 
@@ -998,14 +1036,16 @@ router.get('/', authenticate, async (req: Request, res: Response): Promise<void>
   try {
     const includeFinished = req.query.includeFinished === 'true';
 
-    // Build a today-scoped date range for filtering confirmed deliveries.
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999);
-    // Cache key scoped to today's date so confirmed-for-future deliveries
+    // Build a today-scoped date range using Dubai timezone (UTC+4) so day
+    // boundaries are correct regardless of the server's local timezone.
+    const dubaiTodayIso = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Dubai', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).format(new Date());
+    const todayStart = new Date(`${dubaiTodayIso}T00:00:00+04:00`);
+    const todayEnd   = new Date(`${dubaiTodayIso}T23:59:59+04:00`);
+    // Cache key scoped to today's Dubai date so confirmed-for-future deliveries
     // automatically become visible on their scheduled date.
-    const dateKey = todayStart.toISOString().split('T')[0];
+    const dateKey = dubaiTodayIso;
     const cacheKey = includeFinished
       ? 'deliveries:list:v2:all'
       : `deliveries:list:v2:active:${dateKey}`;
@@ -1140,12 +1180,13 @@ router.put('/admin/:id/assign', authenticate, requireAnyRole('admin', 'delivery_
       return void res.status(404).json({ error: 'delivery_not_found' });
     }
 
-    // Remove old assignments for this delivery
+    // Soft-close previous active assignments so history is preserved for reporting/audit
     if (delivery.assignments && delivery.assignments.length > 0) {
-      await prisma.deliveryAssignment.deleteMany({
-        where: { deliveryId: id }
+      await prisma.deliveryAssignment.updateMany({
+        where: { deliveryId: id, status: { in: ['assigned', 'in_progress'] } },
+        data: { status: 'reassigned' }
       });
-      console.log(`[Deliveries] Removed old assignments for delivery ${id}`);
+      console.log(`[Deliveries] Soft-closed previous assignments for delivery ${id}`);
     }
 
     // Create new assignment
@@ -1274,11 +1315,15 @@ router.post('/:id/send-sms', authenticate, requireRole('admin'), async (req: Req
     const reqBody = req.body as { email?: string };
     const customerEmail = reqBody?.email || delivery.email as string || null;
 
-    // Always generate the confirmation token first — link is always available
-    // even when both SMS and email fail.
+    if (!normalizedPhone) {
+      return void res.status(400).json({ error: 'no_phone', message: 'Delivery has no phone number' });
+    }
+
+    // Generate token and message body before attempting send.
+    // DB is only updated AFTER a successful send so status never reflects
+    // a message the customer did not receive.
     const smsService = require('../sms/smsService');
     const token = smsService.generateConfirmationToken() as string;
-    // 30 days — customers may receive stock next month
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
     const confirmationLink = `${frontendUrl}/confirm-delivery/${token}`;
@@ -1286,24 +1331,7 @@ router.post('/:id/send-sms', authenticate, requireRole('admin'), async (req: Req
     const poRef = delivery.poNumber ? `#${delivery.poNumber}` : '';
     const smsBody = `Dear ${customerName},\n\nYour Electrolux order ${poRef} is ready for delivery.\n\nPlease confirm your preferred delivery date using the link below:\n${confirmationLink}\n\nFor assistance, please contact the Electrolux Delivery Team at +971524408687.\n\nThank you,\nElectrolux Delivery Team`;
 
-    // Persist the token and mark delivery as 'scheduled' (awaiting customer confirmation).
-    // smsSentAt enables the admin portal to correctly show sms_sent → unconfirmed transition.
-    await prisma.delivery.update({
-      where: { id: delivery.id },
-      data: {
-        confirmationToken: token,
-        tokenExpiresAt: expiresAt,
-        confirmationStatus: 'pending',
-        status: 'scheduled',
-        smsSentAt: new Date()
-      }
-    });
-
-    if (!normalizedPhone) {
-      return void res.status(400).json({ error: 'no_phone', message: 'Delivery has no phone number' });
-    }
-
-    // ── 1. Send message — WhatsApp for UAE (+971), SMS for all other countries ──
+    // ── 1. Send message first — WhatsApp for UAE (+971), SMS for all others ──
     const isUAE = normalizedPhone.startsWith('+971');
     let sent = false;
     let sendError: string | null = null;
@@ -1331,19 +1359,6 @@ router.post('/:id/send-sms', authenticate, requireRole('admin'), async (req: Req
         sent = true;
         console.log('[SMS] Sent to', normalizedPhone, 'MID:', messageId);
       }
-
-      await prisma.smsLog.create({
-        data: {
-          deliveryId: delivery.id,
-          phoneNumber: normalizedPhone,
-          messageContent: smsBody,
-          smsProvider: isUAE ? 'd7-whatsapp' : 'd7',
-          externalMessageId: messageId,
-          status: 'sent',
-          sentAt: new Date(),
-          metadata: { type: 'confirmation_request', channel, tokenExpiry: expiresAt.toISOString(), d7Status }
-        }
-      });
     } catch (err: unknown) {
       const e = err as { message?: string; response?: { data?: unknown } };
       console.error(`[${channel.toUpperCase()}] Send failed:`, e.message);
@@ -1364,25 +1379,47 @@ router.post('/:id/send-sms', authenticate, requireRole('admin'), async (req: Req
       }).catch((e: unknown) => console.error('[Log] Error:', (e as { message?: string }).message));
     }
 
-    // ── 2. Build response ──────────────────────────────────────────────────
+    // ── 2. Only update delivery status + persist token after confirmed send ──
     if (!sent) {
       return void res.status(500).json({
         ok: false,
         error: `${channel}_failed`,
-        message: sendError || `${channel} send failed`,
-        d7Detail: sendError,
-        token,
-        confirmationLink
+        message: sendError || `${channel} send failed`
       });
     }
 
+    // Persist token and mark delivery as 'scheduled' — only reached when send succeeded.
+    await prisma.delivery.update({
+      where: { id: delivery.id },
+      data: {
+        confirmationToken: token,
+        tokenExpiresAt: expiresAt,
+        confirmationStatus: 'pending',
+        status: 'scheduled',
+        smsSentAt: new Date()
+      }
+    });
+
+    await prisma.smsLog.create({
+      data: {
+        deliveryId: delivery.id,
+        phoneNumber: normalizedPhone,
+        messageContent: smsBody,
+        smsProvider: isUAE ? 'd7-whatsapp' : 'd7',
+        externalMessageId: messageId,
+        status: 'sent',
+        sentAt: new Date(),
+        metadata: { type: 'confirmation_request', channel, tokenExpiry: expiresAt.toISOString(), d7Status }
+      }
+    }).catch((e: unknown) => console.error('[Log] SMS log error:', (e as { message?: string }).message));
+
+    // ── 3. Build response ──────────────────────────────────────────────────
     return void res.json({
       ok: true,
       smsSent: true,
       deliveredVia: channel,
       d7Status,
       message: isUAE ? 'WhatsApp message sent successfully' : 'SMS sent successfully',
-      token,
       messageId,
       expiresAt: expiresAt.toISOString(),
       confirmationLink

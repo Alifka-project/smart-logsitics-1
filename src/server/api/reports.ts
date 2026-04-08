@@ -642,7 +642,10 @@ router.get('/pod', authenticate, requireAnyRole('admin', 'delivery_team'), async
 
     const dailyBreakdown: Record<string, { date: string; total: number; withPOD: number; withoutPOD: number; complete: number; good: number; partial: number; totalPhotos: number }> = {};
     processedDeliveries.forEach(d => {
-      const date = ((d.deliveredAt || d.createdAt) as Date).toString().split('T')[0];
+      const rawDate = (d.deliveredAt || d.createdAt) as Date;
+      const date = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Dubai', year: 'numeric', month: '2-digit', day: '2-digit'
+      }).format(rawDate instanceof Date ? rawDate : new Date(rawDate));
       if (!dailyBreakdown[date]) {
         dailyBreakdown[date] = {
           date,

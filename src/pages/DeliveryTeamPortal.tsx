@@ -1200,9 +1200,10 @@ export default function DeliveryTeamPortal() {
                         const currentDriver = drivers.find(d => d.id === currentDriverId);
                         const rawStatus = (delivery.status || '').toLowerCase();
                         const { label: statusLabel, color: statusColor } = getDeliveryStatusBadge(delivery);
-                        const isOFD = rawStatus === 'out-for-delivery';
+                        const isOFD = rawStatus === 'out-for-delivery' || rawStatus === 'in-transit' || rawStatus === 'in-progress';
                         const isDelay = rawStatus === 'order-delay';
                         const isDispatchable = ['pending', 'scheduled', 'uploaded', 'confirmed', 'scheduled-confirmed'].includes(rawStatus);
+                        const hasGMD = !!(delivery as unknown as { goodsMovementDate?: string | null }).goodsMovementDate;
                         const isOnline = currentDriver ? isContactOnline(currentDriver) : false;
 
                         // Driver group separator
@@ -1298,18 +1299,33 @@ export default function DeliveryTeamPortal() {
                               {/* Actions */}
                               <td className="px-3 py-2.5">
                                 <div className="flex flex-col gap-1">
-                                  {isDispatchable && (
+                                  {isDispatchable && !hasGMD && (
+                                    <span
+                                      title="Upload a file with Goods Movement Date filled, or edit the order and set GMD manually to dispatch."
+                                      className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded text-[11px] font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 cursor-not-allowed whitespace-nowrap"
+                                    >
+                                      GMD required
+                                    </span>
+                                  )}
+                                  {isDispatchable && hasGMD && (
                                     <button
                                       type="button"
                                       disabled={markingOFD === delivery.id || markingDelay === delivery.id}
                                       onClick={async () => {
                                         setMarkingOFD(delivery.id);
                                         try {
-                                          await api.put(`/deliveries/admin/${delivery.id}/status`, { status: 'out-for-delivery', customer: delivery.customer, address: delivery.address });
+                                          await api.put(`/deliveries/admin/${delivery.id}/status`, {
+                                            status: 'out-for-delivery',
+                                            customer: delivery.customer,
+                                            address: delivery.address,
+                                            goodsMovementDate: (delivery as unknown as { goodsMovementDate?: string }).goodsMovementDate
+                                          });
                                           setAssignmentMessage({ type: 'success', text: `✓ ${delivery.customer || 'Delivery'} dispatched` });
                                           setTimeout(() => { void loadData(); setAssignmentMessage(null); }, 2000);
-                                        } catch {
-                                          setAssignmentMessage({ type: 'error', text: 'Failed to dispatch' });
+                                        } catch (err: unknown) {
+                                          const e = err as { response?: { data?: { error?: string } }; message?: string };
+                                          const detail = e?.response?.data?.error ?? e?.message ?? 'Failed to dispatch';
+                                          setAssignmentMessage({ type: 'error', text: detail });
                                         } finally { setMarkingOFD(null); }
                                       }}
                                       className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded text-[11px] font-semibold bg-green-600 hover:bg-green-700 text-white disabled:opacity-60 whitespace-nowrap"
