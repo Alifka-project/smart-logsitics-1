@@ -451,7 +451,16 @@ export default function DriverPortal() {
     });
     deliveryMarkersRef.current = [];
 
-    const list: EnrichedDelivery[] = orderedDeliveries.length > 0
+    // Use orderedDeliveries only when its IDs still match the current deliveries.
+    // If deliveries changed (e.g. a stop was completed and removed) but
+    // orderedDeliveries hasn't been recalculated yet, fall back to the fresh
+    // deliveries list so stale stops never appear on the map.
+    const currentIds = new Set(deliveries.map(d => d.id));
+    const orderedMatchesCurrent = orderedDeliveries.length > 0
+      && orderedDeliveries.length === deliveries.length
+      && orderedDeliveries.every(d => currentIds.has(d.id));
+
+    const list: EnrichedDelivery[] = orderedMatchesCurrent
       ? orderedDeliveries
       : (deliveries as EnrichedDelivery[]);
 

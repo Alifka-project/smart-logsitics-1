@@ -299,17 +299,19 @@ router.get('/deliveries', authenticate, async (req: Request, res: Response): Pro
       res.status(401).json({ error: 'Unauthorized' }); return;
     }
 
-    // Only return active (non-terminal) deliveries assigned to this driver.
-    // Excluding terminal statuses keeps the driver's list in sync with what
-    // the admin and delivery-team portals consider "active today".
+    // Only return active (non-terminal) deliveries where this driver has a
+    // CURRENT active assignment (assigned or in_progress).
+    // Filtering by assignment status excludes deliveries that were reassigned
+    // to another driver (their old assignment is kept as 'reassigned' for
+    // audit history but must not appear in the driver's live work list).
     const deliveries = await prisma.delivery.findMany({
       where: {
-        assignments: { some: { driverId } },
+        assignments: { some: { driverId, status: { in: ['assigned', 'in_progress'] } } },
         status: { notIn: DRIVER_TERMINAL_STATUSES }
       },
       include: {
         assignments: {
-          where: { driverId },
+          where: { driverId, status: { in: ['assigned', 'in_progress'] } },
           orderBy: { assignedAt: 'desc' },
           take: 1,
           include: {
@@ -383,14 +385,17 @@ router.get('/deliveries/finished', authenticate, async (req: Request, res: Respo
       res.status(401).json({ error: 'Unauthorized' }); return;
     }
 
+    // Only show deliveries that this driver actually completed (assignment status
+    // 'completed'). Deliveries reassigned away keep a 'reassigned' assignment
+    // for this driver but should not appear in their history.
     const deliveries = await prisma.delivery.findMany({
       where: {
-        assignments: { some: { driverId } },
+        assignments: { some: { driverId, status: 'completed' } },
         status: { in: DRIVER_FINISHED_STATUSES }
       },
       include: {
         assignments: {
-          where: { driverId },
+          where: { driverId, status: 'completed' },
           orderBy: { assignedAt: 'desc' },
           take: 1,
         }
