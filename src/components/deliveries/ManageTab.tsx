@@ -60,6 +60,7 @@ export default function ManageTab({
   const setManageTabFilter = useDeliveryStore((s) => s.setManageTabFilter);
 
   const [tableTab, setTableTab] = useState<OrdersTableTab>('all');
+  const [activeCardKey, setActiveCardKey] = useState<string | undefined>(undefined);
 
   // Apply incoming filter from Needs Attention cards then clear it
   useEffect(() => {
@@ -259,6 +260,7 @@ export default function ManageTab({
 
   const handleTableTabChange = useCallback((tab: OrdersTableTab) => {
     setTableTab(tab);
+    setActiveCardKey(undefined);
   }, []);
 
   // Map StatusMetricCard status key → OrdersTableTab, then scroll to the table
@@ -277,6 +279,7 @@ export default function ManageTab({
     };
     const tab = tabMap[statusKey] ?? 'all';
     setTableTab(tab);
+    setActiveCardKey(statusKey);
     // Slight delay so the tab state settles before scrolling
     setTimeout(() => {
       ordersTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -316,7 +319,7 @@ export default function ManageTab({
         <StatusMetricCards
           orders={manageOrders}
           onCardClick={handleCardClick}
-          activeKey={tableTab === 'all' ? undefined : tableTab}
+          activeKey={activeCardKey}
         />
       </div>
 
