@@ -275,7 +275,7 @@ export default function ManageTab({
       out_for_delivery:  'out_for_delivery',
       order_delay:       'order_delay',
       rescheduled:       'rescheduled',
-      delivered:         'all',
+      delivered:         'delivered',
     };
     const tab = tabMap[statusKey] ?? 'all';
     setTableTab(tab);

@@ -18,7 +18,8 @@ export type OrdersTableTab =
   | 'scheduled'           // next + future combined
   | 'out_for_delivery'
   | 'order_delay'
-  | 'rescheduled';
+  | 'rescheduled'
+  | 'delivered';          // completed / delivered orders
 
 function OrderStatusPill({ status }: { status: DeliveryStatus }): React.ReactElement {
   const c = STATUS_CONFIG[status];
@@ -57,6 +58,8 @@ const CONFIRMED_STATUSES = new Set<DeliveryStatus>(['confirmed', 'tomorrow_shipm
 const SCHEDULED_STATUSES = new Set<DeliveryStatus>(['scheduled', 'next_shipment', 'future_shipment']);
 // Terminal workflow statuses — same list as StatusMetricCards so card count === table count
 const PENDING_TERMINAL = new Set<DeliveryStatus>(['delivered', 'cancelled', 'failed']);
+// Delivered workflow statuses (backend variants are already mapped to 'delivered' by deliveryToManageOrder)
+const DELIVERED_STATUSES = new Set<DeliveryStatus>(['delivered']);
 
 function matchesTableTab(order: DeliveryOrder, tab: OrdersTableTab): boolean {
   switch (tab) {
@@ -71,6 +74,7 @@ function matchesTableTab(order: DeliveryOrder, tab: OrdersTableTab): boolean {
     case 'out_for_delivery':  return order.status === 'out_for_delivery';
     case 'order_delay':   return order.status === 'order_delay';
     case 'rescheduled':   return order.status === 'rescheduled' || order.isRescheduled === true;
+    case 'delivered':     return DELIVERED_STATUSES.has(order.status);
     default:              return true;
   }
 }
@@ -342,6 +346,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
     { key: 'out_for_delivery', label: 'On Route',         count: orders.filter((o) => o.status === 'out_for_delivery').length },
     { key: 'order_delay',      label: 'Order Delay',      count: orders.filter((o) => o.status === 'order_delay').length },
     { key: 'rescheduled',      label: 'Rescheduled',      count: orders.filter((o) => o.isRescheduled === true).length },
+    { key: 'delivered',        label: 'Delivered',         count: orders.filter((o) => DELIVERED_STATUSES.has(o.status)).length },
   ];
 
   const scrollToTableTop = (): void => {
