@@ -186,7 +186,7 @@ async function updateDeliveryStatusHandler(
           where: { deliveryId: existingDelivery!.id as string, status: { in: ['assigned', 'in_progress'] } },
           select: { driverId: true }
         });
-        closedAssignmentDriverIds = [...new Set(closing.map((a: { driverId: string }) => a.driverId))];
+        closedAssignmentDriverIds = Array.from(new Set<string>(closing.map((a: { driverId: string }) => a.driverId)));
         await tx.deliveryAssignment.updateMany({
           where: { deliveryId: existingDelivery!.id as string, status: { in: ['assigned', 'in_progress'] } },
           data: { status: 'completed' }
