@@ -92,7 +92,11 @@ router.post('/', authenticate, requireRole('admin'), async (req: Request, res: R
 
     // Create driver and account in a transaction using raw SQL to avoid column mismatch issues
     const driverId = await prisma.$transaction(async (tx: unknown) => {
-      const tx_ = tx as { $queryRawUnsafe: (sql: string, ...args: unknown[]) => Promise<Array<{ id: string }>> };
+      const tx_ = tx as {
+        $queryRawUnsafe: (sql: string, ...args: unknown[]) => Promise<Array<{ id: string }>>;
+        account: { create: (args: unknown) => Promise<unknown> };
+        driverStatus: { upsert: (args: unknown) => Promise<unknown> };
+      };
 
       // Insert driver (only columns guaranteed to exist in DB)
       const driverRows = await tx_.$queryRawUnsafe(
@@ -108,22 +112,22 @@ router.post('/', authenticate, requireRole('admin'), async (req: Request, res: R
       const newId = driverRows[0]?.id;
       if (!newId) throw new Error('Failed to get new driver id');
 
-      // Insert account
-      await tx_.$queryRawUnsafe(
-        `INSERT INTO accounts (id, driver_id, password_hash, role, created_at)
-         VALUES (gen_random_uuid(), $1::uuid, $2, $3, now())`,
-        newId,
-        passwordHash,
-        role
-      );
+      // Insert account using Prisma model to avoid UUID cast issues with raw queries
+      await tx_.account.create({
+        data: {
+          driverId: newId,
+          passwordHash,
+          role,
+        }
+      });
 
       // Insert driver_status (best effort — table may not exist in all envs)
       try {
-        await tx_.$queryRawUnsafe(
-          `INSERT INTO driver_status (driver_id, status, updated_at) VALUES ($1::uuid, 'offline', now())
-           ON CONFLICT (driver_id) DO NOTHING`,
-          newId
-        );
+        await tx_.driverStatus.upsert({
+          where: { driverId: newId },
+          update: {},
+          create: { driverId: newId, status: 'offline' },
+        });
       } catch (_e) {
         // driver_status table optional
       }

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import ReactDOM from 'react-dom';
 import { ChevronDown, Download, FileSpreadsheet, Search, X, SlidersHorizontal } from 'lucide-react';
 import type { DeliveryOrder, DeliveryStatus } from '../../types/delivery';
 import { STATUS_CONFIG } from '../../config/statusColors';
@@ -74,6 +75,143 @@ function matchesTableTab(order: DeliveryOrder, tab: OrdersTableTab): boolean {
   }
 }
 
+const MENU_BTN =
+  'w-full flex items-center gap-2 px-3.5 py-2 text-[12px] text-left text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/80 transition-colors';
+const MENU_BTN_DANGER =
+  'w-full flex items-center gap-2 px-3.5 py-2 text-[12px] text-left text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors';
+
+interface ActionDropdownProps {
+  order: DeliveryOrder;
+  onStatusChange: (orderId: string, newStatus: DeliveryStatus) => void;
+  onResendSMS: (orderId: string) => void;
+  onMarkOutForDelivery?: (orderId: string) => Promise<void>;
+  onTrackDelivery?: (orderId: string) => void;
+  onEditOrder: (orderId: string) => void;
+  onReschedule: (order: DeliveryOrder) => void;
+}
+
+function ActionDropdown({
+  order,
+  onStatusChange,
+  onResendSMS,
+  onMarkOutForDelivery,
+  onTrackDelivery,
+  onEditOrder,
+  onReschedule,
+}: ActionDropdownProps) {
+  const [open, setOpen] = useState(false);
+  const [dispatching, setDispatching] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const dropRef = useRef<HTMLDivElement>(null);
+  const [dropPos, setDropPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
+
+  useEffect(() => {
+    if (!open) return;
+    const handle = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (btnRef.current?.contains(target) || dropRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, [open]);
+
+  const s = order.status;
+  const isTerminal = s === 'delivered' || s === 'cancelled' || s === 'failed';
+  const isOnRoute = s === 'out_for_delivery';
+
+  if (isTerminal) return null;
+
+  const showSMS = s === 'uploaded' || s === 'sms_sent' || s === 'unconfirmed';
+  const showDispatch = !isOnRoute && onMarkOutForDelivery != null;
+  const showReschedule = !showSMS;
+
+  const handleToggle = () => {
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setDropPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+    }
+    setOpen((o) => !o);
+  };
+
+  const close = () => setOpen(false);
+
+  const handleDispatch = async () => {
+    if (!onMarkOutForDelivery) return;
+    close();
+    setDispatching(true);
+    try { await onMarkOutForDelivery(order.id); } finally { setDispatching(false); }
+  };
+
+  return (
+    <div className="flex items-center gap-1.5">
+      {isOnRoute && (
+        <button
+          type="button"
+          onClick={() => onTrackDelivery?.(order.id)}
+          className="shrink-0 px-2.5 py-1.5 text-[11px] font-semibold rounded border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 whitespace-nowrap transition-colors"
+        >
+          Track →
+        </button>
+      )}
+      <div className="relative shrink-0">
+        <button
+          ref={btnRef}
+          type="button"
+          onClick={handleToggle}
+          disabled={dispatching}
+          className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold rounded border border-[#002D5B]/30 bg-[#002D5B]/5 text-[#002D5B] hover:bg-[#002D5B] hover:text-white dark:border-blue-500/40 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-700 dark:hover:text-white transition-colors whitespace-nowrap disabled:opacity-60"
+          title="Update delivery status"
+        >
+          {dispatching ? 'Dispatching…' : 'Update Status'}
+          {!dispatching && (
+            <ChevronDown className={`h-3 w-3 shrink-0 transition-transform duration-150 ${open ? '-rotate-180' : ''}`} />
+          )}
+        </button>
+      </div>
+      {open &&
+        ReactDOM.createPortal(
+          <div
+            ref={dropRef}
+            style={{ position: 'fixed', top: dropPos.top, right: dropPos.right, zIndex: 9999 }}
+            className="w-44 rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-600 dark:bg-gray-800 overflow-hidden py-1"
+          >
+            {showSMS && (
+              <button type="button" className={MENU_BTN} onClick={() => { onResendSMS(order.id); close(); }}>
+                <span aria-hidden>📱</span>
+                {s === 'unconfirmed' ? 'Resend SMS' : 'Send SMS'}
+              </button>
+            )}
+            {showDispatch && (
+              <button type="button" className={MENU_BTN} onClick={() => void handleDispatch()}>
+                <span aria-hidden>🚚</span> Dispatch
+              </button>
+            )}
+            {showReschedule && (
+              <button type="button" className={MENU_BTN} onClick={() => { onReschedule(order); close(); }}>
+                <span aria-hidden>📅</span> Reschedule
+              </button>
+            )}
+            <button type="button" className={MENU_BTN} onClick={() => { onEditOrder(order.id); close(); }}>
+              <span aria-hidden>✏️</span> Edit Details
+            </button>
+            <div className="my-1 h-px bg-gray-100 dark:bg-gray-700" />
+            <button
+              type="button"
+              className={MENU_BTN_DANGER}
+              onClick={() => {
+                if (window.confirm('Cancel this order?')) onStatusChange(order.id, 'cancelled');
+                close();
+              }}
+            >
+              <span aria-hidden>✕</span> Cancel Order
+            </button>
+          </div>,
+          document.body,
+        )}
+    </div>
+  );
+}
 
 export const OrdersTable: React.FC<OrdersTableProps> = ({
   orders,
@@ -94,7 +232,6 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
   onSortChange,
 }) => {
   const [rescheduleOrder, setRescheduleOrder] = useState<DeliveryOrder | null>(null);
-  const [markingOFD, setMarkingOFD] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const tableTopRef = useRef<HTMLDivElement | null>(null);
   const itemsPerPage = 20;
@@ -193,218 +330,6 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
     if (order.status === 'uploaded')
       return <span className="text-gray-400 dark:text-gray-500">Pending</span>;
     return <span className="text-gray-400">—</span>;
-  };
-
-  const ofdButton = (orderId: string) =>
-    onMarkOutForDelivery ? (
-      <button
-        type="button"
-        disabled={markingOFD === orderId}
-        onClick={() => {
-          setMarkingOFD(orderId);
-          void onMarkOutForDelivery(orderId).finally(() => setMarkingOFD(null));
-        }}
-        className="px-3 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded disabled:opacity-60"
-        title="Manually dispatch — mark as out for delivery"
-      >
-        {markingOFD === orderId ? '…' : '🚚 Dispatch'}
-      </button>
-    ) : null;
-
-  const getActionButton = (order: DeliveryOrder) => {
-    // Rescheduled orders classified into a date bucket — show full action set
-    if (order.isRescheduled && order.status !== 'rescheduled') {
-      return (
-        <>
-          <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300">
-            🔄 Rescheduled
-          </span>
-          {ofdButton(order.id)}
-          <button
-            type="button"
-            onClick={() => setRescheduleOrder(order)}
-            className="px-3 py-1 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
-          >
-            Reschedule
-          </button>
-          <button
-            type="button"
-            onClick={() => { if (window.confirm('Cancel this order?')) onStatusChange(order.id, 'cancelled'); }}
-            className="px-3 py-1 text-xs bg-red-50 dark:bg-red-900/30 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-300 rounded hover:bg-red-100 dark:hover:bg-red-900/50"
-          >
-            Cancel
-          </button>
-        </>
-      );
-    }
-
-    switch (order.status) {
-      case 'uploaded':
-        return (
-          <>
-            <button
-              type="button"
-              onClick={() => onResendSMS(order.id)}
-              className="px-3 py-1 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              Send SMS
-            </button>
-            {ofdButton(order.id)}
-          </>
-        );
-      case 'sms_sent':
-        return (
-          <>
-            <button
-              type="button"
-              onClick={() => onResendSMS(order.id)}
-              className="px-3 py-1 text-xs bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 rounded hover:bg-emerald-100 dark:hover:bg-emerald-900/50"
-            >
-              Send SMS
-            </button>
-            {ofdButton(order.id)}
-          </>
-        );
-      case 'unconfirmed':
-        return (
-          <>
-            <button
-              type="button"
-              onClick={() => onResendSMS(order.id)}
-              className="px-3 py-1 text-xs bg-red-50 dark:bg-red-900/30 border border-red-300 dark:border-red-800 text-red-700 dark:text-red-300 rounded hover:bg-red-100 dark:hover:bg-red-900/50"
-            >
-              Resend SMS
-            </button>
-            {ofdButton(order.id)}
-          </>
-        );
-      case 'tomorrow_shipment':
-        return (
-          <>
-            <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300">
-              Tomorrow Shipment
-            </span>
-            <button
-              type="button"
-              onClick={() => setRescheduleOrder(order)}
-              className="px-3 py-1 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              Reschedule
-            </button>
-            {ofdButton(order.id)}
-          </>
-        );
-      case 'next_shipment':
-        return (
-          <>
-            <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300">
-              Next Shipment
-            </span>
-            <button
-              type="button"
-              onClick={() => setRescheduleOrder(order)}
-              className="px-3 py-1 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              Reschedule
-            </button>
-            {ofdButton(order.id)}
-          </>
-        );
-      case 'future_shipment':
-      case 'scheduled':
-        return (
-          <>
-            <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
-              Future Shipment
-            </span>
-            <button
-              type="button"
-              onClick={() => setRescheduleOrder(order)}
-              className="px-3 py-1 text-xs bg-amber-50 dark:bg-amber-900/30 border border-amber-400 dark:border-amber-700 text-amber-700 dark:text-amber-200 rounded hover:bg-amber-100 dark:hover:bg-amber-900/50"
-            >
-              Reschedule
-            </button>
-            {ofdButton(order.id)}
-          </>
-        );
-      case 'confirmed':
-        return (
-          <>
-            <button
-              type="button"
-              onClick={() => setRescheduleOrder(order)}
-              className="px-3 py-1 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              Reschedule
-            </button>
-            {ofdButton(order.id)}
-          </>
-        );
-      case 'rescheduled':
-        return (
-          <>
-            <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300">
-              🔄 Rescheduled
-            </span>
-            {ofdButton(order.id)}
-            <button
-              type="button"
-              onClick={() => setRescheduleOrder(order)}
-              className="px-3 py-1 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              Reschedule
-            </button>
-            <button
-              type="button"
-              onClick={() => { if (window.confirm('Cancel this order?')) onStatusChange(order.id, 'cancelled'); }}
-              className="px-3 py-1 text-xs bg-red-50 dark:bg-red-900/30 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-300 rounded hover:bg-red-100 dark:hover:bg-red-900/50"
-            >
-              Cancel
-            </button>
-          </>
-        );
-      case 'order_delay':
-        return (
-          <>
-            <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
-              ⚠ Delayed
-            </span>
-            {ofdButton(order.id)}
-            <button
-              type="button"
-              onClick={() => setRescheduleOrder(order)}
-              className="px-3 py-1 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              Reschedule
-            </button>
-            <button
-              type="button"
-              onClick={() => { if (window.confirm('Cancel this order?')) onStatusChange(order.id, 'cancelled'); }}
-              className="px-3 py-1 text-xs bg-red-50 dark:bg-red-900/30 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-300 rounded hover:bg-red-100 dark:hover:bg-red-900/50"
-            >
-              Cancel
-            </button>
-          </>
-        );
-      case 'delivered':
-        return (
-          <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
-            ✓ Delivered
-          </span>
-        );
-      case 'out_for_delivery':
-        return (
-          <button
-            type="button"
-            onClick={() => onTrackDelivery?.(order.id)}
-            className="px-3 py-1 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
-          >
-            Track →
-          </button>
-        );
-      default:
-        return <span className="text-xs text-gray-400 dark:text-gray-500">—</span>;
-    }
   };
 
   const filterTabs: { key: OrdersTableTab; label: string; count: number }[] = [
@@ -537,7 +462,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
             <col style={{ width: '130px' }} />
             <col style={{ width: '1%' }} />
             <col style={{ width: '145px' }} />
-            <col style={{ width: '105px' }} />
+            <col style={{ width: '130px' }} />
           </colgroup>
           <thead className="border-b border-gray-200 bg-gray-50/95 dark:border-gray-600 dark:bg-gray-900/90">
             <tr>
@@ -568,7 +493,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
               <th className="min-w-[140px] max-w-[150px] w-[145px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Status
               </th>
-              <th className="min-w-[100px] max-w-[110px] w-[105px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="min-w-[120px] max-w-[135px] w-[130px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Action
               </th>
             </tr>
@@ -659,18 +584,16 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                         )}
                       </div>
                     </td>
-                    <td className="min-w-[100px] max-w-[110px] w-[105px] overflow-hidden px-3 py-2.5 align-middle shrink-0" data-label="Action">
-                      <div className="flex flex-wrap items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => onEditOrder(order.id)}
-                          className="px-3 py-1.5 text-[11px] font-semibold rounded border border-[#002D5B]/30 bg-[#002D5B]/5 text-[#002D5B] hover:bg-[#002D5B] hover:text-white dark:border-blue-500/40 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-700 dark:hover:text-white transition-colors whitespace-nowrap"
-                          title="Update order status and details"
-                        >
-                          Update Status
-                        </button>
-                        {getActionButton(order)}
-                      </div>
+                    <td className="min-w-[120px] max-w-[135px] w-[130px] px-3 py-2.5 align-middle" data-label="Action">
+                      <ActionDropdown
+                        order={order}
+                        onStatusChange={onStatusChange}
+                        onResendSMS={onResendSMS}
+                        onMarkOutForDelivery={onMarkOutForDelivery}
+                        onTrackDelivery={onTrackDelivery}
+                        onEditOrder={onEditOrder}
+                        onReschedule={(o) => setRescheduleOrder(o)}
+                      />
                     </td>
                   </tr>
                 );
