@@ -16,6 +16,7 @@ interface DeliveryTableProps {
   onSelectDelivery: () => void;
   onCloseDetailModal?: () => void;
   onHoverDelivery?: (index: number | null) => void;
+  onReorder?: (items: Delivery[]) => void;
 }
 
 // ─── Export helpers ────────────────────────────────────────────────────────────
@@ -121,6 +122,7 @@ export default function DeliveryTable({
   onSelectDelivery,
   onCloseDetailModal,
   onHoverDelivery,
+  onReorder,
 }: DeliveryTableProps) {
   const deliveries = useDeliveryStore((state) => state.deliveries ?? []);
   const deliveryListFilter = useDeliveryStore((state) => state.deliveryListFilter ?? 'all');
@@ -189,6 +191,7 @@ export default function DeliveryTable({
     handleDrop(undefined, (newItems) => {
       if (Array.isArray(newItems) && newItems.length > 0) {
         updateDeliveryOrder(newItems);
+        onReorder?.(newItems);
       }
     });
   };

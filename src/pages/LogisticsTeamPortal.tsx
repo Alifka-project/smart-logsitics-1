@@ -97,6 +97,10 @@ export default function LogisticsTeamPortal() {
   const [markingOFD, setMarkingOFD] = useState<string | null>(null);
   const [markingDelay, setMarkingDelay] = useState<string | null>(null);
   const [dispatchFilter, setDispatchFilter] = useState<'all' | 'overdue' | 'unassigned' | 'awaiting' | 'delay'>('all');
+  const [sendingSms, setSendingSms] = useState<string | null>(null);
+  const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
+  const [opsSearch, setOpsSearch] = useState<string>('');
+  const [opsStatusFilter, setOpsStatusFilter] = useState<string>('all');
   const dispatchTableRef = useRef<HTMLDivElement | null>(null);
   
   // Communication tab state
@@ -751,380 +755,404 @@ export default function LogisticsTeamPortal() {
             </div>
           </div>
 
-          {/* ── Two-Column Main: Left=Map+Drivers  Right=Dispatch Table (50/50) ── */}
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6 items-start">
+          {/* ── Live Map (70%) + Driver Cards (30%) ── */}
+          <div className="flex flex-col xl:flex-row gap-4">
 
-            {/* ── LEFT COLUMN: Live Map + Driver Status + Alerts ── */}
-            <div className="space-y-4">
-              {/* Live Map */}
-              <div className="pp-card overflow-hidden">
-                <div className="p-3 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600 flex items-center justify-between gap-2">
-                  <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-blue-500" /> Live Operations Map
-                  </h2>
-                  {routeLoading && <span className="text-xs text-blue-600 dark:text-blue-400">Calculating route…</span>}
-                </div>
-                <DeliveryMap
-                  deliveries={deliveries.filter(d => (d.status || '').toLowerCase() === 'out-for-delivery')}
-                  route={monitoringRoute}
-                  driverLocations={drivers
-                    .filter((d) => isContactOnline(d) && d.tracking?.location && Number.isFinite(d.tracking.location.lat) && Number.isFinite(d.tracking.location.lng))
-                    .map((d) => ({
-                      id: d.id,
-                      name: d.fullName || d.full_name || d.username || 'Driver',
-                      status: d.tracking?.online ? 'online' : 'offline',
-                      speedKmh: d.tracking?.location?.speed != null ? Math.round(d.tracking.location.speed * 3.6) : null,
-                      lat: d.tracking!.location!.lat,
-                      lng: d.tracking!.location!.lng,
-                    }))}
-                  mapClassName="h-[260px] md:h-[320px]"
-                />
-              </div>
-
-              {/* Driver Status */}
-              <div className="pp-card p-4">
-                <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
-                  <Users className="w-4 h-4 text-indigo-500" /> Driver Status
+            {/* Live Operations Map — 70% */}
+            <div className="pp-card overflow-hidden xl:flex-[7]">
+              <div className="p-3 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600 flex items-center justify-between gap-2">
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-blue-500" /> Live Operations Map
                 </h2>
-                {drivers.length === 0 ? (
-                  <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">No drivers available</p>
-                ) : (
-                  <div className="space-y-2">
-                    {drivers.map(driver => {
-                      const isOnline = isContactOnline(driver);
-                      const loc = driver.tracking?.location;
-                      return (
-                        <div key={driver.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isOnline ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
-                            <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                              {driver.fullName || driver.username}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 shrink-0">
-                            {loc && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />GPS</span>}
-                            <span className={isOnline ? 'text-green-600 dark:text-green-400 font-medium' : ''}>
-                              {isOnline ? 'Online' : 'Offline'}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                {routeLoading && <span className="text-xs text-blue-600 dark:text-blue-400">Calculating route…</span>}
               </div>
+              <DeliveryMap
+                deliveries={deliveries.filter(d => (d.status || '').toLowerCase() === 'out-for-delivery')}
+                route={monitoringRoute}
+                driverLocations={drivers
+                  .filter((d) => isContactOnline(d) && d.tracking?.location && Number.isFinite(d.tracking.location.lat) && Number.isFinite(d.tracking.location.lng))
+                  .map((d) => ({
+                    id: d.id,
+                    name: d.fullName || d.full_name || d.username || 'Driver',
+                    status: d.tracking?.online ? 'online' : 'offline',
+                    speedKmh: d.tracking?.location?.speed != null ? Math.round(d.tracking.location.speed * 3.6) : null,
+                    lat: d.tracking!.location!.lat,
+                    lng: d.tracking!.location!.lng,
+                  }))}
+                mapClassName="h-[380px] md:h-[460px]"
+              />
+            </div>
 
-              {/* Alerts */}
-              {alerts.length > 0 && (
-                <div className="pp-card p-4">
-                  <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-amber-500" /> Alerts
-                    <span className="ml-auto px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-xs font-bold">{alerts.length}</span>
-                  </h2>
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {alerts.slice(0, 8).map(alert => (
-                      <div key={alert.id} className="flex items-start gap-2 p-2.5 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-                        <AlertCircle className="w-4 h-4 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
-                        <div className="min-w-0">
-                          <p className="text-xs text-gray-900 dark:text-gray-100">
-                            <span className="font-medium">{alert.driver || alert.delivery}:</span> {alert.message}
-                          </p>
-                          <p className="text-xs text-gray-400 dark:text-gray-500">{formatMessageTimestamp(alert.timestamp)}</p>
+            {/* Driver Status Cards — 30% (clickable → chat) */}
+            <div className="pp-card p-3 xl:flex-[3] flex flex-col">
+              <div className="flex items-center gap-2 mb-3">
+                <Users className="w-4 h-4 text-indigo-500" />
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Driver Status</h2>
+                <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500">Click to chat</span>
+              </div>
+              {drivers.length === 0 ? (
+                <div className="flex-1 flex items-center justify-center py-6 text-sm text-gray-400 dark:text-gray-500">No drivers available</div>
+              ) : (
+                <div className="flex-1 overflow-y-auto space-y-2" style={{ maxHeight: '420px' }}>
+                  {drivers.map(driver => {
+                    const isOnline = isContactOnline(driver);
+                    const loc = driver.tracking?.location;
+                    const assignedOrders = deliveries.filter(d => {
+                      const dExt = d as unknown as { tracking?: { driverId?: string } };
+                      return (dExt.tracking?.driverId === driver.id || d.assignedDriverId === driver.id) && (d.status || '').toLowerCase() === 'out-for-delivery';
+                    }).length;
+                    return (
+                      <button
+                        key={driver.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedContact(driver);
+                          setActiveTab('communication');
+                          void loadMessages(driver.id);
+                        }}
+                        className="w-full text-left p-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-750 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:border-indigo-200 dark:hover:border-indigo-700 transition-all group"
+                      >
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <div className="relative flex-shrink-0">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                              {(driver.fullName || driver.username || '?')[0].toUpperCase()}
+                            </div>
+                            <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-gray-800 ${isOnline ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">{driver.fullName || driver.username}</div>
+                            <div className={`text-[10px] font-medium ${isOnline ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                              {isOnline ? '● Online' : '○ Offline'}
+                            </div>
+                          </div>
+                          <MessageSquare className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 group-hover:text-indigo-500 dark:group-hover:text-indigo-400 transition-colors flex-shrink-0" />
                         </div>
+                        <div className="flex items-center gap-3 text-[10px] text-gray-500 dark:text-gray-400">
+                          {loc && <span className="flex items-center gap-1"><MapPin className="w-2.5 h-2.5" />GPS Active</span>}
+                          {assignedOrders > 0 && <span className="flex items-center gap-1"><Truck className="w-2.5 h-2.5" />{assignedOrders} on route</span>}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {/* Alerts compact */}
+              {alerts.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+                    <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Alerts</span>
+                    <span className="ml-auto px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[10px] font-bold">{alerts.length}</span>
+                  </div>
+                  <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                    {alerts.slice(0, 5).map(alert => (
+                      <div key={alert.id} className="flex items-start gap-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                        <AlertCircle className="w-3 h-3 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+                        <p className="text-[10px] text-gray-700 dark:text-gray-300 leading-tight">
+                          <span className="font-medium">{alert.driver || alert.delivery}:</span> {alert.message}
+                        </p>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
             </div>
+          </div>
 
-            {/* ── RIGHT COLUMN: Dispatch Control Table ── */}
-            <div id="dispatch-table" ref={dispatchTableRef} className="pp-card overflow-hidden">
-              <div className="p-4 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600 flex items-center justify-between gap-2">
-                <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                  <Truck className="w-4 h-4 text-blue-500" /> Assign & Dispatch
-                </h2>
-                <div className="flex items-center gap-2">
-                  {dispatchFilter !== 'all' && (
-                    <button
-                      type="button"
-                      onClick={() => setDispatchFilter('all')}
-                      className="flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
-                    >
-                      <span>Filtered: {dispatchFilter}</span>
-                      <span className="font-bold">×</span>
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => void loadData()}
-                    className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" /> Refresh
-                  </button>
+          {/* ── Full-Width Assign & Dispatch Table ── */}
+          {(() => {
+            const q = opsSearch.toLowerCase().trim();
+            const opsRows = deliveries
+              .filter(d => {
+                const s = (d.status || '').toLowerCase();
+                if (opsStatusFilter !== 'all') {
+                  if (opsStatusFilter === 'pending' && !['pending', 'uploaded'].includes(s)) return false;
+                  if (opsStatusFilter === 'awaiting' && s !== 'scheduled') return false;
+                  if (opsStatusFilter === 'ofd' && s !== 'out-for-delivery') return false;
+                  if (opsStatusFilter === 'delay' && s !== 'order-delay') return false;
+                  if (opsStatusFilter === 'terminal' && !TERMINAL_STATUSES.has(s)) return false;
+                }
+                if (!q) return true;
+                const meta = ((d as unknown as { metadata?: Record<string, unknown> }).metadata ?? {});
+                const orig = ((meta.originalRow ?? meta._originalRow ?? {}) as Record<string, unknown>);
+                const delNum = String((d as unknown as { deliveryNumber?: string }).deliveryNumber ?? orig['Delivery number'] ?? orig['Delivery Number'] ?? orig['Delivery'] ?? meta.originalDeliveryNumber ?? '');
+                return (
+                  (d.customer || '').toLowerCase().includes(q) ||
+                  (d.poNumber || '').toLowerCase().includes(q) ||
+                  delNum.toLowerCase().includes(q) ||
+                  (d.address || '').toLowerCase().includes(q) ||
+                  (d.phone || '').toLowerCase().includes(q)
+                );
+              })
+              .sort((a, b) => {
+                const prio = (s: string) => s === 'out-for-delivery' ? 0 : s === 'order-delay' ? 1 : TERMINAL_STATUSES.has(s) ? 3 : 2;
+                return prio((a.status || '').toLowerCase()) - prio((b.status || '').toLowerCase());
+              });
+
+            return (
+              <div className="pp-card overflow-hidden">
+                {/* Header */}
+                <div className="p-4 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
+                  <div className="flex flex-wrap items-center gap-3 mb-3">
+                    <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                      <Truck className="w-4 h-4 text-blue-500" /> Assign & Dispatch
+                      <span className="text-xs font-normal text-gray-400 dark:text-gray-500">({opsRows.length} orders)</span>
+                    </h2>
+                    <div className="ml-auto flex items-center gap-2">
+                      <button type="button" onClick={() => void loadData()} className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-blue-600 transition-colors">
+                        <RefreshCw className="w-3.5 h-3.5" /> Refresh
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <input
+                      type="text"
+                      placeholder="Search customer, PO, delivery #, address…"
+                      value={opsSearch}
+                      onChange={e => setOpsSearch(e.target.value)}
+                      className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+                    />
+                    {(['all','pending','awaiting','ofd','delay','terminal'] as const).map(f => (
+                      <button
+                        key={f}
+                        type="button"
+                        onClick={() => setOpsStatusFilter(f)}
+                        className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-colors ${
+                          opsStatusFilter === f
+                            ? f === 'all' ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900'
+                            : f === 'pending' ? 'bg-yellow-500 text-white'
+                            : f === 'awaiting' ? 'bg-purple-600 text-white'
+                            : f === 'ofd' ? 'bg-blue-600 text-white'
+                            : f === 'delay' ? 'bg-red-600 text-white'
+                            : 'bg-green-600 text-white'
+                            : 'border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                        }`}
+                      >
+                        {f === 'all' ? 'All' : f === 'pending' ? 'Pending' : f === 'awaiting' ? 'Awaiting SMS' : f === 'ofd' ? 'On Route' : f === 'delay' ? 'Delayed' : 'Completed'}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              {assignmentMessage && (
-                <div className={`mx-4 mt-3 p-3 rounded-lg text-sm ${
-                  assignmentMessage.type === 'success'
-                    ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-300'
-                    : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300'
-                }`}>
-                  {assignmentMessage.text}
-                </div>
-              )}
+                {assignmentMessage && (
+                  <div className={`mx-4 mt-3 p-3 rounded-lg text-sm ${
+                    assignmentMessage.type === 'success'
+                      ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-300'
+                      : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300'
+                  }`}>
+                    {assignmentMessage.text}
+                  </div>
+                )}
 
-              {/* Legend */}
-              <div className="px-4 pt-3 pb-1 flex items-center gap-3 flex-wrap border-b border-gray-100 dark:border-gray-700">
-                <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Legend:</span>
-                <span className="flex items-center gap-1 text-[10px] text-blue-700 dark:text-blue-300"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />On Route</span>
-                <span className="flex items-center gap-1 text-[10px] text-red-700 dark:text-red-300"><span className="w-2 h-2 rounded-full bg-red-400 inline-block" />Delayed</span>
-                <span className="flex items-center gap-1 text-[10px] text-amber-700 dark:text-amber-300"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />Ready to Dispatch</span>
-                <span className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400"><span className="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600 inline-block" />Unassigned</span>
-                <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500">Sorted: On Route → Delayed → Assigned → Unassigned (grouped by driver)</span>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full divide-y divide-gray-200 dark:divide-gray-700" style={{ minWidth: '680px' }}>
-                  <thead className="bg-gray-50 dark:bg-gray-700/80 sticky top-0 z-10">
-                    <tr>
-                      <th className="pl-4 pr-2 py-2.5 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider w-5">·</th>
-                      <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider" style={{ width: '22%' }}>Driver</th>
-                      <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider" style={{ width: '18%' }}>Customer</th>
-                      <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider" style={{ width: '20%' }}>Address</th>
-                      <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider" style={{ width: '15%' }}>Status</th>
-                      <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider" style={{ width: '10%' }}>PO / Del#</th>
-                      <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider" style={{ width: '15%' }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700/60">
-                    {deliveries && deliveries.length > 0 ? (() => {
-                      // Status priority for sort: OFD first, then delay, then assigned, then unassigned
-                      const statusPriority = (s: string) => {
-                        if (s === 'out-for-delivery') return 0;
-                        if (s === 'order-delay')      return 1;
-                        return 2;
-                      };
-
-                      const sorted = deliveries
-                        .filter(delivery => !TERMINAL_STATUSES.has((delivery.status || '').toLowerCase()))
-                        .filter(delivery => {
-                          if (dispatchFilter === 'all') return true;
-                          const s = (delivery.status || '').toLowerCase();
-                          const dt = delivery as unknown as { tracking?: { driverId?: string } };
-                          const dayAgo = new Date(Date.now() - 86400000);
-                          if (dispatchFilter === 'overdue') return ['pending', 'scheduled'].includes(s) && new Date((delivery.created_at || delivery.createdAt || delivery.created || 0) as string | number) < dayAgo;
-                          if (dispatchFilter === 'unassigned') return ['pending', 'scheduled'].includes(s) && !delivery.assignedDriverId && !dt.tracking?.driverId;
-                          if (dispatchFilter === 'awaiting') { const conf = String(delivery.confirmationStatus || '').toLowerCase(); return conf === 'pending' && !TERMINAL_STATUSES.has(s); }
-                          if (dispatchFilter === 'delay') return s === 'order-delay';
-                          return true;
-                        })
-                        .sort((a, b) => {
-                          const aS = (a.status || '').toLowerCase();
-                          const bS = (b.status || '').toLowerCase();
-                          const aPrio = statusPriority(aS);
-                          const bPrio = statusPriority(bS);
-                          if (aPrio !== bPrio) return aPrio - bPrio;
-
-                          // Within same priority: group by driver (assigned before unassigned, then alphabetical)
-                          const aDriverId = (a as unknown as { tracking?: { driverId?: string } }).tracking?.driverId || a.assignedDriverId || '';
-                          const bDriverId = (b as unknown as { tracking?: { driverId?: string } }).tracking?.driverId || b.assignedDriverId || '';
-                          if (aDriverId && !bDriverId) return -1;
-                          if (!aDriverId && bDriverId) return 1;
-                          const aName = drivers.find(d => d.id === aDriverId)?.fullName || aDriverId;
-                          const bName = drivers.find(d => d.id === bDriverId)?.fullName || bDriverId;
-                          return aName.localeCompare(bName);
-                        });
-
-                      let lastDriverId = '__init__';
-
-                      return sorted.map(delivery => {
-                        const dWithTracking = delivery as unknown as { tracking?: { driverId?: string } };
-                        const currentDriverId = dWithTracking.tracking?.driverId || delivery.assignedDriverId;
-                        const currentDriver = drivers.find(d => d.id === currentDriverId);
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs divide-y divide-gray-200 dark:divide-gray-700" style={{ minWidth: '1700px' }}>
+                    <thead className="bg-gray-50 dark:bg-gray-700/80 sticky top-0 z-10">
+                      <tr>
+                        {['·','PO #','Del #','Customer','Phone','Address','City','Status','GMD','Del Date','Model','Description','Material','Inv. Price','Items','Units','Driver','Actions'].map(h => (
+                          <th key={h} className="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700/60">
+                      {opsRows.length === 0 ? (
+                        <tr>
+                          <td colSpan={18} className="px-4 py-8 text-center text-gray-400 dark:text-gray-500">No orders found</td>
+                        </tr>
+                      ) : opsRows.map(delivery => {
+                        const dExt = delivery as unknown as {
+                          goodsMovementDate?: string;
+                          smsSentAt?: string;
+                          confirmedDeliveryDate?: string;
+                          deliveryNumber?: string;
+                          metadata?: Record<string, unknown>;
+                          tracking?: { driverId?: string };
+                        };
+                        const meta = (dExt.metadata ?? {}) as Record<string, unknown>;
+                        const orig = ((meta.originalRow ?? meta._originalRow ?? {}) as Record<string, unknown>);
+                        const delNum = String(dExt.deliveryNumber ?? orig['Delivery number'] ?? orig['Delivery Number'] ?? orig['Delivery'] ?? meta.originalDeliveryNumber ?? '—');
+                        const city = String(orig['City'] ?? orig['city'] ?? orig['Ship-to City'] ?? '—');
+                        const model = String(orig['MODEL ID'] ?? orig['Model ID'] ?? orig['model_id'] ?? orig['Model'] ?? '—');
+                        // 'Description' appears as multiple columns in the Excel; take first non-empty
+                        const description = String(orig['Description'] ?? orig['description'] ?? meta['description'] ?? delivery.items ?? '—');
+                        const material = String(orig['Material'] ?? orig['material'] ?? orig['Material Number'] ?? orig['PNC'] ?? '—');
+                        const invoicePrice = String(orig['Invoice Price'] ?? orig['invoice_price'] ?? orig['Price'] ?? '—');
+                        // Items: use Order Quantity or Confirmed quantity (real Excel columns)
+                        const itemQty = String(orig['Order Quantity'] ?? orig['Confirmed quantity'] ?? orig['Total Line Deliv. Qt'] ?? orig['Order Qty'] ?? orig['Quantity'] ?? orig['qty'] ?? '—');
+                        // Units: use Sales unit (real Excel column, e.g. "EA" = each)
+                        const salesUnit = String(orig['Sales unit'] ?? orig['Unit'] ?? orig['UOM'] ?? orig['Sales Unit'] ?? '—');
+                        const gmd = dExt.goodsMovementDate ? new Date(dExt.goodsMovementDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
+                        const delDate = dExt.confirmedDeliveryDate ? new Date(dExt.confirmedDeliveryDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
                         const rawStatus = (delivery.status || '').toLowerCase();
-                        const { label: statusLabel, color: statusColor } = getDeliveryStatusBadge(delivery);
                         const isOFD = rawStatus === 'out-for-delivery' || rawStatus === 'in-transit' || rawStatus === 'in-progress';
                         const isDelay = rawStatus === 'order-delay';
                         const isDispatchable = ['pending', 'scheduled', 'uploaded', 'confirmed', 'scheduled-confirmed'].includes(rawStatus);
-                        const hasGMD = !!(delivery as unknown as { goodsMovementDate?: string | null }).goodsMovementDate;
+                        const hasGMD = !!dExt.goodsMovementDate;
+                        const hasSMSSent = !!dExt.smsSentAt || rawStatus === 'scheduled' || rawStatus === 'scheduled-confirmed';
+                        const needsSMS = (rawStatus === 'pending' || rawStatus === 'uploaded') && !hasSMSSent && !!delivery.phone;
+                        const currentDriverId = dExt.tracking?.driverId || delivery.assignedDriverId;
+                        const currentDriver = drivers.find(d => d.id === currentDriverId);
                         const isOnline = currentDriver ? isContactOnline(currentDriver) : false;
-
-                        // Driver group separator
-                        const driverGroupId = currentDriverId || '__unassigned__';
-                        const showDriverSeparator = driverGroupId !== lastDriverId && lastDriverId !== '__init__';
-                        lastDriverId = driverGroupId;
-
-                        // Row accent color
+                        const { label: statusLabel, color: statusColor } = getDeliveryStatusBadge(delivery);
                         const rowBg = isOFD
-                          ? 'bg-blue-50/60 dark:bg-blue-900/10 border-l-[3px] border-l-blue-500'
+                          ? 'bg-blue-50/40 dark:bg-blue-900/10 border-l-4 border-l-blue-500'
                           : isDelay
-                          ? 'bg-red-50/60 dark:bg-red-900/10 border-l-[3px] border-l-red-400'
-                          : currentDriverId
-                          ? 'bg-amber-50/40 dark:bg-amber-900/5 border-l-[3px] border-l-amber-400'
-                          : 'border-l-[3px] border-l-transparent';
+                          ? 'bg-red-50/40 dark:bg-red-900/10 border-l-4 border-l-red-400'
+                          : 'border-l-4 border-l-transparent';
 
                         return (
-                          <React.Fragment key={delivery.id}>
-                            {showDriverSeparator && (
-                              <tr>
-                                <td colSpan={7} className="h-px bg-gray-200 dark:bg-gray-600 p-0" />
-                              </tr>
-                            )}
-                            <tr className={`${rowBg} hover:brightness-95 dark:hover:brightness-110 transition-all`}>
-                              {/* Status dot */}
-                              <td className="pl-3 pr-1 py-3">
-                                <span className={`block w-2 h-2 rounded-full flex-shrink-0 ${
-                                  isOFD ? 'bg-blue-500 shadow-[0_0_6px_rgba(59,130,246,0.7)]' :
-                                  isDelay ? 'bg-red-400' :
-                                  currentDriverId ? 'bg-amber-400' : 'bg-gray-300 dark:bg-gray-600'
-                                }`} />
-                              </td>
-                              {/* Driver */}
-                              <td className="px-3 py-2.5">
-                                {currentDriver ? (
-                                  <div className="flex items-center gap-1.5 mb-1.5">
-                                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isOnline ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
-                                    <span className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">{currentDriver.fullName || currentDriver.username}</span>
-                                  </div>
-                                ) : (
-                                  <div className="text-[10px] text-amber-600 dark:text-amber-400 font-medium mb-1.5">⚠ No driver</div>
+                          <tr key={delivery.id} className={`${rowBg} hover:brightness-95 dark:hover:brightness-110 transition-all`}>
+                            <td className="pl-3 pr-1 py-3">
+                              <span className={`block w-2 h-2 rounded-full flex-shrink-0 ${
+                                isOFD ? 'bg-blue-500 shadow-[0_0_6px_rgba(59,130,246,0.7)]' :
+                                isDelay ? 'bg-red-400' :
+                                currentDriverId ? 'bg-amber-400' : 'bg-gray-300 dark:bg-gray-600'
+                              }`} />
+                            </td>
+                            <td className="px-3 py-2.5 font-mono text-gray-700 dark:text-gray-300 whitespace-nowrap">{delivery.poNumber || '—'}</td>
+                            <td className="px-3 py-2.5 font-mono text-gray-600 dark:text-gray-400 whitespace-nowrap">{delNum}</td>
+                            <td className="px-3 py-2.5">
+                              <div className="font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">{delivery.customer || '—'}</div>
+                            </td>
+                            <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 whitespace-nowrap">{delivery.phone || '—'}</td>
+                            <td className="px-3 py-2.5 max-w-[160px]">
+                              <div className="truncate text-gray-600 dark:text-gray-300" title={delivery.address || ''}>{delivery.address || '—'}</div>
+                            </td>
+                            <td className="px-3 py-2.5 text-gray-600 dark:text-gray-300 whitespace-nowrap">{city}</td>
+                            <td className="px-3 py-2.5">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${statusColor}`}>
+                                {statusLabel}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2.5 text-gray-600 dark:text-gray-300 whitespace-nowrap">{gmd}</td>
+                            <td className="px-3 py-2.5 text-gray-600 dark:text-gray-300 whitespace-nowrap">{delDate}</td>
+                            <td className="px-3 py-2.5 max-w-[100px]">
+                              <div className="truncate text-gray-600 dark:text-gray-300" title={model}>{model}</div>
+                            </td>
+                            <td className="px-3 py-2.5 max-w-[130px]">
+                              <div className="truncate text-gray-500 dark:text-gray-400" title={description}>{description}</div>
+                            </td>
+                            <td className="px-3 py-2.5 font-mono text-gray-600 dark:text-gray-400 whitespace-nowrap">{material}</td>
+                            <td className="px-3 py-2.5 text-gray-600 dark:text-gray-300 whitespace-nowrap">{invoicePrice}</td>
+                            <td className="px-3 py-2.5 text-center font-semibold text-gray-800 dark:text-gray-200 whitespace-nowrap">{itemQty}</td>
+                            <td className="px-3 py-2.5 text-center text-gray-500 dark:text-gray-400 whitespace-nowrap">{salesUnit}</td>
+                            {/* Driver */}
+                            <td className="px-3 py-2.5" style={{ minWidth: '140px' }}>
+                              {currentDriver && (
+                                <div className="flex items-center gap-1 mb-1">
+                                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isOnline ? 'bg-green-500' : 'bg-gray-300'}`} />
+                                  <span className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">{currentDriver.fullName || currentDriver.username}</span>
+                                </div>
+                              )}
+                              <select
+                                value={currentDriverId || ''}
+                                onChange={async (e: React.ChangeEvent<HTMLSelectElement>) => {
+                                  const newDriverId = e.target.value;
+                                  if (!newDriverId) return;
+                                  setAssigningDelivery(delivery.id);
+                                  setAssignmentMessage(null);
+                                  try {
+                                    await api.put(`/deliveries/admin/${delivery.id}/assign`, { driverId: newDriverId });
+                                    setAssignmentMessage({ type: 'success', text: `✓ Assigned to ${drivers.find(d => d.id === newDriverId)?.fullName || 'driver'}` });
+                                    setTimeout(() => { void loadData(); setAssignmentMessage(null); }, 2000);
+                                  } catch {
+                                    setAssignmentMessage({ type: 'error', text: 'Failed to assign delivery' });
+                                  } finally { setAssigningDelivery(null); }
+                                }}
+                                disabled={assigningDelivery === delivery.id}
+                                className="w-full px-2 py-1 border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-[11px] text-gray-700 dark:text-gray-200 disabled:opacity-50"
+                              >
+                                <option value="">{currentDriverId ? '— Reassign —' : '— Assign —'}</option>
+                                {drivers.map(driver => (
+                                  <option key={driver.id} value={driver.id}>{driver.fullName || driver.username}</option>
+                                ))}
+                              </select>
+                            </td>
+                            {/* Actions */}
+                            <td className="px-3 py-2.5" style={{ minWidth: '140px' }}>
+                              <div className="flex flex-col gap-1">
+                                {needsSMS && (
+                                  <button
+                                    type="button"
+                                    disabled={sendingSms === delivery.id}
+                                    onClick={async () => {
+                                      setSendingSms(delivery.id);
+                                      try {
+                                        await api.post(`/deliveries/${delivery.id}/send-sms`);
+                                        setAssignmentMessage({ type: 'success', text: `✓ SMS sent to ${delivery.customer || 'customer'}` });
+                                        setTimeout(() => { void loadData(); setAssignmentMessage(null); }, 2000);
+                                      } catch { setAssignmentMessage({ type: 'error', text: 'Failed to send SMS' }); }
+                                      finally { setSendingSms(null); }
+                                    }}
+                                    className="inline-flex items-center justify-center gap-1 px-2 py-1 rounded text-[11px] font-semibold bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-60 whitespace-nowrap"
+                                  >
+                                    {sendingSms === delivery.id ? '…' : '📱 Send SMS'}
+                                  </button>
+                                )}
+                                {isDispatchable && !hasGMD && !isOFD && (
+                                  <span className="inline-flex items-center justify-center px-2 py-1 rounded text-[11px] font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 cursor-not-allowed whitespace-nowrap" title="Set Goods Movement Date to dispatch">
+                                    GMD required
+                                  </span>
+                                )}
+                                {isDispatchable && hasGMD && (
+                                  <button
+                                    type="button"
+                                    disabled={markingOFD === delivery.id}
+                                    onClick={async () => {
+                                      setMarkingOFD(delivery.id);
+                                      try {
+                                        await api.put(`/deliveries/admin/${delivery.id}/status`, {
+                                          status: 'out-for-delivery',
+                                          customer: delivery.customer,
+                                          address: delivery.address,
+                                          goodsMovementDate: dExt.goodsMovementDate,
+                                        });
+                                        setAssignmentMessage({ type: 'success', text: `✓ ${delivery.customer || 'Delivery'} dispatched` });
+                                        setTimeout(() => { void loadData(); setAssignmentMessage(null); }, 2000);
+                                      } catch (err: unknown) {
+                                        const e = err as { response?: { data?: { error?: string } }; message?: string };
+                                        setAssignmentMessage({ type: 'error', text: e?.response?.data?.error ?? e?.message ?? 'Failed to dispatch' });
+                                      } finally { setMarkingOFD(null); }
+                                    }}
+                                    className="inline-flex items-center justify-center gap-1 px-2 py-1 rounded text-[11px] font-semibold bg-green-600 hover:bg-green-700 text-white disabled:opacity-60 whitespace-nowrap"
+                                  >
+                                    {markingOFD === delivery.id ? '…' : '🚚 Dispatch'}
+                                  </button>
                                 )}
                                 <select
-                                  value={currentDriverId || ''}
+                                  value=""
+                                  disabled={statusUpdating === delivery.id}
                                   onChange={async (e: React.ChangeEvent<HTMLSelectElement>) => {
-                                    const newDriverId = e.target.value;
-                                    if (!newDriverId) return;
-                                    setAssigningDelivery(delivery.id);
-                                    setAssignmentMessage(null);
+                                    const newStatus = e.target.value;
+                                    if (!newStatus) return;
+                                    setStatusUpdating(delivery.id);
                                     try {
-                                      await api.put(`/deliveries/admin/${delivery.id}/assign`, { driverId: newDriverId });
-                                      setAssignmentMessage({ type: 'success', text: `✓ Assigned to ${drivers.find(d => d.id === newDriverId)?.fullName || 'driver'}` });
+                                      await api.put(`/deliveries/admin/${delivery.id}/status`, { status: newStatus, customer: delivery.customer, address: delivery.address });
+                                      setAssignmentMessage({ type: 'success', text: `✓ Status updated to ${newStatus}` });
                                       setTimeout(() => { void loadData(); setAssignmentMessage(null); }, 2000);
-                                    } catch {
-                                      setAssignmentMessage({ type: 'error', text: 'Failed to assign delivery' });
-                                    } finally {
-                                      setAssigningDelivery(null);
-                                    }
+                                    } catch { setAssignmentMessage({ type: 'error', text: 'Failed to update status' }); }
+                                    finally { setStatusUpdating(null); }
                                   }}
-                                  disabled={assigningDelivery === delivery.id}
-                                  className="w-full px-2 py-1 border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-xs text-gray-700 dark:text-gray-200 disabled:opacity-50"
+                                  className="w-full px-2 py-1 border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-[11px] text-gray-700 dark:text-gray-200 disabled:opacity-50"
                                 >
-                                  {!currentDriverId && <option value="">— Assign driver —</option>}
-                                  {drivers.map(driver => (
-                                    <option key={driver.id} value={driver.id}>
-                                      {driver.fullName || driver.username}
-                                    </option>
-                                  ))}
+                                  <option value="">✏ Update status…</option>
+                                  <option value="order-delay">⚠ Mark Delayed</option>
+                                  <option value="out-for-delivery">🚚 Out for Delivery</option>
+                                  <option value="rescheduled">📅 Rescheduled</option>
+                                  <option value="delivered">✅ Delivered</option>
+                                  <option value="cancelled">❌ Cancelled</option>
+                                  <option value="returned">↩ Returned</option>
                                 </select>
-                              </td>
-                              {/* Customer */}
-                              <td className="px-3 py-2.5">
-                                <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{delivery.customer || 'Unknown'}</div>
-                                {delivery.phone && <div className="text-[10px] text-gray-400 dark:text-gray-500 truncate">{delivery.phone}</div>}
-                              </td>
-                              {/* Address */}
-                              <td className="px-3 py-2.5">
-                                <div className="text-xs text-gray-600 dark:text-gray-300 truncate" title={delivery.address || ''}>{delivery.address || '—'}</div>
-                              </td>
-                              {/* Status */}
-                              <td className="px-3 py-2.5">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${statusColor}`}>
-                                  {statusLabel}
-                                </span>
-                              </td>
-                              {/* PO / Del# */}
-                              <td className="px-3 py-2.5">
-                                <div className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">{delivery.poNumber || '—'}</div>
-                                <div className="text-[10px] text-gray-400 dark:text-gray-500 truncate">
-                                  {(delivery as unknown as { metadata?: { originalDeliveryNumber?: string } }).metadata?.originalDeliveryNumber || ''}
-                                </div>
-                              </td>
-                              {/* Actions */}
-                              <td className="px-3 py-2.5">
-                                <div className="flex flex-col gap-1">
-                                  {isDispatchable && !hasGMD && (
-                                    <span
-                                      title="Upload a file with Goods Movement Date filled, or edit the order and set GMD manually to dispatch."
-                                      className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded text-[11px] font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 cursor-not-allowed whitespace-nowrap"
-                                    >
-                                      GMD required
-                                    </span>
-                                  )}
-                                  {isDispatchable && hasGMD && (
-                                    <button
-                                      type="button"
-                                      disabled={markingOFD === delivery.id || markingDelay === delivery.id}
-                                      onClick={async () => {
-                                        setMarkingOFD(delivery.id);
-                                        try {
-                                          await api.put(`/deliveries/admin/${delivery.id}/status`, {
-                                            status: 'out-for-delivery',
-                                            customer: delivery.customer,
-                                            address: delivery.address,
-                                            goodsMovementDate: (delivery as unknown as { goodsMovementDate?: string }).goodsMovementDate
-                                          });
-                                          setAssignmentMessage({ type: 'success', text: `✓ ${delivery.customer || 'Delivery'} dispatched` });
-                                          setTimeout(() => { void loadData(); setAssignmentMessage(null); }, 2000);
-                                        } catch (err: unknown) {
-                                          const e = err as { response?: { data?: { error?: string } }; message?: string };
-                                          const detail = e?.response?.data?.error ?? e?.message ?? 'Failed to dispatch';
-                                          setAssignmentMessage({ type: 'error', text: detail });
-                                        } finally { setMarkingOFD(null); }
-                                      }}
-                                      className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded text-[11px] font-semibold bg-green-600 hover:bg-green-700 text-white disabled:opacity-60 whitespace-nowrap"
-                                    >
-                                      {markingOFD === delivery.id ? '…' : '🚚 Dispatch'}
-                                    </button>
-                                  )}
-                                  {isDispatchable && (
-                                    <button
-                                      type="button"
-                                      disabled={markingDelay === delivery.id || markingOFD === delivery.id}
-                                      onClick={async () => {
-                                        setMarkingDelay(delivery.id);
-                                        try {
-                                          await api.put(`/deliveries/admin/${delivery.id}/status`, { status: 'order-delay', customer: delivery.customer, address: delivery.address });
-                                          setAssignmentMessage({ type: 'success', text: `⚠ ${delivery.customer || 'Order'} marked delayed` });
-                                          setTimeout(() => { void loadData(); setAssignmentMessage(null); }, 2500);
-                                        } catch {
-                                          setAssignmentMessage({ type: 'error', text: 'Failed to mark delay' });
-                                        } finally { setMarkingDelay(null); }
-                                      }}
-                                      className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded text-[11px] font-semibold bg-red-50 hover:bg-red-100 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 disabled:opacity-60 whitespace-nowrap"
-                                    >
-                                      {markingDelay === delivery.id ? '…' : '⚠ Delay'}
-                                    </button>
-                                  )}
-                                  {isOFD && (
-                                    <span className="inline-flex items-center justify-center gap-1 px-2 py-1 rounded text-[11px] font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 whitespace-nowrap">
-                                      🚛 On Route
-                                    </span>
-                                  )}
-                                  {isDelay && (
-                                    <span className="inline-flex items-center justify-center gap-1 px-2 py-1 rounded text-[11px] font-semibold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 whitespace-nowrap">
-                                      ⚠ Delayed
-                                    </span>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          </React.Fragment>
+                              </div>
+                            </td>
+                          </tr>
                         );
-                      });
-                    })() : (
-                      <tr>
-                        <td colSpan={7} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
-                          No active deliveries
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
-          </div>
+            );
+          })()}
 
         </div>
       )}

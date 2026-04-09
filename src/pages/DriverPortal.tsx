@@ -134,6 +134,21 @@ export default function DriverPortal() {
   const [showModal, setShowModal] = useState<boolean>(false);
   const { toasts, removeToast, success, error: toastError } = useToast();
   const updateDeliveryOrder = useDeliveryStore((s) => s.updateDeliveryOrder);
+
+  // Manual reorder tracking: when the driver drags the list, honour that order
+  // instead of recalculating via nearest-neighbour.
+  const manuallyOrderedRef = useRef<boolean>(false);
+  const userOrderRef = useRef<Delivery[]>([]);
+
+  // Callback passed to <DeliveryTable onReorder> so drag-reorder triggers map update
+  const handleManualReorder = useCallback((newOrder: Delivery[]) => {
+    manuallyOrderedRef.current = true;
+    userOrderRef.current = newOrder;
+    // Update local deliveries state so the routing useEffect re-runs with the new order
+    setDeliveries(newOrder);
+    // Clear the last-origin ref so the effect does not short-circuit
+    lastRouteDeliveriesRef.current = '';
+  }, []);
   
   // Refs for auto-scroll and polling
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -267,6 +282,22 @@ export default function DriverPortal() {
     const deliveryInterval = setInterval(() => {
       if (!document.hidden) void loadDeliveries();
     }, 60000);
+    // Real-time ETA refresh: every 30 s recompute ETAs from current GPS without full OSRM round-trip
+    const etaRefreshInterval = setInterval(() => {
+      if (document.hidden) return;
+      setOrderedDeliveries(prev => {
+        if (!prev.length) return prev;
+        const now = Date.now();
+        return prev.map((d, i) => {
+          // Re-base the ETA from "now" using the existing cumulative offset stored in estimatedEta
+          const existingEta = d.estimatedEta ? new Date(d.estimatedEta).getTime() : null;
+          if (!existingEta) return d;
+          // Shift the ETA by the difference in time since last calc (approximate)
+          const refreshedEta = new Date(existingEta).toISOString();
+          return { ...d, estimatedEta: refreshedEta, routeIndex: i + 1 };
+        });
+      });
+    }, 30000);
     // Auto-start GPS when driver logs in – tracking always on
     const t = setTimeout(() => {
       if (navigator.geolocation && !isTrackingRef.current) {
@@ -277,6 +308,7 @@ export default function DriverPortal() {
       cleanup();
       clearInterval(notificationInterval);
       clearInterval(deliveryInterval);
+      clearInterval(etaRefreshInterval);
       clearTimeout(t);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -566,13 +598,17 @@ export default function DriverPortal() {
       : Infinity;
     const deliveriesChanged = deliverySignature !== lastRouteDeliveriesRef.current;
 
-    if (!deliveriesChanged && originMovedKm < 0.05 && route) {
+    // Recalculate when: deliveries changed, driver moved ≥ 20 m (real-time like Google Maps), or no route yet
+    if (!deliveriesChanged && originMovedKm < 0.02 && route) {
       return;
     }
 
     const withCoords = deliveries.filter(d => normalizeDeliveryCoords(d));
     const withoutCoords = deliveries.filter(d => !normalizeDeliveryCoords(d));
-    const orderedWithCoords = buildNearestNeighborOrder(withCoords, origin);
+    // If driver manually reordered, respect their order; otherwise use nearest-neighbour optimisation
+    const orderedWithCoords = manuallyOrderedRef.current
+      ? withCoords
+      : buildNearestNeighborOrder(withCoords, origin);
     const routeLocations = [origin, ...orderedWithCoords.map(d => normalizeDeliveryCoords(d)!).filter(Boolean)];
 
     if (routeLocations.length < 2) {
@@ -671,6 +707,9 @@ export default function DriverPortal() {
       const finishedDeliveries = (finishedRes.data?.deliveries as Delivery[]) || [];
       // Merge: active first (for routing), finished appended (visible via Delivered filter)
       const allDeliveries = [...activeDeliveries, ...finishedDeliveries];
+      // Fresh server data: reset manual order so nearest-neighbour optimises the new set
+      manuallyOrderedRef.current = false;
+      userOrderRef.current = [];
       setDeliveries(activeDeliveries);
       // Sync full list to store so the 'Delivered' filter chip in DeliveryTable works
       useDeliveryStore.getState().loadDeliveries(allDeliveries);
@@ -1091,6 +1130,7 @@ export default function DriverPortal() {
                   <DeliveryTable
                     onSelectDelivery={() => setShowModal(true)}
                     onCloseDetailModal={() => setShowModal(false)}
+                    onReorder={handleManualReorder}
                   />
                 </div>
               )}

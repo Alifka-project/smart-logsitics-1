@@ -1258,8 +1258,8 @@ router.put('/admin/:id/assign', authenticate, requireAnyRole('admin', 'delivery_
 });
 
 // POST /api/deliveries/:id/send-sms - Send confirmation SMS to customer
-// Admin endpoint to trigger SMS when document is uploaded or SAP process completes
-router.post('/:id/send-sms', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+// Accessible by admin, delivery_team, and logistics_team
+router.post('/:id/send-sms', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
   try {
     let { id: deliveryId } = req.params as { id: string };
 
