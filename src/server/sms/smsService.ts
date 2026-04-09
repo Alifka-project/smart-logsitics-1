@@ -229,6 +229,7 @@ async function validateConfirmationToken(token: string): Promise<ValidationResul
 interface ConfirmDeliveryResult {
   ok: boolean;
   delivery: unknown;
+  thankYouWhatsappUrl?: string;  // wa.me link for staff to send post-confirmation thank-you
 }
 
 /**
@@ -314,9 +315,18 @@ async function confirmDelivery(token: string, deliveryDateInput: Date | string):
     cache.invalidatePrefix('dashboard:');
     cache.invalidatePrefix('deliveries:list:v2');
 
+    let thankYouWhatsappUrl: string | undefined;
     if (delivery.phone) {
       try {
-        const confirmationMessage = `Thank you for confirming your Electrolux delivery for ${iso}. You can now track your order in real-time using this link.`;
+        const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
+        const token = delivery.confirmationToken as string | undefined;
+        const trackingLink = token ? `${frontendUrl}/customer-tracking/${token}` : null;
+        const customerName = (delivery.customer as string | null) || 'Valued Customer';
+        const poNumber = delivery.poNumber as string | undefined;
+        const poRef = poNumber ? `#${poNumber}` : '';
+
+        const confirmationMessage = `Dear ${customerName},\n\nThank you for confirming your Electrolux order ${poRef}! Your delivery is scheduled.\n${trackingLink ? `\nTrack your delivery in real-time:\n${trackingLink}\n` : ''}\nFor assistance, please contact us at +971524408687.\n\nThank you for choosing Electrolux!`;
+
         // ── SMS API TEMPORARILY DISABLED — D7 provider compliance pending ────
         // Re-enable by restoring the smsAdapter.sendSms call below.
         // await smsAdapter!.sendSms({
@@ -324,10 +334,10 @@ async function confirmDelivery(token: string, deliveryDateInput: Date | string):
         //   body: confirmationMessage,
         //   metadata: { deliveryId, type: 'confirmation_received' }
         // });
-        // ── Log only (no API call) ───────────────────────────────────────────
-        const _normalizedPhone = normalizeUAEPhone(delivery.phone as string) || (delivery.phone as string);
-        const _waUrl = buildWhatsAppLink(_normalizedPhone, confirmationMessage);
-        console.log('[SMS→WhatsApp] Post-confirm thank-you link:', _waUrl);
+        // ── WhatsApp deep-link (returned to frontend for auto-open) ──────────
+        const normalizedPhone = normalizeUAEPhone(delivery.phone as string) || (delivery.phone as string);
+        thankYouWhatsappUrl = buildWhatsAppLink(normalizedPhone, confirmationMessage);
+        console.log('[SMS→WhatsApp] Post-confirm thank-you link:', thankYouWhatsappUrl);
 
         await (prisma as any).smsLog.create({
           data: {
@@ -337,7 +347,7 @@ async function confirmDelivery(token: string, deliveryDateInput: Date | string):
             smsProvider: 'whatsapp-link',
             status: 'whatsapp_link_generated',
             sentAt: new Date(),
-            metadata: { type: 'confirmation_received' }
+            metadata: { type: 'confirmation_received', whatsappUrl: thankYouWhatsappUrl }
           }
         });
       } catch (smsErr: unknown) {
@@ -347,7 +357,8 @@ async function confirmDelivery(token: string, deliveryDateInput: Date | string):
 
     return {
       ok: true,
-      delivery: updatedDelivery
+      delivery: updatedDelivery,
+      thankYouWhatsappUrl
     };
   } catch (error: unknown) {
     console.error('[SMS] Failed to confirm delivery:', error);

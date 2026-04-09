@@ -400,6 +400,7 @@ router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_
     });
 
     // Optionally notify customer by SMS for key status changes
+    let statusWhatsappUrl: string | undefined;
     try {
       const lowerStatus = (status || '').toLowerCase();
       const phone = (updatedDelivery.phone || existingDelivery.phone) as string | undefined;
@@ -418,16 +419,18 @@ router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_
         // Message bodies are still built (for logging/wa.me links) but not sent.
         // Restore by removing the comment wrappers once D7 approval is granted.
 
-        // Out for delivery (same day as scheduled)
+        const { buildWhatsAppLink: bwaStatus } = require('../sms/waLink') as { buildWhatsAppLink: (p: string, b: string) => string };
+
+        // Out for delivery — notify customer their order is dispatched today
         if (lowerStatus === 'out-for-delivery') {
-          const body = `Dear ${customerName},\n\nYour Electrolux order ${poRef} is out for delivery today.\n${trackingLink ? `\nTrack your delivery in real time:\n${trackingLink}\n` : ''}\nFor assistance, please contact the Electrolux Delivery Team at +971524408687.\n\nThank you,\nElectrolux Delivery Team`;
+          const body = `Dear ${customerName},\n\nYour Electrolux order ${poRef} is out for delivery today! 🚚\n${trackingLink ? `\nTrack your delivery in real-time:\n${trackingLink}\n` : ''}\nFor assistance, please contact the Electrolux Delivery Team at +971524408687.\n\nThank you,\nElectrolux Delivery Team`;
 
           // const smsResult = await smsService.smsAdapter.sendSms({
           //   to: phone, body,
           //   metadata: { deliveryId: updatedDelivery.id, type: 'status_out_for_delivery' }
           // }) as { messageId?: string; status?: string };
-          const { buildWhatsAppLink: _bwa1 } = require('../sms/waLink');
-          console.log('[SMS→WhatsApp] OFD link:', (_bwa1 as (p: string, b: string) => string)(phone, body));
+          statusWhatsappUrl = bwaStatus(phone, body);
+          console.log('[SMS→WhatsApp] OFD link:', statusWhatsappUrl);
 
           await prisma.smsLog.create({
             data: {
@@ -437,12 +440,12 @@ router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_
               smsProvider: 'whatsapp-link',
               status: 'whatsapp_link_generated',
               sentAt: new Date(),
-              metadata: { type: 'status_out_for_delivery' }
+              metadata: { type: 'status_out_for_delivery', whatsappUrl: statusWhatsappUrl }
             }
           });
         }
 
-        // Order delay: logistics team cannot dispatch — notify customer to reschedule
+        // Order delay — notify customer, ask them to await rescheduling contact
         if (lowerStatus === 'order-delay') {
           const body = `Dear ${customerName},\n\nWe regret to inform you that your Electrolux delivery ${poRef} has been delayed and could not be dispatched as scheduled.\n\nOur delivery team will contact you shortly to arrange a new delivery date at your convenience.\n${trackingLink ? `\nYou can also view your order status at:\n${trackingLink}\n` : ''}\nWe apologise for any inconvenience. For assistance, please contact us at +971524408687.\n\nThank you for your patience,\nElectrolux Delivery Team`;
 
@@ -450,8 +453,8 @@ router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_
           //   to: phone, body,
           //   metadata: { deliveryId: updatedDelivery.id, type: 'status_order_delay' }
           // }) as { messageId?: string; status?: string };
-          const { buildWhatsAppLink: _bwa2 } = require('../sms/waLink');
-          console.log('[SMS→WhatsApp] Delay link:', (_bwa2 as (p: string, b: string) => string)(phone, body));
+          statusWhatsappUrl = bwaStatus(phone, body);
+          console.log('[SMS→WhatsApp] Delay link:', statusWhatsappUrl);
 
           await prisma.smsLog.create({
             data: {
@@ -461,26 +464,25 @@ router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_
               smsProvider: 'whatsapp-link',
               status: 'whatsapp_link_generated',
               sentAt: new Date(),
-              metadata: { type: 'status_order_delay' }
+              metadata: { type: 'status_order_delay', whatsappUrl: statusWhatsappUrl }
             }
           });
         }
 
-        // Order finished: send final thank-you SMS ONLY once, when moving into a true
-        // "finished" state (completed / POD done). Do NOT send when the item just arrives.
+        // Completed — send final thank-you ONLY on first transition to completed
         const prevStatus = (String(existingDelivery.status || '')).toLowerCase();
         const completionStatuses = ['completed'];
         const wasAlreadyFinished = completionStatuses.includes(prevStatus);
 
         if (completionStatuses.includes(lowerStatus) && !wasAlreadyFinished) {
-          const body = `Dear ${customerName},\n\nYour Electrolux delivery ${poRef} has been completed.\n\nThank you for choosing Electrolux.`;
+          const body = `Dear ${customerName},\n\nYour Electrolux delivery ${poRef} has been completed successfully! ✅\n${trackingLink ? `\nView your delivery summary:\n${trackingLink}\n` : ''}\nThank you for choosing Electrolux. We hope to serve you again!\n\nBest regards,\nElectrolux Delivery Team`;
 
           // const smsResult = await smsService.smsAdapter.sendSms({
           //   to: phone, body,
           //   metadata: { deliveryId: updatedDelivery.id, type: 'status_order_finished' }
           // }) as { messageId?: string; status?: string };
-          const { buildWhatsAppLink: _bwa3 } = require('../sms/waLink');
-          console.log('[SMS→WhatsApp] Completed link:', (_bwa3 as (p: string, b: string) => string)(phone, body));
+          statusWhatsappUrl = bwaStatus(phone, body);
+          console.log('[SMS→WhatsApp] Completed link:', statusWhatsappUrl);
 
           await prisma.smsLog.create({
             data: {
@@ -490,7 +492,7 @@ router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_
               smsProvider: 'whatsapp-link',
               status: 'whatsapp_link_generated',
               sentAt: new Date(),
-              metadata: { type: 'status_order_finished' }
+              metadata: { type: 'status_order_finished', whatsappUrl: statusWhatsappUrl }
             }
           });
         }
@@ -503,6 +505,7 @@ router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_
     res.json({
       ok: true,
       status: status,
+      whatsappUrl: statusWhatsappUrl || null,  // frontend auto-opens this to notify customer
       delivery: {
         id: updatedDelivery.id,
         customer: updatedDelivery.customer,
@@ -1856,12 +1859,16 @@ router.put('/admin/:id/reschedule', authenticate, requireAnyRole('admin', 'deliv
       console.warn('[Deliveries] Failed to create reschedule event:', (err as Error).message);
     });
 
-    // Notify customer by SMS (fire-and-forget)
+    // Notify customer by WhatsApp (awaited so we can return the link to frontend)
+    let rescheduleWhatsappUrl: string | undefined;
     if (existingDelivery.phone) {
-      const smsService = require('../sms/smsService');
-      smsService.sendRescheduleSms(deliveryId, newDateStart, reasonText).catch((err: unknown) => {
+      try {
+        const smsService = require('../sms/smsService');
+        const smsResult = await smsService.sendRescheduleSms(deliveryId, newDateStart, reasonText) as { ok?: boolean; whatsappUrl?: string };
+        rescheduleWhatsappUrl = smsResult?.whatsappUrl;
+      } catch (err: unknown) {
         console.warn('[Deliveries] Reschedule SMS failed:', (err as Error).message);
-      });
+      }
     }
 
     cache.invalidatePrefix('tracking:');
@@ -1870,6 +1877,7 @@ router.put('/admin/:id/reschedule', authenticate, requireAnyRole('admin', 'deliv
 
     res.json({
       ok: true,
+      whatsappUrl: rescheduleWhatsappUrl || null,  // frontend auto-opens to notify customer
       delivery: {
         id: updatedDelivery.id,
         status: updatedDelivery.status,

@@ -39,7 +39,8 @@ router.post('/confirm-delivery/:token', async (req: Request, res: Response): Pro
     return void res.json({
       ok: true,
       message: 'Delivery confirmed successfully',
-      delivery: result.delivery
+      delivery: result.delivery,
+      thankYouWhatsappUrl: result.thankYouWhatsappUrl  // frontend auto-opens this after confirmation
     });
   } catch (error: unknown) {
     const e = error as { message?: string };

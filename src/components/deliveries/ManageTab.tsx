@@ -216,12 +216,27 @@ export default function ManageTab({
   const handleAdminReschedule = useCallback(
     async (orderId: string, newDate: Date, reason: string) => {
       try {
-        await api.put(`/deliveries/admin/${orderId}/reschedule`, {
+        const response = await api.put(`/deliveries/admin/${orderId}/reschedule`, {
           newDeliveryDate: newDate.toISOString(),
           reason,
         });
         updateDeliveryStatus(orderId, 'scheduled-confirmed');
-        onNotifySuccess('Delivery rescheduled', 'Customer will be notified by SMS.');
+        onNotifySuccess('Delivery rescheduled', 'Customer will be notified via WhatsApp.');
+
+        // Auto-open WhatsApp reschedule notification for customer
+        const waUrl = (response.data as { whatsappUrl?: string })?.whatsappUrl;
+        if (waUrl) {
+          try {
+            const a = document.createElement('a');
+            a.href = waUrl;
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => document.body.removeChild(a), 100);
+          } catch { /* popup blocked */ }
+        }
       } catch (e: unknown) {
         const err = e as { response?: { data?: { error?: string } }; message?: string };
         onToastError(err?.response?.data?.error ?? err?.message ?? 'Failed to reschedule delivery');

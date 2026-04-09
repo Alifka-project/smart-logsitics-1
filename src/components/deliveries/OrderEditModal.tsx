@@ -106,6 +106,22 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
           dateStr.trim() ? new Date(dateStr + 'T12:00:00').toISOString() : undefined;
         const goodsMovementDate =
           gmdStr.trim() ? new Date(gmdStr + 'T12:00:00').toISOString() : undefined;
+
+        // Auto-open WhatsApp to notify customer for key status changes
+        const waUrl = (response.data as { whatsappUrl?: string }).whatsappUrl;
+        if (waUrl) {
+          try {
+            const a = document.createElement('a');
+            a.href = waUrl;
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => document.body.removeChild(a), 100);
+          } catch { /* popup blocked — staff can use Send SMS button as fallback */ }
+        }
+
         onSaved({
           status: apiStatus,
           notes: notes.trim() || undefined,
