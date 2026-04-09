@@ -990,13 +990,23 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team', 'l
 
     console.log(`[Deliveries] Returning ${(savedDeliveries as unknown[]).length} saved + ${(skippedDeliveries as unknown[]).length} skipped deliveries to frontend`);
 
-    // ── Auto-generate confirmation WhatsApp links for new pending deliveries ─────
-    // For every newly created delivery (no GMD) that has a phone number, generate
-    // a confirmation token and return a wa.me link so staff can immediately send
-    // WhatsApp confirmation to the customer after upload.
+    // ── Auto-generate confirmation WhatsApp links for new & unconfirmed deliveries ──
+    // Covers two cases:
+    //   1. Newly created deliveries (outcome='new', no GMD) — always generate token + link
+    //   2. Re-uploaded / duplicate deliveries (in skippedDeliveries) that still need
+    //      customer confirmation (confirmationStatus !== 'confirmed') — re-use existing
+    //      token or generate a fresh one so staff can resend WhatsApp
     const newPendingDeliveries = savedDeliveries.filter((d: Record<string, unknown>) => {
       const matchedResult = results.find(r => r.deliveryId === d.id);
       return matchedResult?.outcome === 'new' && !matchedResult?.gmdUpdated && d.phone;
+    }) as Array<{ id: string; customer?: string | null; phone?: string | null; poNumber?: string | null; confirmationToken?: string | null }>;
+
+    // Also include skipped/duplicate deliveries that haven't been confirmed yet
+    const unconfirmedSkipped = (skippedDeliveries as Array<Record<string, unknown>>).filter((d) => {
+      const cs = (d.confirmationStatus as string | null) || 'pending';
+      const st = (d.status as string | null) || 'pending';
+      const terminal = ['out-for-delivery', 'delivered', 'cancelled', 'returned', 'in-transit', 'in-progress', 'finished', 'completed', 'pod-completed'];
+      return d.phone && cs !== 'confirmed' && !terminal.includes(st.toLowerCase());
     }) as Array<{ id: string; customer?: string | null; phone?: string | null; poNumber?: string | null; confirmationToken?: string | null }>;
 
     const { buildWhatsAppLink: bwaUpload } = require('../sms/waLink');
@@ -1004,26 +1014,39 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team', 'l
     const frontendUrlUpload = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
     const confirmationsReady: Array<{ deliveryId: string; customerName: string; phone: string; whatsappUrl: string; confirmationLink: string }> = [];
 
-    for (const d of newPendingDeliveries) {
+    const allDeliveriesForConfirmation = [
+      ...newPendingDeliveries.map(d => ({ ...d, isNew: true })),
+      ...unconfirmedSkipped.map(d => ({ ...d, isNew: false }))
+    ];
+
+    for (const d of allDeliveriesForConfirmation) {
       try {
-        const token = smsUploadService.generateConfirmationToken() as string;
+        // Re-use existing token if present (for re-uploads), or generate new one
+        let token = d.confirmationToken as string | null;
+        let needsTokenSave = false;
+        if (!token) {
+          token = smsUploadService.generateConfirmationToken() as string;
+          needsTokenSave = true;
+        }
         const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
         const confirmationLink = `${frontendUrlUpload}/confirm-delivery/${token}`;
         const customerName = (d.customer as string) || 'Valued Customer';
         const poRef = d.poNumber ? `#${d.poNumber}` : '';
         const msgBody = `Dear ${customerName},\n\nYour Electrolux order ${poRef} is ready for delivery.\n\nPlease confirm your preferred delivery date using the link below:\n${confirmationLink}\n\nFor assistance, please contact the Electrolux Delivery Team at +971524408687.\n\nThank you,\nElectrolux Delivery Team`;
 
-        // Save token to DB
-        await prisma.delivery.update({
-          where: { id: d.id },
-          data: {
-            confirmationToken: token,
-            tokenExpiresAt: expiresAt,
-            confirmationStatus: 'pending',
-            status: 'scheduled',
-            smsSentAt: new Date()
-          }
-        });
+        // Save token to DB (only for new deliveries or those without a token)
+        if (needsTokenSave || (d as { isNew: boolean }).isNew) {
+          await prisma.delivery.update({
+            where: { id: d.id },
+            data: {
+              confirmationToken: token,
+              tokenExpiresAt: expiresAt,
+              confirmationStatus: 'pending',
+              status: 'scheduled',
+              smsSentAt: new Date()
+            }
+          });
+        }
 
         // Log the WhatsApp link
         await prisma.smsLog.create({
@@ -1034,7 +1057,7 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team', 'l
             smsProvider: 'whatsapp-link',
             status: 'whatsapp_link_generated',
             sentAt: new Date(),
-            metadata: { type: 'confirmation_request', triggeredBy: 'auto_upload' }
+            metadata: { type: 'confirmation_request', triggeredBy: (d as { isNew: boolean }).isNew ? 'auto_upload' : 'resend_on_reupload' }
           }
         }).catch(() => { /* non-critical */ });
 

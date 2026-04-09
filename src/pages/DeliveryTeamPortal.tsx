@@ -1140,6 +1140,7 @@ export default function DeliveryTeamPortal() {
                           smsSentAt?: string;
                           confirmedDeliveryDate?: string;
                           deliveryNumber?: string;
+                          confirmationStatus?: string;
                           metadata?: Record<string, unknown>;
                           tracking?: { driverId?: string };
                         };
@@ -1160,8 +1161,11 @@ export default function DeliveryTeamPortal() {
                         const isDelay = rawStatus === 'order-delay';
                         const isDispatchable = ['pending', 'scheduled', 'uploaded', 'confirmed', 'scheduled-confirmed'].includes(rawStatus);
                         const hasGMD = !!dExt.goodsMovementDate;
-                        const hasSMSSent = !!dExt.smsSentAt || rawStatus === 'scheduled' || rawStatus === 'scheduled-confirmed';
-                        const needsSMS = (rawStatus === 'pending' || rawStatus === 'uploaded') && !hasSMSSent && !!delivery.phone;
+                        // Show "Send SMS" (WhatsApp) until the customer confirms — regardless of
+                        // whether a link was already sent. After customer confirms, button is not needed.
+                        const confirmationDone = (dExt.confirmationStatus as string) === 'confirmed';
+                        const terminalStatus = ['out-for-delivery', 'delivered', 'cancelled', 'returned', 'in-transit', 'in-progress', 'finished', 'completed', 'pod-completed'].includes(rawStatus);
+                        const needsSMS = !!delivery.phone && !confirmationDone && !terminalStatus;
                         const currentDriverId = dExt.tracking?.driverId || delivery.assignedDriverId;
                         const currentDriver = drivers.find(d => d.id === currentDriverId);
                         const isOnline = currentDriver ? isContactOnline(currentDriver) : false;
@@ -1276,7 +1280,7 @@ export default function DeliveryTeamPortal() {
                                     }}
                                     className="inline-flex items-center justify-center gap-1 px-2 py-1 rounded text-[11px] font-semibold bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-60 whitespace-nowrap"
                                   >
-                                    {sendingSms === delivery.id ? '…' : '📱 Send SMS'}
+                                    {sendingSms === delivery.id ? '…' : dExt.smsSentAt ? '📱 Resend SMS' : '📱 Send SMS'}
                                   </button>
                                 )}
                                 {isDispatchable && !hasGMD && !isOFD && !isDelay && (

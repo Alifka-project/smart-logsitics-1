@@ -75,6 +75,9 @@ router.get('/deliveries', authenticate, requireAnyRole('admin', 'delivery_team',
             confirmationToken: true,
             customerConfirmedAt: true,
             confirmedDeliveryDate: true,
+            smsSentAt: true,
+            goodsMovementDate: true,
+            deliveryNumber: true,
             assignments: {
               take: 1,
               orderBy: { assignedAt: 'desc' },
@@ -103,6 +106,7 @@ router.get('/deliveries', authenticate, requireAnyRole('admin', 'delivery_team',
         metadata: unknown; poNumber: string | null; createdAt: Date; updatedAt: Date;
         confirmationStatus: string | null; confirmationToken: string | null;
         customerConfirmedAt: Date | null; confirmedDeliveryDate: Date | null;
+        smsSentAt: Date | null; goodsMovementDate: Date | null; deliveryNumber: string | null;
         assignments: { driverId: string | null; status: string; assignedAt: Date | null; driver?: { fullName?: string } | null }[];
       }[]).map(d => ({
         id: d.id,
@@ -123,6 +127,9 @@ router.get('/deliveries', authenticate, requireAnyRole('admin', 'delivery_team',
         confirmationToken: d.confirmationToken,
         customerConfirmedAt: d.customerConfirmedAt,
         confirmedDeliveryDate: d.confirmedDeliveryDate,
+        smsSentAt: d.smsSentAt,
+        goodsMovementDate: d.goodsMovementDate,
+        deliveryNumber: d.deliveryNumber,
         assignedDriverId: d.assignments?.[0]?.driverId || null,
         driverName: d.assignments?.[0]?.driver?.fullName || null,
         assignmentStatus: d.assignments?.[0]?.status || 'unassigned',

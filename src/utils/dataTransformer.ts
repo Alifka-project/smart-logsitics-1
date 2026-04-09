@@ -159,6 +159,19 @@ export function transformERPData(data: RawERPRow[]): TransformedDelivery[] {
       row['Contact Phone'] ||
       row['Ship to Phone'] ||
       row['Telephone'] ||
+      row['Phone Number'] ||
+      row['phone_number'] ||
+      row['phone'] ||
+      row['Tel'] ||
+      row['Tel.'] ||
+      row['Contact No'] ||
+      row['Contact No.'] ||
+      row['HP'] ||
+      row['Handphone'] ||
+      row['Whatsapp'] ||
+      row['WhatsApp'] ||
+      row['No HP'] ||
+      row['No. HP'] ||
       '';
 
     const items =
