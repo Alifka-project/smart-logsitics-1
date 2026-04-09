@@ -200,23 +200,8 @@ export default function DeliveryDetailModal({
         );
         if (onStatusUpdate) onStatusUpdate(deliveryId as any, statusValue);
 
-        // Auto-open WhatsApp to notify customer for key status changes
-        // (SMS compliance pending — wa.me deep-link opens staff WhatsApp with pre-filled msg)
-        const waUrl = (response.data as Record<string, unknown>)?.whatsappUrl as string | undefined;
-        if (waUrl) {
-          try {
-            const a = document.createElement('a');
-            a.href = waUrl;
-            a.target = '_blank';
-            a.rel = 'noopener noreferrer';
-            a.style.display = 'none';
-            document.body.appendChild(a);
-            a.click();
-            setTimeout(() => document.body.removeChild(a), 100);
-          } catch {
-            // popup blocked — user can still manually click "Send SMS" in the table
-          }
-        }
+        // WhatsApp notification sent silently by backend (no popup needed)
+        // If API not configured, whatsappUrl is returned but not auto-opened here
       } else {
         setError(
           (response.data as Record<string, unknown>)?.['message'] as string ||

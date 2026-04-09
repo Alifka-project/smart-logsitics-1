@@ -8,6 +8,7 @@ import prisma from '../db/prisma';
 import { normalizeUAEPhone } from '../utils/phoneUtils';
 import { SmsSendOptions, SmsSendResult } from './adapter';
 import { buildWhatsAppLink } from './waLink';
+import { sendWhatsApp, isWhatsAppConfigured } from './whatsappApiAdapter';
 import {
   assertSlotAvailable,
   dubaiDayRangeUtc,
@@ -116,19 +117,24 @@ Thank you,
 Electrolux Delivery Team`;
 
     // ── SMS API TEMPORARILY DISABLED — D7 provider compliance pending ──────────
-    // Re-enable by removing the comment block below once approval is granted.
+    // Re-enable once D7 approval is granted:
     // const smsResult = await smsAdapter!.sendSms({
-    //   to: finalPhone,
-    //   body: smsMessage,
+    //   to: finalPhone, body: smsMessage,
     //   metadata: { deliveryId, type: 'confirmation_request' }
     // });
-    // ── WhatsApp deep-link fallback (staff taps link to send manually) ────────
-    const whatsappUrl = buildWhatsAppLink(finalPhone, smsMessage);
-    const smsResult: SmsSendResult = {
-      messageId: `wa-${Date.now()}`,
-      status: 'whatsapp_link_generated'
-    };
-    console.log('[SMS→WhatsApp] Link generated for', finalPhone, ':', whatsappUrl);
+    // ── WhatsApp silent background send (no popup, no button) ────────────────
+    let smsResult: SmsSendResult;
+    let whatsappUrl: string | undefined;
+    if (isWhatsAppConfigured()) {
+      const waResult = await sendWhatsApp(finalPhone, smsMessage);
+      smsResult = { messageId: waResult.messageId || `wa-${Date.now()}`, status: waResult.ok ? 'sent' : 'failed' };
+      console.log(`[SMS→WhatsApp] Silent send to ${finalPhone}:`, waResult.ok ? 'delivered' : waResult.error);
+    } else {
+      // Fallback: wa.me deep-link (requires manual send — use until API creds are set)
+      whatsappUrl = buildWhatsAppLink(finalPhone, smsMessage);
+      smsResult = { messageId: `wa-link-${Date.now()}`, status: 'whatsapp_link_generated' };
+      console.log('[SMS→WhatsApp] No API creds — deep-link fallback for', finalPhone);
+    }
     // ──────────────────────────────────────────────────────────────────────────
 
     // Update delivery with token + mark as scheduled + record sms sent time
@@ -334,10 +340,15 @@ async function confirmDelivery(token: string, deliveryDateInput: Date | string):
         //   body: confirmationMessage,
         //   metadata: { deliveryId, type: 'confirmation_received' }
         // });
-        // ── WhatsApp deep-link (returned to frontend for auto-open) ──────────
+        // ── WhatsApp silent background send ─────────────────────────────────
         const normalizedPhone = normalizeUAEPhone(delivery.phone as string) || (delivery.phone as string);
-        thankYouWhatsappUrl = buildWhatsAppLink(normalizedPhone, confirmationMessage);
-        console.log('[SMS→WhatsApp] Post-confirm thank-you link:', thankYouWhatsappUrl);
+        if (isWhatsAppConfigured()) {
+          const waResult = await sendWhatsApp(normalizedPhone, confirmationMessage);
+          console.log(`[SMS→WhatsApp] Thank-you silent send to ${normalizedPhone}:`, waResult.ok ? 'delivered' : waResult.error);
+        } else {
+          thankYouWhatsappUrl = buildWhatsAppLink(normalizedPhone, confirmationMessage);
+          console.log('[SMS→WhatsApp] No API creds — deep-link fallback for thank-you:', thankYouWhatsappUrl);
+        }
 
         await (prisma as any).smsLog.create({
           data: {
@@ -417,14 +428,21 @@ Electrolux Delivery Team`;
     // ── SMS API TEMPORARILY DISABLED — D7 provider compliance pending ──────────
     // Re-enable by removing comment wrapper once approval is granted.
     // const smsResult = await smsAdapter!.sendSms({
-    //   to: normalizedPhone,
-    //   body: smsMessage,
+    //   to: normalizedPhone, body: smsMessage,
     //   metadata: { deliveryId, type: 'admin_reschedule_notification' }
     // });
-    // ── WhatsApp deep-link fallback ───────────────────────────────────────────
-    const whatsappUrl = buildWhatsAppLink(normalizedPhone, smsMessage);
-    const smsResult: SmsSendResult = { messageId: `wa-${Date.now()}`, status: 'whatsapp_link_generated' };
-    console.log('[SMS→WhatsApp] Reschedule link:', whatsappUrl);
+    // ── WhatsApp silent background send ──────────────────────────────────────
+    let smsResult: SmsSendResult;
+    let whatsappUrl: string | undefined;
+    if (isWhatsAppConfigured()) {
+      const waResult = await sendWhatsApp(normalizedPhone, smsMessage);
+      smsResult = { messageId: waResult.messageId || `wa-${Date.now()}`, status: waResult.ok ? 'sent' : 'failed' };
+      console.log(`[SMS→WhatsApp] Reschedule silent send to ${normalizedPhone}:`, waResult.ok ? 'delivered' : waResult.error);
+    } else {
+      whatsappUrl = buildWhatsAppLink(normalizedPhone, smsMessage);
+      smsResult = { messageId: `wa-link-${Date.now()}`, status: 'whatsapp_link_generated' };
+      console.log('[SMS→WhatsApp] No API creds — reschedule deep-link fallback for', normalizedPhone);
+    }
     // ──────────────────────────────────────────────────────────────────────────
 
     await (prisma as any).smsLog.create({

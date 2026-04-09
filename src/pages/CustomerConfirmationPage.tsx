@@ -175,22 +175,7 @@ export default function CustomerConfirmationPage() {
       setSuccess(true);
       setDelivery(data.delivery as ConfirmationDelivery);
 
-      // Auto-open WhatsApp thank-you message for customer (wa.me link, SMS compliance pending)
-      if (data.thankYouWhatsappUrl && typeof data.thankYouWhatsappUrl === 'string') {
-        try {
-          const a = document.createElement('a');
-          a.href = data.thankYouWhatsappUrl as string;
-          a.target = '_blank';
-          a.rel = 'noopener noreferrer';
-          a.style.display = 'none';
-          document.body.appendChild(a);
-          a.click();
-          setTimeout(() => document.body.removeChild(a), 100);
-        } catch {
-          // ignore popup block — customer can still track via the tracking page
-        }
-      }
-
+      // Thank-you WhatsApp sent silently by backend — no popup needed
       setTimeout(() => navigate(`/customer-tracking/${token}`), 3500);
     } catch (err: unknown) {
       const e = err as { message?: string };

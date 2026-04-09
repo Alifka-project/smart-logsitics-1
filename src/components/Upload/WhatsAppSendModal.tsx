@@ -1,18 +1,24 @@
 /**
- * WhatsApp Send Modal — Auto-send confirmation links after file upload.
+ * WhatsApp Notification Status Toast
  *
- * TEMPORARY — replaces D7 SMS/WhatsApp API while compliance approval is pending.
- * Once D7 is approved: remove this component, restore smsAdapter.sendSms() calls.
+ * TEMPORARY — shows a brief status notification after file upload while
+ * D7 SMS compliance approval is pending.
  *
- * Auto-send logic:
- *   When the `whatsappConfirmationsReady` event fires after upload, this component
- *   immediately opens a WhatsApp tab for every customer using the anchor-click
- *   technique (bypasses popup blockers better than window.open in async context).
- *   A visual modal is shown as confirmation/fallback if any tab was blocked.
+ * When WHATSAPP_INSTANCE_ID + WHATSAPP_TOKEN are set in env:
+ *   → Backend sends WhatsApp silently to all customers (no popup, no action needed)
+ *   → This component shows a brief "✓ X customers notified" toast
+ *
+ * When API is not configured (fallback mode):
+ *   → Backend generates wa.me deep-links
+ *   → Staff must manually open each customer's WhatsApp via "Send SMS" button in the table
+ *   → This component shows a reminder notification
+ *
+ * Once D7 SMS is approved: remove this component entirely, restore smsAdapter calls.
+ * DO NOT delete — SMS logic is preserved in smsService.ts (commented out).
  */
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import ReactDOM from 'react-dom';
-import { MessageCircle, X, Send, CheckCircle, ChevronDown, ChevronUp, Phone, ExternalLink, Loader } from 'lucide-react';
+import { CheckCircle, MessageCircle, X, AlertCircle } from 'lucide-react';
 
 interface ConfirmationReady {
   deliveryId: string;
@@ -20,232 +26,101 @@ interface ConfirmationReady {
   phone: string;
   confirmationLink: string;
   whatsappUrl: string;
-}
-
-/**
- * Opens a URL in a new tab using anchor-click technique.
- * This approach has more lenient popup-blocking policies than window.open()
- * when called outside a synchronous user-gesture handler.
- */
-function openInNewTab(url: string): void {
-  try {
-    const a = document.createElement('a');
-    a.href = url;
-    a.target = '_blank';
-    a.rel = 'noopener noreferrer';
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    // Clean up after a tick
-    setTimeout(() => { document.body.removeChild(a); }, 100);
-  } catch {
-    // Fallback to window.open
-    window.open(url, '_blank');
-  }
+  sent: boolean;  // true = API sent silently; false = fallback, needs manual send
 }
 
 export default function WhatsAppSendModal() {
   const [confirmations, setConfirmations] = useState<ConfirmationReady[]>([]);
-  const [sent, setSent] = useState<Set<string>>(new Set());
-  const [showList, setShowList] = useState(false);
-  const [autoSendDone, setAutoSendDone] = useState(false);
-  const autoSendRef = useRef(false);  // prevent double-fire on StrictMode
+  const [visible, setVisible] = useState(false);
 
-  // ── Receive new confirmations from upload ──────────────────────────────────
   useEffect(() => {
     const handleEvent = (e: Event) => {
       const detail = (e as CustomEvent<{ confirmations: ConfirmationReady[] }>).detail;
       if (detail?.confirmations?.length) {
-        autoSendRef.current = false;  // reset so auto-send runs for new upload
-        setAutoSendDone(false);
-        setSent(new Set());
-        setShowList(false);
         setConfirmations(detail.confirmations);
+        setVisible(true);
+        // Auto-dismiss after 6 seconds for silent sends
+        const allSent = detail.confirmations.every(c => c.sent);
+        if (allSent) {
+          setTimeout(() => setVisible(false), 6000);
+        }
       }
     };
     window.addEventListener('whatsappConfirmationsReady', handleEvent);
     return () => window.removeEventListener('whatsappConfirmationsReady', handleEvent);
   }, []);
 
-  // ── AUTO-SEND: open WhatsApp for every customer as soon as confirmations arrive
-  // Uses anchor-click technique which has less strict popup policies than window.open.
-  // If the browser blocks some tabs, the modal shows a fallback "Send Remaining" button.
-  useEffect(() => {
-    if (confirmations.length === 0 || autoSendRef.current) return;
-    autoSendRef.current = true;
-
-    const newSent = new Set<string>();
-    confirmations.forEach((c, i) => {
-      // Stagger slightly so browser handles multiple tabs gracefully
-      setTimeout(() => {
-        openInNewTab(c.whatsappUrl);
-        newSent.add(c.deliveryId);
-        if (i === confirmations.length - 1) {
-          setSent(new Set(newSent));
-          setAutoSendDone(true);
-        }
-      }, i * 150);
-    });
-  }, [confirmations]);
-
-  const handleSendSingle = useCallback((c: ConfirmationReady) => {
-    openInNewTab(c.whatsappUrl);
-    setSent(prev => new Set([...prev, c.deliveryId]));
+  const dismiss = useCallback(() => {
+    setVisible(false);
+    setConfirmations([]);
   }, []);
 
-  const handleSendRemaining = useCallback(() => {
-    const unsent = confirmations.filter(c => !sent.has(c.deliveryId));
-    const newSent = new Set(sent);
-    unsent.forEach((c, i) => {
-      setTimeout(() => {
-        openInNewTab(c.whatsappUrl);
-        newSent.add(c.deliveryId);
-      }, i * 150);
-    });
-    setSent(newSent);
-  }, [confirmations, sent]);
+  if (!visible || confirmations.length === 0) return null;
 
-  const dismiss = useCallback(() => setConfirmations([]), []);
+  const silentlySent = confirmations.filter(c => c.sent).length;
+  const needsManual = confirmations.filter(c => !c.sent).length;
+  const allSilent = needsManual === 0;
 
-  if (confirmations.length === 0) return null;
-
-  const sentCount = sent.size;
-  const total = confirmations.length;
-  const allSent = sentCount === total;
-  const remaining = total - sentCount;
-
-  const modal = (
+  const toast = (
     <div
-      className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
-      onClick={(e) => { if (e.target === e.currentTarget) dismiss(); }}
+      style={{
+        position: 'fixed',
+        bottom: 24,
+        right: 24,
+        zIndex: 99999,
+        maxWidth: 380,
+        width: 'calc(100vw - 48px)',
+        borderRadius: 16,
+        background: allSilent ? '#fff' : '#fffbeb',
+        border: `1.5px solid ${allSilent ? '#d1fae5' : '#fde68a'}`,
+        boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+        padding: '16px 18px',
+        display: 'flex',
+        gap: 14,
+        alignItems: 'flex-start',
+      }}
     >
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-
-        {/* Header */}
-        <div className={`px-5 py-4 text-white ${allSent ? 'bg-green-600' : 'bg-[#25D366]'}`}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-                {autoSendDone ? <CheckCircle className="w-5 h-5" /> : <Loader className="w-5 h-5 animate-spin" />}
-              </div>
-              <div>
-                <h2 className="text-base font-bold leading-tight">
-                  {allSent ? 'WhatsApp Confirmations Sent!' : 'Sending WhatsApp Confirmations…'}
-                </h2>
-                <p className="text-xs text-white/80 mt-0.5">
-                  {autoSendDone
-                    ? allSent
-                      ? `${total} customer${total !== 1 ? 's' : ''} notified automatically`
-                      : `${sentCount}/${total} sent — ${remaining} may be blocked by browser`
-                    : `Opening WhatsApp for ${total} customer${total !== 1 ? 's' : ''}…`}
-                </p>
-              </div>
-            </div>
-            <button type="button" onClick={dismiss} className="p-1.5 rounded-full hover:bg-white/20 transition-colors">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* Body */}
-        <div className="px-5 py-5 space-y-4">
-
-          {!autoSendDone ? (
-            <div className="flex items-center justify-center gap-3 py-4">
-              <Loader className="w-5 h-5 animate-spin text-[#25D366]" />
-              <p className="text-sm text-gray-600 dark:text-gray-300">
-                Automatically opening WhatsApp for {total} customer{total !== 1 ? 's' : ''}…
-              </p>
-            </div>
-          ) : allSent ? (
-            <div className="text-center py-2">
-              <div className="w-14 h-14 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
-                <CheckCircle className="w-7 h-7 text-green-600" />
-              </div>
-              <p className="text-sm text-gray-700 dark:text-gray-200 font-semibold">WhatsApp opened for all {total} customers.</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Please check each WhatsApp tab and tap <strong>Send</strong> if not already done.
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-3">
-                <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
-                  <strong>{remaining} WhatsApp tab{remaining !== 1 ? 's were' : ' was'} blocked</strong> by your browser popup blocker.
-                  Click <strong>"Send Remaining"</strong> to open them (requires a direct click).
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handleSendRemaining}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-white text-sm transition-all"
-                style={{ background: 'linear-gradient(135deg,#25D366,#128C7E)', boxShadow: '0 4px 16px rgba(37,211,102,0.35)' }}
-              >
-                <Send className="w-4 h-4" />
-                Send Remaining ({remaining}) via WhatsApp
-              </button>
-            </>
-          )}
-
-          {/* Individual customer list (collapsible) */}
-          <button
-            type="button"
-            onClick={() => setShowList(v => !v)}
-            className="w-full flex items-center justify-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors py-1"
-          >
-            {showList ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-            {showList ? 'Hide' : 'View'} customers ({total})
-          </button>
-
-          {showList && (
-            <div className="border border-gray-100 dark:border-gray-700 rounded-xl divide-y divide-gray-50 dark:divide-gray-800 max-h-52 overflow-y-auto">
-              {confirmations.map(c => {
-                const isSent = sent.has(c.deliveryId);
-                return (
-                  <div key={c.deliveryId} className="flex items-center gap-3 px-3 py-2.5">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold ${isSent ? 'bg-green-100 dark:bg-green-900/40 text-green-600' : 'bg-gray-100 dark:bg-gray-800 text-gray-500'}`}>
-                      {isSent ? <CheckCircle className="w-4 h-4" /> : c.customerName.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">{c.customerName}</p>
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <Phone className="w-3 h-3 text-gray-400" />
-                        <p className="text-[10px] text-gray-500 dark:text-gray-400">{c.phone}</p>
-                      </div>
-                    </div>
-                    {isSent ? (
-                      <span className="text-[10px] text-green-600 font-semibold flex-shrink-0">Sent ✓</span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleSendSingle(c)}
-                        className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold text-white flex-shrink-0"
-                        style={{ background: '#25D366' }}
-                      >
-                        <ExternalLink className="w-3 h-3" /> Send
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="px-5 pb-5">
-          <button
-            type="button"
-            onClick={dismiss}
-            className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-          >
-            {allSent ? 'Done' : 'Dismiss'}
-          </button>
-        </div>
+      {/* Icon */}
+      <div style={{
+        width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
+        background: allSilent ? '#dcfce7' : '#fef3c7',
+        display: 'flex', alignItems: 'center', justifyContent: 'center'
+      }}>
+        {allSilent
+          ? <CheckCircle size={20} style={{ color: '#16a34a' }} />
+          : <AlertCircle size={20} style={{ color: '#d97706' }} />}
       </div>
+
+      {/* Content */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: '#111' }}>
+          {allSilent
+            ? `WhatsApp Sent — ${silentlySent} customer${silentlySent !== 1 ? 's' : ''} notified`
+            : `WhatsApp — ${needsManual} pending manual send`}
+        </p>
+        <p style={{ margin: '4px 0 0', fontSize: 12, color: '#555', lineHeight: 1.4 }}>
+          {allSilent
+            ? 'Confirmation messages delivered silently in the background.'
+            : `API not configured — use the "Send SMS" button next to each order to notify customers manually.`}
+        </p>
+        {needsManual > 0 && silentlySent > 0 && (
+          <p style={{ margin: '4px 0 0', fontSize: 11, color: '#888' }}>
+            {silentlySent} sent silently · {needsManual} need manual send
+          </p>
+        )}
+      </div>
+
+      {/* Dismiss */}
+      <button
+        type="button"
+        onClick={dismiss}
+        style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', flexShrink: 0 }}
+        aria-label="Dismiss"
+      >
+        <X size={16} style={{ color: '#999' }} />
+      </button>
     </div>
   );
 
-  return ReactDOM.createPortal(modal, document.body);
+  return ReactDOM.createPortal(toast, document.body);
 }
