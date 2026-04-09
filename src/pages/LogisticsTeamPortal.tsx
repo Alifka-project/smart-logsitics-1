@@ -30,7 +30,7 @@ import useDeliveryStore from '../store/useDeliveryStore';
 import { deliveryToManageOrder } from '../utils/deliveryWorkflowMap';
 import { isDubaiPublicHoliday } from '../utils/dubaiHolidays';
 import type { Delivery, AuthUser } from '../types';
-import WhatsAppSendModal from '../components/Upload/WhatsAppSendModal';
+// WhatsAppSendModal is mounted globally in App.tsx — no local import needed
 
 interface ContactUser {
   id: string;
@@ -597,8 +597,7 @@ export default function LogisticsTeamPortal() {
 
   return (
     <div className="space-y-4 md:space-y-6 w-full min-w-0">
-      {/* WhatsApp confirmation modal — opens automatically after file upload */}
-      <WhatsAppSendModal />
+      {/* WhatsApp modal is handled globally in App.tsx */}
       {/* Header - responsive and touch-friendly */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="min-w-0">
