@@ -7,6 +7,7 @@ import crypto from 'crypto';
 import prisma from '../db/prisma';
 import { normalizeUAEPhone } from '../utils/phoneUtils';
 import { SmsSendOptions, SmsSendResult } from './adapter';
+import { buildWhatsAppLink } from './waLink';
 import {
   assertSlotAvailable,
   dubaiDayRangeUtc,
@@ -57,6 +58,7 @@ interface SendConfirmationSmsResult {
   messageId: string;
   phoneNumber: string;
   expiresAt: string;
+  whatsappUrl?: string; // present during SMS compliance-pending period
 }
 
 /**
@@ -113,12 +115,21 @@ For assistance, please contact the Electrolux Delivery Team at +971524408687.
 Thank you,
 Electrolux Delivery Team`;
 
-    // Send SMS
-    const smsResult = await smsAdapter!.sendSms({
-      to: finalPhone,
-      body: smsMessage,
-      metadata: { deliveryId, type: 'confirmation_request' }
-    });
+    // ── SMS API TEMPORARILY DISABLED — D7 provider compliance pending ──────────
+    // Re-enable by removing the comment block below once approval is granted.
+    // const smsResult = await smsAdapter!.sendSms({
+    //   to: finalPhone,
+    //   body: smsMessage,
+    //   metadata: { deliveryId, type: 'confirmation_request' }
+    // });
+    // ── WhatsApp deep-link fallback (staff taps link to send manually) ────────
+    const whatsappUrl = buildWhatsAppLink(finalPhone, smsMessage);
+    const smsResult: SmsSendResult = {
+      messageId: `wa-${Date.now()}`,
+      status: 'whatsapp_link_generated'
+    };
+    console.log('[SMS→WhatsApp] Link generated for', finalPhone, ':', whatsappUrl);
+    // ──────────────────────────────────────────────────────────────────────────
 
     // Update delivery with token
     await prisma.delivery.update({
@@ -152,7 +163,8 @@ Electrolux Delivery Team`;
       token: confirmationToken,
       messageId: smsResult.messageId,
       phoneNumber: finalPhone,
-      expiresAt: expiresAt.toISOString()
+      expiresAt: expiresAt.toISOString(),
+      whatsappUrl  // temporary: caller should open this URL to send via WhatsApp
     };
   } catch (error: unknown) {
     console.error('[SMS] Failed to send confirmation SMS:', error);
@@ -303,19 +315,24 @@ async function confirmDelivery(token: string, deliveryDateInput: Date | string):
     if (delivery.phone) {
       try {
         const confirmationMessage = `Thank you for confirming your Electrolux delivery for ${iso}. You can now track your order in real-time using this link.`;
-        await smsAdapter!.sendSms({
-          to: delivery.phone as string,
-          body: confirmationMessage,
-          metadata: { deliveryId, type: 'confirmation_received' }
-        });
+        // ── SMS API TEMPORARILY DISABLED — D7 provider compliance pending ────
+        // Re-enable by restoring the smsAdapter.sendSms call below.
+        // await smsAdapter!.sendSms({
+        //   to: delivery.phone as string,
+        //   body: confirmationMessage,
+        //   metadata: { deliveryId, type: 'confirmation_received' }
+        // });
+        // ── Log only (no API call) ───────────────────────────────────────────
+        const _waUrl = buildWhatsAppLink(delivery.phone as string, confirmationMessage);
+        console.log('[SMS→WhatsApp] Post-confirm thank-you link:', _waUrl);
 
         await (prisma as any).smsLog.create({
           data: {
             deliveryId,
             phoneNumber: delivery.phone as string,
             messageContent: confirmationMessage,
-            smsProvider: process.env.SMS_PROVIDER || 'd7',
-            status: 'sent',
+            smsProvider: 'whatsapp-link',
+            status: 'whatsapp_link_generated',
             sentAt: new Date(),
             metadata: { type: 'confirmation_received' }
           }
@@ -383,26 +400,33 @@ For assistance, please contact the Electrolux Delivery Team at +971524408687.
 Thank you for your understanding,
 Electrolux Delivery Team`;
 
-    const smsResult = await smsAdapter!.sendSms({
-      to: normalizedPhone,
-      body: smsMessage,
-      metadata: { deliveryId, type: 'admin_reschedule_notification' }
-    });
+    // ── SMS API TEMPORARILY DISABLED — D7 provider compliance pending ──────────
+    // Re-enable by removing comment wrapper once approval is granted.
+    // const smsResult = await smsAdapter!.sendSms({
+    //   to: normalizedPhone,
+    //   body: smsMessage,
+    //   metadata: { deliveryId, type: 'admin_reschedule_notification' }
+    // });
+    // ── WhatsApp deep-link fallback ───────────────────────────────────────────
+    const whatsappUrl = buildWhatsAppLink(normalizedPhone, smsMessage);
+    const smsResult: SmsSendResult = { messageId: `wa-${Date.now()}`, status: 'whatsapp_link_generated' };
+    console.log('[SMS→WhatsApp] Reschedule link:', whatsappUrl);
+    // ──────────────────────────────────────────────────────────────────────────
 
     await (prisma as any).smsLog.create({
       data: {
         deliveryId,
         phoneNumber: normalizedPhone,
         messageContent: smsMessage,
-        smsProvider: process.env.SMS_PROVIDER || 'd7',
+        smsProvider: 'whatsapp-link',
         externalMessageId: smsResult.messageId,
-        status: smsResult.status || 'sent',
+        status: 'whatsapp_link_generated',
         sentAt: new Date(),
-        metadata: { type: 'admin_reschedule_notification', newDeliveryDate: newDeliveryDate.toISOString(), reason: reasonText }
+        metadata: { type: 'admin_reschedule_notification', newDeliveryDate: newDeliveryDate.toISOString(), reason: reasonText, whatsappUrl }
       }
     });
 
-    return { ok: true, messageId: smsResult.messageId };
+    return { ok: true, messageId: smsResult.messageId, whatsappUrl } as { ok: boolean; messageId?: string; whatsappUrl?: string };
   } catch (error: unknown) {
     const e = error as Error;
     console.error('[SMS] Failed to send reschedule SMS:', e.message);

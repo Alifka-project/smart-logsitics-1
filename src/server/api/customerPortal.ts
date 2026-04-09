@@ -267,12 +267,13 @@ router.post('/resend-confirmation/:deliveryId', authenticate, requireAnyRole('ad
       return void res.status(400).json({ error: 'no_phone_number' });
     }
 
-    await smsService.sendConfirmationSms(deliveryId, delivery.phone);
+    const smsResult = await smsService.sendConfirmationSms(deliveryId, delivery.phone) as { whatsappUrl?: string };
 
     // Never return the raw token to the caller
     return void res.json({
       ok: true,
-      message: 'Confirmation SMS resent'
+      message: 'Confirmation link ready',
+      whatsappUrl: smsResult?.whatsappUrl  // present during SMS compliance-pending period
     });
   } catch (error: unknown) {
     const e = error as { message?: string };

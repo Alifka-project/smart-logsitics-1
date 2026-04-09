@@ -311,13 +311,14 @@ router.post('/resend-sms/:deliveryId', authenticate, requireAnyRole('admin', 'de
     }
 
     const { sendConfirmationSms } = await import('../sms/smsService.js');
-    const result = await sendConfirmationSms(deliveryId, delivery.phone as string) as unknown as { messageId: string; token: string; expiresAt: string };
+    const result = await sendConfirmationSms(deliveryId, delivery.phone as string) as unknown as { messageId: string; token: string; expiresAt: string; whatsappUrl?: string };
 
     res.json({ 
       ok: true, 
       messageId: result.messageId,
       token: result.token,
-      expiresAt: result.expiresAt
+      expiresAt: result.expiresAt,
+      whatsappUrl: result.whatsappUrl  // present during SMS compliance-pending period
     });
   } catch (error: unknown) {
     const e = error as { message?: string };

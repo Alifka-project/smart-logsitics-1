@@ -1262,7 +1262,10 @@ export default function DeliveryTeamPortal() {
                                     onClick={async () => {
                                       setSendingSms(delivery.id);
                                       try {
-                                        await api.post(`/deliveries/${delivery.id}/send-sms`);
+                                        const res = await api.post(`/deliveries/${delivery.id}/send-sms`);
+                                        // Open WhatsApp deep-link if returned (SMS provider compliance pending)
+                                        const waUrl = (res.data as { whatsappUrl?: string })?.whatsappUrl;
+                                        if (waUrl) window.open(waUrl, '_blank');
                                         setAssignmentMessage({ type: 'success', text: `✓ SMS sent to ${delivery.customer || 'customer'}` });
                                         setTimeout(() => { void loadData(); setAssignmentMessage(null); }, 2000);
                                       } catch { setAssignmentMessage({ type: 'error', text: 'Failed to send SMS' }); }

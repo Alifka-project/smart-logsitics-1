@@ -413,24 +413,29 @@ router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_
         const poNum = (updatedDelivery.poNumber || existingDelivery.poNumber) as string | undefined;
         const poRef = poNum ? `#${poNum}` : '';
 
+        // ── STATUS SMS TEMPORARILY DISABLED — D7 provider compliance pending ────
+        // All smsAdapter.sendSms() calls below are commented out.
+        // Message bodies are still built (for logging/wa.me links) but not sent.
+        // Restore by removing the comment wrappers once D7 approval is granted.
+
         // Out for delivery (same day as scheduled)
         if (lowerStatus === 'out-for-delivery') {
           const body = `Dear ${customerName},\n\nYour Electrolux order ${poRef} is out for delivery today.\n${trackingLink ? `\nTrack your delivery in real time:\n${trackingLink}\n` : ''}\nFor assistance, please contact the Electrolux Delivery Team at +971524408687.\n\nThank you,\nElectrolux Delivery Team`;
 
-          const smsResult = await smsService.smsAdapter.sendSms({
-            to: phone,
-            body,
-            metadata: { deliveryId: updatedDelivery.id, type: 'status_out_for_delivery' }
-          }) as { messageId?: string; status?: string };
+          // const smsResult = await smsService.smsAdapter.sendSms({
+          //   to: phone, body,
+          //   metadata: { deliveryId: updatedDelivery.id, type: 'status_out_for_delivery' }
+          // }) as { messageId?: string; status?: string };
+          const { buildWhatsAppLink: _bwa1 } = require('../sms/waLink');
+          console.log('[SMS→WhatsApp] OFD link:', (_bwa1 as (p: string, b: string) => string)(phone, body));
 
           await prisma.smsLog.create({
             data: {
               deliveryId: updatedDelivery.id,
               phoneNumber: phone,
               messageContent: body,
-              smsProvider: process.env.SMS_PROVIDER || 'd7',
-              externalMessageId: smsResult.messageId,
-              status: smsResult.status || 'sent',
+              smsProvider: 'whatsapp-link',
+              status: 'whatsapp_link_generated',
               sentAt: new Date(),
               metadata: { type: 'status_out_for_delivery' }
             }
@@ -441,20 +446,20 @@ router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_
         if (lowerStatus === 'order-delay') {
           const body = `Dear ${customerName},\n\nWe regret to inform you that your Electrolux delivery ${poRef} has been delayed and could not be dispatched as scheduled.\n\nOur delivery team will contact you shortly to arrange a new delivery date at your convenience.\n${trackingLink ? `\nYou can also view your order status at:\n${trackingLink}\n` : ''}\nWe apologise for any inconvenience. For assistance, please contact us at +971524408687.\n\nThank you for your patience,\nElectrolux Delivery Team`;
 
-          const smsResult = await smsService.smsAdapter.sendSms({
-            to: phone,
-            body,
-            metadata: { deliveryId: updatedDelivery.id, type: 'status_order_delay' }
-          }) as { messageId?: string; status?: string };
+          // const smsResult = await smsService.smsAdapter.sendSms({
+          //   to: phone, body,
+          //   metadata: { deliveryId: updatedDelivery.id, type: 'status_order_delay' }
+          // }) as { messageId?: string; status?: string };
+          const { buildWhatsAppLink: _bwa2 } = require('../sms/waLink');
+          console.log('[SMS→WhatsApp] Delay link:', (_bwa2 as (p: string, b: string) => string)(phone, body));
 
           await prisma.smsLog.create({
             data: {
               deliveryId: updatedDelivery.id as string,
               phoneNumber: phone,
               messageContent: body,
-              smsProvider: process.env.SMS_PROVIDER || 'd7',
-              externalMessageId: smsResult.messageId,
-              status: smsResult.status || 'sent',
+              smsProvider: 'whatsapp-link',
+              status: 'whatsapp_link_generated',
               sentAt: new Date(),
               metadata: { type: 'status_order_delay' }
             }
@@ -470,20 +475,20 @@ router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_
         if (completionStatuses.includes(lowerStatus) && !wasAlreadyFinished) {
           const body = `Dear ${customerName},\n\nYour Electrolux delivery ${poRef} has been completed.\n\nThank you for choosing Electrolux.`;
 
-          const smsResult = await smsService.smsAdapter.sendSms({
-            to: phone,
-            body,
-            metadata: { deliveryId: updatedDelivery.id, type: 'status_order_finished' }
-          }) as { messageId?: string; status?: string };
+          // const smsResult = await smsService.smsAdapter.sendSms({
+          //   to: phone, body,
+          //   metadata: { deliveryId: updatedDelivery.id, type: 'status_order_finished' }
+          // }) as { messageId?: string; status?: string };
+          const { buildWhatsAppLink: _bwa3 } = require('../sms/waLink');
+          console.log('[SMS→WhatsApp] Completed link:', (_bwa3 as (p: string, b: string) => string)(phone, body));
 
           await prisma.smsLog.create({
             data: {
               deliveryId: updatedDelivery.id,
               phoneNumber: phone,
               messageContent: body,
-              smsProvider: process.env.SMS_PROVIDER || 'd7',
-              externalMessageId: smsResult.messageId,
-              status: smsResult.status || 'sent',
+              smsProvider: 'whatsapp-link',
+              status: 'whatsapp_link_generated',
               sentAt: new Date(),
               metadata: { type: 'status_order_finished' }
             }
@@ -869,10 +874,11 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team', 'l
           console.warn(`[Deliveries/Upload] Auto-assign failed for ${d.id}:`, (assignErr as Error).message);
         }
 
-        // 2. Notify customer via SMS that their order is out for delivery
+        // 2. Notify customer that their order is out for delivery
+        //    SMS API TEMPORARILY DISABLED — D7 compliance pending.
+        //    wa.me link logged; restore smsAdapter call once approved.
         if (d.phone) {
           try {
-            const smsService = require('../sms/smsService');
             const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
             const trackingLink = d.confirmationToken
               ? `${frontendUrl}/customer-tracking/${d.confirmationToken}`
@@ -881,27 +887,27 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team', 'l
             const poRef = d.poNumber ? `#${d.poNumber}` : '';
             const smsBody = `Dear ${customerName},\n\nYour Electrolux order ${poRef} is out for delivery today.\n${trackingLink ? `\nTrack your delivery in real time:\n${trackingLink}\n` : ''}\nFor assistance, please contact the Electrolux Delivery Team at +971524408687.\n\nThank you,\nElectrolux Delivery Team`;
 
-            const smsResult = await smsService.smsAdapter.sendSms({
-              to: d.phone,
-              body: smsBody,
-              metadata: { deliveryId: d.id, type: 'status_out_for_delivery' }
-            }) as { messageId?: string; status?: string };
+            // const smsService = require('../sms/smsService');
+            // const smsResult = await smsService.smsAdapter.sendSms({
+            //   to: d.phone, body: smsBody,
+            //   metadata: { deliveryId: d.id, type: 'status_out_for_delivery' }
+            // });
+            const { buildWhatsAppLink: _bwaGmd } = require('../sms/waLink');
+            const _gmdWaUrl = (_bwaGmd as (p: string, b: string) => string)(d.phone, smsBody);
+            console.log(`[SMS→WhatsApp] GMD dispatch link for ${d.id}:`, _gmdWaUrl);
 
             await prisma.smsLog.create({
               data: {
                 deliveryId: d.id,
                 phoneNumber: d.phone,
                 messageContent: smsBody,
-                smsProvider: process.env.SMS_PROVIDER || 'd7',
-                externalMessageId: smsResult.messageId,
-                status: smsResult.status || 'sent',
+                smsProvider: 'whatsapp-link',
+                status: 'whatsapp_link_generated',
                 sentAt: new Date(),
                 metadata: { type: 'status_out_for_delivery', triggeredBy: 'gmd_upload' }
               }
             });
-            console.log(`[Deliveries/Upload] SMS sent to ${d.phone} for delivery ${d.id}`);
           } catch (smsErr: unknown) {
-            // Non-fatal — don't fail the upload if SMS fails
             console.warn(`[Deliveries/Upload] SMS notification failed for ${d.id}:`, (smsErr as Error).message);
           }
         }
@@ -1433,64 +1439,63 @@ router.post('/:id/send-sms', authenticate, requireAnyRole('admin', 'delivery_tea
     const poRef = delivery.poNumber ? `#${delivery.poNumber}` : '';
     const smsBody = `Dear ${customerName},\n\nYour Electrolux order ${poRef} is ready for delivery.\n\nPlease confirm your preferred delivery date using the link below:\n${confirmationLink}\n\nFor assistance, please contact the Electrolux Delivery Team at +971524408687.\n\nThank you,\nElectrolux Delivery Team`;
 
-    // ── 1. Send message first — WhatsApp for UAE (+971), SMS for all others ──
+    // ── 1. Prepare channel info ──────────────────────────────────────────────
     const isUAE = normalizedPhone.startsWith('+971');
     let sent = false;
-    let sendError: string | null = null;
     let messageId: string | null = null;
     let d7Status: string | null = null;
-    const channel = isUAE ? 'whatsapp' : 'sms';
+    const channel = 'whatsapp'; // always whatsapp during compliance-pending period
 
-    try {
-      if (isUAE) {
-        const WhatsAppAdapter = require('../sms/whatsappAdapter');
-        const waAdapter = new WhatsAppAdapter(process.env);
-        const result = await waAdapter.sendMessage({ to: normalizedPhone, body: smsBody }) as { messageId?: string; status?: string };
-        messageId = result.messageId || null;
-        d7Status = result.status || null;
-        sent = true;
-        console.log('[WhatsApp] Sent to', normalizedPhone, 'MID:', messageId);
-      } else {
-        const smsResult = await smsService.smsAdapter.sendSms({
-          to: normalizedPhone,
-          body: smsBody,
-          metadata: { deliveryId: delivery.id, type: 'confirmation_request' }
-        }) as { messageId?: string; status?: string };
-        messageId = smsResult.messageId || null;
-        d7Status = smsResult.status || null;
-        sent = true;
-        console.log('[SMS] Sent to', normalizedPhone, 'MID:', messageId);
-      }
-    } catch (err: unknown) {
-      const e = err as { message?: string; response?: { data?: unknown } };
-      console.error(`[${channel.toUpperCase()}] Send failed:`, e.message);
-      sendError = e.message || null;
-      const d7Detail = e.response?.data ? JSON.stringify(e.response.data) : null;
+    // ── SMS / WhatsApp API TEMPORARILY DISABLED ──────────────────────────────
+    // D7 provider compliance approval is pending. All outbound API calls are
+    // commented out below. Once approved, restore the block inside the try/catch
+    // and remove the wa.me fallback.
+    //
+    // ORIGINAL SEND CODE (DO NOT DELETE):
+    // try {
+    //   if (isUAE) {
+    //     const WhatsAppAdapter = require('../sms/whatsappAdapter');
+    //     const waAdapter = new WhatsAppAdapter(process.env);
+    //     const result = await waAdapter.sendMessage({ to: normalizedPhone, body: smsBody });
+    //     messageId = result.messageId || null;
+    //     d7Status = result.status || null;
+    //     sent = true;
+    //     console.log('[WhatsApp] Sent to', normalizedPhone, 'MID:', messageId);
+    //   } else {
+    //     const smsResult = await smsService.smsAdapter.sendSms({
+    //       to: normalizedPhone, body: smsBody,
+    //       metadata: { deliveryId: delivery.id, type: 'confirmation_request' }
+    //     });
+    //     messageId = smsResult.messageId || null;
+    //     d7Status = smsResult.status || null;
+    //     sent = true;
+    //     console.log('[SMS] Sent to', normalizedPhone, 'MID:', messageId);
+    //   }
+    // } catch (sendErr) { ... }
+    // ──────────────────────────────────────────────────────────────────────────
 
-      await prisma.smsLog.create({
-        data: {
-          deliveryId: delivery.id,
-          phoneNumber: normalizedPhone,
-          messageContent: smsBody,
-          smsProvider: isUAE ? 'd7-whatsapp' : 'd7',
-          status: 'failed',
-          failureReason: e.message,
-          sentAt: new Date(),
-          metadata: { type: 'confirmation_request', channel, tokenExpiry: expiresAt.toISOString(), d7Detail }
-        }
-      }).catch((e: unknown) => console.error('[Log] Error:', (e as { message?: string }).message));
-    }
+    // ── WhatsApp deep-link fallback (staff clicks link to send manually) ─────
+    const { buildWhatsAppLink } = require('../sms/waLink');
+    const whatsappUrl = buildWhatsAppLink(normalizedPhone, smsBody) as string;
+    messageId = `wa-${Date.now()}`;
+    d7Status = 'whatsapp_link_generated';
+    sent = true;
+    console.log('[WhatsApp Link] Generated for', normalizedPhone, ':', whatsappUrl);
+    // ──────────────────────────────────────────────────────────────────────────
 
-    // ── 2. Only update delivery status + persist token after confirmed send ──
+    // ── 2. Persist token & update delivery status (proceeds because sent=true) ──
     if (!sent) {
+      // This branch is unreachable while the wa.me fallback is active.
+      // It will become reachable again when the D7 API calls are restored
+      // and an actual API failure occurs.
       return void res.status(500).json({
         ok: false,
         error: `${channel}_failed`,
-        message: sendError || `${channel} send failed`
+        message: 'Message delivery failed'
       });
     }
 
-    // Persist token and mark delivery as 'scheduled' — only reached when send succeeded.
+    // Persist token and mark delivery as 'scheduled'
     await prisma.delivery.update({
       where: { id: delivery.id },
       data: {
@@ -1507,24 +1512,25 @@ router.post('/:id/send-sms', authenticate, requireAnyRole('admin', 'delivery_tea
         deliveryId: delivery.id,
         phoneNumber: normalizedPhone,
         messageContent: smsBody,
-        smsProvider: isUAE ? 'd7-whatsapp' : 'd7',
+        smsProvider: 'whatsapp-link',
         externalMessageId: messageId,
-        status: 'sent',
+        status: 'whatsapp_link_generated',
         sentAt: new Date(),
-        metadata: { type: 'confirmation_request', channel, tokenExpiry: expiresAt.toISOString(), d7Status }
+        metadata: { type: 'confirmation_request', channel, tokenExpiry: expiresAt.toISOString(), isUAE, whatsappUrl }
       }
     }).catch((e: unknown) => console.error('[Log] SMS log error:', (e as { message?: string }).message));
 
-    // ── 3. Build response ──────────────────────────────────────────────────
+    // ── 3. Build response (includes whatsappUrl for frontend to open) ─────────
     return void res.json({
       ok: true,
       smsSent: true,
-      deliveredVia: channel,
+      deliveredVia: 'whatsapp-link',
       d7Status,
-      message: isUAE ? 'WhatsApp message sent successfully' : 'SMS sent successfully',
+      message: 'WhatsApp confirmation link ready — please open and send to customer',
       messageId,
       expiresAt: expiresAt.toISOString(),
-      confirmationLink
+      confirmationLink,
+      whatsappUrl  // frontend opens this to launch WhatsApp with message pre-filled
     });
   } catch (error: unknown) {
     const e = error as { message?: string };

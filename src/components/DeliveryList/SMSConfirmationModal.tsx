@@ -59,6 +59,10 @@ export default function SMSConfirmationModal({
       const response = await api.post(`/deliveries/${encodeURIComponent(deliveryId)}/send-sms`, {});
       setResult({ ok: true, ...(response.data as object) });
 
+      // Open WhatsApp deep-link when SMS provider is pending (compliance period)
+      const waUrl = (response.data as { whatsappUrl?: string })?.whatsappUrl;
+      if (waUrl) window.open(waUrl, '_blank');
+
       if (onSuccess) onSuccess(response.data);
     } catch (err: unknown) {
       const e = err as { response?: { data?: SMSResult & { message?: string } }; message?: string };
