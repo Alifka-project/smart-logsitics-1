@@ -10,31 +10,59 @@
  */
 
 /**
- * Build a wa.me deep-link for manual WhatsApp sending.
- * @param phone  E.164 phone string (e.g. "+971521234567") or any format — digits extracted.
- * @param body   Message text (pre-built SMS body).
- * @returns      URL like https://wa.me/971521234567?text=...
+ * Normalise a phone number for use in a wa.me URL.
+ *
+ * Works for ANY country — keeps numbers that already carry a country-code prefix.
+ * UAE-local short formats are converted; all others are passed through digit-stripped.
+ *
+ * Examples:
+ *   "+971521234567"    → "971521234567"   (E.164 — strip +)
+ *   "00971521234567"   → "971521234567"   (IDD prefix)
+ *   "0521234567"       → "971521234567"   (UAE local 10-digit)
+ *   "521234567"        → "971521234567"   (UAE local 9-digit)
+ *   "6281290202027"    → "6281290202027"  (Indonesia — passed through)
+ *   "+6281290202027"   → "6281290202027"  (Indonesia E.164 — strip +)
+ *   "0812 9020 2027"   → "08129020202"    (Indonesia local — digits only, no country prefix added)
  */
-export function buildWhatsAppLink(phone: string, body: string): string {
-  // Strip everything except digits (removes +, spaces, dashes)
+function normalisePhoneForWhatsApp(phone: string): string {
+  // 1. Strip everything except digits
   let digits = phone.replace(/\D/g, '');
 
-  // If no country code, assume UAE (+971) — 9-digit local numbers starting with 5
+  // 2. IDD prefix (00 + country code) — remove leading 00
+  if (digits.startsWith('00')) {
+    digits = digits.slice(2);
+  }
+
+  // 3. UAE local formats (no country code yet)
+  //    9-digit starting with 5  → 971 5xxxxxxxx
   if (digits.length === 9 && digits.startsWith('5')) {
-    digits = '971' + digits;
+    return '971' + digits;
   }
-  // 10-digit numbers starting with 05 (UAE local format)
+  //    10-digit starting with 05 → 971 5xxxxxxxx
   if (digits.length === 10 && digits.startsWith('05')) {
-    digits = '971' + digits.slice(1);
+    return '971' + digits.slice(1);
   }
+
+  // 4. For all other numbers (international, already has country code)
+  //    return as-is (already digits only, country code included)
+  return digits;
+}
+
+/**
+ * Build a wa.me deep-link for manual WhatsApp sending.
+ *
+ * @param phone  Phone number in any format (E.164, local, with/without + or 00)
+ * @param body   Pre-built message text
+ * @returns      wa.me URL, e.g. https://wa.me/6281290202027?text=...
+ */
+export function buildWhatsAppLink(phone: string, body: string): string {
+  const digits = normalisePhoneForWhatsApp(String(phone).trim());
 
   // Guard: must have at least 7 digits to form a valid wa.me URL
   if (digits.length < 7) {
-    console.warn(`[waLink] Cannot build WhatsApp link — invalid phone after stripping: "${phone}"`);
-    // Return a generic wa.me URL without a number so it at least opens WhatsApp
+    console.warn(`[waLink] Cannot build WhatsApp link — invalid phone: "${phone}" → "${digits}"`);
     return `https://wa.me/?text=${encodeURIComponent(body)}`;
   }
 
-  const encoded = encodeURIComponent(body);
-  return `https://wa.me/${digits}?text=${encoded}`;
+  return `https://wa.me/${digits}?text=${encodeURIComponent(body)}`;
 }
