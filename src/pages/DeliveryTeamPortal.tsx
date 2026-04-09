@@ -39,6 +39,7 @@ import useDeliveryStore from '../store/useDeliveryStore';
 import { deliveryToManageOrder } from '../utils/deliveryWorkflowMap';
 import { isDubaiPublicHoliday } from '../utils/dubaiHolidays';
 import type { Delivery, AuthUser } from '../types';
+import WhatsAppConfirmationBanner from '../components/Upload/WhatsAppConfirmationBanner';
 
 interface ContactUser {
   id: string;
@@ -850,6 +851,8 @@ export default function DeliveryTeamPortal() {
 
   return (
     <div className="space-y-4 md:space-y-6 w-full min-w-0">
+      {/* WhatsApp confirmation banner — shown after file upload */}
+      <WhatsAppConfirmationBanner />
       {/* Header - responsive and touch-friendly */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="min-w-0">

@@ -990,6 +990,72 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team', 'l
 
     console.log(`[Deliveries] Returning ${(savedDeliveries as unknown[]).length} saved + ${(skippedDeliveries as unknown[]).length} skipped deliveries to frontend`);
 
+    // ── Auto-generate confirmation WhatsApp links for new pending deliveries ─────
+    // For every newly created delivery (no GMD) that has a phone number, generate
+    // a confirmation token and return a wa.me link so staff can immediately send
+    // WhatsApp confirmation to the customer after upload.
+    const newPendingDeliveries = savedDeliveries.filter((d: Record<string, unknown>) => {
+      const matchedResult = results.find(r => r.deliveryId === d.id);
+      return matchedResult?.outcome === 'new' && !matchedResult?.gmdUpdated && d.phone;
+    }) as Array<{ id: string; customer?: string | null; phone?: string | null; poNumber?: string | null; confirmationToken?: string | null }>;
+
+    const { buildWhatsAppLink: bwaUpload } = require('../sms/waLink');
+    const smsUploadService = require('../sms/smsService');
+    const frontendUrlUpload = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
+    const confirmationsReady: Array<{ deliveryId: string; customerName: string; phone: string; whatsappUrl: string; confirmationLink: string }> = [];
+
+    for (const d of newPendingDeliveries) {
+      try {
+        const token = smsUploadService.generateConfirmationToken() as string;
+        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        const confirmationLink = `${frontendUrlUpload}/confirm-delivery/${token}`;
+        const customerName = (d.customer as string) || 'Valued Customer';
+        const poRef = d.poNumber ? `#${d.poNumber}` : '';
+        const msgBody = `Dear ${customerName},\n\nYour Electrolux order ${poRef} is ready for delivery.\n\nPlease confirm your preferred delivery date using the link below:\n${confirmationLink}\n\nFor assistance, please contact the Electrolux Delivery Team at +971524408687.\n\nThank you,\nElectrolux Delivery Team`;
+
+        // Save token to DB
+        await prisma.delivery.update({
+          where: { id: d.id },
+          data: {
+            confirmationToken: token,
+            tokenExpiresAt: expiresAt,
+            confirmationStatus: 'pending',
+            status: 'scheduled',
+            smsSentAt: new Date()
+          }
+        });
+
+        // Log the WhatsApp link
+        await prisma.smsLog.create({
+          data: {
+            deliveryId: d.id,
+            phoneNumber: (d.phone as string),
+            messageContent: msgBody,
+            smsProvider: 'whatsapp-link',
+            status: 'whatsapp_link_generated',
+            sentAt: new Date(),
+            metadata: { type: 'confirmation_request', triggeredBy: 'auto_upload' }
+          }
+        }).catch(() => { /* non-critical */ });
+
+        const normalizedPhone = (normalizePhone((d.phone as string)) || (d.phone as string));
+        confirmationsReady.push({
+          deliveryId: d.id,
+          customerName,
+          phone: normalizedPhone,
+          confirmationLink,
+          whatsappUrl: (bwaUpload as (p: string, b: string) => string)(normalizedPhone, msgBody)
+        });
+      } catch (autoErr: unknown) {
+        console.warn(`[Upload] Auto-token gen failed for ${d.id}:`, (autoErr as Error).message);
+      }
+    }
+
+    if (confirmationsReady.length > 0) {
+      console.log(`[Upload] ${confirmationsReady.length} WhatsApp confirmation links generated automatically`);
+    }
+    // ──────────────────────────────────────────────────────────────────────────────
+
     res.json({
       success: true,
       count: deliveryIds.length,
@@ -1000,6 +1066,7 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team', 'l
       results: mergedResults,
       deliveries: savedDeliveries,
       skippedDeliveries,
+      confirmationsReady,  // wa.me links for new pending deliveries — staff opens to send WhatsApp
     });
   } catch (err: unknown) {
     const e = err as { message?: string; stack?: string };
