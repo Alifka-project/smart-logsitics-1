@@ -3,6 +3,12 @@ import { randomUUID } from 'crypto';
 import { sendWhatsApp, isWhatsAppConfigured } from '../sms/whatsappApiAdapter';
 import { buildWhatsAppLink } from '../sms/waLink';
 import {
+  confirmationRequestMessage,
+  outForDeliveryMessage,
+  orderDelayMessage,
+  deliveryCompletedMessage
+} from '../sms/customerMessageTemplates';
+import {
   assertSlotAvailable,
   dubaiDayRangeUtc,
   getDubaiWeekday,
@@ -408,7 +414,6 @@ router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_
       const phone = (updatedDelivery.phone || existingDelivery.phone) as string | undefined;
 
       if (phone) {
-        const smsService = require('../sms/smsService');
         const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
         const token = (updatedDelivery.confirmationToken || existingDelivery.confirmationToken) as string | undefined;
         const trackingLink = token ? `${frontendUrl}/customer-tracking/${token}` : null;
@@ -449,25 +454,25 @@ router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_
           return waUrl;  // only set when API not configured (deep-link fallback)
         };
 
-        // Out for delivery — dispatch notification
+        // Out for delivery — same body as SMS (customerMessageTemplates)
         if (lowerStatus === 'out-for-delivery') {
-          const body = `Dear ${customerName},\n\nYour Electrolux order ${poRef} is out for delivery today! 🚚\n${trackingLink ? `\nTrack your delivery in real-time:\n${trackingLink}\n` : ''}\nFor assistance, please contact the Electrolux Delivery Team at +971524408687.\n\nThank you,\nElectrolux Delivery Team`;
+          const body = outForDeliveryMessage(customerName, poRef, trackingLink);
           statusWhatsappUrl = await silentSend(body, 'status_out_for_delivery');
         }
 
-        // Order delay — notify customer, they will be contacted to reschedule
+        // Order delay — same body as SMS
         if (lowerStatus === 'order-delay') {
-          const body = `Dear ${customerName},\n\nWe regret to inform you that your Electrolux delivery ${poRef} has been delayed and could not be dispatched as scheduled.\n\nOur delivery team will contact you shortly to arrange a new delivery date at your convenience.\n${trackingLink ? `\nYou can also view your order status at:\n${trackingLink}\n` : ''}\nWe apologise for any inconvenience. For assistance, please contact us at +971524408687.\n\nThank you for your patience,\nElectrolux Delivery Team`;
+          const body = orderDelayMessage(customerName, poRef, trackingLink);
           statusWhatsappUrl = await silentSend(body, 'status_order_delay');
         }
 
-        // Completed — final thank-you ONLY once on first transition
+        // Completed — same body as SMS (no tracking block in legacy SMS)
         const prevStatus = (String(existingDelivery.status || '')).toLowerCase();
         const completionStatuses = ['completed'];
         const wasAlreadyFinished = completionStatuses.includes(prevStatus);
 
         if (completionStatuses.includes(lowerStatus) && !wasAlreadyFinished) {
-          const body = `Dear ${customerName},\n\nYour Electrolux delivery ${poRef} has been completed successfully! ✅\n${trackingLink ? `\nView your delivery summary:\n${trackingLink}\n` : ''}\nThank you for choosing Electrolux. We hope to serve you again!\n\nBest regards,\nElectrolux Delivery Team`;
+          const body = deliveryCompletedMessage(customerName, poRef);
           statusWhatsappUrl = await silentSend(body, 'status_order_finished');
         }
       }
@@ -862,7 +867,7 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team', 'l
               : null;
             const customerName = d.customer || 'Valued Customer';
             const poRef = d.poNumber ? `#${d.poNumber}` : '';
-            const smsBody = `Dear ${customerName},\n\nYour Electrolux order ${poRef} is out for delivery today! 🚚\n${trackingLink ? `\nTrack your delivery in real-time:\n${trackingLink}\n` : ''}\nFor assistance, please contact the Electrolux Delivery Team at +971524408687.\n\nThank you,\nElectrolux Delivery Team`;
+            const smsBody = outForDeliveryMessage(customerName, poRef, trackingLink);
 
             let sendStatus = 'whatsapp_link_generated';
             if (isWhatsAppConfigured()) {
@@ -1009,7 +1014,7 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team', 'l
         const confirmationLink = `${frontendUrlUpload}/confirm-delivery/${token}`;
         const customerName = (d.customer as string) || 'Valued Customer';
         const poRef = d.poNumber ? `#${d.poNumber}` : '';
-        const msgBody = `Dear ${customerName},\n\nYour Electrolux order ${poRef} is ready for delivery.\n\nPlease confirm your preferred delivery date using the link below:\n${confirmationLink}\n\nFor assistance, please contact the Electrolux Delivery Team at +971524408687.\n\nThank you,\nElectrolux Delivery Team`;
+        const msgBody = confirmationRequestMessage(customerName, poRef, confirmationLink);
 
         // Save token to DB (only for new deliveries or those without a token)
         if (needsTokenSave || (d as { isNew: boolean }).isNew) {
@@ -1523,7 +1528,7 @@ router.post('/:id/send-sms', authenticate, requireAnyRole('admin', 'delivery_tea
     const confirmationLink = `${frontendUrl}/confirm-delivery/${token}`;
     const customerName = (delivery.customer as string) || 'Valued Customer';
     const poRef = delivery.poNumber ? `#${delivery.poNumber}` : '';
-    const smsBody = `Dear ${customerName},\n\nYour Electrolux order ${poRef} is ready for delivery.\n\nPlease confirm your preferred delivery date using the link below:\n${confirmationLink}\n\nFor assistance, please contact the Electrolux Delivery Team at +971524408687.\n\nThank you,\nElectrolux Delivery Team`;
+    const smsBody = confirmationRequestMessage(customerName, poRef, confirmationLink);
 
     // ── 1. Prepare channel info ──────────────────────────────────────────────
     const isUAE = normalizedPhone.startsWith('+971');

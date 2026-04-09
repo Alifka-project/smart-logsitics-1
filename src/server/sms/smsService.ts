@@ -10,6 +10,11 @@ import { SmsSendOptions, SmsSendResult } from './adapter';
 import { buildWhatsAppLink } from './waLink';
 import { sendWhatsApp, isWhatsAppConfigured } from './whatsappApiAdapter';
 import {
+  confirmationRequestMessage,
+  thankYouAfterConfirmationMessage,
+  rescheduleNotificationMessage
+} from './customerMessageTemplates';
+import {
   assertSlotAvailable,
   dubaiDayRangeUtc,
   getAvailableDatesForDeliveryId,
@@ -104,17 +109,7 @@ async function sendConfirmationSms(
     const customerName = (delivery as Record<string, unknown>).customer as string || 'Valued Customer';
     const poNumber = (delivery as Record<string, unknown>).poNumber as string | undefined;
     const poRef = poNumber ? `#${poNumber}` : '';
-    const smsMessage = `Dear ${customerName},
-
-Your Electrolux order ${poRef} is ready for delivery.
-
-Please confirm your preferred delivery date using the link below:
-${confirmationLink}
-
-For assistance, please contact the Electrolux Delivery Team at +971524408687.
-
-Thank you,
-Electrolux Delivery Team`;
+    const smsMessage = confirmationRequestMessage(customerName, poRef, confirmationLink);
 
     // ── SMS API TEMPORARILY DISABLED — D7 provider compliance pending ──────────
     // Re-enable once D7 approval is granted:
@@ -325,13 +320,10 @@ async function confirmDelivery(token: string, deliveryDateInput: Date | string):
     if (delivery.phone) {
       try {
         const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
-        const token = delivery.confirmationToken as string | undefined;
-        const trackingLink = token ? `${frontendUrl}/customer-tracking/${token}` : null;
-        const customerName = (delivery.customer as string | null) || 'Valued Customer';
-        const poNumber = delivery.poNumber as string | undefined;
-        const poRef = poNumber ? `#${poNumber}` : '';
-
-        const confirmationMessage = `Dear ${customerName},\n\nThank you for confirming your Electrolux order ${poRef}! Your delivery is scheduled.\n${trackingLink ? `\nTrack your delivery in real-time:\n${trackingLink}\n` : ''}\nFor assistance, please contact us at +971524408687.\n\nThank you for choosing Electrolux!`;
+        const confirmToken = delivery.confirmationToken as string | undefined;
+        const trackingLink = confirmToken ? `${frontendUrl}/customer-tracking/${confirmToken}` : null;
+        // Same text as legacy SMS thank-you; optional tracking URL on next line (SMS would include when sent)
+        const confirmationMessage = thankYouAfterConfirmationMessage(iso, trackingLink);
 
         // ── SMS API TEMPORARILY DISABLED — D7 provider compliance pending ────
         // Re-enable by restoring the smsAdapter.sendSms call below.
@@ -342,8 +334,12 @@ async function confirmDelivery(token: string, deliveryDateInput: Date | string):
         // });
         // ── WhatsApp silent background send ─────────────────────────────────
         const normalizedPhone = normalizeUAEPhone(delivery.phone as string) || (delivery.phone as string);
+        let thankYouStatus = 'whatsapp_link_generated';
+        let thankYouProvider = 'whatsapp-link';
         if (isWhatsAppConfigured()) {
           const waResult = await sendWhatsApp(normalizedPhone, confirmationMessage);
+          thankYouStatus = waResult.ok ? 'sent' : 'failed';
+          thankYouProvider = 'whatsapp-api';
           console.log(`[SMS→WhatsApp] Thank-you silent send to ${normalizedPhone}:`, waResult.ok ? 'delivered' : waResult.error);
         } else {
           thankYouWhatsappUrl = buildWhatsAppLink(normalizedPhone, confirmationMessage);
@@ -355,8 +351,8 @@ async function confirmDelivery(token: string, deliveryDateInput: Date | string):
             deliveryId,
             phoneNumber: delivery.phone as string,
             messageContent: confirmationMessage,
-            smsProvider: 'whatsapp-link',
-            status: 'whatsapp_link_generated',
+            smsProvider: thankYouProvider,
+            status: thankYouStatus,
             sentAt: new Date(),
             metadata: { type: 'confirmation_received', whatsappUrl: thankYouWhatsappUrl }
           }
@@ -413,17 +409,13 @@ async function sendRescheduleSms(
 
     const reasonText = reason ? reason.trim() : 'operational requirements';
 
-    const smsMessage = `Dear ${customerName},
-
-We regret to inform you that your Electrolux order ${poRef} has been rescheduled.
-
-New delivery date: ${formattedDate}
-Reason: ${reasonText}
-${trackingLink ? `\nTrack your delivery:\n${trackingLink}\n` : ''}
-For assistance, please contact the Electrolux Delivery Team at +971524408687.
-
-Thank you for your understanding,
-Electrolux Delivery Team`;
+    const smsMessage = rescheduleNotificationMessage(
+      customerName,
+      poRef,
+      formattedDate,
+      reasonText,
+      trackingLink
+    );
 
     // ── SMS API TEMPORARILY DISABLED — D7 provider compliance pending ──────────
     // Re-enable by removing comment wrapper once approval is granted.
@@ -450,9 +442,9 @@ Electrolux Delivery Team`;
         deliveryId,
         phoneNumber: normalizedPhone,
         messageContent: smsMessage,
-        smsProvider: 'whatsapp-link',
+        smsProvider: isWhatsAppConfigured() ? 'whatsapp-api' : 'whatsapp-link',
         externalMessageId: smsResult.messageId,
-        status: 'whatsapp_link_generated',
+        status: smsResult.status || 'sent',
         sentAt: new Date(),
         metadata: { type: 'admin_reschedule_notification', newDeliveryDate: newDeliveryDate.toISOString(), reason: reasonText, whatsappUrl }
       }
