@@ -131,13 +131,15 @@ Electrolux Delivery Team`;
     console.log('[SMS→WhatsApp] Link generated for', finalPhone, ':', whatsappUrl);
     // ──────────────────────────────────────────────────────────────────────────
 
-    // Update delivery with token
+    // Update delivery with token + mark as scheduled + record sms sent time
     await prisma.delivery.update({
       where: { id: deliveryId },
       data: {
         confirmationToken,
         tokenExpiresAt: expiresAt,
-        confirmationStatus: 'pending'
+        confirmationStatus: 'pending',
+        status: 'scheduled',
+        smsSentAt: new Date()
       } as Record<string, unknown>
     });
 
@@ -323,7 +325,8 @@ async function confirmDelivery(token: string, deliveryDateInput: Date | string):
         //   metadata: { deliveryId, type: 'confirmation_received' }
         // });
         // ── Log only (no API call) ───────────────────────────────────────────
-        const _waUrl = buildWhatsAppLink(delivery.phone as string, confirmationMessage);
+        const _normalizedPhone = normalizeUAEPhone(delivery.phone as string) || (delivery.phone as string);
+        const _waUrl = buildWhatsAppLink(_normalizedPhone, confirmationMessage);
         console.log('[SMS→WhatsApp] Post-confirm thank-you link:', _waUrl);
 
         await (prisma as any).smsLog.create({

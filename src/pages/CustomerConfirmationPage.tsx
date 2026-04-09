@@ -88,7 +88,9 @@ const STYLES = `
 `;
 
 interface ConfirmationDelivery extends Delivery {
-  confirmedDate?: string;
+  confirmedDate?: string;           // legacy alias — use confirmedDeliveryDate
+  confirmedDeliveryDate?: string;   // set by backend after customer confirms
+  deliveryNumber?: string;
 }
 
 interface DateFormatResult {
@@ -368,10 +370,10 @@ export default function CustomerConfirmationPage() {
                   </div>
                   <div style={{ flex: 1 }}>
                     <p style={{ fontWeight: 800, fontSize: 16, color: '#15803D' }}>Delivery Already Confirmed</p>
-                    {delivery.confirmedDate && (
+                    {(delivery.confirmedDeliveryDate || delivery.confirmedDate) && (
                       <p style={{ fontSize: 13, color: '#16A34A', marginTop: 4 }}>
                         Scheduled for{' '}
-                        <strong>{new Date(delivery.confirmedDate).toLocaleDateString('en-AE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</strong>
+                        <strong>{new Date((delivery.confirmedDeliveryDate || delivery.confirmedDate)!).toLocaleDateString('en-AE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</strong>
                       </p>
                     )}
                     <button

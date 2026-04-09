@@ -119,7 +119,11 @@ router.get('/confirm-delivery/:token', async (req: Request, res: Response): Prom
         items,
         status: delivery.status,
         confirmedStatus: delivery.confirmationStatus,
-        createdAt: delivery.createdAt
+        createdAt: delivery.createdAt,
+        // Include confirmed delivery date so UI can show "Your delivery is confirmed for <date>"
+        confirmedDeliveryDate: (fullDelivery.confirmedDeliveryDate as string | null) ?? null,
+        goodsMovementDate: (fullDelivery.goodsMovementDate as string | null) ?? null,
+        deliveryNumber: (fullDelivery.deliveryNumber as string | null) ?? null,
       },
       availableDates: slot.availableDates,
       capacityDays: slot.days,           // full per-day detail for UI rendering
