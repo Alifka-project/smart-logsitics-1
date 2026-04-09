@@ -91,6 +91,9 @@ export default function LogisticsTeamPortal() {
   const [loading, setLoading] = useState<boolean>(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   
+  // Per-driver daily capacity: driverId → { used, remaining, max }
+  const [driverCapacity, setDriverCapacity] = useState<Record<string, { used: number; remaining: number; max: number; full: boolean }>>({});
+
   // Control tab state
   const [assigningDelivery, setAssigningDelivery] = useState<string | null>(null);
   const [assignmentMessage, setAssignmentMessage] = useState<AssignmentMessage | null>(null);
@@ -355,6 +358,18 @@ export default function LogisticsTeamPortal() {
 
       setAlerts(newAlerts);
       setLastUpdate(new Date());
+
+      // Load per-driver capacity for today + tomorrow
+      try {
+        const capRes = await api.get('/deliveries/admin/driver-capacity').catch(() => null);
+        if (capRes?.data?.drivers) {
+          const map: Record<string, { used: number; remaining: number; max: number; full: boolean }> = {};
+          for (const d of capRes.data.drivers as Array<{ driverId: string; used: number; remaining: number; max: number; full: boolean }>) {
+            map[d.driverId] = { used: d.used, remaining: d.remaining, max: d.max, full: d.full };
+          }
+          setDriverCapacity(map);
+        }
+      } catch { /* non-critical */ }
     } catch (err: unknown) {
       console.error('Error loading data:', err);
     } finally {
@@ -1035,12 +1050,17 @@ export default function LogisticsTeamPortal() {
                             <td className="px-3 py-2.5 text-gray-600 dark:text-gray-300 whitespace-nowrap">{invoicePrice}</td>
                             <td className="px-3 py-2.5 text-center font-semibold text-gray-800 dark:text-gray-200 whitespace-nowrap">{itemQty}</td>
                             <td className="px-3 py-2.5 text-center text-gray-500 dark:text-gray-400 whitespace-nowrap">{salesUnit}</td>
-                            {/* Driver */}
-                            <td className="px-3 py-2.5" style={{ minWidth: '140px' }}>
+                            {/* Driver + capacity */}
+                            <td className="px-3 py-2.5" style={{ minWidth: '160px' }}>
                               {currentDriver && (
                                 <div className="flex items-center gap-1 mb-1">
                                   <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isOnline ? 'bg-green-500' : 'bg-gray-300'}`} />
                                   <span className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">{currentDriver.fullName || currentDriver.username}</span>
+                                  {driverCapacity[currentDriverId || ''] && (
+                                    <span className={`ml-auto text-[9px] font-bold px-1 py-0.5 rounded ${driverCapacity[currentDriverId || ''].full ? 'bg-red-100 text-red-600' : driverCapacity[currentDriverId || ''].used >= driverCapacity[currentDriverId || ''].max * 0.75 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+                                      {driverCapacity[currentDriverId || ''].used}/{driverCapacity[currentDriverId || ''].max}
+                                    </span>
+                                  )}
                                 </div>
                               )}
                               <select
@@ -1054,17 +1074,27 @@ export default function LogisticsTeamPortal() {
                                     await api.put(`/deliveries/admin/${delivery.id}/assign`, { driverId: newDriverId });
                                     setAssignmentMessage({ type: 'success', text: `✓ Assigned to ${drivers.find(d => d.id === newDriverId)?.fullName || 'driver'}` });
                                     setTimeout(() => { void loadData(); setAssignmentMessage(null); }, 2000);
-                                  } catch {
-                                    setAssignmentMessage({ type: 'error', text: 'Failed to assign delivery' });
+                                  } catch (err: unknown) {
+                                    const apiErr = err as { response?: { data?: { message?: string; remaining?: number } } };
+                                    const errMsg = apiErr?.response?.data?.message || 'Failed to assign delivery';
+                                    setAssignmentMessage({ type: 'error', text: errMsg });
                                   } finally { setAssigningDelivery(null); }
                                 }}
                                 disabled={assigningDelivery === delivery.id}
                                 className="w-full px-2 py-1 border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-[11px] text-gray-700 dark:text-gray-200 disabled:opacity-50"
                               >
                                 <option value="">{currentDriverId ? '— Reassign —' : '— Assign —'}</option>
-                                {drivers.map(driver => (
-                                  <option key={driver.id} value={driver.id}>{driver.fullName || driver.username}</option>
-                                ))}
+                                {drivers.map(driver => {
+                                  const cap = driverCapacity[driver.id];
+                                  const label = cap
+                                    ? `${driver.fullName || driver.username} (${cap.used}/${cap.max} used${cap.full ? ' — FULL' : ''})`
+                                    : (driver.fullName || driver.username);
+                                  return (
+                                    <option key={driver.id} value={driver.id} disabled={cap?.full && driver.id !== currentDriverId}>
+                                      {label}
+                                    </option>
+                                  );
+                                })}
                               </select>
                             </td>
                             {/* Actions */}

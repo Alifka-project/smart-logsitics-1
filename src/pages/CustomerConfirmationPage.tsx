@@ -97,11 +97,21 @@ interface DateFormatResult {
   full: string;
 }
 
+interface CapacityDay {
+  iso: string;
+  available: boolean;
+  used: number;
+  total: number;
+  remaining: number;
+  reason?: string;
+}
+
 export default function CustomerConfirmationPage() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const [delivery, setDelivery] = useState<ConfirmationDelivery | null>(null);
   const [availableDates, setAvailableDates] = useState<string[]>([]);
+  const [capacityDays, setCapacityDays] = useState<CapacityDay[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [confirming, setConfirming] = useState<boolean>(false);
@@ -110,7 +120,7 @@ export default function CustomerConfirmationPage() {
   const [isAlreadyConfirmed, setIsAlreadyConfirmed] = useState<boolean>(false);
   const [agreed, setAgreed] = useState<boolean>(false);
   const [exceedsTruckCapacity, setExceedsTruckCapacity] = useState<boolean>(false);
-  const [truckMaxItems, setTruckMaxItems] = useState<number>(30);
+  const [truckMaxItems, setTruckMaxItems] = useState<number>(20);
 
   useEffect(() => { void fetchDeliveryDetails(); }, [token]);
 
@@ -127,6 +137,7 @@ export default function CustomerConfirmationPage() {
       setDelivery(data.delivery as ConfirmationDelivery);
       const dates = (data.availableDates as string[]) || [];
       setAvailableDates(dates);
+      setCapacityDays((data.capacityDays as CapacityDay[]) || []);
       setIsAlreadyConfirmed((data.isAlreadyConfirmed as boolean) || false);
       setExceedsTruckCapacity(!!(data.exceedsTruckCapacity as boolean));
       if (typeof data.truckMaxItems === 'number') setTruckMaxItems(data.truckMaxItems as number);
@@ -379,42 +390,98 @@ export default function CustomerConfirmationPage() {
                 <div style={{ padding: '14px 18px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Calendar style={{ width: 15, height: 15, color: '#64748b' }} />
                   <h2 style={{ fontWeight: 700, fontSize: 15, color: '#1e293b' }}>Select Delivery Date</h2>
+                  <span style={{ marginLeft: 'auto', fontSize: 11, color: '#64748b', background: '#F1F5F9', padding: '2px 8px', borderRadius: 50, fontWeight: 600 }}>
+                    {truckMaxItems} units / truck
+                  </span>
                 </div>
                 {exceedsTruckCapacity ? (
                   <div style={{ padding: 18 }}>
                     <p style={{ fontSize: 14, color: '#b45309', lineHeight: 1.6, margin: 0 }}>
-                      This order exceeds the standard truck capacity ({truckMaxItems} items per delivery). Please call the Electrolux Delivery Team at{' '}
+                      This order exceeds the standard truck capacity ({truckMaxItems} units per truck). Please call the Electrolux Delivery Team at{' '}
                       <a href="tel:+971524408687" style={{ color: '#003057', fontWeight: 700 }}>+971 52 440 8687</a>
                       {' '}to schedule this shipment.
                     </p>
                   </div>
                 ) : availableDates.length === 0 ? (
                   <div style={{ padding: 18 }}>
-                    <p style={{ fontSize: 14, color: '#64748b', lineHeight: 1.6, margin: 0 }}>
-                      All delivery slots in the next booking window are full ({truckMaxItems} items per truck per day). Please try again later or contact{' '}
-                      <a href="tel:+971524408687" style={{ color: '#003057', fontWeight: 700 }}>+971 52 440 8687</a>.
+                    <p style={{ fontSize: 14, color: '#DC2626', lineHeight: 1.6, margin: '0 0 8px' }}>
+                      All trucks are fully booked for the next 7 days ({truckMaxItems} units per truck per day).
+                    </p>
+                    <p style={{ fontSize: 13, color: '#64748b', lineHeight: 1.6, margin: 0 }}>
+                      Please contact us at{' '}
+                      <a href="tel:+971524408687" style={{ color: '#003057', fontWeight: 700 }}>+971 52 440 8687</a>
+                      {' '}to arrange delivery.
                     </p>
                   </div>
                 ) : (
                 <form onSubmit={(e) => void handleConfirmDelivery(e)} style={{ padding: 18 }}>
                   <p style={{ fontSize: 12, color: '#64748b', marginBottom: 14, lineHeight: 1.5 }}>
-                    Dates shown have space on our trucks (max {truckMaxItems} items per day). Sundays are not available.
+                    Each truck carries up to <strong>{truckMaxItems} units</strong> per day. Sundays &amp; public holidays are not available.
+                    Grayed dates are fully booked — choose an available slot below.
                   </p>
-                  {/* Date pills – 2 columns */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8, marginBottom: 16 }}>
-                    {availableDates.map((date) => {
-                      const { day, date: dateLabel } = formatDateShort(date);
-                      const isSelected = selectedDate === date;
+
+                  {/* Full date grid — shows ALL days including full/blocked */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 8, marginBottom: 16 }}>
+                    {(capacityDays.length > 0 ? capacityDays : availableDates.map(iso => ({ iso, available: true, used: 0, total: truckMaxItems, remaining: truckMaxItems, reason: undefined } as CapacityDay))).map((day) => {
+                      const { day: dayLabel, date: dateLabel } = formatDateShort(day.iso);
+                      const isSelected = selectedDate === day.iso;
+                      const isFull = !day.available;
+                      const reasonLabel = day.reason === 'sunday' ? 'Sunday' : day.reason === 'holiday' ? 'Holiday' : 'Full';
+                      const fillPct = day.total > 0 ? Math.round((day.used / day.total) * 100) : 0;
+
+                      if (isFull) {
+                        return (
+                          <div key={day.iso} style={{
+                            display: 'flex', flexDirection: 'column', gap: 4,
+                            padding: '10px 12px', borderRadius: 14,
+                            border: '1.5px solid #e2e8f0', background: '#F8FAFC',
+                            opacity: 0.6, cursor: 'not-allowed', position: 'relative'
+                          }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <p style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', margin: 0 }}>{dayLabel}</p>
+                              <span style={{ fontSize: 9, fontWeight: 700, background: day.reason === 'full' ? '#FEE2E2' : '#F1F5F9', color: day.reason === 'full' ? '#DC2626' : '#94a3b8', padding: '1px 6px', borderRadius: 20 }}>
+                                {reasonLabel}
+                              </span>
+                            </div>
+                            <p style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', margin: 0 }}>{dateLabel}</p>
+                            {day.reason === 'full' && day.total > 0 && (
+                              <div style={{ marginTop: 4 }}>
+                                <div style={{ height: 4, borderRadius: 4, background: '#fee2e2', overflow: 'hidden' }}>
+                                  <div style={{ height: '100%', width: `${fillPct}%`, background: '#EF4444', borderRadius: 4 }} />
+                                </div>
+                                <p style={{ fontSize: 10, color: '#EF4444', margin: '2px 0 0', fontWeight: 600 }}>{day.used}/{day.total} units</p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+
                       return (
-                        <label key={date} className={`date-pill${isSelected ? ' selected' : ''}`} onClick={() => setSelectedDate(date)}>
-                          <input type="radio" name="delivery-date" value={date} checked={isSelected} onChange={() => setSelectedDate(date)} style={{ display: 'none' }} />
-                          <div style={{ width: 20, height: 20, borderRadius: '50%', border: `2px solid ${isSelected ? '#003057' : '#cbd5e1'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            {isSelected && <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#003057' }} />}
+                        <label key={day.iso} onClick={() => setSelectedDate(day.iso)} style={{
+                          display: 'flex', flexDirection: 'column', gap: 4,
+                          padding: '10px 12px', borderRadius: 14,
+                          border: `2px solid ${isSelected ? '#003057' : '#e2e8f0'}`,
+                          background: isSelected ? 'linear-gradient(135deg,#EFF6FF,#DBEAFE)' : '#fff',
+                          cursor: 'pointer', transition: 'all 0.2s ease'
+                        }}>
+                          <input type="radio" name="delivery-date" value={day.iso} checked={isSelected} onChange={() => setSelectedDate(day.iso)} style={{ display: 'none' }} />
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <p style={{ fontSize: 10, fontWeight: 700, color: isSelected ? '#003057' : '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', margin: 0 }}>{dayLabel}</p>
+                            <div style={{ width: 14, height: 14, borderRadius: '50%', border: `2px solid ${isSelected ? '#003057' : '#cbd5e1'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              {isSelected && <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#003057' }} />}
+                            </div>
                           </div>
-                          <div>
-                            <p style={{ fontSize: 11, fontWeight: 700, color: isSelected ? '#003057' : '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{day}</p>
-                            <p style={{ fontSize: 13, fontWeight: 700, color: isSelected ? '#003057' : '#374151' }}>{dateLabel}</p>
-                          </div>
+                          <p style={{ fontSize: 13, fontWeight: 700, color: isSelected ? '#003057' : '#374151', margin: 0 }}>{dateLabel}</p>
+                          {day.total > 0 && (
+                            <div style={{ marginTop: 4 }}>
+                              <div style={{ height: 4, borderRadius: 4, background: '#e2e8f0', overflow: 'hidden' }}>
+                                <div style={{ height: '100%', width: `${fillPct}%`, background: fillPct > 75 ? '#F59E0B' : '#22C55E', borderRadius: 4, transition: 'width 0.4s ease' }} />
+                              </div>
+                              <p style={{ fontSize: 10, color: '#64748b', margin: '2px 0 0' }}>
+                                <span style={{ fontWeight: 700, color: fillPct > 75 ? '#D97706' : '#16A34A' }}>{day.remaining}</span> / {day.total} units left
+                              </p>
+                            </div>
+                          )}
                         </label>
                       );
                     })}

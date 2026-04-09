@@ -1,6 +1,16 @@
 import { Router, Request, Response } from 'express';
 import { randomUUID } from 'crypto';
-import { assertSlotAvailable, dubaiDayRangeUtc, getDubaiWeekday, getNextSevenEligibleDayIsoStrings } from '../services/deliveryCapacityService';
+import {
+  assertSlotAvailable,
+  dubaiDayRangeUtc,
+  getDubaiWeekday,
+  getDubaiTodayIso,
+  addDubaiCalendarDays,
+  getNextSevenEligibleDayIsoStrings,
+  getDriverItemCountForDate,
+  parseDeliveryItemCount,
+  TRUCK_MAX_ITEMS_PER_DAY
+} from '../services/deliveryCapacityService';
 const router = Router();
 const { authenticate, requireRole, requireAnyRole } = require('../auth');
 const sapService = require('../services/sapService.js');
@@ -1196,10 +1206,43 @@ router.put('/admin/:id/assign', authenticate, requireAnyRole('admin', 'delivery_
     const delivery = await prisma.delivery.findUnique({
       where: { id },
       include: { assignments: true }
-    }) as { id: string; assignments?: unknown[] } | null;
+    }) as {
+      id: string;
+      assignments?: unknown[];
+      items?: string | null;
+      metadata?: Record<string, unknown> | null;
+      confirmedDeliveryDate?: Date | null;
+      assignedDriverId?: string | null;
+    } | null;
 
     if (!delivery) {
       return void res.status(404).json({ error: 'delivery_not_found' });
+    }
+
+    // Per-driver capacity check: 1 driver = 1 truck = max TRUCK_MAX_ITEMS_PER_DAY units per day
+    {
+      const orderItemCount = parseDeliveryItemCount(delivery.items, delivery.metadata);
+      // Use the delivery's confirmed date, or default to tomorrow if not yet confirmed
+      const targetIso = delivery.confirmedDeliveryDate
+        ? new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Dubai',
+            year: 'numeric', month: '2-digit', day: '2-digit'
+          }).format(new Date(delivery.confirmedDeliveryDate))
+        : addDubaiCalendarDays(getDubaiTodayIso(), 1);
+
+      // Exclude this delivery from driver's current count (handles reassignment without double-counting)
+      const driverUsed = await getDriverItemCountForDate(prisma, driverId, targetIso, id);
+
+      if (driverUsed + orderItemCount > TRUCK_MAX_ITEMS_PER_DAY) {
+        return void res.status(400).json({
+          error: 'driver_capacity_exceeded',
+          message: `Driver's truck is full for ${targetIso}: ${driverUsed} units already assigned, this order has ${orderItemCount} units (max ${TRUCK_MAX_ITEMS_PER_DAY} per truck).`,
+          driverUsed,
+          orderItemCount,
+          maxItems: TRUCK_MAX_ITEMS_PER_DAY,
+          remaining: Math.max(0, TRUCK_MAX_ITEMS_PER_DAY - driverUsed)
+        });
+      }
     }
 
     // Soft-close previous active assignments so history is preserved for reporting/audit
@@ -1254,6 +1297,43 @@ router.put('/admin/:id/assign', authenticate, requireAnyRole('admin', 'delivery_
     const e = err as { message?: string };
     console.error('PUT /api/admin/deliveries/:id/assign error:', err);
     res.status(500).json({ error: 'assignment_failed', detail: e.message });
+  }
+});
+
+// GET /api/deliveries/admin/driver-capacity?date=YYYY-MM-DD
+// Returns per-driver capacity for the given date (or tomorrow if omitted).
+// Used by Logistics/Delivery portals to show "N/20 units used" in assignment dropdowns.
+router.get('/admin/driver-capacity', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
+  try {
+    const rawDate = (req.query as { date?: string }).date;
+    let isoDate = rawDate ? String(rawDate).trim().split('T')[0] : null;
+    if (!isoDate || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {
+      isoDate = addDubaiCalendarDays(getDubaiTodayIso(), 1);
+    }
+
+    const allDrivers = await prisma.driver.findMany({
+      where: { active: true, account: { role: 'driver' } },
+      include: { account: { select: { id: true, role: true } } },
+      orderBy: { fullName: 'asc' }
+    }) as Array<{ id: string; fullName: string; email?: string; phone?: string }>;
+
+    const result = await Promise.all(allDrivers.map(async (driver: { id: string; fullName: string; email?: string; phone?: string }) => {
+      const used = await getDriverItemCountForDate(prisma, driver.id, isoDate!);
+      return {
+        driverId: driver.id,
+        driverName: driver.fullName,
+        used,
+        remaining: Math.max(0, TRUCK_MAX_ITEMS_PER_DAY - used),
+        max: TRUCK_MAX_ITEMS_PER_DAY,
+        full: used >= TRUCK_MAX_ITEMS_PER_DAY
+      };
+    }));
+
+    res.json({ ok: true, date: isoDate, truckMax: TRUCK_MAX_ITEMS_PER_DAY, drivers: result });
+  } catch (err: unknown) {
+    const e = err as { message?: string };
+    console.error('GET /admin/driver-capacity error:', err);
+    res.status(500).json({ error: 'capacity_fetch_failed', detail: e.message });
   }
 });
 

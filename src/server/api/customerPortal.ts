@@ -4,7 +4,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { getAvailableDatesForDeliveryId, TRUCK_MAX_ITEMS_PER_DAY } from '../services/deliveryCapacityService';
+import { getDateCapacityDetails, TRUCK_MAX_ITEMS_PER_DAY } from '../services/deliveryCapacityService';
 import { authenticate, requireAnyRole } from '../auth.js';
 
 const router = Router();
@@ -101,7 +101,7 @@ router.get('/confirm-delivery/:token', async (req: Request, res: Response): Prom
         ? (fullDelivery.metadata as Record<string, unknown>)
         : null;
 
-    const slot = await getAvailableDatesForDeliveryId(
+    const slot = await getDateCapacityDetails(
       prisma,
       delivery.id,
       (fullDelivery.items as string | null | undefined) ?? null,
@@ -122,6 +122,7 @@ router.get('/confirm-delivery/:token', async (req: Request, res: Response): Prom
         createdAt: delivery.createdAt
       },
       availableDates: slot.availableDates,
+      capacityDays: slot.days,           // full per-day detail for UI rendering
       orderItemCount: slot.orderItemCount,
       exceedsTruckCapacity: slot.exceedsTruckCapacity,
       truckMaxItems: TRUCK_MAX_ITEMS_PER_DAY,
