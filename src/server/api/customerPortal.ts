@@ -246,7 +246,7 @@ router.get('/tracking/:token', async (req: Request, res: Response): Promise<void
  * Resend confirmation SMS (admin can trigger)
  * Protected endpoint
  */
-router.post('/resend-confirmation/:deliveryId', authenticate, requireAnyRole('admin', 'delivery_team'), async (req: Request, res: Response): Promise<void> => {
+router.post('/resend-confirmation/:deliveryId', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
   try {
     const { deliveryId } = req.params as { deliveryId: string };
 

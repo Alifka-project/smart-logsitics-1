@@ -228,7 +228,7 @@ let dashboardCacheTime = 0;
 const DASHBOARD_CACHE_TTL = 60000;
 
 // GET /api/admin/dashboard
-router.get('/', authenticate, requireAnyRole('admin', 'delivery_team'), async (req: Request, res: Response): Promise<void> => {
+router.get('/', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
   try {
     const now = Date.now();
     const bypassCache = String((req.query as Record<string, unknown>)?.nocache || (req.query as Record<string, unknown>)?.noCache || '').trim() === '1';

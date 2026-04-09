@@ -145,7 +145,7 @@ export interface Driver {
 
 // ─── Auth / User ──────────────────────────────────────────────────────────────
 
-export type UserRole = 'admin' | 'driver' | 'delivery_team' | string;
+export type UserRole = 'admin' | 'driver' | 'delivery_team' | 'logistics_team' | string;
 
 export interface AuthUser {
   id?: string;

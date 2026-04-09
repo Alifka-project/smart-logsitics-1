@@ -26,8 +26,8 @@ const schemaReady: Promise<void> = (async () => {
  */
 router.get('/conversations/:driverId', authenticate, async (req: Request, res: Response): Promise<void> => {
   const userRole = (req.user as AuthUser)?.account?.role || (req.user as AuthUser)?.role;
-  if (userRole !== 'admin' && userRole !== 'delivery_team') {
-    res.status(403).json({ error: 'Forbidden - Admin or Delivery Team access required' }); return;
+  if (userRole !== 'admin' && userRole !== 'delivery_team' && userRole !== 'logistics_team') {
+    res.status(403).json({ error: 'Forbidden - Admin, Delivery Team or Logistics Team access required' }); return;
   }
   try {
     await schemaReady;
@@ -89,7 +89,7 @@ router.get('/conversations/:driverId', authenticate, async (req: Request, res: R
           {
             adminId: driverId,
             driverId: adminId,
-            senderRole: { in: ['admin', 'delivery_team'] },
+            senderRole: { in: ['admin', 'delivery_team', 'logistics_team'] },
             isRead: false
           }
         ]
@@ -114,8 +114,8 @@ router.get('/conversations/:driverId', authenticate, async (req: Request, res: R
  */
 router.get('/unread', authenticate, async (req: Request, res: Response): Promise<void> => {
   const userRole = (req.user as AuthUser)?.account?.role || (req.user as AuthUser)?.role;
-  if (userRole !== 'admin' && userRole !== 'delivery_team') {
-    res.status(403).json({ error: 'Forbidden - Admin or Delivery Team access required' }); return;
+  if (userRole !== 'admin' && userRole !== 'delivery_team' && userRole !== 'logistics_team') {
+    res.status(403).json({ error: 'Forbidden - Admin, Delivery Team or Logistics Team access required' }); return;
   }
   try {
     const adminId = (req.user as AuthUser)?.sub || (req.user as AuthUser & { id?: string })?.id;
@@ -141,7 +141,7 @@ router.get('/unread', authenticate, async (req: Request, res: Response): Promise
           where: {
             driverId: adminId,
             isRead: false,
-            senderRole: { in: ['admin', 'delivery_team'] }
+            senderRole: { in: ['admin', 'delivery_team', 'logistics_team'] }
           },
           _count: { id: true }
         })
@@ -177,8 +177,8 @@ router.get('/unread', authenticate, async (req: Request, res: Response): Promise
  */
 router.post('/send', authenticate, async (req: Request, res: Response): Promise<void> => {
   const userRole = (req.user as AuthUser)?.account?.role || (req.user as AuthUser)?.role;
-  if (userRole !== 'admin' && userRole !== 'delivery_team') {
-    res.status(403).json({ error: 'Forbidden - Admin or Delivery Team access required' }); return;
+  if (userRole !== 'admin' && userRole !== 'delivery_team' && userRole !== 'logistics_team') {
+    res.status(403).json({ error: 'Forbidden - Admin, Delivery Team or Logistics Team access required' }); return;
   }
   try {
     await schemaReady;
@@ -255,7 +255,7 @@ router.get('/contacts', authenticate, async (req: Request, res: Response): Promi
     const cacheKey = `contacts:${userRole}:${currentUserId}`;
 
     const data = await cache.getOrFetch(cacheKey, async () => {
-      if (userRole === 'admin' || userRole === 'delivery_team') {
+      if (userRole === 'admin' || userRole === 'delivery_team' || userRole === 'logistics_team') {
         const drivers = await prisma.driver.findMany({
           where: { account: { role: 'driver' } },
           select: {
@@ -270,7 +270,7 @@ router.get('/contacts', authenticate, async (req: Request, res: Response): Promi
         const teamMembers = await prisma.driver.findMany({
           where: {
             id: { not: currentUserId },
-            account: { role: { in: ['admin', 'delivery_team'] } }
+            account: { role: { in: ['admin', 'delivery_team', 'logistics_team'] } }
           },
           select: {
             id: true,
@@ -284,7 +284,7 @@ router.get('/contacts', authenticate, async (req: Request, res: Response): Promi
         return { contacts: [...teamMembers, ...drivers], drivers, teamMembers };
       } else {
         const contacts = await prisma.driver.findMany({
-          where: { account: { role: { in: ['admin', 'delivery_team'] } } },
+          where: { account: { role: { in: ['admin', 'delivery_team', 'logistics_team'] } } },
           select: {
             id: true,
             fullName: true,
@@ -311,8 +311,8 @@ router.get('/contacts', authenticate, async (req: Request, res: Response): Promi
  */
 router.delete('/conversation/:driverId', authenticate, async (req: Request, res: Response): Promise<void> => {
   const userRole = (req.user as AuthUser)?.account?.role || (req.user as AuthUser)?.role;
-  if (userRole !== 'admin' && userRole !== 'delivery_team') {
-    res.status(403).json({ error: 'Forbidden - Admin or Delivery Team access required' }); return;
+  if (userRole !== 'admin' && userRole !== 'delivery_team' && userRole !== 'logistics_team') {
+    res.status(403).json({ error: 'Forbidden - Admin, Delivery Team or Logistics Team access required' }); return;
   }
   try {
     const driverId = req.params.driverId as string;
@@ -365,8 +365,8 @@ router.post('/driver/send', authenticate, requireRole('driver'), async (req: Req
         include: { account: true }
       });
 
-      if (!recipient || !['admin', 'delivery_team'].includes(recipient.account?.role ?? '')) {
-        res.status(400).json({ error: 'Invalid recipient - must be admin or delivery team member' }); return;
+      if (!recipient || !['admin', 'delivery_team', 'logistics_team'].includes(recipient.account?.role ?? '')) {
+        res.status(400).json({ error: 'Invalid recipient - must be admin, delivery team or logistics team member' }); return;
       }
 
       adminId = recipientId;
@@ -491,7 +491,7 @@ router.get('/driver', authenticate, requireRole('driver'), async (req: Request, 
       where: {
         driverId,
         isRead: false,
-        senderRole: { in: ['admin', 'delivery_team'] }
+        senderRole: { in: ['admin', 'delivery_team', 'logistics_team'] }
       },
       data: { isRead: true }
     });
@@ -563,7 +563,7 @@ router.get('/driver/:contactId', authenticate, requireRole('driver'), async (req
         driverId,
         adminId: contactId,
         isRead: false,
-        senderRole: { in: ['admin', 'delivery_team'] }
+        senderRole: { in: ['admin', 'delivery_team', 'logistics_team'] }
       },
       data: { isRead: true }
     });
@@ -592,7 +592,7 @@ router.get('/driver/notifications/count', authenticate, requireRole('driver'), a
       where: {
         driverId,
         isRead: false,
-        senderRole: { in: ['admin', 'delivery_team'] }
+        senderRole: { in: ['admin', 'delivery_team', 'logistics_team'] }
       }
     });
 

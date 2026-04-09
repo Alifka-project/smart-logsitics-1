@@ -390,7 +390,7 @@ export default function Header({ isAdmin = false }: HeaderProps) {
         } catch { /* ignore */ }
       }
 
-      if (userRole === 'admin') {
+      if (userRole === 'admin' || userRole === 'delivery_team' || userRole === 'logistics_team') {
         try {
           const [ar, or, ur] = await Promise.allSettled([
             api.get<{ notifications?: Array<Record<string,unknown>> }>('/admin/notifications/alerts'),
@@ -422,7 +422,7 @@ export default function Header({ isAdmin = false }: HeaderProps) {
       if (hasLoadedRef.current) {
         const delta = unreadCount - prevMsgUnreadRef.current;
         if (delta > 0) {
-          if ((userRole==='admin'||userRole==='delivery_team') && msgNotifs.length) {
+          if ((userRole==='admin'||userRole==='delivery_team'||userRole==='logistics_team') && msgNotifs.length) {
             const prev = prevMsgNotificationsRef.current;
             msgNotifs.filter(n => { const p=prev.find(x=>x.id===n.id); return !p||(n.count??0)>(p.count||0); })
               .forEach(n => addToast(`Message from ${n.title.match(/from (.+)$/)?.[1]||'someone'}`, 'message', `${n.count} unread message${n.count!==1?'s':''}`, 'Click notification bell', 7000));
@@ -443,7 +443,7 @@ export default function Header({ isAdmin = false }: HeaderProps) {
         const next: Notification[] = [];
         msgNotifs.forEach(n => next.push({ ...n, read: map.get(n.id)?.read ?? false }));
         const newDelIds = new Set<string>();
-        if ((userRole==='admin'||userRole==='delivery_team') && deliveryNotifs.length) {
+        if ((userRole==='admin'||userRole==='delivery_team'||userRole==='logistics_team') && deliveryNotifs.length) {
           deliveryNotifs.forEach(n => { newDelIds.add(n.id); next.push({ ...n, read: map.get(n.id)?.read ?? false }); });
         }
         prev.forEach(i => { if (i.type==='delivery' && !newDelIds.has(i.id)) next.push(i); });
@@ -468,12 +468,14 @@ export default function Header({ isAdmin = false }: HeaderProps) {
     if (n.type==='message') {
       if (role==='admin') navigate(`/admin/operations?tab=communication${n.senderId?`&userId=${n.senderId}`:''}`);
       else if (role==='delivery_team') navigate(`/delivery-team?tab=communication${n.senderId?`&contact=${n.senderId}`:''}`);
+      else if (role==='logistics_team') navigate(`/logistics-team?tab=communication${n.senderId?`&contact=${n.senderId}`:''}`);
       else navigate('/driver?tab=messages');
       setNotifications(prev => prev.filter(x => x.id !== n.id));
       return;
     }
-    if (n.type==='delivery' && (role==='admin'||role==='delivery_team')) {
+    if (n.type==='delivery' && (role==='admin'||role==='delivery_team'||role==='logistics_team')) {
       if (role==='delivery_team') navigate(`/delivery-team?tab=control${deliveryQuery}`);
+      else if (role==='logistics_team') navigate(`/logistics-team?tab=control${deliveryQuery}`);
       else navigate(`/admin?tab=deliveries${deliveryQuery}&viewAll=1`);
       void markRead(n);
       setNotifications(prev => prev.filter(x => x.id !== n.id));
@@ -510,6 +512,7 @@ export default function Header({ isAdmin = false }: HeaderProps) {
     if (type==='delivery') {
       if (role==='admin') navigate(`/admin?tab=deliveries&delivery=${result.id}&viewAll=1`);
       else if (role==='delivery_team') navigate(`/delivery-team?tab=control&delivery=${result.id}`);
+      else if (role==='logistics_team') navigate(`/logistics-team?tab=control&delivery=${result.id}`);
       else navigate('/driver?tab=deliveries');
     } else if (type==='driver') { navigate('/admin/users'); }
   }, [user, navigate]);
@@ -825,7 +828,7 @@ export default function Header({ isAdmin = false }: HeaderProps) {
     );
   }
 
-  const logoTo = user?.role==='delivery_team' ? '/delivery-team' : '/driver';
+  const logoTo = user?.role==='delivery_team' ? '/delivery-team' : user?.role==='logistics_team' ? '/logistics-team' : '/driver';
   return (
     <>
       <header className="fixed inset-x-0 top-0 z-[900] shrink-0" style={{ background:'var(--bg)', paddingTop:'env(safe-area-inset-top, 0px)' }}>

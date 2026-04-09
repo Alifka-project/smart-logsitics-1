@@ -15,7 +15,7 @@ const { summarizeInsight } = require('../services/ai/summarizeInsight');
    ──────────────────────────────────────────────────────────── */
 // Restrict analytics search to admin and delivery_team roles only.
 // Drivers do not have access to aggregate business intelligence data.
-router.post('/search', requireAnyRole('admin', 'delivery_team'), async (req: Request, res: Response): Promise<void> => {
+router.post('/search', requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
   const body = req.body as { query?: string };
   const { query } = body || {};
   const rawQuery = query?.trim() || '';

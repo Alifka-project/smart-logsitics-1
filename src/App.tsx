@@ -15,6 +15,7 @@ const AdminPODReportPage       = lazy(() => import('./pages/AdminPODReportPage')
 const AdminUsersPage           = lazy(() => import('./pages/AdminUsersPage'));
 const DriverPortal             = lazy(() => import('./pages/DriverPortal'));
 const DeliveryTeamPortal       = lazy(() => import('./pages/DeliveryTeamPortal'));
+const LogisticsTeamPortal      = lazy(() => import('./pages/LogisticsTeamPortal'));
 const TrackingPage             = lazy(() => import('./pages/TrackingPage'));
 const CustomerConfirmationPage = lazy(() => import('./pages/CustomerConfirmationPage'));
 const CustomerTrackingPage     = lazy(() => import('./pages/CustomerTrackingPage'));
@@ -79,7 +80,7 @@ function App() {
   );
 }
 
-function AnimatedRoutes({ isAdmin }: { isAdmin: boolean }) {
+function AnimatedRoutes({ isAdmin, clientRole }: { isAdmin: boolean; clientRole?: string }) {
   const location = useLocation();
   return (
     <main className="app-main">
@@ -88,7 +89,7 @@ function AnimatedRoutes({ isAdmin }: { isAdmin: boolean }) {
           <Route path="/deliveries" element={<DeliveryManagementPage />} />
           <Route
             path="/"
-            element={<Navigate to={isAdmin ? '/admin' : '/deliveries'} replace />}
+            element={<Navigate to={isAdmin ? '/admin' : clientRole === 'logistics_team' ? '/logistics-team' : '/deliveries'} replace />}
           />
           <Route path="/map" element={<Navigate to="/deliveries?tab=map" replace />} />
           <Route path="/admin" element={<AdminDashboardPage />} />
@@ -106,6 +107,7 @@ function AnimatedRoutes({ isAdmin }: { isAdmin: boolean }) {
           <Route path="/admin/users" element={<AdminUsersPage />} />
           <Route path="/driver" element={<DriverPortal />} />
           <Route path="/delivery-team" element={<DeliveryTeamPortal />} />
+          <Route path="/logistics-team" element={<LogisticsTeamPortal />} />
         </Routes>
       </div>
     </main>
@@ -129,7 +131,7 @@ function ProtectedLayout() {
         style={{ minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)', paddingTop: '14px' }}
       >
         <Header isAdmin={isAdmin} />
-        <AnimatedRoutes isAdmin={isAdmin} />
+        <AnimatedRoutes isAdmin={isAdmin} clientRole={clientUser?.role} />
       </div>
     </ProtectedRoute>
   );

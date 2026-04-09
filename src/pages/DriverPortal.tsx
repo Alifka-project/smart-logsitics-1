@@ -263,6 +263,10 @@ export default function DriverPortal() {
     const notificationInterval = setInterval(() => {
       if (!document.hidden) void loadNotificationCount();
     }, 60000);
+    // Periodic delivery refresh so newly assigned orders appear without manual reload
+    const deliveryInterval = setInterval(() => {
+      if (!document.hidden) void loadDeliveries();
+    }, 60000);
     // Auto-start GPS when driver logs in – tracking always on
     const t = setTimeout(() => {
       if (navigator.geolocation && !isTrackingRef.current) {
@@ -272,6 +276,7 @@ export default function DriverPortal() {
     return () => {
       cleanup();
       clearInterval(notificationInterval);
+      clearInterval(deliveryInterval);
       clearTimeout(t);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

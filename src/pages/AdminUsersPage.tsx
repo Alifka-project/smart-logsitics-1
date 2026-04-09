@@ -680,6 +680,8 @@ export default function AdminUsersPage(): React.ReactElement {
                                   ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
                                   : log.role === 'delivery_team'
                                   ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                                  : log.role === 'logistics_team'
+                                  ? 'bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300'
                                   : log.role === 'sales_ops'
                                   ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300'
                                   : log.role === 'manager'
@@ -687,6 +689,7 @@ export default function AdminUsersPage(): React.ReactElement {
                                   : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
                               }`}>
                                 {log.role === 'delivery_team' ? 'Delivery Team' :
+                                 log.role === 'logistics_team' ? 'Logistics Team' :
                                  log.role === 'sales_ops' ? 'Sales Ops' :
                                  log.role && log.role.charAt(0).toUpperCase() + log.role.slice(1)}
                               </span>
@@ -767,6 +770,7 @@ export default function AdminUsersPage(): React.ReactElement {
                 <option value="admin">Admin</option>
                 <option value="driver">Driver</option>
                 <option value="delivery_team">Delivery Team</option>
+                <option value="logistics_team">Logistics Team</option>
                 <option value="sales_ops">Sales Ops</option>
                 <option value="manager">Manager</option>
               </select>
@@ -847,14 +851,17 @@ export default function AdminUsersPage(): React.ReactElement {
                                   ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
                                   : user.account?.role === 'delivery_team'
                                   ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                                  : user.account?.role === 'logistics_team'
+                                  ? 'bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300'
                                   : user.account?.role === 'sales_ops'
                                   ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300'
                                   : user.account?.role === 'manager'
                                   ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300'
                                   : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
                               }`}>
-                                {user.account?.role === 'delivery_team' ? 'Delivery Team' : 
-                                 user.account?.role === 'sales_ops' ? 'Sales Ops' : 
+                                {user.account?.role === 'delivery_team' ? 'Delivery Team' :
+                                 user.account?.role === 'logistics_team' ? 'Logistics Team' :
+                                 user.account?.role === 'sales_ops' ? 'Sales Ops' :
                                  (user.account?.role && user.account.role.charAt(0).toUpperCase() + user.account.role.slice(1)) || 'Driver'}
                               </span>
                             </td>
@@ -1080,6 +1087,7 @@ export default function AdminUsersPage(): React.ReactElement {
                           <option value="admin">Admin</option>
                           <option value="driver">Driver</option>
                           <option value="delivery_team">Delivery Team</option>
+                          <option value="logistics_team">Logistics Team</option>
                           <option value="sales_ops">Sales Ops</option>
                           <option value="manager">Manager</option>
                         </select>

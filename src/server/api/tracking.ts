@@ -33,7 +33,7 @@ function isUnrecognizableAddressServer(address: unknown): boolean {
 
 // GET /api/admin/tracking/deliveries - real-time delivery tracking
 // Optimized: uses select instead of include, server-side cache (30s fresh, 2min max)
-router.get('/deliveries', authenticate, requireAnyRole('admin', 'delivery_team'), async (req: Request, res: Response): Promise<void> => {
+router.get('/deliveries', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
   try {
     const data = await cache.getOrFetch('tracking:deliveries:v2', async () => {
       let dbDeliveries: unknown[] = [];
@@ -188,7 +188,7 @@ router.get('/deliveries', authenticate, requireAnyRole('admin', 'delivery_team')
 
 // GET /api/admin/tracking/drivers - real-time driver tracking
 // Optimized: uses select, server-side cache, single combined query
-router.get('/drivers', authenticate, requireAnyRole('admin', 'delivery_team'), async (req: Request, res: Response): Promise<void> => {
+router.get('/drivers', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
   try {
     const ONLINE_WINDOW_MINUTES = 15;
     const data = await cache.getOrFetch('tracking:drivers', async () => {

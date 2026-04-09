@@ -9,7 +9,7 @@ const cache = require('../cache');
 
 // GET /api/admin/drivers - list drivers (with filters)
 // Optimized: cached for 30s, uses select instead of include
-router.get('/', authenticate, requireAnyRole('admin', 'delivery_team'), async (req: Request, res: Response): Promise<void> => {
+router.get('/', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
   try {
     const formattedDrivers = await cache.getOrFetch('drivers:list', async () => {
       const drivers = await prisma.driver.findMany({
@@ -152,7 +152,7 @@ router.post('/', authenticate, requireRole('admin'), async (req: Request, res: R
 
 // GET /api/admin/drivers/:id
 // Allows admin and delivery_team roles to view driver details
-router.get('/:id([0-9a-fA-F-]{36})', authenticate, requireAnyRole('admin', 'delivery_team'), async (req: Request, res: Response): Promise<void> => {
+router.get('/:id([0-9a-fA-F-]{36})', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params as { id: string };
   try {
     type DR = { id: string; username: string; email: string; phone: string; full_name: string; active: boolean };

@@ -341,7 +341,7 @@ router.put('/driver/:id/status', authenticate, requireRole('driver'), async (req
 
 // PUT /api/admin/deliveries/:id/status - Update delivery status in database
 // body: { status, notes, driverSignature, customerSignature, photos, actualTime, customer, address }
-router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_team'), async (req: Request, res: Response): Promise<void> => {
+router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
   const { id: deliveryIdParam } = req.params as { id: string };
   const body = req.body as {
     status?: string;
@@ -504,7 +504,7 @@ router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_
 });
 
 // PUT /admin/:id/contact - Update delivery contact details (address, phone, lat, lng)
-router.put('/admin/:id/contact', authenticate, requireAnyRole('admin', 'delivery_team'), async (req: Request, res: Response): Promise<void> => {
+router.put('/admin/:id/contact', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
   const { id: deliveryIdParam } = req.params as { id: string };
   const { customer, address, phone, lat, lng } = req.body as {
     customer?: string; address?: string; phone?: string; lat?: unknown; lng?: unknown;
@@ -647,7 +647,7 @@ router.get('/debug/check-po-numbers', authenticate, requireRole('admin'), async 
 });
 
 // POST /api/deliveries/upload - Save uploaded delivery data and auto-assign
-router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team'), async (req: Request, res: Response): Promise<void> => {
+router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
   try {
     const { deliveries } = req.body as { deliveries?: Record<string, unknown>[] };
 
@@ -672,7 +672,7 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team'), a
       return void res.status(400).json({ error: 'no_deliveries_provided' });
     }
 
-    const results: Array<{ deliveryId: string; saved: boolean; error?: string; deduplicated?: boolean; outcome?: string }> = [];
+    const results: Array<{ deliveryId: string; saved: boolean; error?: string; deduplicated?: boolean; outcome?: string; gmdUpdated?: boolean }> = [];
     /** IDs of records that were created or updated (included in savedDeliveries response). */
     const deliveryIds: string[] = [];
     /** IDs of records that were skipped (pure duplicate) — returned in response for UI refresh. */
@@ -817,7 +817,7 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team'), a
           }
 
           deliveryIds.push(savedDelivery.id as string);
-          results.push({ deliveryId: savedDelivery.id as string, saved: true, deduplicated: !!existed, outcome: upsertOutcome });
+          results.push({ deliveryId: savedDelivery.id as string, saved: true, deduplicated: !!existed, outcome: upsertOutcome, gmdUpdated: !!gmdUpdated });
         }
       } catch (error: unknown) {
         const e = error as { message?: string };
@@ -827,11 +827,12 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team'), a
     }
 
     // ── Post-processing for deliveries that became Out for Delivery via GMD ──────
-    // When Goods Movement Date is received for the first time (outcome === 'dispatched'),
-    // the same side-effects that happen in the admin status handler must also happen here:
+    // Covers both 'dispatched' (existing record receives GMD for first time) and
+    // 'new' records uploaded WITH a GMD already set — both result in out-for-delivery.
     //   1. Auto-assign a driver (or promote existing assignment to in_progress)
     //   2. Send the customer an "Out for Delivery" SMS notification
-    const dispatchedIds = results.filter(r => r.outcome === 'dispatched' && r.saved).map(r => r.deliveryId);
+    //   3. Create an adminNotification so all portal users see the bell alert
+    const dispatchedIds = results.filter(r => r.saved && (r.outcome === 'dispatched' || (r.outcome === 'new' && r.gmdUpdated))).map(r => r.deliveryId);
 
     if (dispatchedIds.length > 0) {
       // Fetch just the fields needed for assignment + SMS
@@ -894,6 +895,27 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team'), a
             console.warn(`[Deliveries/Upload] SMS notification failed for ${d.id}:`, (smsErr as Error).message);
           }
         }
+
+        // 3. Create an AdminNotification so the bell rings for admin, delivery_team and logistics_team
+        prisma.adminNotification.create({
+          data: {
+            type: 'status_changed',
+            title: 'Out for Delivery — GMD Received',
+            message: `${d.customer || 'Order'} (${d.poNumber ? '#' + d.poNumber : d.id}) dispatched — Goods Movement Date received via upload`,
+            payload: {
+              deliveryId: d.id,
+              customer: d.customer,
+              poNumber: d.poNumber,
+              previousStatus: 'pending',
+              newStatus: 'out-for-delivery',
+              triggeredBy: 'gmd_upload',
+              uploadedBy: req.user?.sub || req.user?.username || 'system'
+            }
+          }
+        }).catch((err: unknown) => {
+          const e = err as { message?: string };
+          console.warn(`[Deliveries/Upload] Failed to create dispatch notification for ${d.id}:`, e.message);
+        });
       }
     }
 
@@ -903,7 +925,7 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team'), a
       driverId: null as string | null,
       driverName: null as string | null,
       assignmentError: null as string | null,
-      assignmentPendingCustomerConfirm: result.outcome !== 'dispatched'
+      assignmentPendingCustomerConfirm: !dispatchedIds.includes(result.deliveryId)
     }));
 
     // Invalidate caches after bulk upload
@@ -1147,7 +1169,7 @@ router.get('/', authenticate, async (req: Request, res: Response): Promise<void>
 });
 
 // PUT /api/admin/deliveries/:id/assign - Assign delivery to driver (admin + delivery_team)
-router.put('/admin/:id/assign', authenticate, requireAnyRole('admin', 'delivery_team'), async (req: Request, res: Response): Promise<void> => {
+router.put('/admin/:id/assign', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params as { id: string };
     const { driverId } = req.body as { driverId?: string };
@@ -1555,7 +1577,7 @@ router.get('/:id/pod', authenticate, async (req: Request, res: Response): Promis
 // PUT /api/admin/deliveries/:id/reschedule
 // Admin-initiated reschedule: validates new date capacity, re-assigns driver, notifies customer.
 // Status is set to scheduled-confirmed (not terminal) so the order stays visible and dispatchable.
-router.put('/admin/:id/reschedule', authenticate, requireAnyRole('admin', 'delivery_team'), async (req: Request, res: Response): Promise<void> => {
+router.put('/admin/:id/reschedule', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
   const { id: deliveryId } = req.params as { id: string };
   const { newDeliveryDate, reason } = req.body as { newDeliveryDate?: string; reason?: string };
 

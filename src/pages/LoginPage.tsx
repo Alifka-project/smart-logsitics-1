@@ -40,6 +40,7 @@ export default function LoginPage() {
             const destination =
               user?.role === 'admin' ? '/admin' :
               user?.role === 'delivery_team' ? '/delivery-team' :
+              user?.role === 'logistics_team' ? '/logistics-team' :
               '/driver';
             void navigate(destination, { replace: true });
           }
@@ -89,6 +90,8 @@ export default function LoginPage() {
         window.location.href = '/admin';
       } else if (driver?.['role'] === 'delivery_team') {
         window.location.href = '/delivery-team';
+      } else if (driver?.['role'] === 'logistics_team') {
+        window.location.href = '/logistics-team';
       } else {
         window.location.href = '/driver';
       }

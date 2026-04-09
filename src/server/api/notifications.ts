@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { authenticate, requireRole } from '../auth.js';
+import { authenticate, requireRole, requireAnyRole } from '../auth.js';
 import prisma from '../db/prisma.js';
 
 const router = Router();
@@ -11,9 +11,9 @@ const router = Router();
 /**
  * GET /api/admin/notifications/alerts
  * Returns recent unread AdminNotification records (driver_arrived, status_changed, overdue).
- * Admin only.
+ * Admin, Delivery Team and Logistics Team.
  */
-router.get('/alerts', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+router.get('/alerts', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
   try {
     const notifications = await (prisma as any).adminNotification.findMany({
       where: { isRead: false },
@@ -39,9 +39,9 @@ router.get('/alerts', authenticate, requireRole('admin'), async (req: Request, r
 /**
  * GET /api/admin/notifications/alerts/count
  * Badge count of unread AdminNotification records.
- * Admin only.
+ * Admin, Delivery Team and Logistics Team.
  */
-router.get('/alerts/count', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+router.get('/alerts/count', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
   try {
     const count = await (prisma as any).adminNotification.count({ where: { isRead: false } });
     res.json({ ok: true, count });
@@ -58,9 +58,9 @@ router.get('/alerts/count', authenticate, requireRole('admin'), async (req: Requ
 /**
  * PUT /api/admin/notifications/alerts/:id/read
  * Mark a single AdminNotification as read.
- * Admin only.
+ * Admin, Delivery Team and Logistics Team.
  */
-router.put('/alerts/:id/read', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+router.put('/alerts/:id/read', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
   try {
     const idStr = req.params.id as string;
     if (!idStr || !/^\d+$/.test(idStr)) { res.status(400).json({ error: 'invalid_id' }); return; }
@@ -87,7 +87,7 @@ router.put('/alerts/:id/read', authenticate, requireRole('admin'), async (req: R
  * Mark all unread AdminNotifications as read.
  * Admin only.
  */
-router.post('/alerts/mark-all-read', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+router.post('/alerts/mark-all-read', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
   try {
     const result = await (prisma as any).adminNotification.updateMany({
       where: { isRead: false },
@@ -113,7 +113,7 @@ router.post('/alerts/mark-all-read', authenticate, requireRole('admin'), async (
  * Returns deliveries that have been active (not delivered/cancelled) for more than 24 hours.
  * Admin only.
  */
-router.get('/overdue-deliveries', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+router.get('/overdue-deliveries', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
   try {
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
@@ -171,7 +171,7 @@ router.get('/overdue-deliveries', authenticate, requireRole('admin'), async (req
  * Returns combined count: overdue deliveries + unconfirmed SMS deliveries.
  * Admin only.
  */
-router.get('/overdue-count', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+router.get('/overdue-count', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
   try {
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
@@ -206,7 +206,7 @@ router.get('/overdue-count', authenticate, requireRole('admin'), async (req: Req
  * Returns deliveries with SMS sent but not confirmed within 24 hours
  * Admin only - for notification system
  */
-router.get('/unconfirmed-deliveries', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+router.get('/unconfirmed-deliveries', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
   try {
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
@@ -268,7 +268,7 @@ router.get('/unconfirmed-deliveries', authenticate, requireRole('admin'), async 
  * Returns count of unconfirmed deliveries for badge display
  * Admin only
  */
-router.get('/count', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+router.get('/count', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
   try {
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
@@ -294,7 +294,7 @@ router.get('/count', authenticate, requireRole('admin'), async (req: Request, re
  * Resend SMS confirmation to customer
  * Admin only
  */
-router.post('/resend-sms/:deliveryId', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+router.post('/resend-sms/:deliveryId', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
   try {
     const deliveryId = req.params.deliveryId as string;
 
