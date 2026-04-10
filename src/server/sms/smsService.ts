@@ -16,9 +16,7 @@ import {
 } from './customerMessageTemplates';
 import {
   assertSlotAvailable,
-  dubaiDayRangeUtc,
-  getAvailableDatesForDeliveryId,
-  TRUCK_MAX_ITEMS_PER_DAY
+  dubaiDayRangeUtc
 } from '../services/deliveryCapacityService';
 
 const cache = require('../cache');
@@ -476,18 +474,14 @@ interface CustomerTrackingResult {
     rescheduledAt: string | null;
     lat: unknown;
     lng: unknown;
+    deliveryNumber: string | null;
+    originalDeliveryNumber: string | null;
   };
   tracking: {
     assignment: unknown;
     driverLocation: unknown;
     events: unknown[];
     eta: unknown;
-  };
-  scheduling?: {
-    availableDates: string[];
-    orderItemCount: number;
-    exceedsTruckCapacity: boolean;
-    truckMaxItems: number;
   };
 }
 
@@ -536,12 +530,15 @@ async function getCustomerTracking(token: string): Promise<CustomerTrackingResul
       ? delivery.metadata as Record<string, unknown>
       : {};
 
-    const slot = await getAvailableDatesForDeliveryId(
-      prisma,
-      delivery.id as string,
-      delivery.items as string | null | undefined,
-      meta
-    );
+    const originalFromMeta =
+      typeof meta.originalDeliveryNumber === 'string' && meta.originalDeliveryNumber.trim()
+        ? meta.originalDeliveryNumber.trim()
+        : null;
+    const deliveryNumberCol =
+      typeof (delivery as Record<string, unknown>).deliveryNumber === 'string' &&
+      String((delivery as Record<string, unknown>).deliveryNumber).trim()
+        ? String((delivery as Record<string, unknown>).deliveryNumber).trim()
+        : null;
 
     return {
       delivery: {
@@ -555,19 +552,15 @@ async function getCustomerTracking(token: string): Promise<CustomerTrackingResul
         rescheduleReason: (meta.rescheduleReason as string | null) ?? null,
         rescheduledAt: (meta.rescheduledAt as string | null) ?? null,
         lat: delivery.lat,
-        lng: delivery.lng
+        lng: delivery.lng,
+        deliveryNumber: deliveryNumberCol,
+        originalDeliveryNumber: originalFromMeta
       },
       tracking: {
         assignment,
         driverLocation,
         events,
         eta: (assignment as Record<string, unknown> | null)?.eta
-      },
-      scheduling: {
-        availableDates: slot.availableDates,
-        orderItemCount: slot.orderItemCount,
-        exceedsTruckCapacity: slot.exceedsTruckCapacity,
-        truckMaxItems: TRUCK_MAX_ITEMS_PER_DAY
       }
     };
   } catch (error: unknown) {

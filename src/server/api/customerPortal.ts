@@ -6,6 +6,7 @@
 import { Router, Request, Response } from 'express';
 import { getDateCapacityDetails, TRUCK_MAX_ITEMS_PER_DAY } from '../services/deliveryCapacityService';
 import { authenticate, requireAnyRole } from '../auth.js';
+import { fetchDrivingRouteBetweenPoints } from '../services/drivingRouteService.js';
 
 const router = Router();
 const smsService = require('../sms/smsService');
@@ -186,12 +187,6 @@ router.get('/tracking/:token', async (req: Request, res: Response): Promise<void
           recordedAt: string;
         };
       };
-      scheduling?: {
-        availableDates: string[];
-        orderItemCount: number;
-        exceedsTruckCapacity: boolean;
-        truckMaxItems: number;
-      } | null;
     };
 
     // Parse items if it's a JSON string
@@ -234,12 +229,64 @@ router.get('/tracking/:token', async (req: Request, res: Response): Promise<void
           recordedAt: tracking.tracking.driverLocation.recordedAt
         } : null
       },
-      scheduling: tracking.scheduling ?? null,
       timeline
     });
   } catch (error: unknown) {
     const e = error as { message?: string };
     console.error('GET /tracking error:', error);
+    return void res.status(500).json({
+      error: 'server_error',
+      message: e.message
+    });
+  }
+});
+
+/**
+ * GET /api/customer/driving-route/:token
+ * Road-following polyline for live map (token must match tracking link).
+ */
+router.get('/driving-route/:token', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { token } = req.params as { token: string };
+    const q = req.query as Record<string, string | undefined>;
+    const fromLat = Number(q.fromLat);
+    const fromLng = Number(q.fromLng);
+    const toLat = Number(q.toLat);
+    const toLng = Number(q.toLng);
+
+    if (!token) {
+      return void res.status(400).json({ error: 'token_required' });
+    }
+
+    const validation = await smsService.validateConfirmationToken(token);
+    if (!validation.isValid) {
+      return void res.status(400).json({
+        error: 'invalid_token',
+        message: validation.error
+      });
+    }
+
+    if (![fromLat, fromLng, toLat, toLng].every((n) => Number.isFinite(n))) {
+      return void res.status(400).json({ error: 'invalid_coordinates' });
+    }
+
+    const route = await fetchDrivingRouteBetweenPoints(
+      { lat: fromLat, lng: fromLng },
+      { lat: toLat, lng: toLng },
+    );
+
+    if (!route?.coordinates?.length) {
+      return void res.status(502).json({ error: 'routing_unavailable' });
+    }
+
+    return void res.json({
+      ok: true,
+      coordinates: route.coordinates,
+      source: route.source,
+    });
+  } catch (error: unknown) {
+    const e = error as { message?: string };
+    console.error('GET /driving-route error:', error);
     return void res.status(500).json({
       error: 'server_error',
       message: e.message

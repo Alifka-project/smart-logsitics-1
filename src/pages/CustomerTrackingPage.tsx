@@ -87,6 +87,23 @@ const STYLES = `
   .btn-refresh.spinning svg { animation: spin 1s linear infinite; }
   @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
+  .driver-actions {
+    display: flex; gap: 8px; margin-top: 8px;
+  }
+  .btn-driver-action {
+    flex: 1;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 7px 8px; border-radius: 10px; font-size: 11px; font-weight: 700;
+    text-decoration: none; border: 1px solid #e2e8f0; background: #f8fafc; color: #0f172a;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  .btn-driver-action:hover { background: #f0f7ff; border-color: #00305733; }
+  .btn-driver-action--primary {
+    background: linear-gradient(135deg, #003057 0%, #0056a3 100%);
+    color: #fff; border-color: transparent;
+  }
+  .btn-driver-action--primary:hover { filter: brightness(1.05); }
+
   .step-line-fill {
     width: 2px; background: #003057;
     animation: progressLine 0.7s ease both;
@@ -164,20 +181,14 @@ interface TrackingDelivery extends Delivery {
   confirmedDeliveryDate?: string;
   rescheduleReason?: string | null;
   rescheduledAt?: string | null;
-}
-
-interface SchedulingInfo {
-  availableDates: string[];
-  orderItemCount: number;
-  exceedsTruckCapacity: boolean;
-  truckMaxItems: number;
+  deliveryNumber?: string | null;
+  originalDeliveryNumber?: string | null;
 }
 
 interface TrackingData {
   delivery: TrackingDelivery;
   tracking: TrackingInfoResponse;
   timeline?: TrackingEvent[];
-  scheduling?: SchedulingInfo | null;
 }
 
 // ── Timeline steps ───────────────────────────────────────────────────────────
@@ -212,6 +223,21 @@ function getStepTimestamp(step: TimelineStep, timeline: TrackingEvent[] | undefi
   return null;
 }
 
+function displayDeliveryNumberForCustomer(d: TrackingDelivery): string | null {
+  const fromFile = d.originalDeliveryNumber?.trim();
+  const col = d.deliveryNumber?.trim();
+  if (fromFile) return fromFile;
+  if (col) return col;
+  return null;
+}
+
+function whatsAppLinkForPhone(phone: string | undefined): string | null {
+  if (!phone?.trim()) return null;
+  const digits = phone.replace(/\D/g, '');
+  if (!digits) return null;
+  return `https://wa.me/${digits}`;
+}
+
 // ── Status hero config (top card) ────────────────────────────────────────────
 const STATUS_HERO: Record<number, StatusHero> = {
   0: {
@@ -233,7 +259,7 @@ const STATUS_HERO: Record<number, StatusHero> = {
   2: {
     bg: '#FFFFFF',
     color: '#C2410C',
-    label: 'In transit',
+    label: 'On route',
     icon: Truck,
     title: 'Out for delivery',
     subtitle: 'Your driver is heading to your address.',
@@ -289,6 +315,7 @@ export default function CustomerTrackingPage() {
   const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [routePolyline, setRoutePolyline] = useState<[number, number][] | null>(null);
 
   const fetchTracking = useCallback(async (manual = false): Promise<void> => {
     try {
@@ -319,6 +346,45 @@ export default function CustomerTrackingPage() {
     }
   }, [token, autoRefresh, fetchTracking]);
 
+  useEffect(() => {
+    if (!token || !tracking?.delivery || !tracking.tracking) {
+      setRoutePolyline(null);
+      return;
+    }
+    const d = tracking.delivery;
+    const loc = tracking.tracking.driverLocation;
+    if (!d.lat || !d.lng || loc?.latitude == null || loc?.longitude == null) {
+      setRoutePolyline(null);
+      return;
+    }
+    const ac = new AbortController();
+    void (async () => {
+      try {
+        const params = new URLSearchParams({
+          fromLat: String(loc.latitude),
+          fromLng: String(loc.longitude),
+          toLat: String(d.lat),
+          toLng: String(d.lng),
+        });
+        const res = await fetch(
+          `/api/customer/driving-route/${encodeURIComponent(token)}?${params}`,
+          { signal: ac.signal },
+        );
+        const data = (await res.json()) as { coordinates?: [number, number][] };
+        if (res.ok && Array.isArray(data.coordinates) && data.coordinates.length >= 2) {
+          setRoutePolyline(data.coordinates);
+        } else {
+          setRoutePolyline(null);
+        }
+      } catch (e) {
+        if ((e as { name?: string }).name !== 'AbortError') {
+          setRoutePolyline(null);
+        }
+      }
+    })();
+    return () => ac.abort();
+  }, [token, tracking]);
+
   if (loading) return <Skeleton />;
 
   if (error && !tracking) return (
@@ -339,9 +405,10 @@ export default function CustomerTrackingPage() {
 
   if (!tracking) return null;
 
-  const { delivery, tracking: trackingInfo, timeline, scheduling } = tracking;
+  const { delivery, tracking: trackingInfo, timeline } = tracking;
   const currentStep = resolveCurrentStep(delivery.status, timeline);
   const hero = STATUS_HERO[currentStep] || STATUS_HERO[0];
+  const customerDeliveryNo = displayDeliveryNumberForCustomer(delivery);
 
   const mapCenter: [number, number] = delivery.lat && delivery.lng
     ? [delivery.lat, delivery.lng]
@@ -349,9 +416,20 @@ export default function CustomerTrackingPage() {
       ? [trackingInfo.driverLocation.latitude, trackingInfo.driverLocation.longitude]
       : [25.2048, 55.2708]);
 
-  const coordinates: [number, number][] = [];
-  if (delivery.lat && delivery.lng) coordinates.push([delivery.lat, delivery.lng]);
-  if (trackingInfo.driverLocation) coordinates.push([trackingInfo.driverLocation.latitude, trackingInfo.driverLocation.longitude]);
+  const straightFallback: [number, number][] = [];
+  if (delivery.lat && delivery.lng) straightFallback.push([delivery.lat, delivery.lng]);
+  if (trackingInfo.driverLocation) {
+    straightFallback.push([
+      trackingInfo.driverLocation.latitude,
+      trackingInfo.driverLocation.longitude,
+    ]);
+  }
+  const mapLinePositions: [number, number][] =
+    routePolyline && routePolyline.length >= 2
+      ? routePolyline
+      : straightFallback.length === 2
+        ? straightFallback
+        : [];
 
   const rawItems = delivery.items as unknown;
   const items: Array<string | Record<string, unknown>> = Array.isArray(rawItems)
@@ -424,33 +502,6 @@ export default function CustomerTrackingPage() {
             </div>
           </div>
         </div>
-
-        {/* ── Delivery slot availability (live from routing capacity) ─ */}
-        {scheduling && (
-          <div className="card anim-card anim-card-2" style={{ padding: '14px 18px', marginBottom: 12, border: '1px solid #e2e8f0' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <Calendar style={{ width: 16, height: 16, color: '#003057' }} />
-              <span style={{ fontWeight: 700, fontSize: 14, color: '#1e293b' }}>Delivery capacity</span>
-            </div>
-            {scheduling.exceedsTruckCapacity ? (
-              <p style={{ fontSize: 13, color: '#b45309', margin: 0 }}>
-                This order ({scheduling.orderItemCount} pcs) is larger than one truck load ({scheduling.truckMaxItems} pcs max). Please contact the Electrolux Delivery Team for special handling.
-              </p>
-            ) : scheduling.availableDates.length === 0 ? (
-              <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>
-                All delivery slots in the next booking window are currently full ({scheduling.truckMaxItems} pcs per truck per day). Our team may contact you to arrange the next available date.
-              </p>
-            ) : (
-              <p style={{ fontSize: 13, color: '#64748b', margin: 0, lineHeight: 1.5 }}>
-                <span style={{ fontWeight: 600, color: '#334155' }}>Next dates with available truck space: </span>
-                {scheduling.availableDates.map(d => new Date(d + 'T12:00:00+04:00').toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short' })).join(' · ')}
-                <span style={{ display: 'block', marginTop: 6, fontSize: 12, color: '#94a3b8' }}>
-                  Orders are planned up to {scheduling.truckMaxItems} pieces per truck per day (Sundays excluded from booking).
-                </span>
-              </p>
-            )}
-          </div>
-        )}
 
         {/* ── Rescheduled Banner ───────────────────────────────────── */}
         {(delivery.status === 'rescheduled' || delivery.rescheduledAt) && (
@@ -554,40 +605,60 @@ export default function CustomerTrackingPage() {
           </div>
         </div>
 
-        {/* ── Delivery Date + Driver ───────────────────────────────── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 12 }}>
+        {/* ── Delivery Date + Driver (compact) ─────────────────────── */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 12 }}>
           {delivery.confirmedDeliveryDate && (
-            <div className="card anim-card anim-card-3" style={{ padding: 16 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
-                <Clock style={{ width: 18, height: 18, color: '#003057' }} />
+            <div className="card anim-card anim-card-3" style={{ padding: '10px 12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Clock style={{ width: 14, height: 14, color: '#003057' }} />
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Delivery date</p>
+                  <p style={{ fontWeight: 700, fontSize: 12, color: '#1e293b', lineHeight: 1.25 }}>
+                    {new Date(delivery.confirmedDeliveryDate).toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                  </p>
+                </div>
               </div>
-              <p style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>Delivery Date</p>
-              <p style={{ fontWeight: 700, fontSize: 13, color: '#1e293b' }}>
-                {new Date(delivery.confirmedDeliveryDate).toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
-              </p>
             </div>
           )}
 
           {trackingInfo.driver ? (
-            <div className="card anim-card anim-card-3" style={{ padding: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,#003057,#0056a3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 14 }}>
+            <div className="card anim-card anim-card-3" style={{ padding: '10px 12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg,#003057,#0056a3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>
                   {(trackingInfo.driver.name || 'D').charAt(0).toUpperCase()}
                 </div>
-                {trackingInfo.driver.phone && (
-                  <a href={`tel:${trackingInfo.driver.phone}`} className="btn-call">
-                    <Phone style={{ width: 16, height: 16 }} />
-                  </a>
-                )}
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <p style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Driver</p>
+                  <p style={{ fontWeight: 700, fontSize: 12, color: '#1e293b', lineHeight: 1.25 }}>{trackingInfo.driver.name}</p>
+                </div>
               </div>
-              <p style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>Driver</p>
-              <p style={{ fontWeight: 700, fontSize: 13, color: '#1e293b' }}>{trackingInfo.driver.name}</p>
+              {trackingInfo.driver.phone && (
+                <div className="driver-actions">
+                  <a href={`tel:${trackingInfo.driver.phone}`} className="btn-driver-action btn-driver-action--primary">
+                    <Phone style={{ width: 13, height: 13 }} />
+                    Call
+                  </a>
+                  {whatsAppLinkForPhone(trackingInfo.driver.phone) && (
+                    <a
+                      href={whatsAppLinkForPhone(trackingInfo.driver.phone)!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-driver-action"
+                    >
+                      <MessageSquare style={{ width: 13, height: 13, color: '#25D366' }} />
+                      WhatsApp
+                    </a>
+                  )}
+                </div>
+              )}
             </div>
-          ) : !delivery.confirmedDeliveryDate ? null : (
-            <div className="card anim-card anim-card-3" style={{ padding: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <p style={{ fontSize: 12, color: '#94a3b8', textAlign: 'center' }}>Driver not yet assigned</p>
+          ) : delivery.confirmedDeliveryDate ? (
+            <div className="card anim-card anim-card-3" style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <p style={{ fontSize: 11, color: '#94a3b8', textAlign: 'center' }}>Driver not yet assigned</p>
             </div>
-          )}
+          ) : null}
         </div>
 
         {/* ── Map ─────────────────────────────────────────────────── */}
@@ -616,7 +687,9 @@ export default function CustomerTrackingPage() {
                     <Popup><strong>Driver Location</strong><br />{trackingInfo.driver?.name}</Popup>
                   </Marker>
                 )}
-                {coordinates.length === 2 && <Polyline positions={coordinates} color="#003057" weight={3} opacity={0.7} />}
+                {mapLinePositions.length >= 2 && (
+                  <Polyline positions={mapLinePositions} color="#003057" weight={4} opacity={0.78} />
+                )}
               </MapContainer>
             </div>
           </div>
@@ -626,18 +699,23 @@ export default function CustomerTrackingPage() {
         <div className="card anim-card anim-card-5" style={{ padding: 20, marginBottom: 12 }}>
           <h3 style={{ fontWeight: 700, fontSize: 15, color: '#1e293b', marginBottom: 14 }}>Order Information</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {(delivery.poNumber || delivery.id) && (
+            {(delivery.poNumber || customerDeliveryNo) && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ width: 34, height: 34, borderRadius: 10, background: '#F0F7FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <Package style={{ width: 15, height: 15, color: '#003057' }} />
                 </div>
                 <div>
-                  <p style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>PO Number</p>
                   {delivery.poNumber && (
-                    <p style={{ fontSize: 13, fontWeight: 700, color: '#1e293b', marginTop: 2 }}>PO: {delivery.poNumber}</p>
+                    <>
+                      <p style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>PO number</p>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: '#1e293b', marginTop: 2 }}>PO: {delivery.poNumber}</p>
+                    </>
                   )}
-                  {delivery.id && (
-                    <p style={{ fontSize: 12, fontWeight: 500, color: '#64748b' }}>Delivery No: #{String(delivery.id).slice(0, 8)}</p>
+                  {customerDeliveryNo && (
+                    <>
+                      <p style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: delivery.poNumber ? 10 : 0 }}>Delivery number</p>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: '#1e293b', marginTop: 2 }}>{customerDeliveryNo}</p>
+                    </>
                   )}
                 </div>
               </div>
