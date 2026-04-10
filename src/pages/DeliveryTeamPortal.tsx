@@ -101,8 +101,26 @@ export default function DeliveryTeamPortal() {
   const [loading, setLoading] = useState<boolean>(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   
-  // Per-driver daily capacity: driverId → { used, remaining, max }
-  const [driverCapacity, setDriverCapacity] = useState<Record<string, { used: number; remaining: number; max: number; full: boolean }>>({});
+  // Per-driver daily capacity by date: ISO date -> driverId -> capacity
+  const [driverCapacityByDate, setDriverCapacityByDate] = useState<Record<string, Record<string, { used: number; remaining: number; max: number; full: boolean }>>>({});
+  const fallbackCapacityDateIso = useMemo(() => {
+    const nowDubai = new Date(Date.now() + 4 * 60 * 60 * 1000);
+    nowDubai.setUTCDate(nowDubai.getUTCDate() + 1);
+    return nowDubai.toISOString().slice(0, 10);
+  }, []);
+  const getCapacityDateIso = useCallback((d: Delivery): string => {
+    const raw = (d as unknown as { confirmedDeliveryDate?: string | null }).confirmedDeliveryDate;
+    if (!raw) return fallbackCapacityDateIso;
+    const t = Date.parse(String(raw));
+    if (!Number.isFinite(t)) return fallbackCapacityDateIso;
+    const dubaiMs = t + 4 * 60 * 60 * 1000;
+    return new Date(dubaiMs).toISOString().slice(0, 10);
+  }, [fallbackCapacityDateIso]);
+  const getDriverCapacity = useCallback((d: Delivery, driverId: string | undefined): { used: number; remaining: number; max: number; full: boolean } | undefined => {
+    if (!driverId) return undefined;
+    const iso = getCapacityDateIso(d);
+    return driverCapacityByDate[iso]?.[driverId];
+  }, [driverCapacityByDate, getCapacityDateIso]);
 
   // Control tab state
   const [assigningDelivery, setAssigningDelivery] = useState<string | null>(null);
@@ -425,16 +443,23 @@ export default function DeliveryTeamPortal() {
       setAlerts(newAlerts);
       setLastUpdate(new Date());
 
-      // Load per-driver capacity (non-critical)
+      // Load per-driver capacity per delivery date visible in table (non-critical)
       try {
-        const capRes = await api.get('/deliveries/admin/driver-capacity').catch(() => null);
-        if (capRes?.data?.drivers) {
+        const dateSet = new Set<string>();
+        for (const d of allDeliveries) dateSet.add(getCapacityDateIso(d));
+        if (dateSet.size === 0) dateSet.add(fallbackCapacityDateIso);
+
+        const capByDate: Record<string, Record<string, { used: number; remaining: number; max: number; full: boolean }>> = {};
+        await Promise.all([...dateSet].map(async (iso) => {
+          const capRes = await api.get('/deliveries/admin/driver-capacity', { params: { date: iso } }).catch(() => null);
+          if (!capRes?.data?.drivers) return;
           const map: Record<string, { used: number; remaining: number; max: number; full: boolean }> = {};
-          for (const d of capRes.data.drivers as Array<{ driverId: string; used: number; remaining: number; max: number; full: boolean }>) {
-            map[d.driverId] = { used: d.used, remaining: d.remaining, max: d.max, full: d.full };
+          for (const row of capRes.data.drivers as Array<{ driverId: string; used: number; remaining: number; max: number; full: boolean }>) {
+            map[row.driverId] = { used: row.used, remaining: row.remaining, max: row.max, full: row.full };
           }
-          setDriverCapacity(map);
-        }
+          capByDate[iso] = map;
+        }));
+        setDriverCapacityByDate(capByDate);
       } catch { /* non-critical */ }
     } catch (err: unknown) {
       console.error('Error loading data:', err);
@@ -1217,9 +1242,9 @@ export default function DeliveryTeamPortal() {
                                 <div className="flex items-center gap-1 mb-1">
                                   <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isOnline ? 'bg-green-500' : 'bg-gray-300'}`} />
                                   <span className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">{currentDriver.fullName || currentDriver.username}</span>
-                                  {driverCapacity[currentDriverId || ''] && (
-                                    <span className={`ml-auto text-[9px] font-bold px-1 py-0.5 rounded ${driverCapacity[currentDriverId || ''].full ? 'bg-red-100 text-red-600' : driverCapacity[currentDriverId || ''].used >= driverCapacity[currentDriverId || ''].max * 0.75 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
-                                      {driverCapacity[currentDriverId || ''].used}/{driverCapacity[currentDriverId || ''].max}
+                                  {getDriverCapacity(delivery, currentDriverId || undefined) && (
+                                    <span className={`ml-auto text-[9px] font-bold px-1 py-0.5 rounded ${getDriverCapacity(delivery, currentDriverId || undefined)!.full ? 'bg-red-100 text-red-600' : getDriverCapacity(delivery, currentDriverId || undefined)!.used >= getDriverCapacity(delivery, currentDriverId || undefined)!.max * 0.75 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+                                      {getDriverCapacity(delivery, currentDriverId || undefined)!.used}/{getDriverCapacity(delivery, currentDriverId || undefined)!.max}
                                     </span>
                                   )}
                                 </div>
@@ -1246,7 +1271,7 @@ export default function DeliveryTeamPortal() {
                               >
                                 <option value="">{currentDriverId ? '— Reassign —' : '— Assign —'}</option>
                                 {drivers.map(driver => {
-                                  const cap = driverCapacity[driver.id];
+                                  const cap = getDriverCapacity(delivery, driver.id);
                                   const label = cap
                                     ? `${driver.fullName || driver.username} (${cap.used}/${cap.max}${cap.full ? ' — FULL' : ''})`
                                     : (driver.fullName || driver.username);
