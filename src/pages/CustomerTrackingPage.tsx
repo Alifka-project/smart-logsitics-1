@@ -441,16 +441,16 @@ export default function CustomerTrackingPage() {
       <style>{STYLES}</style>
 
       {/* ── Header ──────────────────────────────────────────────────── */}
-      <div style={{ background: 'linear-gradient(135deg, #003057 0%, #005082 100%)', padding: '18px 16px 28px' }}>
+      <div style={{ background: 'linear-gradient(135deg, #003057 0%, #005082 100%)', padding: '14px 16px 24px' }}>
         <div style={{ maxWidth: 'min(680px, 100%)', margin: '0 auto' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <button
               onClick={() => navigate(-1)}
               style={{
                 border: 'none',
                 background: 'rgba(15,23,42,0.35)',
                 borderRadius: 999,
-                padding: '6px 10px',
+                padding: '7px 11px',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 6,
@@ -461,16 +461,19 @@ export default function CustomerTrackingPage() {
               <ArrowLeft style={{ width: 16, height: 16 }} />
               <span style={{ fontSize: 12, fontWeight: 600 }}>Back</span>
             </button>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.15)', borderRadius: 50, padding: '5px 12px' }}>
-              <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#4ADE80', animation: 'ripple 2s infinite' }} />
-              <span style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}>Live Tracking</span>
+            <div style={{ background: 'rgba(255,255,255,0.14)', borderRadius: 50, padding: '6px 12px', border: '1px solid rgba(255,255,255,0.12)' }}>
+              <span style={{ color: '#fff', fontSize: 11, fontWeight: 700, letterSpacing: '0.2px' }}>Live Tracking</span>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6 }}>
-            <img src="/elect home.png" alt="Electrolux" style={{ height: 26, filter: 'brightness(0) invert(1)' }} />
-            <div>
-              <h1 style={{ color: '#fff', fontSize: 20, fontWeight: 800, marginBottom: 0 }}>Delivery Tracking</h1>
-              {delivery.poNumber && <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>PO: {delivery.poNumber}</p>}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+            <img src="/elect home.png" alt="Electrolux" style={{ height: 24, marginTop: 2, filter: 'brightness(0) invert(1)' }} />
+            <div style={{ minWidth: 0 }}>
+              <h1 style={{ color: '#fff', fontSize: 22, lineHeight: 1.12, fontWeight: 800, marginBottom: 6 }}>Delivery Tracking</h1>
+              {delivery.poNumber && (
+                <p style={{ display: 'inline-flex', alignItems: 'center', background: 'rgba(15,23,42,0.28)', color: 'rgba(255,255,255,0.9)', borderRadius: 999, border: '1px solid rgba(255,255,255,0.12)', padding: '3px 10px', fontSize: 11, fontWeight: 600 }}>
+                  PO: {delivery.poNumber}
+                </p>
+              )}
             </div>
           </div>
         </div>
