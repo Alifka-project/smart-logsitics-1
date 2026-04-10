@@ -443,7 +443,7 @@ export default function CustomerTrackingPage() {
       {/* ── Header ──────────────────────────────────────────────────── */}
       <div style={{ background: 'linear-gradient(135deg, #003057 0%, #005082 100%)', padding: '14px 16px 24px' }}>
         <div style={{ maxWidth: 'min(680px, 100%)', margin: '0 auto' }}>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <button
               onClick={() => navigate(-1)}
               style={{
@@ -461,9 +461,9 @@ export default function CustomerTrackingPage() {
               <ArrowLeft style={{ width: 16, height: 16 }} />
               <span style={{ fontSize: 12, fontWeight: 600 }}>Back</span>
             </button>
+            <img src="/elect home.png" alt="Electrolux" style={{ height: 22, filter: 'brightness(0) invert(1)' }} />
           </div>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-            <img src="/elect home.png" alt="Electrolux" style={{ height: 24, marginTop: 2, filter: 'brightness(0) invert(1)' }} />
+          <div style={{ display: 'flex', alignItems: 'flex-start' }}>
             <div style={{ minWidth: 0 }}>
               <h1 style={{ color: '#fff', fontSize: 22, lineHeight: 1.12, fontWeight: 800, marginBottom: 6 }}>Delivery Tracking</h1>
               {delivery.poNumber && (

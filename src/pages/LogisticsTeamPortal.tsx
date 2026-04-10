@@ -1093,7 +1093,7 @@ export default function LogisticsTeamPortal() {
                                 {drivers.map(driver => {
                                   const cap = driverCapacity[driver.id];
                                   const label = cap
-                                    ? `${driver.fullName || driver.username} (${cap.used}/${cap.max} used${cap.full ? ' — FULL' : ''})`
+                                    ? `${driver.fullName || driver.username} (${cap.used}/${cap.max}${cap.full ? ' — FULL' : ''})`
                                     : (driver.fullName || driver.username);
                                   return (
                                     <option key={driver.id} value={driver.id} disabled={cap?.full && driver.id !== currentDriverId}>
