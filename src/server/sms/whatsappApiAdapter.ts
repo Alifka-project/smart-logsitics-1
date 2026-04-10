@@ -11,6 +11,11 @@
  *   D7_WHATSAPP_NUMBER        — WhatsApp Business number registered in D7, digits only (e.g. 971588712409)
  *   D7_WHATSAPP_ORIGINATOR    — alias for D7_WHATSAPP_NUMBER (+971… or digits — normalised to digits)
  *
+ * Meta / business-initiated WhatsApp (D7 template):
+ *   Outbound messages outside the 24h customer window must use an APPROVED template.
+ *   Set D7_WHATSAPP_CONFIRMATION_TEMPLATE to the template name from D7 (after Meta approval).
+ *   Body variables {{1}}..{{4}} map to: customer name, order ref (#PO…), confirmation URL, assistance phone.
+ *
  * Optional:
  *   WHATSAPP_PROVIDER=d7      — force D7 (default when D7 token + WA originator are set)
  *   WHATSAPP_PROVIDER=green-api | ultramsg | twilio — legacy / alternate providers
@@ -91,13 +96,21 @@ function jsonPost(url: string, body: Record<string, unknown>, headers: Record<st
   });
 }
 
-// ── D7 WhatsApp v2 (dedicated endpoint — not SMS channel) ────────────────────
-async function sendD7WhatsApp(phoneRaw: string, message: string): Promise<WhatsAppSendResult> {
+function d7RecipientDigits(phoneRaw: string): { recipient: string; ok: true } | { ok: false; error: string } {
+  const e164 = normalizePhoneE164(phoneRaw) || `+${normalisePhoneDigits(phoneRaw)}`;
+  const recipient = String(e164).replace(/^\+/, '').replace(/\D/g, '');
+  if (recipient.length < 7) {
+    return { ok: false, error: `invalid_phone: ${phoneRaw}` };
+  }
+  return { recipient, ok: true };
+}
+
+async function postD7WhatsAppV2(messages: unknown[]): Promise<WhatsAppSendResult> {
   const apiToken = d7WhatsAppToken();
-  const originator = d7WhatsAppOriginatorDigits();
   if (!apiToken) {
     return { ok: false, error: 'D7_API_TOKEN or D7_WHATSAPP_TOKEN not set', provider: 'd7' };
   }
+  const originator = d7WhatsAppOriginatorDigits();
   if (!originator || originator.length < 10) {
     return {
       ok: false,
@@ -106,31 +119,8 @@ async function sendD7WhatsApp(phoneRaw: string, message: string): Promise<WhatsA
     };
   }
 
-  const e164 = normalizePhoneE164(phoneRaw) || `+${normalisePhoneDigits(phoneRaw)}`;
-  const recipient = String(e164).replace(/^\+/, '').replace(/\D/g, '');
-
-  const payload = {
-    messages: [
-      {
-        originator,
-        content: {
-          message_type: 'TEXT',
-          text: {
-            preview_url: true,
-            body: message
-          }
-        },
-        recipients: [
-          {
-            recipient,
-            recipient_type: 'individual'
-          }
-        ]
-      }
-    ]
-  };
-
-  console.log(`[D7 WhatsApp v2] Sending to +${recipient}, originator: ${originator}`);
+  const payload = { messages };
+  console.log('[D7 WhatsApp v2] POST', D7_WHATSAPP_SEND_URL, 'originator:', originator);
 
   try {
     const res = await axios.post(D7_WHATSAPP_SEND_URL, payload, {
@@ -158,6 +148,106 @@ async function sendD7WhatsApp(phoneRaw: string, message: string): Promise<WhatsA
       provider: 'd7'
     };
   }
+}
+
+// ── D7 WhatsApp v2 TEXT (session / utility; often blocked for cold outreach) ─
+async function sendD7WhatsApp(phoneRaw: string, message: string): Promise<WhatsAppSendResult> {
+  const rec = d7RecipientDigits(phoneRaw);
+  if (rec.ok === false) return { ok: false, error: rec.error, provider: 'd7' };
+  const originator = d7WhatsAppOriginatorDigits();
+  return postD7WhatsAppV2([
+    {
+      originator,
+      content: {
+        message_type: 'TEXT',
+        text: {
+          preview_url: true,
+          body: message
+        }
+      },
+      recipients: [{ recipient: rec.recipient, recipient_type: 'individual' }]
+    }
+  ]);
+}
+
+/**
+ * D7 / Meta template message (4 body variables).
+ * Template example: "Dear {{1}}, your order {{2}} ... following {{3}} ... contact {{4}}."
+ */
+async function sendD7WhatsAppTemplate(
+  phoneRaw: string,
+  templateName: string,
+  languageCode: string,
+  bodyParameters: string[]
+): Promise<WhatsAppSendResult> {
+  const rec = d7RecipientDigits(phoneRaw);
+  if (rec.ok === false) return { ok: false, error: rec.error, provider: 'd7' };
+  const originator = d7WhatsAppOriginatorDigits();
+
+  const content: Record<string, unknown> = {
+    message_type: 'TEMPLATE',
+    template: {
+      name: templateName,
+      language: { code: languageCode },
+      components: [
+        {
+          type: 'body',
+          parameters: bodyParameters.map((text) => ({ type: 'text', text }))
+        }
+      ]
+    }
+  };
+
+  console.log(`[D7 WhatsApp v2] TEMPLATE "${templateName}" lang=${languageCode} → +${rec.recipient}`);
+
+  return postD7WhatsAppV2([
+    {
+      originator,
+      content,
+      recipients: [{ recipient: rec.recipient, recipient_type: 'individual' }]
+    }
+  ]);
+}
+
+/** Matches Electrolux SMS/portal copy (customerMessageTemplates). */
+const DEFAULT_ASSISTANCE_PHONE = '+971524408687';
+
+export interface WhatsAppDeliveryConfirmationParts {
+  /** Full SMS-equivalent body if template is not used */
+  fullTextBody: string;
+  customerName: string;
+  /** e.g. #PO123 or empty */
+  poRef: string;
+  confirmationLink: string;
+  assistancePhone?: string;
+}
+
+/**
+ * First-upload / resend confirmation: uses Meta template when D7_WHATSAPP_CONFIRMATION_TEMPLATE is set.
+ */
+export async function sendWhatsAppDeliveryConfirmation(
+  phone: string,
+  parts: WhatsAppDeliveryConfirmationParts
+): Promise<WhatsAppSendResult> {
+  const provider = resolveWhatsAppProvider();
+  if (provider !== 'd7' || !isD7WhatsAppReady()) {
+    return sendWhatsApp(phone, parts.fullTextBody);
+  }
+
+  const templateName = (process.env.D7_WHATSAPP_CONFIRMATION_TEMPLATE || '').trim();
+  const lang = (process.env.D7_WHATSAPP_TEMPLATE_LANGUAGE || 'en').trim();
+  if (!templateName) {
+    return sendD7WhatsApp(phone, parts.fullTextBody);
+  }
+
+  const assistance = (parts.assistancePhone || DEFAULT_ASSISTANCE_PHONE).trim();
+  const orderRef = (parts.poRef || '').trim() || 'your Electrolux order';
+  return sendD7WhatsAppTemplate(phone, templateName, lang, [
+    (parts.customerName || 'Valued Customer').trim(),
+    orderRef,
+    parts.confirmationLink.trim(),
+    assistance
+  ]);
 }
 
 // ── Green API ────────────────────────────────────────────────────────────────

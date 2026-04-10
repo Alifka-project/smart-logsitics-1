@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { randomUUID } from 'crypto';
-import { sendWhatsApp, isWhatsAppConfigured } from '../sms/whatsappApiAdapter';
+import { sendWhatsApp, sendWhatsAppDeliveryConfirmation, isWhatsAppConfigured } from '../sms/whatsappApiAdapter';
 import { buildWhatsAppLink } from '../sms/waLink';
 import {
   confirmationRequestMessage,
@@ -1039,7 +1039,12 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team', 'l
         // SMS API DISABLED — D7 compliance pending:
         // await smsAdapter.sendSms({ to: normalizedPhone, body: msgBody, ... });
         if (isWhatsAppConfigured()) {
-          const waRes = await sendWhatsApp(normalizedPhone, msgBody);
+          const waRes = await sendWhatsAppDeliveryConfirmation(normalizedPhone, {
+            fullTextBody: msgBody,
+            customerName,
+            poRef,
+            confirmationLink
+          });
           sent = waRes.ok;
           sendStatus = waRes.ok ? 'sent' : 'failed';
           console.log(`[WhatsApp] Confirmation silent send for ${d.id} to ${normalizedPhone}:`, waRes.ok ? 'ok' : waRes.error);
@@ -1568,7 +1573,12 @@ router.post('/:id/send-sms', authenticate, requireAnyRole('admin', 'delivery_tea
     // ── WhatsApp send (silent API if configured, deep-link fallback otherwise) ─
     let whatsappUrl: string | undefined;
     if (isWhatsAppConfigured()) {
-      const waRes = await sendWhatsApp(normalizedPhone, smsBody);
+      const waRes = await sendWhatsAppDeliveryConfirmation(normalizedPhone, {
+        fullTextBody: smsBody,
+        customerName,
+        poRef,
+        confirmationLink
+      });
       messageId = waRes.messageId || `wa-${Date.now()}`;
       d7Status = waRes.ok ? 'sent' : 'failed';
       sent = waRes.ok;

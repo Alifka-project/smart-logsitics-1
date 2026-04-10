@@ -8,7 +8,7 @@ import prisma from '../db/prisma';
 import { normalizeUAEPhone } from '../utils/phoneUtils';
 import { SmsSendOptions, SmsSendResult } from './adapter';
 import { buildWhatsAppLink } from './waLink';
-import { sendWhatsApp, isWhatsAppConfigured } from './whatsappApiAdapter';
+import { sendWhatsApp, sendWhatsAppDeliveryConfirmation, isWhatsAppConfigured } from './whatsappApiAdapter';
 import {
   confirmationRequestMessage,
   thankYouAfterConfirmationMessage,
@@ -121,7 +121,12 @@ async function sendConfirmationSms(
     let smsResult: SmsSendResult;
     let whatsappUrl: string | undefined;
     if (isWhatsAppConfigured()) {
-      const waResult = await sendWhatsApp(finalPhone, smsMessage);
+      const waResult = await sendWhatsAppDeliveryConfirmation(finalPhone, {
+        fullTextBody: smsMessage,
+        customerName,
+        poRef,
+        confirmationLink
+      });
       smsResult = { messageId: waResult.messageId || `wa-${Date.now()}`, status: waResult.ok ? 'sent' : 'failed' };
       console.log(`[SMS→WhatsApp] Silent send to ${finalPhone}:`, waResult.ok ? 'delivered' : waResult.error);
     } else {
