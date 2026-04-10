@@ -5,6 +5,7 @@ dotenv.config();
 import helmet from 'helmet';
 import cors from 'cors';
 import prisma from './db/prisma.js';
+import { logWhatsAppStartupDiagnostics } from './sms/whatsappApiAdapter.js';
 
 const app = express();
 const port = process.env.PORT || 4000;
@@ -39,6 +40,7 @@ console.log('Vercel:', process.env.VERCEL ? 'yes' : 'no');
 console.log('Database URL:', process.env.DATABASE_URL ? 'SET' : 'NOT SET');
 console.log('JWT_SECRET:', process.env.JWT_SECRET ? 'SET' : 'NOT SET — using insecure dev default');
 console.log('========================\n');
+logWhatsAppStartupDiagnostics();
 
 // Security middlewares — helmet with CSP and HSTS enabled
 app.use(helmet({

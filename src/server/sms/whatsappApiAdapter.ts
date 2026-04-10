@@ -133,10 +133,20 @@ async function postD7WhatsAppV2(messages: unknown[]): Promise<WhatsAppSendResult
     });
     const data = res.data as Record<string, unknown>;
     console.log('[D7 WhatsApp v2] Response:', JSON.stringify(data));
-    if (data.status === 'accepted') {
+    const reqStatus = String(data.status || '').toLowerCase();
+    if (reqStatus === 'accepted') {
       return { ok: true, messageId: String(data.request_id || Date.now()), provider: 'd7' };
     }
-    return { ok: false, error: `D7 rejected: ${JSON.stringify(data)}`, provider: 'd7' };
+    if (reqStatus === 'rejected') {
+      const hint =
+        ' Check D7 dashboard / template: cold outreach usually needs an approved Meta template (set D7_WHATSAPP_CONFIRMATION_TEMPLATE).';
+      return {
+        ok: false,
+        error: `D7 WhatsApp status=rejected: ${JSON.stringify(data)}.${hint}`,
+        provider: 'd7',
+      };
+    }
+    return { ok: false, error: `D7 unexpected response: ${JSON.stringify(data)}`, provider: 'd7' };
   } catch (axiosErr: unknown) {
     const e = axiosErr as AxiosError;
     const status = e.response?.status;
@@ -237,6 +247,9 @@ export async function sendWhatsAppDeliveryConfirmation(
   const templateName = (process.env.D7_WHATSAPP_CONFIRMATION_TEMPLATE || '').trim();
   const lang = (process.env.D7_WHATSAPP_TEMPLATE_LANGUAGE || 'en').trim();
   if (!templateName) {
+    console.warn(
+      '[D7 WhatsApp] No D7_WHATSAPP_CONFIRMATION_TEMPLATE — sending TEXT. Meta usually requires an approved template for first contact; customers may not receive plain TEXT.',
+    );
     return sendD7WhatsApp(phone, parts.fullTextBody);
   }
 
@@ -382,4 +395,45 @@ export function isWhatsAppConfigured(): boolean {
     return !!(process.env.WHATSAPP_INSTANCE_ID && process.env.WHATSAPP_TOKEN);
   }
   return isD7WhatsAppReady();
+}
+
+/**
+ * One-line startup diagnostics (no secrets). Call from server bootstrap.
+ */
+export function logWhatsAppStartupDiagnostics(): void {
+  const provider = resolveWhatsAppProvider();
+  const ready = isWhatsAppConfigured();
+  const tokenSms = !!(process.env.D7_API_TOKEN || '').replace(/\s/g, '');
+  const tokenWa = !!(process.env.D7_WHATSAPP_TOKEN || '').replace(/\s/g, '');
+  const origin = d7WhatsAppOriginatorDigits();
+  const tpl = (process.env.D7_WHATSAPP_CONFIRMATION_TEMPLATE || '').trim();
+
+  console.log('[WhatsApp] Resolved provider:', provider, '| API configured (silent send):', ready);
+  if (provider === 'd7' || (!process.env.WHATSAPP_PROVIDER && tokenSms && !ready)) {
+    console.log(
+      '[WhatsApp] D7: SMS token set:',
+      tokenSms,
+      '| WA-only token:',
+      tokenWa,
+      '| Business number (originator):',
+      origin ? `${origin.slice(0, 4)}… (${origin.length} digits)` : 'MISSING — set D7_WHATSAPP_NUMBER',
+    );
+    console.log(
+      '[WhatsApp] D7 confirmation template:',
+      tpl || 'NOT SET — outbound confirmations may need an approved Meta template (D7_WHATSAPP_CONFIRMATION_TEMPLATE)',
+    );
+  }
+  if (provider === 'green-api' || provider === 'ultramsg') {
+    console.log(
+      '[WhatsApp] Green/Ultra: INSTANCE_ID',
+      process.env.WHATSAPP_INSTANCE_ID ? 'set' : 'MISSING',
+      '| TOKEN',
+      process.env.WHATSAPP_TOKEN ? 'set' : 'MISSING',
+    );
+  }
+  if (!ready) {
+    console.warn(
+      '[WhatsApp] Silent API send is OFF — confirmations use wa.me link fallback only (no automatic message to customer). Fix env vars above.',
+    );
+  }
 }

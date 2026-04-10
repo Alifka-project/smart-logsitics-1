@@ -957,7 +957,9 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team', 'l
       items: true,
       metadata: true,
       createdAt: true,
-      updatedAt: true
+      updatedAt: true,
+      confirmationStatus: true,
+      confirmationToken: true,
     };
 
     // Fetch created/updated deliveries with full data including UUIDs
@@ -973,33 +975,61 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team', 'l
 
     console.log(`[Deliveries] Returning ${(savedDeliveries as unknown[]).length} saved + ${(skippedDeliveries as unknown[]).length} skipped deliveries to frontend`);
 
-    // ── Auto-generate confirmation WhatsApp links for new & unconfirmed deliveries ──
-    // Covers two cases:
-    //   1. Newly created deliveries (outcome='new', no GMD) — always generate token + link
-    //   2. Re-uploaded / duplicate deliveries (in skippedDeliveries) that still need
-    //      customer confirmation (confirmationStatus !== 'confirmed') — re-use existing
-    //      token or generate a fresh one so staff can resend WhatsApp
-    const newPendingDeliveries = savedDeliveries.filter((d: Record<string, unknown>) => {
-      const matchedResult = results.find(r => r.deliveryId === d.id);
-      return matchedResult?.outcome === 'new' && !matchedResult?.gmdUpdated && d.phone;
-    }) as Array<{ id: string; customer?: string | null; phone?: string | null; poNumber?: string | null; confirmationToken?: string | null }>;
+    // ── After each upload: WhatsApp confirmation for every row that still needs a date confirmation ──
+    // Includes: brand-new rows, updated master data rows, and pure-duplicate skips — if the customer
+    // has not confirmed and the order is not already dispatched / terminal.
+    const terminalNoDateConfirm = ['out-for-delivery', 'delivered', 'cancelled', 'returned', 'in-transit', 'in-progress', 'finished', 'completed', 'pod-completed'];
+    const needsDateConfirmationWhatsApp = (d: Record<string, unknown>): boolean => {
+      if (!d.phone) return false;
+      if ((d.confirmationStatus as string) === 'confirmed') return false;
+      const st = String(d.status || '').toLowerCase();
+      if (terminalNoDateConfirm.includes(st)) return false;
+      return true;
+    };
 
-    // Also include skipped/duplicate deliveries that haven't been confirmed yet
-    const unconfirmedSkipped = (skippedDeliveries as Array<Record<string, unknown>>).filter((d) => {
-      const cs = (d.confirmationStatus as string | null) || 'pending';
-      const st = (d.status as string | null) || 'pending';
-      const terminal = ['out-for-delivery', 'delivered', 'cancelled', 'returned', 'in-transit', 'in-progress', 'finished', 'completed', 'pod-completed'];
-      return d.phone && cs !== 'confirmed' && !terminal.includes(st.toLowerCase());
-    }) as Array<{ id: string; customer?: string | null; phone?: string | null; poNumber?: string | null; confirmationToken?: string | null }>;
+    type ConfirmRow = {
+      id: string;
+      customer?: string | null;
+      phone?: string | null;
+      poNumber?: string | null;
+      confirmationToken?: string | null;
+      isNew: boolean;
+    };
+
+    const confirmationById = new Map<string, ConfirmRow>();
+
+    for (const d of savedDeliveries as Array<Record<string, unknown>>) {
+      if (!needsDateConfirmationWhatsApp(d)) continue;
+      const r = results.find((x) => x.deliveryId === d.id);
+      confirmationById.set(String(d.id), {
+        id: String(d.id),
+        customer: (d.customer as string | null) ?? null,
+        phone: (d.phone as string | null) ?? null,
+        poNumber: (d.poNumber as string | null) ?? null,
+        confirmationToken: (d.confirmationToken as string | null) ?? null,
+        isNew: r?.outcome === 'new',
+      });
+    }
+
+    for (const d of skippedDeliveries as Array<Record<string, unknown>>) {
+      if (!needsDateConfirmationWhatsApp(d)) continue;
+      const id = String(d.id);
+      if (confirmationById.has(id)) continue;
+      confirmationById.set(id, {
+        id,
+        customer: (d.customer as string | null) ?? null,
+        phone: (d.phone as string | null) ?? null,
+        poNumber: (d.poNumber as string | null) ?? null,
+        confirmationToken: (d.confirmationToken as string | null) ?? null,
+        isNew: false,
+      });
+    }
 
     const smsUploadService = require('../sms/smsService');
     const frontendUrlUpload = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
     const confirmationsReady: Array<{ deliveryId: string; customerName: string; phone: string; whatsappUrl: string; confirmationLink: string; sent: boolean }> = [];
 
-    const allDeliveriesForConfirmation = [
-      ...newPendingDeliveries.map(d => ({ ...d, isNew: true })),
-      ...unconfirmedSkipped.map(d => ({ ...d, isNew: false }))
-    ];
+    const allDeliveriesForConfirmation = [...confirmationById.values()];
 
     for (const d of allDeliveriesForConfirmation) {
       try {
@@ -1579,10 +1609,19 @@ router.post('/:id/send-sms', authenticate, requireAnyRole('admin', 'delivery_tea
         poRef,
         confirmationLink
       });
-      messageId = waRes.messageId || `wa-${Date.now()}`;
-      d7Status = waRes.ok ? 'sent' : 'failed';
-      sent = waRes.ok;
-      console.log('[WhatsApp] Silent send to', normalizedPhone, ':', waRes.ok ? 'ok' : waRes.error);
+      if (waRes.ok) {
+        messageId = waRes.messageId || `wa-${Date.now()}`;
+        d7Status = 'sent';
+        sent = true;
+        console.log('[WhatsApp] Silent send to', normalizedPhone, ': ok');
+      } else {
+        // Keep button behavior stable: if API rejects, still return a wa.me link so staff can send manually.
+        whatsappUrl = buildWhatsAppLink(normalizedPhone, smsBody);
+        messageId = `wa-link-${Date.now()}`;
+        d7Status = 'whatsapp_link_generated_after_api_failure';
+        sent = true;
+        console.warn('[WhatsApp] API failed, generated manual deep-link fallback for', normalizedPhone, 'reason:', waRes.error);
+      }
     } else {
       // Fallback: wa.me deep-link (staff must open + tap Send manually)
       whatsappUrl = buildWhatsAppLink(normalizedPhone, smsBody);
@@ -1597,7 +1636,7 @@ router.post('/:id/send-sms', authenticate, requireAnyRole('admin', 'delivery_tea
       return void res.status(500).json({
         ok: false,
         error: `${channel}_failed`,
-        message: 'Message delivery failed — check WHATSAPP_INSTANCE_ID and WHATSAPP_TOKEN'
+        message: 'Message delivery failed — check WhatsApp provider credentials and template setup'
       });
     }
 

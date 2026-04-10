@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
-import { authenticate, requireRole } from '../auth.js';
+import { authenticate, requireRole, requireAnyRole } from '../auth.js';
 import * as db from '../db/index.js';
+import prisma from '../db/prisma.js';
 const sapService = { call: async (..._args: unknown[]): Promise<{ data: Record<string, unknown> }> => ({ data: {} }) };
 const { autoAssignDelivery } = require('../services/autoAssignmentService');
 
@@ -74,8 +75,9 @@ router.post('/send', authenticate, requireRole('admin'), async (req: Request, re
   }
 });
 
-// POST /api/sms/send-confirmation - Send confirmation SMS to customer
-router.post('/send-confirmation', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+// POST /api/sms/send-confirmation — used by Manage orders "Resend SMS" (label unchanged).
+// Backend sends via WhatsApp API while D7 SMS is paused; same flow as /deliveries/:id/send-sms.
+router.post('/send-confirmation', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
   try {
     const { deliveryId } = req.body as { deliveryId?: string };
 
@@ -83,67 +85,37 @@ router.post('/send-confirmation', authenticate, requireRole('admin'), async (req
       res.status(400).json({ error: 'delivery_id_required' }); return;
     }
 
-    const deliveryResp = await sapService.call(`/Deliveries/${deliveryId}`, 'get') as { data: Record<string, unknown> };
-    const delivery = deliveryResp.data;
+    const delivery = await prisma.delivery.findUnique({
+      where: { id: deliveryId },
+      select: { id: true, phone: true }
+    });
 
     if (!delivery) {
       res.status(404).json({ error: 'delivery_not_found' }); return;
     }
 
-    const phone = (delivery.phone || delivery.Phone) as string | undefined;
-    if (!phone) {
+    if (!delivery.phone) {
       res.status(400).json({ error: 'no_phone_number' }); return;
     }
 
-    const confirmationCode = Math.floor(1000 + Math.random() * 9000).toString();
-    const trackingUrl = `${process.env.FRONTEND_URL || 'https://smart-logistics-1.vercel.app'}/track/${deliveryId}`;
+    const { sendConfirmationSms } = await import('../sms/smsService.js');
+    const result = await sendConfirmationSms(delivery.id, delivery.phone) as {
+      messageId: string;
+      expiresAt: string;
+      whatsappUrl?: string;
+    };
 
-    const message = `Your delivery is scheduled for ${delivery.delivery_date || 'soon'}. 
-To confirm, reply with code: ${confirmationCode}
-Or visit: ${trackingUrl}
-Delivery ID: ${deliveryId}`;
-
-    const result = await smsAdapter.sendSms({
-      to: phone,
-      body: message,
-      metadata: { deliveryId, type: 'confirmation', code: confirmationCode }
-    });
-
-    try {
-      await db.query(
-        `INSERT INTO delivery_events(delivery_id, event_type, payload, actor_type, actor_id)
-         VALUES($1, 'sms_confirmation_sent', $2, 'admin', $3)`,
-        [
-          deliveryId,
-          JSON.stringify({ code: confirmationCode, messageId: result.messageId, phone }),
-          (req.user as AuthUser).sub
-        ]
-      );
-    } catch (dbErr: unknown) {
-      console.error('[SMS] Failed to log confirmation code:', dbErr);
-    }
-
-    try {
-      await sapService.call(`/Deliveries/${deliveryId}/status`, 'post', {
-        status: 'scheduled',
-        actor_type: 'admin',
-        actor_id: (req.user as AuthUser).sub,
-        note: 'SMS confirmation sent'
-      });
-    } catch (updateErr: unknown) {
-      console.warn('[SMS] Failed to update delivery status:', updateErr);
-    }
-
-    res.json({ 
-      ok: true, 
-      messageId: result.messageId, 
-      status: result.status,
-      confirmationCode 
+    res.json({
+      ok: true,
+      messageId: result.messageId,
+      status: 'sent',
+      expiresAt: result.expiresAt,
+      ...(result.whatsappUrl ? { whatsappUrl: result.whatsappUrl } : {}),
     });
   } catch (err: unknown) {
     const e = err as { message?: string };
     console.error('sms/send-confirmation error', err);
-    res.status(500).json({ error: 'sms_confirmation_failed' });
+    res.status(500).json({ error: 'sms_confirmation_failed', message: e.message });
   }
 });
 

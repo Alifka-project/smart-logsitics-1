@@ -1,6 +1,7 @@
 /**
  * SMS Service - Handles SMS communication and confirmation flow
- * Uses Twilio adapter with fallback to mock for testing
+ * Active provider: D7 Networks (d7Adapter). Mock fallback if D7 init fails.
+ * Twilio SMS is not wired in; twilioAdapter.ts is kept only as a reference.
  */
 
 import crypto from 'crypto';
@@ -125,8 +126,18 @@ async function sendConfirmationSms(
         poRef,
         confirmationLink
       });
-      smsResult = { messageId: waResult.messageId || `wa-${Date.now()}`, status: waResult.ok ? 'sent' : 'failed' };
-      console.log(`[SMS→WhatsApp] Silent send to ${finalPhone}:`, waResult.ok ? 'delivered' : waResult.error);
+      if (!waResult.ok) {
+        const detail = waResult.error || 'unknown_error';
+        console.error(`[SMS→WhatsApp] Send failed for ${finalPhone}:`, detail);
+        throw new Error(
+          `WhatsApp confirmation failed: ${detail}. Check server logs, D7/Meta template (D7_WHATSAPP_CONFIRMATION_TEMPLATE), and D7_WHATSAPP_NUMBER.`,
+        );
+      }
+      smsResult = {
+        messageId: waResult.messageId || `wa-${Date.now()}`,
+        status: 'sent',
+      };
+      console.log(`[SMS→WhatsApp] Silent send to ${finalPhone}: ok (provider=${waResult.provider || 'unknown'})`);
     } else {
       // Fallback: wa.me deep-link (requires manual send — use until API creds are set)
       whatsappUrl = buildWhatsAppLink(finalPhone, smsMessage);
@@ -153,13 +164,14 @@ async function sendConfirmationSms(
         deliveryId,
         phoneNumber: finalPhone,
         messageContent: smsMessage,
-        smsProvider: process.env.SMS_PROVIDER || 'd7',
+        smsProvider: isWhatsAppConfigured() ? 'whatsapp-api' : process.env.SMS_PROVIDER || 'd7',
         externalMessageId: smsResult.messageId,
         status: smsResult.status || 'sent',
         sentAt: new Date(),
         metadata: {
           type: 'confirmation_request',
-          tokenExpiry: expiresAt.toISOString()
+          tokenExpiry: expiresAt.toISOString(),
+          channel: isWhatsAppConfigured() ? 'whatsapp' : 'whatsapp_link_fallback',
         }
       }
     });
