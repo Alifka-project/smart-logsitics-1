@@ -25,9 +25,9 @@ class WhatsAppAdapter {
   private originator: string;
 
   constructor(config: SmsConfig) {
-    this.apiToken = (config.D7_API_TOKEN || '').replace(/^["'\s]+|["'\s]+$/g, '');
-    // WhatsApp business number registered in D7 (e.g. 15559261029)
-    this.originator = (config.D7_WHATSAPP_NUMBER || '').replace(/[^0-9]/g, '');
+    this.apiToken = (config.D7_WHATSAPP_TOKEN || config.D7_API_TOKEN || '').replace(/^["'\s]+|["'\s]+$/g, '');
+    // WhatsApp business number registered in D7 — digits only (e.g. 971588712409)
+    this.originator = (config.D7_WHATSAPP_NUMBER || config.D7_WHATSAPP_ORIGINATOR || '').replace(/[^0-9]/g, '');
   }
 
   async sendMessage({ to, body }: WhatsAppSendOptions): Promise<WhatsAppSendResult> {

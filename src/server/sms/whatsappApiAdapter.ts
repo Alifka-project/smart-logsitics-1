@@ -1,13 +1,15 @@
 /**
  * WhatsApp API Adapter — silent backend send (same UX as SMS).
  *
- * Primary provider: D7 Networks (same account / token as SMS).
- *   POST https://api.d7networks.com/messages/v1/send
- *   channel: "whatsapp", same Bearer D7_API_TOKEN as SMS.
+ * Primary provider: D7 Networks WhatsApp API v2 (NOT the SMS /messages/v1/send endpoint).
+ *   POST https://api.d7networks.com/whatsapp/v2/send
+ *   Same Bearer token style as SMS; payload matches src/server/sms/whatsappAdapter.ts.
  *
  * Required env (D7 WhatsApp):
- *   D7_API_TOKEN              — same token you use for SMS (already set)
- *   D7_WHATSAPP_ORIGINATOR    — your D7-approved WhatsApp Business sender (E.164, e.g. +9715xxxxxxx)
+ *   D7_API_TOKEN              — D7 API token (JWT), same as SMS unless you set D7_WHATSAPP_TOKEN
+ *   D7_WHATSAPP_TOKEN         — optional; if set, used instead of D7_API_TOKEN for WhatsApp only
+ *   D7_WHATSAPP_NUMBER        — WhatsApp Business number registered in D7, digits only (e.g. 971588712409)
+ *   D7_WHATSAPP_ORIGINATOR    — alias for D7_WHATSAPP_NUMBER (+971… or digits — normalised to digits)
  *
  * Optional:
  *   WHATSAPP_PROVIDER=d7      — force D7 (default when D7 token + WA originator are set)
@@ -26,8 +28,8 @@ export interface WhatsAppSendResult {
   error?: string;
 }
 
-/** Same endpoint as D7 SMS — see d7Adapter.ts */
-const D7_MESSAGES_URL = 'https://api.d7networks.com/messages/v1/send';
+/** D7 WhatsApp v2 — see whatsappAdapter.ts (do not use SMS messages/v1/send for WhatsApp). */
+const D7_WHATSAPP_SEND_URL = 'https://api.d7networks.com/whatsapp/v2/send';
 
 function stripD7Token(token: string): string {
   return (token || '').replace(/^["'\s]+|["'\s]+$/g, '');
@@ -44,10 +46,20 @@ function normalisePhoneDigits(raw: string): string {
   return digits;
 }
 
+function d7WhatsAppToken(): string {
+  return stripD7Token(process.env.D7_WHATSAPP_TOKEN || process.env.D7_API_TOKEN || '');
+}
+
+/** D7 expects originator as digits only (no +), per whatsappAdapter.ts */
+function d7WhatsAppOriginatorDigits(): string {
+  const raw = (process.env.D7_WHATSAPP_NUMBER || process.env.D7_WHATSAPP_ORIGINATOR || '').trim();
+  return raw.replace(/\D/g, '');
+}
+
 function isD7WhatsAppReady(): boolean {
-  const token = stripD7Token(process.env.D7_API_TOKEN || '');
-  const waOrigin = (process.env.D7_WHATSAPP_ORIGINATOR || '').trim();
-  return !!(token && waOrigin);
+  const token = d7WhatsAppToken();
+  const origin = d7WhatsAppOriginatorDigits();
+  return !!(token && origin.length >= 10);
 }
 
 // ── Simple JSON POST helper (non-D7 providers) ───────────────────────────────
@@ -79,40 +91,49 @@ function jsonPost(url: string, body: Record<string, unknown>, headers: Record<st
   });
 }
 
-// ── D7 WhatsApp (same API as SMS, channel: whatsapp) ─────────────────────────
+// ── D7 WhatsApp v2 (dedicated endpoint — not SMS channel) ────────────────────
 async function sendD7WhatsApp(phoneRaw: string, message: string): Promise<WhatsAppSendResult> {
-  const apiToken = stripD7Token(process.env.D7_API_TOKEN || '');
-  const originator = (process.env.D7_WHATSAPP_ORIGINATOR || '').trim();
+  const apiToken = d7WhatsAppToken();
+  const originator = d7WhatsAppOriginatorDigits();
   if (!apiToken) {
-    return { ok: false, error: 'D7_API_TOKEN not set', provider: 'd7' };
+    return { ok: false, error: 'D7_API_TOKEN or D7_WHATSAPP_TOKEN not set', provider: 'd7' };
   }
-  if (!originator) {
-    return { ok: false, error: 'D7_WHATSAPP_ORIGINATOR not set — add your D7 WhatsApp Business number', provider: 'd7' };
+  if (!originator || originator.length < 10) {
+    return {
+      ok: false,
+      error: 'D7_WHATSAPP_NUMBER or D7_WHATSAPP_ORIGINATOR not set (use digits, e.g. 971588712409)',
+      provider: 'd7'
+    };
   }
 
-  // Prefer shared phone util (UAE + international), then fallback to digit normalisation
   const e164 = normalizePhoneE164(phoneRaw) || `+${normalisePhoneDigits(phoneRaw)}`;
-  const to = e164.startsWith('+') ? e164 : `+${e164.replace(/^\+/, '')}`;
+  const recipient = String(e164).replace(/^\+/, '').replace(/\D/g, '');
 
   const payload = {
     messages: [
       {
-        channel: 'whatsapp',
-        recipients: [to],
-        content: message,
-        msg_type: 'text',
-        data_coding: 'text'
+        originator,
+        content: {
+          message_type: 'TEXT',
+          text: {
+            preview_url: true,
+            body: message
+          }
+        },
+        recipients: [
+          {
+            recipient,
+            recipient_type: 'individual'
+          }
+        ]
       }
-    ],
-    message_globals: {
-      originator
-    }
+    ]
   };
 
-  console.log(`[D7 WhatsApp] Sending to ${to}, originator: ${originator}`);
+  console.log(`[D7 WhatsApp v2] Sending to +${recipient}, originator: ${originator}`);
 
   try {
-    const res = await axios.post(D7_MESSAGES_URL, payload, {
+    const res = await axios.post(D7_WHATSAPP_SEND_URL, payload, {
       timeout: 20000,
       headers: {
         'Content-Type': 'application/json',
@@ -121,7 +142,7 @@ async function sendD7WhatsApp(phoneRaw: string, message: string): Promise<WhatsA
       }
     });
     const data = res.data as Record<string, unknown>;
-    console.log('[D7 WhatsApp] Response:', JSON.stringify(data));
+    console.log('[D7 WhatsApp v2] Response:', JSON.stringify(data));
     if (data.status === 'accepted') {
       return { ok: true, messageId: String(data.request_id || Date.now()), provider: 'd7' };
     }
@@ -130,7 +151,7 @@ async function sendD7WhatsApp(phoneRaw: string, message: string): Promise<WhatsA
     const e = axiosErr as AxiosError;
     const status = e.response?.status;
     const body = e.response?.data;
-    console.error('[D7 WhatsApp] HTTP error:', status, JSON.stringify(body));
+    console.error('[D7 WhatsApp v2] HTTP error:', status, JSON.stringify(body));
     return {
       ok: false,
       error: `D7 WhatsApp failed HTTP ${status}: ${JSON.stringify(body) || e.message}`,
