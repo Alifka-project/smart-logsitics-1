@@ -474,8 +474,8 @@ export default function Header({ isAdmin = false }: HeaderProps) {
       return;
     }
     if (n.type==='delivery' && (role==='admin'||role==='delivery_team'||role==='logistics_team')) {
-      if (role==='delivery_team') navigate(`/delivery-team?tab=control${deliveryQuery}`);
-      else if (role==='logistics_team') navigate(`/logistics-team?tab=control${deliveryQuery}`);
+      if (role==='delivery_team') navigate(`/delivery-team?tab=operations${deliveryQuery}`);
+      else if (role==='logistics_team') navigate(`/logistics-team?tab=operations${deliveryQuery}`);
       else navigate(`/admin?tab=deliveries${deliveryQuery}&viewAll=1`);
       void markRead(n);
       setNotifications(prev => prev.filter(x => x.id !== n.id));

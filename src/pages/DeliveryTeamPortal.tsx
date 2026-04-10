@@ -1158,7 +1158,9 @@ export default function DeliveryTeamPortal() {
                             No orders found
                           </td>
                         </tr>
-                      ) : opsRows.map(delivery => {
+                      ) : (() => {
+                        const driverSequenceByKey: Record<string, number> = {};
+                        return opsRows.map(delivery => {
                         const dExt = delivery as unknown as {
                           goodsMovementDate?: string;
                           smsSentAt?: string;
@@ -1177,7 +1179,12 @@ export default function DeliveryTeamPortal() {
                         const description = String(orig['Description'] ?? orig['description'] ?? meta['description'] ?? delivery.items ?? meta['items'] ?? '—');
                         const material = String(orig['Material'] ?? orig['material'] ?? orig['Material Number'] ?? orig['PNC'] ?? '—');
                         const invoicePrice = String(orig['Invoice Price'] ?? orig['invoice_price'] ?? orig['Price'] ?? orig['Unit Price'] ?? '—');
-                        const qty = String(orig['Order Quantity'] ?? orig['Confirmed quantity'] ?? orig['Total Line Deliv. Qt'] ?? orig['Order Qty'] ?? orig['Quantity'] ?? orig['qty'] ?? '—');
+                        const qtyRaw = orig['Order Quantity'] ?? orig['Confirmed quantity'] ?? orig['Total Line Deliv. Qt'] ?? orig['Order Qty'] ?? orig['Quantity'] ?? orig['qty'] ?? null;
+                        const qtyNum = (() => {
+                          const n = Number.parseFloat(String(qtyRaw ?? ''));
+                          return Number.isFinite(n) && n > 0 ? Math.ceil(n) : 1;
+                        })();
+                        const qty = String(qtyRaw ?? '—');
                         const gmd = dExt.goodsMovementDate ? new Date(dExt.goodsMovementDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
                         const delDate = dExt.confirmedDeliveryDate ? new Date(dExt.confirmedDeliveryDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
                         const rawStatus = (delivery.status || '').toLowerCase();
@@ -1193,6 +1200,14 @@ export default function DeliveryTeamPortal() {
                         const currentDriverId = dExt.tracking?.driverId || delivery.assignedDriverId;
                         const currentDriver = drivers.find(d => d.id === currentDriverId);
                         const isOnline = currentDriver ? isContactOnline(currentDriver) : false;
+                        const capDateIso = getCapacityDateIso(delivery);
+                        const capForCurrent = getDriverCapacity(delivery, currentDriverId || undefined);
+                        let currentSlotUsed: number | null = null;
+                        if (currentDriverId && capForCurrent) {
+                          const key = `${currentDriverId}|${capDateIso}`;
+                          driverSequenceByKey[key] = (driverSequenceByKey[key] || 0) + qtyNum;
+                          currentSlotUsed = Math.min(capForCurrent.max, driverSequenceByKey[key]);
+                        }
                         const { label: statusLabel, color: statusColor } = getDeliveryStatusBadge(delivery);
                         const rowBg = isOFD
                           ? 'bg-blue-50/40 dark:bg-blue-900/10 border-l-4 border-l-blue-500'
@@ -1242,9 +1257,9 @@ export default function DeliveryTeamPortal() {
                                 <div className="flex items-center gap-1 mb-1">
                                   <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isOnline ? 'bg-green-500' : 'bg-gray-300'}`} />
                                   <span className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">{currentDriver.fullName || currentDriver.username}</span>
-                                  {getDriverCapacity(delivery, currentDriverId || undefined) && (
-                                    <span className={`ml-auto text-[9px] font-bold px-1 py-0.5 rounded ${getDriverCapacity(delivery, currentDriverId || undefined)!.full ? 'bg-red-100 text-red-600' : getDriverCapacity(delivery, currentDriverId || undefined)!.used >= getDriverCapacity(delivery, currentDriverId || undefined)!.max * 0.75 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
-                                      {getDriverCapacity(delivery, currentDriverId || undefined)!.used}/{getDriverCapacity(delivery, currentDriverId || undefined)!.max}
+                                  {capForCurrent && (
+                                    <span className={`ml-auto text-[9px] font-bold px-1 py-0.5 rounded ${capForCurrent.full ? 'bg-red-100 text-red-600' : (currentSlotUsed ?? capForCurrent.used) >= capForCurrent.max * 0.75 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+                                      {currentSlotUsed ?? capForCurrent.used}/{capForCurrent.max}
                                     </span>
                                   )}
                                 </div>
@@ -1272,8 +1287,11 @@ export default function DeliveryTeamPortal() {
                                 <option value="">{currentDriverId ? '— Reassign —' : '— Assign —'}</option>
                                 {drivers.map(driver => {
                                   const cap = getDriverCapacity(delivery, driver.id);
+                                  const usedShown = (driver.id === currentDriverId && currentSlotUsed != null)
+                                    ? currentSlotUsed
+                                    : cap?.used;
                                   const label = cap
-                                    ? `${driver.fullName || driver.username} (${cap.used}/${cap.max}${cap.full ? ' — FULL' : ''})`
+                                    ? `${driver.fullName || driver.username} (${usedShown ?? cap.used}/${cap.max}${cap.full ? ' — FULL' : ''})`
                                     : (driver.fullName || driver.username);
                                   return (
                                     <option key={driver.id} value={driver.id} disabled={cap?.full && driver.id !== currentDriverId}>
@@ -1366,7 +1384,8 @@ export default function DeliveryTeamPortal() {
                             </td>
                           </tr>
                         );
-                      })}
+                      });
+                    })()}
                     </tbody>
                   </table>
                 </div>
