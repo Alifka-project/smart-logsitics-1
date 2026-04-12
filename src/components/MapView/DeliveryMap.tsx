@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { Delivery, RouteResult } from '../../types';
+import type { DriverRoute } from '../../services/advancedRoutingService';
 
 // Fix Leaflet default marker icons
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)['_getIconUrl'];
@@ -27,6 +28,8 @@ interface DeliveryMapProps {
     lat?: number;
     lng?: number;
   }>;
+  /** Per-driver OSRM routes — each rendered with the driver's distinct color. */
+  driverRoutes?: DriverRoute[];
 }
 
 export default function DeliveryMap({
@@ -35,10 +38,12 @@ export default function DeliveryMap({
   highlightedIndex,
   mapClassName,
   driverLocations = [],
+  driverRoutes = [],
 }: DeliveryMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L.Map | null>(null);
   const routeLayers = useRef<L.Layer[]>([]);
+  const driverRouteLayers = useRef<L.Layer[]>([]);
   const deliveryMarkers = useRef<(L.Marker | null)[]>([]);
   const driverMarkersRef = useRef<L.Marker[]>([]);
   // Only auto-fit bounds once on initial data load — never again so the user
@@ -218,7 +223,7 @@ export default function DeliveryMap({
     });
   }, [driverLocations]);
 
-  // ── Effect 4: update route polyline when route changes ────────────────────
+  // ── Effect 4: update aggregate route polyline when route changes ─────────
   useEffect(() => {
     const map = mapInstance.current;
     if (!map) return;
@@ -227,6 +232,10 @@ export default function DeliveryMap({
       if (map.hasLayer(layer)) map.removeLayer(layer);
     });
     routeLayers.current = [];
+
+    // When per-driver routes are present the aggregate route is suppressed
+    // to avoid overloading the map with two sets of lines.
+    if (driverRoutes.length > 0) return;
 
     if (!route?.coordinates?.length) return;
 
@@ -268,7 +277,64 @@ export default function DeliveryMap({
         }
       } catch { /* ignore */ }
     }
-  }, [route]);
+  }, [route, driverRoutes]);
+
+  // ── Effect 4b: per-driver colored route polylines ────────────────────────
+  useEffect(() => {
+    const map = mapInstance.current;
+    if (!map) return;
+
+    driverRouteLayers.current.forEach((layer) => {
+      if (map.hasLayer(layer)) map.removeLayer(layer);
+    });
+    driverRouteLayers.current = [];
+
+    if (!driverRoutes.length) return;
+
+    driverRoutes.forEach((dr) => {
+      if (!dr.coordinates.length) return;
+
+      const valid = dr.coordinates.filter(
+        (c) =>
+          Array.isArray(c) &&
+          c.length === 2 &&
+          !isNaN(c[0]) && !isNaN(c[1]) &&
+          c[0] >= -90 && c[0] <= 90 &&
+          c[1] >= -180 && c[1] <= 180,
+      ) as [number, number][];
+
+      if (valid.length < 2) return;
+
+      const outline = L.polyline(valid, {
+        color: '#ffffff', weight: 7, opacity: 0.5, lineCap: 'round', lineJoin: 'round',
+      }).addTo(map);
+      const line = L.polyline(valid, {
+        color: dr.color, weight: 4, opacity: 0.9, lineCap: 'round', lineJoin: 'round',
+      }).addTo(map);
+      line.bindPopup(
+        `<div style="font-family:'DM Sans','Inter',sans-serif;font-size:12px;">
+          <b style="color:${dr.color};">🚚 ${dr.name}</b><br>
+          <small>Route from current GPS position</small>
+        </div>`,
+        { maxWidth: 240 },
+      );
+
+      driverRouteLayers.current.push(outline, line);
+    });
+
+    if (!hasInitialFit.current) {
+      hasInitialFit.current = true;
+      try {
+        const allCoords = driverRoutes.flatMap((dr) => dr.coordinates) as [number, number][];
+        if (allCoords.length > 0) {
+          const bounds = L.latLngBounds(allCoords);
+          if (bounds.isValid()) {
+            map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, animate: false });
+          }
+        }
+      } catch { /* ignore */ }
+    }
+  }, [driverRoutes]);
 
   // ── Effect 5: pan to highlighted delivery marker ──────────────────────────
   useEffect(() => {

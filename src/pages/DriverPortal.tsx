@@ -603,7 +603,16 @@ export default function DriverPortal() {
       return;
     }
 
-    const withCoords = deliveries.filter(d => normalizeDeliveryCoords(d));
+    // Priority deliveries bubble to the front before distance-based ordering
+    const sortByPriority = (arr: Delivery[]) => {
+      const isPrio = (d: Delivery) => {
+        const m = (d as unknown as { metadata?: Record<string, unknown> }).metadata ?? {};
+        return m.isPriority === true;
+      };
+      return [...arr.filter(isPrio), ...arr.filter(d => !isPrio(d))];
+    };
+
+    const withCoords = sortByPriority(deliveries.filter(d => normalizeDeliveryCoords(d)));
     const withoutCoords = deliveries.filter(d => !normalizeDeliveryCoords(d));
     // If driver manually reordered, respect their order; otherwise use nearest-neighbour optimisation
     const orderedWithCoords = manuallyOrderedRef.current
@@ -1119,6 +1128,19 @@ export default function DriverPortal() {
             <div className="pp-card p-3 sm:p-6 min-h-[520px]">
               <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Order list</h2>
               <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-3">Tap one order to update POD, call customer, or check details</p>
+              {/* Priority summary banner */}
+              {(() => {
+                const priorityCount = deliveries.filter(d => {
+                  const m = (d as unknown as { metadata?: Record<string, unknown> }).metadata ?? {};
+                  return m.isPriority === true;
+                }).length;
+                return priorityCount > 0 ? (
+                  <div className="mb-3 flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                    <span className="text-sm font-semibold text-red-700 dark:text-red-300">🚨 {priorityCount} Priority {priorityCount === 1 ? 'Delivery' : 'Deliveries'}</span>
+                    <span className="text-xs text-red-500 dark:text-red-400">— sorted to the top</span>
+                  </div>
+                ) : null;
+              })()}
               {deliveries.length === 0 ? (
                 <div className="py-8 text-center text-gray-500 dark:text-gray-400">
                   <Truck className="w-12 h-12 mx-auto mb-3 opacity-50" />

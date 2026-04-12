@@ -357,6 +357,35 @@ router.put('/driver/:id/status', authenticate, requireRole('driver'), async (req
   }
 });
 
+// PUT /api/admin/deliveries/:id/priority - Toggle manual priority (logistics + admin only)
+// body: { isPriority: boolean }
+router.put('/admin/:id/priority', authenticate, requireAnyRole('admin', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params as { id: string };
+  const { isPriority } = req.body as { isPriority?: boolean };
+
+  try {
+    const existing = await prisma.delivery.findUnique({ where: { id }, select: { metadata: true } });
+    if (!existing) {
+      res.status(404).json({ error: 'not_found' });
+      return;
+    }
+
+    const currentMeta = (existing.metadata as Record<string, unknown>) ?? {};
+    const updatedMeta = { ...currentMeta, isPriority: isPriority === true };
+
+    await prisma.delivery.update({
+      where: { id },
+      data: { metadata: updatedMeta },
+    });
+
+    res.json({ ok: true, isPriority: updatedMeta.isPriority });
+  } catch (err: unknown) {
+    const e = err as { message?: string };
+    console.error('[Deliveries] Priority update error:', e.message);
+    res.status(500).json({ error: 'db_error' });
+  }
+});
+
 // PUT /api/admin/deliveries/:id/status - Update delivery status in database
 // body: { status, notes, driverSignature, customerSignature, photos, actualTime, customer, address }
 router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {

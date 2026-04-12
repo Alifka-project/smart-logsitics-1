@@ -370,3 +370,103 @@ export function calculateETAWithInstallation(routeTime: number, stopIndex: numbe
   const BUFFER_TIME = 15 * 60;
   return routeTime + stopIndex * INSTALLATION_TIME + stopIndex * BUFFER_TIME;
 }
+
+// ── Per-driver route computation ──────────────────────────────────────────────
+
+export const DRIVER_ROUTE_COLORS = [
+  '#3b82f6', // blue
+  '#ef4444', // red
+  '#f59e0b', // amber
+  '#10b981', // emerald
+  '#8b5cf6', // violet
+  '#f97316', // orange
+  '#ec4899', // pink
+  '#14b8a6', // teal
+  '#6366f1', // indigo
+  '#84cc16', // lime
+];
+
+export interface DriverRoute {
+  driverId: string;
+  name: string;
+  color: string;
+  coordinates: [number, number][];
+}
+
+/**
+ * For each online driver that has a GPS fix, compute an OSRM road-following
+ * route from their current position → their assigned out-for-delivery stops.
+ * Falls back to straight-line segments when OSRM is unavailable.
+ */
+export async function computePerDriverRoutes(
+  drivers: Array<{
+    id: string;
+    fullName?: string | null;
+    full_name?: string | null;
+    username?: string;
+    tracking?: { online?: boolean; location?: { lat: number; lng: number } | null };
+  }>,
+  deliveries: Array<{
+    id: string;
+    assignedDriverId?: string | null;
+    lat?: number | null;
+    lng?: number | null;
+    status?: string;
+    [key: string]: unknown;
+  }>,
+): Promise<DriverRoute[]> {
+  const onlineWithGPS = drivers.filter((d) => {
+    const loc = d.tracking?.location;
+    return loc && Number.isFinite(loc.lat) && Number.isFinite(loc.lng);
+  });
+
+  if (onlineWithGPS.length === 0) return [];
+
+  const results = await Promise.allSettled(
+    onlineWithGPS.map(async (driver, idx) => {
+      const loc = driver.tracking!.location!;
+      const name = driver.fullName || driver.full_name || driver.username || 'Driver';
+      const color = DRIVER_ROUTE_COLORS[idx % DRIVER_ROUTE_COLORS.length];
+
+      // Collect this driver's OFD stops with valid coords
+      const stops = deliveries
+        .filter((d) => {
+          const dExt = d as { tracking?: { driverId?: string }; assignedDriverId?: string | null };
+          const isAssigned =
+            dExt.tracking?.driverId === driver.id || d.assignedDriverId === driver.id;
+          const isOFD = (d.status || '').toLowerCase() === 'out-for-delivery';
+          return isAssigned && isOFD;
+        })
+        .map((d) => {
+          const lat = Number(d.lat);
+          const lng = Number(d.lng);
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+          return { lat, lng };
+        })
+        .filter((s): s is { lat: number; lng: number } => s !== null);
+
+      const locations = [{ lat: loc.lat, lng: loc.lng }, ...stops];
+
+      if (locations.length < 2) {
+        // Driver online but no assigned OFD stops — just mark their position
+        return { driverId: driver.id, name, color, coordinates: [[loc.lat, loc.lng] as [number, number]] };
+      }
+
+      try {
+        const result = await calculateRouteWithOSRM(locations);
+        return { driverId: driver.id, name, color, coordinates: result.coordinates };
+      } catch {
+        // Straight-line fallback
+        const coords: [number, number][] = locations.map((l) => [l.lat, l.lng]);
+        return { driverId: driver.id, name, color, coordinates: coords };
+      }
+    }),
+  );
+
+  return results
+    .filter(
+      (r): r is PromiseFulfilledResult<DriverRoute> =>
+        r.status === 'fulfilled' && r.value.coordinates.length > 0,
+    )
+    .map((r) => r.value);
+}

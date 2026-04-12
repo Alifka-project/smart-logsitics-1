@@ -25,7 +25,8 @@ import {
 } from 'lucide-react';
 import DeliveryMap from '../components/MapView/DeliveryMap';
 import DeliveryManagementPage from './DeliveryManagementPage';
-import { calculateRoute, generateFallbackRoute } from '../services/advancedRoutingService';
+import { calculateRoute, generateFallbackRoute, computePerDriverRoutes } from '../services/advancedRoutingService';
+import type { DriverRoute } from '../services/advancedRoutingService';
 import useDeliveryStore from '../store/useDeliveryStore';
 import { deliveryToManageOrder } from '../utils/deliveryWorkflowMap';
 import { excludeTeamPortalGarbageDeliveries } from '../utils/deliveryListFilter';
@@ -172,6 +173,9 @@ export default function LogisticsTeamPortal() {
   // Route for monitoring map (matches Admin Operations)
   const [monitoringRoute, setMonitoringRoute] = useState<{ coordinates: [number, number][] } | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
+  const [driverRoutes, setDriverRoutes] = useState<DriverRoute[]>([]);
+  const driverRouteKeyRef = useRef<string>('');
+  const [togglingPriority, setTogglingPriority] = useState<string | null>(null);
 
   const formatMessageTimestamp = (value: string | Date | null | undefined): string => {
     if (!value) return '';
@@ -204,8 +208,39 @@ export default function LogisticsTeamPortal() {
       if (!document.hidden) void loadData();
     }, 60000);
 
-    return () => clearInterval(interval);
+    // Fast 10s driver-only GPS poll
+    const driverPoll = setInterval(async () => {
+      if (document.hidden) return;
+      try {
+        const r = await api.get('/admin/tracking/drivers');
+        const list = (r.data?.drivers || []) as typeof drivers;
+        setDrivers(list);
+      } catch { /* silent */ }
+    }, 10_000);
+
+    return () => {
+      clearInterval(interval);
+      clearInterval(driverPoll);
+    };
   }, []);
+
+  // Recompute per-driver OSRM routes when driver GPS or deliveries change
+  useEffect(() => {
+    const key = drivers
+      .filter((d) => d.tracking?.location)
+      .map((d) => {
+        const loc = d.tracking!.location!;
+        return `${d.id}:${loc.lat.toFixed(4)},${loc.lng.toFixed(4)}`;
+      })
+      .join(';');
+    if (key === driverRouteKeyRef.current) return;
+    driverRouteKeyRef.current = key;
+    if (!key) { setDriverRoutes([]); return; }
+    void computePerDriverRoutes(
+      drivers as Parameters<typeof computePerDriverRoutes>[0],
+      deliveries as Parameters<typeof computePerDriverRoutes>[1],
+    ).then(setDriverRoutes);
+  }, [drivers, deliveries]);
 
   // Load online users after contacts are loaded
   useEffect(() => {
@@ -898,7 +933,8 @@ export default function LogisticsTeamPortal() {
               </div>
               <DeliveryMap
                 deliveries={deliveries.filter(d => (d.status || '').toLowerCase() === 'out-for-delivery')}
-                route={monitoringRoute}
+                route={driverRoutes.length > 0 ? null : monitoringRoute}
+                driverRoutes={driverRoutes}
                 driverLocations={drivers
                   .filter((d) => isContactOnline(d) && d.tracking?.location && Number.isFinite(d.tracking.location.lat) && Number.isFinite(d.tracking.location.lng))
                   .map((d) => ({
@@ -1015,6 +1051,11 @@ export default function LogisticsTeamPortal() {
                 );
               })
               .sort((a, b) => {
+                const aMeta = ((a as unknown as { metadata?: Record<string, unknown> }).metadata ?? {});
+                const bMeta = ((b as unknown as { metadata?: Record<string, unknown> }).metadata ?? {});
+                const aPrio = aMeta.isPriority === true ? 0 : 1;
+                const bPrio = bMeta.isPriority === true ? 0 : 1;
+                if (aPrio !== bPrio) return aPrio - bPrio;
                 const prio = (s: string) => s === 'out-for-delivery' ? 0 : s === 'order-delay' ? 1 : TERMINAL_STATUSES.has(s) ? 3 : 2;
                 return prio((a.status || '').toLowerCase()) - prio((b.status || '').toLowerCase());
               });
@@ -1078,7 +1119,7 @@ export default function LogisticsTeamPortal() {
                   <table className="w-full text-xs divide-y divide-gray-200 dark:divide-gray-700" style={{ minWidth: '1700px' }}>
                     <thead className="bg-gray-50 dark:bg-gray-700/80 sticky top-0 z-10">
                       <tr>
-                        {['·','PO #','Del #','Customer','Phone','Address','City','Status','GMD','Del Date','Model','Description','Material','Inv. Price','Items','Units','Driver','Actions'].map(h => (
+                        {['·','PO #','Del #','Customer','Phone','Address','City','Status','GMD','Del Date','Model','Description','Material','Inv. Price','Items','Units','Driver','Priority','Actions'].map(h => (
                           <th key={h} className="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">{h}</th>
                         ))}
                       </tr>
@@ -1086,7 +1127,7 @@ export default function LogisticsTeamPortal() {
                     <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700/60">
                       {opsRows.length === 0 ? (
                         <tr>
-                          <td colSpan={18} className="px-4 py-8 text-center text-gray-400 dark:text-gray-500">No orders found</td>
+                          <td colSpan={19} className="px-4 py-8 text-center text-gray-400 dark:text-gray-500">No orders found</td>
                         </tr>
                       ) : (
                         opsRows.map(delivery => {
@@ -1118,6 +1159,7 @@ export default function LogisticsTeamPortal() {
                         const workflowOrder = deliveryToManageOrder(delivery);
                         const isOFDWorkflow = workflowOrder.status === 'out_for_delivery';
                         const isDelayWorkflow = workflowOrder.status === 'order_delay';
+                        const isPriority = (meta as Record<string, unknown>).isPriority === true;
                         const isDispatchable = ['pending', 'scheduled', 'uploaded', 'confirmed', 'scheduled-confirmed'].includes(rawStatus);
                         const hasGMD = !!dExt.goodsMovementDate;
                         // Show "Send SMS" (WhatsApp) until the customer confirms — regardless of
@@ -1218,6 +1260,31 @@ export default function LogisticsTeamPortal() {
                                 })}
                               </select>
                             </td>
+                            {/* Priority toggle (Logistics only) */}
+                            <td className="px-3 py-2.5 text-center" style={{ minWidth: '100px' }}>
+                              <button
+                                type="button"
+                                disabled={togglingPriority === delivery.id}
+                                onClick={async () => {
+                                  setTogglingPriority(delivery.id);
+                                  try {
+                                    await api.put(`/deliveries/admin/${delivery.id}/priority`, { isPriority: !isPriority });
+                                    void loadData();
+                                  } catch { setAssignmentMessage({ type: 'error', text: 'Failed to update priority' }); }
+                                  finally { setTogglingPriority(null); }
+                                }}
+                                title={isPriority ? 'Click to set Normal Delivery' : 'Click to set Priority Delivery'}
+                                className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold transition-colors whitespace-nowrap ${
+                                  togglingPriority === delivery.id ? 'opacity-50 cursor-wait' :
+                                  isPriority
+                                    ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-300 dark:border-red-700 hover:bg-red-200 dark:hover:bg-red-900/50'
+                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                }`}
+                              >
+                                {isPriority ? '🚨 Priority' : '📦 Normal'}
+                              </button>
+                            </td>
+
                             {/* Actions */}
                             <td className="px-3 py-2.5" style={{ minWidth: '140px' }}>
                               <div className="flex flex-col gap-1">

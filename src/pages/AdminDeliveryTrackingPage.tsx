@@ -3,6 +3,8 @@ import api, { setAuthToken } from '../frontend/apiClient';
 import PaginationBar from '../components/common/PaginationBar';
 import DeliveryMap from '../components/MapView/DeliveryMap';
 import { Package, MapPin, Clock, CheckCircle } from 'lucide-react';
+import { computePerDriverRoutes } from '../services/advancedRoutingService';
+import type { DriverRoute } from '../services/advancedRoutingService';
 
 interface TrackingLocation {
   lat: number;
@@ -38,6 +40,17 @@ interface TrackingData {
   deliveries?: TrackingDelivery[];
 }
 
+interface TrackingDriver {
+  id: string;
+  username?: string | null;
+  fullName?: string | null;
+  full_name?: string | null;
+  tracking?: {
+    online?: boolean;
+    location?: { lat: number; lng: number; speed?: number | null } | null;
+  };
+}
+
 function ensureAuth(): void {
   const token = localStorage.getItem('auth_token');
   if (token) setAuthToken(token);
@@ -47,10 +60,13 @@ const TRACK_PAGE_SIZE = 20;
 
 export default function AdminDeliveryTrackingPage(): React.ReactElement {
   const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
+  const [drivers, setDrivers] = useState<TrackingDriver[]>([]);
+  const [driverRoutes, setDriverRoutes] = useState<DriverRoute[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [trackPage, setTrackPage] = useState(1);
   const trackTableRef = useRef<HTMLDivElement | null>(null);
+  const driverRouteKeyRef = useRef<string>('');
 
   useEffect(() => {
     ensureAuth();
@@ -66,17 +82,48 @@ export default function AdminDeliveryTrackingPage(): React.ReactElement {
     window.addEventListener('deliveriesUpdated', handleDeliveriesUpdated);
     window.addEventListener('deliveryStatusUpdated', handleDeliveryStatusUpdated);
 
+    // Fast driver GPS poll (10s)
+    const driverInterval = setInterval(async () => {
+      if (document.hidden) return;
+      try {
+        const r = await api.get('/admin/tracking/drivers');
+        const list = (r.data?.drivers || []) as TrackingDriver[];
+        setDrivers(list);
+      } catch { /* silent */ }
+    }, 10_000);
+
     return () => {
       document.removeEventListener('visibilitychange', handleVisChange);
       window.removeEventListener('deliveriesUpdated', handleDeliveriesUpdated);
       window.removeEventListener('deliveryStatusUpdated', handleDeliveryStatusUpdated);
+      clearInterval(driverInterval);
     };
   }, []);
 
+  // Recompute per-driver OSRM routes when driver GPS or deliveries change
+  useEffect(() => {
+    const deliveries = trackingData?.deliveries ?? [];
+    const key = drivers
+      .filter((d) => d.tracking?.location)
+      .map((d) => {
+        const loc = d.tracking!.location!;
+        return `${d.id}:${loc.lat.toFixed(4)},${loc.lng.toFixed(4)}`;
+      })
+      .join(';');
+    if (key === driverRouteKeyRef.current) return;
+    driverRouteKeyRef.current = key;
+    if (!key) { setDriverRoutes([]); return; }
+    void computePerDriverRoutes(drivers as Parameters<typeof computePerDriverRoutes>[0], deliveries as Parameters<typeof computePerDriverRoutes>[1]).then(setDriverRoutes);
+  }, [drivers, trackingData]);
+
   const loadTrackingData = async (): Promise<void> => {
     try {
-      const response = await api.get('/admin/tracking/deliveries');
-      setTrackingData(response.data as TrackingData);
+      const [delRes, drvRes] = await Promise.all([
+        api.get('/admin/tracking/deliveries'),
+        api.get('/admin/tracking/drivers').catch(() => ({ data: { drivers: [] } })),
+      ]);
+      setTrackingData(delRes.data as TrackingData);
+      setDrivers((drvRes.data?.drivers || []) as TrackingDriver[]);
       setLastUpdate(new Date());
     } catch (err: unknown) {
       console.error('Error loading delivery tracking:', err);
@@ -174,9 +221,23 @@ export default function AdminDeliveryTrackingPage(): React.ReactElement {
       </div>
 
       {/* Map */}
-      {deliveriesForMap.length > 0 && (
+      {(deliveriesForMap.length > 0 || drivers.length > 0) && (
         <div className="pp-dash-card overflow-hidden transition-colors">
-          <DeliveryMap deliveries={deliveriesForMap as unknown as import('../types').Delivery[]} route={null} />
+          <DeliveryMap
+            deliveries={deliveriesForMap as unknown as import('../types').Delivery[]}
+            route={null}
+            driverRoutes={driverRoutes}
+            driverLocations={drivers
+              .filter((d) => d.tracking?.location && Number.isFinite(d.tracking.location.lat) && Number.isFinite(d.tracking.location.lng))
+              .map((d) => ({
+                id: d.id,
+                name: d.fullName || d.full_name || d.username || 'Driver',
+                status: d.tracking?.online ? 'online' : 'offline',
+                speedKmh: d.tracking?.location?.speed != null ? Math.round(d.tracking.location.speed * 3.6) : null,
+                lat: d.tracking!.location!.lat,
+                lng: d.tracking!.location!.lng,
+              }))}
+          />
         </div>
       )}
 

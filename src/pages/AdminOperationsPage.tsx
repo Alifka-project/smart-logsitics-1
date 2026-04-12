@@ -19,7 +19,8 @@ import {
   Package
 } from 'lucide-react';
 import DeliveryMap from '../components/MapView/DeliveryMap';
-import { calculateRoute } from '../services/advancedRoutingService';
+import { calculateRoute, computePerDriverRoutes } from '../services/advancedRoutingService';
+import type { DriverRoute } from '../services/advancedRoutingService';
 import PaginationBar from '../components/common/PaginationBar';
 
 /* ──── Interfaces ──── */
@@ -208,6 +209,8 @@ export default function AdminOperationsPage(): React.ReactElement {
   const [roadRoute, setRoadRoute] = useState<{ coordinates: [number, number][] } | null>(null);
   const [routeLoading, setRouteLoading] = useState<boolean>(false);
   const [routeLegDurationsSec, setRouteLegDurationsSec] = useState<number[]>([]);
+  const [driverRoutes, setDriverRoutes] = useState<DriverRoute[]>([]);
+  const driverRouteKeyRef = useRef<string>('');
 
   const [ongoingPage, setOngoingPage] = useState(1);
   const [controlPage, setControlPage] = useState(1);
@@ -457,6 +460,24 @@ export default function AdminOperationsPage(): React.ReactElement {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
+
+  /* Per-driver OSRM routes — recompute when any driver moves or deliveries change */
+  useEffect(() => {
+    const key = drivers
+      .filter((d) => d.tracking?.location)
+      .map((d) => {
+        const loc = d.tracking!.location!;
+        return `${d.id}:${loc.lat.toFixed(4)},${loc.lng.toFixed(4)}`;
+      })
+      .join(';');
+    if (key === driverRouteKeyRef.current) return;
+    driverRouteKeyRef.current = key;
+    if (!key) { setDriverRoutes([]); return; }
+    void computePerDriverRoutes(
+      drivers as Parameters<typeof computePerDriverRoutes>[0],
+      deliveries as Parameters<typeof computePerDriverRoutes>[1],
+    ).then(setDriverRoutes);
+  }, [drivers, deliveries]);
 
   /* Road-following route for map (OSRM) — only recalculates when the actual
      delivery coordinates change, not on every 5-second poll cycle.
@@ -796,7 +817,8 @@ export default function AdminOperationsPage(): React.ReactElement {
                     d.lat != null && d.lng != null &&
                     Number.isFinite(Number(d.lat)) && Number.isFinite(Number(d.lng))
                   ) as unknown as import('../types').Delivery[]}
-                  route={mapRoute as unknown as import('../types').RouteResult}
+                  route={driverRoutes.length > 0 ? null : (mapRoute as unknown as import('../types').RouteResult)}
+                  driverRoutes={driverRoutes}
                   driverLocations={driverLocations}
                   mapClassName="h-[320px] sm:h-[420px] lg:h-[560px]"
                 />
