@@ -29,7 +29,7 @@ const STATUS_CONFIG: Record<string, StatusConfig> = {
   /* Workflow-derived statuses (underscore form) */
   'out_for_delivery':               { dot: 'bg-blue-500',    bg: 'bg-blue-50 dark:bg-blue-900/20',       text: 'text-blue-700 dark:text-blue-300',      label: 'On Route'             },
   'sms_sent':                       { dot: 'bg-orange-500',  bg: 'bg-orange-50 dark:bg-orange-900/20',   text: 'text-orange-700 dark:text-orange-300',  label: 'Awaiting Customer'    },
-  'unconfirmed':                    { dot: 'bg-red-500',     bg: 'bg-red-50 dark:bg-red-900/20',         text: 'text-red-700 dark:text-red-300',        label: 'No Response (24h+)'  },
+  'unconfirmed':                    { dot: 'bg-red-500',     bg: 'bg-red-50 dark:bg-red-900/20',         text: 'text-red-700 dark:text-red-300',        label: 'No Response'  },
   'order_delay':                    { dot: 'bg-red-500',     bg: 'bg-red-50 dark:bg-red-900/20',         text: 'text-red-700 dark:text-red-300',        label: 'Order Delay'          },
   'next_shipment':                  { dot: 'bg-amber-500',   bg: 'bg-amber-50 dark:bg-amber-900/20',     text: 'text-amber-700 dark:text-amber-300',    label: 'Confirmed'            },
   'future_schedule':                { dot: 'bg-indigo-500',  bg: 'bg-indigo-50 dark:bg-indigo-900/20',   text: 'text-indigo-700 dark:text-indigo-300',  label: 'Confirmed'            },

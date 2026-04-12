@@ -152,7 +152,7 @@ function getStatusDisplay(raw?: string): { label: string; color: string } {
     /* Workflow-derived statuses (underscore form) */
     'out_for_delivery':               { label: 'On Route',           color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' },
     'sms_sent':                       { label: 'Awaiting Customer',  color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' },
-    'unconfirmed':                    { label: 'No Response (24h+)', color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' },
+    'unconfirmed':                    { label: 'No Response', color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' },
     'order_delay':                    { label: 'Order Delay',        color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' },
     'next_shipment':                  { label: 'Confirmed',          color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300' },
     'future_schedule':                { label: 'Confirmed',          color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300' },

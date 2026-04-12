@@ -187,7 +187,7 @@ function adminDeliveriesWorkflowBadge(d: Record<string, unknown>): { label: stri
     ws === 'future_schedule' ? 'Future Schedule' :
     ws === 'order_delay' ? 'Order Delay' :
     ws === 'sms_sent' ? 'Awaiting Customer' :
-    ws === 'unconfirmed' ? 'No Response (24h+)' :
+    ws === 'unconfirmed' ? 'No Response' :
     ws === 'confirmed' ? 'Confirmed' :
     ws === 'rescheduled' ? 'Rescheduled' :
     ws === 'failed' ? 'Failed / Returned' :
@@ -2540,7 +2540,7 @@ export default function AdminDashboardPage(): React.ReactElement {
             {[
               { label: 'Total (live)', value: deliveriesTabWorkflowStats.total, icon: Package, color: 'blue' },
               { label: 'Pending orders', value: deliveriesTabWorkflowStats.pendingOrders, icon: Clock, color: 'yellow' },
-              { label: 'No response (24h+)', value: deliveriesTabWorkflowStats.noResponse, icon: MessageSquare, color: 'emerald' },
+              { label: 'No response', value: deliveriesTabWorkflowStats.noResponse, icon: MessageSquare, color: 'emerald' },
               { label: 'On route', value: deliveriesTabWorkflowStats.onRoute, icon: Truck, color: 'indigo' },
               { label: 'Order delay', value: deliveriesTabWorkflowStats.orderDelay, icon: AlertCircle, color: 'red' },
               { label: 'Delivered', value: deliveriesTabWorkflowStats.delivered, icon: CheckCircle, color: 'green' },
@@ -2585,7 +2585,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                       <option value="all">All Statuses</option>
                       <option value="wf:out_for_delivery">On route (workflow)</option>
                       <option value="wf:order_delay">Order delay (workflow)</option>
-                      <option value="wf:unconfirmed">No response 24h+ (workflow)</option>
+                      <option value="wf:unconfirmed">No response (workflow)</option>
                       <option value="pending">Pending Order</option>
               <option value="scheduled">Awaiting Customer (SMS sent)</option>
               <option value="scheduled-confirmed">Confirmed</option>

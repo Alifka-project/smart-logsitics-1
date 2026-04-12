@@ -14,7 +14,7 @@ interface StatusMetricCardsProps {
 const CARD_DEFS = [
   { key: 'uploaded',         sublabel: 'Awaiting action', darkIconBg: 'dark:bg-blue-500/30' },
   { key: 'sms_sent',         sublabel: 'Awaiting reply',  darkIconBg: 'dark:bg-emerald-500/30' },
-  { key: 'unconfirmed',      sublabel: 'No reply 24h+',   darkIconBg: 'dark:bg-red-500/35' },
+  { key: 'unconfirmed',      sublabel: 'No reply',        darkIconBg: 'dark:bg-red-500/35' },
   { key: 'next_shipment',    sublabel: 'Next available',  darkIconBg: 'dark:bg-amber-500/30' },
   { key: 'future_schedule',  sublabel: '3+ days out',     darkIconBg: 'dark:bg-indigo-500/30' },
   { key: 'out_for_delivery', sublabel: 'Dispatched',      darkIconBg: 'dark:bg-orange-500/30' },

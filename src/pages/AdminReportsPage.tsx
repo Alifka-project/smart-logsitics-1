@@ -295,7 +295,7 @@ export default function AdminReportsPage(): React.ReactElement {
       status === 'rescheduled' &&
       (delivery.actor_type === 'customer' || delivery.rescheduled_by === 'customer')
     ) return 'Rescheduled';
-    return 'No Response (24h+)';
+    return 'No Response';
   };
 
   const getPODStatus = (delivery: ReportDelivery): boolean => {
@@ -567,7 +567,7 @@ export default function AdminReportsPage(): React.ReactElement {
               <option value="accepted">Accepted</option>
               <option value="cancelled">Cancelled</option>
               <option value="rescheduled">Rescheduled</option>
-              <option value="no response (24h+)">No Response (24h+)</option>
+              <option value="no response">No Response</option>
             </select>
           </div>
           <div>
