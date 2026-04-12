@@ -5,6 +5,7 @@ import prisma from '../db/prisma.js';
 import cache from '../cache.js';
 import * as db from '../db/index.js';
 import { excludeTeamPortalGarbageDeliveries } from '../../utils/deliveryListFilter.js';
+import { normalizeSapDeliveryForTracking } from '../utils/normalizeTrackingDelivery.js';
 
 const router = Router();
 
@@ -158,7 +159,10 @@ router.get('/deliveries', authenticate, requireAnyRole('admin', 'delivery_team',
           const sapId = d.id || d.ID;
           return sapId && !dbDeliveryIds.has(sapId);
         });
-        deliveries = deliveries.concat(newSapDeliveries as typeof deliveries);
+        const normalizedSap = newSapDeliveries.map((d) =>
+          normalizeSapDeliveryForTracking(d as Record<string, unknown>),
+        );
+        deliveries = deliveries.concat(normalizedSap as typeof deliveries);
       } catch (_) {
         // SAP not available, use database only
       }

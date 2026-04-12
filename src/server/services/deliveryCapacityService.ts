@@ -205,6 +205,21 @@ export async function getTotalItemCountForDeliveryDate(
  * Joins through DeliveryAssignment (active assignments only) → Delivery.confirmedDeliveryDate.
  * Used to enforce the per-driver 20-unit capacity limit at assignment time.
  */
+const ROUTE_STATUSES_FOR_TODAY_CAPACITY = new Set([
+  'out-for-delivery',
+  'out_for_delivery',
+  'in-transit',
+  'in_transit',
+  'in-progress',
+  'in_progress',
+]);
+
+/**
+ * Sum piece counts for deliveries actively assigned to this driver.
+ * - Scheduled / pre-route: counts toward the delivery's **Dubai confirmed** calendar day.
+ * - On route (dispatched): always counts toward **today (Dubai)** so trucks don't look "empty"
+ *   while drivers are carrying overdue or mixed-date loads.
+ */
 export async function getDriverItemCountForDate(
   db: Pick<PrismaClient, 'delivery' | 'deliveryAssignment'>,
   driverId: string,
@@ -212,27 +227,41 @@ export async function getDriverItemCountForDate(
   excludeDeliveryId?: string
 ): Promise<number> {
   const { start, end } = dubaiDayRangeUtc(isoDate);
+  const todayIso = getDubaiTodayIso();
 
-  // Find delivery IDs actively assigned to this driver that fall on the target date
   const assignments = await db.deliveryAssignment.findMany({
     where: {
       driverId,
       status: { in: ['assigned', 'in_progress'] },
       delivery: {
-        confirmedDeliveryDate: { gte: start, lte: end },
         status: { notIn: [...EXCLUDED_FROM_CAPACITY] },
-        ...(excludeDeliveryId ? { id: { not: excludeDeliveryId } } : {})
-      }
+        ...(excludeDeliveryId ? { id: { not: excludeDeliveryId } } : {}),
+      },
     },
     select: {
-      delivery: { select: { id: true, items: true, metadata: true } }
-    }
+      delivery: {
+        select: { id: true, items: true, metadata: true, status: true, confirmedDeliveryDate: true },
+      },
+    },
   });
 
   let total = 0;
   for (const a of assignments) {
     const r = a.delivery;
     if (!r) continue;
+    const rawStatus = (r.status || '').toLowerCase();
+    const onRoute = ROUTE_STATUSES_FOR_TODAY_CAPACITY.has(rawStatus);
+
+    let countsForThisDay = false;
+    if (onRoute) {
+      countsForThisDay = isoDate === todayIso;
+    } else if (r.confirmedDeliveryDate) {
+      const cd = r.confirmedDeliveryDate;
+      countsForThisDay = cd >= start && cd <= end;
+    }
+
+    if (!countsForThisDay) continue;
+
     const meta = r.metadata && typeof r.metadata === 'object' ? (r.metadata as Record<string, unknown>) : null;
     total += parseDeliveryItemCount(r.items, meta);
   }

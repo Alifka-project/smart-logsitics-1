@@ -1340,6 +1340,7 @@ router.put('/admin/:id/assign', authenticate, requireAnyRole('admin', 'delivery_
       include: { assignments: true }
     }) as {
       id: string;
+      status?: string | null;
       assignments?: unknown[];
       items?: string | null;
       metadata?: Record<string, unknown> | null;
@@ -1354,13 +1355,17 @@ router.put('/admin/:id/assign', authenticate, requireAnyRole('admin', 'delivery_
     // Per-driver capacity check: 1 driver = 1 truck = max TRUCK_MAX_ITEMS_PER_DAY units per day
     {
       const orderItemCount = parseDeliveryItemCount(delivery.items, delivery.metadata);
-      // Use the delivery's confirmed date, or default to tomorrow if not yet confirmed
-      const targetIso = delivery.confirmedDeliveryDate
-        ? new Intl.DateTimeFormat('en-CA', {
-            timeZone: 'Asia/Dubai',
-            year: 'numeric', month: '2-digit', day: '2-digit'
-          }).format(new Date(delivery.confirmedDeliveryDate))
-        : addDubaiCalendarDays(getDubaiTodayIso(), 1);
+      const apiStatus = String(delivery.status || '').toLowerCase().replace(/_/g, '-');
+      const onRouteForCap = ['out-for-delivery', 'in-transit', 'in-progress'].includes(apiStatus);
+      // On-route loads consume **today's** Dubai truck slot; others use confirmed delivery day (or tomorrow if unset)
+      const targetIso = onRouteForCap
+        ? getDubaiTodayIso()
+        : delivery.confirmedDeliveryDate
+          ? new Intl.DateTimeFormat('en-CA', {
+              timeZone: 'Asia/Dubai',
+              year: 'numeric', month: '2-digit', day: '2-digit'
+            }).format(new Date(delivery.confirmedDeliveryDate))
+          : addDubaiCalendarDays(getDubaiTodayIso(), 1);
 
       // Exclude this delivery from driver's current count (handles reassignment without double-counting)
       const driverUsed = await getDriverItemCountForDate(prisma, driverId, targetIso, id);

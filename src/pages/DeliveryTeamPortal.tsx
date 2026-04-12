@@ -9,7 +9,6 @@ import {
   Users,
   AlertCircle,
   CheckCircle,
-  XCircle,
   Clock,
   RefreshCw,
   Truck,
@@ -38,6 +37,17 @@ import { calculateRoute, generateFallbackRoute } from '../services/advancedRouti
 import useDeliveryStore from '../store/useDeliveryStore';
 import { deliveryToManageOrder } from '../utils/deliveryWorkflowMap';
 import { excludeTeamPortalGarbageDeliveries } from '../utils/deliveryListFilter';
+import { getTodayIsoDubai, addCalendarDaysDubai, formatInstantToDubaiIsoDate } from '../utils/dubaiCalendarIso';
+import {
+  displayCityForOps,
+  displayCustomerName,
+  displayDeliveryNumber,
+  displayDescriptionForOps,
+  displayMaterialForOps,
+  displayModelForOps,
+  displayPhone,
+  displayPoNumber,
+} from '../utils/deliveryDisplayFields';
 import type { Delivery, AuthUser } from '../types';
 // WhatsAppSendModal is mounted globally in App.tsx — no local import needed
 
@@ -109,12 +119,15 @@ export default function DeliveryTeamPortal() {
     return nowDubai.toISOString().slice(0, 10);
   }, []);
   const getCapacityDateIso = useCallback((d: Delivery): string => {
+    const s = String(d.status || '').toLowerCase().replace(/_/g, '-');
+    if (['out-for-delivery', 'in-transit', 'in-progress'].includes(s)) {
+      return getTodayIsoDubai();
+    }
     const raw = (d as unknown as { confirmedDeliveryDate?: string | null }).confirmedDeliveryDate;
     if (!raw) return fallbackCapacityDateIso;
     const t = Date.parse(String(raw));
     if (!Number.isFinite(t)) return fallbackCapacityDateIso;
-    const dubaiMs = t + 4 * 60 * 60 * 1000;
-    return new Date(dubaiMs).toISOString().slice(0, 10);
+    return formatInstantToDubaiIsoDate(t);
   }, [fallbackCapacityDateIso]);
   const getDriverCapacity = useCallback((d: Delivery, driverId: string | undefined): { used: number; remaining: number; max: number; full: boolean } | undefined => {
     if (!driverId) return undefined;
@@ -122,14 +135,11 @@ export default function DeliveryTeamPortal() {
     return driverCapacityByDate[iso]?.[driverId];
   }, [driverCapacityByDate, getCapacityDateIso]);
 
-  /** Calendar day key for the Truck capacity card (prefer Dubai-today if loaded, else earliest loaded date). */
-  const primaryCapacityDateIso = useMemo(() => {
-    const keys = Object.keys(driverCapacityByDate);
-    if (keys.length === 0) return fallbackCapacityDateIso;
-    const todayIso = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    if (driverCapacityByDate[todayIso]) return todayIso;
-    return [...keys].sort()[0] ?? fallbackCapacityDateIso;
-  }, [driverCapacityByDate, fallbackCapacityDateIso]);
+  /** Dubai ISO dates we have capacity snapshots for (sorted), always includes today + tomorrow once loaded. */
+  const capacityDatesSorted = useMemo(
+    () => [...Object.keys(driverCapacityByDate)].sort(),
+    [driverCapacityByDate],
+  );
 
   // Control tab state
   const [assigningDelivery, setAssigningDelivery] = useState<string | null>(null);
@@ -462,6 +472,9 @@ export default function DeliveryTeamPortal() {
       try {
         const dateSet = new Set<string>();
         for (const d of portalDeliveries) dateSet.add(getCapacityDateIso(d));
+        const todayIso = getTodayIsoDubai();
+        dateSet.add(todayIso);
+        dateSet.add(addCalendarDaysDubai(todayIso, 1));
         if (dateSet.size === 0) dateSet.add(fallbackCapacityDateIso);
 
         const capByDate: Record<string, Record<string, { used: number; remaining: number; max: number; full: boolean }>> = {};
@@ -699,22 +712,6 @@ export default function DeliveryTeamPortal() {
       return t >= cutoff;
     });
   }, [dashData, reportsPeriod]);
-
-  const reportsTotals = useMemo(() => {
-    let total = 0, delivered = 0, cancelled = 0, rescheduled = 0, returned = 0, pending = 0, podCompleted = 0;
-    for (const d of reportsDeliveries) {
-      total++;
-      const s = (d.status ?? '').toLowerCase();
-      if (DELIVERED_STATUSES.has(s)) delivered++;
-      if (CANCELLED_STATUSES.has(s)) cancelled++;
-      if (s === 'rescheduled') rescheduled++;
-      if (s === 'returned') returned++;
-      if (s === 'pending' || s === 'uploaded') pending++;
-      if (s === 'pod-completed') podCompleted++;
-    }
-    const successRate = total > 0 ? Math.round((delivered / total) * 100) : 0;
-    return { total, delivered, cancelled, rescheduled, returned, pending, podCompleted, successRate };
-  }, [reportsDeliveries]);
 
   const trendData = useMemo(() => {
     const days = reportsPeriod === '7d' ? 7 : reportsPeriod === '30d' ? 30 : 90;
@@ -1094,50 +1091,66 @@ export default function DeliveryTeamPortal() {
               )}
             </div>
 
-            {/* Truck capacity by driver (same height as other columns; scroll inside) */}
-            <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[300px]">
+            {/* Truck capacity — per Dubai calendar day (today / tomorrow / …); on-route counts on today */}
+            <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[340px]">
               <div className="mb-2 flex flex-shrink-0 items-center gap-2">
                 <Truck className="h-5 w-5 flex-shrink-0 text-teal-600 dark:text-teal-400" />
                 <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Truck capacity</h2>
               </div>
-              <p className="mb-2 flex-shrink-0 truncate text-[10px] text-gray-400 dark:text-gray-500" title={primaryCapacityDateIso}>
-                Day: {primaryCapacityDateIso}
+              <p className="mb-2 flex-shrink-0 text-[10px] leading-snug text-gray-400 dark:text-gray-500">
+                By delivery date (Dubai). Dispatched / on-route orders count toward <span className="font-semibold text-gray-500 dark:text-gray-400">today</span>.
               </p>
-              <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-0.5">
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-0.5">
                 {drivers.length === 0 ? (
                   <div className="py-6 text-center text-sm text-gray-400 dark:text-gray-500">No drivers</div>
+                ) : capacityDatesSorted.length === 0 ? (
+                  <div className="py-4 text-center text-xs text-gray-400 dark:text-gray-500">Loading capacity…</div>
                 ) : (
-                  [...drivers]
-                    .sort((a, b) => String(a.fullName || a.username || '').localeCompare(String(b.fullName || b.username || '')))
-                    .map((driver) => {
-                      const cap = driverCapacityByDate[primaryCapacityDateIso]?.[driver.id];
-                      const online = isContactOnline(driver);
-                      return (
-                        <div
-                          key={driver.id}
-                          className="flex items-start gap-2 rounded-lg border border-gray-100 bg-gray-50 p-2.5 dark:border-gray-700 dark:bg-gray-800/60"
-                        >
-                          <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${online ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-xs font-semibold text-gray-900 dark:text-gray-100">
-                              {driver.fullName || driver.username}
-                            </p>
-                            {cap ? (
-                              <p className="mt-0.5 text-[11px] text-gray-600 dark:text-gray-300">
-                                <span className="font-mono font-semibold text-teal-700 dark:text-teal-300">{cap.remaining}</span> left
-                                <span className="text-gray-400 dark:text-gray-500"> · </span>
-                                {cap.used}/{cap.max} used
-                              </p>
-                            ) : (
-                              <p className="mt-0.5 text-[11px] text-gray-400 dark:text-gray-500">—</p>
-                            )}
-                          </div>
-                          {cap?.full && (
-                            <span className="shrink-0 text-[10px] font-bold text-red-600 dark:text-red-400">FULL</span>
-                          )}
+                  capacityDatesSorted.map((iso) => {
+                    const today = getTodayIsoDubai();
+                    const dayLabel =
+                      iso === today ? 'Today' : iso === addCalendarDaysDubai(today, 1) ? 'Tomorrow' : iso;
+                    return (
+                      <div key={iso} className="rounded-lg border border-gray-100 dark:border-gray-700 bg-white/40 dark:bg-gray-800/40 p-2">
+                        <p className="mb-1.5 px-0.5 text-[10px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                          {dayLabel} <span className="font-mono font-normal normal-case text-gray-400">({iso})</span>
+                        </p>
+                        <div className="space-y-1.5">
+                          {[...drivers]
+                            .sort((a, b) => String(a.fullName || a.username || '').localeCompare(String(b.fullName || b.username || '')))
+                            .map((driver) => {
+                              const cap = driverCapacityByDate[iso]?.[driver.id];
+                              const online = isContactOnline(driver);
+                              return (
+                                <div
+                                  key={`${iso}-${driver.id}`}
+                                  className="flex items-start gap-2 rounded-md border border-gray-100 bg-gray-50 px-2 py-1.5 dark:border-gray-700 dark:bg-gray-800/60"
+                                >
+                                  <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${online ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate text-[11px] font-semibold text-gray-900 dark:text-gray-100">
+                                      {driver.fullName || driver.username}
+                                    </p>
+                                    {cap ? (
+                                      <p className="mt-0.5 text-[10px] text-gray-600 dark:text-gray-300">
+                                        <span className="font-mono font-semibold text-teal-700 dark:text-teal-300">{cap.remaining}</span> left
+                                        <span className="text-gray-400 dark:text-gray-500"> · </span>
+                                        {cap.used}/{cap.max} used
+                                      </p>
+                                    ) : (
+                                      <p className="mt-0.5 text-[10px] text-gray-400 dark:text-gray-500">—</p>
+                                    )}
+                                  </div>
+                                  {cap?.full && (
+                                    <span className="shrink-0 text-[9px] font-bold text-red-600 dark:text-red-400">FULL</span>
+                                  )}
+                                </div>
+                              );
+                            })}
                         </div>
-                      );
-                    })
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -1262,34 +1275,36 @@ export default function DeliveryTeamPortal() {
                         };
                         const meta = (dExt.metadata ?? {}) as Record<string, unknown>;
                         const orig = ((meta.originalRow ?? meta._originalRow ?? {}) as Record<string, unknown>);
-                        const delNum = String(dExt.deliveryNumber ?? orig['Delivery number'] ?? orig['Delivery Number'] ?? orig['Delivery'] ?? meta.originalDeliveryNumber ?? '—');
-                        const city = String(orig['City'] ?? orig['city'] ?? orig['Ship-to City'] ?? '—');
-                        const model = String(orig['MODEL ID'] ?? orig['Model ID'] ?? orig['model_id'] ?? orig['Model'] ?? orig['model'] ?? '—');
-                        // 'Description' appears as multiple columns in the Excel; take first non-empty
-                        const description = String(orig['Description'] ?? orig['description'] ?? meta['description'] ?? delivery.items ?? meta['items'] ?? '—');
-                        const material = String(orig['Material'] ?? orig['material'] ?? orig['Material Number'] ?? orig['PNC'] ?? '—');
+                        const delNum = displayDeliveryNumber(delivery);
+                        const city = displayCityForOps(delivery);
+                        const model = displayModelForOps(delivery);
+                        const description = displayDescriptionForOps(delivery);
+                        const material = displayMaterialForOps(delivery);
                         const invoicePrice = String(orig['Invoice Price'] ?? orig['invoice_price'] ?? orig['Price'] ?? orig['Unit Price'] ?? '—');
                         const qtyRaw = orig['Order Quantity'] ?? orig['Confirmed quantity'] ?? orig['Total Line Deliv. Qt'] ?? orig['Order Qty'] ?? orig['Quantity'] ?? orig['qty'] ?? null;
                         const qty = String(qtyRaw ?? '—');
                         const gmd = dExt.goodsMovementDate ? new Date(dExt.goodsMovementDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
                         const delDate = dExt.confirmedDeliveryDate ? new Date(dExt.confirmedDeliveryDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
                         const rawStatus = (delivery.status || '').toLowerCase();
-                        const isOFD = rawStatus === 'out-for-delivery' || rawStatus === 'in-transit' || rawStatus === 'in-progress';
-                        const isDelay = rawStatus === 'order-delay';
+                        const workflowOrder = deliveryToManageOrder(delivery);
+                        const isOFDWorkflow = workflowOrder.status === 'out_for_delivery';
+                        const isDelayWorkflow = workflowOrder.status === 'order_delay';
                         const isDispatchable = ['pending', 'scheduled', 'uploaded', 'confirmed', 'scheduled-confirmed'].includes(rawStatus);
                         const hasGMD = !!dExt.goodsMovementDate;
                         // Show "Send SMS" (WhatsApp) until the customer confirms — regardless of
                         // whether a link was already sent. After customer confirms, button is not needed.
                         const confirmationDone = (dExt.confirmationStatus as string) === 'confirmed';
                         const terminalStatus = ['out-for-delivery', 'delivered', 'cancelled', 'returned', 'in-transit', 'in-progress', 'finished', 'completed', 'pod-completed'].includes(rawStatus);
-                        const needsSMS = !!delivery.phone && !confirmationDone && !terminalStatus;
+                        const phoneForSms = displayPhone(delivery);
+                        const needsSMS = phoneForSms !== '—' && !confirmationDone && !terminalStatus;
                         const currentDriverId = dExt.tracking?.driverId || delivery.assignedDriverId;
                         const currentDriver = drivers.find(d => d.id === currentDriverId);
+                        const capacityDateIso = getCapacityDateIso(delivery);
                         const isOnline = currentDriver ? isContactOnline(currentDriver) : false;
                         const { label: statusLabel, color: statusColor } = getDeliveryStatusBadge(delivery);
-                        const rowBg = isOFD
+                        const rowBg = isOFDWorkflow
                           ? 'bg-blue-50/40 dark:bg-blue-900/10 border-l-4 border-l-blue-500'
-                          : isDelay
+                          : isDelayWorkflow
                           ? 'bg-red-50/40 dark:bg-red-900/10 border-l-4 border-l-red-400'
                           : 'border-l-4 border-l-transparent';
 
@@ -1298,17 +1313,17 @@ export default function DeliveryTeamPortal() {
                             {/* Indicator dot */}
                             <td className="pl-3 pr-1 py-3">
                               <span className={`block w-2 h-2 rounded-full flex-shrink-0 ${
-                                isOFD ? 'bg-blue-500 shadow-[0_0_6px_rgba(59,130,246,0.7)]' :
-                                isDelay ? 'bg-red-400' :
+                                isOFDWorkflow ? 'bg-blue-500 shadow-[0_0_6px_rgba(59,130,246,0.7)]' :
+                                isDelayWorkflow ? 'bg-red-400' :
                                 currentDriverId ? 'bg-amber-400' : 'bg-gray-300 dark:bg-gray-600'
                               }`} />
                             </td>
-                            <td className="px-3 py-2.5 font-mono text-gray-700 dark:text-gray-300 whitespace-nowrap">{delivery.poNumber || '—'}</td>
+                            <td className="px-3 py-2.5 font-mono text-gray-700 dark:text-gray-300 whitespace-nowrap">{displayPoNumber(delivery)}</td>
                             <td className="px-3 py-2.5 font-mono text-gray-600 dark:text-gray-400 whitespace-nowrap">{delNum}</td>
                             <td className="px-3 py-2.5">
-                              <div className="font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">{delivery.customer || '—'}</div>
+                              <div className="font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">{displayCustomerName(delivery)}</div>
                             </td>
-                            <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 whitespace-nowrap">{delivery.phone || '—'}</td>
+                            <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 whitespace-nowrap">{displayPhone(delivery)}</td>
                             <td className="px-3 py-2.5 max-w-[180px]">
                               <div className="truncate text-gray-600 dark:text-gray-300" title={delivery.address || ''}>{delivery.address || '—'}</div>
                             </td>
@@ -1330,7 +1345,7 @@ export default function DeliveryTeamPortal() {
                             <td className="px-3 py-2.5 text-gray-600 dark:text-gray-300 whitespace-nowrap">{invoicePrice}</td>
                             <td className="px-3 py-2.5 text-gray-600 dark:text-gray-300 whitespace-nowrap">{qty}</td>
                             {/* Driver assign */}
-                            <td className="px-3 py-2.5" style={{ minWidth: '160px' }}>
+                            <td className="px-3 py-2.5" style={{ minWidth: '200px' }}>
                               {currentDriver && (
                                 <div className="mb-1 flex items-center gap-1">
                                   <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-300'}`} />
@@ -1339,6 +1354,9 @@ export default function DeliveryTeamPortal() {
                                   </span>
                                 </div>
                               )}
+                              <p className="mb-1 font-mono text-[9px] text-gray-400 dark:text-gray-500" title="Dubai calendar day used for truck capacity">
+                                Truck day: {capacityDateIso}
+                              </p>
                               <select
                                 value={currentDriverId || ''}
                                 onChange={async (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -1362,9 +1380,10 @@ export default function DeliveryTeamPortal() {
                                 <option value="">{currentDriverId ? '— Reassign —' : '— Assign —'}</option>
                                 {drivers.map(driver => {
                                   const cap = getDriverCapacity(delivery, driver.id);
+                                  const capHint = cap ? `${cap.remaining} left (${cap.used}/${cap.max})` : '—';
                                   return (
                                     <option key={driver.id} value={driver.id} disabled={cap?.full && driver.id !== currentDriverId}>
-                                      {driver.fullName || driver.username}
+                                      {(driver.fullName || driver.username) + ` — ${capHint}`}
                                     </option>
                                   );
                                 })}
@@ -1394,7 +1413,7 @@ export default function DeliveryTeamPortal() {
                                     {sendingSms === delivery.id ? '…' : dExt.smsSentAt ? '📱 Resend SMS' : '📱 Send SMS'}
                                   </button>
                                 )}
-                                {isDispatchable && !hasGMD && !isOFD && !isDelay && (
+                                {isDispatchable && !hasGMD && !isOFDWorkflow && !isDelayWorkflow && (
                                   <span className="inline-flex items-center justify-center px-2 py-1 rounded text-[11px] font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 cursor-not-allowed whitespace-nowrap" title="Set Goods Movement Date to dispatch">
                                     GMD required
                                   </span>
@@ -1863,42 +1882,6 @@ export default function DeliveryTeamPortal() {
             </div>
           ) : (
             <>
-              {/* Period Performance KPI Cards */}
-              <div>
-                <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">
-                  Period Performance
-                  <span className="ml-2 normal-case font-normal text-gray-400">({reportsPeriod === '7d' ? 'last 7 days' : reportsPeriod === '30d' ? 'last 30 days' : 'last 90 days'})</span>
-                </p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                  {[
-                    { label: 'Total Orders',  value: reportsTotals.total,         icon: Package,    color: 'blue' },
-                    { label: 'Delivered',     value: reportsTotals.delivered,      icon: CheckCircle,color: 'green' },
-                    { label: 'Success Rate',  value: `${reportsTotals.successRate}%`, icon: TrendingUp, color: 'emerald' },
-                    { label: 'Cancelled',     value: reportsTotals.cancelled,      icon: XCircle,    color: 'red' },
-                    { label: 'Rescheduled',   value: reportsTotals.rescheduled,    icon: Clock,      color: 'amber' },
-                    { label: 'POD Completed', value: reportsTotals.podCompleted,   icon: FileText,   color: 'purple' },
-                  ].map(({ label, value, icon: Icon, color }) => {
-                    const colorMap: Record<string, string> = {
-                      blue:    'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20',
-                      green:   'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20',
-                      emerald: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20',
-                      red:     'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20',
-                      amber:   'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20',
-                      purple:  'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20',
-                    };
-                    return (
-                      <div key={label} className="pp-card p-4">
-                        <div className={`inline-flex p-2 rounded-lg mb-2 ${colorMap[color]}`}>
-                          <Icon className="w-4 h-4" />
-                        </div>
-                        <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{label}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
               {/* ── Delivery Report Table (moved above charts) ─────────────── */}
               {(() => {
                 const totalPages = Math.max(1, Math.ceil(podDeliveries.length / POD_PAGE_SIZE));
