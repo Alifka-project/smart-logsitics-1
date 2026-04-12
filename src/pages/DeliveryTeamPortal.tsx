@@ -1205,11 +1205,12 @@ export default function DeliveryTeamPortal() {
                 route={driverRoutes.length > 0 ? null : monitoringRoute}
                 driverRoutes={driverRoutes}
                 driverLocations={drivers
-                  .filter((d) => isContactOnline(d) && d.tracking?.location && Number.isFinite(d.tracking.location.lat) && Number.isFinite(d.tracking.location.lng))
+                  /* Every driver with a GPS fix gets a pin (matches per-driver routes). Online is informational only. */
+                  .filter((d) => d.tracking?.location && Number.isFinite(d.tracking.location.lat) && Number.isFinite(d.tracking.location.lng))
                   .map((d) => ({
                     id: d.id,
                     name: d.fullName || d.full_name || d.username || 'Driver',
-                    status: d.tracking?.online ? 'online' : 'offline',
+                    status: isContactOnline(d) ? 'online' : 'gps only',
                     speedKmh: d.tracking?.location?.speed != null ? Math.round(d.tracking.location.speed * 3.6) : null,
                     lat: d.tracking!.location!.lat,
                     lng: d.tracking!.location!.lng,

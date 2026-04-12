@@ -53,23 +53,26 @@ export default function DriverTrackingMap({ drivers }: DriverTrackingMapProps) {
     markersRef.current = {};
 
     const validMarkers: L.Marker[] = [];
-    drivers.forEach((driver) => {
-      const isOnline = driver.tracking?.online;
-      if (driver.tracking?.location && isOnline) {
-        const { lat, lng, heading } = driver.tracking.location;
-        const driverRaw = driver as unknown as Record<string, unknown>;
-        const driverName =
-          driver.full_name ||
-          (driverRaw['name'] as string | undefined) ||
-          (driverRaw['username'] as string | undefined) ||
-          'Unknown Driver';
+    drivers.forEach((driver, idx) => {
+      const loc = driver.tracking?.location;
+      if (!loc || !Number.isFinite(loc.lat) || !Number.isFinite(loc.lng)) return;
+
+      const { lat, lng, heading } = loc;
+      const isOnline = driver.tracking?.online === true;
+      const pinBg = isOnline ? '#10b981' : '#f59e0b';
+      const driverRaw = driver as unknown as Record<string, unknown>;
+      const driverName =
+        driver.full_name ||
+        (driverRaw['name'] as string | undefined) ||
+        (driverRaw['username'] as string | undefined) ||
+        'Unknown Driver';
 
         const icon = L.divIcon({
           className: 'driver-marker',
           html: `<div style="
             width: 32px;
             height: 32px;
-            background: #10b981;
+            background: ${pinBg};
             border: 3px solid white;
             border-radius: 50%;
             box-shadow: 0 2px 4px rgba(0,0,0,0.3);
@@ -109,9 +112,8 @@ export default function DriverTrackingMap({ drivers }: DriverTrackingMapProps) {
             { maxWidth: 250 },
           );
 
-        markersRef.current[driver.id ?? ''] = marker;
-        validMarkers.push(marker);
-      }
+      markersRef.current[String(driver.id ?? `driver-${idx}`)] = marker;
+      validMarkers.push(marker);
     });
 
     if (validMarkers.length > 0) {

@@ -193,12 +193,17 @@ export default function DeliveryMap({
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
       const driverName = driver.name || driver.username || 'Driver';
+      const st = String(driver.status || '').toLowerCase();
+      const isLiveSession = st === 'online' || st === 'in transit' || st === 'in_progress' || st === 'in-progress';
+      const pinGradient = isLiveSession
+        ? 'linear-gradient(135deg,#10b981 0%,#059669 100%)'
+        : 'linear-gradient(135deg,#f59e0b 0%,#d97706 100%)';
       const marker = L.marker([lat, lng], {
         icon: L.divIcon({
           className: 'driver-truck-marker',
           html: `<div style="
             width:42px;height:42px;
-            background:linear-gradient(135deg,#10b981 0%,#059669 100%);
+            background:${pinGradient};
             border:3px solid white;border-radius:10px;
             box-shadow:0 2px 8px rgba(0,0,0,.3);
             display:flex;align-items:center;justify-content:center;

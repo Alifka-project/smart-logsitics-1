@@ -674,17 +674,17 @@ export default function AdminOperationsPage(): React.ReactElement {
   // resolves (typically within a few seconds).
   const mapRoute = roadRoute;
 
+  /* Every driver with a GPS fix gets a pin (matches per-driver routes). Session “online” is informational only. */
   const driverLocations = drivers
-    .filter(d => isDriverOnline(d))
-    .map(driver => ({
+    .filter((d) => d.tracking?.location && Number.isFinite(Number(d.tracking.location.lat)) && Number.isFinite(Number(d.tracking.location.lng)))
+    .map((driver) => ({
       id: driver.id,
       name: driver.full_name || driver.fullName || driver.username || 'Driver',
-      status: driver.tracking?.status || 'online',
+      status: isDriverOnline(driver) ? (driver.tracking?.status || 'online') : 'gps only',
       speedKmh: driver.tracking?.location?.speed != null ? Math.round(driver.tracking.location.speed * 3.6) : null,
-      lat: driver.tracking?.location?.lat,
-      lng: driver.tracking?.location?.lng,
-    }))
-    .filter(driver => Number.isFinite(Number(driver.lat)) && Number.isFinite(Number(driver.lng)));
+      lat: driver.tracking!.location!.lat,
+      lng: driver.tracking!.location!.lng,
+    }));
 
   // Assigned = active AND has a driver assigned (in-flight work).
   const assignedDeliveries = activeDeliveries.filter(
