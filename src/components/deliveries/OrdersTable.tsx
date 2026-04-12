@@ -82,40 +82,99 @@ const MENU_BTN =
 const MENU_BTN_DANGER =
   'w-full flex items-center gap-2 px-3.5 py-2 text-[12px] text-left text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors';
 
-/** Maps workflow status → recommended next-step indicator shown in the action column */
-const NEXT_STEP_CONFIG: Partial<Record<DeliveryStatus | 'terminal_delivered' | 'terminal_cancelled' | 'terminal_failed', {
+interface StepConfig {
   label: string;
   icon: string;
   cls: string;
-}>> = {
-  uploaded:         { label: 'Send SMS',       icon: '📱', cls: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800/40' },
-  sms_sent:         { label: 'Awaiting Reply',  icon: '⏳', cls: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-900/20 dark:text-sky-300 dark:border-sky-800/40' },
-  unconfirmed:      { label: 'Resend SMS',      icon: '⚠️', cls: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800/40' },
-  confirmed:        { label: 'Assign Driver',   icon: '✅', cls: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800/40' },
-  next_shipment:    { label: 'Next Shipment',    icon: '📦', cls: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800/40' },
-  future_schedule:  { label: 'Future Schedule', icon: '📅', cls: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-300 dark:border-indigo-800/40' },
-  order_delay:      { label: 'Action Needed',   icon: '🚨', cls: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800/40' },
-  out_for_delivery: { label: 'Out for Delivery',icon: '🚚', cls: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800/40' },
-  rescheduled:      { label: 'Date Pending',    icon: '🔄', cls: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800/40' },
-  scheduled:        { label: 'Awaiting SMS',    icon: '⏳', cls: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800/40' },
-  terminal_delivered: { label: 'POD Submitted', icon: '✓',  cls: 'bg-green-50 text-green-600 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800/40' },
-  terminal_cancelled: { label: 'Cancelled',     icon: '✕',  cls: 'bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-700/40 dark:text-gray-400 dark:border-gray-600' },
-  terminal_failed:    { label: 'Returned',      icon: '↩',  cls: 'bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-700/40 dark:text-gray-400 dark:border-gray-600' },
+  /** Optional secondary badge shown below the primary (e.g. GMD status) */
+  gmd?: { label: string; cls: string };
+}
+
+/** Maps workflow status → next-step indicator(s) shown in the action column */
+const NEXT_STEP_CONFIG: Partial<Record<DeliveryStatus | 'terminal_delivered' | 'terminal_cancelled' | 'terminal_failed', StepConfig>> = {
+  uploaded:    {
+    label: 'Resend SMS',      icon: '📱',
+    cls: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800/40',
+  },
+  sms_sent:    {
+    label: 'Resend SMS',      icon: '📱',
+    cls: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800/40',
+  },
+  unconfirmed: {
+    label: 'Resend SMS',      icon: '⚠️',
+    cls: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800/40',
+  },
+  confirmed: {
+    label: 'Assign Driver',   icon: '✅',
+    cls: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800/40',
+  },
+  next_shipment: {
+    label: 'Next Shipment',   icon: '📦',
+    cls: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800/40',
+    gmd: { label: 'Waiting GMD', cls: 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800/40 dark:text-slate-400 dark:border-slate-700' },
+  },
+  future_schedule: {
+    label: 'Future Schedule', icon: '📅',
+    cls: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-300 dark:border-indigo-800/40',
+    gmd: { label: 'Waiting GMD', cls: 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800/40 dark:text-slate-400 dark:border-slate-700' },
+  },
+  order_delay: {
+    label: 'Action Needed',   icon: '🚨',
+    cls: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800/40',
+  },
+  out_for_delivery: {
+    label: 'Out for Delivery',icon: '🚚',
+    cls: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800/40',
+    gmd: { label: 'GMD Updated', cls: 'bg-green-50 text-green-600 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800/40' },
+  },
+  rescheduled: {
+    label: 'Next Shipment',   icon: '🔄',
+    cls: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800/40',
+  },
+  scheduled: {
+    label: 'Awaiting SMS',    icon: '⏳',
+    cls: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800/40',
+  },
+  terminal_delivered: {
+    label: 'POD Submitted',   icon: '✓',
+    cls: 'bg-green-50 text-green-600 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800/40',
+  },
+  terminal_cancelled: {
+    label: 'Cancelled',       icon: '✕',
+    cls: 'bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-700/40 dark:text-gray-400 dark:border-gray-600',
+  },
+  terminal_failed: {
+    label: 'Returned',        icon: '↩',
+    cls: 'bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-700/40 dark:text-gray-400 dark:border-gray-600',
+  },
 };
 
-/** Non-clickable indicator pill showing the recommended next action for this order */
+/** Non-clickable indicator pill(s) showing the recommended next action for this order */
 function NextStepBadge({ status }: { status: DeliveryStatus }): React.ReactElement | null {
   const cfg = NEXT_STEP_CONFIG[status];
   if (!cfg) return null;
   return (
-    <span
-      className={`inline-flex w-full items-center justify-center gap-1 px-1.5 py-1 rounded border text-[10px] font-semibold leading-none select-none ${cfg.cls}`}
-      title={`Next step: ${cfg.label}`}
-      aria-label={`Next step: ${cfg.label}`}
-    >
-      <span aria-hidden className="text-[10px]">{cfg.icon}</span>
-      {cfg.label}
-    </span>
+    <div className="flex flex-col gap-1 w-full">
+      {/* Primary next-step badge */}
+      <span
+        className={`inline-flex w-full items-center justify-center gap-1 px-1.5 py-1 rounded border text-[10px] font-semibold leading-none select-none ${cfg.cls}`}
+        title={`Next step: ${cfg.label}`}
+        aria-label={`Next step: ${cfg.label}`}
+      >
+        <span aria-hidden className="text-[10px]">{cfg.icon}</span>
+        {cfg.label}
+      </span>
+      {/* Secondary GMD badge (shown for next_shipment, future_schedule, out_for_delivery) */}
+      {cfg.gmd && (
+        <span
+          className={`inline-flex w-full items-center justify-center gap-1 px-1.5 py-1 rounded border text-[10px] font-medium leading-none select-none ${cfg.gmd.cls}`}
+          aria-label={cfg.gmd.label}
+        >
+          <span aria-hidden className="text-[9px]">⧖</span>
+          {cfg.gmd.label}
+        </span>
+      )}
+    </div>
   );
 }
 
