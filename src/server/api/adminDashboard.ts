@@ -3,7 +3,11 @@ const router = Router();
 const { authenticate, requireRole, requireAnyRole } = require('../auth');
 const sapService = require('../services/sapService.js');
 const prisma = require('../db/prisma').default;
+const cache = require('../cache');
 const { sortDeliveriesIncompleteLast } = require('../utils/deliveryListSort');
+
+/** Must match `invalidatePrefix('dashboard:')` in deliveries / SMS mutators. */
+const DASHBOARD_CACHE_KEY = 'dashboard:admin:v1';
 
 type DeliveryRecord = Record<string, unknown> & {
   customer?: string;
@@ -18,6 +22,7 @@ type DeliveryRecord = Record<string, unknown> & {
   delivered_at?: unknown;
   updated_at?: unknown;
   updatedAt?: unknown;
+  events?: Array<{ eventType?: string; createdAt?: unknown }>;
   driverSignature?: unknown;
   customerSignature?: unknown;
   photos?: unknown[];
@@ -222,28 +227,17 @@ function computeAnalytics(deliveries: unknown) {
   };
 }
 
-// Cache for dashboard data
-let dashboardCache: unknown = null;
-let dashboardCacheTime = 0;
-const DASHBOARD_CACHE_TTL = 60000;
+type AdminDashboardPayload = {
+  drivers: number;
+  recentLocations: number;
+  smsRecent: number;
+  totals: Record<string, number>;
+  recentCounts: { delivered: number; cancelled: number; rescheduled: number };
+  analytics: ReturnType<typeof computeAnalytics>;
+  deliveries: unknown[];
+};
 
-// GET /api/admin/dashboard
-router.get('/', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
-  try {
-    const now = Date.now();
-    const bypassCache = String((req.query as Record<string, unknown>)?.nocache || (req.query as Record<string, unknown>)?.noCache || '').trim() === '1';
-    if (!bypassCache && dashboardCache && (now - dashboardCacheTime) < DASHBOARD_CACHE_TTL) {
-      return void res.json(dashboardCache);
-    }
-
-    if (!prisma) {
-      return void res.status(503).json({
-        error: 'database_not_connected',
-        message: 'Database connection is not available.',
-        detail: 'Prisma client failed to initialize'
-      });
-    }
-
+async function buildAdminDashboardPayload(): Promise<AdminDashboardPayload> {
     const ninetyDaysAgo = new Date();
     ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
@@ -269,7 +263,11 @@ router.get('/', authenticate, requireAnyRole('admin', 'delivery_team', 'logistic
           customerConfirmedAt: true,
           confirmedDeliveryDate: true,
           createdAt: true,
+          updatedAt: true,
           deliveredAt: true,
+          smsSentAt: true,
+          goodsMovementDate: true,
+          deliveryNumber: true,
           driverSignature: true,
           customerSignature: true,
           photos: true,
@@ -335,6 +333,12 @@ router.get('/', authenticate, requireAnyRole('admin', 'delivery_team', 'logistic
           created: d.createdAt,
           delivered_at: d.deliveredAt,
           deliveredAt: d.deliveredAt,
+          updated_at: d.updatedAt,
+          updatedAt: d.updatedAt,
+          smsSentAt: d.smsSentAt,
+          goodsMovementDate: d.goodsMovementDate,
+          deliveryNumber: d.deliveryNumber,
+          events: d.events,
           assignedDriverId: assignments?.[0]?.driverId || null,
           driverName: assignments?.[0]?.driver?.fullName || null,
           driverSignature: d.driverSignature,
@@ -443,7 +447,8 @@ router.get('/', authenticate, requireAnyRole('admin', 'delivery_team', 'logistic
 
     const nowMs = Date.now();
     const last24 = (d: DeliveryRecord) => {
-      const t = d.updated_at || d.updatedAt || d.created_at || d.createdAt || d.created || null;
+      const ev = Array.isArray(d.events) && d.events[0]?.createdAt != null ? d.events[0].createdAt : null;
+      const t = d.updated_at || d.updatedAt || ev || d.created_at || d.createdAt || d.created || null;
       if (!t) return false;
       const dt = new Date(t as string | number).getTime();
       return (nowMs - dt) <= 24 * 3600 * 1000;
@@ -473,6 +478,8 @@ router.get('/', authenticate, requireAnyRole('admin', 'delivery_team', 'logistic
       status: d.status,
       created_at: d.created_at,
       createdAt: d.createdAt,
+      updated_at: d.updated_at,
+      updatedAt: d.updatedAt,
       delivered_at: d.delivered_at,
       deliveredAt: d.deliveredAt,
       address: d.address,
@@ -482,12 +489,44 @@ router.get('/', authenticate, requireAnyRole('admin', 'delivery_team', 'logistic
       confirmationStatus: d.confirmationStatus,
       customerConfirmedAt: d.customerConfirmedAt,
       confirmedDeliveryDate: d.confirmedDeliveryDate,
+      smsSentAt: d.smsSentAt,
+      goodsMovementDate: d.goodsMovementDate,
+      deliveryNumber: d.deliveryNumber,
     }));
 
-    const responseData = { drivers, recentLocations, smsRecent, totals, recentCounts, analytics, deliveries: deliveriesForCharts };
+    return {
+      drivers,
+      recentLocations,
+      smsRecent,
+      totals,
+      recentCounts,
+      analytics,
+      deliveries: deliveriesForCharts,
+    };
+}
 
-    dashboardCache = responseData;
-    dashboardCacheTime = Date.now();
+// GET /api/admin/dashboard
+router.get('/', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!prisma) {
+      return void res.status(503).json({
+        error: 'database_not_connected',
+        message: 'Database connection is not available.',
+        detail: 'Prisma client failed to initialize'
+      });
+    }
+
+    const bypassCache = String((req.query as Record<string, unknown>)?.nocache || (req.query as Record<string, unknown>)?.noCache || '').trim() === '1';
+    if (bypassCache) {
+      cache.delete(DASHBOARD_CACHE_KEY);
+    }
+
+    const responseData = await cache.getOrFetch(
+      DASHBOARD_CACHE_KEY,
+      () => buildAdminDashboardPayload(),
+      3000,
+      60000
+    ) as AdminDashboardPayload;
 
     res.json(responseData);
   } catch (err: unknown) {
