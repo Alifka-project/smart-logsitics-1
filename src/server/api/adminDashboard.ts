@@ -518,7 +518,8 @@ router.get('/', authenticate, requireAnyRole('admin', 'delivery_team', 'logistic
 
     const bypassCache = String((req.query as Record<string, unknown>)?.nocache || (req.query as Record<string, unknown>)?.noCache || '').trim() === '1';
     if (bypassCache) {
-      cache.delete(DASHBOARD_CACHE_KEY);
+      // Named export `del` — `require('../cache')` has no top-level `.delete` (reserved / not re-exported).
+      cache.del(DASHBOARD_CACHE_KEY);
     }
 
     const responseData = await cache.getOrFetch(
