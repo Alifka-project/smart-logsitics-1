@@ -126,6 +126,8 @@ router.get('/confirm-delivery/:token', async (req: Request, res: Response): Prom
         confirmedDeliveryDate: (fullDelivery.confirmedDeliveryDate as string | null) ?? null,
         goodsMovementDate: (fullDelivery.goodsMovementDate as string | null) ?? null,
         deliveryNumber: (fullDelivery.deliveryNumber as string | null) ?? null,
+        // Needed so customer UI can resolve SAP delivery no. (500…) from upload row / aliases
+        metadata: fullDelivery.metadata ?? null,
       },
       availableDates: slot.availableDates,
       capacityDays: slot.days,           // full per-day detail for UI rendering

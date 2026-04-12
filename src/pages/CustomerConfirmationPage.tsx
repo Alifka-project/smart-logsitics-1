@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AlertCircle, CheckCircle, Calendar, Package, MapPin, Phone, Loader, ChevronRight, ArrowRight } from 'lucide-react';
 import type { Delivery } from '../types';
+import { displayDeliveryNumber } from '../utils/deliveryDisplayFields';
 
 // ── Animations / shared CSS ──────────────────────────────────────────────────
 const STYLES = `
@@ -201,6 +202,10 @@ export default function CustomerConfirmationPage() {
         : [rawItems as string])
     : [];
 
+  const resolvedDeliveryNo =
+    delivery ? displayDeliveryNumber(delivery as Delivery) : '—';
+  const showDeliveryNo = resolvedDeliveryNo !== '—';
+
   // ── Loading skeleton ─────────────────────────────────────────────
   if (loading) return (
     <div style={{ minHeight: '100vh', background: '#F8FAFC' }}>
@@ -298,18 +303,26 @@ export default function CustomerConfirmationPage() {
                 <h2 style={{ fontWeight: 700, fontSize: 15, color: '#1e293b' }}>Order Details</h2>
               </div>
               <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {(delivery.poNumber || delivery.id) && (
+                {(delivery.poNumber || showDeliveryNo) && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div style={{ width: 36, height: 36, borderRadius: 10, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       <Package style={{ width: 16, height: 16, color: '#003057' }} />
                     </div>
                     <div>
-                      <p style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>PO Number</p>
+                      <p style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        {delivery.poNumber && showDeliveryNo
+                          ? 'References'
+                          : delivery.poNumber
+                            ? 'PO Number'
+                            : 'Delivery number'}
+                      </p>
                       {delivery.poNumber && (
                         <p style={{ fontSize: 13, fontWeight: 700, color: '#1e293b' }}>PO: {delivery.poNumber}</p>
                       )}
-                      {delivery.id && (
-                        <p style={{ fontSize: 12, fontWeight: 500, color: '#64748b' }}>Delivery No: #{String(delivery.id).slice(0, 8)}</p>
+                      {showDeliveryNo && (
+                        <p style={{ fontSize: 12, fontWeight: delivery.poNumber ? 500 : 700, color: delivery.poNumber ? '#64748b' : '#1e293b', marginTop: delivery.poNumber ? 4 : 0 }}>
+                          {delivery.poNumber ? 'Delivery No: ' : ''}{resolvedDeliveryNo}
+                        </p>
                       )}
                     </div>
                   </div>
@@ -394,14 +407,11 @@ export default function CustomerConfirmationPage() {
                 <div style={{ padding: '14px 18px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Calendar style={{ width: 15, height: 15, color: '#64748b' }} />
                   <h2 style={{ fontWeight: 700, fontSize: 15, color: '#1e293b' }}>Select Delivery Date</h2>
-                  <span style={{ marginLeft: 'auto', fontSize: 11, color: '#64748b', background: '#F1F5F9', padding: '2px 8px', borderRadius: 50, fontWeight: 600 }}>
-                    {truckMaxItems} units / truck
-                  </span>
                 </div>
                 {exceedsTruckCapacity ? (
                   <div style={{ padding: 18 }}>
                     <p style={{ fontSize: 14, color: '#b45309', lineHeight: 1.6, margin: 0 }}>
-                      This order exceeds the standard truck capacity ({truckMaxItems} units per truck). Please call the Electrolux Delivery Team at{' '}
+                      This order is too large to schedule online. Please call the Electrolux Delivery Team at{' '}
                       <a href="tel:+971524408687" style={{ color: '#003057', fontWeight: 700 }}>+971 52 440 8687</a>
                       {' '}to schedule this shipment.
                     </p>
@@ -409,7 +419,7 @@ export default function CustomerConfirmationPage() {
                 ) : availableDates.length === 0 ? (
                   <div style={{ padding: 18 }}>
                     <p style={{ fontSize: 14, color: '#DC2626', lineHeight: 1.6, margin: '0 0 8px' }}>
-                      All trucks are fully booked for the next 7 days ({truckMaxItems} units per truck per day).
+                      Our delivery schedule is fully booked for the next week.
                     </p>
                     <p style={{ fontSize: 13, color: '#64748b', lineHeight: 1.6, margin: 0 }}>
                       Please contact us at{' '}
@@ -420,8 +430,7 @@ export default function CustomerConfirmationPage() {
                 ) : (
                 <form onSubmit={(e) => void handleConfirmDelivery(e)} style={{ padding: 18 }}>
                   <p style={{ fontSize: 12, color: '#64748b', marginBottom: 14, lineHeight: 1.5 }}>
-                    Each truck carries up to <strong>{truckMaxItems} units</strong> per day. Sundays &amp; public holidays are not available.
-                    Grayed dates are fully booked — choose an available slot below.
+                    Sundays and public holidays are not available. Grayed-out dates cannot be selected — choose an available date below.
                   </p>
 
                   {/* Full date grid — shows ALL days including full/blocked */}
@@ -431,7 +440,6 @@ export default function CustomerConfirmationPage() {
                       const isSelected = selectedDate === day.iso;
                       const isFull = !day.available;
                       const reasonLabel = day.reason === 'sunday' ? 'Sunday' : day.reason === 'holiday' ? 'Holiday' : 'Full';
-                      const fillPct = day.total > 0 ? Math.round((day.used / day.total) * 100) : 0;
 
                       if (isFull) {
                         return (
@@ -448,14 +456,6 @@ export default function CustomerConfirmationPage() {
                               </span>
                             </div>
                             <p style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', margin: 0 }}>{dateLabel}</p>
-                            {day.reason === 'full' && day.total > 0 && (
-                              <div style={{ marginTop: 4 }}>
-                                <div style={{ height: 4, borderRadius: 4, background: '#fee2e2', overflow: 'hidden' }}>
-                                  <div style={{ height: '100%', width: `${fillPct}%`, background: '#EF4444', borderRadius: 4 }} />
-                                </div>
-                                <p style={{ fontSize: 10, color: '#EF4444', margin: '2px 0 0', fontWeight: 600 }}>{day.used}/{day.total} units</p>
-                              </div>
-                            )}
                           </div>
                         );
                       }
@@ -476,16 +476,6 @@ export default function CustomerConfirmationPage() {
                             </div>
                           </div>
                           <p style={{ fontSize: 13, fontWeight: 700, color: isSelected ? '#003057' : '#374151', margin: 0 }}>{dateLabel}</p>
-                          {day.total > 0 && (
-                            <div style={{ marginTop: 4 }}>
-                              <div style={{ height: 4, borderRadius: 4, background: '#e2e8f0', overflow: 'hidden' }}>
-                                <div style={{ height: '100%', width: `${fillPct}%`, background: fillPct > 75 ? '#F59E0B' : '#22C55E', borderRadius: 4, transition: 'width 0.4s ease' }} />
-                              </div>
-                              <p style={{ fontSize: 10, color: '#64748b', margin: '2px 0 0' }}>
-                                <span style={{ fontWeight: 700, color: fillPct > 75 ? '#D97706' : '#16A34A' }}>{day.remaining}</span> / {day.total} units left
-                              </p>
-                            </div>
-                          )}
                         </label>
                       );
                     })}
