@@ -807,6 +807,20 @@ export default function DeliveryTeamPortal() {
     })),
   [allDashDeliveries]);
 
+  // Current-snapshot pipeline counts (all records, independent of time-period filter)
+  const currentPipelineCounts = useMemo(() => {
+    let nextShipment = 0, futureSchedule = 0, orderDelay = 0, onRoute = 0, awaitingCustomer = 0, orderDelayCritical = 0;
+    for (const { ws } of allDashWithWorkflow) {
+      if (ws === 'next_shipment')    nextShipment++;
+      if (ws === 'future_schedule')  futureSchedule++;
+      if (ws === 'order_delay')      orderDelay++;
+      if (ws === 'out_for_delivery') onRoute++;
+      if (ws === 'sms_sent' || ws === 'unconfirmed') awaitingCustomer++;
+      if (ws === 'order_delay')      orderDelayCritical++;
+    }
+    return { nextShipment, futureSchedule, orderDelay, onRoute, awaitingCustomer };
+  }, [allDashWithWorkflow]);
+
   // Unique driver names for filter dropdown (from full list)
   const podDriverOptions = useMemo(() => {
     const names = new Set<string>();
@@ -867,7 +881,7 @@ export default function DeliveryTeamPortal() {
   }, [allDashWithWorkflow, podSearch, podStatusFilter, podDriverFilter, podDateFrom, podDateTo, podSortKey, podSortDir, extractItemMeta]);
 
   const CHART_COLORS = { delivered: '#22c55e', cancelled: '#ef4444', rescheduled: '#f59e0b', returned: '#8b5cf6', pending: '#94a3b8' };
-  const PIE_PALETTE = ['#22c55e','#ef4444','#f59e0b','#3b82f6','#8b5cf6','#94a3b8','#06b6d4'];
+  const PIE_PALETTE = ['#22c55e','#ef4444','#f59e0b','#3b82f6','#8b5cf6','#94a3b8','#06b6d4','#f97316','#ec4899','#14b8a6','#a855f7','#64748b'];
   const TOOLTIP_STYLE = {
     wrapperStyle: { zIndex: 9999 },
     contentStyle: { background: 'var(--chart-tooltip-bg, #fff)', border: '1px solid var(--chart-tooltip-border, #e5e7eb)', borderRadius: '12px', fontSize: '13px', color: 'var(--chart-tooltip-fg, #111)', padding: '10px 14px', minWidth: '130px', boxShadow: '0 8px 24px -4px rgba(0,0,0,0.18)' },
@@ -1835,34 +1849,65 @@ export default function DeliveryTeamPortal() {
             </div>
           ) : (
             <>
-              {/* KPI Cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                {[
-                  { label: 'Total Orders', value: reportsTotals.total, icon: Package, color: 'blue' },
-                  { label: 'Delivered', value: reportsTotals.delivered, icon: CheckCircle, color: 'green' },
-                  { label: 'Success Rate', value: `${reportsTotals.successRate}%`, icon: TrendingUp, color: 'emerald' },
-                  { label: 'Cancelled', value: reportsTotals.cancelled, icon: XCircle, color: 'red' },
-                  { label: 'Rescheduled', value: reportsTotals.rescheduled, icon: Clock, color: 'amber' },
-                  { label: 'POD Completed', value: reportsTotals.podCompleted, icon: FileText, color: 'purple' },
-                ].map(({ label, value, icon: Icon, color }) => {
-                  const colorMap: Record<string, string> = {
-                    blue: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20',
-                    green: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20',
-                    emerald: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20',
-                    red: 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20',
-                    amber: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20',
-                    purple: 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20',
-                  };
-                  return (
-                    <div key={label} className="pp-card p-4">
-                      <div className={`inline-flex p-2 rounded-lg mb-2 ${colorMap[color]}`}>
-                        <Icon className="w-4 h-4" />
+              {/* Current Pipeline Snapshot — live counts independent of time filter */}
+              <div>
+                <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">Current Pipeline</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                  {[
+                    { label: 'Next Shipment',    value: currentPipelineCounts.nextShipment,    icon: '📦', cls: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20',   sublabel: 'Dispatch within 2 days' },
+                    { label: 'Future Schedule',  value: currentPipelineCounts.futureSchedule,  icon: '📅', cls: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20', sublabel: '3+ days out' },
+                    { label: 'On Route',         value: currentPipelineCounts.onRoute,         icon: '🚚', cls: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20',         sublabel: 'Currently dispatched' },
+                    { label: 'Awaiting Customer',value: currentPipelineCounts.awaitingCustomer,icon: '⏳', cls: 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20',  sublabel: 'SMS sent / no reply' },
+                    { label: 'Order Delay',      value: currentPipelineCounts.orderDelay,      icon: '🚨', cls: 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20',              sublabel: 'Needs attention now' },
+                  ].map(({ label, value, icon, cls, sublabel }) => (
+                    <div key={label} className="pp-card p-4 flex items-center gap-3">
+                      <div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-lg ${cls}`}>
+                        {icon}
                       </div>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{label}</p>
+                      <div className="min-w-0">
+                        <p className="text-xl font-bold text-gray-900 dark:text-gray-100 tabular-nums leading-none">{value}</p>
+                        <p className="text-[11px] font-medium text-gray-700 dark:text-gray-300 mt-0.5 truncate">{label}</p>
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500 truncate">{sublabel}</p>
+                      </div>
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
+              </div>
+
+              {/* Period Performance KPI Cards */}
+              <div>
+                <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">
+                  Period Performance
+                  <span className="ml-2 normal-case font-normal text-gray-400">({reportsPeriod === '7d' ? 'last 7 days' : reportsPeriod === '30d' ? 'last 30 days' : 'last 90 days'})</span>
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                  {[
+                    { label: 'Total Orders',  value: reportsTotals.total,         icon: Package,    color: 'blue' },
+                    { label: 'Delivered',     value: reportsTotals.delivered,      icon: CheckCircle,color: 'green' },
+                    { label: 'Success Rate',  value: `${reportsTotals.successRate}%`, icon: TrendingUp, color: 'emerald' },
+                    { label: 'Cancelled',     value: reportsTotals.cancelled,      icon: XCircle,    color: 'red' },
+                    { label: 'Rescheduled',   value: reportsTotals.rescheduled,    icon: Clock,      color: 'amber' },
+                    { label: 'POD Completed', value: reportsTotals.podCompleted,   icon: FileText,   color: 'purple' },
+                  ].map(({ label, value, icon: Icon, color }) => {
+                    const colorMap: Record<string, string> = {
+                      blue:    'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20',
+                      green:   'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20',
+                      emerald: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20',
+                      red:     'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20',
+                      amber:   'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20',
+                      purple:  'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20',
+                    };
+                    return (
+                      <div key={label} className="pp-card p-4">
+                        <div className={`inline-flex p-2 rounded-lg mb-2 ${colorMap[color]}`}>
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{label}</p>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* ── Delivery Report Table (moved above charts) ─────────────── */}
