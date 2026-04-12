@@ -1792,18 +1792,6 @@ export default function DeliveryTeamPortal() {
       {/* ── Reports & Analytics Tab ─────────────────────────────────────── */}
       {activeTab === 'reports' && (
         <div className="space-y-6">
-          {/* Header row */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <button
-              onClick={() => void loadReportsData(true)}
-              disabled={reportsLoading}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors disabled:opacity-50"
-            >
-              <RefreshCw className={`w-4 h-4 ${reportsLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
-          </div>
-
           {reportsLoading && !dashData ? (
             <div className="flex items-center justify-center py-20">
               <div className="text-center">
