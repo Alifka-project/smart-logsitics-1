@@ -3,7 +3,7 @@ import api, { setAuthToken } from '../frontend/apiClient';
 import { BarChart, Bar, LabelList, ComposedChart, XAxis, YAxis, ZAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, Line, AreaChart, Area, PieChart, Pie, Cell, ReferenceLine, ScatterChart, Scatter, type PieLabelRenderProps } from 'recharts';
 import { 
   Package, CheckCircle, XCircle, Clock, MapPin, Users, Activity, 
-  Truck, AlertCircle, FileText, Target, TrendingUp,
+  Truck, AlertCircle, FileText, Target, TrendingUp, MessageSquare,
   ChevronUp, ChevronDown, ChevronRight, RefreshCw, Download, ArrowUpRight, Filter, RotateCcw
 } from 'lucide-react';
 import RiskBadge, { riskFromSuccessRate } from '../components/Analytics/RiskBadge';
@@ -16,6 +16,8 @@ import 'leaflet/dist/leaflet.css';
 import type { Driver } from '../types';
 import PaginationBar from '../components/common/PaginationBar';
 import { excludeTeamPortalGarbageDeliveries } from '../utils/deliveryListFilter';
+import type { Delivery } from '../types';
+import { deliveryToManageOrder } from '../utils/deliveryWorkflowMap';
 
 /**
  * Visual language follows PolicyPilot-style dashboards (airy cards, pill controls, blue accent).
@@ -173,6 +175,37 @@ interface AdminDriver extends Driver {
   account?: { role?: string; lastLogin?: string };
   name?: string;
   tracking?: Driver['tracking'] & { lastUpdate?: string | Date | null };
+}
+
+/** Same workflow labels as Delivery / Logistics portals (ManageTab / deliveryToManageOrder). */
+function adminDeliveriesWorkflowBadge(d: Record<string, unknown>): { label: string; pillClass: string } {
+  const ws = deliveryToManageOrder(d as unknown as Delivery).status;
+  const label =
+    ws === 'delivered' ? 'Delivered' :
+    ws === 'out_for_delivery' ? 'On Route' :
+    ws === 'tomorrow_shipment' ? 'Tomorrow Shipment' :
+    ws === 'next_shipment' ? 'Next Shipment' :
+    ws === 'future_shipment' ? 'Future Shipment' :
+    ws === 'order_delay' ? 'Order Delay' :
+    ws === 'sms_sent' ? 'Awaiting Customer' :
+    ws === 'unconfirmed' ? 'No Response (24h+)' :
+    ws === 'confirmed' ? 'Confirmed' :
+    ws === 'rescheduled' ? 'Rescheduled' :
+    ws === 'failed' ? 'Failed / Returned' :
+    ws === 'cancelled' ? 'Cancelled' :
+    ws === 'uploaded' ? 'Pending Order' :
+    'Pending Order';
+  const pillClass =
+    ws === 'order_delay' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
+    ws === 'out_for_delivery' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' :
+    ws === 'unconfirmed' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300' :
+    ws === 'sms_sent' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300' :
+    ws === 'delivered' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
+    ws === 'cancelled' || ws === 'failed' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
+    ws === 'tomorrow_shipment' || ws === 'next_shipment' || ws === 'future_shipment'
+      ? 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300' :
+    'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
+  return { label, pillClass };
 }
 
 /** Resolve driver id for a delivery (matches list + name fallback). */
@@ -929,13 +962,34 @@ export default function AdminDashboardPage(): React.ReactElement {
     }
   }, [location.search]);
 
+  const portalOperationalDeliveries = useMemo(
+    () =>
+      excludeTeamPortalGarbageDeliveries(
+        deliveries as unknown as Record<string, unknown>[]
+      ) as unknown as TrackingDelivery[],
+    [deliveries]
+  );
+
+  /** Same counting rules as DeliveryTeamPortal "Needs Attention" + On Route / Delay. */
+  const deliveriesTabWorkflowStats = useMemo(() => {
+    const list = portalOperationalDeliveries;
+    const orders = list.map(d => ({ order: deliveryToManageOrder(d as unknown as Delivery) }));
+    const TERMINAL = new Set(['delivered', 'cancelled', 'failed']);
+    const pendingOrders = orders.filter(({ order }) => !TERMINAL.has(order.status)).length;
+    const noResponse = orders.filter(({ order }) => order.status === 'unconfirmed').length;
+    const onRoute = orders.filter(({ order }) => order.status === 'out_for_delivery').length;
+    const orderDelay = orders.filter(({ order }) => order.status === 'order_delay').length;
+    const delivered = orders.filter(({ order }) => order.status === 'delivered').length;
+    return { pendingOrders, noResponse, onRoute, orderDelay, delivered, total: list.length };
+  }, [portalOperationalDeliveries]);
+
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const deliveryId = params.get('delivery');
-    if (!deliveryId || deliveries.length === 0) return;
-    const match = deliveries.find(d => String(d.id || d.ID) === String(deliveryId));
+    if (!deliveryId || portalOperationalDeliveries.length === 0) return;
+    const match = portalOperationalDeliveries.find(d => String(d.id || d.ID) === String(deliveryId));
     if (match) { setSelectedDelivery(match); setIsModalOpen(true); }
-  }, [location.search, deliveries]);
+  }, [location.search, portalOperationalDeliveries]);
 
   useEffect(() => {
     if (activeTab !== 'drivers') return;
@@ -1278,30 +1332,17 @@ export default function AdminDashboardPage(): React.ReactElement {
   }, [dashboardDeliveries, trendsGlobalPeriod, trendsBucketsConfig, areaKeywords]);
 
   const filteredDeliveries = useMemo<TrackingDelivery[]>(() => {
-    // Merge: full history from dashboard + live rows from tracking (same API as Delivery/Logistics portals).
-    // Tracking payload wins on id so status/assignment stay in sync; garbage import rows excluded everywhere.
-    const dashFiltered = excludeTeamPortalGarbageDeliveries(
-      (dashboardDeliveries && Array.isArray(dashboardDeliveries) ? dashboardDeliveries : []) as unknown as Record<string, unknown>[]
-    ) as unknown as TrackingDelivery[];
-    const trackFiltered = excludeTeamPortalGarbageDeliveries(
-      (deliveries || []) as unknown as Record<string, unknown>[]
-    ) as unknown as TrackingDelivery[];
-    const rowId = (d: TrackingDelivery): string => String(d.id ?? (d as { ID?: string }).ID ?? '').trim();
-    const byId = new Map<string, TrackingDelivery>();
-    for (const d of dashFiltered) {
-      const id = rowId(d);
-      if (id) byId.set(id, d);
-    }
-    for (const d of trackFiltered) {
-      const id = rowId(d);
-      if (id) byId.set(id, d);
-    }
-    const list = Array.from(byId.values());
+    // Same list as Delivery / Logistics portals: /admin/tracking/deliveries + garbage filter (not dashboard 90d merge).
+    const list = portalOperationalDeliveries.slice();
     const dir = deliverySortDir === 'asc' ? 1 : -1;
     list.sort((a, b) => {
       if (deliverySortBy === 'customer') return dir * (a.customer || '').toLowerCase().localeCompare((b.customer || '').toLowerCase());
-      if (deliverySortBy === 'status') return dir * (a.status || '').localeCompare(b.status || '');
-      if (deliverySortBy === 'poNumber') return dir * (a.poNumber || '').localeCompare(b.poNumber || '');
+      if (deliverySortBy === 'status') {
+        const wa = deliveryToManageOrder(a as unknown as Delivery).status;
+        const wb = deliveryToManageOrder(b as unknown as Delivery).status;
+        return dir * wa.localeCompare(wb);
+      }
+      if (deliverySortBy === 'poNumber') return dir * String(a.poNumber || '').localeCompare(String(b.poNumber || ''));
       return dir * (new Date(a.created_at || a.createdAt || 0).getTime() - new Date(b.created_at || b.createdAt || 0).getTime());
     });
     const dayAgo = new Date(Date.now() - 86400000);
@@ -1309,12 +1350,20 @@ export default function AdminDashboardPage(): React.ReactElement {
       const q = deliverySearch.trim().toLowerCase();
       if (q && !((d.poNumber || '').toLowerCase().includes(q) || (d.customer || '').toLowerCase().includes(q) || (d.address || '').toLowerCase().includes(q) || String(d.id || '').toLowerCase().includes(q))) return false;
       if (deliveryStatusFilter !== 'all') {
-        const s = (d.status || '').toLowerCase();
-        // 'pending' filter covers both 'pending' and 'uploaded' DB statuses (both mean "new order, no action yet")
-        if (deliveryStatusFilter === 'pending') {
-          if (s !== 'pending' && s !== 'uploaded') return false;
+        const wf = deliveryToManageOrder(d as unknown as Delivery).status;
+        if (deliveryStatusFilter === 'wf:unconfirmed') {
+          if (wf !== 'unconfirmed') return false;
+        } else if (deliveryStatusFilter === 'wf:order_delay') {
+          if (wf !== 'order_delay') return false;
+        } else if (deliveryStatusFilter === 'wf:out_for_delivery') {
+          if (wf !== 'out_for_delivery') return false;
         } else {
-          if (s !== deliveryStatusFilter) return false;
+          const s = (d.status || '').toLowerCase();
+          if (deliveryStatusFilter === 'pending') {
+            if (s !== 'pending' && s !== 'uploaded') return false;
+          } else {
+            if (s !== deliveryStatusFilter) return false;
+          }
         }
       }
       const date = new Date(d.created_at || d.createdAt || 0);
@@ -1327,7 +1376,8 @@ export default function AdminDashboardPage(): React.ReactElement {
       } else if (deliveryAttentionFilter === 'unassigned') {
         const s = (d.status || '').toLowerCase();
         if (!['pending', 'scheduled'].includes(s)) return false;
-        if (d.assignedDriverId) return false;
+        const dt = d as unknown as { tracking?: { driverId?: string } };
+        if (d.assignedDriverId || dt.tracking?.driverId) return false;
       } else if (deliveryAttentionFilter === 'awaiting') {
         const s = (d.status || '').toLowerCase();
         const conf = String(d.confirmationStatus || '').toLowerCase();
@@ -1336,7 +1386,7 @@ export default function AdminDashboardPage(): React.ReactElement {
       }
       return true;
     });
-  }, [dashboardDeliveries, deliveries, deliverySearch, deliveryStatusFilter, deliveryDateFrom, deliveryDateTo, deliveryAttentionFilter, deliverySortBy, deliverySortDir]);
+  }, [portalOperationalDeliveries, deliverySearch, deliveryStatusFilter, deliveryDateFrom, deliveryDateTo, deliveryAttentionFilter, deliverySortBy, deliverySortDir]);
 
   const deliveryByAreaData = useMemo<AreaItem[]>(() => {
     const arr = (data?.analytics?.deliveryByArea || []).slice().sort((a, b) => (b.count ?? 0) - (a.count ?? 0));
@@ -2489,24 +2539,12 @@ export default function AdminDashboardPage(): React.ReactElement {
           {/* Compact strip — 6 delivery metrics */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {[
-              { label: 'Total', value: filteredDeliveries.length, icon: Package, color: 'blue' },
-              { label: 'Delivered', value: filteredDeliveries.filter(d => ['delivered','delivered-with-installation','delivered-without-installation'].includes((d.status||'').toLowerCase())).length, icon: CheckCircle, color: 'green' },
-              { label: 'Pending Orders', value: filteredDeliveries.filter(d => {
-                const s = (d.status || '').toLowerCase();
-                return !['delivered','delivered-with-installation','delivered-without-installation',
-                         'finished','completed','pod-completed',
-                         'cancelled','canceled','rejected',
-                         'returned','failed'].includes(s);
-              }).length, icon: Clock, color: 'yellow' },
-              { label: "Today's Delivery", value: filteredDeliveries.filter(d => {
-                const t = d.created_at || d.createdAt || d.created;
-                if (!t) return false;
-                const dt = new Date(t as string | number);
-                const today = new Date();
-                return dt.toDateString() === today.toDateString();
-              }).length, icon: Truck, color: 'indigo' },
-              { label: 'Confirmed', value: filteredDeliveries.filter(d => (d.status||'').toLowerCase() === 'scheduled-confirmed').length, icon: Target, color: 'emerald' },
-              { label: 'Cancelled', value: filteredDeliveries.filter(d => ['cancelled','canceled','rejected','returned'].includes((d.status||'').toLowerCase())).length, icon: XCircle, color: 'red' },
+              { label: 'Total (live)', value: deliveriesTabWorkflowStats.total, icon: Package, color: 'blue' },
+              { label: 'Pending orders', value: deliveriesTabWorkflowStats.pendingOrders, icon: Clock, color: 'yellow' },
+              { label: 'No response (24h+)', value: deliveriesTabWorkflowStats.noResponse, icon: MessageSquare, color: 'emerald' },
+              { label: 'On route', value: deliveriesTabWorkflowStats.onRoute, icon: Truck, color: 'indigo' },
+              { label: 'Order delay', value: deliveriesTabWorkflowStats.orderDelay, icon: AlertCircle, color: 'red' },
+              { label: 'Delivered', value: deliveriesTabWorkflowStats.delivered, icon: CheckCircle, color: 'green' },
             ].map(({ label, value, icon: Icon, color }) => {
               const c = KPI_COLOR_MAP[color];
               return (
@@ -2523,6 +2561,9 @@ export default function AdminDashboardPage(): React.ReactElement {
               );
             })}
           </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Counts and the table use the same live delivery list and status rules as the Delivery and Logistics portals. Rows from bad uploads (for example PO shown as &quot;removed&quot; or placeholder customers like Customer 3) are hidden.
+          </p>
 
           {/* Two-column: Table | Side widgets */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
@@ -2543,6 +2584,9 @@ export default function AdminDashboardPage(): React.ReactElement {
               className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="all">All Statuses</option>
+                      <option value="wf:out_for_delivery">On route (workflow)</option>
+                      <option value="wf:order_delay">Order delay (workflow)</option>
+                      <option value="wf:unconfirmed">No response 24h+ (workflow)</option>
                       <option value="pending">Pending Order</option>
               <option value="scheduled">Awaiting Customer (SMS sent)</option>
               <option value="scheduled-confirmed">Confirmed</option>
@@ -2605,7 +2649,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                 </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                 {pagedDeliveries.length > 0 ? pagedDeliveries.map(delivery => {
-                  const statusKey = (delivery.status || 'pending').toLowerCase();
+                  const wfBadge = adminDeliveriesWorkflowBadge(delivery as unknown as Record<string, unknown>);
                       return (
                         <tr
                           key={delivery.id || delivery.ID}
@@ -2620,8 +2664,8 @@ export default function AdminDashboardPage(): React.ReactElement {
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100" data-label="Customer">{delivery.customer || 'N/A'}</td>
                       <td className="px-4 py-3" data-label="Status">
-                        <span className={`inline-block px-2 py-0.5 text-xs font-semibold rounded-full ${STATUS_COLORS[statusKey] || 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'}`}>
-                          {STATUS_LABELS[statusKey] || delivery.status || 'Pending'}
+                        <span className={`inline-block px-2 py-0.5 text-xs font-semibold rounded-full ${wfBadge.pillClass}`}>
+                          {wfBadge.label}
                             </span>
                           </td>
                       <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400" data-label="Driver">

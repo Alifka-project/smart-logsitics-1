@@ -2,8 +2,23 @@ import type { Delivery } from '../types';
 
 export type DeliveryListFilter = 'all' | 'pending' | 'confirmed' | 'p1' | 'out_for_delivery' | 'delivered';
 
-/** Placeholder customer from failed Excel mapping (`Customer 1`, `Customer 2`, …). */
-const PLACEHOLDER_CUSTOMER = /^Customer\s+\d+$/i;
+/** Placeholder customer from failed Excel mapping (`Customer 1`, `Customer3`, …). */
+const PLACEHOLDER_CUSTOMER = /^customer\s*\d+$/i;
+
+function normalizeSpaces(s: string): string {
+  return s.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/** True if any cell in the uploaded row is literally "removed" (bad column map). */
+function originalRowContainsRemovedToken(metadata: unknown): boolean {
+  const meta = metadata as Record<string, unknown> | null | undefined;
+  const row = (meta?.originalRow ?? meta?._originalRow) as Record<string, unknown> | undefined;
+  if (!row || typeof row !== 'object') return false;
+  for (const v of Object.values(row)) {
+    if (v != null && normalizeSpaces(String(v)).toLowerCase() === 'removed') return true;
+  }
+  return false;
+}
 
 const ORIGINAL_ROW_PO_KEYS = [
   'PO Number',
@@ -45,9 +60,12 @@ function normalizedPoParts(d: { poNumber?: string | null; PONumber?: string | nu
  */
 export function isTeamPortalGarbageDelivery(d: Delivery | Record<string, unknown>): boolean {
   const rec = d as Record<string, unknown>;
+  const poDirect = normalizeSpaces(String(rec.poNumber ?? rec.PONumber ?? '')).toLowerCase();
+  if (poDirect === 'removed') return true;
   const pos = normalizedPoParts(rec as Delivery);
   if (pos.some((p) => p === 'removed')) return true;
-  const cust = String(rec.customer ?? '').trim();
+  if (originalRowContainsRemovedToken(rec.metadata)) return true;
+  const cust = normalizeSpaces(String(rec.customer ?? rec.Customer ?? ''));
   if (PLACEHOLDER_CUSTOMER.test(cust)) return true;
   return false;
 }

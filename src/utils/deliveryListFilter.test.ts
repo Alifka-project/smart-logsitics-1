@@ -29,4 +29,18 @@ describe('isTeamPortalGarbageDelivery', () => {
       })
     ).toBe(false);
   });
+
+  it('flags placeholder Customer3 without space', () => {
+    expect(isTeamPortalGarbageDelivery({ poNumber: 'X', customer: 'Customer3' })).toBe(true);
+  });
+
+  it('flags removed in any originalRow cell (wrong column)', () => {
+    expect(
+      isTeamPortalGarbageDelivery({
+        poNumber: 'OK-1',
+        customer: 'Real Co',
+        metadata: { originalRow: { Route: 'removed', 'PO Number': 'OK-1' } },
+      })
+    ).toBe(true);
+  });
 });
