@@ -807,19 +807,33 @@ export default function DeliveryTeamPortal() {
     })),
   [allDashDeliveries]);
 
-  // Current-snapshot pipeline counts (all records, independent of time-period filter)
-  const currentPipelineCounts = useMemo(() => {
-    let nextShipment = 0, futureSchedule = 0, orderDelay = 0, onRoute = 0, awaitingCustomer = 0, orderDelayCritical = 0;
-    for (const { ws } of allDashWithWorkflow) {
-      if (ws === 'next_shipment')    nextShipment++;
-      if (ws === 'future_schedule')  futureSchedule++;
-      if (ws === 'order_delay')      orderDelay++;
-      if (ws === 'out_for_delivery') onRoute++;
-      if (ws === 'sms_sent' || ws === 'unconfirmed') awaitingCustomer++;
-      if (ws === 'order_delay')      orderDelayCritical++;
-    }
-    return { nextShipment, futureSchedule, orderDelay, onRoute, awaitingCustomer };
-  }, [allDashWithWorkflow]);
+  /** Tomorrow (Dubai calendar) — read-only list for Reports tab */
+  const reportTomorrowDeliveries = useMemo(() => {
+    const DUBAI_OFFSET_MS = 4 * 60 * 60 * 1000;
+    const nowDubai = new Date(Date.now() + DUBAI_OFFSET_MS);
+    const tomorrowDubai = new Date(nowDubai);
+    tomorrowDubai.setUTCDate(tomorrowDubai.getUTCDate() + 1);
+    const tomorrowIso = tomorrowDubai.toISOString().slice(0, 10);
+
+    const excluded = new Set([
+      'delivered', 'delivered-with-installation', 'delivered-without-installation',
+      'finished', 'completed', 'pod-completed', 'cancelled', 'returned', 'failed',
+      'out-for-delivery', 'in-transit', 'in-progress',
+    ]);
+
+    const rows = allDashDeliveries.filter((d) => {
+      const raw = d.confirmedDeliveryDate as string | null | undefined;
+      if (!raw) return false;
+      const parsed = new Date(raw);
+      if (Number.isNaN(parsed.getTime())) return false;
+      const dubaiIso = new Date(parsed.getTime() + DUBAI_OFFSET_MS).toISOString().slice(0, 10);
+      if (dubaiIso !== tomorrowIso) return false;
+      const s = (d.status as string | undefined | null || '').toLowerCase();
+      return !excluded.has(s);
+    });
+
+    return { tomorrowIso, rows };
+  }, [allDashDeliveries]);
 
   // Unique driver names for filter dropdown (from full list)
   const podDriverOptions = useMemo(() => {
@@ -1849,31 +1863,6 @@ export default function DeliveryTeamPortal() {
             </div>
           ) : (
             <>
-              {/* Current Pipeline Snapshot — live counts independent of time filter */}
-              <div>
-                <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">Current Pipeline</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                  {[
-                    { label: 'Next Shipment',    value: currentPipelineCounts.nextShipment,    icon: '📦', cls: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20',   sublabel: 'Dispatch within 2 days' },
-                    { label: 'Future Schedule',  value: currentPipelineCounts.futureSchedule,  icon: '📅', cls: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20', sublabel: '3+ days out' },
-                    { label: 'On Route',         value: currentPipelineCounts.onRoute,         icon: '🚚', cls: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20',         sublabel: 'Currently dispatched' },
-                    { label: 'Awaiting Customer',value: currentPipelineCounts.awaitingCustomer,icon: '⏳', cls: 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20',  sublabel: 'SMS sent / no reply' },
-                    { label: 'Order Delay',      value: currentPipelineCounts.orderDelay,      icon: '🚨', cls: 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20',              sublabel: 'Needs attention now' },
-                  ].map(({ label, value, icon, cls, sublabel }) => (
-                    <div key={label} className="pp-card p-4 flex items-center gap-3">
-                      <div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-lg ${cls}`}>
-                        {icon}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xl font-bold text-gray-900 dark:text-gray-100 tabular-nums leading-none">{value}</p>
-                        <p className="text-[11px] font-medium text-gray-700 dark:text-gray-300 mt-0.5 truncate">{label}</p>
-                        <p className="text-[10px] text-gray-400 dark:text-gray-500 truncate">{sublabel}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
               {/* Period Performance KPI Cards */}
               <div>
                 <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">
@@ -2235,6 +2224,77 @@ export default function DeliveryTeamPortal() {
                     ))}
                   </div>
                 </div>
+              </div>
+
+              {/* Tomorrow delivery list — read-only, between charts and driver performance */}
+              <div className="pp-card p-5">
+                <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-1 flex flex-wrap items-center gap-2">
+                  <Truck className="w-5 h-5 text-orange-500 shrink-0" />
+                  Tomorrow&apos;s delivery list
+                  <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-xs font-normal text-gray-600 dark:text-gray-400">
+                    {reportTomorrowDeliveries.tomorrowIso}
+                  </span>
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                  Confirmed delivery date equals tomorrow in Dubai time. Read-only snapshot ({reportTomorrowDeliveries.rows.length} order{reportTomorrowDeliveries.rows.length === 1 ? '' : 's'}).
+                </p>
+                {reportTomorrowDeliveries.rows.length === 0 ? (
+                  <p className="text-sm text-gray-400 dark:text-gray-500 py-6 text-center">No deliveries scheduled for this date.</p>
+                ) : (
+                  <div className="overflow-x-auto rounded-lg border border-gray-100 dark:border-gray-800">
+                    <table className="w-full text-sm min-w-[960px]">
+                      <thead className="bg-gray-50 dark:bg-gray-800/95 border-b border-gray-200 dark:border-gray-700">
+                        <tr>
+                          <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-10">#</th>
+                          <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">PO number</th>
+                          <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Delivery no.</th>
+                          <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Customer</th>
+                          <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Phone</th>
+                          <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider min-w-[180px]">Address</th>
+                          <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Confirmed date</th>
+                          <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Driver</th>
+                          <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">API status</th>
+                          <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Workflow</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                        {reportTomorrowDeliveries.rows.map((d, i) => {
+                          const meta = (d as unknown as { metadata?: { originalDeliveryNumber?: string } }).metadata;
+                          const delNo = meta?.originalDeliveryNumber != null ? String(meta.originalDeliveryNumber) : '—';
+                          const phoneRaw = (d as Record<string, unknown>).phone;
+                          const phone = phoneRaw != null && String(phoneRaw).trim() ? String(phoneRaw).trim() : '—';
+                          const confRaw = d.confirmedDeliveryDate as string | undefined;
+                          const confFmt = confRaw
+                            ? new Date(confRaw).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                            : '—';
+                          const wf = deliveryToManageOrder(d as unknown as Delivery).status;
+                          const wfLabel =
+                            wf === 'next_shipment' ? 'Next Shipment' :
+                            wf === 'future_schedule' ? 'Future Schedule' :
+                            wf === 'order_delay' ? 'Order Delay' :
+                            wf === 'out_for_delivery' ? 'On Route' :
+                            wf === 'rescheduled' ? 'Rescheduled' :
+                            wf === 'confirmed' ? 'Confirmed' :
+                            wf;
+                          return (
+                            <tr key={String(d.id ?? i)} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                              <td className="py-2.5 px-3 text-xs text-gray-400 dark:text-gray-500 tabular-nums">{i + 1}</td>
+                              <td className="py-2.5 px-3 font-mono text-xs text-gray-800 dark:text-gray-200 whitespace-nowrap">{d.poNumber ?? '—'}</td>
+                              <td className="py-2.5 px-3 font-mono text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">{delNo}</td>
+                              <td className="py-2.5 px-3 font-medium text-gray-900 dark:text-gray-100 max-w-[160px]"><span className="block truncate" title={d.customer ?? ''}>{d.customer ?? '—'}</span></td>
+                              <td className="py-2.5 px-3 text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap tabular-nums">{phone}</td>
+                              <td className="py-2.5 px-3 text-xs text-gray-600 dark:text-gray-400 max-w-[280px]"><span className="line-clamp-2" title={d.address ?? ''}>{d.address ?? '—'}</span></td>
+                              <td className="py-2.5 px-3 text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">{confFmt}</td>
+                              <td className="py-2.5 px-3 text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">{d.driverName ?? '—'}</td>
+                              <td className="py-2.5 px-3 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap capitalize">{String(d.status ?? '—').replace(/-/g, ' ')}</td>
+                              <td className="py-2.5 px-3 text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">{wfLabel}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
 
               {/* Driver Performance */}
