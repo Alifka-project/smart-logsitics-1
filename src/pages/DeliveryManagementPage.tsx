@@ -292,8 +292,16 @@ export default function DeliveryManagementPage({
       )}
 
       {/* Tab Navigation - hidden when only Deliveries (Driver Portal) */}
+      {/* Inside team portals we omit the page title; keep this rail non-sticky so it does not
+          stack over Manage tab content (portal already has a sticky tab bar). */}
       {!hideManageTab && (
-      <div className="pp-sticky-tab-rail rounded-2xl bg-gray-100/80 dark:bg-white/[0.06] p-1.5 border border-gray-200/60 dark:border-white/[0.07] mt-4 md:mt-6 mb-4 md:mb-6">
+      <div
+        className={
+          hidePageTitle
+            ? 'relative z-10 mb-6 mt-2 md:mt-4 rounded-2xl border border-gray-200/60 bg-gray-100/80 p-1.5 dark:border-white/[0.07] dark:bg-white/[0.06]'
+            : 'pp-sticky-tab-rail mb-4 mt-4 rounded-2xl border border-gray-200/60 bg-gray-100/80 p-1.5 dark:border-white/[0.07] dark:bg-white/[0.06] md:mb-6 md:mt-6'
+        }
+      >
         <nav className="flex flex-nowrap gap-1 overflow-x-auto pb-1">
           {tabs.map((tab) => {
             const Icon = tab.icon;
