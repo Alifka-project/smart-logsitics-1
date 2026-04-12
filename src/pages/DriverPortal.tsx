@@ -15,7 +15,7 @@ import {
   MessageSquare, Truck, Bell, Paperclip, Send, Search, ClipboardList, ChevronLeft
 } from 'lucide-react';
 import type { Delivery } from '../types';
-import { isActiveDeliveryListStatus } from '../utils/deliveryListFilter';
+import { getOnRouteDeliveriesForList, isOnRouteDeliveryListStatus } from '../utils/deliveryListFilter';
 
 // Fix Leaflet default marker icons
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
@@ -714,13 +714,14 @@ export default function DriverPortal() {
       ]);
       const activeDeliveries = (activeRes.data?.deliveries as Delivery[]) || [];
       const finishedDeliveries = (finishedRes.data?.deliveries as Delivery[]) || [];
-      // Merge: active first (for routing), finished appended (visible via Delivered filter)
-      const allDeliveries = [...activeDeliveries, ...finishedDeliveries];
+      const onRouteActive = getOnRouteDeliveriesForList(activeDeliveries);
+      // Merge: on-route active first (sequence + map), finished appended (Delivered chip)
+      const allDeliveries = [...onRouteActive, ...finishedDeliveries];
       // Fresh server data: reset manual order so nearest-neighbour optimises the new set
       manuallyOrderedRef.current = false;
       userOrderRef.current = [];
-      setDeliveries(activeDeliveries);
-      // Sync full list to store so the 'Delivered' filter chip in DeliveryTable works
+      setDeliveries(onRouteActive);
+      // Store excludes awaiting-customer / pending — same list as DeliveryTable sequence
       useDeliveryStore.getState().loadDeliveries(allDeliveries);
       console.log(`✓ Loaded ${activeDeliveries.length} active + ${finishedDeliveries.length} finished deliveries`);
     } catch (deliveryErr: unknown) {
@@ -1044,9 +1045,9 @@ export default function DriverPortal() {
               >
                 <Icon className="w-5 h-5" />
                 {tab.label}
-                {tab.id === 'orders' && deliveries.filter(d => isActiveDeliveryListStatus((d.status || '').toLowerCase())).length > 0 && (
+                {tab.id === 'orders' && deliveries.filter(d => isOnRouteDeliveryListStatus((d.status || '').toLowerCase())).length > 0 && (
                   <span className="ml-2 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-semibold px-2 py-0.5 rounded-full">
-                    {deliveries.filter(d => isActiveDeliveryListStatus((d.status || '').toLowerCase())).length}
+                    {deliveries.filter(d => isOnRouteDeliveryListStatus((d.status || '').toLowerCase())).length}
                   </span>
                 )}
                 {tab.id === 'messages' && notifications > 0 && (
@@ -1153,6 +1154,7 @@ export default function DriverPortal() {
                     onSelectDelivery={() => setShowModal(true)}
                     onCloseDetailModal={() => setShowModal(false)}
                     onReorder={handleManualReorder}
+                    onRouteSequenceOnly
                   />
                 </div>
               )}

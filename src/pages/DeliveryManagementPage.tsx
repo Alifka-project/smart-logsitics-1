@@ -6,7 +6,11 @@ import ManageTab from '../components/deliveries/ManageTab';
 import DeliveryMap from '../components/MapView/DeliveryMap';
 import { calculateRoute, generateFallbackRoute } from '../services/advancedRoutingService';
 import useDeliveryStore from '../store/useDeliveryStore';
-import { applyDeliveryListFilter, excludeTeamPortalGarbageDeliveries } from '../utils/deliveryListFilter';
+import {
+  applyDeliveryListFilter,
+  excludeTeamPortalGarbageDeliveries,
+  getOnRouteDeliveriesForList,
+} from '../utils/deliveryListFilter';
 import { useToast } from '../hooks/useToast';
 import { ToastContainer } from '../components/common/Toast';
 import { AlertCircle, AlertTriangle } from 'lucide-react';
@@ -68,6 +72,8 @@ export default function DeliveryManagementPage({
   const addCompletedUpload = useDeliveryStore((state) => state.addCompletedUpload);
   /** Standalone /deliveries for admin & team: same garbage filter + API as embedded portal pages. */
   const effectiveExcludeGarbage = excludeGarbageUploadRows || isTeamPortalOperationalRole();
+  /** Embedded team portals: sequence + map only on-route — not new uploads awaiting customer. */
+  const onRouteSequenceOnly = excludeGarbageUploadRows;
   const [activeTab, setActiveTab] = useState<string>(hideManageTab ? 'deliveries' : 'manage');
 
   // When a Needs Attention card sets a filter, switch to the manage sub-tab so the OrdersTable shows
@@ -78,10 +84,16 @@ export default function DeliveryManagementPage({
   }, [manageTabFilter, hideManageTab]);
 
   const displayDeliveries = useMemo(() => {
-    let list = applyDeliveryListFilter(deliveries, deliveryListFilter);
+    if (deliveryListFilter === 'delivered') {
+      let list = applyDeliveryListFilter(deliveries, 'delivered');
+      if (effectiveExcludeGarbage) list = excludeTeamPortalGarbageDeliveries(list);
+      return list;
+    }
+    const base = onRouteSequenceOnly ? getOnRouteDeliveriesForList(deliveries) : deliveries;
+    let list = applyDeliveryListFilter(base, deliveryListFilter);
     if (effectiveExcludeGarbage) list = excludeTeamPortalGarbageDeliveries(list);
     return list;
-  }, [deliveries, deliveryListFilter, effectiveExcludeGarbage]);
+  }, [deliveries, deliveryListFilter, effectiveExcludeGarbage, onRouteSequenceOnly]);
   const [showModal, setShowModal] = useState<boolean>(false);
   const [route, setRoute] = useState<AdvancedRouteResult | null>(null);
   const [isLoadingRoute, setIsLoadingRoute] = useState<boolean>(false);
@@ -567,6 +579,7 @@ export default function DeliveryManagementPage({
                     onSelectDelivery={() => setShowModal(true)}
                     onCloseDetailModal={() => setShowModal(false)}
                     onHoverDelivery={setHoveredDeliveryIndex}
+                    onRouteSequenceOnly={onRouteSequenceOnly}
                   />
                 </div>
               </div>

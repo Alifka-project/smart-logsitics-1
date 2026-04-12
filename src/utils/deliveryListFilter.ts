@@ -101,6 +101,27 @@ export function isActiveDeliveryListStatus(status: string): boolean {
   return ACTIVE_STATUSES.has(status.toLowerCase());
 }
 
+/** Driver / route-sequence list: only orders actually on the road (not awaiting SMS / confirmation). */
+const ON_ROUTE_STATUSES = new Set([
+  'out-for-delivery',
+  'out_for_delivery',
+  'in-transit',
+  'in_progress',
+  'in-progress',
+  'order-delay',
+  'order_delay',
+]);
+
+export function isOnRouteDeliveryListStatus(status: string): boolean {
+  if (!status) return false;
+  return ON_ROUTE_STATUSES.has(status.toLowerCase());
+}
+
+export function getOnRouteDeliveriesForList(deliveries: Delivery[] | undefined | null): Delivery[] {
+  const list = deliveries ?? [];
+  return list.filter((d) => isOnRouteDeliveryListStatus((d.status || '').toLowerCase()));
+}
+
 export function getActiveDeliveriesForList(deliveries: Delivery[] | undefined | null): Delivery[] {
   const list = deliveries ?? [];
   return list.filter((d) => {
@@ -135,10 +156,7 @@ export function applyDeliveryListFilter(
     case 'p1':
       return active.filter((d) => d.priority === 1);
     case 'out_for_delivery':
-      return active.filter((d) => {
-        const s = (d.status || '').toLowerCase();
-        return s === 'out-for-delivery' || s === 'in-transit' || s === 'in-progress';
-      });
+      return active.filter((d) => isOnRouteDeliveryListStatus((d.status || '').toLowerCase()));
     case 'delivered':
       // Bypass active filter — show terminal (delivered/cancelled/returned) deliveries.
       return list.filter((d) => DELIVERED_STATUSES.has((d.status || '').toLowerCase()));

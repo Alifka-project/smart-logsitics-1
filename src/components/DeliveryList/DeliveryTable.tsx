@@ -8,8 +8,9 @@ import {
   applyDeliveryListFilter,
   countForDeliveryListFilter,
   type DeliveryListFilter,
-  getActiveDeliveriesForList,
+  getOnRouteDeliveriesForList,
   isActiveDeliveryListStatus,
+  isOnRouteDeliveryListStatus,
 } from '../../utils/deliveryListFilter';
 
 interface DeliveryTableProps {
@@ -17,6 +18,11 @@ interface DeliveryTableProps {
   onCloseDetailModal?: () => void;
   onHoverDelivery?: (index: number | null) => void;
   onReorder?: (items: Delivery[]) => void;
+  /**
+   * When true (driver portal + team Deliveries route tab): the draggable list and
+   * default "active" scope only include on-route statuses — not pending/scheduled uploads.
+   */
+  onRouteSequenceOnly?: boolean;
 }
 
 // ─── Export helpers ────────────────────────────────────────────────────────────
@@ -123,6 +129,7 @@ export default function DeliveryTable({
   onCloseDetailModal,
   onHoverDelivery,
   onReorder,
+  onRouteSequenceOnly = false,
 }: DeliveryTableProps) {
   const deliveries = useDeliveryStore((state) => state.deliveries ?? []);
   const deliveryListFilter = useDeliveryStore((state) => state.deliveryListFilter ?? 'all');
@@ -131,6 +138,14 @@ export default function DeliveryTable({
   const selectDelivery = useDeliveryStore((state) => state.selectDelivery);
 
   const [selectedDriver, setSelectedDriver] = useState<string>('all');
+
+  // Portal embed / driver: chips are only On route + Delivered — clear stale filters from other pages
+  useEffect(() => {
+    if (!onRouteSequenceOnly) return;
+    if (deliveryListFilter === 'pending' || deliveryListFilter === 'confirmed' || deliveryListFilter === 'p1') {
+      setDeliveryListFilter('all');
+    }
+  }, [onRouteSequenceOnly, deliveryListFilter, setDeliveryListFilter]);
 
   const {
     items,
@@ -148,10 +163,12 @@ export default function DeliveryTable({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deliveries]);
 
-  const activeFromItems = useMemo(
-    () => items.filter((d) => isActiveDeliveryListStatus((d.status || '').toLowerCase())),
-    [items],
-  );
+  const activeFromItems = useMemo(() => {
+    if (onRouteSequenceOnly) {
+      return items.filter((d) => isOnRouteDeliveryListStatus((d.status || '').toLowerCase()));
+    }
+    return items.filter((d) => isActiveDeliveryListStatus((d.status || '').toLowerCase()));
+  }, [items, onRouteSequenceOnly]);
 
   // Unique driver names for the On Route filter dropdown
   const driverOptions = useMemo(() => {
@@ -172,7 +189,11 @@ export default function DeliveryTable({
         dragIndex: items.findIndex((x) => x.id === delivery.id),
       }));
     }
-    let list = applyDeliveryListFilter(deliveries, deliveryListFilter);
+    const filterSource =
+      onRouteSequenceOnly && deliveryListFilter !== 'delivered'
+        ? getOnRouteDeliveriesForList(deliveries)
+        : deliveries;
+    let list = applyDeliveryListFilter(filterSource, deliveryListFilter);
     // Apply driver filter for on-route view
     if (deliveryListFilter === 'out_for_delivery' && selectedDriver !== 'all') {
       list = list.filter((d) => (d.driverName || '').trim() === selectedDriver);
@@ -182,7 +203,7 @@ export default function DeliveryTable({
       displayIndex,
       dragIndex: undefined as number | undefined,
     }));
-  }, [activeFromItems, deliveries, deliveryListFilter, items, selectedDriver]);
+  }, [activeFromItems, deliveries, deliveryListFilter, items, selectedDriver, onRouteSequenceOnly]);
 
   const dragEnabled = deliveryListFilter === 'all';
 
@@ -201,14 +222,19 @@ export default function DeliveryTable({
     onSelectDelivery();
   };
 
-  const chips: { id: DeliveryListFilter; label: string; activeClass: string }[] = [
-    { id: 'all',             label: 'All Active',   activeClass: 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900' },
-    { id: 'pending',         label: 'Pending',      activeClass: 'bg-yellow-500 text-white' },
-    { id: 'confirmed',       label: 'Confirmed',    activeClass: 'bg-blue-600 text-white' },
-    { id: 'out_for_delivery',label: 'On Route',     activeClass: 'bg-orange-500 text-white' },
-    { id: 'p1',              label: 'P1 Urgent',    activeClass: 'bg-red-600 text-white' },
-    { id: 'delivered',       label: 'Delivered',    activeClass: 'bg-green-600 text-white' },
-  ];
+  const chips: { id: DeliveryListFilter; label: string; activeClass: string }[] = onRouteSequenceOnly
+    ? [
+        { id: 'all', label: 'On route', activeClass: 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900' },
+        { id: 'delivered', label: 'Delivered', activeClass: 'bg-green-600 text-white' },
+      ]
+    : [
+        { id: 'all',             label: 'All Active',   activeClass: 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900' },
+        { id: 'pending',         label: 'Pending',      activeClass: 'bg-yellow-500 text-white' },
+        { id: 'confirmed',       label: 'Confirmed',    activeClass: 'bg-blue-600 text-white' },
+        { id: 'out_for_delivery',label: 'On Route',     activeClass: 'bg-orange-500 text-white' },
+        { id: 'p1',              label: 'P1 Urgent',    activeClass: 'bg-red-600 text-white' },
+        { id: 'delivered',       label: 'Delivered',    activeClass: 'bg-green-600 text-white' },
+      ];
 
   const isDeliveredFilter = deliveryListFilter === 'delivered';
 
@@ -221,7 +247,13 @@ export default function DeliveryTable({
               🚚 Delivery Sequence
             </h2>
             <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-0.5">
-              {dragEnabled ? 'Drag to reorder · ' : isDeliveredFilter ? 'Completed orders · ' : 'Clear filters to reorder · '}
+              {onRouteSequenceOnly
+                ? 'On-route orders only · '
+                : dragEnabled
+                  ? 'Drag to reorder · '
+                  : isDeliveredFilter
+                    ? 'Completed orders · '
+                    : 'Clear filters to reorder · '}
               Tap to view
             </p>
           </div>
@@ -250,7 +282,10 @@ export default function DeliveryTable({
 
         <div className="flex flex-wrap gap-2">
           {chips.map((c) => {
-            const count = countForDeliveryListFilter(deliveries, c.id);
+            const count =
+              onRouteSequenceOnly && c.id === 'all'
+                ? getOnRouteDeliveriesForList(deliveries).length
+                : countForDeliveryListFilter(deliveries, c.id);
             const active = deliveryListFilter === c.id;
             return (
               <button
