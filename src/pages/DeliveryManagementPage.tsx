@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Database, MapPin, Zap, List, ClipboardList, RefreshCw } from 'lucide-react';
 import DeliveryTable from '../components/DeliveryList/DeliveryTable';
 import CustomerModal from '../components/CustomerDetails/CustomerModal';
@@ -41,6 +41,12 @@ interface Tab {
   icon: LucideIcon;
 }
 
+/** Same roles that use /admin/tracking/deliveries on Delivery & Logistics portals. */
+function isTeamPortalOperationalRole(): boolean {
+  const r = (getCurrentUser()?.role ?? '').toLowerCase();
+  return r === 'admin' || r === 'delivery_team' || r === 'logistics_team';
+}
+
 interface DeliveryManagementPageProps {
   /** When true (e.g. Driver Portal), hide Manage Delivery Order tab; show only Deliveries view */
   hideManageTab?: boolean;
@@ -60,6 +66,8 @@ export default function DeliveryManagementPage({
   const manageTabFilter = useDeliveryStore((state) => state.manageTabFilter);
   const loadDeliveries = useDeliveryStore((state) => state.loadDeliveries);
   const addCompletedUpload = useDeliveryStore((state) => state.addCompletedUpload);
+  /** Standalone /deliveries for admin & team: same garbage filter + API as embedded portal pages. */
+  const effectiveExcludeGarbage = excludeGarbageUploadRows || isTeamPortalOperationalRole();
   const [activeTab, setActiveTab] = useState<string>(hideManageTab ? 'deliveries' : 'manage');
 
   // When a Needs Attention card sets a filter, switch to the manage sub-tab so the OrdersTable shows
@@ -71,9 +79,9 @@ export default function DeliveryManagementPage({
 
   const displayDeliveries = useMemo(() => {
     let list = applyDeliveryListFilter(deliveries, deliveryListFilter);
-    if (excludeGarbageUploadRows) list = excludeTeamPortalGarbageDeliveries(list);
+    if (effectiveExcludeGarbage) list = excludeTeamPortalGarbageDeliveries(list);
     return list;
-  }, [deliveries, deliveryListFilter, excludeGarbageUploadRows]);
+  }, [deliveries, deliveryListFilter, effectiveExcludeGarbage]);
   const [showModal, setShowModal] = useState<boolean>(false);
   const [route, setRoute] = useState<AdvancedRouteResult | null>(null);
   const [isLoadingRoute, setIsLoadingRoute] = useState<boolean>(false);
@@ -90,21 +98,58 @@ export default function DeliveryManagementPage({
     setShowCacheAlert(hasFake);
   }, []);
 
-  // Auto-fetch deliveries from the server when the store is empty on mount.
-  // Tries the tracking API first (includes all active incl. future-confirmed),
-  // falls back to the regular deliveries endpoint.
+  const syncOperationalListFromTracking = useCallback(async (): Promise<void> => {
+    if (!isTeamPortalOperationalRole()) return;
+    try {
+      const res = await api.get('/admin/tracking/deliveries');
+      const raw = (res.data?.deliveries ?? []) as Delivery[];
+      const list = excludeTeamPortalGarbageDeliveries(raw as Record<string, unknown>[]) as Delivery[];
+      loadDeliveries(list);
+    } catch (err: unknown) {
+      console.warn('[DeliveryManagement] Tracking sync failed:', err);
+    }
+  }, [loadDeliveries]);
+
+  // Admin / delivery_team / logistics_team: always replace store from tracking (same as portals).
+  // Avoids stale localStorage from initializeFromStorage() skipping fetch when length > 0.
   useEffect(() => {
+    if (!isTeamPortalOperationalRole()) return;
+    void syncOperationalListFromTracking();
+  }, [syncOperationalListFromTracking]);
+
+  useEffect(() => {
+    if (!isTeamPortalOperationalRole()) return;
+    const handler = (): void => { void syncOperationalListFromTracking(); };
+    window.addEventListener('deliveriesUpdated', handler);
+    window.addEventListener('deliveryStatusUpdated', handler);
+    return () => {
+      window.removeEventListener('deliveriesUpdated', handler);
+      window.removeEventListener('deliveryStatusUpdated', handler);
+    };
+  }, [syncOperationalListFromTracking]);
+
+  useEffect(() => {
+    if (!isTeamPortalOperationalRole()) return;
+    const id = setInterval(() => {
+      if (!document.hidden) void syncOperationalListFromTracking();
+    }, 60000);
+    return () => clearInterval(id);
+  }, [syncOperationalListFromTracking]);
+
+  // Other roles: auto-fetch when store is empty (tracking if allowed, else /deliveries).
+  useEffect(() => {
+    if (isTeamPortalOperationalRole()) return;
     if (useDeliveryStore.getState().deliveries.length > 0) return;
     const fetchInitial = async () => {
       try {
         const res = await api.get('/admin/tracking/deliveries');
-        const list = (res.data?.deliveries ?? []) as Delivery[];
+        const raw = (res.data?.deliveries ?? []) as Delivery[];
+        const list = excludeTeamPortalGarbageDeliveries(raw as Record<string, unknown>[]) as Delivery[];
         if (list.length > 0) {
           loadDeliveries(list);
           addCompletedUpload('Auto-loaded from server', list.length);
         }
       } catch {
-        // Tracking API not accessible (e.g. non-admin) — fall back to /deliveries
         try {
           const res = await api.get('/deliveries?includeFinished=false');
           const list = (res.data?.deliveries ?? []) as Delivery[];
@@ -113,7 +158,7 @@ export default function DeliveryManagementPage({
             addCompletedUpload('Auto-loaded from server', list.length);
           }
         } catch {
-          // Both failed — user can click Reload from Database manually
+          /* user can Reload manually */
         }
       }
     };
@@ -184,14 +229,36 @@ export default function DeliveryManagementPage({
     try {
       setIsReloading(true);
       clearDeliveriesCache();
-      // Only load "active" deliveries (exclude delivered/cancelled/rescheduled history)
+
+      if (isTeamPortalOperationalRole()) {
+        const response = await api.get('/admin/tracking/deliveries');
+        const raw = (response.data?.deliveries ?? []) as Delivery[];
+        const freshDeliveries = excludeTeamPortalGarbageDeliveries(raw as Record<string, unknown>[]) as Delivery[];
+        loadDeliveries(freshDeliveries);
+        addCompletedUpload('Operations list reload', freshDeliveries.length);
+        const currentUser = getCurrentUser();
+        if (currentUser?.role === 'admin' && freshDeliveries.length > 0) {
+          try {
+            const ids = freshDeliveries.map((d) => d.id).filter(Boolean);
+            if (ids.length > 0) {
+              await api.post('/deliveries/bulk-assign', { deliveryIds: ids });
+            }
+          } catch (assignErr: unknown) {
+            const e = assignErr as { message?: string };
+            console.warn('Bulk auto-assign after reload failed:', e.message || assignErr);
+          }
+        }
+        success(`✓ Reloaded ${freshDeliveries.length} deliveries (same live list as Delivery / Logistics portal).`);
+        setShowCacheAlert(false);
+        return;
+      }
+
       const response = await api.get('/deliveries?includeFinished=false');
       if (response.data && response.data.deliveries) {
         const freshDeliveries = response.data.deliveries as Delivery[];
         loadDeliveries(freshDeliveries);
         addCompletedUpload('Database reload', freshDeliveries.length);
 
-        // Trigger backend bulk auto-assignment (admin-only — delivery_team uses per-order assignment)
         const currentUser = getCurrentUser();
         if (currentUser?.role === 'admin') {
           try {
@@ -248,7 +315,7 @@ export default function DeliveryManagementPage({
       ];
 
   const noDeliveriesForDeliveriesTab =
-    excludeGarbageUploadRows && !hideManageTab
+    effectiveExcludeGarbage && !hideManageTab
       ? displayDeliveries.length === 0
       : deliveries.length === 0;
 
@@ -333,7 +400,7 @@ export default function DeliveryManagementPage({
       {!hideManageTab && activeTab === 'manage' && (
         <ManageTab
           compactVerticalSpacing={hidePageTitle}
-          excludeGarbageDeliveries={excludeGarbageUploadRows}
+          excludeGarbageDeliveries={effectiveExcludeGarbage}
           onSwitchToDeliveriesTab={() => setActiveTab('deliveries')}
           onUploadSuccess={handleFileSuccess}
           onUploadError={handleFileError}
