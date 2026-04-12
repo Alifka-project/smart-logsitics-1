@@ -882,7 +882,7 @@ export default function DeliveryTeamPortal() {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6 w-full min-w-0">
+    <div className="space-y-2 md:space-y-4 w-full min-w-0">
       {/* WhatsApp modal is handled globally in App.tsx */}
       {/* Header - responsive and touch-friendly */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -896,7 +896,7 @@ export default function DeliveryTeamPortal() {
       </div>
 
       {/* Tab Navigation - bigger gap, scroll on mobile */}
-      <div className="pp-sticky-tab-rail pp-card px-2 py-2 mt-4 md:mt-6 mb-4 md:mb-6 overflow-x-auto">
+      <div className="pp-sticky-tab-rail pp-card mt-0 mb-2 overflow-x-auto px-2 py-2 md:mb-3">
         <nav className="flex flex-wrap gap-2 min-w-max md:min-w-0">
           {[
             { id: 'operations', label: 'Operations', icon: Activity },
@@ -1794,11 +1794,6 @@ export default function DeliveryTeamPortal() {
         <div className="space-y-6">
           {/* Header row */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Delivery performance, success rates, and POD records
-              </p>
-            </div>
             <button
               onClick={() => void loadReportsData(true)}
               disabled={reportsLoading}

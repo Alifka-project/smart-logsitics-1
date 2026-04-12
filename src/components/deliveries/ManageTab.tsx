@@ -13,6 +13,8 @@ import { ManageSidebar } from './ManageSidebar';
 import { OrderEditModal } from './OrderEditModal';
 
 interface ManageTabProps {
+  /** When true (embedded in team portals), tighter padding and gaps below sub-tabs */
+  compactVerticalSpacing?: boolean;
   /** When true (team portals), hide bad import rows from metrics and Orders table */
   excludeGarbageDeliveries?: boolean;
   onSwitchToDeliveriesTab: () => void;
@@ -43,6 +45,7 @@ function downloadTemplateCsv(): void {
 }
 
 export default function ManageTab({
+  compactVerticalSpacing = false,
   excludeGarbageDeliveries = false,
   onSwitchToDeliveriesTab,
   onUploadSuccess,
@@ -308,7 +311,13 @@ export default function ManageTab({
   }, [setDeliveryListFilter, onSwitchToDeliveriesTab]);
 
   return (
-    <div className="p-4 lg:p-6 bg-gray-50 dark:bg-gray-900/20 min-h-0 rounded-xl max-w-[1600px] mx-auto w-full">
+    <div
+      className={
+        compactVerticalSpacing
+          ? 'mx-auto w-full min-h-0 max-w-[1600px] rounded-xl bg-gray-50 px-3 pb-4 pt-2 dark:bg-gray-900/20 lg:px-4 lg:pb-5 lg:pt-3'
+          : 'mx-auto w-full min-h-0 max-w-[1600px] rounded-xl bg-gray-50 p-4 dark:bg-gray-900/20 lg:p-6'
+      }
+    >
       <FileUpload
         ref={fileUploadRef}
         hideDefaultUI
@@ -327,7 +336,7 @@ export default function ManageTab({
         }}
       />
 
-      <div className="mb-6">
+      <div className={compactVerticalSpacing ? 'mb-4' : 'mb-6'}>
         <StatusMetricCards
           orders={manageOrders}
           onCardClick={handleCardClick}

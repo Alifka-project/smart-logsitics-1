@@ -253,7 +253,7 @@ export default function DeliveryManagementPage({
       : deliveries.length === 0;
 
   return (
-    <div className="space-y-4 overflow-x-hidden">
+    <div className={hidePageTitle ? 'space-y-2 overflow-x-hidden' : 'space-y-4 overflow-x-hidden'}>
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
       {/* Cache Alert - responsive and touch-friendly */}
@@ -332,6 +332,7 @@ export default function DeliveryManagementPage({
       {/* ── MANAGE DELIVERY ORDER TAB ── */}
       {!hideManageTab && activeTab === 'manage' && (
         <ManageTab
+          compactVerticalSpacing={hidePageTitle}
           excludeGarbageDeliveries={excludeGarbageUploadRows}
           onSwitchToDeliveriesTab={() => setActiveTab('deliveries')}
           onUploadSuccess={handleFileSuccess}
@@ -347,7 +348,11 @@ export default function DeliveryManagementPage({
 
       {/* ── DELIVERIES TAB (combined split view) ── */}
       {activeTab === 'deliveries' && (
-        <div className={hideManageTab ? 'mt-4 md:mt-6' : 'mt-2'}>
+        <div
+          className={
+            hideManageTab ? 'mt-4 md:mt-6' : hidePageTitle ? 'mt-1' : 'mt-2'
+          }
+        >
           {noDeliveriesForDeliveriesTab ? (
             <div className="pp-dash-card p-8 text-center transition-colors">
               <Database className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
