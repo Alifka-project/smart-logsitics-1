@@ -154,9 +154,8 @@ function getStatusDisplay(raw?: string): { label: string; color: string } {
     'sms_sent':                       { label: 'Awaiting Customer',  color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' },
     'unconfirmed':                    { label: 'No Response (24h+)', color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' },
     'order_delay':                    { label: 'Order Delay',        color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' },
-    'tomorrow_shipment':              { label: 'Confirmed',          color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300' },
-    'next_shipment':                  { label: 'Confirmed',          color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300' },
-    'future_shipment':                { label: 'Confirmed',          color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300' },
+    'next_shipment':                  { label: 'Confirmed',          color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300' },
+    'future_schedule':                { label: 'Confirmed',          color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300' },
   };
   return map[s] || { label: raw ? raw.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Unknown', color: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' };
 }

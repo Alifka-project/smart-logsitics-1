@@ -183,9 +183,8 @@ function adminDeliveriesWorkflowBadge(d: Record<string, unknown>): { label: stri
   const label =
     ws === 'delivered' ? 'Delivered' :
     ws === 'out_for_delivery' ? 'On Route' :
-    ws === 'tomorrow_shipment' ? 'Tomorrow Shipment' :
     ws === 'next_shipment' ? 'Next Shipment' :
-    ws === 'future_shipment' ? 'Future Shipment' :
+    ws === 'future_schedule' ? 'Future Schedule' :
     ws === 'order_delay' ? 'Order Delay' :
     ws === 'sms_sent' ? 'Awaiting Customer' :
     ws === 'unconfirmed' ? 'No Response (24h+)' :
@@ -202,8 +201,8 @@ function adminDeliveriesWorkflowBadge(d: Record<string, unknown>): { label: stri
     ws === 'sms_sent' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300' :
     ws === 'delivered' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
     ws === 'cancelled' || ws === 'failed' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
-    ws === 'tomorrow_shipment' || ws === 'next_shipment' || ws === 'future_shipment'
-      ? 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300' :
+    ws === 'next_shipment' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' :
+    ws === 'future_schedule' ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300' :
     'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
   return { label, pillClass };
 }

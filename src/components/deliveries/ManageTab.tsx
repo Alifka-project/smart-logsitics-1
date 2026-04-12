@@ -281,16 +281,15 @@ export default function ManageTab({
   // Map StatusMetricCard status key → OrdersTableTab, then scroll to the table
   const handleCardClick = useCallback((statusKey: string) => {
     const tabMap: Record<string, OrdersTableTab> = {
-      uploaded:          'pending',
-      sms_sent:          'awaiting_customer',
-      unconfirmed:       'awaiting_customer',
-      tomorrow_shipment: 'tomorrow_shipment',
-      next_shipment:     'next_shipment',
-      future_shipment:   'future_shipment',
-      out_for_delivery:  'out_for_delivery',
-      order_delay:       'order_delay',
-      rescheduled:       'rescheduled',
-      delivered:         'delivered',
+      uploaded:         'pending',
+      sms_sent:         'awaiting_customer',
+      unconfirmed:      'awaiting_customer',
+      next_shipment:    'next_shipment',
+      future_schedule:  'future_schedule',
+      out_for_delivery: 'out_for_delivery',
+      order_delay:      'order_delay',
+      rescheduled:      'rescheduled',
+      delivered:        'delivered',
     };
     const tab = tabMap[statusKey] ?? 'all';
     setTableTab(tab);

@@ -7,11 +7,10 @@ export type DeliveryStatus =
   | 'sms_sent'
   | 'unconfirmed'
   | 'confirmed'        // legacy fallback (no confirmedDeliveryDate available)
-  | 'tomorrow_shipment'  // confirmed, date = tomorrow
-  | 'next_shipment'      // confirmed, date skips a no-delivery day (Sun/Fri/Sat)
-  | 'future_shipment'    // confirmed, date = 2+ days out
-  | 'scheduled'          // legacy fallback
-  | 'order_delay'        // logistics cannot dispatch
+  | 'next_shipment'    // confirmed, date = today / tomorrow / day+2 (≤2 days out)
+  | 'future_schedule'  // confirmed, date = 3+ days out
+  | 'scheduled'        // legacy fallback
+  | 'order_delay'      // logistics cannot dispatch
   | 'out_for_delivery'
   | 'delivered'
   | 'failed'

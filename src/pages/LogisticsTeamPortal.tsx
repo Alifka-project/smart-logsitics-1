@@ -594,9 +594,8 @@ export default function LogisticsTeamPortal() {
     switch (order.status) {
       case 'order_delay':       return { label: 'Order Delay',                                                              color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' };
       case 'out_for_delivery':  return { label: 'On Route',                                                                  color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' };
-      case 'tomorrow_shipment': return { label: shortDate ? `Tomorrow · ${shortDate}` : 'Tomorrow Shipment',                 color: 'bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300' };
-      case 'next_shipment':     return { label: shortDate ? `Next Shipment · ${shortDate}` : 'Next Shipment',               color: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-300' };
-      case 'future_shipment':   return { label: shortDate ? `Future Shipment · ${shortDate}` : 'Future Shipment',           color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300' };
+      case 'next_shipment':     return { label: shortDate ? `Next Shipment · ${shortDate}` : 'Next Shipment',               color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300' };
+      case 'future_schedule':   return { label: shortDate ? `Future Schedule · ${shortDate}` : 'Future Schedule',           color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300' };
       case 'confirmed':         return { label: 'Customer Confirmed',                                                        color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' };
       case 'sms_sent':          return { label: 'Awaiting Customer',                                                         color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' };
       case 'unconfirmed':       return { label: 'No Response (24h+)',                                                        color: 'bg-rose-100 dark:bg-rose-900/30 text-rose-800 dark:text-rose-300' };

@@ -11,15 +11,14 @@ export type OrdersTableTab =
   | 'all'
   | 'pending'
   | 'awaiting_customer'
-  | 'confirmed'           // all confirmed orders (tomorrow + next + future + generic)
-  | 'tomorrow_shipment'   // specific: tomorrow only
-  | 'next_shipment'       // specific: next (skip-day)
-  | 'future_shipment'     // specific: future date
-  | 'scheduled'           // next + future combined
+  | 'confirmed'        // all confirmed orders (next + future + generic)
+  | 'next_shipment'    // specific: today / tomorrow / day+2
+  | 'future_schedule'  // specific: 3+ days out
+  | 'scheduled'        // next + future combined
   | 'out_for_delivery'
   | 'order_delay'
   | 'rescheduled'
-  | 'delivered';          // completed / delivered orders
+  | 'delivered';       // completed / delivered orders
 
 function OrderStatusPill({ status }: { status: DeliveryStatus }): React.ReactElement {
   const c = STATUS_CONFIG[status];
@@ -54,8 +53,8 @@ interface OrdersTableProps {
   onSortChange: (sort: string) => void;
 }
 
-const CONFIRMED_STATUSES = new Set<DeliveryStatus>(['confirmed', 'tomorrow_shipment', 'next_shipment', 'future_shipment']);
-const SCHEDULED_STATUSES = new Set<DeliveryStatus>(['scheduled', 'next_shipment', 'future_shipment']);
+const CONFIRMED_STATUSES = new Set<DeliveryStatus>(['confirmed', 'next_shipment', 'future_schedule']);
+const SCHEDULED_STATUSES = new Set<DeliveryStatus>(['scheduled', 'next_shipment', 'future_schedule']);
 // Terminal workflow statuses — same list as StatusMetricCards so card count === table count
 const PENDING_TERMINAL = new Set<DeliveryStatus>(['delivered', 'cancelled', 'failed']);
 // Delivered workflow statuses (backend variants are already mapped to 'delivered' by deliveryToManageOrder)
@@ -66,11 +65,10 @@ function matchesTableTab(order: DeliveryOrder, tab: OrdersTableTab): boolean {
     case 'all':           return true;
     case 'pending':       return !PENDING_TERMINAL.has(order.status);
     case 'awaiting_customer': return order.status === 'sms_sent' || order.status === 'unconfirmed';
-    case 'confirmed':     return CONFIRMED_STATUSES.has(order.status);
-    case 'tomorrow_shipment': return order.status === 'tomorrow_shipment';
-    case 'next_shipment': return order.status === 'next_shipment';
-    case 'future_shipment':   return order.status === 'future_shipment';
-    case 'scheduled':     return SCHEDULED_STATUSES.has(order.status);
+    case 'confirmed':      return CONFIRMED_STATUSES.has(order.status);
+    case 'next_shipment':  return order.status === 'next_shipment';
+    case 'future_schedule': return order.status === 'future_schedule';
+    case 'scheduled':      return SCHEDULED_STATUSES.has(order.status);
     case 'out_for_delivery':  return order.status === 'out_for_delivery';
     case 'order_delay':   return order.status === 'order_delay';
     case 'rescheduled':   return order.status === 'rescheduled' || order.isRescheduled === true;
@@ -294,18 +292,14 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
     const fmtDate = (d: Date) =>
       d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 
-    if (order.status === 'tomorrow_shipment') {
-      const label = dateSource ? fmtDate(dateSource) : 'Tomorrow';
-      return <span className="font-medium text-teal-700 dark:text-teal-300">{label}</span>;
-    }
     if (order.status === 'next_shipment') {
       return dateSource ? (
-        <span className="px-2 py-0.5 bg-cyan-100 dark:bg-cyan-900/50 text-cyan-700 dark:text-cyan-200 rounded text-xs">
+        <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-200 rounded text-xs">
           {fmtDate(dateSource)}
         </span>
-      ) : <span className="text-cyan-600 dark:text-cyan-400">Next avail.</span>;
+      ) : <span className="text-amber-600 dark:text-amber-400">Next avail.</span>;
     }
-    if (order.status === 'future_shipment' || order.status === 'scheduled') {
+    if (order.status === 'future_schedule' || order.status === 'scheduled') {
       return dateSource ? (
         <span className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-200 rounded text-xs">
           {fmtDate(dateSource)}
@@ -340,13 +334,12 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
     { key: 'all',              label: 'All',              count: orders.length },
     { key: 'pending',          label: 'Pending Orders',   count: orders.filter((o) => !PENDING_TERMINAL.has(o.status)).length },
     { key: 'awaiting_customer',label: 'Awaiting Customer',count: orders.filter((o) => o.status === 'sms_sent' || o.status === 'unconfirmed').length },
-    { key: 'tomorrow_shipment',label: 'Tomorrow Shipment',count: orders.filter((o) => o.status === 'tomorrow_shipment').length },
     { key: 'next_shipment',    label: 'Next Shipment',    count: orders.filter((o) => o.status === 'next_shipment').length },
-    { key: 'future_shipment',  label: 'Future Shipment',  count: orders.filter((o) => o.status === 'future_shipment').length },
+    { key: 'future_schedule',  label: 'Future Schedule',  count: orders.filter((o) => o.status === 'future_schedule').length },
     { key: 'out_for_delivery', label: 'On Route',         count: orders.filter((o) => o.status === 'out_for_delivery').length },
     { key: 'order_delay',      label: 'Order Delay',      count: orders.filter((o) => o.status === 'order_delay').length },
     { key: 'rescheduled',      label: 'Rescheduled',      count: orders.filter((o) => o.isRescheduled === true).length },
-    { key: 'delivered',        label: 'Delivered',         count: orders.filter((o) => DELIVERED_STATUSES.has(o.status)).length },
+    { key: 'delivered',        label: 'Delivered',        count: orders.filter((o) => DELIVERED_STATUSES.has(o.status)).length },
   ];
 
   const scrollToTableTop = (): void => {

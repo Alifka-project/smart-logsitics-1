@@ -12,15 +12,14 @@ interface StatusMetricCardsProps {
 }
 
 const CARD_DEFS = [
-  { key: 'uploaded',          sublabel: 'Awaiting action', darkIconBg: 'dark:bg-blue-500/30' },
-  { key: 'sms_sent',          sublabel: 'Awaiting reply',  darkIconBg: 'dark:bg-emerald-500/30' },
-  { key: 'unconfirmed',       sublabel: 'No reply 24h+',   darkIconBg: 'dark:bg-red-500/35' },
-  { key: 'tomorrow_shipment', sublabel: 'Ships tomorrow',  darkIconBg: 'dark:bg-teal-500/35' },
-  { key: 'next_shipment',     sublabel: 'Next available',  darkIconBg: 'dark:bg-cyan-500/30' },
-  { key: 'future_shipment',   sublabel: 'Later date',      darkIconBg: 'dark:bg-indigo-500/30' },
-  { key: 'out_for_delivery',  sublabel: 'Dispatched',      darkIconBg: 'dark:bg-orange-500/30' },
-  { key: 'order_delay',       sublabel: 'Needs attention', darkIconBg: 'dark:bg-rose-500/35' },
-  { key: 'delivered',         sublabel: 'Completed',       darkIconBg: 'dark:bg-green-500/35' },
+  { key: 'uploaded',         sublabel: 'Awaiting action', darkIconBg: 'dark:bg-blue-500/30' },
+  { key: 'sms_sent',         sublabel: 'Awaiting reply',  darkIconBg: 'dark:bg-emerald-500/30' },
+  { key: 'unconfirmed',      sublabel: 'No reply 24h+',   darkIconBg: 'dark:bg-red-500/35' },
+  { key: 'next_shipment',    sublabel: 'Next available',  darkIconBg: 'dark:bg-amber-500/30' },
+  { key: 'future_schedule',  sublabel: '3+ days out',     darkIconBg: 'dark:bg-indigo-500/30' },
+  { key: 'out_for_delivery', sublabel: 'Dispatched',      darkIconBg: 'dark:bg-orange-500/30' },
+  { key: 'order_delay',      sublabel: 'Needs attention', darkIconBg: 'dark:bg-rose-500/35' },
+  { key: 'delivered',        sublabel: 'Completed',       darkIconBg: 'dark:bg-green-500/35' },
 ] as const;
 
 // Terminal workflow statuses — excluded from "Pending Orders" total
@@ -29,15 +28,14 @@ const TERMINAL_WF = new Set(['delivered', 'cancelled', 'failed']);
 export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({ orders, onCardClick, activeKey }) => {
   const statusCounts = {
     // "Pending Orders" = everything not yet delivered/cancelled/failed — same logic as Needs Attention
-    uploaded:          orders.filter((o) => !TERMINAL_WF.has(o.status)).length,
-    sms_sent:          orders.filter((o) => o.status === 'sms_sent').length,
-    unconfirmed:       orders.filter((o) => o.status === 'unconfirmed').length,
-    tomorrow_shipment: orders.filter((o) => o.status === 'tomorrow_shipment').length,
-    next_shipment:     orders.filter((o) => o.status === 'next_shipment').length,
-    future_shipment:   orders.filter((o) => o.status === 'future_shipment').length,
-    out_for_delivery:  orders.filter((o) => o.status === 'out_for_delivery').length,
-    order_delay:       orders.filter((o) => o.status === 'order_delay').length,
-    delivered:         orders.filter((o) => o.status === 'delivered').length,
+    uploaded:         orders.filter((o) => !TERMINAL_WF.has(o.status)).length,
+    sms_sent:         orders.filter((o) => o.status === 'sms_sent').length,
+    unconfirmed:      orders.filter((o) => o.status === 'unconfirmed').length,
+    next_shipment:    orders.filter((o) => o.status === 'next_shipment').length,
+    future_schedule:  orders.filter((o) => o.status === 'future_schedule').length,
+    out_for_delivery: orders.filter((o) => o.status === 'out_for_delivery').length,
+    order_delay:      orders.filter((o) => o.status === 'order_delay').length,
+    delivered:        orders.filter((o) => o.status === 'delivered').length,
   };
 
   return (

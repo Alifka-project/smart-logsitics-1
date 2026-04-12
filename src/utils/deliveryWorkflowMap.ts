@@ -44,17 +44,13 @@ export function isTodayDate(date: Date): boolean {
 
 /**
  * Classify a confirmedDeliveryDate relative to Dubai "today" into a shipment tier.
- * - 'tomorrow'  : Day+1 (confirmed for the next calendar day)
- * - 'next'      : Day+2+ but the day immediately before the confirmed date is a
- *                 non-working day (Sunday, Friday, Saturday, or UAE public holiday).
- *                 Covers skip-weekend and skip-holiday scenarios.
- * - 'future'    : Day+2+ on a normal working day
+ * - 'next'   : Day 0–2 (today, tomorrow, or day after tomorrow) → Next Shipment
+ * - 'future' : Day 3+ → Future Schedule
  */
-export function classifyConfirmedDate(date: Date): 'tomorrow' | 'next' | 'future' {
+export function classifyConfirmedDate(date: Date): 'next' | 'future' {
   const diffDays = calDiffFromTodayDubai(date);
-  if (diffDays <= 1) return 'tomorrow';   // today or tomorrow  → Tomorrow Shipment
-  if (diffDays === 2) return 'next';      // day after tomorrow → Next Shipment
-  return 'future';                        // 3+ days out        → Future Shipment
+  if (diffDays <= 2) return 'next';   // today / tomorrow / day+2 → Next Shipment
+  return 'future';                    // 3+ days out              → Future Schedule
 }
 
 function priorityFromDelivery(d: Delivery): 'normal' | 'high' | 'urgent' | undefined {
@@ -83,9 +79,8 @@ function deriveWorkflowStatus(d: Delivery, smsSentAt: Date | undefined): Deliver
 
     if (confirmedDate && calDiffFromTodayDubai(confirmedDate) >= 0) {
       const tier = classifyConfirmedDate(confirmedDate);
-      if (tier === 'tomorrow') return 'tomorrow_shipment';
-      if (tier === 'next')     return 'next_shipment';
-      return 'future_shipment';
+      if (tier === 'next') return 'next_shipment';
+      return 'future_schedule';
     }
     // No date set, or date is in the past → stays 'rescheduled' (pending, no card)
     return 'rescheduled';
@@ -131,9 +126,8 @@ function deriveWorkflowStatus(d: Delivery, smsSentAt: Date | undefined): Deliver
       // Auto-delay: confirmed date has passed without delivery
       if (isOverdue(confirmedDate)) return 'order_delay';
       const tier = classifyConfirmedDate(confirmedDate);
-      if (tier === 'tomorrow') return 'tomorrow_shipment';
       if (tier === 'next') return 'next_shipment';
-      return 'future_shipment';
+      return 'future_schedule';
     }
 
     // Fallback: use metadata scheduledDate (admin-set)
@@ -145,9 +139,8 @@ function deriveWorkflowStatus(d: Delivery, smsSentAt: Date | undefined): Deliver
     if (target) {
       if (isOverdue(target)) return 'order_delay';
       const tier = classifyConfirmedDate(target);
-      if (tier === 'tomorrow') return 'tomorrow_shipment';
       if (tier === 'next') return 'next_shipment';
-      if (tier === 'future') return 'future_shipment';
+      if (tier === 'future') return 'future_schedule';
     }
     return 'confirmed'; // no date info — generic confirmed
   }
@@ -244,7 +237,7 @@ export function deliveryToManageOrder(delivery: Delivery): DeliveryOrder {
     uploadedAt,
     smsSentAt: smsSentAt,
     confirmedAt,
-    scheduledDate: scheduledDate ?? (['scheduled', 'next_shipment', 'future_shipment'].includes(status) ? parseOptDate(delivery.estimatedTime) : undefined),
+    scheduledDate: scheduledDate ?? (['scheduled', 'next_shipment', 'future_schedule'].includes(status) ? parseOptDate(delivery.estimatedTime) : undefined),
     confirmedDeliveryDate,
     deliveryDate: deliveredAt,
     driverId: delivery.assignedDriverId ?? undefined,
@@ -273,9 +266,8 @@ export function workflowToApiPatch(
     case 'unconfirmed':
       return { apiStatus: 'scheduled', updateData: { metadata: meta as Delivery['metadata'] } };
     case 'confirmed':
-    case 'tomorrow_shipment':
     case 'next_shipment':
-    case 'future_shipment':
+    case 'future_schedule':
       return { apiStatus: 'scheduled-confirmed', updateData: { metadata: meta as Delivery['metadata'] } };
     case 'scheduled':
       return { apiStatus: 'scheduled-confirmed', updateData: { metadata: meta as Delivery['metadata'] } };
