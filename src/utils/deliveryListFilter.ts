@@ -5,6 +5,18 @@ export type DeliveryListFilter = 'all' | 'pending' | 'confirmed' | 'p1' | 'out_f
 /** Placeholder customer from failed Excel mapping (`Customer 1`, `Customer 2`, …). */
 const PLACEHOLDER_CUSTOMER = /^Customer\s+\d+$/i;
 
+const ORIGINAL_ROW_PO_KEYS = [
+  'PO Number',
+  'PO_NUMBER',
+  'PONumber',
+  'Cust. PO Number',
+  'Cust PO Number',
+  'poNumber',
+  'po_number',
+  'Purchase order',
+  'Purchase Order',
+];
+
 function normalizedPoParts(d: { poNumber?: string | null; PONumber?: string | null; metadata?: unknown }): string[] {
   const parts: string[] = [];
   const po = d.poNumber != null ? String(d.poNumber).trim().toLowerCase() : '';
@@ -14,6 +26,16 @@ function normalizedPoParts(d: { poNumber?: string | null; PONumber?: string | nu
   const meta = d.metadata as Record<string, unknown> | null | undefined;
   const orig = meta?.originalPONumber != null ? String(meta.originalPONumber).trim().toLowerCase() : '';
   if (orig) parts.push(orig);
+  const origRow = (meta?.originalRow || meta?._originalRow) as Record<string, unknown> | undefined;
+  if (origRow && typeof origRow === 'object') {
+    for (const k of ORIGINAL_ROW_PO_KEYS) {
+      const v = origRow[k];
+      if (v != null && String(v).trim()) {
+        const p = String(v).trim().toLowerCase();
+        if (p && !parts.includes(p)) parts.push(p);
+      }
+    }
+  }
   return parts;
 }
 

@@ -5,6 +5,7 @@ const sapService = require('../services/sapService.js');
 const prisma = require('../db/prisma').default;
 const cache = require('../cache');
 const { sortDeliveriesIncompleteLast } = require('../utils/deliveryListSort');
+const { excludeTeamPortalGarbageDeliveries } = require('../../utils/deliveryListFilter');
 
 /** Must match `invalidatePrefix('dashboard:')` in deliveries / SMS mutators. */
 const DASHBOARD_CACHE_KEY = 'dashboard:admin:v1';
@@ -367,6 +368,8 @@ async function buildAdminDashboardPayload(): Promise<AdminDashboardPayload> {
     }
 
     sortDeliveriesIncompleteLast(deliveries);
+    // Same bad-import rows hidden on Delivery / Logistics portals (removed PO, Customer N).
+    deliveries = excludeTeamPortalGarbageDeliveries(deliveries) as DeliveryRecord[];
 
     const driversResp_ = driversResp as PromiseSettledResult<{ data?: { value?: unknown[] } | unknown[] }>;
     const locationsResp_ = locationsResp as PromiseSettledResult<{ data?: { value?: unknown[] } | unknown[] }>;

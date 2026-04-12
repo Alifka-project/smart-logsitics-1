@@ -15,6 +15,7 @@ import { MapContainer, TileLayer, CircleMarker, Tooltip as MapTooltip, Popup } f
 import 'leaflet/dist/leaflet.css';
 import type { Driver } from '../types';
 import PaginationBar from '../components/common/PaginationBar';
+import { excludeTeamPortalGarbageDeliveries } from '../utils/deliveryListFilter';
 
 /**
  * Visual language follows PolicyPilot-style dashboards (airy cards, pill controls, blue accent).
@@ -1277,8 +1278,25 @@ export default function AdminDashboardPage(): React.ReactElement {
   }, [dashboardDeliveries, trendsGlobalPeriod, trendsBucketsConfig, areaKeywords]);
 
   const filteredDeliveries = useMemo<TrackingDelivery[]>(() => {
-    // Use dashboardDeliveries so ALL statuses (delivered, cancelled, etc.) are visible
-    const list = (dashboardDeliveries && Array.isArray(dashboardDeliveries) ? dashboardDeliveries : []).slice() as unknown as TrackingDelivery[];
+    // Merge: full history from dashboard + live rows from tracking (same API as Delivery/Logistics portals).
+    // Tracking payload wins on id so status/assignment stay in sync; garbage import rows excluded everywhere.
+    const dashFiltered = excludeTeamPortalGarbageDeliveries(
+      (dashboardDeliveries && Array.isArray(dashboardDeliveries) ? dashboardDeliveries : []) as unknown as Record<string, unknown>[]
+    ) as unknown as TrackingDelivery[];
+    const trackFiltered = excludeTeamPortalGarbageDeliveries(
+      (deliveries || []) as unknown as Record<string, unknown>[]
+    ) as unknown as TrackingDelivery[];
+    const rowId = (d: TrackingDelivery): string => String(d.id ?? (d as { ID?: string }).ID ?? '').trim();
+    const byId = new Map<string, TrackingDelivery>();
+    for (const d of dashFiltered) {
+      const id = rowId(d);
+      if (id) byId.set(id, d);
+    }
+    for (const d of trackFiltered) {
+      const id = rowId(d);
+      if (id) byId.set(id, d);
+    }
+    const list = Array.from(byId.values());
     const dir = deliverySortDir === 'asc' ? 1 : -1;
     list.sort((a, b) => {
       if (deliverySortBy === 'customer') return dir * (a.customer || '').toLowerCase().localeCompare((b.customer || '').toLowerCase());
@@ -1318,7 +1336,7 @@ export default function AdminDashboardPage(): React.ReactElement {
       }
       return true;
     });
-  }, [dashboardDeliveries, deliverySearch, deliveryStatusFilter, deliveryDateFrom, deliveryDateTo, deliveryAttentionFilter, deliverySortBy, deliverySortDir]);
+  }, [dashboardDeliveries, deliveries, deliverySearch, deliveryStatusFilter, deliveryDateFrom, deliveryDateTo, deliveryAttentionFilter, deliverySortBy, deliverySortDir]);
 
   const deliveryByAreaData = useMemo<AreaItem[]>(() => {
     const arr = (data?.analytics?.deliveryByArea || []).slice().sort((a, b) => (b.count ?? 0) - (a.count ?? 0));

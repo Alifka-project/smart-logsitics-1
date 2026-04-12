@@ -4,6 +4,7 @@ import sapService from '../services/sapService.js';
 import prisma from '../db/prisma.js';
 import cache from '../cache.js';
 import * as db from '../db/index.js';
+import { excludeTeamPortalGarbageDeliveries } from '../../utils/deliveryListFilter.js';
 
 const router = Router();
 
@@ -179,7 +180,7 @@ router.get('/deliveries', authenticate, requireAnyRole('admin', 'delivery_team',
         return 0;
       });
 
-      return deliveries;
+      return excludeTeamPortalGarbageDeliveries(deliveries);
     }, 5000, 15000);
 
     res.json({
