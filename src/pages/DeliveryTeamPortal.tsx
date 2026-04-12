@@ -123,6 +123,15 @@ export default function DeliveryTeamPortal() {
     return driverCapacityByDate[iso]?.[driverId];
   }, [driverCapacityByDate, getCapacityDateIso]);
 
+  /** Calendar day key for the Truck capacity card (prefer Dubai-today if loaded, else earliest loaded date). */
+  const primaryCapacityDateIso = useMemo(() => {
+    const keys = Object.keys(driverCapacityByDate);
+    if (keys.length === 0) return fallbackCapacityDateIso;
+    const todayIso = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    if (driverCapacityByDate[todayIso]) return todayIso;
+    return [...keys].sort()[0] ?? fallbackCapacityDateIso;
+  }, [driverCapacityByDate, fallbackCapacityDateIso]);
+
   // Control tab state
   const [assigningDelivery, setAssigningDelivery] = useState<string | null>(null);
   const [assignmentMessage, setAssignmentMessage] = useState<AssignmentMessage | null>(null);
@@ -976,16 +985,17 @@ export default function DeliveryTeamPortal() {
             );
           })()}
 
-          {/* ── Needs Attention + Awaiting Customer Response ── */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* ── Needs Attention · Awaiting Customer · Truck capacity (equal thirds on large screens) ── */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-stretch">
             {/* Needs Attention */}
-            <div className="pp-card p-4 sm:p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <AlertCircle className="w-5 h-5 text-amber-500" />
+            <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[300px]">
+              <div className="mb-3 flex flex-shrink-0 items-center gap-2">
+                <AlertCircle className="h-5 w-5 flex-shrink-0 text-amber-500" />
                 <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Needs Attention</h2>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {([
+              <div className="min-h-0 flex-1 overflow-y-auto pr-0.5">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
+                  {([
                   { tableTab: 'all',               count: actionItems.pendingOrders.length,        label: 'Pending Orders',    sublabel: 'Not yet completed', bg: 'bg-amber-50 dark:bg-amber-900/20',  border: 'border-amber-100 dark:border-amber-800/30',   hover: 'hover:bg-amber-100 dark:hover:bg-amber-900/30',   countColor: 'text-amber-600 dark:text-amber-400',   labelColor: 'text-amber-700 dark:text-amber-400'   },
                   { tableTab: 'pending',           count: actionItems.unassigned.length,           label: 'Unassigned',        sublabel: 'Needs driver',      bg: 'bg-orange-50 dark:bg-orange-900/20',border: 'border-orange-100 dark:border-orange-800/30',  hover: 'hover:bg-orange-100 dark:hover:bg-orange-900/30', countColor: 'text-orange-600 dark:text-orange-400', labelColor: 'text-orange-700 dark:text-orange-400' },
                   { tableTab: 'awaiting_customer', count: actionItems.awaitingConfirmation.length, label: 'Awaiting Customer',  sublabel: 'No confirmation',  bg: 'bg-purple-50 dark:bg-purple-900/20',border: 'border-purple-100 dark:border-purple-800/30',  hover: 'hover:bg-purple-100 dark:hover:bg-purple-900/30', countColor: 'text-purple-600 dark:text-purple-400', labelColor: 'text-purple-700 dark:text-purple-400' },
@@ -997,37 +1007,38 @@ export default function DeliveryTeamPortal() {
                       useDeliveryStore.getState().setManageTabFilter(targetTab);
                       setActiveTab('deliveries');
                     }}
-                    className={`flex flex-col items-center justify-center p-3 rounded-xl ${bg} border ${border} ${hover} transition-colors cursor-pointer select-none`}
+                    className={`flex flex-col items-center justify-center rounded-xl border p-3 ${bg} ${border} ${hover} cursor-pointer select-none transition-colors`}
                     title={`View ${label} in Delivery Orders table`}
                   >
                     <span className={`text-xl font-bold ${countColor}`}>{count}</span>
-                    <span className={`text-xs font-semibold ${labelColor} mt-0.5 text-center leading-tight`}>{label}</span>
-                    <span className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 text-center">→ {sublabel}</span>
+                    <span className={`mt-0.5 text-center text-xs font-semibold leading-tight ${labelColor}`}>{label}</span>
+                    <span className="mt-0.5 text-center text-[10px] text-gray-400 dark:text-gray-500">→ {sublabel}</span>
                   </div>
                 ))}
+                </div>
+                {(actionItems.pendingOrders.length > 0 || actionItems.unassigned.length > 0 || actionItems.awaitingConfirmation.length > 0 || actionItems.orderDelay.length > 0) && (
+                  <p className="mt-3 text-center text-xs text-gray-400 dark:text-gray-500">Tap any card to open the filtered order list in Deliveries tab</p>
+                )}
               </div>
-              {(actionItems.pendingOrders.length > 0 || actionItems.unassigned.length > 0 || actionItems.awaitingConfirmation.length > 0 || actionItems.orderDelay.length > 0) && (
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-3 text-center">Tap any card to open the filtered order list in Deliveries tab</p>
-              )}
             </div>
 
             {/* Awaiting Customer Response list */}
-            <div className="pp-card p-4 sm:p-5 flex flex-col">
-              <div className="flex items-center gap-2 mb-4">
-                <MessageSquare className="w-5 h-5 text-purple-500" />
+            <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[300px]">
+              <div className="mb-3 flex flex-shrink-0 items-center gap-2">
+                <MessageSquare className="h-5 w-5 flex-shrink-0 text-purple-500" />
                 <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Awaiting Customer Response</h2>
                 {actionItems.awaitingConfirmation.length > 0 && (
-                  <span className="ml-auto px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-bold">
+                  <span className="ml-auto rounded-full bg-purple-100 px-2 py-0.5 text-xs font-bold text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
                     {actionItems.awaitingConfirmation.length}
                   </span>
                 )}
               </div>
               {actionItems.awaitingConfirmation.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center py-6 text-sm text-gray-400 dark:text-gray-500">
-                  <CheckCircle className="w-4 h-4 mr-2 text-green-400" /> All customers responded
+                <div className="flex min-h-0 flex-1 items-center justify-center py-4 text-sm text-gray-400 dark:text-gray-500">
+                  <CheckCircle className="mr-2 h-4 w-4 flex-shrink-0 text-green-400" /> All customers responded
                 </div>
               ) : (
-                <div className="space-y-2 max-h-48 overflow-y-auto">
+                <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-0.5">
                   {actionItems.awaitingConfirmation.map((delivery, idx) => {
                     const sentAgo = (() => {
                       const t = delivery.updatedAt || delivery.createdAt || delivery.created_at;
@@ -1038,24 +1049,72 @@ export default function DeliveryTeamPortal() {
                       return h > 0 ? `${h}h ago` : `${m}m ago`;
                     })();
                     return (
-                      <div key={delivery.id || idx} className="flex items-start gap-3 p-2.5 rounded-lg bg-purple-50 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-800/20">
-                        <Clock className="w-4 h-4 text-purple-500 mt-0.5 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                      <div key={delivery.id || idx} className="flex items-start gap-3 rounded-lg border border-purple-100 bg-purple-50 p-2.5 dark:border-purple-800/20 dark:bg-purple-900/10">
+                        <Clock className="mt-0.5 h-4 w-4 flex-shrink-0 text-purple-500" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
                             {delivery.customer || 'Unknown Customer'}
                           </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                          <p className="truncate text-xs text-gray-500 dark:text-gray-400">
                             {delivery.poNumber ? `PO: ${delivery.poNumber}` : ''} {delivery.address || ''}
                           </p>
                         </div>
                         {sentAgo && (
-                          <span className="text-xs text-purple-600 dark:text-purple-400 shrink-0">{sentAgo}</span>
+                          <span className="shrink-0 text-xs text-purple-600 dark:text-purple-400">{sentAgo}</span>
                         )}
                       </div>
                     );
                   })}
                 </div>
               )}
+            </div>
+
+            {/* Truck capacity by driver (same height as other columns; scroll inside) */}
+            <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[300px]">
+              <div className="mb-2 flex flex-shrink-0 items-center gap-2">
+                <Truck className="h-5 w-5 flex-shrink-0 text-teal-600 dark:text-teal-400" />
+                <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Truck capacity</h2>
+              </div>
+              <p className="mb-2 flex-shrink-0 truncate text-[10px] text-gray-400 dark:text-gray-500" title={primaryCapacityDateIso}>
+                Day: {primaryCapacityDateIso}
+              </p>
+              <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-0.5">
+                {drivers.length === 0 ? (
+                  <div className="py-6 text-center text-sm text-gray-400 dark:text-gray-500">No drivers</div>
+                ) : (
+                  [...drivers]
+                    .sort((a, b) => String(a.fullName || a.username || '').localeCompare(String(b.fullName || b.username || '')))
+                    .map((driver) => {
+                      const cap = driverCapacityByDate[primaryCapacityDateIso]?.[driver.id];
+                      const online = isContactOnline(driver);
+                      return (
+                        <div
+                          key={driver.id}
+                          className="flex items-start gap-2 rounded-lg border border-gray-100 bg-gray-50 p-2.5 dark:border-gray-700 dark:bg-gray-800/60"
+                        >
+                          <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${online ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs font-semibold text-gray-900 dark:text-gray-100">
+                              {driver.fullName || driver.username}
+                            </p>
+                            {cap ? (
+                              <p className="mt-0.5 text-[11px] text-gray-600 dark:text-gray-300">
+                                <span className="font-mono font-semibold text-teal-700 dark:text-teal-300">{cap.remaining}</span> left
+                                <span className="text-gray-400 dark:text-gray-500"> · </span>
+                                {cap.used}/{cap.max} used
+                              </p>
+                            ) : (
+                              <p className="mt-0.5 text-[11px] text-gray-400 dark:text-gray-500">—</p>
+                            )}
+                          </div>
+                          {cap?.full && (
+                            <span className="shrink-0 text-[10px] font-bold text-red-600 dark:text-red-400">FULL</span>
+                          )}
+                        </div>
+                      );
+                    })
+                )}
+              </div>
             </div>
           </div>
 
@@ -1165,9 +1224,8 @@ export default function DeliveryTeamPortal() {
                             No orders found
                           </td>
                         </tr>
-                      ) : (() => {
-                        const driverSequenceByKey: Record<string, number> = {};
-                        return opsRows.map(delivery => {
+                      ) : (
+                        opsRows.map(delivery => {
                         const dExt = delivery as unknown as {
                           goodsMovementDate?: string;
                           smsSentAt?: string;
@@ -1187,10 +1245,6 @@ export default function DeliveryTeamPortal() {
                         const material = String(orig['Material'] ?? orig['material'] ?? orig['Material Number'] ?? orig['PNC'] ?? '—');
                         const invoicePrice = String(orig['Invoice Price'] ?? orig['invoice_price'] ?? orig['Price'] ?? orig['Unit Price'] ?? '—');
                         const qtyRaw = orig['Order Quantity'] ?? orig['Confirmed quantity'] ?? orig['Total Line Deliv. Qt'] ?? orig['Order Qty'] ?? orig['Quantity'] ?? orig['qty'] ?? null;
-                        const qtyNum = (() => {
-                          const n = Number.parseFloat(String(qtyRaw ?? ''));
-                          return Number.isFinite(n) && n > 0 ? Math.ceil(n) : 1;
-                        })();
                         const qty = String(qtyRaw ?? '—');
                         const gmd = dExt.goodsMovementDate ? new Date(dExt.goodsMovementDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
                         const delDate = dExt.confirmedDeliveryDate ? new Date(dExt.confirmedDeliveryDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
@@ -1207,14 +1261,6 @@ export default function DeliveryTeamPortal() {
                         const currentDriverId = dExt.tracking?.driverId || delivery.assignedDriverId;
                         const currentDriver = drivers.find(d => d.id === currentDriverId);
                         const isOnline = currentDriver ? isContactOnline(currentDriver) : false;
-                        const capDateIso = getCapacityDateIso(delivery);
-                        const capForCurrent = getDriverCapacity(delivery, currentDriverId || undefined);
-                        let currentSlotUsed: number | null = null;
-                        if (currentDriverId && capForCurrent) {
-                          const key = `${currentDriverId}|${capDateIso}`;
-                          driverSequenceByKey[key] = (driverSequenceByKey[key] || 0) + qtyNum;
-                          currentSlotUsed = Math.min(capForCurrent.max, driverSequenceByKey[key]);
-                        }
                         const { label: statusLabel, color: statusColor } = getDeliveryStatusBadge(delivery);
                         const rowBg = isOFD
                           ? 'bg-blue-50/40 dark:bg-blue-900/10 border-l-4 border-l-blue-500'
@@ -1258,17 +1304,14 @@ export default function DeliveryTeamPortal() {
                             <td className="px-3 py-2.5 font-mono text-gray-600 dark:text-gray-400 whitespace-nowrap">{material}</td>
                             <td className="px-3 py-2.5 text-gray-600 dark:text-gray-300 whitespace-nowrap">{invoicePrice}</td>
                             <td className="px-3 py-2.5 text-gray-600 dark:text-gray-300 whitespace-nowrap">{qty}</td>
-                            {/* Driver + capacity */}
+                            {/* Driver assign */}
                             <td className="px-3 py-2.5" style={{ minWidth: '160px' }}>
                               {currentDriver && (
-                                <div className="flex items-center gap-1 mb-1">
-                                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isOnline ? 'bg-green-500' : 'bg-gray-300'}`} />
-                                  <span className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">{currentDriver.fullName || currentDriver.username}</span>
-                                  {capForCurrent && (
-                                    <span className={`ml-auto text-[9px] font-bold px-1 py-0.5 rounded ${capForCurrent.full ? 'bg-red-100 text-red-600' : (currentSlotUsed ?? capForCurrent.used) >= capForCurrent.max * 0.75 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
-                                      {currentSlotUsed ?? capForCurrent.used}/{capForCurrent.max}
-                                    </span>
-                                  )}
+                                <div className="mb-1 flex items-center gap-1">
+                                  <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-300'}`} />
+                                  <span className="truncate text-xs font-medium text-gray-800 dark:text-gray-200">
+                                    {currentDriver.fullName || currentDriver.username}
+                                  </span>
                                 </div>
                               )}
                               <select
@@ -1294,15 +1337,9 @@ export default function DeliveryTeamPortal() {
                                 <option value="">{currentDriverId ? '— Reassign —' : '— Assign —'}</option>
                                 {drivers.map(driver => {
                                   const cap = getDriverCapacity(delivery, driver.id);
-                                  const usedShown = (driver.id === currentDriverId && currentSlotUsed != null)
-                                    ? currentSlotUsed
-                                    : cap?.used;
-                                  const label = cap
-                                    ? `${driver.fullName || driver.username} (${usedShown ?? cap.used}/${cap.max}${cap.full ? ' — FULL' : ''})`
-                                    : (driver.fullName || driver.username);
                                   return (
                                     <option key={driver.id} value={driver.id} disabled={cap?.full && driver.id !== currentDriverId}>
-                                      {label}
+                                      {driver.fullName || driver.username}
                                     </option>
                                   );
                                 })}
@@ -1391,8 +1428,8 @@ export default function DeliveryTeamPortal() {
                             </td>
                           </tr>
                         );
-                      });
-                    })()}
+                      })
+                      )}
                     </tbody>
                   </table>
                 </div>
