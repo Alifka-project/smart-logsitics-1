@@ -126,12 +126,6 @@ export default function DeliveryTeamPortal() {
     if (!Number.isFinite(t)) return fallbackCapacityDateIso;
     return formatInstantToDubaiIsoDate(t);
   }, [fallbackCapacityDateIso]);
-  const getDriverCapacity = useCallback((d: Delivery, driverId: string | undefined): { used: number; remaining: number; max: number; full: boolean } | undefined => {
-    if (!driverId) return undefined;
-    const iso = getCapacityDateIso(d);
-    return driverCapacityByDate[iso]?.[driverId];
-  }, [driverCapacityByDate, getCapacityDateIso]);
-
   /** Dubai ISO dates we have capacity snapshots for (sorted), always includes today + tomorrow once loaded. */
   const capacityDatesSorted = useMemo(
     () => [...Object.keys(driverCapacityByDate)].sort(),
@@ -139,7 +133,6 @@ export default function DeliveryTeamPortal() {
   );
 
   // Control tab state
-  const [assigningDelivery, setAssigningDelivery] = useState<string | null>(null);
   const [assignmentMessage, setAssignmentMessage] = useState<AssignmentMessage | null>(null);
   const [markingOFD, setMarkingOFD] = useState<string | null>(null);
   const [markingDelay, setMarkingDelay] = useState<string | null>(null);
@@ -1314,50 +1307,22 @@ export default function DeliveryTeamPortal() {
                                 </span>
                               )}
                             </td>
-                            {/* Driver assign */}
-                            <td className="px-3 py-2.5" style={{ minWidth: '200px' }}>
-                              {currentDriver && (
+                            {/* Driver (read-only — assignment is Logistics only) */}
+                            <td className="px-3 py-2.5" style={{ minWidth: '160px' }}>
+                              {currentDriver ? (
                                 <div className="mb-1 flex items-center gap-1">
                                   <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-300'}`} />
                                   <span className="truncate text-xs font-medium text-gray-800 dark:text-gray-200">
                                     {currentDriver.fullName || currentDriver.username}
                                   </span>
                                 </div>
+                              ) : (
+                                <div className="mb-1 text-xs text-gray-500 dark:text-gray-400">— Unassigned</div>
                               )}
                               <p className="mb-1 font-mono text-[9px] text-gray-400 dark:text-gray-500" title="Dubai calendar day used for truck capacity">
                                 Truck day: {capacityDateIso}
                               </p>
-                              <select
-                                value={currentDriverId || ''}
-                                onChange={async (e: React.ChangeEvent<HTMLSelectElement>) => {
-                                  const newDriverId = e.target.value;
-                                  if (!newDriverId) return;
-                                  setAssigningDelivery(delivery.id);
-                                  setAssignmentMessage(null);
-                                  try {
-                                    await api.put(`/deliveries/admin/${delivery.id}/assign`, { driverId: newDriverId });
-                                    setAssignmentMessage({ type: 'success', text: `✓ Assigned to ${drivers.find(d => d.id === newDriverId)?.fullName || 'driver'}` });
-                                    setTimeout(() => { void loadData(); setAssignmentMessage(null); }, 2000);
-                                  } catch (err: unknown) {
-                                    const apiErr = err as { response?: { data?: { message?: string } } };
-                                    const errMsg = apiErr?.response?.data?.message || 'Failed to assign delivery';
-                                    setAssignmentMessage({ type: 'error', text: errMsg });
-                                  } finally { setAssigningDelivery(null); }
-                                }}
-                                disabled={assigningDelivery === delivery.id}
-                                className="w-full px-2 py-1 border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-[11px] text-gray-700 dark:text-gray-200 disabled:opacity-50"
-                              >
-                                <option value="">{currentDriverId ? '— Reassign —' : '— Assign —'}</option>
-                                {drivers.map(driver => {
-                                  const cap = getDriverCapacity(delivery, driver.id);
-                                  const capHint = cap ? `${cap.remaining} left (${cap.used}/${cap.max})` : '—';
-                                  return (
-                                    <option key={driver.id} value={driver.id} disabled={cap?.full && driver.id !== currentDriverId}>
-                                      {(driver.fullName || driver.username) + ` — ${capHint}`}
-                                    </option>
-                                  );
-                                })}
-                              </select>
+                              <p className="text-[9px] text-gray-400 dark:text-gray-500 italic">Set by Logistics</p>
                             </td>
                             {/* Actions */}
                             <td className="px-3 py-2.5" style={{ minWidth: '140px' }}>

@@ -1120,7 +1120,7 @@ export default function LogisticsTeamPortal() {
                   <table className="w-full text-xs divide-y divide-gray-200 dark:divide-gray-700" style={{ minWidth: '1700px' }}>
                     <thead className="bg-gray-50 dark:bg-gray-700/80 sticky top-0 z-10">
                       <tr>
-                        {['·','PO #','Del #','Customer','Phone','Address','City','Status','GMD','Del Date','Model','Description','Material','Inv. Price','Items','Units','Driver','Priority','Actions'].map(h => (
+                        {['·','PO #','Del #','Customer','Phone','Address','City','Status','GMD','Del Date','Model','Description','Material','Items','Units','Driver','Priority','Actions'].map(h => (
                           <th key={h} className="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">{h}</th>
                         ))}
                       </tr>
@@ -1128,7 +1128,7 @@ export default function LogisticsTeamPortal() {
                     <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700/60">
                       {opsRows.length === 0 ? (
                         <tr>
-                          <td colSpan={19} className="px-4 py-8 text-center text-gray-400 dark:text-gray-500">No orders found</td>
+                          <td colSpan={18} className="px-4 py-8 text-center text-gray-400 dark:text-gray-500">No orders found</td>
                         </tr>
                       ) : (
                         opsRows.map(delivery => {
@@ -1148,7 +1148,6 @@ export default function LogisticsTeamPortal() {
                         const model = displayModelForOps(delivery);
                         const description = displayDescriptionForOps(delivery);
                         const material = displayMaterialForOps(delivery);
-                        const invoicePrice = String(orig['Invoice Price'] ?? orig['invoice_price'] ?? orig['Price'] ?? '—');
                         // Items: use Order Quantity or Confirmed quantity (real Excel columns)
                         const itemQtyRaw = orig['Order Quantity'] ?? orig['Confirmed quantity'] ?? orig['Total Line Deliv. Qt'] ?? orig['Order Qty'] ?? orig['Quantity'] ?? orig['qty'] ?? null;
                         const itemQty = String(itemQtyRaw ?? '—');
@@ -1213,7 +1212,6 @@ export default function LogisticsTeamPortal() {
                               <div className="truncate text-gray-500 dark:text-gray-400" title={description}>{description}</div>
                             </td>
                             <td className="px-3 py-2.5 font-mono text-gray-600 dark:text-gray-400 whitespace-nowrap">{material}</td>
-                            <td className="px-3 py-2.5 text-gray-600 dark:text-gray-300 whitespace-nowrap">{invoicePrice}</td>
                             <td className="px-3 py-2.5 text-center font-semibold text-gray-800 dark:text-gray-200 whitespace-nowrap">{itemQty}</td>
                             <td className="px-3 py-2.5 text-center text-gray-500 dark:text-gray-400 whitespace-nowrap">{salesUnit}</td>
                             {/* Driver assign */}
