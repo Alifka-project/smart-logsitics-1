@@ -2,6 +2,39 @@ import type { Delivery } from '../types';
 
 export type DeliveryListFilter = 'all' | 'pending' | 'confirmed' | 'p1' | 'out_for_delivery' | 'delivered';
 
+/** Placeholder customer from failed Excel mapping (`Customer 1`, `Customer 2`, …). */
+const PLACEHOLDER_CUSTOMER = /^Customer\s+\d+$/i;
+
+function normalizedPoParts(d: { poNumber?: string | null; PONumber?: string | null; metadata?: unknown }): string[] {
+  const parts: string[] = [];
+  const po = d.poNumber != null ? String(d.poNumber).trim().toLowerCase() : '';
+  const p2 = (d as { PONumber?: string | null }).PONumber != null ? String((d as { PONumber?: string | null }).PONumber).trim().toLowerCase() : '';
+  if (po) parts.push(po);
+  if (p2 && p2 !== po) parts.push(p2);
+  const meta = d.metadata as Record<string, unknown> | null | undefined;
+  const orig = meta?.originalPONumber != null ? String(meta.originalPONumber).trim().toLowerCase() : '';
+  if (orig) parts.push(orig);
+  return parts;
+}
+
+/**
+ * Rows to hide on Delivery / Logistics team portals: bogus PO from bad column mapping,
+ * or placeholder customer names from failed imports.
+ */
+export function isTeamPortalGarbageDelivery(d: Delivery | Record<string, unknown>): boolean {
+  const rec = d as Record<string, unknown>;
+  const pos = normalizedPoParts(rec as Delivery);
+  if (pos.some((p) => p === 'removed')) return true;
+  const cust = String(rec.customer ?? '').trim();
+  if (PLACEHOLDER_CUSTOMER.test(cust)) return true;
+  return false;
+}
+
+export function excludeTeamPortalGarbageDeliveries<T extends Record<string, unknown>>(list: T[] | undefined | null): T[] {
+  const arr = list ?? [];
+  return arr.filter((row) => !isTeamPortalGarbageDelivery(row as unknown as Delivery));
+}
+
 const DELIVERED_STATUSES = new Set([
   'delivered', 'delivered-with-installation', 'delivered-without-installation',
   'completed', 'pod-completed', 'cancelled', 'returned',

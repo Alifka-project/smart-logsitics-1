@@ -6,12 +6,15 @@ import { deliveryToManageOrder, workflowToApiPatch } from '../../utils/deliveryW
 import type { DeliveryStatus } from '../../types/delivery';
 import type { Delivery } from '../../types';
 import api from '../../frontend/apiClient';
+import { excludeTeamPortalGarbageDeliveries } from '../../utils/deliveryListFilter';
 import { StatusMetricCards } from './StatusMetricCards';
 import { OrdersTable, type OrdersTableTab } from './OrdersTable';
 import { ManageSidebar } from './ManageSidebar';
 import { OrderEditModal } from './OrderEditModal';
 
 interface ManageTabProps {
+  /** When true (team portals), hide bad import rows from metrics and Orders table */
+  excludeGarbageDeliveries?: boolean;
   onSwitchToDeliveriesTab: () => void;
   onUploadSuccess: (result: { count: number; warnings?: string[]; fileHash?: string }) => void;
   onUploadError: (result: { errors?: string[] }) => void;
@@ -40,6 +43,7 @@ function downloadTemplateCsv(): void {
 }
 
 export default function ManageTab({
+  excludeGarbageDeliveries = false,
   onSwitchToDeliveriesTab,
   onUploadSuccess,
   onUploadError,
@@ -52,6 +56,10 @@ export default function ManageTab({
   const pendingHashes = useRef<Set<string>>(new Set());
 
   const deliveries = useDeliveryStore((s) => s.deliveries ?? []);
+  const visibleDeliveries = useMemo(
+    () => (excludeGarbageDeliveries ? excludeTeamPortalGarbageDeliveries(deliveries) : deliveries),
+    [deliveries, excludeGarbageDeliveries],
+  );
   const recentUploads = useDeliveryStore((s) => s.recentUploads ?? []);
   const isFileAlreadyUploaded = useDeliveryStore((s) => s.isFileAlreadyUploaded);
   const updateDeliveryStatus = useDeliveryStore((s) => s.updateDeliveryStatus);
@@ -75,7 +83,10 @@ export default function ManageTab({
   const [editDeliveryId, setEditDeliveryId] = useState<string | null>(null);
   const ordersTableRef = useRef<HTMLDivElement | null>(null);
 
-  const manageOrders = useMemo(() => deliveries.map((d) => deliveryToManageOrder(d)), [deliveries]);
+  const manageOrders = useMemo(
+    () => visibleDeliveries.map((d) => deliveryToManageOrder(d)),
+    [visibleDeliveries],
+  );
 
   const editingDelivery = useMemo(
     (): Delivery | null =>
@@ -106,19 +117,19 @@ export default function ManageTab({
     const t0 = startOfToday();
     const uploads = recentUploads.filter((u) => new Date(u.uploadedAt) >= t0).length;
     const driverIds = new Set(
-      deliveries.map((d) => d.assignedDriverId).filter((id): id is string => Boolean(id)),
+      visibleDeliveries.map((d) => d.assignedDriverId).filter((id): id is string => Boolean(id)),
     );
-    const delivered = deliveries.filter((d) => {
+    const delivered = visibleDeliveries.filter((d) => {
       const s = (d.status || '').toLowerCase();
       return ['delivered', 'delivered-with-installation', 'delivered-without-installation', 'finished', 'completed', 'pod-completed'].includes(s);
     }).length;
     return {
       uploads,
-      totalOrders: deliveries.length,
+      totalOrders: visibleDeliveries.length,
       activeDrivers: driverIds.size,
       delivered,
     };
-  }, [deliveries, recentUploads]);
+  }, [visibleDeliveries, recentUploads]);
 
   const handleFileUpload = useCallback(
     async (file: File) => {

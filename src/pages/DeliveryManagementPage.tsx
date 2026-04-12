@@ -6,7 +6,7 @@ import ManageTab from '../components/deliveries/ManageTab';
 import DeliveryMap from '../components/MapView/DeliveryMap';
 import { calculateRoute, generateFallbackRoute } from '../services/advancedRoutingService';
 import useDeliveryStore from '../store/useDeliveryStore';
-import { applyDeliveryListFilter } from '../utils/deliveryListFilter';
+import { applyDeliveryListFilter, excludeTeamPortalGarbageDeliveries } from '../utils/deliveryListFilter';
 import { useToast } from '../hooks/useToast';
 import { ToastContainer } from '../components/common/Toast';
 import { AlertCircle, AlertTriangle } from 'lucide-react';
@@ -44,9 +44,17 @@ interface Tab {
 interface DeliveryManagementPageProps {
   /** When true (e.g. Driver Portal), hide Manage Delivery Order tab; show only Deliveries view */
   hideManageTab?: boolean;
+  /** When true (e.g. embedded in team portals), hide the main page title for a cleaner layout */
+  hidePageTitle?: boolean;
+  /** When true, hide bad import rows (e.g. PO "removed", placeholder "Customer N") from map + Manage tab */
+  excludeGarbageUploadRows?: boolean;
 }
 
-export default function DeliveryManagementPage({ hideManageTab = false }: DeliveryManagementPageProps) {
+export default function DeliveryManagementPage({
+  hideManageTab = false,
+  hidePageTitle = false,
+  excludeGarbageUploadRows = false,
+}: DeliveryManagementPageProps) {
   const deliveries = useDeliveryStore((state) => state.deliveries ?? []);
   const deliveryListFilter = useDeliveryStore((state) => state.deliveryListFilter ?? 'all');
   const manageTabFilter = useDeliveryStore((state) => state.manageTabFilter);
@@ -61,10 +69,11 @@ export default function DeliveryManagementPage({ hideManageTab = false }: Delive
     }
   }, [manageTabFilter, hideManageTab]);
 
-  const displayDeliveries = useMemo(
-    () => applyDeliveryListFilter(deliveries, deliveryListFilter),
-    [deliveries, deliveryListFilter],
-  );
+  const displayDeliveries = useMemo(() => {
+    let list = applyDeliveryListFilter(deliveries, deliveryListFilter);
+    if (excludeGarbageUploadRows) list = excludeTeamPortalGarbageDeliveries(list);
+    return list;
+  }, [deliveries, deliveryListFilter, excludeGarbageUploadRows]);
   const [showModal, setShowModal] = useState<boolean>(false);
   const [route, setRoute] = useState<AdvancedRouteResult | null>(null);
   const [isLoadingRoute, setIsLoadingRoute] = useState<boolean>(false);
@@ -238,6 +247,11 @@ export default function DeliveryManagementPage({ hideManageTab = false }: Delive
         { id: 'deliveries', label: 'Deliveries', icon: List },
       ];
 
+  const noDeliveriesForDeliveriesTab =
+    excludeGarbageUploadRows && !hideManageTab
+      ? displayDeliveries.length === 0
+      : deliveries.length === 0;
+
   return (
     <div className="space-y-4 overflow-x-hidden">
       <ToastContainer toasts={toasts} onRemove={removeToast} />
@@ -267,13 +281,15 @@ export default function DeliveryManagementPage({ hideManageTab = false }: Delive
       )}
 
       {/* Header - stacked on mobile, row on desktop; buttons wrap and are touch-friendly */}
-      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 mb-2">
-        <div className="min-w-0">
-          <h1 className="pp-page-title text-xl sm:text-3xl">Delivery Management</h1>
-          <p className="pp-page-subtitle text-xs sm:text-sm">Manage deliveries, view routes, and track status</p>
+      {!hidePageTitle && (
+        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 mb-2">
+          <div className="min-w-0">
+            <h1 className="pp-page-title text-xl sm:text-3xl">Delivery Management</h1>
+            <p className="pp-page-subtitle text-xs sm:text-sm">Manage deliveries, view routes, and track status</p>
+          </div>
+          <div className="flex flex-wrap gap-2 sm:flex-nowrap" />
         </div>
-        <div className="flex flex-wrap gap-2 sm:flex-nowrap" />
-      </div>
+      )}
 
       {/* Tab Navigation - hidden when only Deliveries (Driver Portal) */}
       {!hideManageTab && (
@@ -286,7 +302,7 @@ export default function DeliveryManagementPage({ hideManageTab = false }: Delive
                 key={tab.id}
                 onClick={() => {
                   setActiveTab(tab.id);
-                  if (tab.id === 'deliveries' && deliveries.length > 0) {
+                  if (tab.id === 'deliveries' && displayDeliveries.length > 0) {
                     void loadRoute();
                   }
                 }}
@@ -308,6 +324,7 @@ export default function DeliveryManagementPage({ hideManageTab = false }: Delive
       {/* ── MANAGE DELIVERY ORDER TAB ── */}
       {!hideManageTab && activeTab === 'manage' && (
         <ManageTab
+          excludeGarbageDeliveries={excludeGarbageUploadRows}
           onSwitchToDeliveriesTab={() => setActiveTab('deliveries')}
           onUploadSuccess={handleFileSuccess}
           onUploadError={handleFileError}
@@ -323,7 +340,7 @@ export default function DeliveryManagementPage({ hideManageTab = false }: Delive
       {/* ── DELIVERIES TAB (combined split view) ── */}
       {activeTab === 'deliveries' && (
         <div className={hideManageTab ? 'mt-4 md:mt-6' : 'mt-2'}>
-          {deliveries.length === 0 ? (
+          {noDeliveriesForDeliveriesTab ? (
             <div className="pp-dash-card p-8 text-center transition-colors">
               <Database className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
               <p className="text-gray-600 dark:text-gray-400 text-lg mb-4">

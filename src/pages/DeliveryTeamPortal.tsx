@@ -37,6 +37,7 @@ import DeliveryManagementPage from './DeliveryManagementPage';
 import { calculateRoute, generateFallbackRoute } from '../services/advancedRoutingService';
 import useDeliveryStore from '../store/useDeliveryStore';
 import { deliveryToManageOrder } from '../utils/deliveryWorkflowMap';
+import { excludeTeamPortalGarbageDeliveries } from '../utils/deliveryListFilter';
 import { isDubaiPublicHoliday } from '../utils/dubaiHolidays';
 import type { Delivery, AuthUser } from '../types';
 // WhatsAppSendModal is mounted globally in App.tsx — no local import needed
@@ -216,7 +217,12 @@ export default function DeliveryTeamPortal() {
     setReportsLoading(true);
     try {
       const res = await api.get('/admin/dashboard');
-      setDashData(res.data as DashData);
+      const raw = res.data as DashData;
+      const dashList = raw.deliveries ?? [];
+      setDashData({
+        ...raw,
+        deliveries: excludeTeamPortalGarbageDeliveries(dashList) as DashDelivery[],
+      });
     } catch (err) {
       console.error('[DeliveryTeam] Failed to load reports data:', err);
     } finally {
@@ -395,10 +401,11 @@ export default function DeliveryTeamPortal() {
       setDrivers(driversList);
 
       const allDeliveries = (deliveriesRes.data?.deliveries || []) as Delivery[];
-      setDeliveries(allDeliveries);
+      const portalDeliveries = excludeTeamPortalGarbageDeliveries(allDeliveries);
+      setDeliveries(portalDeliveries);
 
       // Sync to store so Deliveries tab shows same list as monitoring
-      useDeliveryStore.getState().loadDeliveries(allDeliveries);
+      useDeliveryStore.getState().loadDeliveries(portalDeliveries);
 
       // Set contacts from API response (for communication tab)
       const allContacts = (contactsRes.data?.contacts || []) as ContactUser[];
@@ -406,7 +413,7 @@ export default function DeliveryTeamPortal() {
 
       console.log('[DeliveryTeam] Loaded:', {
         drivers: driversList.length,
-        deliveries: allDeliveries.length,
+        deliveries: portalDeliveries.length,
         contacts: allContacts.length
       });
 
@@ -427,7 +434,7 @@ export default function DeliveryTeamPortal() {
         }
       });
 
-      allDeliveries.forEach(delivery => {
+      portalDeliveries.forEach(delivery => {
         const deliveryTracking = delivery as unknown as { tracking?: { driverId?: string } };
         if (!deliveryTracking.tracking?.driverId && !delivery.assignedDriverId) {
           newAlerts.push({
@@ -446,7 +453,7 @@ export default function DeliveryTeamPortal() {
       // Load per-driver capacity per delivery date visible in table (non-critical)
       try {
         const dateSet = new Set<string>();
-        for (const d of allDeliveries) dateSet.add(getCapacityDateIso(d));
+        for (const d of portalDeliveries) dateSet.add(getCapacityDateIso(d));
         if (dateSet.size === 0) dateSet.add(fallbackCapacityDateIso);
 
         const capByDate: Record<string, Record<string, { used: number; remaining: number; max: number; full: boolean }>> = {};
@@ -1398,7 +1405,7 @@ export default function DeliveryTeamPortal() {
 
       {/* Deliveries Tab */}
       {activeTab === 'deliveries' && (
-        <DeliveryManagementPage />
+        <DeliveryManagementPage hidePageTitle excludeGarbageUploadRows />
       )}
 
       {/* Communication Tab — two-column chat layout */}
@@ -1788,11 +1795,7 @@ export default function DeliveryTeamPortal() {
           {/* Header row */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                <BarChart2 className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                Reports &amp; Analytics
-              </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 Delivery performance, success rates, and POD records
               </p>
             </div>

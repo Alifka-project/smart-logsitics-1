@@ -5,6 +5,32 @@ import type { RawERPRow, TransformedDelivery, DetectedFormat } from '../types';
 // Module-level flag to log available columns only once
 let extractPONumberLogged = false;
 
+/** Values that SAP/ERP often put in "delivery status" / category columns — never treat as a PO. */
+const NON_PO_VALUE = new Set(
+  [
+    'removed', 'deleted', 'cancelled', 'canceled', 'open', 'closed', 'yes', 'no', 'active', 'inactive',
+    'pending', 'completed', 'partial', 'full', 'none', 'n/a', 'na', '-', '—', '',
+  ].map((s) => s.toLowerCase()),
+);
+
+/**
+ * When the column name contains "order" or "delivery" but not a clear PO hint, require a value
+ * that looks like an identifier (avoids picking "removed" from "Overall delivery status").
+ */
+function looksLikePurchaseOrderValue(raw: string): boolean {
+  const v = raw.trim();
+  if (!v || v.length > 120) return false;
+  const lower = v.toLowerCase();
+  if (NON_PO_VALUE.has(lower)) return false;
+  if (/^(true|false)$/i.test(v)) return false;
+  if (/\d/.test(v)) return true;
+  return /^[A-Z0-9][A-Z0-9./\-_]{3,}$/i.test(v);
+}
+
+/** Column substrings that indicate the field is not a PO / order id (fuzzy match only). */
+const FUZZY_PO_COLUMN_BLOCK =
+  /status|reason|block|category|indicator|date|time|priority|qty|quantity|amount|line\s*item|item\s*no|net\s*val|gross|weight|volume|route|plant|storage|ship\s*point|picking|loading|partner|incoterms|description|material|text|note|comment/i;
+
 function extractPONumber(row: RawERPRow | null): string | null {
   if (!row) return null;
 
@@ -25,6 +51,10 @@ function extractPONumber(row: RawERPRow | null): string | null {
     if (colName in row && row[colName] !== null && row[colName] !== undefined && row[colName] !== '') {
       const val = String(row[colName]).trim();
       if (val && val !== 'null' && val !== 'undefined') {
+        // "Delivery" alone is ambiguous; reject obvious status words so we can fall through to a real PO column.
+        if (colName === 'Delivery' && !looksLikePurchaseOrderValue(val)) {
+          continue;
+        }
         console.log(`[dataTransformer] Found PO Number in column "${colName}": "${val}"`);
         return val;
       }
@@ -36,24 +66,45 @@ function extractPONumber(row: RawERPRow | null): string | null {
     if (exactMatches.includes(trimmedCol) && value !== null && value !== undefined && value !== '') {
       const val = String(value).trim();
       if (val && val !== 'null' && val !== 'undefined') {
+        if (trimmedCol === 'Delivery' && !looksLikePurchaseOrderValue(val)) {
+          continue;
+        }
         console.log(`[dataTransformer] Found PO Number in trimmed column "${trimmedCol}": "${val}"`);
         return val;
       }
     }
   }
 
+  // Fuzzy: prefer columns that clearly refer to PO / purchase order
   for (const [colName, value] of Object.entries(row)) {
+    if (value === null || value === undefined || value === '') continue;
+    const val = String(value).trim();
+    if (!val || val === 'null' || val === 'undefined') continue;
     const lowerCol = colName.toLowerCase().trim();
-    if (
-      (lowerCol.includes('po') || lowerCol.includes('order') || lowerCol.includes('delivery')) &&
-      value !== null && value !== undefined && value !== ''
-    ) {
-      const val = String(value).trim();
-      if (val && val !== 'null' && val !== 'undefined') {
-        console.log(`[dataTransformer] Found PO Number via fuzzy match in column "${colName}": "${val}"`);
-        return val;
-      }
+    const poish =
+      lowerCol.includes('po') ||
+      lowerCol.includes('purchase order') ||
+      lowerCol.includes('cust. po') ||
+      lowerCol.includes('p.o.');
+    if (poish && !FUZZY_PO_COLUMN_BLOCK.test(colName) && looksLikePurchaseOrderValue(val)) {
+      console.log(`[dataTransformer] Found PO Number via fuzzy match (PO-ish column) in "${colName}": "${val}"`);
+      return val;
     }
+  }
+
+  // Fuzzy: "order" / "delivery" in header — strict value + exclude status-style columns
+  for (const [colName, value] of Object.entries(row)) {
+    if (value === null || value === undefined || value === '') continue;
+    const val = String(value).trim();
+    if (!val || val === 'null' || val === 'undefined') continue;
+    const lowerCol = colName.toLowerCase().trim();
+    const mentionsOrderOrDelivery = lowerCol.includes('order') || lowerCol.includes('delivery');
+    const mentionsPo = lowerCol.includes('po') || lowerCol.includes('purchase');
+    if (!mentionsOrderOrDelivery || mentionsPo) continue;
+    if (FUZZY_PO_COLUMN_BLOCK.test(colName)) continue;
+    if (!looksLikePurchaseOrderValue(val)) continue;
+    console.log(`[dataTransformer] Found PO Number via fuzzy match in column "${colName}": "${val}"`);
+    return val;
   }
 
   console.warn('[dataTransformer] No PO Number found in row');
@@ -147,9 +198,18 @@ function parseCoordinate(value: unknown): number {
 export function transformERPData(data: RawERPRow[]): TransformedDelivery[] {
   return data.map((row, index) => {
     const customer =
-      row['Ship to party'] || row['Name'] || row['Payer Name'] || `Customer ${index + 1}`;
+      row['Ship to party'] ||
+      row['Ship-to party'] ||
+      row['Customer'] ||
+      row['Customer Name'] ||
+      row['Customer name'] ||
+      row['Name'] ||
+      row['Payer Name'] ||
+      `Customer ${index + 1}`;
     const address =
-      [row['Ship to Street'], row['City'], row['Postal code']].filter(Boolean).join(', ') ||
+      [row['Ship to Street'], row['Ship-to Street'], row['Street'], row['Address'], row['City'], row['Postal code']]
+        .filter(Boolean)
+        .join(', ') ||
       'Address not available';
 
     const phone =
@@ -264,7 +324,16 @@ export function transformERPData(data: RawERPRow[]): TransformedDelivery[] {
       _originalRoute: (row['Route'] || row['route']) as string | null,
       _originalRow: originalRow,
       _goodsMovementDate: parseGoodsMovementDate(row),
-      _deliveryNumber: ((row['Delivery number'] || row['Delivery Number'] || row['DeliveryNumber'] || row['Delivery No'] || row['Del. No'] || row['Del No'] || row['DeliveryNo']) as string | null) || null,
+      _deliveryNumber:
+        ((row['Delivery number'] ||
+          row['Delivery Number'] ||
+          row['DeliveryNumber'] ||
+          row['Delivery No'] ||
+          row['Del. No'] ||
+          row['Del No'] ||
+          row['DeliveryNo'] ||
+          row['DN'] ||
+          row['Del#']) as string | null) || null,
     };
   });
 }
@@ -289,18 +358,33 @@ export function detectDataFormat(data: RawERPRow[]): DetectedFormat {
     return { format: 'simplified', transform: null };
   }
 
-  const hasERPFormat =
-    ('Delivery number' in firstRow || 'Sales Document' in firstRow) &&
-    ('Ship to party' in firstRow || 'Name' in firstRow);
+  const hasDeliveryOrSalesKey =
+    'Delivery number' in firstRow ||
+    'Delivery Number' in firstRow ||
+    'DeliveryNumber' in firstRow ||
+    'Sales Document' in firstRow;
+  const hasErpCustomerKey =
+    'Ship to party' in firstRow ||
+    'Name' in firstRow ||
+    'Customer' in firstRow ||
+    'Customer Name' in firstRow ||
+    'Customer name' in firstRow ||
+    'Sold-to party' in firstRow ||
+    'Ship-to party' in firstRow;
+
+  const hasERPFormat = hasDeliveryOrSalesKey && hasErpCustomerKey;
 
   if (hasERPFormat) {
     return { format: 'erp', transform: transformERPData };
   }
 
   const hasCityColumn = keys.some((k) => k.toLowerCase().includes('city'));
-  const hasAddressColumn = keys.some((k) => k.toLowerCase().includes('address'));
+  const hasAddressColumn = keys.some((k) => {
+    const l = k.toLowerCase();
+    return l.includes('address') || l.includes('street') || l.includes('location');
+  });
   const hasPhoneColumn = keys.some(
-    (k) => k.toLowerCase().includes('phone') || k.toLowerCase().includes('telephone'),
+    (k) => k.toLowerCase().includes('phone') || k.toLowerCase().includes('telephone') || k.toLowerCase().includes('mobile'),
   );
 
   if (hasCityColumn && (hasAddressColumn || hasPhoneColumn)) {
@@ -314,15 +398,22 @@ export function transformGenericData(data: RawERPRow[]): TransformedDelivery[] {
   return data.map((row, index) => {
     const keys = Object.keys(row);
 
-    const customerKey = keys.find(
-      (k) =>
-        k.toLowerCase().includes('customer') ||
-        k.toLowerCase().includes('name') ||
-        k.toLowerCase().includes('company'),
-    );
-    const addressKey = keys.find(
-      (k) => k.toLowerCase().includes('address') || k.toLowerCase().includes('street'),
-    );
+    const customerKey = keys.find((k) => {
+      const l = k.toLowerCase();
+      return (
+        l.includes('customer') ||
+        l.includes('ship to party') ||
+        l.includes('ship-to party') ||
+        l.includes('sold-to') ||
+        l.includes('recipient') ||
+        (l.includes('name') && !l.includes('material') && !l.includes('user')) ||
+        l.includes('company')
+      );
+    });
+    const addressKey = keys.find((k) => {
+      const l = k.toLowerCase();
+      return l.includes('address') || l.includes('street') || l.includes('location') || l.includes('ship to street');
+    });
     const cityKey = keys.find((k) => k.toLowerCase().includes('city'));
     const phoneKey = keys.find(
       (k) => k.toLowerCase().includes('phone') || k.toLowerCase().includes('telephone'),
@@ -337,6 +428,14 @@ export function transformGenericData(data: RawERPRow[]): TransformedDelivery[] {
     const lngKey = keys.find(
       (k) => k.toLowerCase().includes('lng') || k.toLowerCase().includes('lon'),
     );
+    const deliveryNumberKey = keys.find((k) => {
+      const l = k.toLowerCase().replace(/\s+/g, ' ').trim();
+      if (l.includes('delivery') && l.includes('number')) return true;
+      if (l === 'deliverynumber') return true;
+      if (l === 'dn') return true;
+      if (/^del\.?\s*no\.?$/i.test(k.trim())) return true;
+      return false;
+    });
 
     const customer = (customerKey ? row[customerKey] : null) || `Customer ${index + 1}`;
     const address =
@@ -383,7 +482,13 @@ export function transformGenericData(data: RawERPRow[]): TransformedDelivery[] {
       _originalPONumber: poNumber,
       _originalRow: originalRow,
       _goodsMovementDate: rawGmd != null ? convertToIsoDate(rawGmd) : null,
-      _deliveryNumber: null, // Generic format doesn't have standard delivery number column
+      _deliveryNumber: (() => {
+        if (!deliveryNumberKey) return null;
+        const v = row[deliveryNumberKey];
+        if (v == null || v === '') return null;
+        const s = String(v).trim();
+        return s ? s : null;
+      })(),
     };
   });
 }

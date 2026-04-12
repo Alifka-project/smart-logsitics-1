@@ -36,6 +36,24 @@ describe('dataTransformer', () => {
       expect(format).toBe('unknown');
       expect(transform).toBeNull();
     });
+
+    it('detects ERP when Sales Document + Customer (no Ship to party)', () => {
+      const data = [
+        {
+          'Sales Document': 'SO-100',
+          Customer: 'Retail Co',
+          'Ship to Street': 'St 1',
+          City: 'Dubai',
+          'PO Number': 'PO-9',
+          'Delivery number': 'DN-9',
+          Description: 'Item',
+          Material: 'M1',
+        },
+      ];
+      const { format, transform } = detectDataFormat(data);
+      expect(format).toBe('erp');
+      expect(transform).toBe(transformERPData);
+    });
   });
 
   describe('transformERPData', () => {
@@ -85,6 +103,39 @@ describe('dataTransformer', () => {
       expect(result[0]._originalRow['Cust. PO Number']).toBe('CUST-PO-999');
     });
 
+    it('prefers real PO column over a delivery/order status field value "removed"', () => {
+      const data = [
+        {
+          'Ship to party': 'Acme',
+          'Ship to Street': 'Road 1',
+          City: 'Dubai',
+          'Delivery number': 'DEL-REM',
+          'Overall delivery status': 'removed',
+          'PO Number': 'PO-REAL-001',
+          Description: 'D',
+          Material: 'M',
+        },
+      ];
+      const result = transformERPData(data);
+      expect(result[0].poNumber).toBe('PO-REAL-001');
+    });
+
+    it('does not treat delivery status "removed" as PO when no PO column is present', () => {
+      const data = [
+        {
+          'Ship to party': 'Beta',
+          'Ship to Street': 'Lane 2',
+          City: 'Dubai',
+          'Del No': 'DEL-ONLY',
+          'Overall delivery status': 'removed',
+          Description: 'D',
+          Material: 'M',
+        },
+      ];
+      const result = transformERPData(data);
+      expect(result[0].poNumber).toBeNull();
+    });
+
     it('includes all non-empty original columns in _originalRow', () => {
       const data = [
         {
@@ -128,6 +179,21 @@ describe('dataTransformer', () => {
       expect(result[0].poNumber).toBe('GEN-PO-1');
       expect(result[0]._originalRow).toBeDefined();
       expect(result[0]._originalRow['PO Number']).toBe('GEN-PO-1');
+    });
+
+    it('maps Delivery Number column to _deliveryNumber for generic sheets', () => {
+      const data = [
+        {
+          Customer: 'X',
+          Address: 'Y',
+          City: 'Dubai',
+          Phone: '1',
+          'Delivery Number': 'DN-G-01',
+          'PO Number': 'P1',
+        },
+      ];
+      const result = transformGenericData(data);
+      expect(result[0]._deliveryNumber).toBe('DN-G-01');
     });
   });
 });
