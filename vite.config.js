@@ -17,6 +17,7 @@ export default defineConfig({
       '.json',
     ],
   },
+  // Dev only: production (Vercel) serves the SPA and rewrites /api/* to the serverless function — no proxy.
   server: {
     port: 5173,
     proxy: {

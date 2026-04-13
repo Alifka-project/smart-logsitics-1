@@ -107,6 +107,35 @@ app.get('/health', async (req, res) => {
   }
 });
 
+/**
+ * WhatsApp / D7 env sanity check — no auth, no secrets in response.
+ * Use this on production (browser tab) when /api/sms/whatsapp-diagnostics returns
+ * SESSION_EXPIRED: that route needs admin + Bearer JWT or same-instance cookie;
+ * serverless in-memory sessions often miss on a cold instance.
+ */
+app.get('/health/whatsapp', (req, res) => {
+  try {
+    const { isWhatsAppConfigured } = require('../dist-server/server/sms/whatsappApiAdapter');
+    const token = String(process.env.D7_WHATSAPP_TOKEN || process.env.D7_API_TOKEN || '').replace(/\s/g, '');
+    const origin = String(process.env.D7_WHATSAPP_NUMBER || process.env.D7_WHATSAPP_ORIGINATOR || '').replace(/\D/g, '');
+    const tpl = String(process.env.D7_WHATSAPP_CONFIRMATION_TEMPLATE || '').trim();
+    const lang = String(process.env.D7_WHATSAPP_TEMPLATE_LANGUAGE || 'en').trim();
+    res.json({
+      ok: true,
+      ts: new Date().toISOString(),
+      whatsappApiConfigured: isWhatsAppConfigured(),
+      hasD7Token: token.length > 10,
+      originatorDigitCount: origin.length,
+      confirmationTemplate: tpl || null,
+      templateLanguage: lang,
+      nodeEnv: process.env.NODE_ENV || 'development',
+      note: 'If whatsappApiConfigured is false, set D7_API_TOKEN + D7_WHATSAPP_NUMBER (+ template vars) on Vercel and redeploy.',
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message, ts: new Date().toISOString() });
+  }
+});
+
 // Validate environment - DATABASE IS REQUIRED
 try {
   validateEnv();
