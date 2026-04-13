@@ -214,10 +214,12 @@ router.get('/delivery-info/:id', async (req: Request, res: Response): Promise<vo
 
 // GET /api/sms/whatsapp-diagnostics — admin-only live D7 config + connectivity check
 // Returns raw D7 response so you can see exactly what the API says.
-// Optional query param: ?phone=971XXXXXXXXX  (send a real test TEXT message to that number)
+// Query params:
+//   ?phone=6281290202027          → sends a plain TEXT test (will be rejected for cold numbers)
+//   ?phone=...&template_test=1    → sends the real TEMPLATE used for confirmations (proper test)
 router.get('/whatsapp-diagnostics', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
   try {
-    const { isWhatsAppConfigured, logWhatsAppStartupDiagnostics } = await import('../sms/whatsappApiAdapter.js');
+    const { isWhatsAppConfigured, sendWhatsAppDeliveryConfirmation } = await import('../sms/whatsappApiAdapter.js');
     const axios = (await import('axios')).default;
 
     const token = (process.env.D7_WHATSAPP_TOKEN || process.env.D7_API_TOKEN || '').replace(/^["'\s]+|["'\s]+$/g, '');
@@ -235,35 +237,63 @@ router.get('/whatsapp-diagnostics', authenticate, requireRole('admin'), async (r
       lang,
     };
 
-    // If ?phone= provided, make a live test TEXT call to D7 and return raw response
     const testPhone = (req.query.phone as string || '').replace(/\D/g, '');
+    const useTemplateTest = req.query.template_test === '1';
+
     let d7Response: unknown = null;
     let d7Error: unknown = null;
+    let templateResult: unknown = null;
 
-    if (testPhone && token && originator) {
-      const payload = {
-        messages: [{
-          originator,
-          content: {
-            message_type: 'TEXT',
-            text: { preview_url: false, body: '[D7 test] WhatsApp connection check from Electrolux portal.' }
-          },
-          recipients: [{ recipient: testPhone, recipient_type: 'individual' }]
-        }]
-      };
-      try {
-        const r = await axios.post('https://api.d7networks.com/whatsapp/v2/send', payload, {
-          timeout: 15000,
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Bearer ${token}` }
-        });
-        d7Response = r.data;
-      } catch (e: unknown) {
-        const axErr = e as { response?: { status?: number; data?: unknown }; message?: string };
-        d7Error = { httpStatus: axErr.response?.status, body: axErr.response?.data, message: axErr.message };
+    if (testPhone) {
+      if (useTemplateTest) {
+        // ── Template test: fires the real sendWhatsAppDeliveryConfirmation path ──
+        // This is exactly what upload/resend does — use this to verify templates work.
+        const testLink = `${process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app'}/confirm-delivery/test-diag-link`;
+        console.log(`[Diagnostics] Template test → +${testPhone}, template="${template}", lang="${lang}"`);
+        try {
+          templateResult = await sendWhatsAppDeliveryConfirmation(`+${testPhone}`, {
+            fullTextBody: '[D7 test] WhatsApp template check from Electrolux portal.',
+            customerName: 'Test Customer',
+            poRef: '#TEST-001',
+            confirmationLink: testLink,
+            assistancePhone: '+971524408687',
+          });
+          console.log(`[Diagnostics] Template test result:`, JSON.stringify(templateResult));
+        } catch (e: unknown) {
+          const err = e as { message?: string };
+          templateResult = { ok: false, error: err.message };
+        }
+      } else if (token && originator) {
+        // ── Plain TEXT test (kept for connectivity check only — will be rejected for cold numbers) ──
+        const payload = {
+          messages: [{
+            originator,
+            content: {
+              message_type: 'TEXT',
+              text: { preview_url: false, body: '[D7 test] WhatsApp TEXT connectivity check from Electrolux portal.' }
+            },
+            recipients: [{ recipient: testPhone, recipient_type: 'individual' }]
+          }]
+        };
+        try {
+          const r = await axios.post('https://api.d7networks.com/whatsapp/v2/send', payload, {
+            timeout: 15000,
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Bearer ${token}` }
+          });
+          d7Response = r.data;
+        } catch (e: unknown) {
+          const axErr = e as { response?: { status?: number; data?: unknown }; message?: string };
+          d7Error = { httpStatus: axErr.response?.status, body: axErr.response?.data, message: axErr.message };
+        }
       }
     }
 
-    res.json({ ok: true, config, ...(testPhone ? { testPhone, d7Response, d7Error } : {}) });
+    res.json({
+      ok: true,
+      config,
+      ...(testPhone && useTemplateTest ? { testPhone, templateTest: templateResult } : {}),
+      ...(testPhone && !useTemplateTest ? { testPhone, d7Response, d7Error } : {}),
+    });
   } catch (err: unknown) {
     const e = err as { message?: string };
     res.status(500).json({ ok: false, error: e.message });
