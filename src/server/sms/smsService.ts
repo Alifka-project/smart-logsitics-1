@@ -9,7 +9,7 @@ import prisma from '../db/prisma';
 import { normalizeUAEPhone } from '../utils/phoneUtils';
 import { SmsSendOptions, SmsSendResult } from './adapter';
 import { buildWhatsAppLink } from './waLink';
-import { sendWhatsApp, sendWhatsAppDeliveryConfirmation, isWhatsAppConfigured } from './whatsappApiAdapter';
+import { sendWhatsAppDeliveryConfirmation, isWhatsAppConfigured } from './whatsappApiAdapter';
 import {
   confirmationRequestMessage,
   thankYouAfterConfirmationMessage,
@@ -352,10 +352,24 @@ async function confirmDelivery(token: string, deliveryDateInput: Date | string):
         let thankYouStatus = 'whatsapp_link_generated';
         let thankYouProvider = 'whatsapp-link';
         if (isWhatsAppConfigured()) {
-          const waResult = await sendWhatsApp(normalizedPhone, confirmationMessage);
+          // Must use a template — plain TEXT is rejected by WhatsApp for cold outreach
+          // ("Re-engagement message"). Reuse the confirmation template with the tracking
+          // link as {{3}} so the customer gets the tracking URL in the same format.
+          const customerName = (delivery.customer as string | null) || 'Valued Customer';
+          const poRef = delivery.poNumber ? `#${delivery.poNumber as string}` : '';
+          const waResult = await sendWhatsAppDeliveryConfirmation(normalizedPhone, {
+            fullTextBody: confirmationMessage,          // fallback body if template not set
+            customerName,
+            poRef,
+            confirmationLink: trackingLink || `${frontendUrl}/customer-tracking/`,
+          });
           thankYouStatus = waResult.ok ? 'sent' : 'failed';
           thankYouProvider = 'whatsapp-api';
-          console.log(`[SMS→WhatsApp] Thank-you silent send to ${normalizedPhone}:`, waResult.ok ? 'delivered' : waResult.error);
+          if (!waResult.ok) {
+            // Template also rejected — generate wa.me fallback
+            thankYouWhatsappUrl = buildWhatsAppLink(normalizedPhone, confirmationMessage);
+          }
+          console.log(`[SMS→WhatsApp] Thank-you send to ${normalizedPhone}:`, waResult.ok ? 'delivered' : waResult.error);
         } else {
           thankYouWhatsappUrl = buildWhatsAppLink(normalizedPhone, confirmationMessage);
           console.log('[SMS→WhatsApp] No API creds — deep-link fallback for thank-you:', thankYouWhatsappUrl);
@@ -442,9 +456,18 @@ async function sendRescheduleSms(
     let smsResult: SmsSendResult;
     let whatsappUrl: string | undefined;
     if (isWhatsAppConfigured()) {
-      const waResult = await sendWhatsApp(normalizedPhone, smsMessage);
+      // Must use template — plain TEXT rejected by WhatsApp for cold outreach
+      const waResult = await sendWhatsAppDeliveryConfirmation(normalizedPhone, {
+        fullTextBody: smsMessage,
+        customerName,
+        poRef,
+        confirmationLink: trackingLink || `${frontendUrl}/customer-tracking/`,
+      });
       smsResult = { messageId: waResult.messageId || `wa-${Date.now()}`, status: waResult.ok ? 'sent' : 'failed' };
-      console.log(`[SMS→WhatsApp] Reschedule silent send to ${normalizedPhone}:`, waResult.ok ? 'delivered' : waResult.error);
+      if (!waResult.ok) {
+        whatsappUrl = buildWhatsAppLink(normalizedPhone, smsMessage);
+      }
+      console.log(`[SMS→WhatsApp] Reschedule send to ${normalizedPhone}:`, waResult.ok ? 'delivered' : waResult.error);
     } else {
       whatsappUrl = buildWhatsAppLink(normalizedPhone, smsMessage);
       smsResult = { messageId: `wa-link-${Date.now()}`, status: 'whatsapp_link_generated' };
