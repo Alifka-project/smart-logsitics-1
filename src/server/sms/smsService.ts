@@ -349,31 +349,12 @@ async function confirmDelivery(token: string, deliveryDateInput: Date | string):
         // });
         // ── WhatsApp silent background send ─────────────────────────────────
         const normalizedPhone = normalizeUAEPhone(delivery.phone as string) || (delivery.phone as string);
-        let thankYouStatus = 'whatsapp_link_generated';
-        let thankYouProvider = 'whatsapp-link';
-        if (isWhatsAppConfigured()) {
-          // Must use a template — plain TEXT is rejected by WhatsApp for cold outreach
-          // ("Re-engagement message"). Reuse the confirmation template with the tracking
-          // link as {{3}} so the customer gets the tracking URL in the same format.
-          const customerName = (delivery.customer as string | null) || 'Valued Customer';
-          const poRef = delivery.poNumber ? `#${delivery.poNumber as string}` : '';
-          const waResult = await sendWhatsAppDeliveryConfirmation(normalizedPhone, {
-            fullTextBody: confirmationMessage,          // fallback body if template not set
-            customerName,
-            poRef,
-            confirmationLink: trackingLink || `${frontendUrl}/customer-tracking/`,
-          });
-          thankYouStatus = waResult.ok ? 'sent' : 'failed';
-          thankYouProvider = 'whatsapp-api';
-          if (!waResult.ok) {
-            // Template also rejected — generate wa.me fallback
-            thankYouWhatsappUrl = buildWhatsAppLink(normalizedPhone, confirmationMessage);
-          }
-          console.log(`[SMS→WhatsApp] Thank-you send to ${normalizedPhone}:`, waResult.ok ? 'delivered' : waResult.error);
-        } else {
-          thankYouWhatsappUrl = buildWhatsAppLink(normalizedPhone, confirmationMessage);
-          console.log('[SMS→WhatsApp] No API creds — deep-link fallback for thank-you:', thankYouWhatsappUrl);
-        }
+        // No approved thank-you template yet — wa.me fallback only.
+        // Once D7_WHATSAPP_CONFIRMED_TEMPLATE is approved, wire it in here.
+        thankYouWhatsappUrl = buildWhatsAppLink(normalizedPhone, confirmationMessage);
+        const thankYouStatus = 'whatsapp_link_generated';
+        const thankYouProvider = 'whatsapp-link';
+        console.log('[SMS→WhatsApp] Thank-you wa.me fallback for', normalizedPhone, '(no confirmed template yet)');
 
         await (prisma as any).smsLog.create({
           data: {
@@ -453,26 +434,11 @@ async function sendRescheduleSms(
     //   metadata: { deliveryId, type: 'admin_reschedule_notification' }
     // });
     // ── WhatsApp silent background send ──────────────────────────────────────
-    let smsResult: SmsSendResult;
-    let whatsappUrl: string | undefined;
-    if (isWhatsAppConfigured()) {
-      // Must use template — plain TEXT rejected by WhatsApp for cold outreach
-      const waResult = await sendWhatsAppDeliveryConfirmation(normalizedPhone, {
-        fullTextBody: smsMessage,
-        customerName,
-        poRef,
-        confirmationLink: trackingLink || `${frontendUrl}/customer-tracking/`,
-      });
-      smsResult = { messageId: waResult.messageId || `wa-${Date.now()}`, status: waResult.ok ? 'sent' : 'failed' };
-      if (!waResult.ok) {
-        whatsappUrl = buildWhatsAppLink(normalizedPhone, smsMessage);
-      }
-      console.log(`[SMS→WhatsApp] Reschedule send to ${normalizedPhone}:`, waResult.ok ? 'delivered' : waResult.error);
-    } else {
-      whatsappUrl = buildWhatsAppLink(normalizedPhone, smsMessage);
-      smsResult = { messageId: `wa-link-${Date.now()}`, status: 'whatsapp_link_generated' };
-      console.log('[SMS→WhatsApp] No API creds — reschedule deep-link fallback for', normalizedPhone);
-    }
+    // No approved reschedule template yet — wa.me fallback only.
+    // Once D7_WHATSAPP_RESCHEDULED_TEMPLATE is approved, wire it in here.
+    const whatsappUrl = buildWhatsAppLink(normalizedPhone, smsMessage);
+    const smsResult: SmsSendResult = { messageId: `wa-link-${Date.now()}`, status: 'whatsapp_link_generated' };
+    console.log('[SMS→WhatsApp] Reschedule wa.me fallback for', normalizedPhone, '(no rescheduled template yet)');
     // ──────────────────────────────────────────────────────────────────────────
 
     await (prisma as any).smsLog.create({
