@@ -1060,9 +1060,12 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team', 'l
 
     const allDeliveriesForConfirmation = [...confirmationById.values()];
 
-    for (const d of allDeliveriesForConfirmation) {
+    /** Parallel batches: sequential D7 calls per row were exceeding Vercel function time limits. */
+    const CONFIRMATION_SEND_CONCURRENCY = 5;
+    const processOneConfirmation = async (
+      d: ConfirmRow
+    ): Promise<{ deliveryId: string; customerName: string; phone: string; whatsappUrl: string; confirmationLink: string; sent: boolean } | null> => {
       try {
-        // Re-use existing token if present (for re-uploads), or generate new one
         let token = d.confirmationToken as string | null;
         let needsTokenSave = false;
         if (!token) {
@@ -1075,7 +1078,6 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team', 'l
         const poRef = d.poNumber ? `#${d.poNumber}` : '';
         const msgBody = confirmationRequestMessage(customerName, poRef, confirmationLink);
 
-        // Save token to DB (only for new deliveries or those without a token)
         if (needsTokenSave || (d as { isNew: boolean }).isNew) {
           await prisma.delivery.update({
             where: { id: d.id },
@@ -1094,9 +1096,6 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team', 'l
         let sendStatus = 'whatsapp_link_generated';
         let fallbackWaUrl: string | undefined;
 
-        // ── Silent WhatsApp send (no popup) ──────────────────────────────────
-        // SMS API DISABLED — D7 compliance pending:
-        // await smsAdapter.sendSms({ to: normalizedPhone, body: msgBody, ... });
         if (isWhatsAppConfigured()) {
           const waRes = await sendWhatsAppDeliveryConfirmation(normalizedPhone, {
             fullTextBody: msgBody,
@@ -1107,7 +1106,6 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team', 'l
           sent = waRes.ok;
           sendStatus = waRes.ok ? 'sent' : 'whatsapp_link_generated_after_api_failure';
           if (!waRes.ok) {
-            // API failed — generate fallback link so staff can send manually (mirrors /send-sms behavior)
             fallbackWaUrl = buildWhatsAppLink(normalizedPhone, msgBody);
           }
           console.log(`[WhatsApp] Confirmation silent send for ${d.id} to ${normalizedPhone}:`, waRes.ok ? 'ok' : waRes.error);
@@ -1115,7 +1113,6 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team', 'l
           fallbackWaUrl = buildWhatsAppLink(normalizedPhone, msgBody);
           console.log(`[WhatsApp] No API creds — confirmation fallback link for ${d.id}`);
         }
-        // ─────────────────────────────────────────────────────────────────────
 
         await prisma.smsLog.create({
           data: {
@@ -1129,16 +1126,25 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team', 'l
           }
         }).catch(() => { /* non-critical */ });
 
-        confirmationsReady.push({
+        return {
           deliveryId: d.id,
           customerName,
           phone: normalizedPhone,
           confirmationLink,
-          whatsappUrl: fallbackWaUrl || '',  // only populated when API not configured
-          sent  // true = API sent silently, false = fallback link needs manual send
-        });
+          whatsappUrl: fallbackWaUrl || '',
+          sent
+        };
       } catch (autoErr: unknown) {
         console.warn(`[Upload] Auto-token gen failed for ${d.id}:`, (autoErr as Error).message);
+        return null;
+      }
+    };
+
+    for (let i = 0; i < allDeliveriesForConfirmation.length; i += CONFIRMATION_SEND_CONCURRENCY) {
+      const slice = allDeliveriesForConfirmation.slice(i, i + CONFIRMATION_SEND_CONCURRENCY);
+      const batchOut = await Promise.all(slice.map((row) => processOneConfirmation(row)));
+      for (const row of batchOut) {
+        if (row) confirmationsReady.push(row);
       }
     }
 

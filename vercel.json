@@ -4,7 +4,7 @@
   "outputDirectory": "dist",
   "functions": {
     "api/index.js": {
-      "maxDuration": 30,
+      "maxDuration": 60,
       "memory": 1024,
       "includeFiles": "{dist-server/**,.env.production,node_modules/.prisma/client/**}"
     }
