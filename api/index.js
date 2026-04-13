@@ -21,6 +21,13 @@ process.env.D7_ORIGINATOR = process.env.D7_ORIGINATOR || 'Electrolux';
 process.env.FRONTEND_URL  = process.env.FRONTEND_URL  || 'https://electrolux-smart-portal.vercel.app';
 process.env.CORS_ORIGINS  = process.env.CORS_ORIGINS  || 'https://electrolux-smart-portal.vercel.app';
 
+// WhatsApp startup diagnostics — shows whether D7 credentials are visible to this function
+console.log('[STARTUP] WhatsApp config check:',
+  'D7_API_TOKEN:', process.env.D7_API_TOKEN ? `set (${String(process.env.D7_API_TOKEN).slice(0,12)}…)` : 'MISSING',
+  '| D7_WHATSAPP_NUMBER:', process.env.D7_WHATSAPP_NUMBER || 'MISSING',
+  '| TEMPLATE:', process.env.D7_WHATSAPP_CONFIRMATION_TEMPLATE || 'MISSING'
+);
+
 const express = require('express');
 const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
