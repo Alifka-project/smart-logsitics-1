@@ -1105,7 +1105,11 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team', 'l
             confirmationLink
           });
           sent = waRes.ok;
-          sendStatus = waRes.ok ? 'sent' : 'failed';
+          sendStatus = waRes.ok ? 'sent' : 'whatsapp_link_generated_after_api_failure';
+          if (!waRes.ok) {
+            // API failed — generate fallback link so staff can send manually (mirrors /send-sms behavior)
+            fallbackWaUrl = buildWhatsAppLink(normalizedPhone, msgBody);
+          }
           console.log(`[WhatsApp] Confirmation silent send for ${d.id} to ${normalizedPhone}:`, waRes.ok ? 'ok' : waRes.error);
         } else {
           fallbackWaUrl = buildWhatsAppLink(normalizedPhone, msgBody);
