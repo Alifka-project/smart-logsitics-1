@@ -197,8 +197,8 @@ async function sendD7WhatsAppTemplate(
   const content: Record<string, unknown> = {
     message_type: 'TEMPLATE',
     template: {
-      name: templateName,
-      language: { code: languageCode },
+      template_id: templateName,  // D7 v2 uses template_id (not name)
+      lang: languageCode,         // D7 v2 uses lang (not language.code)
       components: [
         {
           type: 'body',

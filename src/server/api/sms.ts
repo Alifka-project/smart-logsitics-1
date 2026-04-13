@@ -212,4 +212,62 @@ router.get('/delivery-info/:id', async (req: Request, res: Response): Promise<vo
   }
 });
 
+// GET /api/sms/whatsapp-diagnostics — admin-only live D7 config + connectivity check
+// Returns raw D7 response so you can see exactly what the API says.
+// Optional query param: ?phone=971XXXXXXXXX  (send a real test TEXT message to that number)
+router.get('/whatsapp-diagnostics', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { isWhatsAppConfigured, logWhatsAppStartupDiagnostics } = await import('../sms/whatsappApiAdapter.js');
+    const axios = (await import('axios')).default;
+
+    const token = (process.env.D7_WHATSAPP_TOKEN || process.env.D7_API_TOKEN || '').replace(/^["'\s]+|["'\s]+$/g, '');
+    const originator = (process.env.D7_WHATSAPP_NUMBER || process.env.D7_WHATSAPP_ORIGINATOR || '').replace(/\D/g, '');
+    const template = (process.env.D7_WHATSAPP_CONFIRMATION_TEMPLATE || '').trim();
+    const lang = (process.env.D7_WHATSAPP_TEMPLATE_LANGUAGE || 'en').trim();
+    const configured = isWhatsAppConfigured();
+
+    const config = {
+      configured,
+      tokenSet: !!token,
+      tokenPrefix: token ? token.slice(0, 20) + '…' : null,
+      originator: originator || 'MISSING',
+      template: template || 'NOT SET',
+      lang,
+    };
+
+    // If ?phone= provided, make a live test TEXT call to D7 and return raw response
+    const testPhone = (req.query.phone as string || '').replace(/\D/g, '');
+    let d7Response: unknown = null;
+    let d7Error: unknown = null;
+
+    if (testPhone && token && originator) {
+      const payload = {
+        messages: [{
+          originator,
+          content: {
+            message_type: 'TEXT',
+            text: { preview_url: false, body: '[D7 test] WhatsApp connection check from Electrolux portal.' }
+          },
+          recipients: [{ recipient: testPhone, recipient_type: 'individual' }]
+        }]
+      };
+      try {
+        const r = await axios.post('https://api.d7networks.com/whatsapp/v2/send', payload, {
+          timeout: 15000,
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Bearer ${token}` }
+        });
+        d7Response = r.data;
+      } catch (e: unknown) {
+        const axErr = e as { response?: { status?: number; data?: unknown }; message?: string };
+        d7Error = { httpStatus: axErr.response?.status, body: axErr.response?.data, message: axErr.message };
+      }
+    }
+
+    res.json({ ok: true, config, ...(testPhone ? { testPhone, d7Response, d7Error } : {}) });
+  } catch (err: unknown) {
+    const e = err as { message?: string };
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 export default router;
