@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "(npx prisma migrate resolve --rolled-back add_po_number_column || true) && (npx prisma migrate resolve --rolled-back add_delivery_number_and_gmd || true) && npx prisma migrate deploy && prisma generate && npm run build && npx tsc -p tsconfig.server.json",
+  "buildCommand": "prisma generate && npm run build && npx tsc -p tsconfig.server.json",
   "outputDirectory": "dist",
   "functions": {
     "api/index.js": {
