@@ -194,21 +194,21 @@ async function sendD7WhatsAppTemplate(
   if (rec.ok === false) return { ok: false, error: rec.error, provider: 'd7' };
   const originator = d7WhatsAppOriginatorDigits();
 
-  // D7 WhatsApp v2 template format (verified against live API error responses):
+  // D7 WhatsApp v2 template format (verified against live API responses):
   //   - field name is `template_id` (not `name`)
-  //   - `language` must be a plain string enum value (e.g. "en", "en_US")
-  //     NOT an object like { code: "en" } — that causes HTTP 422
+  //   - `language` is a plain string enum value (e.g. "en")
+  //   - body variables use `body_parameter_values` dict {"0":val,"1":val,...}
+  //     NOT Meta-style `components` array — D7 does not parse components and
+  //     sees 0 params, causing 400 TEMPLATE_PARAMETER_COUNT_MISMATCH
+  const bodyParamValues: Record<string, string> = {};
+  bodyParameters.forEach((text, i) => { bodyParamValues[String(i)] = text; });
+
   const content: Record<string, unknown> = {
     message_type: 'TEMPLATE',
     template: {
       template_id: templateName,
       language: languageCode,
-      components: [
-        {
-          type: 'body',
-          parameters: bodyParameters.map((text) => ({ type: 'text', text }))
-        }
-      ]
+      body_parameter_values: bodyParamValues
     }
   };
 
