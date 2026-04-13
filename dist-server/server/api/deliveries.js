@@ -961,6 +961,7 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team', 'l
                 const poRef = d.poNumber ? `#${d.poNumber}` : '';
                 const msgBody = (0, customerMessageTemplates_1.confirmationRequestMessage)(customerName, poRef, confirmationLink);
                 if (needsTokenSave || d.isNew) {
+                    // Save confirmation token (critical — WhatsApp link won't work without this)
                     await prisma.delivery.update({
                         where: { id: d.id },
                         data: {
@@ -968,8 +969,15 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team', 'l
                             tokenExpiresAt: expiresAt,
                             confirmationStatus: 'pending',
                             status: 'scheduled',
-                            smsSentAt: new Date()
                         }
+                    });
+                    // Track send time separately — non-critical; sms_sent_at column requires
+                    // the add_sms_sent_at migration to be applied on the production DB.
+                    prisma.delivery.update({
+                        where: { id: d.id },
+                        data: { smsSentAt: new Date() }
+                    }).catch((e) => {
+                        console.warn('[Upload] smsSentAt update skipped (run add_sms_sent_at migration):', e.message);
                     });
                 }
                 const normalizedPhone = normalizePhone(d.phone) || d.phone;
@@ -1520,8 +1528,14 @@ router.post('/:id/send-sms', authenticate, requireAnyRole('admin', 'delivery_tea
                 tokenExpiresAt: expiresAt,
                 confirmationStatus: 'pending',
                 status: 'scheduled',
-                smsSentAt: new Date()
             }
+        });
+        // Non-critical: track send timestamp (requires add_sms_sent_at migration on prod DB)
+        prisma.delivery.update({
+            where: { id: delivery.id },
+            data: { smsSentAt: new Date() }
+        }).catch((e) => {
+            console.warn('[SMS] smsSentAt update skipped (run add_sms_sent_at migration):', e.message);
         });
         await prisma.smsLog.create({
             data: {

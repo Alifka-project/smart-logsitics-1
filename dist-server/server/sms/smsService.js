@@ -120,7 +120,7 @@ async function sendConfirmationSms(deliveryId, phoneNumber, tokenExpiry = null) 
             console.log('[SMS→WhatsApp] No API creds — deep-link fallback for', finalPhone);
         }
         // ──────────────────────────────────────────────────────────────────────────
-        // Update delivery with token + mark as scheduled + record sms sent time
+        // Update delivery with token + mark as scheduled
         await prisma_1.default.delivery.update({
             where: { id: deliveryId },
             data: {
@@ -128,8 +128,14 @@ async function sendConfirmationSms(deliveryId, phoneNumber, tokenExpiry = null) 
                 tokenExpiresAt: expiresAt,
                 confirmationStatus: 'pending',
                 status: 'scheduled',
-                smsSentAt: new Date()
             }
+        });
+        // Non-critical: track send time (requires add_sms_sent_at migration on prod DB)
+        prisma_1.default.delivery.update({
+            where: { id: deliveryId },
+            data: { smsSentAt: new Date() }
+        }).catch((e) => {
+            console.warn('[SMS] smsSentAt update skipped (run add_sms_sent_at migration):', e.message);
         });
         // Log SMS
         await prisma_1.default.smsLog.create({

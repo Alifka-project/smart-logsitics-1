@@ -146,7 +146,7 @@ async function sendConfirmationSms(
     }
     // ──────────────────────────────────────────────────────────────────────────
 
-    // Update delivery with token + mark as scheduled + record sms sent time
+    // Update delivery with token + mark as scheduled
     await prisma.delivery.update({
       where: { id: deliveryId },
       data: {
@@ -154,8 +154,14 @@ async function sendConfirmationSms(
         tokenExpiresAt: expiresAt,
         confirmationStatus: 'pending',
         status: 'scheduled',
-        smsSentAt: new Date()
       } as Record<string, unknown>
+    });
+    // Non-critical: track send time (requires add_sms_sent_at migration on prod DB)
+    prisma.delivery.update({
+      where: { id: deliveryId },
+      data: { smsSentAt: new Date() } as Record<string, unknown>
+    }).catch((e: unknown) => {
+      console.warn('[SMS] smsSentAt update skipped (run add_sms_sent_at migration):', (e as Error).message);
     });
 
     // Log SMS

@@ -1079,6 +1079,7 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team', 'l
         const msgBody = confirmationRequestMessage(customerName, poRef, confirmationLink);
 
         if (needsTokenSave || (d as { isNew: boolean }).isNew) {
+          // Save confirmation token (critical — WhatsApp link won't work without this)
           await prisma.delivery.update({
             where: { id: d.id },
             data: {
@@ -1086,8 +1087,15 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team', 'l
               tokenExpiresAt: expiresAt,
               confirmationStatus: 'pending',
               status: 'scheduled',
-              smsSentAt: new Date()
             }
+          });
+          // Track send time separately — non-critical; sms_sent_at column requires
+          // the add_sms_sent_at migration to be applied on the production DB.
+          prisma.delivery.update({
+            where: { id: d.id },
+            data: { smsSentAt: new Date() }
+          }).catch((e: unknown) => {
+            console.warn('[Upload] smsSentAt update skipped (run add_sms_sent_at migration):', (e as Error).message);
           });
         }
 
@@ -1692,8 +1700,14 @@ router.post('/:id/send-sms', authenticate, requireAnyRole('admin', 'delivery_tea
         tokenExpiresAt: expiresAt,
         confirmationStatus: 'pending',
         status: 'scheduled',
-        smsSentAt: new Date()
       }
+    });
+    // Non-critical: track send timestamp (requires add_sms_sent_at migration on prod DB)
+    prisma.delivery.update({
+      where: { id: delivery.id },
+      data: { smsSentAt: new Date() }
+    }).catch((e: unknown) => {
+      console.warn('[SMS] smsSentAt update skipped (run add_sms_sent_at migration):', (e as Error).message);
     });
 
     await prisma.smsLog.create({
