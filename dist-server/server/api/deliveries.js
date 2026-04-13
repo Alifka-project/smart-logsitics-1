@@ -1,0 +1,1791 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const crypto_1 = require("crypto");
+const whatsappApiAdapter_1 = require("../sms/whatsappApiAdapter");
+const waLink_1 = require("../sms/waLink");
+const customerMessageTemplates_1 = require("../sms/customerMessageTemplates");
+const deliveryCapacityService_1 = require("../services/deliveryCapacityService");
+const router = (0, express_1.Router)();
+const { authenticate, requireRole, requireAnyRole } = require('../auth');
+const sapService = require('../services/sapService.js');
+const { autoAssignDelivery, autoAssignDeliveries, getAvailableDrivers } = require('../services/autoAssignmentService');
+const { buildBusinessKey, upsertDeliveryByBusinessKey } = require('../services/deliveryDedupService');
+const prisma = require('../db/prisma').default;
+const cache = require('../cache');
+const { sortDeliveriesIncompleteLast } = require('../utils/deliveryListSort');
+const { normalizePhone } = require('../utils/phoneUtils');
+async function deliveryExists(deliveryId) {
+    try {
+        const resp = await sapService.call(`/Deliveries/${deliveryId}`, 'get');
+        return resp && resp.status && resp.status < 400;
+    }
+    catch (e) {
+        return false;
+    }
+}
+// POST /api/deliveries/:id/status
+// body: { status, actor_type, actor_id, note }
+router.post('/:id/status', authenticate, async (req, res) => {
+    const { id: deliveryId } = req.params;
+    const { status, actor_type, actor_id, note } = req.body;
+    if (!status)
+        return void res.status(400).json({ error: 'status_required' });
+    const exists = await deliveryExists(deliveryId);
+    if (!exists)
+        return void res.status(404).json({ error: 'delivery_not_found' });
+    try {
+        // Forward status update to SAP
+        const payload = { status, actor_type, actor_id, note };
+        const resp = await sapService.call(`/Deliveries/${deliveryId}/status`, 'post', payload);
+        res.status(resp.status || 200).json({ ok: true, status: status, data: resp.data });
+    }
+    catch (err) {
+        const e = err;
+        console.error('deliveries status update error (sap)', err);
+        const statusCode = e.response && e.response.status ? e.response.status : 500;
+        res.status(statusCode).json({ error: 'sap_error', detail: e.message });
+    }
+});
+// Shared status update logic - used by both admin and driver
+async function updateDeliveryStatusHandler(req, deliveryIdParam, body, options) {
+    const { status, notes, driverSignature, customerSignature, photos, actualTime, customer, address, scheduledDate } = body;
+    if (!status)
+        return { ok: false, error: 'status_required' };
+    let existingDelivery = null;
+    try {
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (uuidRegex.test(deliveryIdParam)) {
+            existingDelivery = await prisma.delivery.findUnique({ where: { id: deliveryIdParam } });
+        }
+    }
+    catch {
+        /* ignore */
+    }
+    if (!existingDelivery && customer && address) {
+        existingDelivery = await prisma.delivery.findFirst({
+            where: { customer, address },
+            orderBy: { createdAt: 'desc' }
+        });
+    }
+    if (!existingDelivery)
+        return { ok: false, error: 'delivery_not_found' };
+    // Guard: dispatch statuses require Goods Movement Date to be set on the delivery.
+    // Normalise underscore ↔ hyphen variants so both UI formats are covered:
+    //   types/delivery.ts uses out_for_delivery (underscore)
+    //   API / DB stores   out-for-delivery (hyphen)
+    // Rule: without a GMD the warehouse has NOT dispatched the item, so the system
+    // must refuse any attempt to move it into a dispatch status.
+    const DISPATCH_STATUSES_GUARD = new Set([
+        'out-for-delivery', 'out_for_delivery',
+        'dispatched',
+        'on-route', 'on_route',
+    ]);
+    if (status && DISPATCH_STATUSES_GUARD.has(status.toLowerCase())) {
+        const existingGMD = existingDelivery.goodsMovementDate;
+        const bodyGMD = body.goodsMovementDate;
+        const hasGMD = !!(existingGMD || bodyGMD);
+        if (!hasGMD) {
+            return {
+                ok: false,
+                error: 'goods_movement_date_required',
+            };
+        }
+    }
+    if (options.requireAssignment && options.driverId) {
+        const assignment = await prisma.deliveryAssignment.findFirst({
+            where: { deliveryId: existingDelivery.id, driverId: options.driverId }
+        });
+        if (!assignment) {
+            return { ok: false, error: 'delivery_not_assigned_to_driver' };
+        }
+    }
+    const prevMeta = existingDelivery.metadata && typeof existingDelivery.metadata === 'object'
+        ? existingDelivery.metadata : {};
+    const nextMeta = {
+        ...prevMeta,
+        statusUpdatedAt: new Date().toISOString(),
+        statusUpdatedBy: req.user?.sub || 'admin',
+        actualTime: actualTime != null ? actualTime : (prevMeta.actualTime ?? null),
+    };
+    if (scheduledDate != null && String(scheduledDate).trim() !== '') {
+        try {
+            const d = new Date(scheduledDate);
+            if (!Number.isNaN(d.getTime()))
+                nextMeta.scheduledDate = d.toISOString();
+        }
+        catch {
+            /* ignore */
+        }
+    }
+    const updateData = {
+        status,
+        metadata: nextMeta,
+        updatedAt: new Date()
+    };
+    // If a Goods Movement Date is being set for the first time alongside a dispatch status, persist it
+    if (body.goodsMovementDate) {
+        const gmdDate = new Date(String(body.goodsMovementDate));
+        if (!isNaN(gmdDate.getTime())) {
+            updateData.goodsMovementDate = gmdDate;
+        }
+    }
+    if (driverSignature)
+        updateData.driverSignature = driverSignature;
+    if (customerSignature)
+        updateData.customerSignature = customerSignature;
+    if (photos && Array.isArray(photos) && photos.length > 0) {
+        updateData.photos = photos.map((p) => ({
+            data: typeof p === 'string' ? p : (p.data || p),
+            name: typeof p === 'object' && p != null ? (p.name || null) : null
+        }));
+    }
+    if (notes) {
+        updateData.deliveryNotes = notes;
+        updateData.conditionNotes = notes;
+    }
+    if (['delivered', 'completed', 'delivered-with-installation', 'delivered-without-installation'].includes(status.toLowerCase())) {
+        updateData.deliveredAt = new Date();
+        updateData.deliveredBy = req.user?.username || req.user?.email || req.user?.sub || 'driver';
+        updateData.podCompletedAt = new Date();
+    }
+    const isTerminalStatus = ['delivered', 'completed', 'delivered-with-installation',
+        'delivered-without-installation', 'cancelled', 'returned', 'failed'].includes(status.toLowerCase());
+    // Run delivery update + assignment closure atomically so both succeed or both fail.
+    // Driver status recalculation runs outside the transaction (read-then-write, low-risk).
+    let updatedDelivery;
+    let affectedDriverIds = [];
+    try {
+        const txResult = await prisma.$transaction(async (tx) => {
+            const updated = await tx.delivery.update({
+                where: { id: existingDelivery.id },
+                data: updateData
+            });
+            let closedAssignmentDriverIds = [];
+            if (isTerminalStatus) {
+                const closing = await tx.deliveryAssignment.findMany({
+                    where: { deliveryId: existingDelivery.id, status: { in: ['assigned', 'in_progress'] } },
+                    select: { driverId: true }
+                });
+                closedAssignmentDriverIds = Array.from(new Set(closing.map((a) => a.driverId)));
+                await tx.deliveryAssignment.updateMany({
+                    where: { deliveryId: existingDelivery.id, status: { in: ['assigned', 'in_progress'] } },
+                    data: { status: 'completed' }
+                });
+            }
+            return { updated, closedAssignmentDriverIds };
+        });
+        updatedDelivery = txResult.updated;
+        affectedDriverIds = txResult.closedAssignmentDriverIds;
+    }
+    catch (txErr) {
+        console.error('[Deliveries] Status update transaction failed:', txErr.message);
+        return { ok: false, error: 'status_update_failed' };
+    }
+    // After transaction: recalculate driver availability (outside tx — read-then-write is safe here)
+    for (const driverId of affectedDriverIds) {
+        try {
+            const remaining = await prisma.deliveryAssignment.count({
+                where: { driverId, status: { in: ['assigned', 'in_progress'] } }
+            });
+            if (remaining === 0) {
+                await prisma.driverStatus.upsert({
+                    where: { driverId },
+                    update: { status: 'available', currentAssignmentId: null, updatedAt: new Date() },
+                    create: { driverId, status: 'available' }
+                });
+            }
+        }
+        catch (e) {
+            console.warn('[Deliveries] Failed to reset driver status:', e.message);
+        }
+    }
+    // Bust caches so the next admin reload reflects the change immediately
+    cache.invalidatePrefix('tracking:');
+    cache.invalidatePrefix('deliveries:list:');
+    // When an order is confirmed for delivery (scheduled-confirmed):
+    // Auto-assign a driver if none yet, so the driver can see upcoming work
+    // before the admin formally dispatches.
+    if (status.toLowerCase() === 'scheduled-confirmed') {
+        try {
+            const existingAssignment = await prisma.deliveryAssignment.findFirst({
+                where: {
+                    deliveryId: existingDelivery.id,
+                    status: { in: ['assigned', 'in_progress'] }
+                }
+            });
+            if (!existingAssignment) {
+                await autoAssignDelivery(existingDelivery.id);
+            }
+        }
+        catch (assignErr) {
+            // Non-fatal — log but don't fail the status update.
+            console.warn('[Deliveries] scheduled-confirmed auto-assign failed:', assignErr.message);
+        }
+    }
+    // When dispatching (out-for-delivery):
+    // 1. Auto-assign a driver if none is assigned yet (so the driver sees the order).
+    // 2. Promote any existing assignment to in_progress so the driver's portal shows
+    //    the delivery as actively in transit.
+    if (status.toLowerCase() === 'out-for-delivery') {
+        try {
+            const activeAssignment = await prisma.deliveryAssignment.findFirst({
+                where: {
+                    deliveryId: existingDelivery.id,
+                    status: { in: ['assigned', 'in_progress'] }
+                }
+            });
+            if (!activeAssignment) {
+                // No driver yet — auto-assign so the order lands in a driver's list.
+                await autoAssignDelivery(existingDelivery.id);
+            }
+            else {
+                // Promote to in_progress so the driver knows they're actively en route.
+                await prisma.deliveryAssignment.updateMany({
+                    where: {
+                        deliveryId: existingDelivery.id,
+                        status: 'assigned'
+                    },
+                    data: { status: 'in_progress' }
+                });
+            }
+        }
+        catch (dispatchErr) {
+            // Non-fatal — log but don't fail the status update.
+            console.warn('[Deliveries] dispatch assignment step failed:', dispatchErr.message);
+        }
+    }
+    await prisma.deliveryEvent.create({
+        data: {
+            deliveryId: existingDelivery.id,
+            eventType: 'status_updated',
+            payload: {
+                previousStatus: existingDelivery.status,
+                newStatus: status,
+                notes,
+                actualTime,
+                hasPOD: !!(driverSignature || customerSignature || (photos && photos.length > 0)),
+                photoCount: photos ? photos.length : 0,
+                hasDriverSignature: !!driverSignature,
+                hasCustomerSignature: !!customerSignature,
+                updatedAt: new Date().toISOString()
+            },
+            actorType: req.user?.role || 'driver',
+            actorId: req.user?.sub || null
+        }
+    }).catch((err) => {
+        console.warn(`[Deliveries] Failed to create audit event:`, err.message);
+    });
+    cache.invalidatePrefix('tracking:');
+    cache.invalidatePrefix('dashboard:');
+    cache.invalidatePrefix('deliveries:list:v2');
+    return { ok: true, delivery: updatedDelivery, previousDelivery: existingDelivery };
+}
+// PUT /api/deliveries/driver/:id/status - Driver POD/status update (assigned deliveries only)
+router.put('/driver/:id/status', authenticate, requireRole('driver'), async (req, res) => {
+    const { id: deliveryIdParam } = req.params;
+    const driverId = req.user?.sub;
+    if (!driverId) {
+        res.status(401).json({ error: 'unauthorized' });
+        return;
+    }
+    const body = req.body;
+    try {
+        const result = await updateDeliveryStatusHandler(req, deliveryIdParam, body, {
+            requireAssignment: true,
+            driverId
+        });
+        if (!result.ok) {
+            const code = result.error === 'delivery_not_found' ? 404 : result.error === 'delivery_not_assigned_to_driver' ? 403 : 400;
+            res.status(code).json({ error: result.error || 'update_failed' });
+            return;
+        }
+        res.json({ ok: true, delivery: result.delivery });
+    }
+    catch (err) {
+        const e = err;
+        console.error('[Deliveries] Driver status update error:', err);
+        res.status(500).json({ error: 'db_error', detail: e.message });
+    }
+});
+// PUT /api/admin/deliveries/:id/priority - Toggle manual priority (logistics + admin only)
+// body: { isPriority: boolean }
+router.put('/admin/:id/priority', authenticate, requireAnyRole('admin', 'logistics_team'), async (req, res) => {
+    const { id } = req.params;
+    const { isPriority } = req.body;
+    try {
+        const existing = await prisma.delivery.findUnique({ where: { id }, select: { metadata: true } });
+        if (!existing) {
+            res.status(404).json({ error: 'not_found' });
+            return;
+        }
+        const currentMeta = existing.metadata ?? {};
+        const updatedMeta = { ...currentMeta, isPriority: isPriority === true };
+        await prisma.delivery.update({
+            where: { id },
+            data: { metadata: updatedMeta },
+        });
+        res.json({ ok: true, isPriority: updatedMeta.isPriority });
+    }
+    catch (err) {
+        const e = err;
+        console.error('[Deliveries] Priority update error:', e.message);
+        res.status(500).json({ error: 'db_error' });
+    }
+});
+// PUT /api/admin/deliveries/:id/status - Update delivery status in database
+// body: { status, notes, driverSignature, customerSignature, photos, actualTime, customer, address }
+router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req, res) => {
+    const { id: deliveryIdParam } = req.params;
+    const body = req.body;
+    try {
+        console.log(`[Deliveries] Admin updating delivery ${deliveryIdParam} status to ${body.status}`);
+        const result = await updateDeliveryStatusHandler(req, deliveryIdParam, body, {});
+        if (!result.ok) {
+            const code = result.error === 'delivery_not_found' ? 404 : 400;
+            res.status(code).json({ error: result.error || 'update_failed' });
+            return;
+        }
+        const updatedDelivery = result.delivery;
+        const existingDelivery = result.previousDelivery;
+        const status = body.status || '';
+        // Create admin notification for status change (fire-and-forget)
+        prisma.adminNotification.create({
+            data: {
+                type: 'status_changed',
+                title: 'Delivery Status Updated',
+                message: `${existingDelivery?.customer || 'Unknown customer'} — ${existingDelivery?.address || 'Unknown address'}: ${existingDelivery?.status} → ${status}`,
+                payload: {
+                    deliveryId: existingDelivery?.id,
+                    customer: existingDelivery?.customer,
+                    address: existingDelivery?.address,
+                    poNumber: existingDelivery?.poNumber,
+                    previousStatus: existingDelivery?.status,
+                    newStatus: status,
+                    updatedBy: req.user?.username || req.user?.sub || 'admin'
+                }
+            }
+        }).catch((err) => {
+            const e = err;
+            console.warn(`[Deliveries] Failed to create status notification:`, e.message);
+        });
+        // Optionally notify customer by SMS for key status changes
+        let statusWhatsappUrl;
+        try {
+            const lowerStatus = (status || '').toLowerCase();
+            const phone = (updatedDelivery.phone || existingDelivery.phone);
+            if (phone) {
+                const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
+                const token = (updatedDelivery.confirmationToken || existingDelivery.confirmationToken);
+                const trackingLink = token ? `${frontendUrl}/customer-tracking/${token}` : null;
+                const customerName = (updatedDelivery.customer || existingDelivery.customer || 'Valued Customer');
+                const poNum = (updatedDelivery.poNumber || existingDelivery.poNumber);
+                const poRef = poNum ? `#${poNum}` : '';
+                // ── STATUS SMS TEMPORARILY DISABLED — D7 provider compliance pending ────
+                // All smsAdapter.sendSms() calls below are commented out.
+                // Message bodies are still built (for logging/wa.me links) but not sent.
+                // Restore by removing the comment wrappers once D7 approval is granted.
+                // ── Helper: send silently via API; fall back to deep-link if not configured ──
+                const silentSend = async (msgBody, msgType) => {
+                    let waUrl;
+                    let sendStatus = 'whatsapp_link_generated';
+                    // const smsAdapter = require('../sms/smsService').smsAdapter;
+                    // await smsAdapter.sendSms({ to: phone, body: msgBody, metadata: { deliveryId: updatedDelivery.id, type: msgType } });
+                    if ((0, whatsappApiAdapter_1.isWhatsAppConfigured)()) {
+                        const res = await (0, whatsappApiAdapter_1.sendWhatsApp)(phone, msgBody);
+                        sendStatus = res.ok ? 'sent' : 'failed';
+                        console.log(`[WhatsApp] ${msgType} silent send to ${phone}:`, res.ok ? 'ok' : res.error);
+                    }
+                    else {
+                        waUrl = (0, waLink_1.buildWhatsAppLink)(phone, msgBody);
+                        console.log(`[WhatsApp] No API creds — deep-link fallback for ${msgType}`);
+                    }
+                    await prisma.smsLog.create({
+                        data: {
+                            deliveryId: updatedDelivery.id,
+                            phoneNumber: phone,
+                            messageContent: msgBody,
+                            smsProvider: (0, whatsappApiAdapter_1.isWhatsAppConfigured)() ? 'whatsapp-api' : 'whatsapp-link',
+                            status: sendStatus,
+                            sentAt: new Date(),
+                            metadata: { type: msgType, ...(waUrl ? { whatsappUrl: waUrl } : {}) }
+                        }
+                    });
+                    return waUrl; // only set when API not configured (deep-link fallback)
+                };
+                // Out for delivery — same body as SMS (customerMessageTemplates)
+                if (lowerStatus === 'out-for-delivery') {
+                    const body = (0, customerMessageTemplates_1.outForDeliveryMessage)(customerName, poRef, trackingLink);
+                    statusWhatsappUrl = await silentSend(body, 'status_out_for_delivery');
+                }
+                // Order delay — same body as SMS
+                if (lowerStatus === 'order-delay') {
+                    const body = (0, customerMessageTemplates_1.orderDelayMessage)(customerName, poRef, trackingLink);
+                    statusWhatsappUrl = await silentSend(body, 'status_order_delay');
+                }
+                // Completed — same body as SMS (no tracking block in legacy SMS)
+                const prevStatus = (String(existingDelivery.status || '')).toLowerCase();
+                const completionStatuses = ['completed'];
+                const wasAlreadyFinished = completionStatuses.includes(prevStatus);
+                if (completionStatuses.includes(lowerStatus) && !wasAlreadyFinished) {
+                    const body = (0, customerMessageTemplates_1.deliveryCompletedMessage)(customerName, poRef);
+                    statusWhatsappUrl = await silentSend(body, 'status_order_finished');
+                }
+            }
+        }
+        catch (notifyErr) {
+            const ne = notifyErr;
+            console.warn('[Deliveries] Failed to send customer status SMS:', ne.message);
+        }
+        res.json({
+            ok: true,
+            status: status,
+            whatsappUrl: statusWhatsappUrl || null, // frontend auto-opens this to notify customer
+            delivery: {
+                id: updatedDelivery.id,
+                customer: updatedDelivery.customer,
+                address: updatedDelivery.address,
+                status: updatedDelivery.status,
+                updatedAt: updatedDelivery.updatedAt
+            }
+        });
+    }
+    catch (err) {
+        const e = err;
+        console.error('deliveries status update error (database)', err);
+        res.status(500).json({ error: 'status_update_failed', detail: e.message });
+    }
+});
+// PUT /admin/:id/contact - Update delivery contact details (address, phone, lat, lng)
+router.put('/admin/:id/contact', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req, res) => {
+    const { id: deliveryIdParam } = req.params;
+    const { customer, address, phone, lat, lng } = req.body;
+    if (!address && !phone) {
+        return void res.status(400).json({ error: 'address_or_phone_required' });
+    }
+    try {
+        console.log(`[Deliveries] Updating contact for delivery ${deliveryIdParam}`);
+        let existingDelivery = null;
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (uuidRegex.test(deliveryIdParam)) {
+            existingDelivery = await prisma.delivery.findUnique({ where: { id: deliveryIdParam } });
+        }
+        if (!existingDelivery && customer && address) {
+            existingDelivery = await prisma.delivery.findFirst({
+                where: { customer, address },
+                orderBy: { createdAt: 'desc' }
+            });
+        }
+        if (!existingDelivery) {
+            console.warn(`[Deliveries] Delivery not found for contact update: id=${deliveryIdParam}`);
+            return void res.status(404).json({ error: 'delivery_not_found' });
+        }
+        const updateData = { updatedAt: new Date() };
+        if (address)
+            updateData.address = address;
+        if (phone)
+            updateData.phone = phone;
+        if (lat != null && !Number.isNaN(Number(lat)))
+            updateData.lat = Number(lat);
+        if (lng != null && !Number.isNaN(Number(lng)))
+            updateData.lng = Number(lng);
+        const updatedDelivery = await prisma.delivery.update({
+            where: { id: existingDelivery.id },
+            data: updateData
+        });
+        cache.invalidatePrefix('tracking:');
+        cache.invalidatePrefix('dashboard:');
+        cache.del('deliveries:list:v2');
+        console.log(`[Deliveries] Contact updated for delivery ${existingDelivery.id}`);
+        res.json({
+            ok: true,
+            delivery: {
+                id: updatedDelivery.id,
+                customer: updatedDelivery.customer,
+                address: updatedDelivery.address,
+                phone: updatedDelivery.phone,
+                lat: updatedDelivery.lat,
+                lng: updatedDelivery.lng,
+                updatedAt: updatedDelivery.updatedAt
+            }
+        });
+    }
+    catch (err) {
+        const e = err;
+        console.error('[Deliveries] contact update error:', err);
+        res.status(500).json({ error: 'contact_update_failed', detail: e.message });
+    }
+});
+// POST /api/deliveries/:id/assign - assign driver
+// body: { driver_id }
+router.post('/:id/assign', authenticate, requireRole('admin'), async (req, res) => {
+    const { id: deliveryId } = req.params;
+    const { driver_id } = req.body;
+    if (!driver_id)
+        return void res.status(400).json({ error: 'driver_id_required' });
+    const exists = await deliveryExists(deliveryId);
+    if (!exists)
+        return void res.status(404).json({ error: 'delivery_not_found' });
+    try {
+        const resp = await sapService.call(`/Deliveries/${deliveryId}/assign`, 'post', { driver_id });
+        res.status(resp.status || 200).json({ ok: true, assignment: resp.data });
+    }
+    catch (err) {
+        const e = err;
+        console.error('deliveries assign error (sap)', err);
+        const statusCode = e.response && e.response.status ? e.response.status : 500;
+        res.status(statusCode).json({ error: 'sap_error', detail: e.message });
+    }
+});
+// GET /api/deliveries/:id/events
+router.get('/:id/events', authenticate, requireRole('admin'), async (req, res) => {
+    const { id: deliveryId } = req.params;
+    try {
+        const resp = await sapService.call(`/Deliveries/${deliveryId}/events`, 'get');
+        res.json({ events: resp.data && resp.data.value ? resp.data.value : resp.data });
+    }
+    catch (err) {
+        const e = err;
+        console.error('deliveries events error (sap)', err);
+        const statusCode = e.response && e.response.status ? e.response.status : 500;
+        res.status(statusCode).json({ error: 'sap_error', detail: e.message });
+    }
+});
+// GET /api/deliveries/debug/check-po-numbers - Debug endpoint to check PO numbers in database
+router.get('/debug/check-po-numbers', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+        const deliveries = await prisma.delivery.findMany({
+            select: {
+                id: true,
+                customer: true,
+                poNumber: true,
+                metadata: true,
+                createdAt: true
+            },
+            orderBy: {
+                createdAt: 'desc'
+            },
+            take: 20
+        });
+        const stats = {
+            total: deliveries.length,
+            withPONumber: deliveries.filter(d => d.poNumber).length,
+            withoutPONumber: deliveries.filter(d => !d.poNumber).length,
+            withMetadataPO: deliveries.filter(d => d.metadata?.originalPONumber).length
+        };
+        res.json({
+            stats,
+            recentDeliveries: deliveries.map(d => ({
+                id: d.id.substring(0, 8),
+                customer: d.customer,
+                poNumber: d.poNumber,
+                metadataPO: d.metadata?.originalPONumber,
+                createdAt: d.createdAt
+            }))
+        });
+    }
+    catch (error) {
+        const e = error;
+        console.error('[Deliveries/Debug] Error checking PO numbers:', error);
+        res.status(500).json({ error: e.message });
+    }
+});
+// POST /api/deliveries/upload - Save uploaded delivery data and auto-assign
+router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req, res) => {
+    try {
+        const { deliveries } = req.body;
+        console.log(`[Deliveries/Upload] *** UPLOAD ENDPOINT RECEIVED ***`);
+        console.log(`[Deliveries/Upload] Received ${deliveries?.length || 0} deliveries to save`);
+        // Log the FIRST delivery in full detail
+        if (deliveries && deliveries.length > 0) {
+            console.log(`[Deliveries/Upload] *** FIRST DELIVERY IN REQUEST ***`);
+            console.log(`[Deliveries/Upload] First delivery keys:`, Object.keys(deliveries[0]));
+            console.log(`[Deliveries/Upload] First delivery._originalPONumber:`, deliveries[0]._originalPONumber);
+            console.log(`[Deliveries/Upload] First delivery._originalDeliveryNumber:`, deliveries[0]._originalDeliveryNumber);
+            console.log(`[Deliveries/Upload] First delivery:`, JSON.stringify(deliveries[0], null, 2).substring(0, 500));
+            console.log(`[Deliveries/Upload] *** END FIRST DELIVERY ***`);
+        }
+        if (!deliveries || !Array.isArray(deliveries)) {
+            return void res.status(400).json({ error: 'deliveries_array_required' });
+        }
+        if (deliveries.length === 0) {
+            return void res.status(400).json({ error: 'no_deliveries_provided' });
+        }
+        const results = [];
+        /** IDs of records that were created or updated (included in savedDeliveries response). */
+        const deliveryIds = [];
+        /** IDs of records that were skipped (pure duplicate) — returned in response for UI refresh. */
+        const skippedIds = [];
+        // Save deliveries to database with full data
+        for (let i = 0; i < deliveries.length; i++) {
+            const delivery = deliveries[i];
+            // Generate valid UUID for each delivery (required by database)
+            // If delivery.id exists and is a valid UUID, use it; otherwise generate new UUID
+            let deliveryId = delivery.id;
+            if (!deliveryId || !String(deliveryId).match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+                deliveryId = (0, crypto_1.randomUUID)();
+            }
+            console.log(`[Deliveries/Upload] Saving delivery ${i + 1}/${deliveries.length}: ${deliveryId}`);
+            console.log(`[Deliveries/Upload] Data: customer="${delivery.customer}", address="${String(delivery.address || '').substring(0, 50)}", phone="${delivery.phone}", status="${delivery.status}"`);
+            console.log(`[Deliveries/Upload] *** CRITICAL DEBUG ***`);
+            console.log(`[Deliveries/Upload] delivery object type:`, typeof delivery);
+            console.log(`[Deliveries/Upload] delivery object keys:`, Object.keys(delivery));
+            console.log(`[Deliveries/Upload] delivery._originalPONumber:`, delivery._originalPONumber);
+            console.log(`[Deliveries/Upload] delivery._originalDeliveryNumber:`, delivery._originalDeliveryNumber);
+            console.log(`[Deliveries/Upload] *** END CRITICAL DEBUG ***`);
+            try {
+                // PO Number: use transformed fields first, then raw delivery keys (untransformed upload), then _originalRow
+                let poNumberToSave = (delivery.poNumber ?? delivery.PONumber ?? delivery._originalPONumber ?? null);
+                if (poNumberToSave == null) {
+                    const raw = delivery['PO Number'] ?? delivery['PO#'] ?? delivery['Cust. PO Number'] ?? delivery['PONumber'] ?? delivery['Delivery number'] ?? delivery['Delivery Number'];
+                    if (raw != null && raw !== '')
+                        poNumberToSave = String(raw).trim();
+                }
+                const origRow = delivery._originalRow;
+                if (poNumberToSave == null && origRow && typeof origRow === 'object') {
+                    const fromRow = origRow['PO Number'] ?? origRow['PO#'] ?? origRow['Cust. PO Number'] ?? origRow['PONumber'] ?? origRow['Delivery number'] ?? origRow['Delivery Number'] ?? null;
+                    if (fromRow != null)
+                        poNumberToSave = String(fromRow).trim() || null;
+                }
+                if (poNumberToSave != null && typeof poNumberToSave !== 'string')
+                    poNumberToSave = String(poNumberToSave);
+                // Metadata: store all original row columns plus mapped fields so nothing is lost
+                const baseMeta = {
+                    originalDeliveryNumber: delivery._originalDeliveryNumber ?? origRow?.['Delivery number'] ?? origRow?.['Delivery Number'],
+                    originalPONumber: poNumberToSave ?? delivery._originalPONumber,
+                    originalQuantity: delivery._originalQuantity ?? origRow?.['Confirmed quantity'],
+                    originalCity: delivery._originalCity ?? origRow?.['City'],
+                    originalRoute: delivery._originalRoute ?? origRow?.['Route'],
+                };
+                if (origRow && typeof origRow === 'object') {
+                    baseMeta.originalRow = origRow;
+                }
+                const deliveryMetadata = delivery.metadata;
+                const metadataToSave = deliveryMetadata && typeof deliveryMetadata === 'object'
+                    ? { ...baseMeta, ...deliveryMetadata }
+                    : baseMeta;
+                const originalDeliveryNumberToSave = (baseMeta.originalDeliveryNumber ?? null);
+                // Extract Goods Movement Date from upload
+                const rawGmd = delivery._goodsMovementDate ?? delivery.goodsMovementDate ?? origRow?.['Goods Movement Date'] ?? origRow?.['GoodsMovementDate'] ?? null;
+                const goodsMovementDateToSave = (() => {
+                    if (!rawGmd)
+                        return null;
+                    const d = new Date(String(rawGmd));
+                    return isNaN(d.getTime()) ? null : d.toISOString();
+                })();
+                // Delivery Number: normalised version from transform
+                const deliveryNumberToSave = (() => {
+                    const raw = delivery._deliveryNumber ?? delivery.deliveryNumber ?? originalDeliveryNumberToSave;
+                    if (!raw)
+                        return null;
+                    const s = String(raw).trim().toUpperCase();
+                    return s || null;
+                })();
+                const businessKey = buildBusinessKey(poNumberToSave, deliveryNumberToSave);
+                const deliveryItems = delivery.items;
+                const incoming = {
+                    id: deliveryId,
+                    deliveryNumber: deliveryNumberToSave,
+                    goodsMovementDate: goodsMovementDateToSave,
+                    customer: (delivery.customer || delivery.name || null),
+                    address: (delivery.address || null),
+                    phone: (delivery.phone ?? null),
+                    poNumber: poNumberToSave,
+                    lat: delivery.lat != null ? Number(delivery.lat) : null,
+                    lng: delivery.lng != null ? Number(delivery.lng) : null,
+                    status: (delivery.status || 'pending'),
+                    items: typeof deliveryItems === 'string' ? deliveryItems : (deliveryItems ? JSON.stringify(deliveryItems) : null),
+                    metadata: metadataToSave,
+                    businessKey
+                };
+                const upsertResult = await upsertDeliveryByBusinessKey({
+                    prisma,
+                    source: 'manual_upload',
+                    incoming
+                });
+                if (upsertResult.conflict) {
+                    console.warn(`[Deliveries/Upload] REJECTED delivery ${deliveryId}: ${upsertResult.conflict}`);
+                    results.push({ deliveryId, saved: false, error: upsertResult.conflict, outcome: 'rejected' });
+                    continue;
+                }
+                const { delivery: savedDelivery, existed, skipped, gmdUpdated, outcome: upsertOutcome } = upsertResult;
+                console.log(`[Deliveries/Upload] ✓ ${upsertOutcome} delivery ${savedDelivery.id} (existed=${!!existed}, skipped=${!!skipped}, gmdUpdated=${!!gmdUpdated})`);
+                const savedMeta = savedDelivery.metadata;
+                if (!savedDelivery.poNumber && !savedMeta?.originalPONumber) {
+                    console.log(`[Deliveries/Upload] ⚠ Warning: No PO Number found for delivery ${savedDelivery.id}`);
+                }
+                if (skipped) {
+                    // Pure duplicate — dedup service already logged the event. Track separately so
+                    // the frontend can refresh the current state without marking it as newly saved.
+                    skippedIds.push(savedDelivery.id);
+                    results.push({ deliveryId: savedDelivery.id, saved: false, deduplicated: true, outcome: 'duplicate' });
+                }
+                else {
+                    // New record or meaningful update — dedup service already logged gmd_received_dispatch
+                    // / dispatch events. Only log 'uploaded' here for brand-new records so we don't
+                    // double-log for update cases.
+                    if (!existed) {
+                        await prisma.deliveryEvent.create({
+                            data: {
+                                deliveryId: savedDelivery.id,
+                                eventType: 'uploaded',
+                                payload: {
+                                    customer: delivery.customer || delivery.name,
+                                    address: delivery.address,
+                                    phone: delivery.phone,
+                                    lat: delivery.lat,
+                                    lng: delivery.lng,
+                                    uploadDate: new Date().toISOString(),
+                                    businessKey: savedDelivery.businessKey || businessKey || null,
+                                    hasGMD: !!goodsMovementDateToSave,
+                                },
+                                actorType: req.user?.role || 'admin',
+                                actorId: req.user?.sub || null
+                            }
+                        }).catch((err) => {
+                            const e = err;
+                            console.warn(`[Deliveries] Failed to create event for ${deliveryId}:`, e.message);
+                        });
+                    }
+                    deliveryIds.push(savedDelivery.id);
+                    results.push({ deliveryId: savedDelivery.id, saved: true, deduplicated: !!existed, outcome: upsertOutcome, gmdUpdated: !!gmdUpdated });
+                }
+            }
+            catch (error) {
+                const e = error;
+                console.error(`[Deliveries] Error saving delivery ${deliveryId}:`, error);
+                results.push({ deliveryId, saved: false, error: e.message });
+            }
+        }
+        // ── Post-processing for deliveries that became Out for Delivery via GMD ──────
+        // Covers both 'dispatched' (existing record receives GMD for first time) and
+        // 'new' records uploaded WITH a GMD already set — both result in out-for-delivery.
+        //   1. Auto-assign a driver (or promote existing assignment to in_progress)
+        //   2. Send the customer an "Out for Delivery" SMS notification
+        //   3. Create an adminNotification so all portal users see the bell alert
+        const dispatchedIds = results.filter(r => r.saved && (r.outcome === 'dispatched' || (r.outcome === 'new' && r.gmdUpdated))).map(r => r.deliveryId);
+        if (dispatchedIds.length > 0) {
+            // Fetch just the fields needed for assignment + SMS
+            const dispatchedRows = await prisma.delivery.findMany({
+                where: { id: { in: dispatchedIds } },
+                select: { id: true, phone: true, customer: true, poNumber: true, confirmationToken: true }
+            });
+            for (const d of dispatchedRows) {
+                // 1. Auto-assign / promote driver assignment
+                try {
+                    const activeAssignment = await prisma.deliveryAssignment.findFirst({
+                        where: { deliveryId: d.id, status: { in: ['assigned', 'in_progress'] } }
+                    });
+                    if (!activeAssignment) {
+                        await autoAssignDelivery(d.id);
+                    }
+                    else {
+                        await prisma.deliveryAssignment.updateMany({
+                            where: { deliveryId: d.id, status: 'assigned' },
+                            data: { status: 'in_progress' }
+                        });
+                    }
+                }
+                catch (assignErr) {
+                    console.warn(`[Deliveries/Upload] Auto-assign failed for ${d.id}:`, assignErr.message);
+                }
+                // 2. Notify customer that their order is out for delivery
+                // SMS TEMPORARILY DISABLED — D7 compliance pending.
+                // Restore: smsAdapter.sendSms({ to: d.phone, body: smsBody, ... })
+                if (d.phone) {
+                    try {
+                        const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
+                        const trackingLink = d.confirmationToken
+                            ? `${frontendUrl}/customer-tracking/${d.confirmationToken}`
+                            : null;
+                        const customerName = d.customer || 'Valued Customer';
+                        const poRef = d.poNumber ? `#${d.poNumber}` : '';
+                        const smsBody = (0, customerMessageTemplates_1.outForDeliveryMessage)(customerName, poRef, trackingLink);
+                        let sendStatus = 'whatsapp_link_generated';
+                        if ((0, whatsappApiAdapter_1.isWhatsAppConfigured)()) {
+                            const waRes = await (0, whatsappApiAdapter_1.sendWhatsApp)(d.phone, smsBody);
+                            sendStatus = waRes.ok ? 'sent' : 'failed';
+                            console.log(`[WhatsApp] GMD dispatch silent send for ${d.id}:`, waRes.ok ? 'ok' : waRes.error);
+                        }
+                        else {
+                            const fallbackUrl = (0, waLink_1.buildWhatsAppLink)(d.phone, smsBody);
+                            console.log(`[WhatsApp] No API creds — GMD fallback link for ${d.id}:`, fallbackUrl);
+                        }
+                        await prisma.smsLog.create({
+                            data: {
+                                deliveryId: d.id,
+                                phoneNumber: d.phone,
+                                messageContent: smsBody,
+                                smsProvider: (0, whatsappApiAdapter_1.isWhatsAppConfigured)() ? 'whatsapp-api' : 'whatsapp-link',
+                                status: sendStatus,
+                                sentAt: new Date(),
+                                metadata: { type: 'status_out_for_delivery', triggeredBy: 'gmd_upload' }
+                            }
+                        });
+                    }
+                    catch (smsErr) {
+                        console.warn(`[Deliveries/Upload] WhatsApp notification failed for ${d.id}:`, smsErr.message);
+                    }
+                }
+                // 3. Create an AdminNotification so the bell rings for admin, delivery_team and logistics_team
+                prisma.adminNotification.create({
+                    data: {
+                        type: 'status_changed',
+                        title: 'Out for Delivery — GMD Received',
+                        message: `${d.customer || 'Order'} (${d.poNumber ? '#' + d.poNumber : d.id}) dispatched — Goods Movement Date received via upload`,
+                        payload: {
+                            deliveryId: d.id,
+                            customer: d.customer,
+                            poNumber: d.poNumber,
+                            previousStatus: 'pending',
+                            newStatus: 'out-for-delivery',
+                            triggeredBy: 'gmd_upload',
+                            uploadedBy: req.user?.sub || req.user?.username || 'system'
+                        }
+                    }
+                }).catch((err) => {
+                    const e = err;
+                    console.warn(`[Deliveries/Upload] Failed to create dispatch notification for ${d.id}:`, e.message);
+                });
+            }
+        }
+        const mergedResults = results.map(result => ({
+            ...result,
+            assigned: dispatchedIds.includes(result.deliveryId),
+            driverId: null,
+            driverName: null,
+            assignmentError: null,
+            assignmentPendingCustomerConfirm: !dispatchedIds.includes(result.deliveryId)
+        }));
+        // Invalidate caches after bulk upload
+        cache.invalidatePrefix('tracking:');
+        cache.invalidatePrefix('dashboard:');
+        cache.del('deliveries:list:v2');
+        const newCount = results.filter(r => r.outcome === 'new').length;
+        const dispatchedCount = results.filter(r => r.outcome === 'dispatched').length;
+        const updatedCount = results.filter(r => r.outcome === 'updated').length;
+        const duplicateCount = results.filter(r => r.outcome === 'duplicate').length;
+        const rejectedCount = results.filter(r => r.outcome === 'rejected').length;
+        console.log(`[Deliveries] Upload complete: ${newCount} new, ${dispatchedCount} out-for-delivery (GMD received), ${updatedCount} updated, ${duplicateCount} duplicate (skipped), ${rejectedCount} rejected (PO conflict)`);
+        // The delivery fields we always return — includes goodsMovementDate and deliveryNumber
+        // so the frontend can correctly reflect dispatch state after upload.
+        const deliverySelect = {
+            id: true,
+            customer: true,
+            address: true,
+            phone: true,
+            poNumber: true,
+            deliveryNumber: true,
+            goodsMovementDate: true,
+            businessKey: true,
+            lat: true,
+            lng: true,
+            status: true,
+            items: true,
+            metadata: true,
+            createdAt: true,
+            updatedAt: true,
+            confirmationStatus: true,
+            confirmationToken: true,
+        };
+        // Fetch created/updated deliveries with full data including UUIDs
+        const savedDeliveries = await prisma.delivery.findMany({
+            where: { id: { in: deliveryIds } },
+            select: deliverySelect
+        });
+        // Also fetch skipped deliveries so the frontend can refresh their current state
+        const skippedDeliveries = skippedIds.length > 0
+            ? await prisma.delivery.findMany({ where: { id: { in: skippedIds } }, select: deliverySelect })
+            : [];
+        console.log(`[Deliveries] Returning ${savedDeliveries.length} saved + ${skippedDeliveries.length} skipped deliveries to frontend`);
+        // ── After each upload: WhatsApp confirmation for every row that still needs a date confirmation ──
+        // Includes: brand-new rows, updated master data rows, and pure-duplicate skips — if the customer
+        // has not confirmed and the order is not already dispatched / terminal.
+        const terminalNoDateConfirm = ['out-for-delivery', 'delivered', 'cancelled', 'returned', 'in-transit', 'in-progress', 'finished', 'completed', 'pod-completed'];
+        const needsDateConfirmationWhatsApp = (d) => {
+            if (!d.phone)
+                return false;
+            if (d.confirmationStatus === 'confirmed')
+                return false;
+            const st = String(d.status || '').toLowerCase();
+            if (terminalNoDateConfirm.includes(st))
+                return false;
+            return true;
+        };
+        const confirmationById = new Map();
+        for (const d of savedDeliveries) {
+            if (!needsDateConfirmationWhatsApp(d))
+                continue;
+            const r = results.find((x) => x.deliveryId === d.id);
+            confirmationById.set(String(d.id), {
+                id: String(d.id),
+                customer: d.customer ?? null,
+                phone: d.phone ?? null,
+                poNumber: d.poNumber ?? null,
+                confirmationToken: d.confirmationToken ?? null,
+                isNew: r?.outcome === 'new',
+            });
+        }
+        for (const d of skippedDeliveries) {
+            if (!needsDateConfirmationWhatsApp(d))
+                continue;
+            const id = String(d.id);
+            if (confirmationById.has(id))
+                continue;
+            confirmationById.set(id, {
+                id,
+                customer: d.customer ?? null,
+                phone: d.phone ?? null,
+                poNumber: d.poNumber ?? null,
+                confirmationToken: d.confirmationToken ?? null,
+                isNew: false,
+            });
+        }
+        const smsUploadService = require('../sms/smsService');
+        const frontendUrlUpload = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
+        const confirmationsReady = [];
+        const allDeliveriesForConfirmation = [...confirmationById.values()];
+        for (const d of allDeliveriesForConfirmation) {
+            try {
+                // Re-use existing token if present (for re-uploads), or generate new one
+                let token = d.confirmationToken;
+                let needsTokenSave = false;
+                if (!token) {
+                    token = smsUploadService.generateConfirmationToken();
+                    needsTokenSave = true;
+                }
+                const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+                const confirmationLink = `${frontendUrlUpload}/confirm-delivery/${token}`;
+                const customerName = d.customer || 'Valued Customer';
+                const poRef = d.poNumber ? `#${d.poNumber}` : '';
+                const msgBody = (0, customerMessageTemplates_1.confirmationRequestMessage)(customerName, poRef, confirmationLink);
+                // Save token to DB (only for new deliveries or those without a token)
+                if (needsTokenSave || d.isNew) {
+                    await prisma.delivery.update({
+                        where: { id: d.id },
+                        data: {
+                            confirmationToken: token,
+                            tokenExpiresAt: expiresAt,
+                            confirmationStatus: 'pending',
+                            status: 'scheduled',
+                            smsSentAt: new Date()
+                        }
+                    });
+                }
+                const normalizedPhone = normalizePhone(d.phone) || d.phone;
+                let sent = false;
+                let sendStatus = 'whatsapp_link_generated';
+                let fallbackWaUrl;
+                // ── Silent WhatsApp send (no popup) ──────────────────────────────────
+                // SMS API DISABLED — D7 compliance pending:
+                // await smsAdapter.sendSms({ to: normalizedPhone, body: msgBody, ... });
+                if ((0, whatsappApiAdapter_1.isWhatsAppConfigured)()) {
+                    const waRes = await (0, whatsappApiAdapter_1.sendWhatsAppDeliveryConfirmation)(normalizedPhone, {
+                        fullTextBody: msgBody,
+                        customerName,
+                        poRef,
+                        confirmationLink
+                    });
+                    sent = waRes.ok;
+                    sendStatus = waRes.ok ? 'sent' : 'whatsapp_link_generated_after_api_failure';
+                    if (!waRes.ok) {
+                        // API failed — generate fallback link so staff can send manually (mirrors /send-sms behavior)
+                        fallbackWaUrl = (0, waLink_1.buildWhatsAppLink)(normalizedPhone, msgBody);
+                    }
+                    console.log(`[WhatsApp] Confirmation silent send for ${d.id} to ${normalizedPhone}:`, waRes.ok ? 'ok' : waRes.error);
+                }
+                else {
+                    fallbackWaUrl = (0, waLink_1.buildWhatsAppLink)(normalizedPhone, msgBody);
+                    console.log(`[WhatsApp] No API creds — confirmation fallback link for ${d.id}`);
+                }
+                // ─────────────────────────────────────────────────────────────────────
+                await prisma.smsLog.create({
+                    data: {
+                        deliveryId: d.id,
+                        phoneNumber: d.phone,
+                        messageContent: msgBody,
+                        smsProvider: (0, whatsappApiAdapter_1.isWhatsAppConfigured)() ? 'whatsapp-api' : 'whatsapp-link',
+                        status: sendStatus,
+                        sentAt: new Date(),
+                        metadata: { type: 'confirmation_request', triggeredBy: d.isNew ? 'auto_upload' : 'resend_on_reupload' }
+                    }
+                }).catch(() => { });
+                confirmationsReady.push({
+                    deliveryId: d.id,
+                    customerName,
+                    phone: normalizedPhone,
+                    confirmationLink,
+                    whatsappUrl: fallbackWaUrl || '', // only populated when API not configured
+                    sent // true = API sent silently, false = fallback link needs manual send
+                });
+            }
+            catch (autoErr) {
+                console.warn(`[Upload] Auto-token gen failed for ${d.id}:`, autoErr.message);
+            }
+        }
+        if (confirmationsReady.length > 0) {
+            const sentSilently = confirmationsReady.filter(c => c.sent).length;
+            const needsManual = confirmationsReady.filter(c => !c.sent).length;
+            console.log(`[Upload] ${confirmationsReady.length} confirmation notifications: ${sentSilently} sent silently, ${needsManual} need manual send (no API creds)`);
+        }
+        // ──────────────────────────────────────────────────────────────────────────────
+        res.json({
+            success: true,
+            count: deliveryIds.length,
+            saved: results.filter(r => r.saved).length,
+            assigned: 0,
+            summary: { new: newCount, dispatched: dispatchedCount, updated: updatedCount, duplicate: duplicateCount, rejected: rejectedCount },
+            results: mergedResults,
+            deliveries: savedDeliveries,
+            skippedDeliveries,
+            confirmationsReady, // sent=true means WhatsApp delivered silently; sent=false means API not configured
+        });
+    }
+    catch (err) {
+        const e = err;
+        console.error('deliveries/upload error', err);
+        console.error('deliveries/upload error stack:', e.stack);
+        res.status(500).json({ error: 'upload_error', detail: e.message });
+    }
+});
+// POST /api/deliveries/bulk-assign - Auto-assign multiple deliveries
+router.post('/bulk-assign', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+        const { deliveryIds } = req.body;
+        if (!deliveryIds || !Array.isArray(deliveryIds)) {
+            return void res.status(400).json({ error: 'delivery_ids_array_required' });
+        }
+        const results = await autoAssignDeliveries(deliveryIds);
+        // Invalidate caches after bulk assignment
+        cache.invalidatePrefix('tracking:');
+        cache.invalidatePrefix('dashboard:');
+        cache.invalidatePrefix('deliveries:list:v2');
+        res.json({
+            success: true,
+            total: deliveryIds.length,
+            assigned: results.filter(r => r.success).length,
+            failed: results.filter(r => !r.success).length,
+            results
+        });
+    }
+    catch (err) {
+        const e = err;
+        console.error('deliveries/bulk-assign error', err);
+        res.status(500).json({ error: 'bulk_assign_error', detail: e.message });
+    }
+});
+// GET /api/deliveries/available-drivers - Get available drivers for manual selection
+router.get('/available-drivers', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+        const drivers = await getAvailableDrivers();
+        res.json({ drivers, count: drivers.length });
+    }
+    catch (err) {
+        const e = err;
+        console.error('deliveries/available-drivers error', err);
+        res.status(500).json({ error: 'db_error', detail: e.message });
+    }
+});
+// Define which statuses are considered "terminal" / finished for routing purposes.
+// These will normally be excluded from the Delivery Management active list unless
+// a client explicitly asks to include them.
+const TERMINAL_STATUSES = [
+    'delivered',
+    'delivered-with-installation',
+    'delivered-without-installation',
+    'completed',
+    'pod-completed',
+    'cancelled',
+    'returned',
+];
+// GET /api/deliveries - Get deliveries from database
+// By default returns ONLY "active" deliveries (non-terminal), filtered to
+// today's deliveries: non-confirmed deliveries always show, while
+// scheduled-confirmed deliveries only appear when their confirmedDeliveryDate
+// is today or earlier (future-date picks are hidden until that date).
+// Pass ?includeFinished=true to include all terminal-status deliveries.
+router.get('/', authenticate, async (req, res) => {
+    try {
+        const includeFinished = req.query.includeFinished === 'true';
+        // Build a today-scoped date range using Dubai timezone (UTC+4) so day
+        // boundaries are correct regardless of the server's local timezone.
+        const dubaiTodayIso = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Dubai', year: 'numeric', month: '2-digit', day: '2-digit'
+        }).format(new Date());
+        const todayStart = new Date(`${dubaiTodayIso}T00:00:00+04:00`);
+        const todayEnd = new Date(`${dubaiTodayIso}T23:59:59+04:00`);
+        // Cache key scoped to today's Dubai date so confirmed-for-future deliveries
+        // automatically become visible on their scheduled date.
+        const dateKey = dubaiTodayIso;
+        const cacheKey = includeFinished
+            ? 'deliveries:list:v2:all'
+            : `deliveries:list:v2:active:${dateKey}`;
+        const deliveries = await cache.getOrFetch(cacheKey, async () => {
+            let whereClause;
+            if (includeFinished) {
+                whereClause = {};
+            }
+            else {
+                whereClause = {
+                    status: { notIn: TERMINAL_STATUSES },
+                    // Only show confirmed deliveries whose date is today or earlier.
+                    // Unconfirmed deliveries (pending/scheduled/etc.) always show so
+                    // admin can dispatch them manually.
+                    OR: [
+                        { status: { notIn: ['scheduled-confirmed', 'confirmed'] } },
+                        { status: { in: ['scheduled-confirmed', 'confirmed'] }, confirmedDeliveryDate: { lte: todayEnd } },
+                        { status: { in: ['scheduled-confirmed', 'confirmed'] }, confirmedDeliveryDate: null },
+                    ],
+                };
+            }
+            return prisma.delivery.findMany({
+                where: whereClause,
+                select: {
+                    id: true,
+                    customer: true,
+                    address: true,
+                    phone: true,
+                    lat: true,
+                    lng: true,
+                    status: true,
+                    items: true,
+                    metadata: true,
+                    poNumber: true,
+                    deliveryNumber: true,
+                    goodsMovementDate: true,
+                    smsSentAt: true,
+                    confirmationStatus: true,
+                    confirmedDeliveryDate: true,
+                    createdAt: true,
+                    updatedAt: true,
+                    assignments: {
+                        select: {
+                            driverId: true,
+                            status: true,
+                            driver: { select: { fullName: true } }
+                        },
+                        take: 1,
+                        orderBy: { assignedAt: 'desc' }
+                    }
+                },
+                orderBy: { createdAt: 'desc' },
+                take: 2000
+            });
+        }, 30000, 120000);
+        // Format deliveries for frontend
+        const formattedDeliveries = deliveries.map(d => {
+            const assignments = d.assignments;
+            return {
+                id: d.id,
+                customer: d.customer,
+                address: d.address,
+                phone: d.phone,
+                lat: d.lat,
+                lng: d.lng,
+                status: d.status,
+                items: d.items,
+                metadata: d.metadata,
+                poNumber: d.poNumber,
+                deliveryNumber: d.deliveryNumber ?? null,
+                goodsMovementDate: d.goodsMovementDate ?? null,
+                smsSentAt: d.smsSentAt ?? null,
+                confirmationStatus: d.confirmationStatus,
+                confirmedDeliveryDate: d.confirmedDeliveryDate,
+                created_at: d.createdAt,
+                createdAt: d.createdAt,
+                created: d.createdAt,
+                updatedAt: d.updatedAt,
+                assignedDriverId: assignments?.[0]?.driverId || null,
+                driverName: assignments?.[0]?.driver?.fullName || null,
+                assignmentStatus: assignments?.[0]?.status || 'unassigned'
+            };
+        });
+        // Deliveries with missing address or phone go to the bottom; otherwise newest first
+        sortDeliveriesIncompleteLast(formattedDeliveries);
+        res.json({
+            deliveries: formattedDeliveries,
+            count: formattedDeliveries.length
+        });
+    }
+    catch (err) {
+        const e = err;
+        console.error('GET /api/deliveries error', err);
+        res.status(500).json({ error: 'db_error', detail: e.message });
+    }
+});
+// PUT /api/admin/deliveries/:id/assign - Assign delivery to driver (admin + delivery_team)
+router.put('/admin/:id/assign', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { driverId } = req.body;
+        if (!driverId) {
+            return void res.status(400).json({ error: 'driverId_required' });
+        }
+        console.log(`[Deliveries] Assigning delivery ${id} to driver ${driverId}`);
+        const targetDriver = await prisma.driver.findUnique({
+            where: { id: driverId },
+            include: { account: { select: { role: true } } }
+        });
+        if (!targetDriver || !targetDriver.account || targetDriver.account.role !== 'driver') {
+            return void res.status(400).json({
+                error: 'invalid_driver',
+                message: 'Assignments are only allowed for accounts with the driver role.'
+            });
+        }
+        // Verify delivery exists
+        const delivery = await prisma.delivery.findUnique({
+            where: { id },
+            include: { assignments: true }
+        });
+        if (!delivery) {
+            return void res.status(404).json({ error: 'delivery_not_found' });
+        }
+        // Per-driver capacity check: 1 driver = 1 truck = max TRUCK_MAX_ITEMS_PER_DAY units per day
+        {
+            const orderItemCount = (0, deliveryCapacityService_1.parseDeliveryItemCount)(delivery.items, delivery.metadata);
+            const apiStatus = String(delivery.status || '').toLowerCase().replace(/_/g, '-');
+            const onRouteForCap = ['out-for-delivery', 'in-transit', 'in-progress'].includes(apiStatus);
+            // On-route loads consume **today's** Dubai truck slot; others use confirmed delivery day (or tomorrow if unset)
+            const targetIso = onRouteForCap
+                ? (0, deliveryCapacityService_1.getDubaiTodayIso)()
+                : delivery.confirmedDeliveryDate
+                    ? new Intl.DateTimeFormat('en-CA', {
+                        timeZone: 'Asia/Dubai',
+                        year: 'numeric', month: '2-digit', day: '2-digit'
+                    }).format(new Date(delivery.confirmedDeliveryDate))
+                    : (0, deliveryCapacityService_1.addDubaiCalendarDays)((0, deliveryCapacityService_1.getDubaiTodayIso)(), 1);
+            // Exclude this delivery from driver's current count (handles reassignment without double-counting)
+            const driverUsed = await (0, deliveryCapacityService_1.getDriverItemCountForDate)(prisma, driverId, targetIso, id);
+            if (driverUsed + orderItemCount > deliveryCapacityService_1.TRUCK_MAX_ITEMS_PER_DAY) {
+                return void res.status(400).json({
+                    error: 'driver_capacity_exceeded',
+                    message: `Driver's truck is full for ${targetIso}: ${driverUsed} units already assigned, this order has ${orderItemCount} units (max ${deliveryCapacityService_1.TRUCK_MAX_ITEMS_PER_DAY} per truck).`,
+                    driverUsed,
+                    orderItemCount,
+                    maxItems: deliveryCapacityService_1.TRUCK_MAX_ITEMS_PER_DAY,
+                    remaining: Math.max(0, deliveryCapacityService_1.TRUCK_MAX_ITEMS_PER_DAY - driverUsed)
+                });
+            }
+        }
+        // Soft-close previous active assignments so history is preserved for reporting/audit
+        if (delivery.assignments && delivery.assignments.length > 0) {
+            await prisma.deliveryAssignment.updateMany({
+                where: { deliveryId: id, status: { in: ['assigned', 'in_progress'] } },
+                data: { status: 'reassigned' }
+            });
+            console.log(`[Deliveries] Soft-closed previous assignments for delivery ${id}`);
+        }
+        // Create new assignment
+        const assignment = await prisma.deliveryAssignment.create({
+            data: {
+                deliveryId: id,
+                driverId: driverId,
+                assignedAt: new Date(),
+                status: 'assigned'
+            },
+            include: {
+                driver: {
+                    select: {
+                        id: true,
+                        fullName: true,
+                        email: true,
+                        phone: true
+                    }
+                }
+            }
+        });
+        // Invalidate caches after assignment
+        // Use invalidatePrefix so both deliveries:list:v2:active and deliveries:list:v2:all are cleared.
+        cache.invalidatePrefix('tracking:');
+        cache.invalidatePrefix('dashboard:');
+        cache.invalidatePrefix('deliveries:list:v2');
+        res.json({
+            ok: true,
+            assignment: {
+                deliveryId: assignment.deliveryId,
+                driverId: assignment.driverId,
+                driverName: assignment.driver.fullName,
+                status: assignment.status,
+                assignedAt: assignment.assignedAt
+            }
+        });
+    }
+    catch (err) {
+        const e = err;
+        console.error('PUT /api/admin/deliveries/:id/assign error:', err);
+        res.status(500).json({ error: 'assignment_failed', detail: e.message });
+    }
+});
+// GET /api/deliveries/admin/driver-capacity?date=YYYY-MM-DD
+// Returns per-driver capacity for the given date (or tomorrow if omitted).
+// Used by Logistics/Delivery portals to show "N/20 units used" in assignment dropdowns.
+router.get('/admin/driver-capacity', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req, res) => {
+    try {
+        const rawDate = req.query.date;
+        let isoDate = rawDate ? String(rawDate).trim().split('T')[0] : null;
+        if (!isoDate || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {
+            isoDate = (0, deliveryCapacityService_1.addDubaiCalendarDays)((0, deliveryCapacityService_1.getDubaiTodayIso)(), 1);
+        }
+        const allDrivers = await prisma.driver.findMany({
+            where: { active: true, account: { role: 'driver' } },
+            include: { account: { select: { id: true, role: true } } },
+            orderBy: { fullName: 'asc' }
+        });
+        const result = await Promise.all(allDrivers.map(async (driver) => {
+            const used = await (0, deliveryCapacityService_1.getDriverItemCountForDate)(prisma, driver.id, isoDate);
+            return {
+                driverId: driver.id,
+                driverName: driver.fullName,
+                used,
+                remaining: Math.max(0, deliveryCapacityService_1.TRUCK_MAX_ITEMS_PER_DAY - used),
+                max: deliveryCapacityService_1.TRUCK_MAX_ITEMS_PER_DAY,
+                full: used >= deliveryCapacityService_1.TRUCK_MAX_ITEMS_PER_DAY
+            };
+        }));
+        res.json({ ok: true, date: isoDate, truckMax: deliveryCapacityService_1.TRUCK_MAX_ITEMS_PER_DAY, drivers: result });
+    }
+    catch (err) {
+        const e = err;
+        console.error('GET /admin/driver-capacity error:', err);
+        res.status(500).json({ error: 'capacity_fetch_failed', detail: e.message });
+    }
+});
+// POST /api/deliveries/:id/send-sms - Send confirmation SMS to customer
+// Accessible by admin, delivery_team, and logistics_team
+router.post('/:id/send-sms', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req, res) => {
+    try {
+        let { id: deliveryId } = req.params;
+        if (!deliveryId) {
+            return void res.status(400).json({ error: 'delivery_id_required' });
+        }
+        // Sanitize delivery ID - remove any invalid characters and decode
+        deliveryId = decodeURIComponent(String(deliveryId).trim());
+        console.log('[SMS] Attempting to send SMS for delivery ID:', deliveryId);
+        // Validate UUID format (standard UUID format: 8-4-4-4-12 hex characters)
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        let delivery = null;
+        if (uuidRegex.test(deliveryId)) {
+            // Valid UUID format - use findUnique
+            console.log('[SMS] Valid UUID format, using findUnique');
+            try {
+                delivery = await prisma.delivery.findUnique({
+                    where: { id: deliveryId }
+                });
+            }
+            catch (prismaErr) {
+                const pe = prismaErr;
+                console.error('[SMS] Prisma findUnique error:', pe.message);
+                return void res.status(400).json({
+                    error: 'invalid_delivery_id',
+                    message: 'Invalid delivery ID format',
+                    detail: pe.message
+                });
+            }
+        }
+        else {
+            // Not a valid UUID - try searching by poNumber or other fields
+            console.log('[SMS] Not a valid UUID, trying fallback search by poNumber');
+            try {
+                delivery = await prisma.delivery.findFirst({
+                    where: {
+                        OR: [
+                            { poNumber: deliveryId },
+                            { id: { contains: deliveryId } }
+                        ]
+                    }
+                });
+            }
+            catch (searchErr) {
+                const se = searchErr;
+                console.error('[SMS] Fallback search error:', se.message);
+            }
+        }
+        if (!delivery) {
+            console.error('[SMS] Delivery not found for ID:', deliveryId);
+            return void res.status(404).json({
+                error: 'delivery_not_found',
+                message: `No delivery found with ID: ${deliveryId}`
+            });
+        }
+        console.log('[SMS] Found delivery:', delivery.id, 'Customer:', delivery.customer);
+        if (!delivery.phone && !delivery.email) {
+            return void res.status(400).json({ error: 'no_contact_info', message: 'Delivery has no phone number or email address' });
+        }
+        // Normalize the phone number to E.164 format if present
+        const normalizedPhone = delivery.phone
+            ? (normalizePhone(delivery.phone) || delivery.phone)
+            : null;
+        if (normalizedPhone && normalizedPhone !== delivery.phone) {
+            console.log(`[SMS] Phone normalized: "${delivery.phone}" → "${normalizedPhone}"`);
+        }
+        // Accept optional customer email override from request body
+        const reqBody = req.body;
+        const customerEmail = reqBody?.email || delivery.email || null;
+        if (!normalizedPhone) {
+            return void res.status(400).json({ error: 'no_phone', message: 'Delivery has no phone number' });
+        }
+        // Generate token and message body before attempting send.
+        // DB is only updated AFTER a successful send so status never reflects
+        // a message the customer did not receive.
+        const smsService = require('../sms/smsService');
+        const token = smsService.generateConfirmationToken();
+        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
+        const confirmationLink = `${frontendUrl}/confirm-delivery/${token}`;
+        const customerName = delivery.customer || 'Valued Customer';
+        const poRef = delivery.poNumber ? `#${delivery.poNumber}` : '';
+        const smsBody = (0, customerMessageTemplates_1.confirmationRequestMessage)(customerName, poRef, confirmationLink);
+        // ── 1. Prepare channel info ──────────────────────────────────────────────
+        const isUAE = normalizedPhone.startsWith('+971');
+        let sent = false;
+        let messageId = null;
+        let d7Status = null;
+        const channel = 'whatsapp'; // always whatsapp during compliance-pending period
+        // ── SMS / WhatsApp API TEMPORARILY DISABLED ──────────────────────────────
+        // D7 provider compliance approval is pending. All outbound API calls are
+        // commented out below. Once approved, restore the block inside the try/catch
+        // and remove the wa.me fallback.
+        //
+        // ORIGINAL SEND CODE (DO NOT DELETE):
+        // try {
+        //   if (isUAE) {
+        //     const WhatsAppAdapter = require('../sms/whatsappAdapter');
+        //     const waAdapter = new WhatsAppAdapter(process.env);
+        //     const result = await waAdapter.sendMessage({ to: normalizedPhone, body: smsBody });
+        //     messageId = result.messageId || null;
+        //     d7Status = result.status || null;
+        //     sent = true;
+        //     console.log('[WhatsApp] Sent to', normalizedPhone, 'MID:', messageId);
+        //   } else {
+        //     const smsResult = await smsService.smsAdapter.sendSms({
+        //       to: normalizedPhone, body: smsBody,
+        //       metadata: { deliveryId: delivery.id, type: 'confirmation_request' }
+        //     });
+        //     messageId = smsResult.messageId || null;
+        //     d7Status = smsResult.status || null;
+        //     sent = true;
+        //     console.log('[SMS] Sent to', normalizedPhone, 'MID:', messageId);
+        //   }
+        // } catch (sendErr) { ... }
+        // ──────────────────────────────────────────────────────────────────────────
+        // ── WhatsApp send (silent API if configured, deep-link fallback otherwise) ─
+        let whatsappUrl;
+        if ((0, whatsappApiAdapter_1.isWhatsAppConfigured)()) {
+            const waRes = await (0, whatsappApiAdapter_1.sendWhatsAppDeliveryConfirmation)(normalizedPhone, {
+                fullTextBody: smsBody,
+                customerName,
+                poRef,
+                confirmationLink
+            });
+            if (waRes.ok) {
+                messageId = waRes.messageId || `wa-${Date.now()}`;
+                d7Status = 'sent';
+                sent = true;
+                console.log('[WhatsApp] Silent send to', normalizedPhone, ': ok');
+            }
+            else {
+                // Keep button behavior stable: if API rejects, still return a wa.me link so staff can send manually.
+                whatsappUrl = (0, waLink_1.buildWhatsAppLink)(normalizedPhone, smsBody);
+                messageId = `wa-link-${Date.now()}`;
+                d7Status = 'whatsapp_link_generated_after_api_failure';
+                sent = true;
+                console.warn('[WhatsApp] API failed, generated manual deep-link fallback for', normalizedPhone, 'reason:', waRes.error);
+            }
+        }
+        else {
+            // Fallback: wa.me deep-link (staff must open + tap Send manually)
+            whatsappUrl = (0, waLink_1.buildWhatsAppLink)(normalizedPhone, smsBody);
+            messageId = `wa-link-${Date.now()}`;
+            d7Status = 'whatsapp_link_generated';
+            sent = true;
+            console.log('[WhatsApp] No API creds — deep-link fallback for', normalizedPhone);
+        }
+        // ──────────────────────────────────────────────────────────────────────────
+        if (!sent) {
+            return void res.status(500).json({
+                ok: false,
+                error: `${channel}_failed`,
+                message: 'Message delivery failed — check WhatsApp provider credentials and template setup'
+            });
+        }
+        // Persist token and mark delivery as 'scheduled'
+        await prisma.delivery.update({
+            where: { id: delivery.id },
+            data: {
+                confirmationToken: token,
+                tokenExpiresAt: expiresAt,
+                confirmationStatus: 'pending',
+                status: 'scheduled',
+                smsSentAt: new Date()
+            }
+        });
+        await prisma.smsLog.create({
+            data: {
+                deliveryId: delivery.id,
+                phoneNumber: normalizedPhone,
+                messageContent: smsBody,
+                smsProvider: (0, whatsappApiAdapter_1.isWhatsAppConfigured)() ? 'whatsapp-api' : 'whatsapp-link',
+                externalMessageId: messageId,
+                status: d7Status || 'sent',
+                sentAt: new Date(),
+                metadata: { type: 'confirmation_request', channel, tokenExpiry: expiresAt.toISOString(), isUAE, ...(whatsappUrl ? { whatsappUrl } : {}) }
+            }
+        }).catch((e) => console.error('[Log] SMS log error:', e.message));
+        // ── 3. Response ───────────────────────────────────────────────────────────
+        return void res.json({
+            ok: true,
+            smsSent: true,
+            deliveredVia: (0, whatsappApiAdapter_1.isWhatsAppConfigured)() ? 'whatsapp-api' : 'whatsapp-link',
+            d7Status,
+            message: (0, whatsappApiAdapter_1.isWhatsAppConfigured)()
+                ? 'WhatsApp confirmation sent silently — customer will receive the message'
+                : 'WhatsApp link ready — please open and tap Send to notify customer',
+            messageId,
+            expiresAt: expiresAt.toISOString(),
+            confirmationLink,
+            ...(whatsappUrl ? { whatsappUrl } : {}) // only present when fallback mode
+        });
+    }
+    catch (error) {
+        const e = error;
+        console.error('POST /api/deliveries/:id/send-sms error:', error);
+        return void res.status(500).json({
+            error: 'send_sms_failed',
+            message: e.message || 'Failed to send SMS. Please check delivery data.'
+        });
+    }
+});
+// GET /api/deliveries/:id/pod - Get Proof of Delivery data for a specific delivery
+router.get('/:id/pod', authenticate, async (req, res) => {
+    try {
+        const { id: deliveryId } = req.params;
+        console.log(`[Deliveries/POD] Fetching POD data for delivery: ${deliveryId}`);
+        // Try to find delivery by ID or poNumber
+        let delivery = null;
+        try {
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            if (uuidRegex.test(deliveryId)) {
+                delivery = await prisma.delivery.findUnique({
+                    where: { id: deliveryId },
+                    select: {
+                        id: true,
+                        customer: true,
+                        address: true,
+                        phone: true,
+                        items: true,
+                        status: true,
+                        driverSignature: true,
+                        customerSignature: true,
+                        photos: true,
+                        conditionNotes: true,
+                        deliveryNotes: true,
+                        deliveredBy: true,
+                        deliveredAt: true,
+                        podCompletedAt: true,
+                        createdAt: true,
+                        updatedAt: true,
+                        metadata: true
+                    }
+                });
+            }
+            else {
+                // Try by PO number
+                delivery = await prisma.delivery.findFirst({
+                    where: { poNumber: deliveryId },
+                    select: {
+                        id: true,
+                        customer: true,
+                        address: true,
+                        phone: true,
+                        items: true,
+                        status: true,
+                        driverSignature: true,
+                        customerSignature: true,
+                        photos: true,
+                        conditionNotes: true,
+                        deliveryNotes: true,
+                        deliveredBy: true,
+                        deliveredAt: true,
+                        podCompletedAt: true,
+                        createdAt: true,
+                        updatedAt: true,
+                        metadata: true
+                    }
+                });
+            }
+        }
+        catch (err) {
+            const e = err;
+            console.error(`[Deliveries/POD] Error fetching delivery:`, err);
+            return void res.status(500).json({ error: 'database_error', detail: e.message });
+        }
+        if (!delivery) {
+            return void res.status(404).json({ error: 'delivery_not_found' });
+        }
+        // Check if POD exists
+        const hasPOD = !!(delivery.driverSignature || delivery.customerSignature ||
+            (delivery.photos && Array.isArray(delivery.photos) && delivery.photos.length > 0));
+        // Return POD data
+        res.json({
+            ok: true,
+            deliveryId: delivery.id,
+            customer: delivery.customer,
+            address: delivery.address,
+            items: delivery.items,
+            status: delivery.status,
+            hasPOD: hasPOD,
+            pod: {
+                driverSignature: delivery.driverSignature || null,
+                customerSignature: delivery.customerSignature || null,
+                photos: delivery.photos || [],
+                photoCount: (delivery.photos && Array.isArray(delivery.photos)) ? delivery.photos.length : 0,
+                conditionNotes: delivery.conditionNotes || null,
+                deliveryNotes: delivery.deliveryNotes || null,
+                deliveredBy: delivery.deliveredBy || null,
+                deliveredAt: delivery.deliveredAt || null,
+                podCompletedAt: delivery.podCompletedAt || null
+            },
+            metadata: delivery.metadata,
+            createdAt: delivery.createdAt,
+            updatedAt: delivery.updatedAt
+        });
+        console.log(`[Deliveries/POD] ✓ POD data retrieved successfully. Has POD: ${hasPOD}, Photos: ${delivery.photos?.length || 0}`);
+    }
+    catch (error) {
+        const e = error;
+        console.error('[Deliveries/POD] Error:', error);
+        res.status(500).json({
+            error: 'pod_retrieval_failed',
+            detail: e.message
+        });
+    }
+});
+// PUT /api/admin/deliveries/:id/reschedule
+// Admin-initiated reschedule: validates new date capacity, re-assigns driver, notifies customer.
+// Status is set to scheduled-confirmed (not terminal) so the order stays visible and dispatchable.
+router.put('/admin/:id/reschedule', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req, res) => {
+    const { id: deliveryId } = req.params;
+    const { newDeliveryDate, reason } = req.body;
+    if (!newDeliveryDate) {
+        res.status(400).json({ error: 'new_delivery_date_required' });
+        return;
+    }
+    // Accept YYYY-MM-DD or ISO datetime; normalise to Dubai calendar date
+    const iso = String(newDeliveryDate).trim().split('T')[0];
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+        res.status(400).json({ error: 'invalid_delivery_date', message: 'Use YYYY-MM-DD format.' });
+        return;
+    }
+    // Must be a non-Sunday within the next 7 eligible days (same rule as customer portal)
+    if ((0, deliveryCapacityService_1.getDubaiWeekday)(iso) === 0) {
+        res.status(400).json({ error: 'invalid_delivery_date', message: 'Sunday deliveries are not available.' });
+        return;
+    }
+    const eligibleDays = (0, deliveryCapacityService_1.getNextSevenEligibleDayIsoStrings)();
+    if (!eligibleDays.includes(iso)) {
+        res.status(400).json({ error: 'invalid_delivery_date', message: 'Date must be within the next 7 eligible delivery days.' });
+        return;
+    }
+    try {
+        const existingDelivery = await prisma.delivery.findUnique({
+            where: { id: deliveryId },
+            select: { id: true, status: true, phone: true, items: true, metadata: true, confirmedDeliveryDate: true, confirmationStatus: true }
+        });
+        if (!existingDelivery) {
+            res.status(404).json({ error: 'delivery_not_found' });
+            return;
+        }
+        const prevMeta = existingDelivery.metadata && typeof existingDelivery.metadata === 'object'
+            ? existingDelivery.metadata : {};
+        const reasonText = (reason || '').trim() || 'Operational requirements';
+        // Check fleet capacity for the new date (exclude this delivery from count).
+        try {
+            await (0, deliveryCapacityService_1.assertSlotAvailable)(prisma, deliveryId, iso, existingDelivery.items, prevMeta);
+        }
+        catch (slotErr) {
+            res.status(400).json({ error: 'slot_unavailable', message: slotErr.message });
+            return;
+        }
+        const { start: newDateStart } = (0, deliveryCapacityService_1.dubaiDayRangeUtc)(iso);
+        // Update delivery: mark as rescheduled with the new confirmed date.
+        // 'rescheduled' is an active (non-terminal) status — the order still needs to be delivered.
+        // No re-confirmation SMS is needed; customer is notified via their tracking page.
+        const updatedDelivery = await prisma.delivery.update({
+            where: { id: deliveryId },
+            data: {
+                status: 'rescheduled',
+                confirmationStatus: 'confirmed',
+                confirmedDeliveryDate: newDateStart,
+                metadata: {
+                    ...prevMeta,
+                    rescheduleReason: reasonText,
+                    rescheduledAt: new Date().toISOString(),
+                    rescheduledBy: req.user?.username || req.user?.email || req.user?.sub || 'admin',
+                    previousStatus: existingDelivery.status,
+                    previousDeliveryDate: existingDelivery.confirmedDeliveryDate?.toISOString() ?? null,
+                }
+            }
+        });
+        // Release old driver assignments so we can re-assign for the new date.
+        await prisma.deliveryAssignment.deleteMany({ where: { deliveryId } });
+        // Auto-assign the best driver for the new date (respects 30-item truck cap).
+        try {
+            await autoAssignDelivery(deliveryId);
+        }
+        catch (assignErr) {
+            console.warn('[Deliveries] Reschedule auto-assign failed:', assignErr.message);
+        }
+        // Audit event
+        await prisma.deliveryEvent.create({
+            data: {
+                deliveryId,
+                eventType: 'admin_rescheduled',
+                payload: {
+                    previousStatus: existingDelivery.status,
+                    previousDeliveryDate: existingDelivery.confirmedDeliveryDate?.toISOString() ?? null,
+                    newDeliveryDate: newDateStart.toISOString(),
+                    newDeliveryDateDubai: iso,
+                    reason: reasonText,
+                    rescheduledBy: req.user?.username || req.user?.email || req.user?.sub || 'admin',
+                    rescheduledAt: new Date().toISOString(),
+                },
+                actorType: 'admin',
+                actorId: req.user?.sub || null
+            }
+        }).catch((err) => {
+            console.warn('[Deliveries] Failed to create reschedule event:', err.message);
+        });
+        // Notify customer by WhatsApp (awaited so we can return the link to frontend)
+        let rescheduleWhatsappUrl;
+        if (existingDelivery.phone) {
+            try {
+                const smsService = require('../sms/smsService');
+                const smsResult = await smsService.sendRescheduleSms(deliveryId, newDateStart, reasonText);
+                rescheduleWhatsappUrl = smsResult?.whatsappUrl;
+            }
+            catch (err) {
+                console.warn('[Deliveries] Reschedule SMS failed:', err.message);
+            }
+        }
+        cache.invalidatePrefix('tracking:');
+        cache.invalidatePrefix('dashboard:');
+        cache.invalidatePrefix('deliveries:list:v2');
+        res.json({
+            ok: true,
+            whatsappUrl: rescheduleWhatsappUrl || null, // frontend auto-opens to notify customer
+            delivery: {
+                id: updatedDelivery.id,
+                status: updatedDelivery.status,
+                confirmedDeliveryDate: updatedDelivery.confirmedDeliveryDate,
+                confirmedDeliveryDateDubai: iso,
+                rescheduleReason: reasonText,
+            }
+        });
+    }
+    catch (err) {
+        const e = err;
+        console.error('[Deliveries] Admin reschedule error:', e.message);
+        res.status(500).json({ error: 'reschedule_failed', detail: e.message });
+    }
+});
+exports.default = router;
