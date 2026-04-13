@@ -185,13 +185,15 @@ async function sendD7WhatsAppTemplate(phoneRaw, templateName, languageCode, body
     if (rec.ok === false)
         return { ok: false, error: rec.error, provider: 'd7' };
     const originator = d7WhatsAppOriginatorDigits();
-    // D7 WhatsApp v2 validates against Meta-style template shape. A previous `lang` field
-    // caused HTTP 422: template.language field required — use language: { code }.
+    // D7 WhatsApp v2 template format (verified against live API error responses):
+    //   - field name is `template_id` (not `name`)
+    //   - `language` must be a plain string enum value (e.g. "en", "en_US")
+    //     NOT an object like { code: "en" } — that causes HTTP 422
     const content = {
         message_type: 'TEMPLATE',
         template: {
-            name: templateName,
-            language: { code: languageCode },
+            template_id: templateName,
+            language: languageCode,
             components: [
                 {
                     type: 'body',
