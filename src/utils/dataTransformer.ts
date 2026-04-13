@@ -198,13 +198,17 @@ function parseCoordinate(value: unknown): number {
 export function transformERPData(data: RawERPRow[]): TransformedDelivery[] {
   return data.map((row, index) => {
     const customer =
+      row['Ship-to Party'] ||
+      row['Ship To Party'] ||
+      row['Ship to Party'] ||
       row['Ship to party'] ||
       row['Ship-to party'] ||
+      row['SHIP TO PARTY'] ||
       row['Customer'] ||
       row['Customer Name'] ||
       row['Customer name'] ||
-      row['Name'] ||
       row['Payer Name'] ||
+      row['Name'] ||
       `Customer ${index + 1}`;
     const address =
       [row['Ship to Street'], row['Ship-to Street'], row['Street'], row['Address'], row['City'], row['Postal code']]
@@ -364,13 +368,17 @@ export function detectDataFormat(data: RawERPRow[]): DetectedFormat {
     'DeliveryNumber' in firstRow ||
     'Sales Document' in firstRow;
   const hasErpCustomerKey =
+    'Ship-to Party' in firstRow ||
+    'Ship To Party' in firstRow ||
+    'Ship to Party' in firstRow ||
     'Ship to party' in firstRow ||
-    'Name' in firstRow ||
+    'Ship-to party' in firstRow ||
+    'SHIP TO PARTY' in firstRow ||
+    'Sold-to party' in firstRow ||
     'Customer' in firstRow ||
     'Customer Name' in firstRow ||
     'Customer name' in firstRow ||
-    'Sold-to party' in firstRow ||
-    'Ship-to party' in firstRow;
+    'Name' in firstRow;
 
   const hasERPFormat = hasDeliveryOrSalesKey && hasErpCustomerKey;
 

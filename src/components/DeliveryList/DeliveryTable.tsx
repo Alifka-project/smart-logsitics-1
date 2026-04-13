@@ -139,10 +139,10 @@ export default function DeliveryTable({
 
   const [selectedDriver, setSelectedDriver] = useState<string>('all');
 
-  // Portal embed / driver: chips are only On route + Delivered — clear stale filters from other pages
+  // Portal embed / driver: clear stale filters that don't apply to the driver view
   useEffect(() => {
     if (!onRouteSequenceOnly) return;
-    if (deliveryListFilter === 'pending' || deliveryListFilter === 'confirmed' || deliveryListFilter === 'p1') {
+    if (deliveryListFilter === 'pending' || deliveryListFilter === 'confirmed') {
       setDeliveryListFilter('all');
     }
   }, [onRouteSequenceOnly, deliveryListFilter, setDeliveryListFilter]);
@@ -190,7 +190,7 @@ export default function DeliveryTable({
       }));
     }
     const filterSource =
-      onRouteSequenceOnly && deliveryListFilter !== 'delivered'
+      onRouteSequenceOnly && deliveryListFilter !== 'delivered' && deliveryListFilter !== 'p1'
         ? getOnRouteDeliveriesForList(deliveries)
         : deliveries;
     let list = applyDeliveryListFilter(filterSource, deliveryListFilter);
@@ -224,7 +224,8 @@ export default function DeliveryTable({
 
   const chips: { id: DeliveryListFilter; label: string; activeClass: string }[] = onRouteSequenceOnly
     ? [
-        { id: 'all', label: 'On route', activeClass: 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900' },
+        { id: 'all',       label: 'On route',  activeClass: 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900' },
+        { id: 'p1',        label: 'P1 Urgent', activeClass: 'bg-red-600 text-white' },
         { id: 'delivered', label: 'Delivered', activeClass: 'bg-green-600 text-white' },
       ]
     : [

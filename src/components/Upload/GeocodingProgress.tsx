@@ -96,11 +96,11 @@ export default function GeocodingProgress({
   const summary: GeocodeSummary = generateGeocodeSummary(results);
 
   return (
-    <div className="pp-modal-backdrop fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="pp-modal-card bg-white rounded-lg shadow-2xl max-w-md w-full p-6">
+    <div className="pp-modal-backdrop fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4">
+      <div className="pp-modal-card bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-md w-full p-6">
         <div className="flex items-center gap-3 mb-6">
           <MapPin className="w-6 h-6 text-blue-600" />
-          <h2 className="text-2xl font-bold text-gray-800">Geocoding Addresses</h2>
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Geocoding Addresses</h2>
         </div>
 
         <div className="mb-6">

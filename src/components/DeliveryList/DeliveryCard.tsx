@@ -143,7 +143,7 @@ export default function DeliveryCard({
       onMouseLeave={onMouseLeave}
       className={`flex flex-col rounded-lg border transition-all ${
         isP1
-          ? 'bg-red-50/80 dark:bg-red-950/25 border-red-200/80 dark:border-red-900/50'
+          ? 'bg-red-100 dark:bg-red-900/40 border-red-400 dark:border-red-600'
           : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800/90'
       } ${
         canDrag ? 'cursor-move' : 'cursor-pointer'
