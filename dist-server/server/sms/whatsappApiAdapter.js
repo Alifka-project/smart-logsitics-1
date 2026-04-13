@@ -214,7 +214,37 @@ async function sendD7WhatsAppTemplate(phoneRaw, templateName, languageCode, body
 /** Matches Electrolux SMS/portal copy (customerMessageTemplates). */
 const DEFAULT_ASSISTANCE_PHONE = '+971524408687';
 /**
+ * Build the params array for the confirmation template.
+ *
+ * D7_WHATSAPP_TEMPLATE_PARAM_COUNT controls how many body variables your
+ * approved template has (check the D7 dashboard). Mapping:
+ *   1 → [confirmationLink]
+ *   2 → [customerName, confirmationLink]
+ *   3 → [customerName, orderRef, confirmationLink]
+ *   4 → [customerName, orderRef, confirmationLink, assistancePhone]  (default)
+ *
+ * If the env var is not set, the function auto-cascades: tries 4 → 3 → 2 → 1
+ * until D7 accepts the request, so the send always goes through even if
+ * D7_WHATSAPP_TEMPLATE_PARAM_COUNT is not configured yet.
+ */
+function buildTemplateParams(parts, count) {
+    const name = (parts.customerName || 'Valued Customer').trim();
+    const ref = (parts.poRef || '').trim() || 'your Electrolux order';
+    const link = parts.confirmationLink.trim();
+    const help = (parts.assistancePhone || DEFAULT_ASSISTANCE_PHONE).trim();
+    switch (count) {
+        case 1: return [link];
+        case 2: return [name, link];
+        case 3: return [name, ref, link];
+        default: return [name, ref, link, help];
+    }
+}
+/**
  * First-upload / resend confirmation: uses Meta template when D7_WHATSAPP_CONFIRMATION_TEMPLATE is set.
+ *
+ * Set D7_WHATSAPP_TEMPLATE_PARAM_COUNT in Vercel env to the number of {{variables}}
+ * in your approved D7 template (1, 2, 3, or 4).
+ * If not set: auto-cascades from 4 down to 1 until D7 accepts.
  */
 async function sendWhatsAppDeliveryConfirmation(phone, parts) {
     const provider = resolveWhatsAppProvider();
@@ -227,14 +257,30 @@ async function sendWhatsAppDeliveryConfirmation(phone, parts) {
         console.warn('[D7 WhatsApp] No D7_WHATSAPP_CONFIRMATION_TEMPLATE — sending TEXT. Meta usually requires an approved template for first contact; customers may not receive plain TEXT.');
         return sendD7WhatsApp(phone, parts.fullTextBody);
     }
-    const assistance = (parts.assistancePhone || DEFAULT_ASSISTANCE_PHONE).trim();
-    const orderRef = (parts.poRef || '').trim() || 'your Electrolux order';
-    return sendD7WhatsAppTemplate(phone, templateName, lang, [
-        (parts.customerName || 'Valued Customer').trim(),
-        orderRef,
-        parts.confirmationLink.trim(),
-        assistance
-    ]);
+    const configuredCount = parseInt(process.env.D7_WHATSAPP_TEMPLATE_PARAM_COUNT || '0', 10);
+    if (configuredCount >= 1 && configuredCount <= 4) {
+        // User explicitly set the param count — send exactly that many
+        const params = buildTemplateParams(parts, configuredCount);
+        console.log(`[D7 WhatsApp] Template "${templateName}" with ${configuredCount} param(s) (D7_WHATSAPP_TEMPLATE_PARAM_COUNT=${configuredCount})`);
+        return sendD7WhatsAppTemplate(phone, templateName, lang, params);
+    }
+    // D7_WHATSAPP_TEMPLATE_PARAM_COUNT not set — cascade 4 → 3 → 2 → 1
+    console.log(`[D7 WhatsApp] D7_WHATSAPP_TEMPLATE_PARAM_COUNT not set — auto-cascading param counts for template "${templateName}"`);
+    for (const count of [4, 3, 2, 1]) {
+        const params = buildTemplateParams(parts, count);
+        const result = await sendD7WhatsAppTemplate(phone, templateName, lang, params);
+        if (result.ok) {
+            console.log(`[D7 WhatsApp] Template accepted with ${count} param(s) — set D7_WHATSAPP_TEMPLATE_PARAM_COUNT=${count} to skip cascade next time`);
+            return result;
+        }
+        // Only retry on parameter count mismatch; stop on other errors
+        if (!result.error?.includes('TEMPLATE_PARAMETER_COUNT_MISMATCH') && !result.error?.includes('Parameters count')) {
+            console.warn(`[D7 WhatsApp] Template failed (non-count error) with ${count} param(s): ${result.error}`);
+            return result;
+        }
+        console.warn(`[D7 WhatsApp] Count mismatch with ${count} param(s), trying fewer...`);
+    }
+    return { ok: false, error: 'Template rejected for all param counts (1–4). Check D7 dashboard for template variable count.', provider: 'd7' };
 }
 // ── Green API ────────────────────────────────────────────────────────────────
 async function sendGreenApi(phone, message) {
