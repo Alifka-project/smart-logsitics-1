@@ -34,6 +34,7 @@ export default function CustomerModal({
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [status, setStatus] = useState('');
   const [notes, setNotes] = useState('');
+  const [rescheduleDate, setRescheduleDate] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [editAddress, setEditAddress] = useState('');
@@ -129,8 +130,15 @@ export default function CustomerModal({
       return;
     }
 
-    if (!driverSignature || !customerSignature) {
+    const needsSig = status !== 'rescheduled' && status !== 'rejected';
+    if (needsSig && (!driverSignature || !customerSignature)) {
       setSubmitError('Please provide both driver and customer signatures');
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (status === 'rescheduled' && !rescheduleDate) {
+      setSubmitError('Please select a new delivery date');
       setIsSubmitting(false);
       return;
     }
@@ -143,7 +151,8 @@ export default function CustomerModal({
       const statusUrl = useDriverEndpoint
         ? `/deliveries/driver/${selectedDelivery.id}/status`
         : `/deliveries/admin/${selectedDelivery.id}/status`;
-      const response = await api.put(statusUrl, {
+
+      const payload: Record<string, unknown> = {
         status,
         notes,
         driverSignature,
@@ -152,7 +161,13 @@ export default function CustomerModal({
         actualTime: new Date().toISOString(),
         customer: selectedDelivery.customer,
         address: selectedDelivery.address,
-      });
+      };
+
+      if (status === 'rescheduled' && rescheduleDate) {
+        payload['scheduledDate'] = rescheduleDate;
+      }
+
+      const response = await api.put(statusUrl, payload);
 
       console.log('[CustomerModal] API Response:', response.data);
 
@@ -186,6 +201,7 @@ export default function CustomerModal({
           setPhotos([]);
           setStatus('');
           setNotes('');
+          setRescheduleDate('');
           onClose();
         }, 500);
       } else {
@@ -391,15 +407,28 @@ export default function CustomerModal({
             setStatus={setStatus}
             notes={notes}
             setNotes={setNotes}
+            rescheduleDate={rescheduleDate}
+            setRescheduleDate={setRescheduleDate}
             deliveryStatus={selectedDelivery.status}
           />
 
           <button
             onClick={() => void handleSubmit()}
-            disabled={!status || !driverSignature || !customerSignature || isSubmitting}
+            disabled={
+              !status ||
+              (status !== 'rescheduled' && status !== 'rejected' && (!driverSignature || !customerSignature)) ||
+              (status === 'rescheduled' && !rescheduleDate) ||
+              isSubmitting
+            }
             className="w-full py-3.5 sm:py-3 min-h-[48px] bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold rounded-lg hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all touch-manipulation text-base sm:text-base"
           >
-            {isSubmitting ? '⏳ Updating...' : '✓ Complete Delivery'}
+            {isSubmitting
+              ? '⏳ Updating...'
+              : status === 'rescheduled'
+              ? '📅 Confirm Reschedule'
+              : status === 'rejected'
+              ? '✗ Confirm Rejection'
+              : '✓ Complete Delivery'}
           </button>
         </div>
       </div>
