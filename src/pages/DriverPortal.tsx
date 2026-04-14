@@ -15,7 +15,7 @@ import {
   MessageSquare, Truck, Bell, Paperclip, Send, Search, ClipboardList, ChevronLeft
 } from 'lucide-react';
 import type { Delivery } from '../types';
-import { getOnRouteDeliveriesForList, isOnRouteDeliveryListStatus } from '../utils/deliveryListFilter';
+import { getOnRouteDeliveriesForList, isOnRouteDeliveryListStatus, getEtaStatus } from '../utils/deliveryListFilter';
 
 // Fix Leaflet default marker icons
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
@@ -136,6 +136,8 @@ export default function DriverPortal() {
   const [showModal, setShowModal] = useState<boolean>(false);
   const { toasts, removeToast, success, error: toastError } = useToast();
   const updateDeliveryOrder = useDeliveryStore((s) => s.updateDeliveryOrder);
+  // Store deliveries carry priority (assigned by loadDeliveries) — used for priority breakdown display
+  const storeDeliveries = useDeliveryStore((s) => s.deliveries);
 
   // Manual reorder tracking: when the driver drags the list, honour that order
   // instead of recalculating via nearest-neighbour.
@@ -1141,19 +1143,6 @@ export default function DriverPortal() {
             <div className="pp-card p-3 sm:p-6 min-h-[520px]">
               <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Order list</h2>
               <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-3">Tap one order to update POD, call customer, or check details</p>
-              {/* Priority summary banner */}
-              {(() => {
-                const priorityCount = deliveries.filter(d => {
-                  const m = (d as unknown as { metadata?: Record<string, unknown> }).metadata ?? {};
-                  return m.isPriority === true;
-                }).length;
-                return priorityCount > 0 ? (
-                  <div className="mb-3 flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-                    <span className="text-sm font-semibold text-red-700 dark:text-red-300">🚨 {priorityCount} Priority {priorityCount === 1 ? 'Delivery' : 'Deliveries'}</span>
-                    <span className="text-xs text-red-500 dark:text-red-400">— sorted to the top</span>
-                  </div>
-                ) : null;
-              })()}
               {deliveries.length === 0 ? (
                 <div className="py-8 text-center text-gray-500 dark:text-gray-400">
                   <Truck className="w-12 h-12 mx-auto mb-3 opacity-50" />
@@ -1188,8 +1177,10 @@ export default function DriverPortal() {
                     <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">{nextEta}</div>
                   </div>
                   <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-2">
-                    <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Stops</div>
-                    <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">{deliveries.length}</div>
+                    <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">P1 Stops</div>
+                    <div className="text-sm font-semibold text-red-600 dark:text-red-400">
+                      {storeDeliveries.filter(d => d.priority === 1).length} / {deliveries.length}
+                    </div>
                   </div>
                   <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-2">
                     <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Speed</div>
@@ -1198,29 +1189,61 @@ export default function DriverPortal() {
                 </div>
               </div>
 
-              <div className="pp-card p-4 sm:p-5">
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Routing & ETA</h3>
-                <div className="grid grid-cols-2 gap-2 sm:gap-3 text-sm">
-                  <div className="pp-card p-3">
-                    <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Next ETA</div>
-                    <div className="font-semibold text-gray-900 dark:text-gray-100">{nextEta}</div>
-                  </div>
-                  <div className="pp-card p-3">
-                    <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Stops</div>
-                    <div className="font-semibold text-gray-900 dark:text-gray-100">{deliveries.length}</div>
-                  </div>
-                  <div className="pp-card p-3">
-                    <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Route Legs</div>
-                    <div className="font-semibold text-gray-900 dark:text-gray-100">{routeStats?.legs?.length || 0}</div>
-                  </div>
-                  <div className="pp-card p-3">
-                    <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Route Status</div>
-                    <div className="font-semibold text-gray-900 dark:text-gray-100">
-                      {isRouteLoading ? 'Routing...' : routeError ? routeError : hasRoute ? 'Updated' : 'No route'}
+              {(() => {
+                const p1 = storeDeliveries.filter(d => d.priority === 1).length;
+                const p2 = storeDeliveries.filter(d => d.priority === 2).length;
+                const p3 = storeDeliveries.filter(d => d.priority === 3).length;
+                const delayedCount = orderedDeliveries.filter(d => getEtaStatus(d) === 'delayed').length;
+                const routeStatusLabel = isRouteLoading
+                  ? 'Routing…'
+                  : routeError
+                    ? '⚠ Offline'
+                    : !hasRoute
+                      ? 'No route'
+                      : delayedCount > 0
+                        ? `⚠ ${delayedCount} Delayed`
+                        : '✓ On Track';
+                const routeStatusCls = isRouteLoading || !hasRoute
+                  ? 'text-gray-900 dark:text-gray-100'
+                  : routeError
+                    ? 'text-red-600 dark:text-red-400'
+                    : delayedCount > 0
+                      ? 'text-orange-600 dark:text-orange-400'
+                      : 'text-green-600 dark:text-green-400';
+                return (
+                  <div className="pp-card p-4 sm:p-5">
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Routing & ETA</h3>
+                    <div className="grid grid-cols-2 gap-2 sm:gap-3 text-sm">
+                      <div className="pp-card p-3">
+                        <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Next ETA</div>
+                        <div className="font-semibold text-gray-900 dark:text-gray-100">{nextEta}</div>
+                      </div>
+                      <div className="pp-card p-3">
+                        <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Priority Stops</div>
+                        <div className="font-semibold text-gray-900 dark:text-gray-100 text-xs sm:text-sm">
+                          {storeDeliveries.length === 0 ? '—' : (
+                            <span>
+                              {p1 > 0 && <span className="text-red-600 dark:text-red-400">P1:{p1} </span>}
+                              {p2 > 0 && <span className="text-orange-500 dark:text-orange-400">P2:{p2} </span>}
+                              {p3 > 0 && <span className="text-gray-600 dark:text-gray-300">P3:{p3}</span>}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="pp-card p-3">
+                        <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Total Stops</div>
+                        <div className="font-semibold text-gray-900 dark:text-gray-100">{deliveries.length}</div>
+                      </div>
+                      <div className="pp-card p-3">
+                        <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Route Status</div>
+                        <div className={`font-semibold ${routeStatusCls}`}>
+                          {routeStatusLabel}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
+                );
+              })()}
 
               <div className="pp-card p-4 sm:p-5">
                 <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Live Coordinate & Speed</h3>

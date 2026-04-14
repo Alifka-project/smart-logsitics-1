@@ -125,7 +125,7 @@ const NEXT_STEP_CONFIG: Partial<Record<DeliveryStatus | 'terminal_delivered' | '
   out_for_delivery: {
     label: 'Out for Delivery',icon: '🚚',
     cls: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800/40',
-    gmd: { label: 'GMD Updated', cls: 'bg-green-50 text-green-600 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800/40' },
+    gmd: { label: 'Waiting for POD', cls: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800/40' },
   },
   rescheduled: {
     label: 'Next Shipment',   icon: '🔄',
