@@ -225,7 +225,7 @@ async function sendD7WhatsAppTemplate(
 }
 
 /** Matches Electrolux SMS/portal copy (customerMessageTemplates). */
-const DEFAULT_ASSISTANCE_PHONE = '+971524408687';
+const DEFAULT_ASSISTANCE_PHONE = '+971581046674';
 
 export interface WhatsAppDeliveryConfirmationParts {
   /** Full SMS-equivalent body if template is not used */

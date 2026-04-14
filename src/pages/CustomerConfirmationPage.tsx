@@ -240,7 +240,7 @@ export default function CustomerConfirmationPage() {
         <p style={{ fontSize: 14, color: '#64748b', marginBottom: 20 }}>{error}</p>
         <p style={{ fontSize: 13, color: '#64748b' }}>
           Call us:{' '}
-          <a href="tel:+971524408687" style={{ color: '#003057', fontWeight: 700 }}>+971 52 440 8687</a>
+          <a href="tel:+971581046674" style={{ color: '#003057', fontWeight: 700 }}>+971 58 104 6674</a>
         </p>
       </div>
     </div>
@@ -412,7 +412,7 @@ export default function CustomerConfirmationPage() {
                   <div style={{ padding: 18 }}>
                     <p style={{ fontSize: 14, color: '#b45309', lineHeight: 1.6, margin: 0 }}>
                       This order is too large to schedule online. Please call the Electrolux Delivery Team at{' '}
-                      <a href="tel:+971524408687" style={{ color: '#003057', fontWeight: 700 }}>+971 52 440 8687</a>
+                      <a href="tel:+971581046674" style={{ color: '#003057', fontWeight: 700 }}>+971 58 104 6674</a>
                       {' '}to schedule this shipment.
                     </p>
                   </div>
@@ -423,7 +423,7 @@ export default function CustomerConfirmationPage() {
                     </p>
                     <p style={{ fontSize: 13, color: '#64748b', lineHeight: 1.6, margin: 0 }}>
                       Please contact us at{' '}
-                      <a href="tel:+971524408687" style={{ color: '#003057', fontWeight: 700 }}>+971 52 440 8687</a>
+                      <a href="tel:+971581046674" style={{ color: '#003057', fontWeight: 700 }}>+971 58 104 6674</a>
                       {' '}to arrange delivery.
                     </p>
                   </div>
@@ -531,7 +531,7 @@ export default function CustomerConfirmationPage() {
         <div style={{ textAlign: 'center', paddingTop: 16, paddingBottom: 8 }}>
           <p style={{ fontSize: 13, color: '#64748b' }}>
             Need help?{' '}
-            <a href="tel:+971524408687" style={{ color: '#003057', fontWeight: 700, textDecoration: 'none' }}>+971 52 440 8687</a>
+            <a href="tel:+971581046674" style={{ color: '#003057', fontWeight: 700, textDecoration: 'none' }}>+971 58 104 6674</a>
             {' '}· Electrolux Delivery Team
           </p>
           <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>electrolux-smart-portal.vercel.app</p>

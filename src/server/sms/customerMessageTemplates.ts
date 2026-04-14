@@ -16,7 +16,7 @@ Your Electrolux order ${poRef} is ready for delivery.
 Please confirm your preferred delivery date using the link below:
 ${confirmationLink}
 
-For assistance, please contact the Electrolux Delivery Team at +971524408687.
+For assistance, please contact the Electrolux Delivery Team at +971581046674.
 
 Thank you,
 Electrolux Delivery Team`;
@@ -41,7 +41,7 @@ export function outForDeliveryMessage(
 
 Your Electrolux order ${poRef} is out for delivery today.
 ${trackingLink ? `\nTrack your delivery in real time:\n${trackingLink}\n` : ''}
-For assistance, please contact the Electrolux Delivery Team at +971524408687.
+For assistance, please contact the Electrolux Delivery Team at +971581046674.
 
 Thank you,
 Electrolux Delivery Team`;
@@ -58,7 +58,7 @@ We regret to inform you that your Electrolux delivery ${poRef} has been delayed 
 
 Our delivery team will contact you shortly to arrange a new delivery date at your convenience.
 ${trackingLink ? `\nYou can also view your order status at:\n${trackingLink}\n` : ''}
-We apologise for any inconvenience. For assistance, please contact us at +971524408687.
+We apologise for any inconvenience. For assistance, please contact us at +971581046674.
 
 Thank you for your patience,
 Electrolux Delivery Team`;
@@ -86,7 +86,7 @@ We regret to inform you that your Electrolux order ${poRef} has been rescheduled
 New delivery date: ${formattedDate}
 Reason: ${reasonText}
 ${trackingLink ? `\nTrack your delivery:\n${trackingLink}\n` : ''}
-For assistance, please contact the Electrolux Delivery Team at +971524408687.
+For assistance, please contact the Electrolux Delivery Team at +971581046674.
 
 Thank you for your understanding,
 Electrolux Delivery Team`;
