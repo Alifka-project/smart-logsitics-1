@@ -60,13 +60,13 @@ export function addDubaiCalendarDays(isoDate: string, deltaDays: number): string
 }
 
 /**
- * Next 7 eligible delivery days: skip Sundays and UAE public holidays.
+ * Next N eligible delivery days: skip Sundays and UAE public holidays.
  * Starts from tomorrow (Dubai timezone).
  */
-export function getNextSevenEligibleDayIsoStrings(): string[] {
+export function getNextNEligibleDayIsoStrings(n: number): string[] {
   const out: string[] = [];
   let cursor = addDubaiCalendarDays(getDubaiTodayIso(), 1);
-  while (out.length < 7) {
+  while (out.length < n) {
     const wd = getDubaiWeekday(cursor);
     if (wd !== 0 && !isDubaiPublicHoliday(cursor)) {
       out.push(cursor);
@@ -74,6 +74,13 @@ export function getNextSevenEligibleDayIsoStrings(): string[] {
     cursor = addDubaiCalendarDays(cursor, 1);
   }
   return out;
+}
+
+/**
+ * Next 7 eligible delivery days (backwards-compat alias).
+ */
+export function getNextSevenEligibleDayIsoStrings(): string[] {
+  return getNextNEligibleDayIsoStrings(7);
 }
 
 function num(v: unknown): number {
@@ -374,7 +381,7 @@ export async function assertSlotAvailable(
       `This order (${orderItemCount} units) exceeds the maximum truck load of ${TRUCK_MAX_ITEMS_PER_DAY} units per truck. Please contact support.`
     );
   }
-  const allowed = getNextSevenEligibleDayIsoStrings();
+  const allowed = getNextNEligibleDayIsoStrings(14);
   if (!allowed.includes(isoDate)) {
     throw new Error('Selected date is outside the allowed delivery window.');
   }

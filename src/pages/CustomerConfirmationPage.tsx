@@ -388,7 +388,7 @@ export default function CustomerConfirmationPage() {
                     {(delivery.confirmedDeliveryDate || delivery.confirmedDate) && (
                       <p style={{ fontSize: 13, color: '#16A34A', marginTop: 4 }}>
                         Scheduled for{' '}
-                        <strong>{new Date((delivery.confirmedDeliveryDate || delivery.confirmedDate)!).toLocaleDateString('en-AE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</strong>
+                        <strong>{new Date((delivery.confirmedDeliveryDate || delivery.confirmedDate)!).toLocaleDateString('en-AE', { timeZone: 'Asia/Dubai', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</strong>
                       </p>
                     )}
                     <button

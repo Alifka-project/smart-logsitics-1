@@ -210,6 +210,30 @@ router.get('/tracking/:token', async (req: Request, res: Response): Promise<void
       details: event.payload
     }));
 
+    // Compute live ETA from driver's current GPS location to delivery address
+    const deliveryRaw = tracking.delivery as Record<string, unknown>;
+    let liveEta: string | null = null;
+    const isOnRoute = ['out-for-delivery', 'out_for_delivery'].includes(tracking.delivery.status);
+    if (
+      isOnRoute &&
+      tracking.tracking.driverLocation &&
+      typeof deliveryRaw.lat === 'number' &&
+      typeof deliveryRaw.lng === 'number'
+    ) {
+      try {
+        const dLoc = tracking.tracking.driverLocation;
+        const route = await fetchDrivingRouteBetweenPoints(
+          { lat: dLoc.latitude, lng: dLoc.longitude },
+          { lat: deliveryRaw.lat as number, lng: deliveryRaw.lng as number },
+        );
+        if (route?.durationS) {
+          liveEta = new Date(Date.now() + route.durationS * 1000).toISOString();
+        }
+      } catch {
+        // fall back to static eta
+      }
+    }
+
     return void res.json({
       ok: true,
       delivery: {
@@ -218,7 +242,7 @@ router.get('/tracking/:token', async (req: Request, res: Response): Promise<void
       },
       tracking: {
         status: tracking.delivery.status,
-        eta: tracking.tracking.eta,
+        eta: liveEta ?? tracking.tracking.eta,
         driver: tracking.tracking.assignment?.driver ? {
           name: (tracking.tracking.assignment.driver as { fullName?: string }).fullName,
           phone: (tracking.tracking.assignment.driver as { phone?: string }).phone

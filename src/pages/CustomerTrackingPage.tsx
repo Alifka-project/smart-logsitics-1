@@ -523,7 +523,7 @@ export default function CustomerTrackingPage() {
               {delivery.confirmedDeliveryDate && (
                 <p style={{ fontSize: 13, color: '#78350F', marginBottom: 4 }}>
                   <strong>New delivery date: </strong>
-                  {new Date(delivery.confirmedDeliveryDate).toLocaleDateString('en-AE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                  {new Date(delivery.confirmedDeliveryDate).toLocaleDateString('en-AE', { timeZone: 'Asia/Dubai', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                 </p>
               )}
               {delivery.rescheduleReason && (
@@ -595,7 +595,7 @@ export default function CustomerTrackingPage() {
                     )}
                     {ts && (
                       <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
-                        {new Date(ts as string).toLocaleString('en-AE', { dateStyle: 'medium', timeStyle: 'short' })}
+                        {new Date(ts as string).toLocaleString('en-AE', { timeZone: 'Asia/Dubai', dateStyle: 'medium', timeStyle: 'short' })}
                       </p>
                     )}
                   </div>
@@ -607,6 +607,22 @@ export default function CustomerTrackingPage() {
 
         {/* ── Delivery Date + Driver (compact) ─────────────────────── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 12 }}>
+          {trackingInfo.eta && (delivery.status === 'out_for_delivery' || delivery.status === 'out-for-delivery') && (
+            <div className="card anim-card anim-card-3" style={{ padding: '10px 12px', border: '1.5px solid #BBF7D0', background: 'linear-gradient(135deg,#F0FDF4,#DCFCE7)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: '#DCFCE7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Navigation style={{ width: 14, height: 14, color: '#16A34A' }} />
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ fontSize: 9, fontWeight: 700, color: '#15803D', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Estimated Arrival</p>
+                  <p style={{ fontWeight: 700, fontSize: 12, color: '#14532D', lineHeight: 1.25 }}>
+                    {new Date(trackingInfo.eta as string).toLocaleTimeString('en-AE', { timeZone: 'Asia/Dubai', hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                  <p style={{ fontSize: 10, color: '#15803D', marginTop: 1 }}>Driver is on the way</p>
+                </div>
+              </div>
+            </div>
+          )}
           {delivery.confirmedDeliveryDate && (
             <div className="card anim-card anim-card-3" style={{ padding: '10px 12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -616,7 +632,7 @@ export default function CustomerTrackingPage() {
                 <div style={{ minWidth: 0 }}>
                   <p style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Delivery date</p>
                   <p style={{ fontWeight: 700, fontSize: 12, color: '#1e293b', lineHeight: 1.25 }}>
-                    {new Date(delivery.confirmedDeliveryDate).toLocaleDateString('en-AE', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                    {new Date(delivery.confirmedDeliveryDate).toLocaleDateString('en-AE', { timeZone: 'Asia/Dubai', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
                   </p>
                 </div>
               </div>
