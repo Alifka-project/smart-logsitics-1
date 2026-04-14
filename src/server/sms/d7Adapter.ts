@@ -54,13 +54,16 @@ class D7Adapter extends SmsAdapter {
     }
     const finalTo = normalizedTo || to;
 
-    // Use OTP route for UAE (+971) — bypasses carrier rejection of unregistered senders.
-    // For non-UAE numbers, fall back to regular SMS API.
-    const isUAE = finalTo.startsWith('+971');
-    if (isUAE) {
-      return this._sendViaOtp(finalTo, body);
-    }
+    // Use regular SMS route for all numbers (UAE and international).
+    // The OTP route was previously used for UAE (+971) as a carrier bypass workaround,
+    // but D7's OTP API only accepts short auth codes — long delivery messages are rejected.
+    // The registered Electrolux originator handles UAE delivery via the standard route.
     return this._sendViaSms(finalTo, body);
+
+    // ── OTP route (kept for reference — do not use for delivery messages) ──────
+    // const isUAE = finalTo.startsWith('+971');
+    // if (isUAE) return this._sendViaOtp(finalTo, body);
+    // ─────────────────────────────────────────────────────────────────────────
   }
 
   // ── OTP route (UAE) ────────────────────────────────────────────────────────
