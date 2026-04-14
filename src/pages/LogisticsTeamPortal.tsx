@@ -160,6 +160,7 @@ export default function LogisticsTeamPortal() {
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
   const [attachmentPreview, setAttachmentPreview] = useState<{ url: string; type: string; name: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [contactSearch, setContactSearch] = useState<string>('');
   const [messageTemplates] = useState<string[]>([
     'Please update delivery status',
     'New delivery assigned',
@@ -1518,6 +1519,8 @@ export default function LogisticsTeamPortal() {
                 <input
                   type="text"
                   placeholder="Search contacts…"
+                  value={contactSearch}
+                  onChange={(e) => setContactSearch(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 text-sm rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 border-0 focus:ring-2 focus:ring-blue-500 outline-none"
                 />
               </div>
@@ -1526,12 +1529,12 @@ export default function LogisticsTeamPortal() {
             {/* Contact list */}
             <div className="flex-1 overflow-y-auto">
               {/* Team Members Section */}
-              {teamMembers.length > 0 && (
+              {teamMembers.filter(m => !contactSearch || (m.fullName || m.username || '').toLowerCase().includes(contactSearch.toLowerCase())).length > 0 && (
                 <>
                   <div className="px-4 pt-3 pb-1">
                     <span className="text-[10px] font-bold tracking-widest text-gray-400 dark:text-gray-500 uppercase">Team</span>
                   </div>
-                  {teamMembers.map(member => {
+                  {teamMembers.filter(m => !contactSearch || (m.fullName || m.username || '').toLowerCase().includes(contactSearch.toLowerCase())).map(member => {
                     const isOnline = isContactOnline(member);
                     const isSelected = selectedContact?.id === member.id;
                     const unreadCount = unreadByDriverId[member.id] || 0;
@@ -1584,12 +1587,12 @@ export default function LogisticsTeamPortal() {
               )}
 
               {/* Drivers Section */}
-              {drivers.length > 0 && (
+              {drivers.filter(d => !contactSearch || (d.fullName || d.username || '').toLowerCase().includes(contactSearch.toLowerCase())).length > 0 && (
                 <>
                   <div className="px-4 pt-3 pb-1">
                     <span className="text-[10px] font-bold tracking-widest text-gray-400 dark:text-gray-500 uppercase">Drivers</span>
                   </div>
-                  {drivers.map(driver => {
+                  {drivers.filter(d => !contactSearch || (d.fullName || d.username || '').toLowerCase().includes(contactSearch.toLowerCase())).map(driver => {
                     const isOnline = isContactOnline(driver);
                     const isSelected = selectedContact?.id === driver.id;
                     const unreadCount = unreadByDriverId[driver.id] || 0;
@@ -1631,10 +1634,16 @@ export default function LogisticsTeamPortal() {
                 </>
               )}
 
-              {contacts.length === 0 && (
+              {drivers.length === 0 && teamMembers.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-40 text-gray-400 dark:text-gray-500 text-sm gap-2 px-4 text-center">
                   <MessageSquare className="w-8 h-8 opacity-40" />
                   No contacts available
+                </div>
+              )}
+              {(drivers.length > 0 || teamMembers.length > 0) && contactSearch && drivers.filter(d => (d.fullName || d.username || '').toLowerCase().includes(contactSearch.toLowerCase())).length === 0 && teamMembers.filter(m => (m.fullName || m.username || '').toLowerCase().includes(contactSearch.toLowerCase())).length === 0 && (
+                <div className="flex flex-col items-center justify-center h-40 text-gray-400 dark:text-gray-500 text-sm gap-2 px-4 text-center">
+                  <Search className="w-8 h-8 opacity-40" />
+                  No contacts match "{contactSearch}"
                 </div>
               )}
             </div>
@@ -1724,21 +1733,10 @@ export default function LogisticsTeamPortal() {
                     messages.map(msg => {
                       const currentUser = getCurrentUser() as (AuthUser & { account?: { role?: string } }) | null;
                       const currentUserId = currentUser?.sub;
-                      const currentUserRole = currentUser?.account?.role || currentUser?.role;
-                      const msgAdminId = String(msg.adminId);
-                      const userId = String(currentUserId);
-                      const isSentByAdminId = msgAdminId === userId;
-                      const isSentByRole = msg.senderRole === currentUserRole;
-                      const isSent = currentUserRole === 'delivery_team' ? isSentByRole : isSentByAdminId;
-
-                      if (messages.indexOf(msg) === 0) {
-                        console.log('[DeliveryTeam Message Debug]', {
-                          messageId: msg.id, adminId: msg.adminId, driverId: msg.driverId,
-                          senderRole: msg.senderRole, currentUserId, currentUserRole,
-                          isSentByAdminId, isSentByRole, isSent,
-                          content: msg.content?.substring(0, 20)
-                        });
-                      }
+                      // A message is "sent by me" when:
+                      // 1. My ID matches adminId (staff side of conversation), AND
+                      // 2. The sender is not a driver (driver messages also store adminId = the staff they messaged)
+                      const isSent = String(msg.adminId) === String(currentUserId) && msg.senderRole !== 'driver';
 
                       return (
                         <div key={msg.id} className={`chat-message-enter flex items-end gap-2 ${isSent ? 'justify-end' : 'justify-start'}`}>
