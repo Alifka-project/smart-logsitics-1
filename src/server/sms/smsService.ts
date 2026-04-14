@@ -8,8 +8,9 @@ import crypto from 'crypto';
 import prisma from '../db/prisma';
 import { normalizeUAEPhone } from '../utils/phoneUtils';
 import { SmsSendOptions, SmsSendResult } from './adapter';
-import { buildWhatsAppLink } from './waLink';
-import { sendWhatsAppDeliveryConfirmation, isWhatsAppConfigured } from './whatsappApiAdapter';
+// WhatsApp imports — kept for easy re-enable; inactive while SMS (D7) is the active channel
+// import { buildWhatsAppLink } from './waLink';
+// import { sendWhatsAppDeliveryConfirmation, isWhatsAppConfigured } from './whatsappApiAdapter';
 import {
   confirmationRequestMessage,
   thankYouAfterConfirmationMessage,
@@ -110,40 +111,27 @@ async function sendConfirmationSms(
     const poRef = poNumber ? `#${poNumber}` : '';
     const smsMessage = confirmationRequestMessage(customerName, poRef, confirmationLink);
 
-    // ── SMS API TEMPORARILY DISABLED — D7 provider compliance pending ──────────
-    // Re-enable once D7 approval is granted:
-    // const smsResult = await smsAdapter!.sendSms({
-    //   to: finalPhone, body: smsMessage,
-    //   metadata: { deliveryId, type: 'confirmation_request' }
-    // });
-    // ── WhatsApp silent background send (no popup, no button) ────────────────
-    let smsResult: SmsSendResult;
-    let whatsappUrl: string | undefined;
-    if (isWhatsAppConfigured()) {
-      const waResult = await sendWhatsAppDeliveryConfirmation(finalPhone, {
-        fullTextBody: smsMessage,
-        customerName,
-        poRef,
-        confirmationLink
-      });
-      if (!waResult.ok) {
-        const detail = waResult.error || 'unknown_error';
-        console.error(`[SMS→WhatsApp] Send failed for ${finalPhone}:`, detail);
-        throw new Error(
-          `WhatsApp confirmation failed: ${detail}. Check server logs, D7/Meta template (D7_WHATSAPP_CONFIRMATION_TEMPLATE), and D7_WHATSAPP_NUMBER.`,
-        );
-      }
-      smsResult = {
-        messageId: waResult.messageId || `wa-${Date.now()}`,
-        status: 'sent',
-      };
-      console.log(`[SMS→WhatsApp] Silent send to ${finalPhone}: ok (provider=${waResult.provider || 'unknown'})`);
-    } else {
-      // Fallback: wa.me deep-link (requires manual send — use until API creds are set)
-      whatsappUrl = buildWhatsAppLink(finalPhone, smsMessage);
-      smsResult = { messageId: `wa-link-${Date.now()}`, status: 'whatsapp_link_generated' };
-      console.log('[SMS→WhatsApp] No API creds — deep-link fallback for', finalPhone);
-    }
+    // ── SMS via D7 Networks ───────────────────────────────────────────────────
+    const smsResult = await smsAdapter!.sendSms({
+      to: finalPhone, body: smsMessage,
+      metadata: { deliveryId, type: 'confirmation_request' }
+    });
+    const whatsappUrl: string | undefined = undefined; // wa.me fallback not needed while SMS is active
+    // ── WhatsApp path (kept for reference — temporarily disabled) ─────────────
+    // let smsResult: SmsSendResult;
+    // let whatsappUrl: string | undefined;
+    // if (isWhatsAppConfigured()) {
+    //   const waResult = await sendWhatsAppDeliveryConfirmation(finalPhone, {
+    //     fullTextBody: smsMessage, customerName, poRef, confirmationLink
+    //   });
+    //   if (!waResult.ok) {
+    //     throw new Error(`WhatsApp confirmation failed: ${waResult.error || 'unknown_error'}`);
+    //   }
+    //   smsResult = { messageId: waResult.messageId || `wa-${Date.now()}`, status: 'sent' };
+    // } else {
+    //   whatsappUrl = buildWhatsAppLink(finalPhone, smsMessage);
+    //   smsResult = { messageId: `wa-link-${Date.now()}`, status: 'whatsapp_link_generated' };
+    // }
     // ──────────────────────────────────────────────────────────────────────────
 
     // Update delivery with token + mark as scheduled
@@ -170,14 +158,14 @@ async function sendConfirmationSms(
         deliveryId,
         phoneNumber: finalPhone,
         messageContent: smsMessage,
-        smsProvider: isWhatsAppConfigured() ? 'whatsapp-api' : process.env.SMS_PROVIDER || 'd7',
+        smsProvider: process.env.SMS_PROVIDER || 'd7',
         externalMessageId: smsResult.messageId,
         status: smsResult.status || 'sent',
         sentAt: new Date(),
         metadata: {
           type: 'confirmation_request',
           tokenExpiry: expiresAt.toISOString(),
-          channel: isWhatsAppConfigured() ? 'whatsapp' : 'whatsapp_link_fallback',
+          channel: 'sms',
         }
       }
     });
@@ -346,31 +334,30 @@ async function confirmDelivery(token: string, deliveryDateInput: Date | string):
         // Same text as legacy SMS thank-you; optional tracking URL on next line (SMS would include when sent)
         const confirmationMessage = thankYouAfterConfirmationMessage(iso, trackingLink);
 
-        // ── SMS API TEMPORARILY DISABLED — D7 provider compliance pending ────
-        // Re-enable by restoring the smsAdapter.sendSms call below.
-        // await smsAdapter!.sendSms({
-        //   to: delivery.phone as string,
-        //   body: confirmationMessage,
-        //   metadata: { deliveryId, type: 'confirmation_received' }
-        // });
-        // ── WhatsApp silent background send ─────────────────────────────────
+        // ── SMS thank-you via D7 ─────────────────────────────────────────────
         const normalizedPhone = normalizeUAEPhone(delivery.phone as string) || (delivery.phone as string);
-        // No approved thank-you template yet — wa.me fallback only.
-        // Once D7_WHATSAPP_CONFIRMED_TEMPLATE is approved, wire it in here.
-        thankYouWhatsappUrl = buildWhatsAppLink(normalizedPhone, confirmationMessage);
-        const thankYouStatus = 'whatsapp_link_generated';
-        const thankYouProvider = 'whatsapp-link';
-        console.log('[SMS→WhatsApp] Thank-you wa.me fallback for', normalizedPhone, '(no confirmed template yet)');
+        const thankYouSmsResult = await smsAdapter!.sendSms({
+          to: normalizedPhone,
+          body: confirmationMessage,
+          metadata: { deliveryId, type: 'confirmation_received' }
+        });
+        console.log(`[SMS] Thank-you SMS sent to ${normalizedPhone}, id: ${thankYouSmsResult.messageId}`);
+        // ── WhatsApp thank-you path (kept for reference — temporarily disabled) ──
+        // thankYouWhatsappUrl = buildWhatsAppLink(normalizedPhone, confirmationMessage);
+        // const thankYouStatus = 'whatsapp_link_generated';
+        // const thankYouProvider = 'whatsapp-link';
+        // ────────────────────────────────────────────────────────────────────────
 
         await (prisma as any).smsLog.create({
           data: {
             deliveryId,
-            phoneNumber: delivery.phone as string,
+            phoneNumber: normalizedPhone,
             messageContent: confirmationMessage,
-            smsProvider: thankYouProvider,
-            status: thankYouStatus,
+            smsProvider: process.env.SMS_PROVIDER || 'd7',
+            externalMessageId: thankYouSmsResult.messageId,
+            status: thankYouSmsResult.status || 'sent',
             sentAt: new Date(),
-            metadata: { type: 'confirmation_received', whatsappUrl: thankYouWhatsappUrl }
+            metadata: { type: 'confirmation_received', channel: 'sms' }
           }
         });
       } catch (smsErr: unknown) {
@@ -433,18 +420,15 @@ async function sendRescheduleSms(
       trackingLink
     );
 
-    // ── SMS API TEMPORARILY DISABLED — D7 provider compliance pending ──────────
-    // Re-enable by removing comment wrapper once approval is granted.
-    // const smsResult = await smsAdapter!.sendSms({
-    //   to: normalizedPhone, body: smsMessage,
-    //   metadata: { deliveryId, type: 'admin_reschedule_notification' }
-    // });
-    // ── WhatsApp silent background send ──────────────────────────────────────
-    // No approved reschedule template yet — wa.me fallback only.
-    // Once D7_WHATSAPP_RESCHEDULED_TEMPLATE is approved, wire it in here.
-    const whatsappUrl = buildWhatsAppLink(normalizedPhone, smsMessage);
-    const smsResult: SmsSendResult = { messageId: `wa-link-${Date.now()}`, status: 'whatsapp_link_generated' };
-    console.log('[SMS→WhatsApp] Reschedule wa.me fallback for', normalizedPhone, '(no rescheduled template yet)');
+    // ── Reschedule SMS via D7 ────────────────────────────────────────────────
+    const smsResult = await smsAdapter!.sendSms({
+      to: normalizedPhone, body: smsMessage,
+      metadata: { deliveryId, type: 'admin_reschedule_notification' }
+    });
+    console.log(`[SMS] Reschedule SMS sent to ${normalizedPhone}, id: ${smsResult.messageId}`);
+    // ── WhatsApp reschedule path (kept for reference — temporarily disabled) ──
+    // const whatsappUrl = buildWhatsAppLink(normalizedPhone, smsMessage);
+    // const smsResult: SmsSendResult = { messageId: `wa-link-${Date.now()}`, status: 'whatsapp_link_generated' };
     // ──────────────────────────────────────────────────────────────────────────
 
     await (prisma as any).smsLog.create({
@@ -452,15 +436,15 @@ async function sendRescheduleSms(
         deliveryId,
         phoneNumber: normalizedPhone,
         messageContent: smsMessage,
-        smsProvider: isWhatsAppConfigured() ? 'whatsapp-api' : 'whatsapp-link',
+        smsProvider: process.env.SMS_PROVIDER || 'd7',
         externalMessageId: smsResult.messageId,
         status: smsResult.status || 'sent',
         sentAt: new Date(),
-        metadata: { type: 'admin_reschedule_notification', newDeliveryDate: newDeliveryDate.toISOString(), reason: reasonText, whatsappUrl }
+        metadata: { type: 'admin_reschedule_notification', newDeliveryDate: newDeliveryDate.toISOString(), reason: reasonText, channel: 'sms' }
       }
     });
 
-    return { ok: true, messageId: smsResult.messageId, whatsappUrl } as { ok: boolean; messageId?: string; whatsappUrl?: string };
+    return { ok: true, messageId: smsResult.messageId } as { ok: boolean; messageId?: string };
   } catch (error: unknown) {
     const e = error as Error;
     console.error('[SMS] Failed to send reschedule SMS:', e.message);
