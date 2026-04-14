@@ -1101,36 +1101,40 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team', 'l
 
         const normalizedPhone = normalizePhone((d.phone as string)) || (d.phone as string);
         let sent = false;
-        let sendStatus = 'whatsapp_link_generated';
-        let fallbackWaUrl: string | undefined;
+        let sendStatus = 'sent';
 
-        if (isWhatsAppConfigured()) {
-          const waRes = await sendWhatsAppDeliveryConfirmation(normalizedPhone, {
-            fullTextBody: msgBody,
-            customerName,
-            poRef,
-            confirmationLink
+        // ── SMS via D7 Networks ─────────────────────────────────────────────
+        try {
+          const smsSendResult = await (smsUploadService.smsAdapter as { sendSms: (opts: { to: string; body: string; metadata: Record<string, unknown> }) => Promise<{ messageId?: string; status?: string }> }).sendSms({
+            to: normalizedPhone, body: msgBody,
+            metadata: { deliveryId: d.id, type: 'confirmation_request' }
           });
-          sent = waRes.ok;
-          sendStatus = waRes.ok ? 'sent' : 'whatsapp_link_generated_after_api_failure';
-          if (!waRes.ok) {
-            fallbackWaUrl = buildWhatsAppLink(normalizedPhone, msgBody);
-          }
-          console.log(`[WhatsApp] Confirmation silent send for ${d.id} to ${normalizedPhone}:`, waRes.ok ? 'ok' : waRes.error);
-        } else {
-          fallbackWaUrl = buildWhatsAppLink(normalizedPhone, msgBody);
-          console.log(`[WhatsApp] No API creds — confirmation fallback link for ${d.id}`);
+          sent = true;
+          sendStatus = smsSendResult?.status || 'sent';
+          console.log(`[SMS] Auto-confirmation sent for ${d.id} to ${normalizedPhone}: ok`);
+        } catch (smsErr: unknown) {
+          console.warn(`[SMS] Auto-confirmation failed for ${d.id}:`, (smsErr as Error).message);
+          sendStatus = 'sms_failed';
         }
+        // ── WhatsApp path (kept for reference — temporarily disabled) ─────────
+        // if (isWhatsAppConfigured()) {
+        //   const waRes = await sendWhatsAppDeliveryConfirmation(normalizedPhone, {
+        //     fullTextBody: msgBody, customerName, poRef, confirmationLink
+        //   });
+        //   sent = waRes.ok; sendStatus = waRes.ok ? 'sent' : 'whatsapp_link_generated_after_api_failure';
+        //   if (!waRes.ok) fallbackWaUrl = buildWhatsAppLink(normalizedPhone, msgBody);
+        // } else { fallbackWaUrl = buildWhatsAppLink(normalizedPhone, msgBody); }
+        // ─────────────────────────────────────────────────────────────────────
 
         await prisma.smsLog.create({
           data: {
             deliveryId: d.id,
             phoneNumber: (d.phone as string),
             messageContent: msgBody,
-            smsProvider: isWhatsAppConfigured() ? 'whatsapp-api' : 'whatsapp-link',
+            smsProvider: process.env.SMS_PROVIDER || 'd7',
             status: sendStatus,
             sentAt: new Date(),
-            metadata: { type: 'confirmation_request', triggeredBy: (d as { isNew: boolean }).isNew ? 'auto_upload' : 'resend_on_reupload' }
+            metadata: { type: 'confirmation_request', triggeredBy: (d as { isNew: boolean }).isNew ? 'auto_upload' : 'resend_on_reupload', channel: 'sms' }
           }
         }).catch(() => { /* non-critical */ });
 
@@ -1139,7 +1143,7 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team', 'l
           customerName,
           phone: normalizedPhone,
           confirmationLink,
-          whatsappUrl: fallbackWaUrl || '',
+          whatsappUrl: '',
           sent
         };
       } catch (autoErr: unknown) {
@@ -1605,140 +1609,43 @@ router.post('/:id/send-sms', authenticate, requireAnyRole('admin', 'delivery_tea
       return void res.status(400).json({ error: 'no_phone', message: 'Delivery has no phone number' });
     }
 
-    // Generate token and message body before attempting send.
-    // DB is only updated AFTER a successful send so status never reflects
-    // a message the customer did not receive.
+    // ── Send confirmation SMS via smsService (D7 Networks) ──────────────────
     const smsService = require('../sms/smsService');
-    const token = smsService.generateConfirmationToken() as string;
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const result = await (smsService.sendConfirmationSms as (id: string, phone: string) => Promise<{ ok: boolean; token: string; messageId: string; phoneNumber: string; expiresAt: string; }>)(delivery.id as string, normalizedPhone);
     const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
-    const confirmationLink = `${frontendUrl}/confirm-delivery/${token}`;
-    const customerName = (delivery.customer as string) || 'Valued Customer';
-    const poRef = delivery.poNumber ? `#${delivery.poNumber}` : '';
-    const smsBody = confirmationRequestMessage(customerName, poRef, confirmationLink);
+    const confirmationLink = `${frontendUrl}/confirm-delivery/${result.token}`;
 
-    // ── 1. Prepare channel info ──────────────────────────────────────────────
-    const isUAE = normalizedPhone.startsWith('+971');
-    let sent = false;
-    let messageId: string | null = null;
-    let d7Status: string | null = null;
-    const channel = 'whatsapp'; // always whatsapp during compliance-pending period
-
-    // ── SMS / WhatsApp API TEMPORARILY DISABLED ──────────────────────────────
-    // D7 provider compliance approval is pending. All outbound API calls are
-    // commented out below. Once approved, restore the block inside the try/catch
-    // and remove the wa.me fallback.
-    //
-    // ORIGINAL SEND CODE (DO NOT DELETE):
-    // try {
-    //   if (isUAE) {
-    //     const WhatsAppAdapter = require('../sms/whatsappAdapter');
-    //     const waAdapter = new WhatsAppAdapter(process.env);
-    //     const result = await waAdapter.sendMessage({ to: normalizedPhone, body: smsBody });
-    //     messageId = result.messageId || null;
-    //     d7Status = result.status || null;
-    //     sent = true;
-    //     console.log('[WhatsApp] Sent to', normalizedPhone, 'MID:', messageId);
+    // ── WhatsApp path (kept for reference — temporarily disabled) ─────────────
+    // const token = smsService.generateConfirmationToken() as string;
+    // const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    // const customerName = (delivery.customer as string) || 'Valued Customer';
+    // const poRef = delivery.poNumber ? `#${delivery.poNumber}` : '';
+    // const smsBody = confirmationRequestMessage(customerName, poRef, confirmationLink);
+    // const isUAE = normalizedPhone.startsWith('+971');
+    // let whatsappUrl: string | undefined;
+    // if (isWhatsAppConfigured()) {
+    //   const waRes = await sendWhatsAppDeliveryConfirmation(normalizedPhone, {
+    //     fullTextBody: smsBody, customerName, poRef, confirmationLink
+    //   });
+    //   if (waRes.ok) {
+    //     // sent via WhatsApp API silently
     //   } else {
-    //     const smsResult = await smsService.smsAdapter.sendSms({
-    //       to: normalizedPhone, body: smsBody,
-    //       metadata: { deliveryId: delivery.id, type: 'confirmation_request' }
-    //     });
-    //     messageId = smsResult.messageId || null;
-    //     d7Status = smsResult.status || null;
-    //     sent = true;
-    //     console.log('[SMS] Sent to', normalizedPhone, 'MID:', messageId);
+    //     whatsappUrl = buildWhatsAppLink(normalizedPhone, smsBody);
     //   }
-    // } catch (sendErr) { ... }
+    // } else {
+    //   whatsappUrl = buildWhatsAppLink(normalizedPhone, smsBody);
+    // }
     // ──────────────────────────────────────────────────────────────────────────
 
-    // ── WhatsApp send (silent API if configured, deep-link fallback otherwise) ─
-    let whatsappUrl: string | undefined;
-    if (isWhatsAppConfigured()) {
-      const waRes = await sendWhatsAppDeliveryConfirmation(normalizedPhone, {
-        fullTextBody: smsBody,
-        customerName,
-        poRef,
-        confirmationLink
-      });
-      if (waRes.ok) {
-        messageId = waRes.messageId || `wa-${Date.now()}`;
-        d7Status = 'sent';
-        sent = true;
-        console.log('[WhatsApp] Silent send to', normalizedPhone, ': ok');
-      } else {
-        // Keep button behavior stable: if API rejects, still return a wa.me link so staff can send manually.
-        whatsappUrl = buildWhatsAppLink(normalizedPhone, smsBody);
-        messageId = `wa-link-${Date.now()}`;
-        d7Status = 'whatsapp_link_generated_after_api_failure';
-        sent = true;
-        console.warn('[WhatsApp] API failed, generated manual deep-link fallback for', normalizedPhone, 'reason:', waRes.error);
-      }
-    } else {
-      // Fallback: wa.me deep-link (staff must open + tap Send manually)
-      whatsappUrl = buildWhatsAppLink(normalizedPhone, smsBody);
-      messageId = `wa-link-${Date.now()}`;
-      d7Status = 'whatsapp_link_generated';
-      sent = true;
-      console.log('[WhatsApp] No API creds — deep-link fallback for', normalizedPhone);
-    }
-    // ──────────────────────────────────────────────────────────────────────────
-
-    if (!sent) {
-      return void res.status(500).json({
-        ok: false,
-        error: `${channel}_failed`,
-        message: 'Message delivery failed — check WhatsApp provider credentials and template setup'
-      });
-    }
-
-    // Persist token and mark delivery as 'scheduled'
-    await prisma.delivery.update({
-      where: { id: delivery.id },
-      data: {
-        confirmationToken: token,
-        tokenExpiresAt: expiresAt,
-        confirmationStatus: 'pending',
-        status: 'scheduled',
-      }
-    });
-    // Non-critical: track send timestamp (requires add_sms_sent_at migration on prod DB)
-    prisma.delivery.update({
-      where: { id: delivery.id },
-      data: { smsSentAt: new Date() }
-    }).catch((e: unknown) => {
-      console.warn('[SMS] smsSentAt update skipped (run add_sms_sent_at migration):', (e as Error).message);
-    });
-
-    await prisma.smsLog.create({
-      data: {
-        deliveryId: delivery.id,
-        phoneNumber: normalizedPhone,
-        messageContent: smsBody,
-        smsProvider: isWhatsAppConfigured() ? 'whatsapp-api' : 'whatsapp-link',
-        externalMessageId: messageId,
-        status: d7Status || 'sent',
-        sentAt: new Date(),
-        metadata: { type: 'confirmation_request', channel, tokenExpiry: expiresAt.toISOString(), isUAE, ...(whatsappUrl ? { whatsappUrl } : {}) }
-      }
-    }).catch((e: unknown) => console.error('[Log] SMS log error:', (e as { message?: string }).message));
-
-    // ── 3. Response ───────────────────────────────────────────────────────────
-    // Always build a wa.me fallback link so the client can open WhatsApp manually
-    // regardless of whether the silent API send succeeded.
-    const fallbackWaUrl = whatsappUrl ?? buildWhatsAppLink(normalizedPhone, smsBody);
     return void res.json({
       ok: true,
       smsSent: true,
-      deliveredVia: isWhatsAppConfigured() ? 'whatsapp-api' : 'whatsapp-link',
-      d7Status,
-      message: isWhatsAppConfigured()
-        ? 'WhatsApp confirmation sent silently — customer will receive the message'
-        : 'WhatsApp link ready — please open and tap Send to notify customer',
-      messageId,
-      expiresAt: expiresAt.toISOString(),
+      deliveredVia: 'sms',
+      d7Status: 'sent',
+      message: 'SMS confirmation sent to customer',
+      messageId: result.messageId,
+      expiresAt: result.expiresAt,
       confirmationLink,
-      whatsappUrl: fallbackWaUrl,
     });
   } catch (error: unknown) {
     const e = error as { message?: string };
