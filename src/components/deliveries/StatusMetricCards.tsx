@@ -15,8 +15,9 @@ const CARD_DEFS = [
   { key: 'uploaded',         sublabel: 'Awaiting action', darkIconBg: 'dark:bg-blue-500/30' },
   { key: 'sms_sent',         sublabel: 'Awaiting reply',  darkIconBg: 'dark:bg-emerald-500/30' },
   { key: 'unconfirmed',      sublabel: 'No reply',        darkIconBg: 'dark:bg-red-500/35' },
-  { key: 'next_shipment',    sublabel: 'Next available',  darkIconBg: 'dark:bg-amber-500/30' },
+  { key: 'next_shipment',     sublabel: 'Next available',  darkIconBg: 'dark:bg-amber-500/30' },
   { key: 'future_schedule',  sublabel: '3+ days out',     darkIconBg: 'dark:bg-indigo-500/30' },
+  { key: 'ready_to_dispatch',sublabel: 'GMD updated',     darkIconBg: 'dark:bg-teal-500/30' },
   { key: 'out_for_delivery', sublabel: 'Dispatched',      darkIconBg: 'dark:bg-orange-500/30' },
   { key: 'order_delay',      sublabel: 'Needs attention', darkIconBg: 'dark:bg-rose-500/35' },
   { key: 'delivered',        sublabel: 'Completed',       darkIconBg: 'dark:bg-green-500/35' },
@@ -31,16 +32,17 @@ export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({ orders, on
     uploaded:         orders.filter((o) => !TERMINAL_WF.has(o.status)).length,
     sms_sent:         orders.filter((o) => o.status === 'sms_sent').length,
     unconfirmed:      orders.filter((o) => o.status === 'unconfirmed').length,
-    next_shipment:    orders.filter((o) => o.status === 'next_shipment').length,
-    future_schedule:  orders.filter((o) => o.status === 'future_schedule').length,
-    out_for_delivery: orders.filter((o) => o.status === 'out_for_delivery').length,
+    next_shipment:     orders.filter((o) => o.status === 'next_shipment').length,
+    future_schedule:   orders.filter((o) => o.status === 'future_schedule').length,
+    ready_to_dispatch: orders.filter((o) => o.status === 'ready_to_dispatch').length,
+    out_for_delivery:  orders.filter((o) => o.status === 'out_for_delivery').length,
     order_delay:      orders.filter((o) => o.status === 'order_delay').length,
     delivered:        orders.filter((o) => o.status === 'delivered').length,
   };
 
   return (
     <div className="status-cards-mobile overflow-x-auto py-1 px-0.5 -mx-0.5">
-      <div className="grid grid-cols-2 min-[480px]:grid-cols-4 md:grid-cols-4 lg:grid-cols-8 gap-3 w-full min-w-0">
+      <div className="grid grid-cols-2 min-[480px]:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-3 w-full min-w-0">
         {CARD_DEFS.map(({ key, sublabel, darkIconBg }) => {
           const config = STATUS_CONFIG[key as keyof typeof statusCounts];
           const count = statusCounts[key as keyof typeof statusCounts];

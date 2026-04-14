@@ -53,8 +53,8 @@ interface OrdersTableProps {
   onSortChange: (sort: string) => void;
 }
 
-const CONFIRMED_STATUSES = new Set<DeliveryStatus>(['confirmed', 'next_shipment', 'future_schedule']);
-const SCHEDULED_STATUSES = new Set<DeliveryStatus>(['scheduled', 'next_shipment', 'future_schedule']);
+const CONFIRMED_STATUSES = new Set<DeliveryStatus>(['confirmed', 'next_shipment', 'future_schedule', 'ready_to_dispatch']);
+const SCHEDULED_STATUSES = new Set<DeliveryStatus>(['scheduled', 'next_shipment', 'future_schedule', 'ready_to_dispatch']);
 // Terminal workflow statuses — same list as StatusMetricCards so card count === table count
 const PENDING_TERMINAL = new Set<DeliveryStatus>(['delivered', 'cancelled', 'failed']);
 // Delivered workflow statuses (backend variants are already mapped to 'delivered' by deliveryToManageOrder)
@@ -117,6 +117,11 @@ const NEXT_STEP_CONFIG: Partial<Record<DeliveryStatus | 'terminal_delivered' | '
     label: 'Future Schedule', icon: '📅',
     cls: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-300 dark:border-indigo-800/40',
     gmd: { label: 'Waiting GMD', cls: 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800/40 dark:text-slate-400 dark:border-slate-700' },
+  },
+  ready_to_dispatch: {
+    label: 'GMD Updated',     icon: '✅',
+    cls: 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-900/20 dark:text-teal-300 dark:border-teal-800/40',
+    gmd: { label: 'Ready to Dispatch', cls: 'bg-teal-100 text-teal-800 border-teal-300 dark:bg-teal-900/30 dark:text-teal-200 dark:border-teal-700' },
   },
   order_delay: {
     label: 'Action Needed',   icon: '🚨',

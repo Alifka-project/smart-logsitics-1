@@ -144,6 +144,9 @@ export default function LogisticsTeamPortal() {
   const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
   const [opsSearch, setOpsSearch] = useState<string>('');
   const [opsStatusFilter, setOpsStatusFilter] = useState<string>('all');
+  const [opsSortCol, setOpsSortCol] = useState<'date' | 'gmd' | 'deldate' | null>(null);
+  const [opsSortDir, setOpsSortDir] = useState<'asc' | 'desc'>('asc');
+  const [opsTodayOnly, setOpsTodayOnly] = useState(false);
   const dispatchTableRef = useRef<HTMLDivElement | null>(null);
   
   // Communication tab state
@@ -1029,15 +1032,22 @@ export default function LogisticsTeamPortal() {
           {/* ── Full-Width Assign & Dispatch Table ── */}
           {(() => {
             const q = opsSearch.toLowerCase().trim();
+            const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+            const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
             const opsRows = deliveries
               .filter(d => {
                 const s = (d.status || '').toLowerCase();
                 if (opsStatusFilter !== 'all') {
-                  if (opsStatusFilter === 'pending' && !['pending', 'uploaded'].includes(s)) return false;
+                  if (opsStatusFilter === 'pending' && !['pending', 'uploaded', 'scheduled', 'confirmed', 'scheduled-confirmed'].includes(s)) return false;
                   if (opsStatusFilter === 'awaiting' && s !== 'scheduled') return false;
                   if (opsStatusFilter === 'ofd' && s !== 'out-for-delivery') return false;
                   if (opsStatusFilter === 'delay' && s !== 'order-delay') return false;
                   if (opsStatusFilter === 'terminal' && !TERMINAL_STATUSES.has(s)) return false;
+                }
+                if (opsTodayOnly) {
+                  const dExt2 = d as unknown as { createdAt?: string };
+                  const created = dExt2.createdAt ? new Date(dExt2.createdAt) : null;
+                  if (!created || created < todayStart || created > todayEnd) return false;
                 }
                 if (!q) return true;
                 const meta = ((d as unknown as { metadata?: Record<string, unknown> }).metadata ?? {});
@@ -1054,6 +1064,19 @@ export default function LogisticsTeamPortal() {
               .sort((a, b) => {
                 const aMeta = ((a as unknown as { metadata?: Record<string, unknown> }).metadata ?? {});
                 const bMeta = ((b as unknown as { metadata?: Record<string, unknown> }).metadata ?? {});
+                // Date-column sort takes precedence when active
+                if (opsSortCol) {
+                  const dir = opsSortDir === 'asc' ? 1 : -1;
+                  const getTs = (d: typeof a): number => {
+                    const ext = d as unknown as { goodsMovementDate?: string; confirmedDeliveryDate?: string; createdAt?: string };
+                    const raw = opsSortCol === 'gmd' ? ext.goodsMovementDate
+                      : opsSortCol === 'deldate' ? ext.confirmedDeliveryDate
+                      : ext.createdAt;
+                    return raw ? new Date(raw).getTime() : 0;
+                  };
+                  const diff = getTs(a) - getTs(b);
+                  if (diff !== 0) return diff * dir;
+                }
                 const aPrio = aMeta.isPriority === true ? 0 : 1;
                 const bPrio = bMeta.isPriority === true ? 0 : 1;
                 if (aPrio !== bPrio) return aPrio - bPrio;
@@ -1103,6 +1126,17 @@ export default function LogisticsTeamPortal() {
                         {f === 'all' ? 'All' : f === 'pending' ? 'Pending' : f === 'awaiting' ? 'Awaiting SMS' : f === 'ofd' ? 'On Route' : f === 'delay' ? 'Delayed' : 'Completed'}
                       </button>
                     ))}
+                    <button
+                      type="button"
+                      onClick={() => setOpsTodayOnly(v => !v)}
+                      className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-colors ${
+                        opsTodayOnly
+                          ? 'bg-indigo-600 text-white'
+                          : 'border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                      }`}
+                    >
+                      📅 Today
+                    </button>
                   </div>
                 </div>
 
@@ -1120,9 +1154,24 @@ export default function LogisticsTeamPortal() {
                   <table className="w-full text-xs divide-y divide-gray-200 dark:divide-gray-700" style={{ minWidth: '1700px' }}>
                     <thead className="bg-gray-50 dark:bg-gray-700/80 sticky top-0 z-10">
                       <tr>
-                        {['·','PO #','Del #','Customer','Phone','Address','City','Status','GMD','Del Date','Model','Description','Material','Items','Units','Driver','Priority','Actions'].map(h => (
-                          <th key={h} className="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">{h}</th>
-                        ))}
+                        {(['·','PO #','Del #','Customer','Phone','Address','City','Status','GMD','Del Date','Model','Description','Material','Items','Units','Driver','Priority','Actions'] as const).map(h => {
+                          const colKey = h === 'GMD' ? 'gmd' : h === 'Del Date' ? 'deldate' : h === 'Del #' ? 'date' : null;
+                          const isActive = colKey && opsSortCol === colKey;
+                          return (
+                            <th
+                              key={h}
+                              onClick={colKey ? () => {
+                                if (opsSortCol === colKey) setOpsSortDir(d => d === 'asc' ? 'desc' : 'asc');
+                                else { setOpsSortCol(colKey as 'gmd' | 'deldate' | 'date'); setOpsSortDir('asc'); }
+                              } : undefined}
+                              className={`px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap ${
+                                colKey ? 'cursor-pointer select-none hover:text-blue-600 dark:hover:text-blue-400' : ''
+                              } ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-300'}`}
+                            >
+                              {h}{isActive ? (opsSortDir === 'asc' ? ' ↑' : ' ↓') : ''}
+                            </th>
+                          );
+                        })}
                       </tr>
                     </thead>
                     <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700/60">

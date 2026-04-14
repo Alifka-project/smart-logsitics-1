@@ -61,6 +61,13 @@ function priorityFromDelivery(d: Delivery): 'normal' | 'high' | 'urgent' | undef
   return undefined;
 }
 
+function hasGMD(d: Delivery): boolean {
+  const raw = (d as Record<string, unknown>).goodsMovementDate;
+  if (!raw) return false;
+  const parsed = parseOptDate(raw);
+  return parsed != null;
+}
+
 function deriveWorkflowStatus(d: Delivery, smsSentAt: Date | undefined): DeliveryStatus {
   const s = (d.status || '').toLowerCase();
 
@@ -125,6 +132,10 @@ function deriveWorkflowStatus(d: Delivery, smsSentAt: Date | undefined): Deliver
     if (confirmedDate) {
       // Auto-delay: confirmed date has passed without delivery
       if (isOverdue(confirmedDate)) return 'order_delay';
+      // If GMD is set and delivery date is today → treat as on route
+      if (hasGMD(d) && calDiffFromTodayDubai(confirmedDate) === 0) return 'out_for_delivery';
+      // If GMD is set and delivery date is future → ready to dispatch
+      if (hasGMD(d)) return 'ready_to_dispatch';
       const tier = classifyConfirmedDate(confirmedDate);
       if (tier === 'next') return 'next_shipment';
       return 'future_schedule';
@@ -138,6 +149,10 @@ function deriveWorkflowStatus(d: Delivery, smsSentAt: Date | undefined): Deliver
 
     if (target) {
       if (isOverdue(target)) return 'order_delay';
+      // If GMD is set and target date is today → treat as on route
+      if (hasGMD(d) && calDiffFromTodayDubai(target) === 0) return 'out_for_delivery';
+      // If GMD is set → ready to dispatch
+      if (hasGMD(d)) return 'ready_to_dispatch';
       const tier = classifyConfirmedDate(target);
       if (tier === 'next') return 'next_shipment';
       if (tier === 'future') return 'future_schedule';
@@ -218,6 +233,8 @@ export function deliveryToManageOrder(delivery: Delivery): DeliveryOrder {
     parseOptDate(delivery.confirmedDeliveryDate) ??
     parseOptDate(delivery.customerConfirmedAt);
 
+  const goodsMovementDate = parseOptDate((delivery as Record<string, unknown>).goodsMovementDate);
+
   const isRescheduled = (delivery.status || '').toLowerCase() === 'rescheduled';
 
   return {
@@ -239,6 +256,7 @@ export function deliveryToManageOrder(delivery: Delivery): DeliveryOrder {
     confirmedAt,
     scheduledDate: scheduledDate ?? (['scheduled', 'next_shipment', 'future_schedule'].includes(status) ? parseOptDate(delivery.estimatedTime) : undefined),
     confirmedDeliveryDate,
+    goodsMovementDate,
     deliveryDate: deliveredAt,
     driverId: delivery.assignedDriverId ?? undefined,
     driverName: (rec.driverName as string) || delivery.driverName || undefined,

@@ -6,11 +6,12 @@ export type DeliveryStatus =
   | 'uploaded'
   | 'sms_sent'
   | 'unconfirmed'
-  | 'confirmed'        // legacy fallback (no confirmedDeliveryDate available)
-  | 'next_shipment'    // confirmed, date = today / tomorrow / day+2 (≤2 days out)
-  | 'future_schedule'  // confirmed, date = 3+ days out
-  | 'scheduled'        // legacy fallback
-  | 'order_delay'      // logistics cannot dispatch
+  | 'confirmed'          // legacy fallback (no confirmedDeliveryDate available)
+  | 'next_shipment'      // confirmed, date = today / tomorrow / day+2 (≤2 days out)
+  | 'future_schedule'    // confirmed, date = 3+ days out
+  | 'scheduled'          // legacy fallback
+  | 'ready_to_dispatch'  // confirmed + GMD updated, delivery date is future (not today)
+  | 'order_delay'        // logistics cannot dispatch
   | 'out_for_delivery'
   | 'delivered'
   | 'failed'
@@ -36,6 +37,7 @@ export interface DeliveryOrder {
   confirmedAt?: Date;
   scheduledDate?: Date;
   confirmedDeliveryDate?: Date;
+  goodsMovementDate?: Date;
   deliveryDate?: Date;
   driverId?: string;
   driverName?: string;

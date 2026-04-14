@@ -90,6 +90,18 @@ export const STATUS_CONFIG: Record<DeliveryStatus, StatusVisualConfig> = {
     icon: '📅',
     badgeStyle: 'bg-indigo-100 text-indigo-700',
   },
+  ready_to_dispatch: {
+    label: 'Ready to Dispatch',
+    pillLabel: 'Ready',
+    bgColor: 'bg-teal-50',
+    textColor: 'text-teal-600',
+    borderColor: 'border-teal-400',
+    iconBg: 'bg-teal-100',
+    icon: '✅',
+    badgeStyle: 'bg-teal-100 text-teal-700',
+    highlight: true,
+    highlightRing: 'outline outline-1 outline-teal-400 bg-teal-50 dark:bg-teal-900/20',
+  },
   order_delay: {
     label: 'Order Delay',
     bgColor: 'bg-red-50',
