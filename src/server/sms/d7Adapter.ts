@@ -74,16 +74,12 @@ class D7Adapter extends SmsAdapter {
   //   2. message_text must contain {{otp}}; D7 replaces it with a 6-digit code.
   //   3. Keep message under 160 chars (1 SMS segment) for best deliverability.
   private async _sendViaOtp(to: string, body: string): Promise<SmsSendResult> {
-    // D7 OTP originator: use dedicated OTP sender (e.g. "SignOTP"), not the branded name.
-    // Set D7_OTP_ORIGINATOR in env to override (must be pre-approved by D7 for UAE OTP).
-    const otpOriginator = ((process.env.D7_OTP_ORIGINATOR || 'SignOTP').replace(/^["'\s]+|["'\s]+$/g, '')) || 'SignOTP';
-
     // Append {{otp}} placeholder — D7 replaces it with a 6-digit code on delivery.
     // The full message body is sent as-is (multi-segment supported on OTP route).
     const messageWithCode = `${body}\n\nRef: {{otp}}`;
 
     const payload = {
-      originator: otpOriginator,
+      originator: this.originator, // Electrolux — as registered in D7 template
       recipient: to,
       expiry: 172800, // 48 hours
       data_coding: 'text',
