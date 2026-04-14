@@ -16,10 +16,8 @@ Your Electrolux order ${poRef} is ready for delivery.
 Please confirm your preferred delivery date using the link below:
 ${confirmationLink}
 
-For assistance, please contact the Electrolux Delivery Team at +971581046674.
-
 Thank you,
-Electrolux Delivery Team`;
+Electrolux Delivery Team.`;
 }
 
 /**
