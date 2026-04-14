@@ -111,16 +111,17 @@ export default function DeliveryManagementPage({
   }, []);
 
   const syncOperationalListFromTracking = useCallback(async (): Promise<void> => {
-    if (!isTeamPortalOperationalRole()) return;
     try {
       const res = await api.get('/admin/tracking/deliveries');
       const raw = (res.data?.deliveries ?? []) as Delivery[];
-      const list = excludeTeamPortalGarbageDeliveries(raw as Record<string, unknown>[]) as Delivery[];
+      const list = effectiveExcludeGarbage
+        ? excludeTeamPortalGarbageDeliveries(raw as Record<string, unknown>[]) as Delivery[]
+        : raw;
       loadDeliveries(list);
     } catch (err: unknown) {
       console.warn('[DeliveryManagement] Tracking sync failed:', err);
     }
-  }, [loadDeliveries]);
+  }, [loadDeliveries, effectiveExcludeGarbage]);
 
   // Admin / delivery_team / logistics_team: always replace store from tracking (same as portals).
   // Avoids stale localStorage from initializeFromStorage() skipping fetch when length > 0.
@@ -130,7 +131,6 @@ export default function DeliveryManagementPage({
   }, [syncOperationalListFromTracking]);
 
   useEffect(() => {
-    if (!isTeamPortalOperationalRole()) return;
     const handler = (): void => { void syncOperationalListFromTracking(); };
     window.addEventListener('deliveriesUpdated', handler);
     window.addEventListener('deliveryStatusUpdated', handler);

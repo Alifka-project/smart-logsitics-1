@@ -112,6 +112,9 @@ export default function ManageTab({
       });
       setEditDeliveryId(null);
       onNotifySuccess('Order updated', 'Changes saved.');
+      window.dispatchEvent(new CustomEvent('deliveryStatusUpdated', {
+        detail: { deliveryId: editDeliveryId, status: updated.status, updatedAt: new Date() },
+      }));
     },
     [editDeliveryId, deliveries, updateDeliveryStatus, onNotifySuccess],
   );
@@ -175,6 +178,9 @@ export default function ManageTab({
         .then(() => {
           updateDeliveryStatus(orderId, apiStatus, updateData);
           onNotifySuccess('Order updated', 'Status saved.');
+          window.dispatchEvent(new CustomEvent('deliveryStatusUpdated', {
+            detail: { deliveryId: orderId, status: apiStatus, updatedAt: new Date() },
+          }));
         })
         .catch((e: unknown) => {
           const err = e as { response?: { data?: { error?: string } }; message?: string };
@@ -236,7 +242,9 @@ export default function ManageTab({
         });
         updateDeliveryStatus(orderId, 'scheduled-confirmed');
         onNotifySuccess('Delivery rescheduled', 'Customer will be notified via WhatsApp.');
-        // WhatsApp reschedule notification sent silently by backend
+        window.dispatchEvent(new CustomEvent('deliveryStatusUpdated', {
+          detail: { deliveryId: orderId, status: 'scheduled-confirmed', updatedAt: new Date() },
+        }));
       } catch (e: unknown) {
         const err = e as { response?: { data?: { error?: string } }; message?: string };
         onToastError(err?.response?.data?.error ?? err?.message ?? 'Failed to reschedule delivery');

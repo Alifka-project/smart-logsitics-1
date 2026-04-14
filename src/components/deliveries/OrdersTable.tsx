@@ -425,6 +425,13 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
         </span>
       ) : <span className="text-indigo-600 dark:text-indigo-400">Future date</span>;
     }
+    if (order.status === 'ready_to_dispatch') {
+      return dateSource ? (
+        <span className="px-2 py-0.5 bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-200 rounded text-xs font-medium">
+          {fmtDate(dateSource)}
+        </span>
+      ) : <span className="text-teal-600 dark:text-teal-400">GMD Ready</span>;
+    }
     if (order.status === 'confirmed') {
       return dateSource ? (
         <span className="text-amber-600 dark:text-amber-400">{fmtDate(dateSource)}</span>
