@@ -54,30 +54,38 @@ class D7Adapter extends SmsAdapter {
     }
     const finalTo = normalizedTo || to;
 
-    // Use regular SMS route for all numbers (UAE and international).
-    // The OTP route was previously used for UAE (+971) as a carrier bypass workaround,
-    // but D7's OTP API only accepts short auth codes — long delivery messages are rejected.
-    // The registered Electrolux originator handles UAE delivery via the standard route.
+    // UAE (+971): must use D7's OTP/transactional route which goes through
+    // D7's pre-registered UAE short codes — bypasses TRA sender ID registration.
+    // Regular SMS route with an unregistered alphanumeric originator (Electrolux)
+    // is blocked by UAE carriers (Etisalat/du) at the network level.
+    // Non-UAE: regular SMS route with the configured originator works fine.
+    const isUAE = finalTo.startsWith('+971');
+    if (isUAE) {
+      return this._sendViaOtp(finalTo, body);
+    }
     return this._sendViaSms(finalTo, body);
-
-    // ── OTP route (kept for reference — do not use for delivery messages) ──────
-    // const isUAE = finalTo.startsWith('+971');
-    // if (isUAE) return this._sendViaOtp(finalTo, body);
-    // ─────────────────────────────────────────────────────────────────────────
   }
 
   // ── OTP route (UAE) ────────────────────────────────────────────────────────
-  // The OTP API uses D7's pre-registered short codes accepted by UAE carriers.
-  // We embed the full confirmation message in message_text; {{otp}} becomes a
-  // 6-digit ref code appended at the end. Customers just click the link.
+  // D7's OTP API uses pre-registered UAE short codes — bypasses TRA carrier blocks.
+  // Rules:
+  //   1. originator must be D7's OTP originator (env D7_OTP_ORIGINATOR, default "SignOTP")
+  //      NOT the branded name — unregistered alphanumeric senders are rejected even here.
+  //   2. message_text must contain {{otp}}; D7 replaces it with a 6-digit code.
+  //   3. Keep message under 160 chars (1 SMS segment) for best deliverability.
   private async _sendViaOtp(to: string, body: string): Promise<SmsSendResult> {
-    // Append the {{otp}} placeholder as a reference code at the end
+    // D7 OTP originator: use dedicated OTP sender (e.g. "SignOTP"), not the branded name.
+    // Set D7_OTP_ORIGINATOR in env to override (must be pre-approved by D7 for UAE OTP).
+    const otpOriginator = ((process.env.D7_OTP_ORIGINATOR || 'SignOTP').replace(/^["'\s]+|["'\s]+$/g, '')) || 'SignOTP';
+
+    // Append {{otp}} placeholder — D7 replaces it with a 6-digit code on delivery.
+    // The full message body is sent as-is (multi-segment supported on OTP route).
     const messageWithCode = `${body}\n\nRef: {{otp}}`;
 
     const payload = {
-      originator: this.originator,
+      originator: otpOriginator,
       recipient: to,
-      expiry: 172800, // 48 hours — matches the confirmation link expiry
+      expiry: 172800, // 48 hours
       data_coding: 'text',
       otp_length: 6,
       message_text: messageWithCode
