@@ -376,8 +376,25 @@ const useDeliveryStore = create<DeliveryStore>((set, get) => ({
   },
 
   updateDeliveryOrder: (reorderedDeliveries: Delivery[]): void => {
-    set({ deliveries: reorderedDeliveries });
-    get().saveToStorage(reorderedDeliveries);
+    // Merge with existing store deliveries to preserve computed fields (priority,
+    // plannedEta) that are not returned by the API and would otherwise be lost
+    // when the OSRM route callback replaces the store with enriched local state.
+    const existingMap = new Map(get().deliveries.map(d => [String(d.id), d as Record<string, unknown>]));
+    const merged = reorderedDeliveries.map(d => {
+      const existing = existingMap.get(String(d.id));
+      if (!existing) return d;
+      const nd = d as Record<string, unknown>;
+      return {
+        ...existing,
+        ...nd,
+        // Explicitly preserve fields that OSRM / route enrichment does not supply
+        priority: nd['priority'] ?? existing['priority'],
+        plannedEta: nd['plannedEta'] ?? existing['plannedEta'],
+        priorityLabel: nd['priorityLabel'] ?? existing['priorityLabel'],
+      };
+    }) as Delivery[];
+    set({ deliveries: merged });
+    get().saveToStorage(merged);
   },
 
   clearDeliveries: (): void => {

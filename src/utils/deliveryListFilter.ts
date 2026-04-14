@@ -1,6 +1,19 @@
 import type { Delivery } from '../types';
 
-export type DeliveryListFilter = 'all' | 'pending' | 'confirmed' | 'p1' | 'out_for_delivery' | 'delivered';
+export type DeliveryListFilter = 'all' | 'pending' | 'confirmed' | 'p1' | 'out_for_delivery' | 'delivered' | 'on_time' | 'delayed';
+
+/** Delay threshold: if estimatedEta is more than this many ms after plannedEta → Delayed */
+const DELAY_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
+
+export function getEtaStatus(d: Delivery): 'on_time' | 'delayed' | 'unknown' {
+  const planned = (d as Record<string, unknown>)['plannedEta'] as string | null | undefined;
+  const estimated = (d as Record<string, unknown>)['estimatedEta'] as string | null | undefined
+    ?? (d.estimatedTime instanceof Date ? d.estimatedTime.toISOString()
+        : typeof d.estimatedTime === 'string' ? d.estimatedTime : null);
+  if (!planned || !estimated) return 'unknown';
+  const diff = new Date(estimated).getTime() - new Date(planned).getTime();
+  return diff > DELAY_THRESHOLD_MS ? 'delayed' : 'on_time';
+}
 
 /** Placeholder customer from failed Excel mapping (`Customer 1`, `Customer3`, …). */
 const PLACEHOLDER_CUSTOMER = /^customer\s*\d+$/i;
@@ -160,6 +173,10 @@ export function applyDeliveryListFilter(
     case 'delivered':
       // Bypass active filter — show terminal (delivered/cancelled/returned) deliveries.
       return list.filter((d) => DELIVERED_STATUSES.has((d.status || '').toLowerCase()));
+    case 'on_time':
+      return active.filter((d) => getEtaStatus(d) === 'on_time');
+    case 'delayed':
+      return active.filter((d) => getEtaStatus(d) === 'delayed');
     default:
       return active;
   }

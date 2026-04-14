@@ -69,6 +69,8 @@ interface DriverMessage {
 type EnrichedDelivery = Delivery & {
   routeIndex?: number;
   estimatedEta?: string | null;
+  /** The ETA calculated on the FIRST route run — used as the on-time baseline. Never overwritten. */
+  plannedEta?: string | null;
   eta?: string | null;
   distanceFromDriverKm?: number;
 };
@@ -639,6 +641,11 @@ export default function DriverPortal() {
         let cumulativeMeters = 0;
         const baseTime = Date.now();
 
+        // Look up current store deliveries so we can preserve priority and plannedEta
+        // that were assigned by loadDeliveries but are not returned by the API.
+        const storeDeliveries = useDeliveryStore.getState().deliveries;
+        const storeById = new Map(storeDeliveries.map(d => [String(d.id), d as Record<string, unknown>]));
+
         const enriched: EnrichedDelivery[] = orderedWithCoords.map((delivery, index) => {
           cumulativeSeconds += legs[index]?.duration || 0;
           cumulativeMeters += legs[index]?.distance || 0;
@@ -647,10 +654,15 @@ export default function DriverPortal() {
             ? calculateDistance(origin.lat, origin.lng, stopCoords.lat, stopCoords.lng)
             : null;
           const computedEta = new Date(baseTime + cumulativeSeconds * 1000).toISOString();
+          const inStore = storeById.get(String(delivery.id));
+          // plannedEta is the first-ever computed ETA for this stop — never overwritten after set.
+          const existingPlannedEta = (inStore?.['plannedEta'] as string | null | undefined) ?? null;
           return {
-            ...delivery,
+            ...(inStore ?? {}),   // spread store version first → brings in priority, priorityLabel
+            ...delivery,          // overlay fresh API data
             routeIndex: index + 1,
-            estimatedEta: (delivery as EnrichedDelivery).eta || computedEta,
+            estimatedEta: computedEta,
+            plannedEta: existingPlannedEta ?? computedEta, // set once, never change
             distanceFromDriverKm: cumulativeMeters > 0 ? cumulativeMeters / 1000 : (fallbackDistanceKm ?? undefined)
           };
         });

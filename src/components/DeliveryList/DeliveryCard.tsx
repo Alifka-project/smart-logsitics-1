@@ -4,6 +4,7 @@ import StatusBadge from './StatusBadge';
 import SMSConfirmationModal from './SMSConfirmationModal';
 import api from '../../frontend/apiClient';
 import useDeliveryStore from '../../store/useDeliveryStore';
+import { getEtaStatus } from '../../utils/deliveryListFilter';
 import type { Delivery } from '../../types';
 
 interface DeliveryCardProps {
@@ -61,6 +62,7 @@ export default function DeliveryCard({
         return isNaN(d.getTime()) ? 'N/A' : d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
       })()
     : 'N/A';
+  const etaStatus = getEtaStatus(delivery);
   const dIdx = dragIndex ?? 0;
   const canDrag = !dragDisabled && typeof dragIndex === 'number';
 
@@ -222,6 +224,16 @@ export default function DeliveryCard({
             <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
               ETA {etaText}
             </div>
+            {etaStatus === 'on_time' && (
+              <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                ✓ On Time
+              </div>
+            )}
+            {etaStatus === 'delayed' && (
+              <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300">
+                ⚠ Delayed
+              </div>
+            )}
             {delivery.phone && (
               <div className="flex items-center gap-2">
                 <button
