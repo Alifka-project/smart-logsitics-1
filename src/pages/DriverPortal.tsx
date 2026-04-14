@@ -285,7 +285,7 @@ export default function DriverPortal() {
     // Periodic delivery refresh so newly assigned orders appear without manual reload
     const deliveryInterval = setInterval(() => {
       if (!document.hidden) void loadDeliveries();
-    }, 60000);
+    }, 30000);
     // Real-time ETA refresh: every 30 s recompute ETAs from current GPS without full OSRM round-trip
     const etaRefreshInterval = setInterval(() => {
       if (document.hidden) return;
@@ -596,7 +596,10 @@ export default function DriverPortal() {
       ? { lat: location.latitude, lng: location.longitude }
       : WAREHOUSE_LOCATION;
 
-    const deliverySignature = deliveries.map(d => d.id).join('|');
+    const deliverySignature = deliveries.map(d => {
+      const m = (d as unknown as { metadata?: Record<string, unknown> }).metadata ?? {};
+      return `${d.id}:${m.isPriority ? '1' : '0'}`;
+    }).join('|');
     const originMovedKm = lastRouteOriginRef.current
       ? calculateDistance(origin.lat, origin.lng, lastRouteOriginRef.current.lat, lastRouteOriginRef.current.lng)
       : Infinity;

@@ -144,9 +144,11 @@ export default function LogisticsTeamPortal() {
   const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
   const [opsSearch, setOpsSearch] = useState<string>('');
   const [opsStatusFilter, setOpsStatusFilter] = useState<string>('all');
-  const [opsSortCol, setOpsSortCol] = useState<'date' | 'gmd' | 'deldate' | null>(null);
+  const [opsSortCol, setOpsSortCol] = useState<'date' | 'gmd' | 'deldate' | 'customer' | 'status' | null>(null);
   const [opsSortDir, setOpsSortDir] = useState<'asc' | 'desc'>('asc');
   const [opsTodayOnly, setOpsTodayOnly] = useState(false);
+  const [opsDateFrom, setOpsDateFrom] = useState('');
+  const [opsDateTo, setOpsDateTo] = useState('');
   const dispatchTableRef = useRef<HTMLDivElement | null>(null);
   
   // Communication tab state
@@ -778,7 +780,7 @@ export default function LogisticsTeamPortal() {
           {/* ── Needs Attention · Awaiting Customer · Truck capacity (equal thirds on large screens) ── */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-stretch">
             {/* Needs Attention */}
-            <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[300px]">
+            <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[340px]">
               <div className="mb-3 flex flex-shrink-0 items-center gap-2">
                 <AlertCircle className="h-5 w-5 flex-shrink-0 text-amber-500" />
                 <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Needs Attention</h2>
@@ -813,7 +815,7 @@ export default function LogisticsTeamPortal() {
             </div>
 
             {/* Awaiting Customer Response list */}
-            <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[300px]">
+            <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[340px]">
               <div className="mb-3 flex flex-shrink-0 items-center gap-2">
                 <MessageSquare className="h-5 w-5 flex-shrink-0 text-purple-500" />
                 <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Awaiting Customer Response</h2>
@@ -1034,20 +1036,33 @@ export default function LogisticsTeamPortal() {
             const q = opsSearch.toLowerCase().trim();
             const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
             const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
+            const dateFromMs = opsDateFrom ? new Date(opsDateFrom + 'T00:00:00').getTime() : null;
+            const dateToMs = opsDateTo ? new Date(opsDateTo + 'T23:59:59').getTime() : null;
             const opsRows = deliveries
               .filter(d => {
                 const s = (d.status || '').toLowerCase();
                 if (opsStatusFilter !== 'all') {
                   if (opsStatusFilter === 'pending' && !['pending', 'uploaded', 'scheduled', 'confirmed', 'scheduled-confirmed'].includes(s)) return false;
-                  if (opsStatusFilter === 'awaiting' && s !== 'scheduled') return false;
+                  if (opsStatusFilter === 'awaiting' && !['sms_sent', 'sms-sent', 'unconfirmed'].includes(s)) return false;
                   if (opsStatusFilter === 'ofd' && s !== 'out-for-delivery') return false;
                   if (opsStatusFilter === 'delay' && s !== 'order-delay') return false;
                   if (opsStatusFilter === 'terminal' && !TERMINAL_STATUSES.has(s)) return false;
+                  if (opsStatusFilter === 'priority') {
+                    const m = ((d as unknown as { metadata?: Record<string, unknown> }).metadata ?? {});
+                    if (m.isPriority !== true) return false;
+                  }
                 }
                 if (opsTodayOnly) {
                   const dExt2 = d as unknown as { createdAt?: string };
                   const created = dExt2.createdAt ? new Date(dExt2.createdAt) : null;
                   if (!created || created < todayStart || created > todayEnd) return false;
+                }
+                if (dateFromMs || dateToMs) {
+                  const dExt2 = d as unknown as { createdAt?: string };
+                  const created = dExt2.createdAt ? new Date(dExt2.createdAt).getTime() : null;
+                  if (!created) return false;
+                  if (dateFromMs && created < dateFromMs) return false;
+                  if (dateToMs && created > dateToMs) return false;
                 }
                 if (!q) return true;
                 const meta = ((d as unknown as { metadata?: Record<string, unknown> }).metadata ?? {});
@@ -1064,18 +1079,28 @@ export default function LogisticsTeamPortal() {
               .sort((a, b) => {
                 const aMeta = ((a as unknown as { metadata?: Record<string, unknown> }).metadata ?? {});
                 const bMeta = ((b as unknown as { metadata?: Record<string, unknown> }).metadata ?? {});
-                // Date-column sort takes precedence when active
+                // Column sort takes precedence when active
                 if (opsSortCol) {
                   const dir = opsSortDir === 'asc' ? 1 : -1;
-                  const getTs = (d: typeof a): number => {
-                    const ext = d as unknown as { goodsMovementDate?: string; confirmedDeliveryDate?: string; createdAt?: string };
-                    const raw = opsSortCol === 'gmd' ? ext.goodsMovementDate
-                      : opsSortCol === 'deldate' ? ext.confirmedDeliveryDate
-                      : ext.createdAt;
-                    return raw ? new Date(raw).getTime() : 0;
-                  };
-                  const diff = getTs(a) - getTs(b);
-                  if (diff !== 0) return diff * dir;
+                  if (opsSortCol === 'customer') {
+                    const va = String(a.customer || '').toLowerCase();
+                    const vb = String(b.customer || '').toLowerCase();
+                    if (va !== vb) return va.localeCompare(vb) * dir;
+                  } else if (opsSortCol === 'status') {
+                    const va = String(a.status || '').toLowerCase();
+                    const vb = String(b.status || '').toLowerCase();
+                    if (va !== vb) return va.localeCompare(vb) * dir;
+                  } else {
+                    const getTs = (d: typeof a): number => {
+                      const ext = d as unknown as { goodsMovementDate?: string; confirmedDeliveryDate?: string; createdAt?: string };
+                      const raw = opsSortCol === 'gmd' ? ext.goodsMovementDate
+                        : opsSortCol === 'deldate' ? ext.confirmedDeliveryDate
+                        : ext.createdAt;
+                      return raw ? new Date(raw).getTime() : 0;
+                    };
+                    const diff = getTs(a) - getTs(b);
+                    if (diff !== 0) return diff * dir;
+                  }
                 }
                 const aPrio = aMeta.isPriority === true ? 0 : 1;
                 const bPrio = bMeta.isPriority === true ? 0 : 1;
@@ -1099,31 +1124,35 @@ export default function LogisticsTeamPortal() {
                       </button>
                     </div>
                   </div>
+                  {/* Search + Filter buttons */}
                   <div className="flex flex-wrap gap-2 items-center">
                     <input
                       type="text"
-                      placeholder="Search customer, PO, delivery #, address…"
+                      placeholder="Search customer, PO number, delivery #, address…"
                       value={opsSearch}
                       onChange={e => setOpsSearch(e.target.value)}
                       className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
                     />
-                    {(['all','pending','awaiting','ofd','delay','terminal'] as const).map(f => (
+                    {([
+                      { f: 'all',      label: 'All Orders',            active: 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900' },
+                      { f: 'pending',  label: 'Pending',               active: 'bg-yellow-500 text-white' },
+                      { f: 'awaiting', label: 'Awaiting Confirmation', active: 'bg-purple-600 text-white' },
+                      { f: 'ofd',      label: 'On Route',              active: 'bg-blue-600 text-white' },
+                      { f: 'delay',    label: 'Order Delayed',         active: 'bg-red-600 text-white' },
+                      { f: 'terminal', label: 'Completed',             active: 'bg-green-600 text-white' },
+                      { f: 'priority', label: '🚨 Priority',           active: 'bg-red-700 text-white' },
+                    ] as const).map(({ f, label, active }) => (
                       <button
                         key={f}
                         type="button"
                         onClick={() => setOpsStatusFilter(f)}
                         className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-colors ${
                           opsStatusFilter === f
-                            ? f === 'all' ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900'
-                            : f === 'pending' ? 'bg-yellow-500 text-white'
-                            : f === 'awaiting' ? 'bg-purple-600 text-white'
-                            : f === 'ofd' ? 'bg-blue-600 text-white'
-                            : f === 'delay' ? 'bg-red-600 text-white'
-                            : 'bg-green-600 text-white'
+                            ? active
                             : 'border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
                         }`}
                       >
-                        {f === 'all' ? 'All' : f === 'pending' ? 'Pending' : f === 'awaiting' ? 'Awaiting SMS' : f === 'ofd' ? 'On Route' : f === 'delay' ? 'Delayed' : 'Completed'}
+                        {label}
                       </button>
                     ))}
                     <button
@@ -1137,6 +1166,32 @@ export default function LogisticsTeamPortal() {
                     >
                       📅 Today
                     </button>
+                  </div>
+                  {/* Date range filter */}
+                  <div className="flex flex-wrap items-center gap-2 mt-2">
+                    <span className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">Date range:</span>
+                    <input
+                      type="date"
+                      value={opsDateFrom}
+                      onChange={e => setOpsDateFrom(e.target.value)}
+                      className="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                    <span className="text-[11px] text-gray-400">to</span>
+                    <input
+                      type="date"
+                      value={opsDateTo}
+                      onChange={e => setOpsDateTo(e.target.value)}
+                      className="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                    {(opsDateFrom || opsDateTo) && (
+                      <button
+                        type="button"
+                        onClick={() => { setOpsDateFrom(''); setOpsDateTo(''); }}
+                        className="text-[11px] text-red-500 dark:text-red-400 hover:underline"
+                      >
+                        Clear
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -1154,21 +1209,39 @@ export default function LogisticsTeamPortal() {
                   <table className="w-full text-xs divide-y divide-gray-200 dark:divide-gray-700" style={{ minWidth: '1700px' }}>
                     <thead className="bg-gray-50 dark:bg-gray-700/80 sticky top-0 z-10">
                       <tr>
-                        {(['·','PO #','Del #','Customer','Phone','Address','City','Status','GMD','Del Date','Model','Description','Material','Items','Units','Driver','Priority','Actions'] as const).map(h => {
-                          const colKey = h === 'GMD' ? 'gmd' : h === 'Del Date' ? 'deldate' : h === 'Del #' ? 'date' : null;
-                          const isActive = colKey && opsSortCol === colKey;
+                        {([
+                          { h: '·',                col: null },
+                          { h: 'PO Number',        col: null },
+                          { h: 'Delivery Number',  col: 'date' },
+                          { h: 'Customer',         col: 'customer' },
+                          { h: 'Phone',            col: null },
+                          { h: 'Address',          col: null },
+                          { h: 'City',             col: null },
+                          { h: 'Status',           col: 'status' },
+                          { h: 'GMD',              col: 'gmd' },
+                          { h: 'Del Date',         col: 'deldate' },
+                          { h: 'Model',            col: null },
+                          { h: 'Description',      col: null },
+                          { h: 'Material',         col: null },
+                          { h: 'Items',            col: null },
+                          { h: 'Units',            col: null },
+                          { h: 'Driver',           col: null },
+                          { h: 'Priority',         col: null },
+                          { h: 'Actions',          col: null },
+                        ] as { h: string; col: 'date' | 'gmd' | 'deldate' | 'customer' | 'status' | null }[]).map(({ h, col }) => {
+                          const isActive = col && opsSortCol === col;
                           return (
                             <th
                               key={h}
-                              onClick={colKey ? () => {
-                                if (opsSortCol === colKey) setOpsSortDir(d => d === 'asc' ? 'desc' : 'asc');
-                                else { setOpsSortCol(colKey as 'gmd' | 'deldate' | 'date'); setOpsSortDir('asc'); }
+                              onClick={col ? () => {
+                                if (opsSortCol === col) setOpsSortDir(d => d === 'asc' ? 'desc' : 'asc');
+                                else { setOpsSortCol(col); setOpsSortDir('asc'); }
                               } : undefined}
                               className={`px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap ${
-                                colKey ? 'cursor-pointer select-none hover:text-blue-600 dark:hover:text-blue-400' : ''
+                                col ? 'cursor-pointer select-none hover:text-blue-600 dark:hover:text-blue-400' : ''
                               } ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-300'}`}
                             >
-                              {h}{isActive ? (opsSortDir === 'asc' ? ' ↑' : ' ↓') : ''}
+                              {h}{isActive ? (opsSortDir === 'asc' ? ' ↑' : ' ↓') : (col ? ' ↕' : '')}
                             </th>
                           );
                         })}

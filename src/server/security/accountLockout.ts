@@ -3,9 +3,9 @@
  * Uses in-memory store (can be migrated to Redis for production)
  */
 
-const LOCKOUT_DURATION = 30 * 60 * 1000; // 30 minutes
+const LOCKOUT_DURATION = 5 * 60 * 1000; // 5 minutes
 const MAX_FAILED_ATTEMPTS = 5;
-const ATTEMPT_WINDOW = 15 * 60 * 1000; // 15 minutes
+const ATTEMPT_WINDOW = 5 * 60 * 1000; // 5 minutes
 
 interface LockoutEntry {
   attempts: number;
