@@ -208,23 +208,23 @@ export default function ManageTab({
   );
 
   const sendSmsForDelivery = useCallback(
-    async (deliveryId: string) => {
-      await api.post('/sms/send-confirmation', { deliveryId });
+    async (deliveryId: string): Promise<{ whatsappUrl?: string } | null> => {
+      try {
+        const res = await api.post(`/deliveries/${encodeURIComponent(deliveryId)}/send-sms`, {});
+        return res.data as { whatsappUrl?: string };
+      } catch {
+        return null;
+      }
     },
     [],
   );
 
   const handleResendSMS = useCallback(
     async (orderId: string) => {
-      try {
-        await sendSmsForDelivery(orderId);
-        onNotifySuccess('SMS sent', 'Confirmation SMS queued successfully.');
-      } catch (e: unknown) {
-        const err = e as { response?: { data?: { error?: string } }; message?: string };
-        onToastError(err?.response?.data?.error ?? err?.message ?? 'Failed to send SMS');
-      }
+      const data = await sendSmsForDelivery(orderId);
+      if (data?.whatsappUrl) window.open(data.whatsappUrl, '_blank');
     },
-    [sendSmsForDelivery, onNotifySuccess, onToastError],
+    [sendSmsForDelivery],
   );
 
   const handleAdminReschedule = useCallback(
@@ -248,18 +248,10 @@ export default function ManageTab({
   const handleBulkResendUnconfirmed = useCallback(async () => {
     const ids = manageOrders.filter((o) => o.status === 'unconfirmed').map((o) => o.id);
     if (ids.length === 0) return;
-    let ok = 0;
     for (const id of ids) {
-      try {
-        await sendSmsForDelivery(id);
-        ok += 1;
-      } catch {
-        /* continue */
-      }
+      await sendSmsForDelivery(id);
     }
-    if (ok > 0) onNotifySuccess('Bulk SMS', `Sent to ${ok} of ${ids.length} orders.`);
-    if (ok < ids.length) onToastError(`Some SMS requests failed (${ids.length - ok}).`);
-  }, [manageOrders, sendSmsForDelivery, onNotifySuccess, onToastError]);
+  }, [manageOrders, sendSmsForDelivery]);
 
   const handleCallCustomer = useCallback((phone: string) => {
     const p = phone.replace(/\s/g, '');

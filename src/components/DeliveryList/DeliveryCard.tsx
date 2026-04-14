@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { MapPin, Package, Phone, Navigation, GripVertical, MessageCircle, Truck } from 'lucide-react';
 import StatusBadge from './StatusBadge';
-import SMSConfirmationModal from './SMSConfirmationModal';
 import api from '../../frontend/apiClient';
 import useDeliveryStore from '../../store/useDeliveryStore';
 import { getEtaStatus } from '../../utils/deliveryListFilter';
@@ -43,7 +42,6 @@ export default function DeliveryCard({
   onMouseEnter,
   onMouseLeave,
 }: DeliveryCardProps) {
-  const [showSMSModal, setShowSMSModal] = useState(false);
   const [markingOutForDelivery, setMarkingOutForDelivery] = useState(false);
   const updateDeliveryStatus = useDeliveryStore((state) => state.updateDeliveryStatus);
   const dynamicDistanceKm =
@@ -66,13 +64,18 @@ export default function DeliveryCard({
   const dIdx = dragIndex ?? 0;
   const canDrag = !dragDisabled && typeof dragIndex === 'number';
 
-  const handleSMSClick = (e: React.MouseEvent): void => {
+  const handleSMSClick = async (e: React.MouseEvent): Promise<void> => {
     e.stopPropagation();
-    if (onCloseDetailModal) {
-      onCloseDetailModal();
-    }
-    if (delivery.phone) {
-      setTimeout(() => setShowSMSModal(true), 100);
+    if (onCloseDetailModal) onCloseDetailModal();
+    if (!delivery.phone || !delivery.id) return;
+    try {
+      const response = await api.post(
+        `/deliveries/${encodeURIComponent(String(delivery.id))}/send-sms`, {}
+      );
+      const waUrl = (response.data as { whatsappUrl?: string })?.whatsappUrl;
+      if (waUrl) window.open(waUrl, '_blank');
+    } catch {
+      // silent — no popup or message shown
     }
   };
 
@@ -247,9 +250,9 @@ export default function DeliveryCard({
                 </button>
                 <button
                   type="button"
-                  onClick={handleSMSClick}
+                  onClick={(e) => { void handleSMSClick(e); }}
                   className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-700 hover:bg-blue-800 text-white"
-                  title="Send confirmation SMS"
+                  title="Send WhatsApp confirmation"
                 >
                   <MessageCircle className="w-3.5 h-3.5" />
                   SMS
@@ -272,15 +275,6 @@ export default function DeliveryCard({
         </div>
       </div>
 
-      {showSMSModal && (
-        <SMSConfirmationModal
-          delivery={delivery}
-          onClose={() => setShowSMSModal(false)}
-          onSuccess={() => {
-            setTimeout(() => setShowSMSModal(false), 2000);
-          }}
-        />
-      )}
     </div>
   );
 }

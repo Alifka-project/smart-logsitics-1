@@ -1724,6 +1724,9 @@ router.post('/:id/send-sms', authenticate, requireAnyRole('admin', 'delivery_tea
     }).catch((e: unknown) => console.error('[Log] SMS log error:', (e as { message?: string }).message));
 
     // ── 3. Response ───────────────────────────────────────────────────────────
+    // Always build a wa.me fallback link so the client can open WhatsApp manually
+    // regardless of whether the silent API send succeeded.
+    const fallbackWaUrl = whatsappUrl ?? buildWhatsAppLink(normalizedPhone, smsBody);
     return void res.json({
       ok: true,
       smsSent: true,
@@ -1735,7 +1738,7 @@ router.post('/:id/send-sms', authenticate, requireAnyRole('admin', 'delivery_tea
       messageId,
       expiresAt: expiresAt.toISOString(),
       confirmationLink,
-      ...(whatsappUrl ? { whatsappUrl } : {})  // only present when fallback mode
+      whatsappUrl: fallbackWaUrl,
     });
   } catch (error: unknown) {
     const e = error as { message?: string };
