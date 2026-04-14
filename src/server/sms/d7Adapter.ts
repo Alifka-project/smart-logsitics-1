@@ -24,7 +24,7 @@ class D7Adapter extends SmsAdapter {
     super(config);
     // Strip any surrounding quotes, newlines, or whitespace that can corrupt the header
     this.apiToken = (config.D7_API_TOKEN || '').replace(/^["'\s]+|["'\s]+$/g, '');
-    this.originator = (config.D7_ORIGINATOR || 'SignOTP').trim();
+    this.originator = (config.D7_ORIGINATOR || 'Electrolux').trim();
   }
 
   async sendSms({ to, body, metadata = {} }: SmsSendOptions): Promise<SmsSendResult> {
