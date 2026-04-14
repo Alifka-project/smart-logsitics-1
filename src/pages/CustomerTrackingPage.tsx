@@ -175,6 +175,7 @@ interface DriverLocationInfo {
 interface TrackingInfoResponse {
   driverLocation?: DriverLocationInfo | null;
   driver?: DriverInfo | null;
+  eta?: string | null;
 }
 
 interface TrackingDelivery extends Delivery {
