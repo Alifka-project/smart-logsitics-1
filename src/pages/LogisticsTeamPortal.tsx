@@ -174,6 +174,8 @@ export default function LogisticsTeamPortal() {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagePollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const location = useLocation();
+  const [highlightDeliveryId, setHighlightDeliveryId] = useState<string | null>(null);
+  const highlightRowRef = useRef<HTMLTableRowElement | null>(null);
 
 
   // Route for monitoring map (matches Admin Operations)
@@ -263,33 +265,46 @@ export default function LogisticsTeamPortal() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contacts.length]);
 
-  // Handle URL-based contact selection for communication
+  // Handle URL-based tab/contact/delivery selection
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tabParam = params.get('tab');
     const contactId = params.get('driver') || params.get('contact');
-    
+    const deliveryId = params.get('delivery');
+
     // Switch to tab specified in URL
-    if (tabParam && tabParam !== activeTab) {
+    if (tabParam) {
       setActiveTab(tabParam);
     }
-    
+
     // If contact ID is provided, switch to communication tab and select contact
     if (contactId) {
-      if (activeTab !== 'communication') {
-        setActiveTab('communication');
-      }
-      
-      // Select the contact when contacts are loaded
+      setActiveTab('communication');
       if (contacts.length > 0) {
         const contact = contacts.find(c => c.id === contactId);
-        if (contact && (!selectedContact || selectedContact.id !== contactId)) {
-          console.log('[DeliveryTeam] Selecting contact from URL:', contact.fullName || contact.username);
+        if (contact) {
           setSelectedContact(contact);
         }
       }
     }
-  }, [location.search, contacts, selectedContact, activeTab]);
+
+    // If delivery ID is provided, switch to operations tab and highlight the row
+    if (deliveryId) {
+      setActiveTab('operations');
+      setHighlightDeliveryId(deliveryId);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search, contacts.length]);
+
+  // Auto-scroll to highlighted delivery row
+  useEffect(() => {
+    if (highlightDeliveryId && highlightRowRef.current) {
+      highlightRowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Clear highlight after 4 seconds
+      const t = setTimeout(() => setHighlightDeliveryId(null), 4000);
+      return () => clearTimeout(t);
+    }
+  }, [highlightDeliveryId, deliveries]);
 
   // Load unread counts when in communication tab - 60s, pause when hidden
   useEffect(() => {
@@ -1302,8 +1317,13 @@ export default function LogisticsTeamPortal() {
                           ? 'bg-red-50/40 dark:bg-red-900/10 border-l-4 border-l-red-400'
                           : 'border-l-4 border-l-transparent';
 
+                        const isHighlighted = delivery.id === highlightDeliveryId;
                         return (
-                          <tr key={delivery.id} className={`${rowBg} hover:brightness-95 dark:hover:brightness-110 transition-all`}>
+                          <tr
+                            key={delivery.id}
+                            ref={isHighlighted ? highlightRowRef : null}
+                            className={`${rowBg} hover:brightness-95 dark:hover:brightness-110 transition-all${isHighlighted ? ' ring-2 ring-inset ring-blue-500 dark:ring-blue-400' : ''}`}
+                          >
                             <td className="pl-3 pr-1 py-3">
                               <span className={`block w-2 h-2 rounded-full flex-shrink-0 ${
                                 isOFDWorkflow ? 'bg-blue-500 shadow-[0_0_6px_rgba(59,130,246,0.7)]' :

@@ -463,8 +463,8 @@ export default function Header({ isAdmin = false }: HeaderProps) {
     const cuForRole = getCurrentUser() as unknown as Record<string, unknown>;
     const role = ((cuForRole?.account as Record<string, unknown>)?.role as string) || getCurrentUser()?.role || 'driver';
     setShowNotifications(false);
-    const inferredId = n.deliveryId || (typeof n.id === 'string' ? n.id.split('-').slice(1).join('-') : null);
-    const deliveryQuery = inferredId ? `&delivery=${encodeURIComponent(inferredId)}` : '';
+    // Use deliveryId directly — never guess from id string (alert IDs like "alert-123" would produce wrong UUIDs)
+    const deliveryQuery = n.deliveryId ? `&delivery=${encodeURIComponent(n.deliveryId)}` : '';
     if (n.type==='message') {
       if (role==='admin') navigate(`/admin/operations?tab=communication${n.senderId?`&userId=${n.senderId}`:''}`);
       else if (role==='delivery_team') navigate(`/delivery-team?tab=communication${n.senderId?`&contact=${n.senderId}`:''}`);
@@ -479,7 +479,14 @@ export default function Header({ isAdmin = false }: HeaderProps) {
       else navigate(`/admin?tab=deliveries${deliveryQuery}&viewAll=1`);
       void markRead(n);
       setNotifications(prev => prev.filter(x => x.id !== n.id));
+      return;
     }
+    // Fallback for unknown notification types — navigate to home tab for role
+    void markRead(n);
+    setNotifications(prev => prev.filter(x => x.id !== n.id));
+    if (role==='delivery_team') navigate('/delivery-team?tab=operations');
+    else if (role==='logistics_team') navigate('/logistics-team?tab=operations');
+    else if (role==='admin') navigate('/admin');
   };
 
   const handleSearch = useCallback(async (e?: React.FormEvent) => {
