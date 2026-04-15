@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import DeliveryMap from '../components/MapView/DeliveryMap';
 import DeliveryManagementPage from './DeliveryManagementPage';
+import PaginationBar from '../components/common/PaginationBar';
 import { calculateRoute, generateFallbackRoute, computePerDriverRoutes } from '../services/advancedRoutingService';
 import type { DriverRoute } from '../services/advancedRoutingService';
 import useDeliveryStore from '../store/useDeliveryStore';
@@ -152,6 +153,8 @@ export default function LogisticsTeamPortal() {
   const [opsTodayOnly, setOpsTodayOnly] = useState(false);
   const [opsDateFrom, setOpsDateFrom] = useState('');
   const [opsDateTo, setOpsDateTo] = useState('');
+  const [opsPage, setOpsPage] = useState(1);
+  const OPS_PAGE_SIZE = 20;
   const dispatchTableRef = useRef<HTMLDivElement | null>(null);
   
   // Communication tab state
@@ -1189,6 +1192,10 @@ export default function LogisticsTeamPortal() {
                 return prio((a.status || '').toLowerCase()) - prio((b.status || '').toLowerCase());
               });
 
+            const opsTotalPages = Math.max(1, Math.ceil(opsRows.length / OPS_PAGE_SIZE));
+            const opsPageClamped = Math.min(opsPage, opsTotalPages);
+            const opsPagedRows = opsRows.slice((opsPageClamped - 1) * OPS_PAGE_SIZE, opsPageClamped * OPS_PAGE_SIZE);
+
             return (
               <div className="pp-card overflow-hidden">
                 {/* Header */}
@@ -1210,7 +1217,7 @@ export default function LogisticsTeamPortal() {
                       type="text"
                       placeholder="Search customer, PO number, delivery #, address…"
                       value={opsSearch}
-                      onChange={e => setOpsSearch(e.target.value)}
+                      onChange={e => { setOpsSearch(e.target.value); setOpsPage(1); }}
                       className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
                     />
                     {([
@@ -1225,7 +1232,7 @@ export default function LogisticsTeamPortal() {
                       <button
                         key={f}
                         type="button"
-                        onClick={() => setOpsStatusFilter(f)}
+                        onClick={() => { setOpsStatusFilter(f); setOpsPage(1); }}
                         className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-colors ${
                           opsStatusFilter === f
                             ? active
@@ -1237,7 +1244,7 @@ export default function LogisticsTeamPortal() {
                     ))}
                     <button
                       type="button"
-                      onClick={() => setOpsTodayOnly(v => !v)}
+                      onClick={() => { setOpsTodayOnly(v => !v); setOpsPage(1); }}
                       className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-colors ${
                         opsTodayOnly
                           ? 'bg-indigo-600 text-white'
@@ -1266,7 +1273,7 @@ export default function LogisticsTeamPortal() {
                     {(opsDateFrom || opsDateTo) && (
                       <button
                         type="button"
-                        onClick={() => { setOpsDateFrom(''); setOpsDateTo(''); }}
+                        onClick={() => { setOpsDateFrom(''); setOpsDateTo(''); setOpsPage(1); }}
                         className="text-[11px] text-red-500 dark:text-red-400 hover:underline"
                       >
                         Clear
@@ -1333,7 +1340,7 @@ export default function LogisticsTeamPortal() {
                           <td colSpan={18} className="px-4 py-8 text-center text-gray-400 dark:text-gray-500">No orders found</td>
                         </tr>
                       ) : (
-                        opsRows.map(delivery => {
+                        opsPagedRows.map(delivery => {
                         const dExt = delivery as unknown as {
                           goodsMovementDate?: string;
                           smsSentAt?: string;
@@ -1578,6 +1585,13 @@ export default function LogisticsTeamPortal() {
                     </tbody>
                   </table>
                 </div>
+                <PaginationBar
+                  page={opsPageClamped}
+                  totalPages={opsTotalPages}
+                  pageSize={OPS_PAGE_SIZE}
+                  total={opsRows.length}
+                  onPageChange={setOpsPage}
+                />
               </div>
             );
           })()}
@@ -1586,7 +1600,10 @@ export default function LogisticsTeamPortal() {
 
           {/* ── LIVE TRACKING sub-tab ── */}
           {deliveriesSubTab === 'live-tracking' && (() => {
+            // Only show out-for-delivery / on-route orders
             const trackingDeliveries = deliveries.filter(d => {
+              const s = (d.status || '').toLowerCase();
+              if (s !== 'out-for-delivery') return false;
               if (trackingDriverFilter === 'all') return true;
               const ext = d as unknown as { tracking?: { driverId?: string } };
               return ext.tracking?.driverId === trackingDriverFilter || d.assignedDriverId === trackingDriverFilter;
@@ -1674,15 +1691,15 @@ export default function LogisticsTeamPortal() {
                     )}
                   </div>
 
-                  {/* Scrollable cards */}
+                  {/* Scrollable cards — styled like DeliveryCard */}
                   <div className="flex-1 overflow-y-auto space-y-2 pr-0.5" style={{ minHeight: 0 }}>
                     {trackingDeliveries.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-500 text-sm gap-2">
                         <NavigationIcon className="w-8 h-8 opacity-30" />
-                        <p>No deliveries for selected driver</p>
+                        <p className="font-medium">No active deliveries</p>
+                        <p className="text-xs text-center">Orders with status "Out for Delivery" will appear here</p>
                       </div>
-                    ) : trackingDeliveries.map(delivery => {
-                      const { label: statusLabel, color: statusColor } = getDeliveryStatusBadge(delivery);
+                    ) : trackingDeliveries.map((delivery, idx) => {
                       const dExt = delivery as unknown as {
                         tracking?: { driverId?: string };
                         goodsMovementDate?: string;
@@ -1690,110 +1707,111 @@ export default function LogisticsTeamPortal() {
                         deliveryNumber?: string;
                         etaMinutes?: number;
                         metadata?: Record<string, unknown>;
-                        customerConfirmedAt?: string;
                       };
                       const meta = dExt.metadata ?? {};
                       const isPriority = meta.isPriority === true;
                       const assignedDriver = drivers.find(dr =>
                         dr.id === dExt.tracking?.driverId || dr.id === delivery.assignedDriverId
                       );
-                      const isOFD = (delivery.status||'').toLowerCase() === 'out-for-delivery';
                       const isSelected = delivery.id === trackingSelectedId;
 
-                      // ETA: etaMinutes from route calculation, or time-to-delivery-date
+                      // ETA: etaMinutes from routing, or time remaining to delivery date
                       const etaMinutes = dExt.etaMinutes ?? null;
-                      const etaLabel = (() => {
+                      const etaText = (() => {
                         if (etaMinutes != null && etaMinutes > 0) {
                           return etaMinutes < 60
-                            ? `ETA ${etaMinutes}m`
-                            : `ETA ${Math.round(etaMinutes / 60)}h ${etaMinutes % 60}m`;
+                            ? `${etaMinutes} min`
+                            : `${Math.floor(etaMinutes / 60)}h ${etaMinutes % 60}m`;
                         }
                         if (dExt.confirmedDeliveryDate) {
                           const ms = new Date(dExt.confirmedDeliveryDate).getTime() - Date.now();
-                          if (ms > 0 && ms < 7 * 24 * 3600000) {
+                          if (ms > 0 && ms < 24 * 3600000) {
                             const h = Math.floor(ms / 3600000);
                             const m = Math.floor((ms % 3600000) / 60000);
-                            return h > 0 ? `Due in ${h}h ${m}m` : `Due in ${m}m`;
+                            return h > 0 ? `${h}h ${m}m` : `${m}m`;
                           }
-                          return `Del: ${new Date(dExt.confirmedDeliveryDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}`;
                         }
-                        return null;
+                        return 'Calculating…';
                       })();
 
-                      const gmd = dExt.goodsMovementDate
-                        ? new Date(dExt.goodsMovementDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+                      const delDateShort = dExt.confirmedDeliveryDate
+                        ? new Date(dExt.confirmedDeliveryDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
                         : null;
 
                       return (
                         <div
                           key={delivery.id}
                           onClick={() => setTrackingSelectedId(isSelected ? null : delivery.id)}
-                          className={`pp-card p-3 cursor-pointer transition-all ${
-                            isSelected
-                              ? 'ring-2 ring-blue-500 dark:ring-blue-400 shadow-md'
-                              : 'hover:shadow-md'
-                          } ${
-                            isPriority
-                              ? 'border-l-4 border-l-red-500'
-                              : isOFD
-                              ? 'border-l-4 border-l-blue-500'
-                              : 'border-l-4 border-l-transparent'
-                          }`}
                           title={isSelected ? 'Click to deselect' : 'Click to highlight on map'}
+                          className={`flex flex-col rounded-lg border transition-all cursor-pointer ${
+                            isPriority
+                              ? 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700'
+                              : isSelected
+                              ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-400 dark:border-blue-500'
+                              : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600'
+                          } ${isSelected ? 'ring-2 ring-blue-400 dark:ring-blue-500 shadow-md' : 'hover:shadow-md'}`}
                         >
-                          {/* Priority + Status row */}
-                          <div className="flex items-center gap-1.5 mb-1.5">
-                            {isPriority && (
-                              <span className="shrink-0 text-[10px] font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 rounded-full">
-                                🚨 Priority
-                              </span>
-                            )}
-                            <span className={`shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${statusColor}`}>
-                              {statusLabel}
+                          <div className="flex items-start gap-2 p-3">
+                            {/* Stop number */}
+                            <span className="text-base font-bold text-blue-600 dark:text-blue-400 w-7 flex-shrink-0 pt-0.5">
+                              {idx + 1}.
                             </span>
-                            {isSelected && (
-                              <span className="ml-auto shrink-0 text-[10px] text-blue-600 dark:text-blue-400 font-semibold">● on map</span>
-                            )}
+
+                            <div className="flex-1 min-w-0 space-y-1.5">
+                              {/* Customer + badges */}
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                                  {delivery.customer || 'Unknown Customer'}
+                                </span>
+                                {isPriority && (
+                                  <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-red-600 text-white shrink-0">
+                                    P1
+                                  </span>
+                                )}
+                                {isSelected && (
+                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 shrink-0">
+                                    ● on map
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* PO number */}
+                              {delivery.poNumber && (
+                                <p className="text-[11px] text-gray-400 dark:text-gray-500 font-mono">
+                                  PO: {delivery.poNumber}
+                                </p>
+                              )}
+
+                              {/* Address */}
+                              {delivery.address && (
+                                <div className="text-xs text-gray-600 dark:text-gray-400 flex items-start gap-1">
+                                  📍 <span className="break-words">{delivery.address}</span>
+                                </div>
+                              )}
+
+                              {/* Driver */}
+                              {assignedDriver && (
+                                <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                                  <Truck className="w-3 h-3 shrink-0" />
+                                  <span className="truncate font-medium text-indigo-600 dark:text-indigo-400">
+                                    {assignedDriver.fullName || assignedDriver.username}
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* ETA + delivery date row */}
+                              <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
+                                  <Clock className="w-3 h-3" /> ETA {etaText}
+                                </span>
+                                {delDateShort && (
+                                  <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                                    Del: {delDateShort}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
-
-                          {/* Customer name */}
-                          <p className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate mb-1">
-                            {delivery.customer || 'Unknown Customer'}
-                          </p>
-
-                          {/* Address */}
-                          {delivery.address && (
-                            <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate mb-1.5" title={delivery.address}>
-                              <MapPin className="inline w-3 h-3 mr-0.5 -mt-0.5" />{delivery.address}
-                            </p>
-                          )}
-
-                          {/* ETA */}
-                          {etaLabel && (
-                            <p className={`text-[11px] font-semibold mb-1 ${
-                              etaLabel.startsWith('ETA') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'
-                            }`}>
-                              <Clock className="inline w-3 h-3 mr-0.5 -mt-0.5" />{etaLabel}
-                            </p>
-                          )}
-
-                          {/* Driver + GMD + PO */}
-                          <div className="flex items-center justify-between gap-1 text-[10px] mt-1">
-                            {assignedDriver ? (
-                              <span className="text-indigo-600 dark:text-indigo-400 font-medium truncate">
-                                <Truck className="inline w-2.5 h-2.5 mr-0.5" />{assignedDriver.fullName || assignedDriver.username}
-                              </span>
-                            ) : (
-                              <span className="text-orange-500 dark:text-orange-400">Unassigned</span>
-                            )}
-                            {gmd && <span className="text-gray-400 shrink-0">GMD: {gmd}</span>}
-                          </div>
-
-                          {delivery.poNumber && (
-                            <p className="text-[10px] font-mono text-gray-400 dark:text-gray-500 mt-0.5">
-                              PO: {delivery.poNumber}
-                            </p>
-                          )}
                         </div>
                       );
                     })}
