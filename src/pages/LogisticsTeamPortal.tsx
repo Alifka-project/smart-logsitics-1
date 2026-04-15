@@ -1147,38 +1147,20 @@ export default function LogisticsTeamPortal() {
         </div>
       )}
 
-      {/* ── DELIVERIES TAB (with sub-tabs) ── */}
+      {/* ── DELIVERIES TAB ── */}
       {activeTab === 'deliveries' && (
-        <div className="space-y-3">
-
-          {/* Sub-tab navigation */}
-          <div className="pp-card px-3 py-2 flex gap-2 overflow-x-auto">
-            {[
-              { id: 'manage-orders',   label: 'Manage Delivery Order', icon: Package },
-              { id: 'manage-dispatch', label: 'Manage Dispatch',       icon: Truck },
-              { id: 'live-tracking',   label: 'Live Tracking',         icon: MapPin },
-            ].map(sub => {
-              const Icon = sub.icon;
-              return (
-                <button
-                  key={sub.id}
-                  onClick={() => setDeliveriesSubTab(sub.id)}
-                  className={`pp-nav-pill min-h-[40px] touch-manipulation ${deliveriesSubTab === sub.id ? 'active' : ''}`}
-                >
-                  <Icon className="w-4 h-4" />
-                  {sub.label}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Manage Delivery Order sub-tab */}
-          {deliveriesSubTab === 'manage-orders' && (
-            <DeliveryManagementPage hidePageTitle hideDeliveriesTab excludeGarbageUploadRows />
-          )}
-
-          {/* ── MANAGE DISPATCH sub-tab ── */}
-          {deliveriesSubTab === 'manage-dispatch' && (
+        <DeliveryManagementPage
+          hidePageTitle
+          hideDeliveriesTab
+          excludeGarbageUploadRows
+          forceTab={deliveriesSubTab === 'manage-orders' ? 'manage' : deliveriesSubTab}
+          onTabChange={(id) => setDeliveriesSubTab(id === 'manage' ? 'manage-orders' : id)}
+          extraTabs={[
+            {
+              id: 'manage-dispatch',
+              label: 'Manage Dispatch',
+              icon: Truck,
+              content: (
         <div className="space-y-4">
 
           {/* Assign & Dispatch Table */}
@@ -1663,10 +1645,13 @@ export default function LogisticsTeamPortal() {
             );
           })()}
         </div>
-          )}
-
-          {/* ── LIVE TRACKING sub-tab ── */}
-          {deliveriesSubTab === 'live-tracking' && (() => {
+              ),
+            },
+            {
+              id: 'live-tracking',
+              label: 'Live Tracking',
+              icon: MapPin,
+              content: (() => {
             // Only show out-for-delivery / on-route orders
             const trackingDeliveries = deliveries.filter(d => {
               const s = (d.status || '').toLowerCase();
@@ -1886,9 +1871,10 @@ export default function LogisticsTeamPortal() {
                 </div>
               </div>
             );
-          })()}
-
-        </div>
+          })(),
+            },
+          ]}
+        />
       )}
 
       {/* Communication Tab — two-column chat layout */}

@@ -42,13 +42,20 @@ interface FileErrorResult {
 interface Tab {
   id: string;
   label: string;
-  icon: LucideIcon;
+  icon: LucideIcon | React.ComponentType<{ className?: string }>;
 }
 
 /** Same roles that use /admin/tracking/deliveries on Delivery & Logistics portals. */
 function isTeamPortalOperationalRole(): boolean {
   const r = (getCurrentUser()?.role ?? '').toLowerCase();
   return r === 'admin' || r === 'delivery_team' || r === 'logistics_team';
+}
+
+interface ExtraTab {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  content: React.ReactNode;
 }
 
 interface DeliveryManagementPageProps {
@@ -60,6 +67,12 @@ interface DeliveryManagementPageProps {
   hidePageTitle?: boolean;
   /** When true, hide bad import rows (e.g. PO "removed", placeholder "Customer N") from map + Manage tab */
   excludeGarbageUploadRows?: boolean;
+  /** Extra tabs appended to the tab rail (e.g. Manage Dispatch, Live Tracking from parent portal) */
+  extraTabs?: ExtraTab[];
+  /** Externally-controlled active tab — parent sets this to navigate programmatically */
+  forceTab?: string;
+  /** Called when user clicks any tab, so parent can sync its own state */
+  onTabChange?: (tabId: string) => void;
 }
 
 export default function DeliveryManagementPage({
@@ -67,6 +80,9 @@ export default function DeliveryManagementPage({
   hideDeliveriesTab = false,
   hidePageTitle = false,
   excludeGarbageUploadRows = false,
+  extraTabs = [],
+  forceTab,
+  onTabChange,
 }: DeliveryManagementPageProps) {
   const deliveries = useDeliveryStore((state) => state.deliveries ?? []);
   const deliveryListFilter = useDeliveryStore((state) => state.deliveryListFilter ?? 'all');
@@ -83,8 +99,16 @@ export default function DeliveryManagementPage({
   useEffect(() => {
     if (manageTabFilter && !hideManageTab) {
       setActiveTab('manage');
+      onTabChange?.('manage');
     }
-  }, [manageTabFilter, hideManageTab]);
+  }, [manageTabFilter, hideManageTab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Respond to external tab navigation (e.g. from notification click or URL param)
+  useEffect(() => {
+    if (forceTab) {
+      setActiveTab(forceTab);
+    }
+  }, [forceTab]);
 
   const displayDeliveries = useMemo(() => {
     if (deliveryListFilter === 'delivered') {
@@ -322,7 +346,7 @@ export default function DeliveryManagementPage({
     }
   };
 
-  const tabs: Tab[] = hideManageTab
+  const baseTabs: Tab[] = hideManageTab
     ? [{ id: 'deliveries', label: 'Deliveries', icon: List }]
     : hideDeliveriesTab
     ? [{ id: 'manage', label: 'Manage Delivery Order', icon: ClipboardList }]
@@ -330,6 +354,7 @@ export default function DeliveryManagementPage({
         { id: 'manage', label: 'Manage Delivery Order', icon: ClipboardList },
         { id: 'deliveries', label: 'Deliveries', icon: List },
       ];
+  const tabs: Tab[] = [...baseTabs, ...extraTabs.map(t => ({ id: t.id, label: t.label, icon: t.icon }))];
 
   const noDeliveriesForDeliveriesTab =
     effectiveExcludeGarbage && !hideManageTab
@@ -394,6 +419,7 @@ export default function DeliveryManagementPage({
                 key={tab.id}
                 onClick={() => {
                   setActiveTab(tab.id);
+                  onTabChange?.(tab.id);
                   if (tab.id === 'deliveries' && displayDeliveries.length > 0) {
                     void loadRoute();
                   }
@@ -593,6 +619,11 @@ export default function DeliveryManagementPage({
           )}
         </div>
       )}
+
+      {/* ── EXTRA TABS (e.g. Manage Dispatch, Live Tracking from parent portal) ── */}
+      {extraTabs.map(tab => activeTab === tab.id && (
+        <React.Fragment key={tab.id}>{tab.content}</React.Fragment>
+      ))}
 
       {/* Customer Details Modal */}
       <CustomerModal
