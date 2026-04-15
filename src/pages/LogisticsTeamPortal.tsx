@@ -97,6 +97,7 @@ interface AssignmentMessage {
 
 export default function LogisticsTeamPortal() {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [deliveriesSubTab, setDeliveriesSubTab] = useState<string>('manage-orders');
   const [trackingDriverFilter, setTrackingDriverFilter] = useState<string>('all');
   const [drivers, setDrivers] = useState<ContactUser[]>([]);
   const [contacts, setContacts] = useState<ContactUser[]>([]); // All contacts (drivers + team members)
@@ -273,11 +274,16 @@ export default function LogisticsTeamPortal() {
     const contactId = params.get('driver') || params.get('contact');
     const deliveryId = params.get('delivery');
 
-    // Backward-compat: remap old tab names to new ones
+    // Backward-compat: remap old top-level tab names
     if (tabParam === 'operations') tabParam = 'dashboard';
-    if (tabParam === 'deliveries') tabParam = 'manage-orders';
 
-    if (tabParam) {
+    // Sub-tabs inside Deliveries: manage-orders, manage-dispatch, live-tracking
+    const deliveriesSubTabs = ['manage-orders', 'manage-dispatch', 'live-tracking', 'deliveries'];
+    if (tabParam && deliveriesSubTabs.includes(tabParam)) {
+      setActiveTab('deliveries');
+      const subTab = tabParam === 'deliveries' ? 'manage-orders' : tabParam;
+      setDeliveriesSubTab(subTab);
+    } else if (tabParam) {
       setActiveTab(tabParam);
     }
 
@@ -289,9 +295,10 @@ export default function LogisticsTeamPortal() {
       }
     }
 
-    // Delivery highlight → go to manage-dispatch where the table lives
+    // Delivery highlight → go to Deliveries > Manage Dispatch where the table lives
     if (deliveryId) {
-      setActiveTab('manage-dispatch');
+      setActiveTab('deliveries');
+      setDeliveriesSubTab('manage-dispatch');
       setHighlightDeliveryId(deliveryId);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -718,11 +725,9 @@ export default function LogisticsTeamPortal() {
       <div className="pp-sticky-tab-rail pp-card mt-0 mb-2 overflow-x-auto px-2 py-2 md:mb-3">
         <nav className="flex flex-wrap gap-2 min-w-max md:min-w-0">
           {[
-            { id: 'dashboard',       label: 'Dashboard',             icon: Activity },
-            { id: 'manage-orders',   label: 'Manage Delivery Order', icon: Package },
-            { id: 'manage-dispatch', label: 'Manage Dispatch',       icon: Truck },
-            { id: 'live-tracking',   label: 'Live Tracking',         icon: MapPin },
-            { id: 'communication',   label: 'Communication',         icon: MessageSquare },
+            { id: 'dashboard',     label: 'Dashboard',   icon: Activity },
+            { id: 'deliveries',    label: 'Deliveries',  icon: Package },
+            { id: 'communication', label: 'Communication', icon: MessageSquare },
           ].map(tab => {
             const Icon = tab.icon;
             return (
@@ -795,7 +800,7 @@ export default function LogisticsTeamPortal() {
             return (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 <div
-                  onClick={() => setActiveTab('manage-dispatch')}
+                  onClick={() => { setActiveTab('deliveries'); setDeliveriesSubTab('manage-dispatch'); }}
                   className="pp-card p-4 text-center cursor-pointer hover:ring-2 hover:ring-amber-400 transition-all"
                   title="Click to view Manage Dispatch"
                 >
@@ -814,7 +819,7 @@ export default function LogisticsTeamPortal() {
                   <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">completed</div>
                 </div>
                 <div
-                  onClick={() => setActiveTab('manage-dispatch')}
+                  onClick={() => { setActiveTab('deliveries'); setDeliveriesSubTab('manage-dispatch'); }}
                   className="pp-card p-4 text-center cursor-pointer hover:ring-2 hover:ring-red-400 transition-all"
                   title="Click to view Manage Dispatch"
                 >
@@ -860,10 +865,11 @@ export default function LogisticsTeamPortal() {
                     key={label}
                     onClick={() => {
                       useDeliveryStore.getState().setManageTabFilter(targetTab);
-                      setActiveTab('manage-orders');
+                      setActiveTab('deliveries');
+                      setDeliveriesSubTab('manage-orders');
                     }}
                     className={`flex flex-col items-center justify-center rounded-xl border p-3 ${bg} ${border} ${hover} cursor-pointer select-none transition-colors`}
-                    title={`View ${label} in Manage Delivery Order tab`}
+                    title={`View ${label} in Manage Delivery Order`}
                   >
                     <span className={`text-xl font-bold ${countColor}`}>{count}</span>
                     <span className={`mt-0.5 text-center text-xs font-semibold leading-tight ${labelColor}`}>{label}</span>
@@ -1070,13 +1076,38 @@ export default function LogisticsTeamPortal() {
         </div>
       )}
 
-      {/* Manage Delivery Order Tab */}
-      {activeTab === 'manage-orders' && (
-        <DeliveryManagementPage hidePageTitle hideDeliveriesTab excludeGarbageUploadRows />
-      )}
+      {/* ── DELIVERIES TAB (with sub-tabs) ── */}
+      {activeTab === 'deliveries' && (
+        <div className="space-y-3">
 
-      {/* ── MANAGE DISPATCH TAB ── */}
-      {activeTab === 'manage-dispatch' && (
+          {/* Sub-tab navigation */}
+          <div className="pp-card px-3 py-2 flex gap-2 overflow-x-auto">
+            {[
+              { id: 'manage-orders',   label: 'Manage Delivery Order', icon: Package },
+              { id: 'manage-dispatch', label: 'Manage Dispatch',       icon: Truck },
+              { id: 'live-tracking',   label: 'Live Tracking',         icon: MapPin },
+            ].map(sub => {
+              const Icon = sub.icon;
+              return (
+                <button
+                  key={sub.id}
+                  onClick={() => setDeliveriesSubTab(sub.id)}
+                  className={`pp-nav-pill min-h-[40px] touch-manipulation ${deliveriesSubTab === sub.id ? 'active' : ''}`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {sub.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Manage Delivery Order sub-tab */}
+          {deliveriesSubTab === 'manage-orders' && (
+            <DeliveryManagementPage hidePageTitle hideDeliveriesTab excludeGarbageUploadRows />
+          )}
+
+          {/* ── MANAGE DISPATCH sub-tab ── */}
+          {deliveriesSubTab === 'manage-dispatch' && (
         <div className="space-y-4">
 
           {/* Assign & Dispatch Table */}
@@ -1550,10 +1581,10 @@ export default function LogisticsTeamPortal() {
             );
           })()}
         </div>
-      )}
+          )}
 
-      {/* ── LIVE TRACKING TAB ── */}
-      {activeTab === 'live-tracking' && (
+          {/* ── LIVE TRACKING sub-tab ── */}
+          {deliveriesSubTab === 'live-tracking' && (
         <div style={{ display: 'flex', gap: '12px', height: 'max(520px, calc(100dvh - 220px))', minHeight: '500px' }}>
           {/* 70% — Map */}
           <div style={{ flex: '0 0 70%', minWidth: 0 }}>
@@ -1668,7 +1699,7 @@ export default function LogisticsTeamPortal() {
                         isOFD ? 'border-l-4 border-l-blue-500' : 'border-l-4 border-l-transparent'
                       }`}
                       onClick={() => {
-                        setActiveTab('manage-dispatch');
+                        setDeliveriesSubTab('manage-dispatch');
                         setHighlightDeliveryId(delivery.id);
                       }}
                       title="Click to view in Manage Dispatch"
@@ -1716,6 +1747,9 @@ export default function LogisticsTeamPortal() {
               })()}
             </div>
           </div>
+        </div>
+          )}
+
         </div>
       )}
 
