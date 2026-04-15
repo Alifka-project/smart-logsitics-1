@@ -26,6 +26,7 @@ import {
 import DeliveryMap from '../components/MapView/DeliveryMap';
 import DeliveryManagementPage from './DeliveryManagementPage';
 import PaginationBar from '../components/common/PaginationBar';
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { calculateRoute, generateFallbackRoute, computePerDriverRoutes } from '../services/advancedRoutingService';
 import type { DriverRoute } from '../services/advancedRoutingService';
 import useDeliveryStore from '../store/useDeliveryStore';
@@ -998,83 +999,149 @@ export default function LogisticsTeamPortal() {
             </div>
           </div>
 
-          {/* ── Driver Status + Alerts ── */}
-          <div className="flex flex-col xl:flex-row gap-4">
+          {/* ── Driver Status + 2 Charts (3-column, same height as Needs Attention) ── */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-stretch">
 
-            {/* Driver Status Cards (clickable → chat) */}
-            <div className="pp-card p-3 flex-1 flex flex-col">
-              <div className="flex items-center gap-2 mb-3">
-                <Users className="w-4 h-4 text-indigo-500" />
-                <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Driver Status</h2>
+            {/* Driver Status — compact, same style as Needs Attention */}
+            <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[340px]">
+              <div className="mb-3 flex flex-shrink-0 items-center gap-2">
+                <Users className="h-5 w-5 flex-shrink-0 text-indigo-500" />
+                <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Driver Status</h2>
                 <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500">Click to chat</span>
               </div>
-              {drivers.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center py-6 text-sm text-gray-400 dark:text-gray-500">No drivers available</div>
-              ) : (
-                <div className="flex-1 overflow-y-auto space-y-2" style={{ maxHeight: '420px' }}>
-                  {drivers.map(driver => {
-                    const isOnline = isContactOnline(driver);
-                    const loc = driver.tracking?.location;
-                    const assignedOrders = deliveries.filter(d => {
-                      const dExt = d as unknown as { tracking?: { driverId?: string } };
-                      return (dExt.tracking?.driverId === driver.id || d.assignedDriverId === driver.id) && (d.status || '').toLowerCase() === 'out-for-delivery';
-                    }).length;
-                    return (
-                      <button
-                        key={driver.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedContact(driver);
-                          setActiveTab('communication');
-                          void loadMessages(driver.id);
-                        }}
-                        className="w-full text-left p-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-750 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:border-indigo-200 dark:hover:border-indigo-700 transition-all group"
-                      >
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <div className="relative flex-shrink-0">
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">
-                              {(driver.fullName || driver.username || '?')[0].toUpperCase()}
-                            </div>
-                            <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-gray-800 ${isOnline ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">{driver.fullName || driver.username}</div>
-                            <div className={`text-[10px] font-medium ${isOnline ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`}>
-                              {isOnline ? '● Online' : '○ Offline'}
-                            </div>
-                          </div>
-                          <MessageSquare className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 group-hover:text-indigo-500 dark:group-hover:text-indigo-400 transition-colors flex-shrink-0" />
+              <div className="min-h-0 flex-1 overflow-y-auto space-y-2 pr-0.5">
+                {drivers.length === 0 ? (
+                  <div className="flex items-center justify-center py-8 text-sm text-gray-400 dark:text-gray-500">No drivers</div>
+                ) : drivers.map(driver => {
+                  const isOnline = isContactOnline(driver);
+                  const assignedOrders = deliveries.filter(d => {
+                    const dExt = d as unknown as { tracking?: { driverId?: string } };
+                    return (dExt.tracking?.driverId === driver.id || d.assignedDriverId === driver.id) && (d.status || '').toLowerCase() === 'out-for-delivery';
+                  }).length;
+                  return (
+                    <button
+                      key={driver.id}
+                      type="button"
+                      onClick={() => { setSelectedContact(driver); setActiveTab('communication'); void loadMessages(driver.id); }}
+                      className="w-full text-left px-2.5 py-2 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:border-indigo-200 dark:hover:border-indigo-700 transition-all group flex items-center gap-2"
+                    >
+                      <div className="relative flex-shrink-0">
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white text-[11px] font-bold">
+                          {(driver.fullName || driver.username || '?')[0].toUpperCase()}
                         </div>
-                        <div className="flex items-center gap-3 text-[10px] text-gray-500 dark:text-gray-400">
-                          {loc && <span className="flex items-center gap-1"><MapPin className="w-2.5 h-2.5" />GPS Active</span>}
-                          {assignedOrders > 0 && <span className="flex items-center gap-1"><Truck className="w-2.5 h-2.5" />{assignedOrders} on route</span>}
+                        <span className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border-2 border-white dark:border-gray-800 ${isOnline ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">{driver.fullName || driver.username}</div>
+                        <div className="flex items-center gap-2 text-[10px]">
+                          <span className={isOnline ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}>{isOnline ? '● Online' : '○ Offline'}</span>
+                          {assignedOrders > 0 && <span className="text-blue-500"><Truck className="inline w-2.5 h-2.5 mr-0.5" />{assignedOrders} on route</span>}
                         </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              {/* Alerts compact */}
-              {alerts.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
-                  <div className="flex items-center gap-2 mb-2">
-                    <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
-                    <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Alerts</span>
-                    <span className="ml-auto px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[10px] font-bold">{alerts.length}</span>
-                  </div>
-                  <div className="space-y-1.5 max-h-32 overflow-y-auto">
-                    {alerts.slice(0, 5).map(alert => (
-                      <div key={alert.id} className="flex items-start gap-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-                        <AlertCircle className="w-3 h-3 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
-                        <p className="text-[10px] text-gray-700 dark:text-gray-300 leading-tight">
+                      </div>
+                      <MessageSquare className="w-3 h-3 text-gray-300 dark:text-gray-600 group-hover:text-indigo-500 flex-shrink-0" />
+                    </button>
+                  );
+                })}
+                {alerts.length > 0 && (
+                  <div className="mt-1 pt-2 border-t border-gray-100 dark:border-gray-700 space-y-1">
+                    {alerts.slice(0, 3).map(alert => (
+                      <div key={alert.id} className="flex items-start gap-1.5 p-1.5 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-100 dark:border-yellow-800/40 rounded-lg">
+                        <AlertCircle className="w-3 h-3 text-amber-500 flex-shrink-0 mt-0.5" />
+                        <p className="text-[10px] text-gray-600 dark:text-gray-300 leading-tight truncate">
                           <span className="font-medium">{alert.driver || alert.delivery}:</span> {alert.message}
                         </p>
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
+
+            {/* Chart 1 — Delivery Status Breakdown (donut) */}
+            {(() => {
+              const statusGroups = [
+                { name: 'Delivered',  value: deliveries.filter(d => TERMINAL_STATUSES.has((d.status||'').toLowerCase())).length,                                                            color: '#22c55e' },
+                { name: 'On Route',   value: deliveries.filter(d => (d.status||'').toLowerCase() === 'out-for-delivery').length,                                                            color: '#3b82f6' },
+                { name: 'Awaiting',   value: deliveries.filter(d => ['sms_sent','sms-sent','unconfirmed','awaiting_customer'].includes((d.status||'').toLowerCase())).length,               color: '#a855f7' },
+                { name: 'Pending',    value: deliveries.filter(d => ['pending','uploaded','scheduled','confirmed','scheduled-confirmed'].includes((d.status||'').toLowerCase())).length,    color: '#f59e0b' },
+                { name: 'Delayed',    value: deliveries.filter(d => ['order-delay','order_delay'].includes((d.status||'').toLowerCase())).length,                                           color: '#ef4444' },
+              ].filter(g => g.value > 0);
+              const total = statusGroups.reduce((s, g) => s + g.value, 0);
+              return (
+                <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[340px]">
+                  <div className="mb-2 flex flex-shrink-0 items-center gap-2">
+                    <Activity className="h-5 w-5 flex-shrink-0 text-blue-500" />
+                    <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Status Breakdown</h2>
+                    <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500">{total} total</span>
+                  </div>
+                  {total === 0 ? (
+                    <div className="flex-1 flex items-center justify-center text-sm text-gray-400 dark:text-gray-500">No data</div>
+                  ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center min-h-0">
+                      <ResponsiveContainer width="100%" height={180}>
+                        <PieChart>
+                          <Pie data={statusGroups} cx="50%" cy="50%" innerRadius={52} outerRadius={78} paddingAngle={2} dataKey="value">
+                            {statusGroups.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                          </Pie>
+                          <Tooltip formatter={(v: number, name: string) => [`${v} (${Math.round(v/total*100)}%)`, name]} contentStyle={{ fontSize: 11 }} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 mt-1">
+                        {statusGroups.map(g => (
+                          <div key={g.name} className="flex items-center gap-1 text-[10px] text-gray-600 dark:text-gray-400">
+                            <span className="w-2 h-2 rounded-full inline-block" style={{ background: g.color }} />
+                            {g.name} <span className="font-semibold text-gray-800 dark:text-gray-200">{g.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Chart 2 — Driver Workload (bar chart per driver) */}
+            {(() => {
+              const driverData = drivers.map(dr => {
+                const drOrders = deliveries.filter(d => {
+                  const ext = d as unknown as { tracking?: { driverId?: string } };
+                  return ext.tracking?.driverId === dr.id || d.assignedDriverId === dr.id;
+                });
+                return {
+                  name: (dr.fullName || dr.username || '').split(' ')[0],
+                  'On Route': drOrders.filter(d => (d.status||'').toLowerCase() === 'out-for-delivery').length,
+                  Delivered:  drOrders.filter(d => TERMINAL_STATUSES.has((d.status||'').toLowerCase())).length,
+                  Pending:    drOrders.filter(d => !['out-for-delivery','out_for_delivery'].includes((d.status||'').toLowerCase()) && !TERMINAL_STATUSES.has((d.status||'').toLowerCase())).length,
+                };
+              });
+              return (
+                <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[340px]">
+                  <div className="mb-2 flex flex-shrink-0 items-center gap-2">
+                    <Truck className="h-5 w-5 flex-shrink-0 text-teal-500" />
+                    <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Driver Workload</h2>
+                    <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500">orders assigned</span>
+                  </div>
+                  {drivers.length === 0 ? (
+                    <div className="flex-1 flex items-center justify-center text-sm text-gray-400 dark:text-gray-500">No drivers</div>
+                  ) : (
+                    <div className="flex-1 min-h-0">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={driverData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }} barSize={14}>
+                          <XAxis dataKey="name" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                          <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                          <Tooltip contentStyle={{ fontSize: 11 }} />
+                          <Legend wrapperStyle={{ fontSize: 10, paddingTop: 4 }} />
+                          <Bar dataKey="On Route" stackId="a" fill="#3b82f6" radius={[0,0,0,0]} />
+                          <Bar dataKey="Pending"  stackId="a" fill="#f59e0b" radius={[0,0,0,0]} />
+                          <Bar dataKey="Delivered" stackId="a" fill="#22c55e" radius={[3,3,0,0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
           </div>
 
         </div>
@@ -1126,9 +1193,9 @@ export default function LogisticsTeamPortal() {
                 const s = (d.status || '').toLowerCase();
                 if (opsStatusFilter !== 'all') {
                   if (opsStatusFilter === 'pending' && !['pending', 'uploaded', 'scheduled', 'confirmed', 'scheduled-confirmed'].includes(s)) return false;
-                  if (opsStatusFilter === 'awaiting' && !['sms_sent', 'sms-sent', 'unconfirmed'].includes(s)) return false;
+                  if (opsStatusFilter === 'awaiting' && !['sms_sent', 'sms-sent', 'unconfirmed', 'awaiting_customer', 'awaiting-customer'].includes(s)) return false;
                   if (opsStatusFilter === 'ofd' && s !== 'out-for-delivery') return false;
-                  if (opsStatusFilter === 'delay' && s !== 'order-delay') return false;
+                  if (opsStatusFilter === 'delay' && !['order-delay', 'order_delay'].includes(s)) return false;
                   if (opsStatusFilter === 'terminal' && !TERMINAL_STATUSES.has(s)) return false;
                   if (opsStatusFilter === 'priority') {
                     const m = ((d as unknown as { metadata?: Record<string, unknown> }).metadata ?? {});
