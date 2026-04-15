@@ -54,6 +54,8 @@ function isTeamPortalOperationalRole(): boolean {
 interface DeliveryManagementPageProps {
   /** When true (e.g. Driver Portal), hide Manage Delivery Order tab; show only Deliveries view */
   hideManageTab?: boolean;
+  /** When true (e.g. embedded in Logistics Portal), hide the Deliveries sub-tab; show only Manage Delivery Order */
+  hideDeliveriesTab?: boolean;
   /** When true (e.g. embedded in team portals), hide the main page title for a cleaner layout */
   hidePageTitle?: boolean;
   /** When true, hide bad import rows (e.g. PO "removed", placeholder "Customer N") from map + Manage tab */
@@ -62,6 +64,7 @@ interface DeliveryManagementPageProps {
 
 export default function DeliveryManagementPage({
   hideManageTab = false,
+  hideDeliveriesTab = false,
   hidePageTitle = false,
   excludeGarbageUploadRows = false,
 }: DeliveryManagementPageProps) {
@@ -321,6 +324,8 @@ export default function DeliveryManagementPage({
 
   const tabs: Tab[] = hideManageTab
     ? [{ id: 'deliveries', label: 'Deliveries', icon: List }]
+    : hideDeliveriesTab
+    ? [{ id: 'manage', label: 'Manage Delivery Order', icon: ClipboardList }]
     : [
         { id: 'manage', label: 'Manage Delivery Order', icon: ClipboardList },
         { id: 'deliveries', label: 'Deliveries', icon: List },

@@ -475,7 +475,7 @@ export default function Header({ isAdmin = false }: HeaderProps) {
     }
     if (n.type==='delivery' && (role==='admin'||role==='delivery_team'||role==='logistics_team')) {
       if (role==='delivery_team') navigate(`/delivery-team?tab=operations${deliveryQuery}`);
-      else if (role==='logistics_team') navigate(`/logistics-team?tab=operations${deliveryQuery}`);
+      else if (role==='logistics_team') navigate(`/logistics-team?tab=manage-dispatch${deliveryQuery}`);
       else navigate(`/admin?tab=deliveries${deliveryQuery}&viewAll=1`);
       void markRead(n);
       setNotifications(prev => prev.filter(x => x.id !== n.id));
@@ -485,7 +485,7 @@ export default function Header({ isAdmin = false }: HeaderProps) {
     void markRead(n);
     setNotifications(prev => prev.filter(x => x.id !== n.id));
     if (role==='delivery_team') navigate('/delivery-team?tab=operations');
-    else if (role==='logistics_team') navigate('/logistics-team?tab=operations');
+    else if (role==='logistics_team') navigate('/logistics-team?tab=dashboard');
     else if (role==='admin') navigate('/admin');
   };
 
@@ -519,7 +519,7 @@ export default function Header({ isAdmin = false }: HeaderProps) {
     if (type==='delivery') {
       if (role==='admin') navigate(`/admin?tab=deliveries&delivery=${result.id}&viewAll=1`);
       else if (role==='delivery_team') navigate(`/delivery-team?tab=control&delivery=${result.id}`);
-      else if (role==='logistics_team') navigate(`/logistics-team?tab=control&delivery=${result.id}`);
+      else if (role==='logistics_team') navigate(`/logistics-team?tab=manage-dispatch&delivery=${result.id}`);
       else navigate('/driver?tab=deliveries');
     } else if (type==='driver') { navigate('/admin/users'); }
   }, [user, navigate]);

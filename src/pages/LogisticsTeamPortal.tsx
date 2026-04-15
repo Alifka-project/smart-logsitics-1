@@ -96,7 +96,8 @@ interface AssignmentMessage {
 }
 
 export default function LogisticsTeamPortal() {
-  const [activeTab, setActiveTab] = useState<string>('operations');
+  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [trackingDriverFilter, setTrackingDriverFilter] = useState<string>('all');
   const [drivers, setDrivers] = useState<ContactUser[]>([]);
   const [contacts, setContacts] = useState<ContactUser[]>([]); // All contacts (drivers + team members)
   const [teamMembers, setTeamMembers] = useState<ContactUser[]>([]); // Admin + delivery_team
@@ -268,29 +269,29 @@ export default function LogisticsTeamPortal() {
   // Handle URL-based tab/contact/delivery selection
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const tabParam = params.get('tab');
+    let tabParam = params.get('tab');
     const contactId = params.get('driver') || params.get('contact');
     const deliveryId = params.get('delivery');
 
-    // Switch to tab specified in URL
+    // Backward-compat: remap old tab names to new ones
+    if (tabParam === 'operations') tabParam = 'dashboard';
+    if (tabParam === 'deliveries') tabParam = 'manage-orders';
+
     if (tabParam) {
       setActiveTab(tabParam);
     }
 
-    // If contact ID is provided, switch to communication tab and select contact
     if (contactId) {
       setActiveTab('communication');
       if (contacts.length > 0) {
         const contact = contacts.find(c => c.id === contactId);
-        if (contact) {
-          setSelectedContact(contact);
-        }
+        if (contact) setSelectedContact(contact);
       }
     }
 
-    // If delivery ID is provided, switch to operations tab and highlight the row
+    // Delivery highlight → go to manage-dispatch where the table lives
     if (deliveryId) {
-      setActiveTab('operations');
+      setActiveTab('manage-dispatch');
       setHighlightDeliveryId(deliveryId);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -717,9 +718,11 @@ export default function LogisticsTeamPortal() {
       <div className="pp-sticky-tab-rail pp-card mt-0 mb-2 overflow-x-auto px-2 py-2 md:mb-3">
         <nav className="flex flex-wrap gap-2 min-w-max md:min-w-0">
           {[
-            { id: 'operations', label: 'Operations', icon: Activity },
-            { id: 'deliveries', label: 'Deliveries', icon: Package },
-            { id: 'communication', label: 'Communication', icon: MessageSquare },
+            { id: 'dashboard',       label: 'Dashboard',             icon: Activity },
+            { id: 'manage-orders',   label: 'Manage Delivery Order', icon: Package },
+            { id: 'manage-dispatch', label: 'Manage Dispatch',       icon: Truck },
+            { id: 'live-tracking',   label: 'Live Tracking',         icon: MapPin },
+            { id: 'communication',   label: 'Communication',         icon: MessageSquare },
           ].map(tab => {
             const Icon = tab.icon;
             return (
@@ -739,55 +742,99 @@ export default function LogisticsTeamPortal() {
       {/* Animated tab content — re-mounts on tab change */}
       <div key={activeTab} className="tab-enter">
 
-      {/* Operations Tab — two-column: left=map+drivers, right=dispatch table */}
-      {activeTab === 'operations' && (
-        <div className="space-y-4 md:space-y-6">
+      {/* ── DASHBOARD TAB ── */}
+      {activeTab === 'dashboard' && (
+        <div className="space-y-4 md:space-y-5">
 
-          {/* ── Unified Stats Row ── */}
+          {/* ── KPI Stats Row ── */}
           {(() => {
-            const activeAll = deliveries.filter(d => !TERMINAL_STATUSES.has((d.status || '').toLowerCase()));
-            const assignedActive = activeAll.filter(d => {
-              const dt = d as unknown as { tracking?: { driverId?: string } };
-              return !!(dt.tracking?.driverId || d.assignedDriverId);
+            const todayIso = getTodayIsoDubai();
+            const todayMs = new Date(todayIso).getTime();
+            const tomorrowMs = todayMs + 86400000;
+
+            // Pending GMD: active orders without a goods movement date
+            const pendingGMD = deliveries.filter(d => {
+              const ext = d as unknown as { goodsMovementDate?: string };
+              return !ext.goodsMovementDate && !TERMINAL_STATUSES.has((d.status || '').toLowerCase());
+            }).length;
+
+            // Today processed: deliveries created today (new POs uploaded today)
+            const todayProcessed = deliveries.filter(d => {
+              const ext = d as unknown as { createdAt?: string };
+              if (!ext.createdAt) return false;
+              const t = new Date(ext.createdAt).getTime();
+              return t >= todayMs && t < tomorrowMs;
+            }).length;
+
+            // Delivered: terminal-status deliveries
+            const deliveredCount = deliveries.filter(d =>
+              TERMINAL_STATUSES.has((d.status || '').toLowerCase())
+            ).length;
+
+            // Pending POD: delivered but no proof of delivery attached
+            const pendingPOD = deliveries.filter(d => {
+              const s = (d.status || '').toLowerCase();
+              const ext = d as unknown as { podCompletedAt?: string; photos?: unknown[]; driverSignature?: string };
+              const isDelivered = ['delivered', 'pod-completed', 'delivered-with-installation', 'delivered-without-installation'].includes(s);
+              return isDelivered && !ext.podCompletedAt && !ext.driverSignature && (!ext.photos || (ext.photos as unknown[]).length === 0);
+            }).length;
+
+            // KPI: % of deliveries completed within 1 hour (customerConfirmedAt → deliveredAt)
+            const timed = deliveries.filter(d => {
+              const ext = d as unknown as { customerConfirmedAt?: string; deliveredAt?: string; podCompletedAt?: string };
+              return !!ext.customerConfirmedAt && !!(ext.deliveredAt || ext.podCompletedAt);
             });
-            const unassignedActive = activeAll.filter(d => {
-              const dt = d as unknown as { tracking?: { driverId?: string } };
-              return !dt.tracking?.driverId && !d.assignedDriverId;
+            const durations = timed.map(d => {
+              const ext = d as unknown as { customerConfirmedAt?: string; deliveredAt?: string; podCompletedAt?: string };
+              return new Date((ext.deliveredAt || ext.podCompletedAt)!).getTime() - new Date(ext.customerConfirmedAt!).getTime();
             });
-            const ofd = activeAll.filter(d => (d.status || '').toLowerCase() === 'out-for-delivery');
-            const onlineDrivers = drivers.filter(d => isContactOnline(d)).length;
-            const completedCount = deliveries.filter(d => TERMINAL_STATUSES.has((d.status || '').toLowerCase())).length;
+            const kpiMet = durations.filter(ms => ms >= 0 && ms <= 3600000).length;
+            const kpiPct = durations.length > 0 ? Math.round((kpiMet / durations.length) * 100) : null;
+            const avgMin = durations.length > 0 ? Math.round(durations.filter(ms => ms >= 0).reduce((a, b) => a + b, 0) / durations.length / 60000) : null;
+
             return (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                <div
+                  onClick={() => setActiveTab('manage-dispatch')}
+                  className="pp-card p-4 text-center cursor-pointer hover:ring-2 hover:ring-amber-400 transition-all"
+                  title="Click to view Manage Dispatch"
+                >
+                  <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Pending GMD</div>
+                  <div className="text-3xl font-bold text-amber-600 dark:text-amber-400">{pendingGMD}</div>
+                  <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">no movement date</div>
+                </div>
                 <div className="pp-card p-4 text-center">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Active Orders</div>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{activeAll.length}</div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">need delivery</div>
+                  <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Today Processed</div>
+                  <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">{todayProcessed}</div>
+                  <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">new POs today</div>
                 </div>
-                <div className="pp-card p-4 text-center bg-green-50 dark:bg-green-900/20">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Assigned</div>
-                  <div className="text-2xl font-bold text-green-600 dark:text-green-400">{assignedActive.length}</div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">with driver</div>
+                <div className="pp-card p-4 text-center">
+                  <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Delivered</div>
+                  <div className="text-3xl font-bold text-green-600 dark:text-green-400">{deliveredCount}</div>
+                  <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">completed</div>
                 </div>
-                <div className="pp-card p-4 text-center bg-yellow-50 dark:bg-yellow-900/20">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Unassigned</div>
-                  <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{unassignedActive.length}</div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">needs assignment</div>
+                <div
+                  onClick={() => setActiveTab('manage-dispatch')}
+                  className="pp-card p-4 text-center cursor-pointer hover:ring-2 hover:ring-red-400 transition-all"
+                  title="Click to view Manage Dispatch"
+                >
+                  <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Pending POD</div>
+                  <div className={`text-3xl font-bold ${pendingPOD > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400 dark:text-gray-500'}`}>{pendingPOD}</div>
+                  <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">no proof attached</div>
                 </div>
-                <div className="pp-card p-4 text-center bg-blue-50 dark:bg-blue-900/20">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Out for Delivery</div>
-                  <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{ofd.length}</div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">in transit</div>
-                </div>
-                <div className="pp-card p-4 text-center bg-emerald-50 dark:bg-emerald-900/20">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Completed</div>
-                  <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{completedCount}</div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">all time</div>
-                </div>
-                <div className="pp-card p-4 text-center bg-indigo-50 dark:bg-indigo-900/20">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Online Drivers</div>
-                  <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{onlineDrivers}</div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">of {drivers.length} total</div>
+                <div className="pp-card p-4 text-center">
+                  <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Delivery KPI</div>
+                  {kpiPct !== null ? (
+                    <>
+                      <div className={`text-3xl font-bold ${kpiPct >= 80 ? 'text-green-600 dark:text-green-400' : kpiPct >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>{kpiPct}%</div>
+                      <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">≤1h target · avg {avgMin}m</div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-3xl font-bold text-gray-300 dark:text-gray-600">—</div>
+                      <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">target ≤1h/delivery</div>
+                    </>
+                  )}
                 </div>
               </div>
             );
@@ -813,10 +860,10 @@ export default function LogisticsTeamPortal() {
                     key={label}
                     onClick={() => {
                       useDeliveryStore.getState().setManageTabFilter(targetTab);
-                      setActiveTab('deliveries');
+                      setActiveTab('manage-orders');
                     }}
                     className={`flex flex-col items-center justify-center rounded-xl border p-3 ${bg} ${border} ${hover} cursor-pointer select-none transition-colors`}
-                    title={`View ${label} in Delivery Orders table`}
+                    title={`View ${label} in Manage Delivery Order tab`}
                   >
                     <span className={`text-xl font-bold ${countColor}`}>{count}</span>
                     <span className={`mt-0.5 text-center text-xs font-semibold leading-tight ${labelColor}`}>{label}</span>
@@ -825,7 +872,7 @@ export default function LogisticsTeamPortal() {
                 ))}
                 </div>
                 {(actionItems.pendingOrders.length > 0 || actionItems.unassigned.length > 0 || actionItems.awaitingConfirmation.length > 0 || actionItems.orderDelay.length > 0) && (
-                  <p className="mt-3 text-center text-xs text-gray-400 dark:text-gray-500">Tap any card to open the filtered order list in Deliveries tab</p>
+                  <p className="mt-3 text-center text-xs text-gray-400 dark:text-gray-500">Tap any card to open the filtered order list in Manage Delivery Order tab</p>
                 )}
               </div>
             </div>
@@ -941,38 +988,11 @@ export default function LogisticsTeamPortal() {
             </div>
           </div>
 
-          {/* ── Live Map (70%) + Driver Cards (30%) ── */}
+          {/* ── Driver Status + Alerts ── */}
           <div className="flex flex-col xl:flex-row gap-4">
 
-            {/* Live Operations Map — 70% */}
-            <div className="pp-card overflow-hidden xl:flex-[7]">
-              <div className="p-3 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600 flex items-center justify-between gap-2">
-                <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-blue-500" /> Live Operations Map
-                </h2>
-                {routeLoading && <span className="text-xs text-blue-600 dark:text-blue-400">Calculating route…</span>}
-              </div>
-              <DeliveryMap
-                deliveries={deliveries.filter(d => (d.status || '').toLowerCase() === 'out-for-delivery')}
-                route={driverRoutes.length > 0 ? null : monitoringRoute}
-                driverRoutes={driverRoutes}
-                driverLocations={drivers
-                  /* Every driver with a GPS fix gets a pin (matches per-driver routes). Online is informational only. */
-                  .filter((d) => d.tracking?.location && Number.isFinite(d.tracking.location.lat) && Number.isFinite(d.tracking.location.lng))
-                  .map((d) => ({
-                    id: d.id,
-                    name: d.fullName || d.full_name || d.username || 'Driver',
-                    status: isContactOnline(d) ? 'online' : 'gps only',
-                    speedKmh: d.tracking?.location?.speed != null ? Math.round(d.tracking.location.speed * 3.6) : null,
-                    lat: d.tracking!.location!.lat,
-                    lng: d.tracking!.location!.lng,
-                  }))}
-                mapClassName="h-[380px] md:h-[460px]"
-              />
-            </div>
-
-            {/* Driver Status Cards — 30% (clickable → chat) */}
-            <div className="pp-card p-3 xl:flex-[3] flex flex-col">
+            {/* Driver Status Cards (clickable → chat) */}
+            <div className="pp-card p-3 flex-1 flex flex-col">
               <div className="flex items-center gap-2 mb-3">
                 <Users className="w-4 h-4 text-indigo-500" />
                 <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Driver Status</h2>
@@ -1047,7 +1067,19 @@ export default function LogisticsTeamPortal() {
             </div>
           </div>
 
-          {/* ── Full-Width Assign & Dispatch Table ── */}
+        </div>
+      )}
+
+      {/* Manage Delivery Order Tab */}
+      {activeTab === 'manage-orders' && (
+        <DeliveryManagementPage hidePageTitle hideDeliveriesTab excludeGarbageUploadRows />
+      )}
+
+      {/* ── MANAGE DISPATCH TAB ── */}
+      {activeTab === 'manage-dispatch' && (
+        <div className="space-y-4">
+
+          {/* Assign & Dispatch Table */}
           {(() => {
             const q = opsSearch.toLowerCase().trim();
             const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
@@ -1517,13 +1549,174 @@ export default function LogisticsTeamPortal() {
               </div>
             );
           })()}
-
         </div>
       )}
 
-      {/* Deliveries Tab */}
-      {activeTab === 'deliveries' && (
-        <DeliveryManagementPage hidePageTitle excludeGarbageUploadRows />
+      {/* ── LIVE TRACKING TAB ── */}
+      {activeTab === 'live-tracking' && (
+        <div style={{ display: 'flex', gap: '12px', height: 'max(520px, calc(100dvh - 220px))', minHeight: '500px' }}>
+          {/* 70% — Map */}
+          <div style={{ flex: '0 0 70%', minWidth: 0 }}>
+            <div className="pp-card overflow-hidden" style={{ height: '100%', position: 'relative' }}>
+              {routeLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-white/60 dark:bg-gray-900/60 z-10">
+                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
+              <DeliveryMap
+                deliveries={deliveries.filter(d => {
+                  if (trackingDriverFilter === 'all') return true;
+                  const ext = d as unknown as { tracking?: { driverId?: string } };
+                  return ext.tracking?.driverId === trackingDriverFilter || d.assignedDriverId === trackingDriverFilter;
+                })}
+                route={monitoringRoute}
+                driverLocations={drivers
+                  .filter(dr => {
+                    if (trackingDriverFilter === 'all') return true;
+                    return dr.id === trackingDriverFilter;
+                  })
+                  .filter(dr => dr.tracking?.location)
+                  .map(dr => ({
+                    id: dr.id,
+                    name: dr.fullName || dr.username,
+                    username: dr.username,
+                    lat: dr.tracking!.location!.lat,
+                    lng: dr.tracking!.location!.lng,
+                    speed: dr.tracking!.location!.speed ?? undefined,
+                  }))}
+                driverRoutes={trackingDriverFilter === 'all' ? driverRoutes : driverRoutes.filter(r => r.driverId === trackingDriverFilter)}
+                mapClassName="w-full"
+              />
+            </div>
+          </div>
+
+          {/* 30% — Order cards with driver filter */}
+          <div style={{ flex: '0 0 30%', minWidth: 0 }} className="flex flex-col gap-3">
+            {/* Driver filter + stats header */}
+            <div className="pp-card p-3 flex-shrink-0">
+              <div className="flex items-center gap-2 mb-2">
+                <NavigationIcon className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Live Orders</h2>
+                <button
+                  type="button"
+                  onClick={() => void loadData()}
+                  className="ml-auto text-xs text-gray-400 hover:text-blue-600 transition-colors"
+                  title="Refresh"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <select
+                value={trackingDriverFilter}
+                onChange={e => setTrackingDriverFilter(e.target.value)}
+                className="w-full px-2 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Drivers ({drivers.length})</option>
+                {drivers.map(dr => {
+                  const drDeliveries = deliveries.filter(d => {
+                    const ext = d as unknown as { tracking?: { driverId?: string } };
+                    return ext.tracking?.driverId === dr.id || d.assignedDriverId === dr.id;
+                  });
+                  const onRoute = drDeliveries.filter(d => (d.status||'').toLowerCase() === 'out-for-delivery').length;
+                  return (
+                    <option key={dr.id} value={dr.id}>
+                      {dr.fullName || dr.username} — {onRoute > 0 ? `${onRoute} on route` : 'no active'}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            {/* Scrollable order cards */}
+            <div className="flex-1 overflow-y-auto space-y-2" style={{ minHeight: 0 }}>
+              {(() => {
+                const filteredDeliveries = deliveries.filter(d => {
+                  if (trackingDriverFilter === 'all') return true;
+                  const ext = d as unknown as { tracking?: { driverId?: string } };
+                  return ext.tracking?.driverId === trackingDriverFilter || d.assignedDriverId === trackingDriverFilter;
+                });
+
+                if (filteredDeliveries.length === 0) {
+                  return (
+                    <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-500 text-sm gap-2">
+                      <NavigationIcon className="w-8 h-8 opacity-30" />
+                      <p>No deliveries for selected driver</p>
+                    </div>
+                  );
+                }
+
+                return filteredDeliveries.map(delivery => {
+                  const { label: statusLabel, color: statusColor } = getDeliveryStatusBadge(delivery);
+                  const dExt = delivery as unknown as {
+                    tracking?: { driverId?: string };
+                    goodsMovementDate?: string;
+                    confirmedDeliveryDate?: string;
+                    deliveryNumber?: string;
+                  };
+                  const assignedDriver = drivers.find(dr =>
+                    dr.id === dExt.tracking?.driverId || dr.id === delivery.assignedDriverId
+                  );
+                  const isOFD = (delivery.status||'').toLowerCase() === 'out-for-delivery';
+                  const delDate = dExt.confirmedDeliveryDate
+                    ? new Date(dExt.confirmedDeliveryDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+                    : null;
+
+                  return (
+                    <div
+                      key={delivery.id}
+                      className={`pp-card p-3 cursor-pointer transition-all hover:shadow-md ${
+                        isOFD ? 'border-l-4 border-l-blue-500' : 'border-l-4 border-l-transparent'
+                      }`}
+                      onClick={() => {
+                        setActiveTab('manage-dispatch');
+                        setHighlightDeliveryId(delivery.id);
+                      }}
+                      title="Click to view in Manage Dispatch"
+                    >
+                      {/* Customer + Status */}
+                      <div className="flex items-start justify-between gap-1.5 mb-1.5">
+                        <span className="text-xs font-semibold text-gray-900 dark:text-gray-100 leading-tight min-w-0 truncate">
+                          {delivery.customer || 'Unknown Customer'}
+                        </span>
+                        <span className={`shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${statusColor}`}>
+                          {statusLabel}
+                        </span>
+                      </div>
+
+                      {/* Address */}
+                      {delivery.address && (
+                        <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate mb-1" title={delivery.address}>
+                          <MapPin className="inline w-3 h-3 mr-0.5 -mt-0.5" />{delivery.address}
+                        </p>
+                      )}
+
+                      {/* Driver + PO */}
+                      <div className="flex items-center justify-between gap-1 mt-1">
+                        {assignedDriver ? (
+                          <span className="text-[10px] font-medium text-indigo-600 dark:text-indigo-400 truncate">
+                            <Truck className="inline w-2.5 h-2.5 mr-0.5" />{assignedDriver.fullName || assignedDriver.username}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-orange-500">Unassigned</span>
+                        )}
+                        {delivery.poNumber && (
+                          <span className="text-[10px] font-mono text-gray-400 shrink-0">{delivery.poNumber}</span>
+                        )}
+                      </div>
+
+                      {/* Del date */}
+                      {delDate && (
+                        <p className="mt-1 text-[10px] text-gray-400 dark:text-gray-500">
+                          <Clock className="inline w-2.5 h-2.5 mr-0.5" />Del: {delDate}
+                        </p>
+                      )}
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Communication Tab — two-column chat layout */}
