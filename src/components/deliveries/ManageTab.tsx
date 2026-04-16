@@ -17,6 +17,8 @@ interface ManageTabProps {
   compactVerticalSpacing?: boolean;
   /** When true (team portals), hide bad import rows from metrics and Orders table */
   excludeGarbageDeliveries?: boolean;
+  /** When true (logistics_team role), hide the file upload dropzone entirely */
+  hideUpload?: boolean;
   onSwitchToDeliveriesTab: () => void;
   onUploadSuccess: (result: { count: number; warnings?: string[]; fileHash?: string }) => void;
   onUploadError: (result: { errors?: string[] }) => void;
@@ -47,6 +49,7 @@ function downloadTemplateCsv(): void {
 export default function ManageTab({
   compactVerticalSpacing = false,
   excludeGarbageDeliveries = false,
+  hideUpload = false,
   onSwitchToDeliveriesTab,
   onUploadSuccess,
   onUploadError,
@@ -236,8 +239,17 @@ export default function ManageTab({
   const handleAdminReschedule = useCallback(
     async (orderId: string, newDate: Date, reason: string) => {
       try {
+        // Extract the Dubai-timezone calendar date (YYYY-MM-DD) so early-morning
+        // UTC offsets don't shift the date one day backwards (e.g. 01:00 Dubai =
+        // 21:00 UTC previous day → toISOString() would give the wrong date).
+        const dubaiIsoDate = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Asia/Dubai',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        }).format(newDate);
         const response = await api.put(`/deliveries/admin/${orderId}/reschedule`, {
-          newDeliveryDate: newDate.toISOString(),
+          newDeliveryDate: dubaiIsoDate,
           reason,
         });
         updateDeliveryStatus(orderId, 'scheduled-confirmed');
@@ -373,6 +385,7 @@ export default function ManageTab({
             onBulkResendUnconfirmed={() => void handleBulkResendUnconfirmed()}
             isUploading={isUploading}
             todayStats={todayStats}
+            hideUpload={hideUpload}
           />
         </div>
       </div>

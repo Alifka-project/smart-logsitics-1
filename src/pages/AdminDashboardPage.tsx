@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import api, { setAuthToken } from '../frontend/apiClient';
 import { BarChart, Bar, LabelList, ComposedChart, XAxis, YAxis, ZAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, Line, AreaChart, Area, PieChart, Pie, Cell, ReferenceLine, ScatterChart, Scatter, type PieLabelRenderProps } from 'recharts';
-import { 
-  Package, CheckCircle, XCircle, Clock, MapPin, Users, Activity, 
+import {
+  Package, CheckCircle, XCircle, Clock, MapPin, Users, Activity,
   Truck, AlertCircle, FileText, Target, TrendingUp, MessageSquare,
-  ChevronUp, ChevronDown, ChevronRight, RefreshCw, Download, ArrowUpRight, Filter, RotateCcw
+  ChevronUp, ChevronDown, ChevronRight, RefreshCw, Download, ArrowUpRight, Filter, RotateCcw,
+  Calendar
 } from 'lucide-react';
 import RiskBadge, { riskFromSuccessRate } from '../components/Analytics/RiskBadge';
 import MetricTooltip from '../components/Analytics/MetricTooltip';
@@ -1024,9 +1025,14 @@ export default function AdminDashboardPage(): React.ReactElement {
     const yTotal = yesterday.length;
     const pct = (a: number, b: number) => b > 0 ? { val: a - b, pct: (Math.abs((a - b) / b) * 100).toFixed(1), up: a >= b } : null;
     const successRate = totals.total > 0 ? ((totals.delivered / totals.total) * 100).toFixed(1) : '0.0';
+    // Next Shipment = confirmed for tomorrow; Future Shipment = confirmed for 2+ days out
+    const nextShipmentCount = list.filter(d => deliveryToManageOrder(d as unknown as Delivery).status === 'next_shipment').length;
+    const futureShipmentCount = list.filter(d => deliveryToManageOrder(d as unknown as Delivery).status === 'future_schedule').length;
     return [
       { id: 'total', label: 'Total Deliveries', value: totals.total, icon: Package, color: 'blue', delta: pct(totals.total, yTotal) },
       { id: 'delivered', label: 'Delivered', value: totals.delivered, icon: CheckCircle, color: 'green', delta: pct(totals.delivered, yDelivered) },
+      { id: 'next_shipment', label: 'Next Shipment', value: nextShipmentCount, icon: Calendar, color: 'amber', delta: null },
+      { id: 'future_shipment', label: 'Future Shipment', value: futureShipmentCount, icon: Calendar, color: 'indigo', delta: null },
       { id: 'pending', label: 'Pending Orders', value: totals.pending, icon: Clock, color: 'yellow', delta: null },
       { id: 'cancelled', label: 'Cancelled', value: totals.cancelled, icon: XCircle, color: 'red', delta: null },
       { id: 'rate', label: 'Success Rate', value: `${successRate}%`, icon: Target, color: 'emerald', delta: null },
@@ -1741,6 +1747,7 @@ export default function AdminDashboardPage(): React.ReactElement {
     green:   { bg: 'bg-green-50 dark:bg-green-900/20',  icon: 'text-green-600 dark:text-green-400',  val: 'text-green-700 dark:text-green-300' },
     indigo:  { bg: 'bg-indigo-50 dark:bg-indigo-900/20',icon: 'text-indigo-600 dark:text-indigo-400',val: 'text-indigo-700 dark:text-indigo-300' },
     yellow:  { bg: 'bg-yellow-50 dark:bg-yellow-900/20',icon: 'text-yellow-600 dark:text-yellow-400',val: 'text-yellow-700 dark:text-yellow-300' },
+    amber:   { bg: 'bg-amber-50 dark:bg-amber-900/20',  icon: 'text-amber-600 dark:text-amber-400',  val: 'text-amber-700 dark:text-amber-300' },
     red:     { bg: 'bg-red-50 dark:bg-red-900/20',      icon: 'text-red-600 dark:text-red-400',      val: 'text-red-700 dark:text-red-300' },
     emerald: { bg: 'bg-emerald-50 dark:bg-emerald-900/20', icon: 'text-emerald-600 dark:text-emerald-400', val: 'text-emerald-700 dark:text-emerald-300' },
   };

@@ -25,7 +25,15 @@ Electrolux Delivery Team.`;
  * If trackingLink is set, append on the next line — same body SMS would carry when enabled.
  */
 export function thankYouAfterConfirmationMessage(iso: string, trackingLink?: string | null): string {
-  const base = `Thank you for confirming your Electrolux delivery for ${iso}. You can now track your order in real-time using this link.`;
+  // Format YYYY-MM-DD as human-readable date in Dubai timezone (e.g. "Thursday, 17 April 2026")
+  const formatted = new Date(`${iso}T00:00:00+04:00`).toLocaleDateString('en-AE', {
+    timeZone: 'Asia/Dubai',
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+  const base = `Thank you for confirming your Electrolux delivery for ${formatted}. You can now track your order in real-time using this link.`;
   if (trackingLink) return `${base}\n${trackingLink}`;
   return base;
 }
@@ -68,6 +76,23 @@ export function deliveryCompletedMessage(customerName: string, poRef: string): s
 Your Electrolux delivery ${poRef} has been completed.
 
 Thank you for choosing Electrolux.`;
+}
+
+export function cancellationMessage(
+  customerName: string,
+  poRef: string,
+  trackingLink: string | null
+): string {
+  return `Dear ${customerName},
+
+We regret to inform you that your Electrolux order ${poRef} has been cancelled.
+
+If you have any questions or need further assistance, please contact the Electrolux Delivery Team at +971581046674.
+${trackingLink ? `\nYou can view your order status at:\n${trackingLink}\n` : ''}
+We apologise for any inconvenience.
+
+Thank you,
+Electrolux Delivery Team`;
 }
 
 export function rescheduleNotificationMessage(

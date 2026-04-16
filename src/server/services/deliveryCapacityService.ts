@@ -60,8 +60,23 @@ export function addDubaiCalendarDays(isoDate: string, deltaDays: number): string
 }
 
 /**
+ * Returns true if the current Dubai time is at or past 15:00 (3 PM).
+ * Business rule: orders uploaded/processed after 15:00 Dubai cannot choose tomorrow.
+ */
+export function isPastDubaiCutoff(): boolean {
+  const now = new Date();
+  const dubaiHour = parseInt(
+    new Intl.DateTimeFormat('en-US', { timeZone: DUBAI_TZ, hour: 'numeric', hour12: false }).format(now),
+    10
+  );
+  return dubaiHour >= 15;
+}
+
+/**
  * Next N eligible delivery days: skip Sundays and UAE public holidays.
  * Starts from tomorrow (Dubai timezone).
+ * If current Dubai time >= 15:00, tomorrow is still returned but excluded from
+ * availableDates (treated like a full-capacity day — shown but disabled).
  */
 export function getNextNEligibleDayIsoStrings(n: number): string[] {
   const out: string[] = [];
@@ -317,10 +332,12 @@ export async function getDateCapacityDetails(
 
   // Scan up to 14 calendar days to collect 7 eligible + show blocked days in between
   const today = getDubaiTodayIso();
+  const tomorrow = addDubaiCalendarDays(today, 1);
+  const tomorrowBlockedByCutoff = isPastDubaiCutoff(); // past 15:00 Dubai → tomorrow disabled
   const days: DayCapacityDetail[] = [];
   const availableDates: string[] = [];
   let eligibleCount = 0;
-  let cursor = addDubaiCalendarDays(today, 1);
+  let cursor = tomorrow;
 
   while (eligibleCount < 7 || days.length < 14) {
     const wd = getDubaiWeekday(cursor);
@@ -330,6 +347,11 @@ export async function getDateCapacityDetails(
       days.push({ iso: cursor, available: false, used: 0, total: 0, remaining: 0, reason: 'sunday' });
     } else if (isHoliday) {
       days.push({ iso: cursor, available: false, used: 0, total: 0, remaining: 0, reason: 'holiday' });
+    } else if (cursor === tomorrow && tomorrowBlockedByCutoff) {
+      // 15:00 cutoff: tomorrow shown but disabled (like full capacity)
+      const used = await getTotalItemCountForDeliveryDate(db, cursor, deliveryId);
+      days.push({ iso: cursor, available: false, used, total: fleetDailyCapacity, remaining: fleetDailyCapacity - used, reason: 'cutoff' });
+      eligibleCount++; // still counts as a scanned eligible day so we advance the window
     } else {
       const used = await getTotalItemCountForDeliveryDate(db, cursor, deliveryId);
       const remaining = fleetDailyCapacity - used;
@@ -390,6 +412,11 @@ export async function assertSlotAvailable(
   }
   if (isDubaiPublicHoliday(isoDate)) {
     throw new Error('The selected date is a UAE public holiday. Please choose another available date.');
+  }
+  // Business rule: after 15:00 Dubai time, tomorrow's slot is closed for new bookings.
+  const tomorrow = addDubaiCalendarDays(getDubaiTodayIso(), 1);
+  if (isoDate === tomorrow && isPastDubaiCutoff()) {
+    throw new Error('Orders cannot be booked for tomorrow after 15:00 Dubai time. Please choose a later date.');
   }
   const numDrivers = await countActiveDeliveryDrivers(db);
   const fleetDailyCapacity = numDrivers * TRUCK_MAX_ITEMS_PER_DAY;

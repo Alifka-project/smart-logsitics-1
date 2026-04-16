@@ -617,7 +617,12 @@ export default function CustomerTrackingPage() {
                 <div style={{ minWidth: 0 }}>
                   <p style={{ fontSize: 9, fontWeight: 700, color: '#15803D', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Estimated Arrival</p>
                   <p style={{ fontWeight: 700, fontSize: 12, color: '#14532D', lineHeight: 1.25 }}>
-                    {new Date(trackingInfo.eta as string).toLocaleTimeString('en-AE', { timeZone: 'Asia/Dubai', hour: '2-digit', minute: '2-digit' })}
+                    {(() => {
+                      const etaDate = new Date(trackingInfo.eta as string);
+                      const etaEnd = new Date(etaDate.getTime() + 4 * 60 * 60 * 1000);
+                      const fmtTime = (d: Date) => d.toLocaleTimeString('en-AE', { timeZone: 'Asia/Dubai', hour: '2-digit', minute: '2-digit' });
+                      return `${fmtTime(etaDate)} – ${fmtTime(etaEnd)}`;
+                    })()}
                   </p>
                   <p style={{ fontSize: 10, color: '#15803D', marginTop: 1 }}>Driver is on the way</p>
                 </div>

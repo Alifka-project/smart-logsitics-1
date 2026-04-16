@@ -77,10 +77,21 @@ export function displayCustomerName(delivery: Delivery): string {
     str(delivery.customer) ??
     str(meta.customerName) ??
     str(orig['Customer']) ??
-    str(orig['Ship-to Name']) ??
-    str(orig['Name']) ??
+    str(orig['Name']) ??          // B2C individual name takes priority over Ship-to
+    str(orig['Ship-to Name']) ??  // B2B fallback — company/ship-to party
     str(rec['customerName']);
   return v ?? '—';
+}
+
+/**
+ * Determine order type: B2C if the SAP row has an individual 'Name' field,
+ * B2B if it only has 'Ship-to Name' (company/party).
+ * B2C orders use the customer's personal name; B2B use ship-to party name.
+ */
+export function getOrderType(delivery: Delivery): 'B2C' | 'B2B' {
+  const orig = getDeliveryOriginalRow(delivery);
+  const name = orig['Name'];
+  return (name && String(name).trim().length > 0) ? 'B2C' : 'B2B';
 }
 
 export function displayCityForOps(delivery: Delivery): string {

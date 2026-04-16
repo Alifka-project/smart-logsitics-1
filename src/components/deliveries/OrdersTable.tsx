@@ -445,8 +445,12 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
         <span className="font-medium text-green-600 dark:text-green-400">{fmtDate(dDate)}</span>
       ) : <span className="font-medium text-green-600 dark:text-green-400">Delivered</span>;
     }
-    if (order.status === 'out_for_delivery')
-      return <span className="font-medium text-[#002D5B] dark:text-blue-200">Today</span>;
+    if (order.status === 'out_for_delivery') {
+      const ofdDate = order.confirmedDeliveryDate ?? order.scheduledDate ?? order.deliveryDate;
+      return ofdDate
+        ? <span className="font-medium text-[#002D5B] dark:text-blue-200">{fmtDate(ofdDate)}</span>
+        : <span className="font-medium text-[#002D5B] dark:text-blue-200">On Route</span>;
+    }
     if (order.status === 'unconfirmed')
       return <span className="text-red-600 dark:text-red-400">No response</span>;
     if (order.status === 'sms_sent')

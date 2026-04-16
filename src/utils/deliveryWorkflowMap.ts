@@ -44,13 +44,13 @@ export function isTodayDate(date: Date): boolean {
 
 /**
  * Classify a confirmedDeliveryDate relative to Dubai "today" into a shipment tier.
- * - 'next'   : Day 0–2 (today, tomorrow, or day after tomorrow) → Next Shipment
- * - 'future' : Day 3+ → Future Schedule
+ * - 'next'   : Exactly tomorrow (diffDays === 1) → Next Shipment
+ * - 'future' : Day after tomorrow or later (diffDays >= 2) → Future Schedule
  */
 export function classifyConfirmedDate(date: Date): 'next' | 'future' {
   const diffDays = calDiffFromTodayDubai(date);
-  if (diffDays <= 2) return 'next';   // today / tomorrow / day+2 → Next Shipment
-  return 'future';                    // 3+ days out              → Future Schedule
+  if (diffDays === 1) return 'next';  // tomorrow only            → Next Shipment
+  return 'future';                    // 2+ days out              → Future Schedule
 }
 
 function priorityFromDelivery(d: Delivery): 'normal' | 'high' | 'urgent' | undefined {

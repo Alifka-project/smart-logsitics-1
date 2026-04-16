@@ -633,7 +633,7 @@ export default function DeliveryTeamPortal() {
   }, [deliveries]);
 
   // Badge derived from the same workflow status as ManageTab — single source of truth
-  const getDeliveryStatusBadge = (delivery: Delivery): { label: string; color: string } => {
+  const getDeliveryStatusBadge = (delivery: Delivery): { label: string; color: string; tierLabel?: string; tierColor?: string } => {
     const order = deliveryToManageOrder(delivery);
     const shortDate = order.confirmedDeliveryDate
       ? order.confirmedDeliveryDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
@@ -641,13 +641,35 @@ export default function DeliveryTeamPortal() {
     switch (order.status) {
       case 'order_delay':       return { label: 'Order Delay',                                                              color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' };
       case 'out_for_delivery':  return { label: 'On Route',                                                                  color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' };
-      case 'next_shipment':     return { label: shortDate ? `Next Shipment · ${shortDate}` : 'Next Shipment',               color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300' };
-      case 'future_schedule':   return { label: shortDate ? `Future Schedule · ${shortDate}` : 'Future Schedule',           color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300' };
+      case 'next_shipment': {
+        if (order.isRescheduled) {
+          return {
+            label: 'Rescheduled',
+            color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300',
+            tierLabel: shortDate ? `Next Shipment · ${shortDate}` : 'Next Shipment',
+            tierColor: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300',
+          };
+        }
+        return { label: shortDate ? `Next Shipment · ${shortDate}` : 'Next Shipment', color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300' };
+      }
+      case 'future_schedule': {
+        if (order.isRescheduled) {
+          return {
+            label: 'Rescheduled',
+            color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300',
+            tierLabel: shortDate ? `Future Schedule · ${shortDate}` : 'Future Schedule',
+            tierColor: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300',
+          };
+        }
+        return { label: shortDate ? `Future Schedule · ${shortDate}` : 'Future Schedule', color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300' };
+      }
       case 'confirmed':         return { label: 'Customer Confirmed',                                                        color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' };
       case 'sms_sent':          return { label: 'Awaiting Customer',                                                         color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' };
       case 'unconfirmed':       return { label: 'No Response',                                                        color: 'bg-rose-100 dark:bg-rose-900/30 text-rose-800 dark:text-rose-300' };
       case 'uploaded':          return { label: 'Pending Order',                                                             color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300' };
-      case 'rescheduled':       return { label: shortDate ? `Rescheduled · ${shortDate}` : 'Rescheduled',                   color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300' };
+      case 'rescheduled':
+        // workflow returns 'rescheduled' only when date is past or unset — no tier badge
+        return { label: 'Rescheduled', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' };
       case 'delivered':         return { label: 'Delivered',                                                                 color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' };
       case 'cancelled':         return { label: 'Cancelled',                                                                 color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' };
       case 'failed':            return { label: 'Failed / Returned',                                                         color: 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300' };
@@ -1071,9 +1093,9 @@ export default function DeliveryTeamPortal() {
                   <div className="py-4 text-center text-xs text-gray-400 dark:text-gray-500">Loading capacity…</div>
                 ) : (
                   capacityDatesSorted.map((iso) => {
-                    const today = getTodayIsoDubai();
-                    const dayLabel =
-                      iso === today ? 'Today' : iso === addCalendarDaysDubai(today, 1) ? 'Tomorrow' : iso;
+                    const dayLabel = new Date(`${iso}T00:00:00+04:00`).toLocaleDateString('en-AE', {
+                      timeZone: 'Asia/Dubai', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'
+                    });
                     return (
                       <div key={iso} className="rounded-lg border border-gray-100 dark:border-gray-700 bg-white/40 dark:bg-gray-800/40 p-2">
                         <p className="mb-1.5 px-0.5 text-[10px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -1389,7 +1411,7 @@ export default function DeliveryTeamPortal() {
                         const currentDriver = drivers.find(d => d.id === currentDriverId);
                         const capacityDateIso = getCapacityDateIso(delivery);
                         const isOnline = currentDriver ? isContactOnline(currentDriver) : false;
-                        const { label: statusLabel, color: statusColor } = getDeliveryStatusBadge(delivery);
+                        const { label: statusLabel, color: statusColor, tierLabel, tierColor } = getDeliveryStatusBadge(delivery);
                         const rowBg = isOFDWorkflow
                           ? 'bg-blue-50/40 dark:bg-blue-900/10 border-l-4 border-l-blue-500'
                           : isDelayWorkflow
@@ -1422,9 +1444,16 @@ export default function DeliveryTeamPortal() {
                             </td>
                             <td className="px-3 py-2.5 text-gray-600 dark:text-gray-300 whitespace-nowrap">{city}</td>
                             <td className="px-3 py-2.5">
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${statusColor}`}>
-                                {statusLabel}
-                              </span>
+                              <div className="flex flex-col gap-0.5">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${statusColor}`}>
+                                  {statusLabel}
+                                </span>
+                                {tierLabel && tierColor && (
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${tierColor}`}>
+                                    {tierLabel}
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td className="px-3 py-2.5 text-gray-600 dark:text-gray-300 whitespace-nowrap">{gmd}</td>
                             <td className="px-3 py-2.5 text-gray-600 dark:text-gray-300 whitespace-nowrap">{delDate}</td>

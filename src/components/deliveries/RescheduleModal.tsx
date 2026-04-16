@@ -34,14 +34,17 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({ order, onClose
     };
   }, []);
 
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-
-  const dayAfter = new Date();
-  dayAfter.setDate(dayAfter.getDate() + 2);
-
-  const nextWeek = new Date();
-  nextWeek.setDate(nextWeek.getDate() + 7);
+  // Use noon local time so toISOString() or Dubai-extraction never lands on the
+  // wrong calendar day regardless of the local timezone offset.
+  const makeLocalNoon = (daysFromNow: number): Date => {
+    const d = new Date();
+    d.setHours(12, 0, 0, 0); // anchor to noon today first
+    d.setDate(d.getDate() + daysFromNow);
+    return d;
+  };
+  const tomorrow = makeLocalNoon(1);
+  const dayAfter  = makeLocalNoon(2);
+  const nextWeek  = makeLocalNoon(7);
 
   const quickOptions = [
     { label: 'Tomorrow', date: tomorrow },
@@ -49,7 +52,8 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({ order, onClose
     { label: 'Next week', date: nextWeek },
   ];
 
-  const minDateStr = tomorrow.toISOString().split('T')[0];
+  // Use en-CA locale for YYYY-MM-DD format in Dubai timezone (avoids UTC day-shift)
+  const minDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dubai' }).format(tomorrow);
 
   const effectiveReason = reason === 'Other' ? customReason.trim() : reason;
   const canConfirm = !!selectedDate && effectiveReason.length > 0;

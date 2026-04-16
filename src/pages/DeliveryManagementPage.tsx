@@ -67,6 +67,8 @@ interface DeliveryManagementPageProps {
   hidePageTitle?: boolean;
   /** When true, hide bad import rows (e.g. PO "removed", placeholder "Customer N") from map + Manage tab */
   excludeGarbageUploadRows?: boolean;
+  /** When true (logistics_team role), hide file upload controls in ManageTab */
+  hideUpload?: boolean;
   /** Extra tabs appended to the tab rail (e.g. Manage Dispatch, Live Tracking from parent portal) */
   extraTabs?: ExtraTab[];
   /** Externally-controlled active tab — parent sets this to navigate programmatically */
@@ -80,6 +82,7 @@ export default function DeliveryManagementPage({
   hideDeliveriesTab = false,
   hidePageTitle = false,
   excludeGarbageUploadRows = false,
+  hideUpload = false,
   extraTabs = [],
   forceTab,
   onTabChange,
@@ -444,6 +447,7 @@ export default function DeliveryManagementPage({
         <ManageTab
           compactVerticalSpacing={hidePageTitle}
           excludeGarbageDeliveries={effectiveExcludeGarbage}
+          hideUpload={hideUpload}
           onSwitchToDeliveriesTab={() => setActiveTab('deliveries')}
           onUploadSuccess={handleFileSuccess}
           onUploadError={handleFileError}

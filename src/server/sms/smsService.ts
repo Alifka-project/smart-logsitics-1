@@ -403,7 +403,8 @@ async function sendRescheduleSms(
     const poRef = poNumber ? `#${poNumber}` : '';
 
     const formattedDate = newDeliveryDate.toLocaleDateString('en-AE', {
-      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+      timeZone: 'Asia/Dubai'
     });
 
     const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';

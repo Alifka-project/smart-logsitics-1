@@ -439,7 +439,7 @@ export default function CustomerConfirmationPage() {
                       const { day: dayLabel, date: dateLabel } = formatDateShort(day.iso);
                       const isSelected = selectedDate === day.iso;
                       const isFull = !day.available;
-                      const reasonLabel = day.reason === 'sunday' ? 'Sunday' : day.reason === 'holiday' ? 'Holiday' : 'Full';
+                      const reasonLabel = day.reason === 'sunday' ? 'Sunday' : day.reason === 'holiday' ? 'Holiday' : day.reason === 'cutoff' ? 'Not Available' : 'Full';
 
                       if (isFull) {
                         return (

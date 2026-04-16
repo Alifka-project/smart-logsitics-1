@@ -21,6 +21,8 @@ interface ManageSidebarProps {
     activeDrivers: number;
     delivered: number;
   };
+  /** When true, hides the file upload dropzone (e.g. logistics_team role cannot upload) */
+  hideUpload?: boolean;
 }
 
 export const ManageSidebar: React.FC<ManageSidebarProps> = ({
@@ -31,6 +33,7 @@ export const ManageSidebar: React.FC<ManageSidebarProps> = ({
   onBulkResendUnconfirmed,
   isUploading,
   todayStats,
+  hideUpload = false,
 }) => {
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
@@ -52,35 +55,37 @@ export const ManageSidebar: React.FC<ManageSidebarProps> = ({
 
   return (
     <div className="space-y-4">
-      <div
-        {...getRootProps()}
-        className={`
-          p-4 sm:p-6 bg-white dark:bg-gray-800 rounded-xl border-2 border-dashed cursor-pointer transition-all
-          ${isDragActive ? 'border-[#002D5B] bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'}
-          ${isUploading ? 'opacity-50 pointer-events-none' : ''}
-        `}
-      >
-        <input {...getInputProps()} />
-        <div className="text-center">
-          <span className="text-2xl mb-2 block" aria-hidden>
-            📤
-          </span>
-          <p className="text-sm font-medium text-gray-900 dark:text-white">
-            {isDragActive ? 'Drop file here' : 'Drop Excel to import'}
-          </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">.xlsx, .xls, .csv</p>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              open();
-            }}
-            className="text-xs text-[#002D5B] dark:text-blue-400 mt-2 hover:underline"
-          >
-            or browse files
-          </button>
+      {!hideUpload && (
+        <div
+          {...getRootProps()}
+          className={`
+            p-4 sm:p-6 bg-white dark:bg-gray-800 rounded-xl border-2 border-dashed cursor-pointer transition-all
+            ${isDragActive ? 'border-[#002D5B] bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'}
+            ${isUploading ? 'opacity-50 pointer-events-none' : ''}
+          `}
+        >
+          <input {...getInputProps()} />
+          <div className="text-center">
+            <span className="text-2xl mb-2 block" aria-hidden>
+              📤
+            </span>
+            <p className="text-sm font-medium text-gray-900 dark:text-white">
+              {isDragActive ? 'Drop file here' : 'Drop Excel to import'}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">.xlsx, .xls, .csv</p>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                open();
+              }}
+              className="text-xs text-[#002D5B] dark:text-blue-400 mt-2 hover:underline"
+            >
+              or browse files
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="bg-[#002D5B] rounded-xl p-4 text-white">
         <div className="flex items-center justify-between mb-4">

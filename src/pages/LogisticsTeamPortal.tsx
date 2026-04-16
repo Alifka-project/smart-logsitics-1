@@ -30,7 +30,7 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveCo
 import { calculateRoute, generateFallbackRoute, computePerDriverRoutes } from '../services/advancedRoutingService';
 import type { DriverRoute } from '../services/advancedRoutingService';
 import useDeliveryStore from '../store/useDeliveryStore';
-import { deliveryToManageOrder } from '../utils/deliveryWorkflowMap';
+import { deliveryToManageOrder, classifyConfirmedDate } from '../utils/deliveryWorkflowMap';
 import { excludeTeamPortalGarbageDeliveries } from '../utils/deliveryListFilter';
 import { isDubaiPublicHoliday } from '../utils/dubaiHolidays';
 import { getTodayIsoDubai, addCalendarDaysDubai, formatInstantToDubaiIsoDate } from '../utils/dubaiCalendarIso';
@@ -43,6 +43,7 @@ import {
   displayModelForOps,
   displayPhone,
   displayPoNumber,
+  getOrderType,
 } from '../utils/deliveryDisplayFields';
 import type { Delivery, AuthUser } from '../types';
 // WhatsAppSendModal is mounted globally in App.tsx — no local import needed
@@ -99,7 +100,8 @@ interface AssignmentMessage {
 
 export default function LogisticsTeamPortal() {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
-  const [deliveriesSubTab, setDeliveriesSubTab] = useState<string>('manage-orders');
+  // L6: Default directly to the unified dispatch table (was 'manage-orders')
+  const [deliveriesSubTab, setDeliveriesSubTab] = useState<string>('manage-dispatch');
   const [trackingDriverFilter, setTrackingDriverFilter] = useState<string>('all');
   const [trackingSelectedId, setTrackingSelectedId] = useState<string | null>(null);
   const [drivers, setDrivers] = useState<ContactUser[]>([]);
@@ -282,11 +284,13 @@ export default function LogisticsTeamPortal() {
     // Backward-compat: remap old top-level tab names
     if (tabParam === 'operations') tabParam = 'dashboard';
 
-    // Sub-tabs inside Deliveries: manage-orders, manage-dispatch, live-tracking
+    // Sub-tabs inside Deliveries: manage-dispatch (unified), live-tracking
+    // L6: manage-orders is merged into manage-dispatch; 'deliveries' and 'manage-orders' both go to dispatch
     const deliveriesSubTabs = ['manage-orders', 'manage-dispatch', 'live-tracking', 'deliveries'];
     if (tabParam && deliveriesSubTabs.includes(tabParam)) {
       setActiveTab('deliveries');
-      const subTab = tabParam === 'deliveries' ? 'manage-orders' : tabParam;
+      // L6: both 'deliveries' and 'manage-orders' route to the unified dispatch table
+      const subTab = (tabParam === 'deliveries' || tabParam === 'manage-orders') ? 'manage-dispatch' : tabParam;
       setDeliveriesSubTab(subTab);
     } else if (tabParam) {
       setActiveTab(tabParam);
@@ -669,21 +673,45 @@ export default function LogisticsTeamPortal() {
   }, [deliveries]);
 
   // Badge derived from the same workflow status as ManageTab — single source of truth
-  const getDeliveryStatusBadge = (delivery: Delivery): { label: string; color: string } => {
+  const getDeliveryStatusBadge = (delivery: Delivery): { label: string; color: string; tierLabel?: string; tierColor?: string } => {
     const order = deliveryToManageOrder(delivery);
     const shortDate = order.confirmedDeliveryDate
-      ? order.confirmedDeliveryDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+      ? order.confirmedDeliveryDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Asia/Dubai' })
       : null;
     switch (order.status) {
       case 'order_delay':       return { label: 'Order Delay',                                                              color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' };
       case 'out_for_delivery':  return { label: 'On Route',                                                                  color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' };
-      case 'next_shipment':     return { label: shortDate ? `Next Shipment · ${shortDate}` : 'Next Shipment',               color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300' };
-      case 'future_schedule':   return { label: shortDate ? `Future Schedule · ${shortDate}` : 'Future Schedule',           color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300' };
+      case 'next_shipment': {
+        // Dual-badge when this is a rescheduled order whose new date falls tomorrow
+        if (order.isRescheduled) {
+          return {
+            label: 'Rescheduled',
+            color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300',
+            tierLabel: shortDate ? `Next Shipment · ${shortDate}` : 'Next Shipment',
+            tierColor: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300',
+          };
+        }
+        return { label: shortDate ? `Next Shipment · ${shortDate}` : 'Next Shipment', color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300' };
+      }
+      case 'future_schedule': {
+        // Dual-badge when this is a rescheduled order whose new date is 2+ days out
+        if (order.isRescheduled) {
+          return {
+            label: 'Rescheduled',
+            color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300',
+            tierLabel: shortDate ? `Future Schedule · ${shortDate}` : 'Future Schedule',
+            tierColor: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300',
+          };
+        }
+        return { label: shortDate ? `Future Schedule · ${shortDate}` : 'Future Schedule', color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300' };
+      }
       case 'confirmed':         return { label: 'Customer Confirmed',                                                        color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' };
       case 'sms_sent':          return { label: 'Awaiting Customer',                                                         color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' };
       case 'unconfirmed':       return { label: 'No Response',                                                        color: 'bg-rose-100 dark:bg-rose-900/30 text-rose-800 dark:text-rose-300' };
       case 'uploaded':          return { label: 'Pending Order',                                                             color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300' };
-      case 'rescheduled':       return { label: shortDate ? `Rescheduled · ${shortDate}` : 'Rescheduled',                   color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300' };
+      case 'rescheduled':
+        // workflow returns 'rescheduled' only when date is past or unset — no tier badge
+        return { label: 'Rescheduled', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' };
       case 'delivered':         return { label: 'Delivered',                                                                 color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' };
       case 'cancelled':         return { label: 'Cancelled',                                                                 color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' };
       case 'failed':            return { label: 'Failed / Returned',                                                         color: 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300' };
@@ -871,10 +899,11 @@ export default function LogisticsTeamPortal() {
                     onClick={() => {
                       useDeliveryStore.getState().setManageTabFilter(targetTab);
                       setActiveTab('deliveries');
-                      setDeliveriesSubTab('manage-orders');
+                      // L6: all order views now go to the unified Dispatch table
+                      setDeliveriesSubTab('manage-dispatch');
                     }}
                     className={`flex flex-col items-center justify-center rounded-xl border p-3 ${bg} ${border} ${hover} cursor-pointer select-none transition-colors`}
-                    title={`View ${label} in Manage Delivery Order`}
+                    title={`View ${label} in Delivery Orders & Dispatch`}
                   >
                     <span className={`text-xl font-bold ${countColor}`}>{count}</span>
                     <span className={`mt-0.5 text-center text-xs font-semibold leading-tight ${labelColor}`}>{label}</span>
@@ -883,7 +912,7 @@ export default function LogisticsTeamPortal() {
                 ))}
                 </div>
                 {(actionItems.pendingOrders.length > 0 || actionItems.unassigned.length > 0 || actionItems.awaitingConfirmation.length > 0 || actionItems.orderDelay.length > 0) && (
-                  <p className="mt-3 text-center text-xs text-gray-400 dark:text-gray-500">Tap any card to open the filtered order list in Manage Delivery Order tab</p>
+                  <p className="mt-3 text-center text-xs text-gray-400 dark:text-gray-500">Tap any card to open the filtered order list in Delivery Orders & Dispatch</p>
                 )}
               </div>
             </div>
@@ -950,9 +979,9 @@ export default function LogisticsTeamPortal() {
                   <div className="py-4 text-center text-xs text-gray-400 dark:text-gray-500">Loading capacity…</div>
                 ) : (
                   capacityDatesSorted.map((iso) => {
-                    const today = getTodayIsoDubai();
-                    const dayLabel =
-                      iso === today ? 'Today' : iso === addCalendarDaysDubai(today, 1) ? 'Tomorrow' : iso;
+                    const dayLabel = new Date(`${iso}T00:00:00+04:00`).toLocaleDateString('en-AE', {
+                      timeZone: 'Asia/Dubai', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'
+                    });
                     return (
                       <div key={iso} className="rounded-lg border border-gray-100 dark:border-gray-700 bg-white/40 dark:bg-gray-800/40 p-2">
                         <p className="mb-1.5 px-0.5 text-[10px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -1152,13 +1181,15 @@ export default function LogisticsTeamPortal() {
         <DeliveryManagementPage
           hidePageTitle
           hideDeliveriesTab
+          hideManageTab    // L6: Delivery Order tab merged into Orders & Dispatch — hide it
           excludeGarbageUploadRows
-          forceTab={deliveriesSubTab === 'manage-orders' ? 'manage' : deliveriesSubTab}
-          onTabChange={(id) => setDeliveriesSubTab(id === 'manage' ? 'manage-orders' : id)}
+          hideUpload
+          forceTab={deliveriesSubTab === 'manage-orders' ? 'manage-dispatch' : deliveriesSubTab}
+          onTabChange={(id) => setDeliveriesSubTab(id === 'manage' ? 'manage-dispatch' : id)}
           extraTabs={[
             {
               id: 'manage-dispatch',
-              label: 'Manage Dispatch',
+              label: 'Orders & Dispatch', // L6: renamed from 'Manage Dispatch' (now unified with Delivery Order)
               icon: Truck,
               content: (
         <div className="space-y-4">
@@ -1182,6 +1213,22 @@ export default function LogisticsTeamPortal() {
                   if (opsStatusFilter === 'priority') {
                     const m = ((d as unknown as { metadata?: Record<string, unknown> }).metadata ?? {});
                     if (m.isPriority !== true) return false;
+                  }
+                  if (opsStatusFilter === 'next-shipment') {
+                    // Only rescheduled or confirmed deliveries where confirmed date = tomorrow
+                    const dWithDate = d as unknown as { confirmedDeliveryDate?: string };
+                    if (!dWithDate.confirmedDeliveryDate) return false;
+                    if (!['rescheduled', 'confirmed', 'scheduled-confirmed'].includes(s)) return false;
+                    const tier = classifyConfirmedDate(new Date(dWithDate.confirmedDeliveryDate));
+                    if (tier !== 'next') return false;
+                  }
+                  if (opsStatusFilter === 'future-schedule') {
+                    // Only rescheduled or confirmed deliveries where confirmed date = 2+ days out
+                    const dWithDate = d as unknown as { confirmedDeliveryDate?: string };
+                    if (!dWithDate.confirmedDeliveryDate) return false;
+                    if (!['rescheduled', 'confirmed', 'scheduled-confirmed'].includes(s)) return false;
+                    const tier = classifyConfirmedDate(new Date(dWithDate.confirmedDeliveryDate));
+                    if (tier !== 'future') return false;
                   }
                 }
                 if (opsTodayOnly) {
@@ -1251,7 +1298,7 @@ export default function LogisticsTeamPortal() {
                 <div className="p-4 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
                   <div className="flex flex-wrap items-center gap-3 mb-3">
                     <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                      <Truck className="w-4 h-4 text-blue-500" /> Assign & Dispatch
+                      <Truck className="w-4 h-4 text-blue-500" /> Delivery Orders &amp; Dispatch
                       <span className="text-xs font-normal text-gray-400 dark:text-gray-500">({opsRows.length} orders)</span>
                     </h2>
                     <div className="ml-auto flex items-center gap-2">
@@ -1270,13 +1317,15 @@ export default function LogisticsTeamPortal() {
                       className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
                     />
                     {([
-                      { f: 'all',      label: 'All Orders',            active: 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900' },
-                      { f: 'pending',  label: 'Pending',               active: 'bg-yellow-500 text-white' },
-                      { f: 'awaiting', label: 'Awaiting Confirmation', active: 'bg-purple-600 text-white' },
-                      { f: 'ofd',      label: 'On Route',              active: 'bg-blue-600 text-white' },
-                      { f: 'delay',    label: 'Order Delayed',         active: 'bg-red-600 text-white' },
-                      { f: 'terminal', label: 'Completed',             active: 'bg-green-600 text-white' },
-                      { f: 'priority', label: '🚨 Priority',           active: 'bg-red-700 text-white' },
+                      { f: 'all',            label: 'All Orders',            active: 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900' },
+                      { f: 'pending',        label: 'Pending',               active: 'bg-yellow-500 text-white' },
+                      { f: 'awaiting',       label: 'Awaiting Confirmation', active: 'bg-purple-600 text-white' },
+                      { f: 'next-shipment',  label: '📦 Next Shipment',      active: 'bg-amber-500 text-white' },
+                      { f: 'future-schedule',label: '🗓 Future Schedule',    active: 'bg-indigo-600 text-white' },
+                      { f: 'ofd',            label: 'On Route',              active: 'bg-blue-600 text-white' },
+                      { f: 'delay',          label: 'Order Delayed',         active: 'bg-red-600 text-white' },
+                      { f: 'terminal',       label: 'Completed',             active: 'bg-green-600 text-white' },
+                      { f: 'priority',       label: '🚨 Priority',           active: 'bg-red-700 text-white' },
                     ] as const).map(({ f, label, active }) => (
                       <button
                         key={f}
@@ -1350,6 +1399,7 @@ export default function LogisticsTeamPortal() {
                           { h: 'PO Number',        col: null },
                           { h: 'Delivery Number',  col: 'date' },
                           { h: 'Customer',         col: 'customer' },
+                          { h: 'Type',             col: null },
                           { h: 'Phone',            col: null },
                           { h: 'Address',          col: null },
                           { h: 'City',             col: null },
@@ -1411,8 +1461,8 @@ export default function LogisticsTeamPortal() {
                         const itemQty = String(itemQtyRaw ?? '—');
                         // Units: use Sales unit (real Excel column, e.g. "EA" = each)
                         const salesUnit = String(orig['Sales unit'] ?? orig['Unit'] ?? orig['UOM'] ?? orig['Sales Unit'] ?? '—');
-                        const gmd = dExt.goodsMovementDate ? new Date(dExt.goodsMovementDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
-                        const delDate = dExt.confirmedDeliveryDate ? new Date(dExt.confirmedDeliveryDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
+                        const gmd = dExt.goodsMovementDate ? new Date(dExt.goodsMovementDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit', timeZone: 'Asia/Dubai' }) : '—';
+                        const delDate = dExt.confirmedDeliveryDate ? new Date(dExt.confirmedDeliveryDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit', timeZone: 'Asia/Dubai' }) : '—';
                         const rawStatus = (delivery.status || '').toLowerCase();
                         const workflowOrder = deliveryToManageOrder(delivery);
                         const isOFDWorkflow = workflowOrder.status === 'out_for_delivery';
@@ -1430,7 +1480,7 @@ export default function LogisticsTeamPortal() {
                         const currentDriver = drivers.find(d => d.id === currentDriverId);
                         const capacityDateIso = getCapacityDateIso(delivery);
                         const isOnline = currentDriver ? isContactOnline(currentDriver) : false;
-                        const { label: statusLabel, color: statusColor } = getDeliveryStatusBadge(delivery);
+                        const { label: statusLabel, color: statusColor, tierLabel, tierColor } = getDeliveryStatusBadge(delivery);
                         const rowBg = isOFDWorkflow
                           ? 'bg-blue-50/40 dark:bg-blue-900/10 border-l-4 border-l-blue-500'
                           : isDelayWorkflow
@@ -1456,15 +1506,36 @@ export default function LogisticsTeamPortal() {
                             <td className="px-3 py-2.5">
                               <div className="font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">{displayCustomerName(delivery)}</div>
                             </td>
+                            <td className="px-3 py-2.5">
+                              {(() => {
+                                const orderType = getOrderType(delivery);
+                                return (
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap ${
+                                    orderType === 'B2C'
+                                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                                      : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                                  }`}>
+                                    {orderType}
+                                  </span>
+                                );
+                              })()}
+                            </td>
                             <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 whitespace-nowrap">{displayPhone(delivery)}</td>
                             <td className="px-3 py-2.5 max-w-[160px]">
                               <div className="truncate text-gray-600 dark:text-gray-300" title={delivery.address || ''}>{delivery.address || '—'}</div>
                             </td>
                             <td className="px-3 py-2.5 text-gray-600 dark:text-gray-300 whitespace-nowrap">{city}</td>
                             <td className="px-3 py-2.5">
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${statusColor}`}>
-                                {statusLabel}
-                              </span>
+                              <div className="flex flex-col gap-0.5">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${statusColor}`}>
+                                  {statusLabel}
+                                </span>
+                                {tierLabel && tierColor && (
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${tierColor}`}>
+                                    {tierLabel}
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td className="px-3 py-2.5 text-gray-600 dark:text-gray-300 whitespace-nowrap">{gmd}</td>
                             <td className="px-3 py-2.5 text-gray-600 dark:text-gray-300 whitespace-nowrap">{delDate}</td>

@@ -2,8 +2,8 @@ import type { Delivery } from '../types';
 
 export type DeliveryListFilter = 'all' | 'pending' | 'confirmed' | 'p1' | 'out_for_delivery' | 'delivered' | 'on_time' | 'delayed';
 
-/** Delay threshold: if estimatedEta is more than this many ms after plannedEta → Delayed */
-const DELAY_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
+/** Delay threshold: if estimatedEta is more than this many ms after plannedEta → Delayed (D3: 1-hour rule) */
+const DELAY_THRESHOLD_MS = 60 * 60 * 1000; // 60 minutes (1 hour)
 
 export function getEtaStatus(d: Delivery): 'on_time' | 'delayed' | 'unknown' {
   const planned = (d as Record<string, unknown>)['plannedEta'] as string | null | undefined;

@@ -48,19 +48,32 @@ export default function DeliveryCard({
     typeof (delivery as Delivery & { distanceFromDriverKm?: number }).distanceFromDriverKm === 'number'
       ? (delivery as Delivery & { distanceFromDriverKm?: number }).distanceFromDriverKm
       : delivery.distanceFromWarehouse;
-  // ETA: prefer explicit estimatedEta/eta fields (set by routing service), then
-  // fall back to the store-calculated estimatedTime (based on stop sequence).
+  // Dynamic ETA: live GPS + routing engine estimate
   const etaRaw = (delivery as Delivery & { estimatedEta?: string | null; eta?: string | null }).estimatedEta
     || (delivery as Delivery & { estimatedEta?: string | null; eta?: string | null }).eta
     || (delivery.estimatedTime instanceof Date ? delivery.estimatedTime.toISOString()
         : typeof delivery.estimatedTime === 'string' ? delivery.estimatedTime : null);
-  const etaText = etaRaw
-    ? (() => {
-        const d = new Date(etaRaw);
-        return isNaN(d.getTime()) ? 'N/A' : d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-      })()
-    : 'N/A';
-  const etaStatus = getEtaStatus(delivery);
+  const fmtTime = (iso: string | null | undefined): string => {
+    if (!iso) return 'N/A';
+    const d = new Date(iso);
+    return isNaN(d.getTime()) ? 'N/A' : d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  };
+  const etaText = fmtTime(etaRaw);
+
+  // D3: Static ETA (locked at Start Delivery — drive time + 60min service per stop)
+  const staticEtaRaw = (delivery as Delivery & { staticEta?: string | null }).staticEta ?? null;
+  const staticEtaText = fmtTime(staticEtaRaw);
+
+  // D3: Delay detection — use staticEta if available, else fall back to getEtaStatus (plannedEta)
+  const etaStatus: 'on_time' | 'delayed' | 'unknown' = (() => {
+    if (staticEtaRaw && etaRaw) {
+      const diff = new Date(etaRaw).getTime() - new Date(staticEtaRaw).getTime();
+      if (diff > 60 * 60 * 1000) return 'delayed'; // >1hr over static ETA
+      if (diff >= 0) return 'on_time';
+      return 'unknown';
+    }
+    return getEtaStatus(delivery);
+  })();
   const dIdx = dragIndex ?? 0;
   const canDrag = !dragDisabled && typeof dragIndex === 'number';
 
@@ -224,8 +237,15 @@ export default function DeliveryCard({
                 {(dynamicDistanceKm ?? 0).toFixed(1)} km
               </span>
             </div>
+            {/* D3: Static ETA (planned) — shown only when Start Delivery has been clicked */}
+            {staticEtaRaw && (
+              <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                📅 Plan {staticEtaText}
+              </div>
+            )}
+            {/* Dynamic ETA — live GPS estimate */}
             <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
-              ETA {etaText}
+              ⏱ ETA {etaText}
             </div>
             {etaStatus === 'on_time' && (
               <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
@@ -234,7 +254,7 @@ export default function DeliveryCard({
             )}
             {etaStatus === 'delayed' && (
               <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300">
-                ⚠ Delayed
+                ⚠ Order Delay
               </div>
             )}
             {delivery.phone && (

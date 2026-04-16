@@ -6,8 +6,11 @@ import {
   confirmationRequestMessage,
   outForDeliveryMessage,
   orderDelayMessage,
-  deliveryCompletedMessage
+  deliveryCompletedMessage,
+  cancellationMessage
 } from '../sms/customerMessageTemplates';
+import { smsAdapter } from '../sms/smsService';
+import { normalizeUAEPhone } from '../utils/phoneUtils';
 import {
   assertSlotAvailable,
   dubaiDayRangeUtc,
@@ -177,14 +180,15 @@ async function updateDeliveryStatusHandler(
     updateData.deliveryNotes = notes;
     updateData.conditionNotes = notes;
   }
-  if (['delivered', 'completed', 'delivered-with-installation', 'delivered-without-installation'].includes(status.toLowerCase())) {
+  if (['delivered', 'completed', 'delivered-with-installation', 'delivered-without-installation',
+       'pod-completed', 'finished'].includes(status.toLowerCase())) {
     updateData.deliveredAt = new Date();
     updateData.deliveredBy = req.user?.username || req.user?.email || req.user?.sub || 'driver';
     updateData.podCompletedAt = new Date();
   }
 
   const isTerminalStatus = ['delivered', 'completed', 'delivered-with-installation',
-    'delivered-without-installation', 'cancelled', 'returned', 'failed'].includes(status.toLowerCase());
+    'delivered-without-installation', 'pod-completed', 'finished', 'cancelled', 'returned', 'failed'].includes(status.toLowerCase());
 
   // Run delivery update + assignment closure atomically so both succeed or both fail.
   // Driver status recalculation runs outside the transaction (read-then-write, low-risk).
@@ -443,6 +447,7 @@ router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_
       const phone = (updatedDelivery.phone || existingDelivery.phone) as string | undefined;
 
       if (phone) {
+        const normalizedPhone = normalizeUAEPhone(phone) || phone;
         const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
         const token = (updatedDelivery.confirmationToken || existingDelivery.confirmationToken) as string | undefined;
         const trackingLink = token ? `${frontendUrl}/customer-tracking/${token}` : null;
@@ -450,54 +455,79 @@ router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_
         const poNum = (updatedDelivery.poNumber || existingDelivery.poNumber) as string | undefined;
         const poRef = poNum ? `#${poNum}` : '';
 
-        // ── STATUS SMS TEMPORARILY DISABLED — D7 provider compliance pending ────
-        // All smsAdapter.sendSms() calls below are commented out.
-        // Message bodies are still built (for logging/wa.me links) but not sent.
-        // Restore by removing the comment wrappers once D7 approval is granted.
-
-        // ── Helper: send silently via API; fall back to deep-link if not configured ──
+        // ── Helper: send via D7 SMS; fall back to WhatsApp API, then deep-link ──
         const silentSend = async (msgBody: string, msgType: string): Promise<string | undefined> => {
           let waUrl: string | undefined;
-          let sendStatus = 'whatsapp_link_generated';
-          // const smsAdapter = require('../sms/smsService').smsAdapter;
-          // await smsAdapter.sendSms({ to: phone, body: msgBody, metadata: { deliveryId: updatedDelivery.id, type: msgType } });
-          if (isWhatsAppConfigured()) {
-            const res = await sendWhatsApp(phone, msgBody);
-            sendStatus = res.ok ? 'sent' : 'failed';
-            console.log(`[WhatsApp] ${msgType} silent send to ${phone}:`, res.ok ? 'ok' : res.error);
-          } else {
-            waUrl = buildWhatsAppLink(phone, msgBody);
-            console.log(`[WhatsApp] No API creds — deep-link fallback for ${msgType}`);
+          let sendStatus = 'sent';
+          let smsProvider = 'd7';
+
+          try {
+            // Primary: D7 Networks SMS (always attempt first)
+            if (smsAdapter) {
+              const result = await smsAdapter.sendSms({
+                to: normalizedPhone,
+                body: msgBody,
+                metadata: { deliveryId: updatedDelivery.id as string, type: msgType }
+              });
+              sendStatus = result?.messageId ? 'sent' : 'failed';
+              console.log(`[D7 SMS] ${msgType} sent to ${normalizedPhone}: ${sendStatus}`);
+            } else if (isWhatsAppConfigured()) {
+              // Fallback: WhatsApp API
+              smsProvider = 'whatsapp-api';
+              const res = await sendWhatsApp(normalizedPhone, msgBody);
+              sendStatus = res.ok ? 'sent' : 'failed';
+              console.log(`[WhatsApp] ${msgType} fallback send to ${normalizedPhone}:`, res.ok ? 'ok' : res.error);
+            } else {
+              // Last resort: deep-link only
+              smsProvider = 'whatsapp-link';
+              sendStatus = 'whatsapp_link_generated';
+              waUrl = buildWhatsAppLink(normalizedPhone, msgBody);
+              console.log(`[SMS] No D7/WhatsApp credentials — deep-link fallback for ${msgType}`);
+            }
+          } catch (sendErr: unknown) {
+            const se = sendErr as { message?: string };
+            sendStatus = 'failed';
+            console.error(`[SMS] ${msgType} send failed:`, se.message);
           }
+
           await prisma.smsLog.create({
             data: {
               deliveryId: updatedDelivery.id as string,
-              phoneNumber: phone,
+              phoneNumber: normalizedPhone,
               messageContent: msgBody,
-              smsProvider: isWhatsAppConfigured() ? 'whatsapp-api' : 'whatsapp-link',
+              smsProvider,
               status: sendStatus,
               sentAt: new Date(),
               metadata: { type: msgType, ...(waUrl ? { whatsappUrl: waUrl } : {}) }
             }
           });
-          return waUrl;  // only set when API not configured (deep-link fallback)
+          return waUrl;  // only set for deep-link fallback
         };
 
-        // Out for delivery — same body as SMS (customerMessageTemplates)
+        // Out for delivery
         if (lowerStatus === 'out-for-delivery') {
           const body = outForDeliveryMessage(customerName, poRef, trackingLink);
           statusWhatsappUrl = await silentSend(body, 'status_out_for_delivery');
         }
 
-        // Order delay — same body as SMS
+        // Order delay
         if (lowerStatus === 'order-delay') {
           const body = orderDelayMessage(customerName, poRef, trackingLink);
           statusWhatsappUrl = await silentSend(body, 'status_order_delay');
         }
 
-        // Completed — same body as SMS (no tracking block in legacy SMS)
+        // Cancelled
+        if (lowerStatus === 'cancelled') {
+          const body = cancellationMessage(customerName, poRef, trackingLink);
+          statusWhatsappUrl = await silentSend(body, 'status_cancelled');
+        }
+
+        // Completed / delivered variants — all trigger the delivery-completed message
         const prevStatus = (String(existingDelivery.status || '')).toLowerCase();
-        const completionStatuses = ['completed'];
+        const completionStatuses = [
+          'completed', 'delivered', 'delivered-with-installation',
+          'delivered-without-installation', 'pod-completed', 'finished'
+        ];
         const wasAlreadyFinished = completionStatuses.includes(prevStatus);
 
         if (completionStatuses.includes(lowerStatus) && !wasAlreadyFinished) {
@@ -673,7 +703,8 @@ router.get('/debug/check-po-numbers', authenticate, requireRole('admin'), async 
 });
 
 // POST /api/deliveries/upload - Save uploaded delivery data and auto-assign
-router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
+// logistics_team (Kerry portal) is intentionally excluded — only admin and delivery_team may upload
+router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team'), async (req: Request, res: Response): Promise<void> => {
   try {
     const { deliveries } = req.body as { deliveries?: Record<string, unknown>[] };
 
