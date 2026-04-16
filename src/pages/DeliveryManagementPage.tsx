@@ -81,6 +81,8 @@ interface DeliveryManagementPageProps {
   getDriverCapacity?: (orderId: string, driverId: string) => { used: number; max: number; remaining: number; full: boolean } | null;
   /** Logistics-only: enable Today + date range filters */
   enableDispatchFilters?: boolean;
+  /** Logistics-only: pre-loaded driver list (avoids a second API call inside ManageTab) */
+  driverList?: { id: string; fullName?: string | null; username: string }[];
 }
 
 export default function DeliveryManagementPage({
@@ -95,6 +97,7 @@ export default function DeliveryManagementPage({
   onTogglePriority,
   getDriverCapacity,
   enableDispatchFilters = false,
+  driverList,
 }: DeliveryManagementPageProps) {
   const deliveries = useDeliveryStore((state) => state.deliveries ?? []);
   const deliveryListFilter = useDeliveryStore((state) => state.deliveryListFilter ?? 'all');
@@ -469,6 +472,7 @@ export default function DeliveryManagementPage({
           onTogglePriority={onTogglePriority}
           getDriverCapacity={getDriverCapacity}
           enableDispatchFilters={enableDispatchFilters}
+          driverList={driverList}
         />
       )}
 

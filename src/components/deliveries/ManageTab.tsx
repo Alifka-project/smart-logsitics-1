@@ -32,6 +32,8 @@ interface ManageTabProps {
   getDriverCapacity?: (orderId: string, driverId: string) => { used: number; max: number; remaining: number; full: boolean } | null;
   /** Logistics-only: enable Today + date range filters */
   enableDispatchFilters?: boolean;
+  /** Logistics-only: pre-loaded driver list from parent (skips local API fetch) */
+  driverList?: { id: string; fullName?: string | null; username: string }[];
 }
 
 function startOfToday(): Date {
@@ -66,6 +68,7 @@ export default function ManageTab({
   onTogglePriority,
   getDriverCapacity,
   enableDispatchFilters = false,
+  driverList,
 }: ManageTabProps) {
   const fileUploadRef = useRef<FileUploadHandle>(null);
   const pendingHashes = useRef<Set<string>>(new Set());
@@ -95,15 +98,18 @@ export default function ManageTab({
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('newest');
   const [isUploading, setIsUploading] = useState(false);
-  const [drivers, setDrivers] = useState<{ id: string; fullName?: string | null; username: string }[]>([]);
+  const [localDrivers, setLocalDrivers] = useState<{ id: string; fullName?: string | null; username: string }[]>([]);
+  // Use parent-provided driver list if available; otherwise fetch locally as fallback
+  const drivers = driverList && driverList.length > 0 ? driverList : localDrivers;
 
-  // Fetch driver list for the Assign Driver action in the orders table
+  // Fetch driver list only when parent hasn't provided one
   useEffect(() => {
+    if (driverList && driverList.length > 0) return;
     api.get('/admin/users?role=driver').then((res) => {
       const users = (res.data?.users ?? []) as { id: string; fullName?: string | null; username: string }[];
-      setDrivers(users);
+      setLocalDrivers(users);
     }).catch(() => {});
-  }, []);
+  }, [driverList]);
   const [editDeliveryId, setEditDeliveryId] = useState<string | null>(null);
   const ordersTableRef = useRef<HTMLDivElement | null>(null);
 

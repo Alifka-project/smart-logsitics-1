@@ -1170,6 +1170,7 @@ export default function LogisticsTeamPortal() {
             if (!d) return null;
             return getDriverCapacity(d, driverId) ?? null;
           }}
+          driverList={drivers.map(dr => ({ id: dr.id, fullName: dr.fullName ?? null, username: dr.username }))}
           forceTab={deliveriesSubTab}
           onTabChange={(id) => setDeliveriesSubTab(id)}
           extraTabs={[
