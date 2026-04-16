@@ -399,13 +399,23 @@ async function sendRescheduleSms(
     if (!phone) return { ok: false, error: 'no_phone' };
 
     const normalizedPhone = normalizeUAEPhone(phone) || phone;
-    const customerName = (delivery.customer as string | null) || 'Valued Customer';
+    // Prefer individual 'Name' from original row (B2C) over Ship-to party name (B2B)
+    const meta = delivery.metadata && typeof delivery.metadata === 'object'
+      ? delivery.metadata as Record<string, unknown> : {};
+    const origRow = (meta.originalRow || meta._originalRow) as Record<string, unknown> | undefined;
+    const b2cName = origRow?.['Name'] ? String(origRow['Name']).trim() || null : null;
+    const customerName = b2cName || (delivery.customer as string | null) || 'Valued Customer';
     const poNumber = delivery.poNumber as string | undefined;
     const poRef = poNumber ? `#${poNumber}` : '';
 
-    const formattedDate = newDeliveryDate.toLocaleDateString('en-AE', {
+    // Extract Dubai calendar date from the Date object to avoid UTC edge cases,
+    // then format from an explicit Dubai midnight for a consistent date string.
+    const dubaiIso = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Dubai', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(newDeliveryDate);
+    const formattedDate = new Date(`${dubaiIso}T00:00:00+04:00`).toLocaleDateString('en-AE', {
       weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-      timeZone: 'Asia/Dubai'
+      timeZone: 'Asia/Dubai',
     });
 
     const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';

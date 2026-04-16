@@ -90,7 +90,7 @@ export function excludeTeamPortalGarbageDeliveries<T extends Record<string, unkn
 
 const DELIVERED_STATUSES = new Set([
   'delivered', 'delivered-with-installation', 'delivered-without-installation',
-  'completed', 'pod-completed', 'cancelled', 'returned',
+  'completed', 'pod-completed', 'finished', 'cancelled', 'returned',
 ]);
 
 const ACTIVE_STATUSES = new Set([

@@ -34,17 +34,19 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({ order, onClose
     };
   }, []);
 
-  // Use noon local time so toISOString() or Dubai-extraction never lands on the
-  // wrong calendar day regardless of the local timezone offset.
-  const makeLocalNoon = (daysFromNow: number): Date => {
-    const d = new Date();
-    d.setHours(12, 0, 0, 0); // anchor to noon today first
-    d.setDate(d.getDate() + daysFromNow);
-    return d;
+  // Anchor to Dubai noon so quick options always represent the correct Dubai
+  // calendar day, regardless of the admin's browser timezone.
+  const makeDubaiNoon = (daysFromNow: number): Date => {
+    const dubaiToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dubai' }).format(new Date());
+    const base = new Date(`${dubaiToday}T12:00:00+04:00`);
+    base.setDate(base.getDate() + daysFromNow);
+    return base;
   };
-  const tomorrow = makeLocalNoon(1);
-  const dayAfter  = makeLocalNoon(2);
-  const nextWeek  = makeLocalNoon(7);
+  const toDubaiDateStr = (d: Date) =>
+    new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dubai' }).format(d);
+  const tomorrow = makeDubaiNoon(1);
+  const dayAfter  = makeDubaiNoon(2);
+  const nextWeek  = makeDubaiNoon(7);
 
   const quickOptions = [
     { label: 'Tomorrow', date: tomorrow },
@@ -108,7 +110,7 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({ order, onClose
                   className={`
                     flex-1 min-w-[90px] py-2 px-3 rounded-lg text-sm border transition-all
                     ${
-                      selectedDate?.toDateString() === option.date.toDateString()
+                      selectedDate != null && toDubaiDateStr(selectedDate) === toDubaiDateStr(option.date)
                         ? 'bg-[#002D5B] text-white border-[#002D5B]'
                         : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
                     }
@@ -128,7 +130,7 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({ order, onClose
               min={minDateStr}
               onChange={(e) => {
                 const v = e.target.value;
-                if (v) setSelectedDate(new Date(v + 'T12:00:00'));
+                if (v) setSelectedDate(new Date(v + 'T12:00:00+04:00'));
               }}
               className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#002D5B]"
             />
@@ -163,8 +165,9 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({ order, onClose
               <p className="text-sm text-amber-800 dark:text-amber-200">
                 📅 New date:{' '}
                 <strong>
-                  {selectedDate.toLocaleDateString('en-GB', {
+                  {selectedDate.toLocaleDateString('en-AE', {
                     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+                    timeZone: 'Asia/Dubai',
                   })}
                 </strong>
               </p>

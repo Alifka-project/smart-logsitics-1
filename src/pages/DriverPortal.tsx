@@ -153,6 +153,7 @@ export default function DriverPortal() {
   const [showModal, setShowModal] = useState<boolean>(false);
   const { toasts, removeToast, success, error: toastError } = useToast();
   const updateDeliveryOrder = useDeliveryStore((s) => s.updateDeliveryOrder);
+  const setDeliveryListFilter = useDeliveryStore((s) => s.setDeliveryListFilter);
   // Store deliveries carry priority (assigned by loadDeliveries) — used for priority breakdown display
   const storeDeliveries = useDeliveryStore((s) => s.deliveries);
 
@@ -351,6 +352,20 @@ export default function DriverPortal() {
       : onRouteDeliveries;
     useDeliveryStore.getState().loadDeliveries(list);
   }, [driverListTab, confirmedDeliveries, finishedDeliveries, onRouteDeliveries]);
+
+  // Sync DeliveryTable filter with the driver list sub-tab so items are visible.
+  // 'delivered' tab needs the 'delivered' filter (terminal statuses bypass active-only filter).
+  // 'confirmed' tab needs 'confirmed' filter to show scheduled-confirmed orders.
+  // 'on-route' tab resets to 'all' (DeliveryTable's onRouteSequenceOnly handles further filtering).
+  useEffect(() => {
+    if (driverListTab === 'delivered') {
+      setDeliveryListFilter('delivered');
+    } else if (driverListTab === 'confirmed') {
+      setDeliveryListFilter('confirmed');
+    } else {
+      setDeliveryListFilter('all');
+    }
+  }, [driverListTab, setDeliveryListFilter]);
 
   // D1: Immediately refresh deliveries after POD so the delivered item appears without waiting 30s
   useEffect(() => {
