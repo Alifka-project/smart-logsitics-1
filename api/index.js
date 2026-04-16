@@ -76,13 +76,9 @@ app.disable('x-powered-by');
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 
-// Log all requests for debugging
+// Minimal request logging (headers omitted — they add log noise and per-request latency)
 app.use((req, res, next) => {
   console.log(`[REQUEST] ${req.method} ${req.path}`);
-  console.log('[REQUEST] URL:', req.url);
-  console.log('[REQUEST] Original URL:', req.originalUrl);
-  console.log('[REQUEST] Base URL:', req.baseUrl);
-  console.log('[REQUEST] Headers:', JSON.stringify(req.headers, null, 2));
   next();
 });
 
@@ -149,19 +145,10 @@ try {
   // Don't exit in serverless - let it fail on first request
 }
 
-// Auto-migration: add any missing columns at startup (idempotent — uses IF NOT EXISTS)
-(async () => {
-  try {
-    const prisma = require('../dist-server/server/db/prisma').default;
-    await prisma.$executeRawUnsafe(`ALTER TABLE "messages" ADD COLUMN IF NOT EXISTS "attachment_url" TEXT;`);
-    await prisma.$executeRawUnsafe(`ALTER TABLE "messages" ADD COLUMN IF NOT EXISTS "attachment_type" VARCHAR(100);`);
-    await prisma.$executeRawUnsafe(`ALTER TABLE "messages" ADD COLUMN IF NOT EXISTS "attachment_name" VARCHAR(255);`);
-    await prisma.$executeRawUnsafe(`ALTER TABLE "messages" ALTER COLUMN "content" SET DEFAULT '';`);
-    console.log('[startup-migration] messages attachment columns: ok');
-  } catch (e) {
-    console.warn('[startup-migration] messages attachment columns skipped:', e.message);
-  }
-})();
+// Auto-migration IIFE removed: attachment columns were confirmed present in production.
+// Running DDL on every cold start opened extra DB connections before login could proceed,
+// contributing to Neon connection-limit exhaustion and intermittent 503 errors.
+// Run schema changes via: npx prisma migrate deploy
 
 // Public API routes (all require database)
 app.use('/auth', require('../dist-server/server/api/auth').default);

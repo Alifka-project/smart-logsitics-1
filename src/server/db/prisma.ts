@@ -29,7 +29,29 @@ function resolveDbUrl(): string | undefined {
   return undefined;
 }
 
-const databaseUrl = resolveDbUrl();
+/**
+ * On Vercel (serverless), each function invocation must be limited to a single
+ * DB connection. Without this, concurrent cold-start invocations each open a
+ * full Prisma connection pool and quickly exhaust Neon's connection cap,
+ * causing Prisma's $connect() to hang → Vercel function timeout → 503.
+ *
+ * We append connection_limit=1&pool_timeout=10 when running on Vercel and
+ * those params are not already present in the URL.
+ */
+function addServerlessParams(url: string): string {
+  if (!url || !process.env.VERCEL) return url;
+  try {
+    const u = new URL(url);
+    if (!u.searchParams.has('connection_limit')) u.searchParams.set('connection_limit', '1');
+    if (!u.searchParams.has('pool_timeout'))     u.searchParams.set('pool_timeout', '10');
+    return u.toString();
+  } catch {
+    // URL constructor can fail on unusual connection strings — return as-is
+    return url;
+  }
+}
+
+const databaseUrl = resolveDbUrl() ? addServerlessParams(resolveDbUrl()!) : undefined;
 
 // Ensure DATABASE_URL is always set to the resolved direct connection URL
 // so Prisma reads the right value regardless of what Vercel injected.
