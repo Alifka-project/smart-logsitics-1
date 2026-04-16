@@ -36,17 +36,6 @@ interface ManageTabProps {
   driverList?: { id: string; fullName?: string | null; username: string }[];
 }
 
-function downloadTemplateCsv(): void {
-  const headers = 'customer,address,lat,lng,items,phone\n';
-  const sample = 'Sample Customer,Dubai Marina,25.0800,55.1400,Refrigerator ERG123,+971500000000\n';
-  const blob = new Blob([headers + sample], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'electrolux-delivery-template.csv';
-  a.click();
-  URL.revokeObjectURL(url);
-}
 
 export default function ManageTab({
   compactVerticalSpacing = false,
@@ -392,8 +381,9 @@ export default function ManageTab({
         </div>
         <div className="min-w-0 w-full lg:sticky lg:top-4 lg:self-start">
           <ManageSidebar
+            orders={manageOrders}
+            drivers={drivers}
             onFileUpload={(f) => void handleFileUpload(f)}
-            onDownloadTemplate={downloadTemplateCsv}
             isUploading={isUploading}
             hideUpload={hideUpload}
           />

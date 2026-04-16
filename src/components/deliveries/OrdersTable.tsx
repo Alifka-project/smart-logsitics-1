@@ -306,11 +306,16 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
         !q ||
         order.customerName.toLowerCase().includes(q) ||
         order.orderNumber.toLowerCase().includes(q) ||
+        (order.deliveryNumber?.toLowerCase().includes(q) ?? false) ||
         order.area.toLowerCase().includes(q) ||
+        order.address.toLowerCase().includes(q) ||
         order.customerPhone.toLowerCase().includes(q) ||
         order.product.toLowerCase().includes(q) ||
         (order.model?.toLowerCase().includes(q) ?? false) ||
-        (order.productDescription?.toLowerCase().includes(q) ?? false);
+        (order.productDescription?.toLowerCase().includes(q) ?? false) ||
+        (order.driverName?.toLowerCase().includes(q) ?? false) ||
+        (order.orderType?.toLowerCase().includes(q) ?? false) ||
+        order.status.toLowerCase().includes(q);
       if (todayOnly) {
         const uploadedMs = order.uploadedAt.getTime();
         if (uploadedMs < startOfToday.getTime() || uploadedMs > endOfToday.getTime()) return false;
@@ -723,13 +728,13 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                       </span>
                     </td>
                     <td className="min-w-[100px] w-[110px] overflow-hidden px-3 py-2.5 align-middle" data-label="PO Number">
-                      <span className="block truncate font-mono text-[13px] text-gray-700 dark:text-gray-300" title={`PO #${order.orderNumber}`}>
-                        #{order.orderNumber}
+                      <span className="block truncate font-mono text-[13px] text-gray-700 dark:text-gray-300" title={order.orderNumber}>
+                        {order.orderNumber}
                       </span>
                     </td>
                     <td className="min-w-[100px] w-[110px] overflow-hidden px-3 py-2.5 align-middle" data-label="Delivery Number">
                       <span className="block truncate font-mono text-[13px] text-gray-500 dark:text-gray-400" title={order.deliveryNumber ?? ''}>
-                        {order.deliveryNumber ? `#${order.deliveryNumber}` : '—'}
+                        {order.deliveryNumber || '—'}
                       </span>
                     </td>
                     <td className="min-w-[95px] w-[100px] overflow-hidden px-3 py-2.5 align-middle text-[13px]" data-label="Del. Date">
