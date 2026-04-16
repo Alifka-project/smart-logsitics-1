@@ -211,6 +211,7 @@ export default function ManageTab({
           status: 'out-for-delivery',
           customer: raw.customer ?? undefined,
           address: raw.address ?? undefined,
+          goodsMovementDate: (raw as unknown as { goodsMovementDate?: string }).goodsMovementDate || new Date().toISOString(),
         });
         updateDeliveryStatus(orderId, 'out-for-delivery');
         window.dispatchEvent(new CustomEvent('deliveryStatusUpdated', {
@@ -262,7 +263,11 @@ export default function ManageTab({
           reason,
         });
         updateDeliveryStatus(orderId, 'scheduled-confirmed');
-        onNotifySuccess('Delivery rescheduled', 'Customer will be notified via WhatsApp.');
+        const rescheduleData = response.data as { whatsappUrl?: string };
+        if (rescheduleData?.whatsappUrl) {
+          window.open(rescheduleData.whatsappUrl, '_blank', 'noopener,noreferrer');
+        }
+        onNotifySuccess('Delivery rescheduled', 'Customer has been notified.');
         window.dispatchEvent(new CustomEvent('deliveryStatusUpdated', {
           detail: { deliveryId: orderId, status: 'scheduled-confirmed', updatedAt: new Date() },
         }));

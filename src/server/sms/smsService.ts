@@ -9,8 +9,8 @@ import prisma from '../db/prisma';
 import { normalizeUAEPhone } from '../utils/phoneUtils';
 import { SmsSendOptions, SmsSendResult } from './adapter';
 // WhatsApp imports — kept for easy re-enable; inactive while SMS (D7) is the active channel
-// import { buildWhatsAppLink } from './waLink';
 // import { sendWhatsAppDeliveryConfirmation, isWhatsAppConfigured } from './whatsappApiAdapter';
+import { buildWhatsAppLink } from './waLink';
 import {
   confirmationRequestMessage,
   thankYouAfterConfirmationMessage,
@@ -380,6 +380,7 @@ interface SendRescheduleSmsResult {
   ok: boolean;
   messageId?: string;
   error?: string;
+  whatsappUrl?: string;
 }
 
 /**
@@ -421,16 +422,21 @@ async function sendRescheduleSms(
       trackingLink
     );
 
-    // ── Reschedule SMS via D7 ────────────────────────────────────────────────
-    const smsResult = await smsAdapter!.sendSms({
-      to: normalizedPhone, body: smsMessage,
-      metadata: { deliveryId, type: 'admin_reschedule_notification' }
-    });
-    console.log(`[SMS] Reschedule SMS sent to ${normalizedPhone}, id: ${smsResult.messageId}`);
-    // ── WhatsApp reschedule path (kept for reference — temporarily disabled) ──
-    // const whatsappUrl = buildWhatsAppLink(normalizedPhone, smsMessage);
-    // const smsResult: SmsSendResult = { messageId: `wa-link-${Date.now()}`, status: 'whatsapp_link_generated' };
-    // ──────────────────────────────────────────────────────────────────────────
+    // ── Reschedule SMS via D7, fallback to WhatsApp deep-link ───────────────
+    let whatsappUrl: string | undefined;
+    let smsResult: SmsSendResult;
+    try {
+      smsResult = await smsAdapter!.sendSms({
+        to: normalizedPhone, body: smsMessage,
+        metadata: { deliveryId, type: 'admin_reschedule_notification' }
+      });
+      console.log(`[SMS] Reschedule SMS sent to ${normalizedPhone}, id: ${smsResult.messageId}`);
+    } catch (d7Err: unknown) {
+      console.warn(`[SMS] D7 reschedule SMS failed, falling back to WhatsApp link:`, (d7Err as Error).message);
+      whatsappUrl = buildWhatsAppLink(normalizedPhone, smsMessage);
+      smsResult = { messageId: `wa-link-${Date.now()}`, status: 'whatsapp_link_generated' };
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     await (prisma as any).smsLog.create({
       data: {
@@ -445,7 +451,7 @@ async function sendRescheduleSms(
       }
     });
 
-    return { ok: true, messageId: smsResult.messageId } as { ok: boolean; messageId?: string };
+    return { ok: true, messageId: smsResult.messageId, whatsappUrl };
   } catch (error: unknown) {
     const e = error as Error;
     console.error('[SMS] Failed to send reschedule SMS:', e.message);

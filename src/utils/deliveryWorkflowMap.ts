@@ -1,6 +1,7 @@
 import type { Delivery } from '../types';
 import type { DeliveryOrder, DeliveryStatus } from '../types/delivery';
 import { isDubaiPublicHoliday } from './dubaiHolidays';
+import { getOrderType } from './deliveryDisplayFields';
 
 const UNCONFIRMED_HOURS = 24;
 const DUBAI_OFFSET_MS = 4 * 60 * 60 * 1000; // UTC+4
@@ -264,6 +265,7 @@ export function deliveryToManageOrder(delivery: Delivery): DeliveryOrder {
     notes: delivery.deliveryNotes ?? delivery.conditionNotes ?? undefined,
     failureReason: status === 'failed' ? (delivery.conditionNotes ?? undefined) : undefined,
     isRescheduled,
+    orderType: getOrderType(delivery),
   };
 }
 

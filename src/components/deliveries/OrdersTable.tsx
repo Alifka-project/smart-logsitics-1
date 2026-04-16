@@ -440,57 +440,57 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
   const paginatedOrders = sortedOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const getDeliveryDateDisplay = (order: DeliveryOrder) => {
-    const dateSource = order.confirmedDeliveryDate ?? order.scheduledDate;
     const fmtDate = (d: Date) =>
-      d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+      d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' });
 
+    // Always prefer the most specific confirmed date
+    const dateSource =
+      order.confirmedDeliveryDate ??
+      order.deliveryDate ??
+      order.scheduledDate;
+
+    // Color the date by status context
     if (order.status === 'next_shipment') {
       return dateSource ? (
-        <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-200 rounded text-xs">
-          {fmtDate(dateSource)}
-        </span>
-      ) : <span className="text-amber-600 dark:text-amber-400">Next avail.</span>;
+        <span className="font-semibold text-amber-700 dark:text-amber-300">{fmtDate(dateSource)}</span>
+      ) : <span className="text-gray-400 dark:text-gray-500">—</span>;
     }
     if (order.status === 'future_schedule' || order.status === 'scheduled') {
       return dateSource ? (
-        <span className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-200 rounded text-xs">
-          {fmtDate(dateSource)}
-        </span>
-      ) : <span className="text-indigo-600 dark:text-indigo-400">Future date</span>;
+        <span className="font-semibold text-indigo-700 dark:text-indigo-300">{fmtDate(dateSource)}</span>
+      ) : <span className="text-gray-400 dark:text-gray-500">—</span>;
     }
     if (order.status === 'ready_to_dispatch') {
       return dateSource ? (
-        <span className="px-2 py-0.5 bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-200 rounded text-xs font-medium">
-          {fmtDate(dateSource)}
-        </span>
-      ) : <span className="text-teal-600 dark:text-teal-400">GMD Ready</span>;
+        <span className="font-semibold text-teal-700 dark:text-teal-300">{fmtDate(dateSource)}</span>
+      ) : <span className="text-gray-400 dark:text-gray-500">—</span>;
     }
     if (order.status === 'confirmed') {
       return dateSource ? (
-        <span className="text-amber-600 dark:text-amber-400">{fmtDate(dateSource)}</span>
-      ) : <span className="text-amber-600 dark:text-amber-400">Confirmed</span>;
+        <span className="font-medium text-amber-600 dark:text-amber-400">{fmtDate(dateSource)}</span>
+      ) : <span className="text-gray-400 dark:text-gray-500">—</span>;
     }
-    if (order.status === 'order_delay')
-      return <span className="text-red-600 dark:text-red-400">Delayed</span>;
+    if (order.status === 'order_delay') {
+      return dateSource ? (
+        <span className="font-medium text-red-600 dark:text-red-400">{fmtDate(dateSource)}</span>
+      ) : <span className="text-red-400 dark:text-red-500">—</span>;
+    }
     if (order.status === 'delivered') {
       const dDate = order.deliveryDate ?? order.confirmedDeliveryDate;
       return dDate ? (
         <span className="font-medium text-green-600 dark:text-green-400">{fmtDate(dDate)}</span>
-      ) : <span className="font-medium text-green-600 dark:text-green-400">Delivered</span>;
+      ) : <span className="text-gray-400 dark:text-gray-500">—</span>;
     }
     if (order.status === 'out_for_delivery') {
       const ofdDate = order.confirmedDeliveryDate ?? order.scheduledDate ?? order.deliveryDate;
-      return ofdDate
-        ? <span className="font-medium text-[#002D5B] dark:text-blue-200">{fmtDate(ofdDate)}</span>
-        : <span className="font-medium text-[#002D5B] dark:text-blue-200">On Route</span>;
+      return ofdDate ? (
+        <span className="font-medium text-[#002D5B] dark:text-blue-200">{fmtDate(ofdDate)}</span>
+      ) : <span className="text-gray-400 dark:text-gray-500">—</span>;
     }
-    if (order.status === 'unconfirmed')
-      return <span className="text-red-600 dark:text-red-400">No response</span>;
-    if (order.status === 'sms_sent')
-      return <span className="text-emerald-600 dark:text-emerald-400">Awaiting reply</span>;
-    if (order.status === 'uploaded')
-      return <span className="text-gray-400 dark:text-gray-500">Pending</span>;
-    return <span className="text-gray-400">—</span>;
+    // For uploaded/sms_sent/unconfirmed — show date if available, else dash
+    return dateSource ? (
+      <span className="text-gray-600 dark:text-gray-400">{fmtDate(dateSource)}</span>
+    ) : <span className="text-gray-400 dark:text-gray-500">—</span>;
   };
 
   const filterTabs: { key: OrdersTableTab; label: string; count: number }[] = [
@@ -612,49 +612,61 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="manage-orders-table-mobile table-mobile-cards table-fixed min-w-[1060px] md:min-w-[1280px] border-collapse text-sm">
+        <table className="manage-orders-table-mobile table-mobile-cards table-fixed min-w-[1300px] md:min-w-[1500px] border-collapse text-sm">
           <colgroup>
-            <col style={{ width: '170px' }} />
-            <col style={{ width: '190px' }} />
-            <col style={{ width: '120px' }} />
-            <col style={{ width: '120px' }} />
-            <col style={{ width: '115px' }} />
-            <col style={{ width: '95px' }} />
-            <col style={{ width: '130px' }} />
+            <col style={{ width: '140px' }} />
+            <col style={{ width: '160px' }} />
+            <col style={{ width: '70px' }} />
+            <col style={{ width: '110px' }} />
+            <col style={{ width: '110px' }} />
+            <col style={{ width: '100px' }} />
+            <col style={{ width: '100px' }} />
+            <col style={{ width: '85px' }} />
+            <col style={{ width: '110px' }} />
             <col style={{ width: '1%' }} />
-            <col style={{ width: '145px' }} />
-            <col style={{ width: '130px' }} />
+            <col style={{ width: '120px' }} />
+            <col style={{ width: '140px' }} />
+            <col style={{ width: '120px' }} />
           </colgroup>
           <thead className="border-b border-gray-200 bg-gray-50/95 dark:border-gray-600 dark:bg-gray-900/90">
             <tr>
-              <th className="min-w-[160px] max-w-[180px] w-[170px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="min-w-[130px] w-[140px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Customer
               </th>
-              <th className="min-w-[180px] max-w-[200px] w-[190px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="min-w-[150px] w-[160px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Phone
               </th>
-              <th className="min-w-[115px] max-w-[125px] w-[120px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="min-w-[65px] w-[70px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                Type
+              </th>
+              <th className="min-w-[100px] w-[110px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 PO Number
               </th>
-              <th className="min-w-[115px] max-w-[125px] w-[120px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                Delivery Number
+              <th className="min-w-[100px] w-[110px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                Delivery No.
               </th>
-              <th className="min-w-[110px] max-w-[120px] w-[115px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                Delivery date
+              <th className="min-w-[95px] w-[100px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                Del. Date
               </th>
-              <th className="min-w-[90px] max-w-[100px] w-[95px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="min-w-[95px] w-[100px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                GMD Date
+              </th>
+              <th className="min-w-[80px] w-[85px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Area
               </th>
-              <th className="min-w-[120px] max-w-[140px] w-[130px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="min-w-[100px] w-[110px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Model
               </th>
               <th className="whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                Product Description
+                Description
               </th>
-              <th className="min-w-[140px] max-w-[150px] w-[145px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="min-w-[110px] w-[120px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                Driver
+              </th>
+              <th className="min-w-[130px] w-[140px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Status
               </th>
-              <th className="min-w-[120px] max-w-[135px] w-[130px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="min-w-[110px] w-[120px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Action
               </th>
             </tr>
@@ -662,23 +674,25 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700/80">
             {paginatedOrders.length === 0 ? (
               <tr>
-                <td colSpan={10} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                <td colSpan={13} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                   No orders match the current filters.
                 </td>
               </tr>
             ) : (
               paginatedOrders.map((order) => {
+                const fmtDate = (d: Date) =>
+                  d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' });
                 return (
                   <tr
                     key={order.id}
                     className="transition-colors hover:bg-gray-50/90 dark:hover:bg-gray-900/40"
                   >
-                    <td className="min-w-[160px] max-w-[180px] w-[170px] overflow-hidden px-3 py-2.5 align-middle" data-label="Customer">
+                    <td className="min-w-[130px] w-[140px] overflow-hidden px-3 py-2.5 align-middle" data-label="Customer">
                       <span className="line-clamp-2 block font-medium leading-snug text-gray-900 dark:text-white" title={order.customerName}>
                         {order.customerName}
                       </span>
                     </td>
-                    <td className="min-w-[180px] max-w-[200px] w-[190px] overflow-hidden px-3 py-2.5 align-middle" data-label="Phone">
+                    <td className="min-w-[150px] w-[160px] overflow-hidden px-3 py-2.5 align-middle" data-label="Phone">
                       <div className="flex min-w-0 items-center gap-1.5">
                         <span className="min-w-0 shrink text-[13px] tabular-nums text-gray-700 dark:text-gray-300 truncate">
                           {order.customerPhone}
@@ -703,25 +717,45 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                         </div>
                       </div>
                     </td>
-                    <td className="min-w-[115px] max-w-[125px] w-[120px] overflow-hidden px-3 py-2.5 align-middle" data-label="PO Number">
+                    <td className="min-w-[65px] w-[70px] overflow-hidden px-3 py-2.5 align-middle" data-label="Type">
+                      <span
+                        className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                          order.orderType === 'B2C'
+                            ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300'
+                            : 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300'
+                        }`}
+                      >
+                        {order.orderType ?? 'B2B'}
+                      </span>
+                    </td>
+                    <td className="min-w-[100px] w-[110px] overflow-hidden px-3 py-2.5 align-middle" data-label="PO Number">
                       <span className="block truncate font-mono text-[13px] text-gray-700 dark:text-gray-300" title={`PO #${order.orderNumber}`}>
                         #{order.orderNumber}
                       </span>
                     </td>
-                    <td className="min-w-[115px] max-w-[125px] w-[120px] overflow-hidden px-3 py-2.5 align-middle" data-label="Delivery Number">
+                    <td className="min-w-[100px] w-[110px] overflow-hidden px-3 py-2.5 align-middle" data-label="Delivery Number">
                       <span className="block truncate font-mono text-[13px] text-gray-500 dark:text-gray-400" title={order.deliveryNumber ?? ''}>
                         {order.deliveryNumber ? `#${order.deliveryNumber}` : '—'}
                       </span>
                     </td>
-                    <td className="min-w-[110px] max-w-[120px] w-[115px] overflow-hidden px-3 py-2.5 align-middle text-[13px]" data-label="Delivery date">
+                    <td className="min-w-[95px] w-[100px] overflow-hidden px-3 py-2.5 align-middle text-[13px]" data-label="Del. Date">
                       {getDeliveryDateDisplay(order)}
                     </td>
-                    <td className="min-w-[90px] max-w-[100px] w-[95px] overflow-hidden px-3 py-2.5 align-middle" data-label="Area">
+                    <td className="min-w-[95px] w-[100px] overflow-hidden px-3 py-2.5 align-middle text-[13px]" data-label="GMD Date">
+                      {order.goodsMovementDate ? (
+                        <span className="font-medium text-teal-700 dark:text-teal-300">
+                          {fmtDate(order.goodsMovementDate)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 dark:text-gray-500">—</span>
+                      )}
+                    </td>
+                    <td className="min-w-[80px] w-[85px] overflow-hidden px-3 py-2.5 align-middle" data-label="Area">
                       <span className="line-clamp-2 text-[13px] leading-snug text-gray-700 dark:text-gray-300">
                         {order.area}
                       </span>
                     </td>
-                    <td className="min-w-[120px] max-w-[140px] w-[130px] overflow-hidden px-3 py-2.5 align-middle" data-label="Model">
+                    <td className="min-w-[100px] w-[110px] overflow-hidden px-3 py-2.5 align-middle" data-label="Model">
                       <span
                         className="block truncate text-[13px] leading-snug text-gray-800 dark:text-gray-200"
                         title={order.model ?? '—'}
@@ -729,7 +763,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                         {order.model || '—'}
                       </span>
                     </td>
-                    <td className="min-w-0 overflow-hidden px-3 py-2.5 align-middle" data-label="Product Description">
+                    <td className="min-w-0 overflow-hidden px-3 py-2.5 align-middle" data-label="Description">
                       <span
                         className="line-clamp-2 block break-words text-[13px] leading-snug text-gray-800 dark:text-gray-200"
                         title={order.productDescription ?? order.product}
@@ -737,7 +771,16 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                         {order.productDescription || order.product}
                       </span>
                     </td>
-                    <td className="min-w-[140px] max-w-[150px] w-[145px] overflow-hidden px-3 py-2.5 align-middle" data-label="Status">
+                    <td className="min-w-[110px] w-[120px] overflow-hidden px-3 py-2.5 align-middle" data-label="Driver">
+                      {order.driverName ? (
+                        <span className="block truncate text-[13px] font-medium text-indigo-700 dark:text-indigo-300" title={order.driverName}>
+                          🚗 {order.driverName}
+                        </span>
+                      ) : (
+                        <span className="text-[12px] text-gray-400 dark:text-gray-500 italic">Unassigned</span>
+                      )}
+                    </td>
+                    <td className="min-w-[130px] w-[140px] overflow-hidden px-3 py-2.5 align-middle" data-label="Status">
                       <div className="inline-flex flex-col gap-1 max-w-full">
                         <OrderStatusPill status={order.isRescheduled ? 'rescheduled' : order.status} />
                         {order.isRescheduled && order.status !== 'rescheduled' && (
@@ -745,7 +788,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                         )}
                       </div>
                     </td>
-                    <td className="min-w-[120px] max-w-[135px] w-[130px] px-3 py-2.5 align-middle" data-label="Action">
+                    <td className="min-w-[110px] w-[120px] px-3 py-2.5 align-middle" data-label="Action">
                       <ActionDropdown
                         order={order}
                         onStatusChange={onStatusChange}

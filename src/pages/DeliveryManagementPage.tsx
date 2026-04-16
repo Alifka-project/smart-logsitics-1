@@ -350,12 +350,12 @@ export default function DeliveryManagementPage({
   };
 
   const baseTabs: Tab[] = hideManageTab
-    ? [{ id: 'deliveries', label: 'Deliveries', icon: List }]
+    ? [{ id: 'deliveries', label: 'Live Maps', icon: MapPin }]
     : hideDeliveriesTab
     ? [{ id: 'manage', label: 'Manage Delivery Order', icon: ClipboardList }]
     : [
         { id: 'manage', label: 'Manage Delivery Order', icon: ClipboardList },
-        { id: 'deliveries', label: 'Deliveries', icon: List },
+        { id: 'deliveries', label: 'Live Maps', icon: MapPin },
       ];
   const tabs: Tab[] = [...baseTabs, ...extraTabs.map(t => ({ id: t.id, label: t.label, icon: t.icon }))];
 

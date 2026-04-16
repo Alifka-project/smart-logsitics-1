@@ -59,7 +59,7 @@ export const STATUS_CONFIG: Record<DeliveryStatus, StatusVisualConfig> = {
   },
   next_shipment: {
     label: 'Next Shipment',
-    pillLabel: 'Confirmed',
+    pillLabel: 'Next Shipment',
     bgColor: 'bg-amber-50',
     textColor: 'text-amber-600',
     borderColor: 'border-amber-400',
@@ -71,7 +71,7 @@ export const STATUS_CONFIG: Record<DeliveryStatus, StatusVisualConfig> = {
   },
   future_schedule: {
     label: 'Future Schedule',
-    pillLabel: 'Confirmed',
+    pillLabel: 'Future Schedule',
     bgColor: 'bg-indigo-50',
     textColor: 'text-indigo-600',
     borderColor: 'border-indigo-400',
@@ -92,7 +92,7 @@ export const STATUS_CONFIG: Record<DeliveryStatus, StatusVisualConfig> = {
   },
   ready_to_dispatch: {
     label: 'Ready to Dispatch',
-    pillLabel: 'Confirmed',
+    pillLabel: 'Ready',
     bgColor: 'bg-teal-50',
     textColor: 'text-teal-700',
     borderColor: 'border-teal-500',

@@ -7,8 +7,8 @@ export type DeliveryStatus =
   | 'sms_sent'
   | 'unconfirmed'
   | 'confirmed'          // legacy fallback (no confirmedDeliveryDate available)
-  | 'next_shipment'      // confirmed, date = today / tomorrow / day+2 (≤2 days out)
-  | 'future_schedule'    // confirmed, date = 3+ days out
+  | 'next_shipment'      // confirmed, delivery date = tomorrow only
+  | 'future_schedule'    // confirmed, delivery date = 2+ days out
   | 'scheduled'          // legacy fallback
   | 'ready_to_dispatch'  // confirmed + GMD updated, delivery date is future (not today)
   | 'order_delay'        // logistics cannot dispatch
@@ -46,6 +46,8 @@ export interface DeliveryOrder {
   failureReason?: string;
   /** True when the raw DB status is 'rescheduled' — workflow status may be a date bucket. */
   isRescheduled?: boolean;
+  /** Order type: B2C has individual customer name, B2B uses Ship-to party as customer. */
+  orderType?: 'B2B' | 'B2C';
 }
 
 /** Optional UI / reporting shape; persisted uploads use `UploadRecord` in the store. */
