@@ -1,6 +1,5 @@
 import React, { useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
-import type { DeliveryOrder } from '../../types/delivery';
 
 const ACCEPT = {
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
@@ -9,30 +8,17 @@ const ACCEPT = {
 };
 
 interface ManageSidebarProps {
-  orders: DeliveryOrder[];
   onFileUpload: (file: File) => void;
   onDownloadTemplate: () => void;
-  onAssignConfirmed?: () => void;
-  onBulkResendUnconfirmed?: () => void;
   isUploading: boolean;
-  todayStats: {
-    uploads: number;
-    totalOrders: number;
-    activeDrivers: number;
-    delivered: number;
-  };
   /** When true, hides the file upload dropzone (e.g. logistics_team role cannot upload) */
   hideUpload?: boolean;
 }
 
 export const ManageSidebar: React.FC<ManageSidebarProps> = ({
-  orders,
   onFileUpload,
   onDownloadTemplate,
-  onAssignConfirmed,
-  onBulkResendUnconfirmed,
   isUploading,
-  todayStats,
   hideUpload = false,
 }) => {
   const onDrop = useCallback(
@@ -49,9 +35,6 @@ export const ManageSidebar: React.FC<ManageSidebarProps> = ({
     disabled: isUploading,
     noClick: true,
   });
-
-  const confirmedCount = orders.filter((o) => o.status === 'confirmed').length;
-  const unconfirmedCount = orders.filter((o) => o.status === 'unconfirmed').length;
 
   return (
     <div className="space-y-4">
@@ -86,96 +69,6 @@ export const ManageSidebar: React.FC<ManageSidebarProps> = ({
           </div>
         </div>
       )}
-
-      <div className="bg-[#002D5B] rounded-xl p-4 text-white">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-sm">Today&apos;s summary</h3>
-          <span className="text-white/50 text-xs" aria-hidden>
-            ↗
-          </span>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-white/15 rounded-md flex items-center justify-center">
-              <span className="text-xs" aria-hidden>
-                📤
-              </span>
-            </div>
-            <div>
-              <p className="text-white text-xs font-semibold">{todayStats.uploads}</p>
-              <p className="text-white/70 text-[10px] uppercase tracking-wide">Uploads</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-white/15 rounded-md flex items-center justify-center">
-              <span className="text-xs" aria-hidden>
-                📦
-              </span>
-            </div>
-            <div>
-              <p className="text-white text-xs font-semibold">{todayStats.totalOrders}</p>
-              <p className="text-white/70 text-[10px] uppercase tracking-wide">Orders</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-white/15 rounded-md flex items-center justify-center">
-              <span className="text-xs" aria-hidden>
-                🚚
-              </span>
-            </div>
-            <div>
-              <p className="text-white text-xs font-semibold">{todayStats.activeDrivers}</p>
-              <p className="text-white/70 text-[10px] uppercase tracking-wide">Drivers</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-white/15 rounded-md flex items-center justify-center">
-              <span className="text-xs" aria-hidden>
-                ✅
-              </span>
-            </div>
-            <div>
-              <p className="text-white text-xs font-semibold">{todayStats.delivered}</p>
-              <p className="text-white/70 text-[10px] uppercase tracking-wide">Delivered</p>
-            </div>
-          </div>
-        </div>
-
-        {unconfirmedCount > 0 && (
-          <div className="mt-3 p-2 bg-white/10 rounded-md">
-            <p className="text-xs text-white/90">⚠️ {unconfirmedCount} orders with no customer response</p>
-          </div>
-        )}
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
-        <h3 className="font-semibold text-sm text-gray-900 dark:text-white mb-3">⚡ Quick actions</h3>
-        <div className="space-y-2">
-          {confirmedCount > 0 && (
-            <button
-              type="button"
-              onClick={onAssignConfirmed}
-              className="w-full py-2.5 px-3 bg-amber-50 dark:bg-amber-900/25 text-amber-900 dark:text-amber-100 rounded-lg text-xs font-medium text-center hover:bg-amber-100 dark:hover:bg-amber-900/40 border border-amber-200/80 dark:border-amber-800/50"
-            >
-              Assign {confirmedCount} confirmed orders →
-            </button>
-          )}
-          {unconfirmedCount > 0 && (
-            <button
-              type="button"
-              onClick={onBulkResendUnconfirmed}
-              className="w-full py-2.5 px-3 bg-red-50 dark:bg-red-900/25 text-red-900 dark:text-red-100 rounded-lg text-xs font-medium text-center hover:bg-red-100 dark:hover:bg-red-900/40 border border-red-200/80 dark:border-red-800/50"
-            >
-              Resend SMS to {unconfirmedCount} no-response orders →
-            </button>
-          )}
-          {confirmedCount === 0 && unconfirmedCount === 0 && (
-            <p className="text-xs text-gray-500 dark:text-gray-400 py-2 text-center leading-relaxed">
-              No bulk actions right now. Confirmations or unconfirmed orders will show actions here.
-            </p>
-          )}
-        </div>
-      </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
         <h3 className="font-semibold text-sm text-gray-900 dark:text-white mb-3">📋 How to use</h3>

@@ -60,6 +60,7 @@ interface OrdersTableProps {
   getDriverCapacity?: (orderId: string, driverId: string) => { used: number; max: number; remaining: number; full: boolean } | null;
   /** Enable Today + date range filters in header */
   enableDispatchFilters?: boolean;
+  onRefresh?: () => void;
 }
 
 const CONFIRMED_STATUSES = new Set<DeliveryStatus>(['confirmed', 'next_shipment', 'future_schedule', 'ready_to_dispatch']);
@@ -281,14 +282,15 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
   onTogglePriority,
   getDriverCapacity,
   enableDispatchFilters = false,
+  onRefresh,
 }) => {
   const [rescheduleOrder, setRescheduleOrder] = useState<DeliveryOrder | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [assigningDriverId, setAssigningDriverId] = useState<string | null>(null);
   const [todayOnly, setTodayOnly] = useState(false);
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [filterDate, setFilterDate] = useState('');
   const [priorityOnly, setPriorityOnly] = useState(false);
+  const [driverFilter, setDriverFilter] = useState<string>('all');
   const tableTopRef = useRef<HTMLDivElement | null>(null);
   const itemsPerPage = 20;
 
@@ -297,8 +299,6 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
     startOfToday.setHours(0, 0, 0, 0);
     const endOfToday = new Date();
     endOfToday.setHours(23, 59, 59, 999);
-    const dateFromMs = dateFrom ? new Date(dateFrom + 'T00:00:00').getTime() : null;
-    const dateToMs = dateTo ? new Date(dateTo + 'T23:59:59').getTime() : null;
     return orders.filter((order) => {
       const matchesStatus = matchesTableTab(order, tableTab);
       const q = searchQuery.trim().toLowerCase();
@@ -315,15 +315,18 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
         const uploadedMs = order.uploadedAt.getTime();
         if (uploadedMs < startOfToday.getTime() || uploadedMs > endOfToday.getTime()) return false;
       }
-      if (dateFromMs != null || dateToMs != null) {
-        const uploadedMs = order.uploadedAt.getTime();
-        if (dateFromMs != null && uploadedMs < dateFromMs) return false;
-        if (dateToMs != null && uploadedMs > dateToMs) return false;
+      if (filterDate) {
+        const selectedMs = new Date(filterDate + 'T00:00:00').getTime();
+        const selectedEnd = selectedMs + 86400000; // +1 day
+        if (order.uploadedAt.getTime() < selectedMs || order.uploadedAt.getTime() >= selectedEnd) return false;
       }
       if (priorityOnly && order.isPriority !== true) return false;
+      if (driverFilter !== 'all') {
+        if (order.driverId !== driverFilter) return false;
+      }
       return matchesStatus && matchesSearch;
     });
-  }, [orders, tableTab, searchQuery, todayOnly, dateFrom, dateTo, priorityOnly]);
+  }, [orders, tableTab, searchQuery, todayOnly, filterDate, priorityOnly, driverFilter]);
 
   const sortedOrders = useMemo(() => {
     const list = [...filteredOrders];
@@ -443,18 +446,31 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
               Filter by status, search, and sort below — KPI cards above are summary only.
             </p>
           </div>
-          {onExport && (
-            <button
-              type="button"
-              onClick={onExport}
-              className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 shadow-sm hover:shadow-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
-              title="Export current filtered orders to Excel"
-            >
-              <FileSpreadsheet className="h-4 w-4 shrink-0" aria-hidden />
-              <span>Export Excel</span>
-              <Download className="h-3.5 w-3.5 shrink-0 opacity-75" aria-hidden />
-            </button>
-          )}
+          <div className="flex shrink-0 items-center gap-2">
+            {onRefresh && (
+              <button
+                type="button"
+                onClick={onRefresh}
+                className="shrink-0 inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                title="Refresh orders"
+              >
+                <span aria-hidden>🔄</span>
+                <span>Refresh</span>
+              </button>
+            )}
+            {onExport && (
+              <button
+                type="button"
+                onClick={onExport}
+                className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 shadow-sm hover:shadow-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
+                title="Export current filtered orders to Excel"
+              >
+                <FileSpreadsheet className="h-4 w-4 shrink-0" aria-hidden />
+                <span>Export Excel</span>
+                <Download className="h-3.5 w-3.5 shrink-0 opacity-75" aria-hidden />
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -516,7 +532,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
           {(tableTab !== 'all' || searchQuery) && (
             <button
               type="button"
-              onClick={() => { onTableTabChange('all'); onSearchChange(''); }}
+              onClick={() => { onTableTabChange('all'); onSearchChange(''); setDriverFilter('all'); setFilterDate(''); setTodayOnly(false); setPriorityOnly(false); }}
               className="shrink-0 flex items-center gap-1 px-2.5 py-2 rounded-lg text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
             >
               <X className="h-3 w-3" />
@@ -546,23 +562,34 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
               >
                 🚨 Priority
               </button>
-              <div className="shrink-0 flex items-center gap-1.5 text-xs">
-                <span className="text-gray-500 dark:text-gray-400">From</span>
-                <input
-                  type="date"
-                  value={dateFrom}
-                  onChange={e => setDateFrom(e.target.value)}
-                  className="px-2 py-1.5 rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 text-xs focus:outline-none focus:ring-1 focus:ring-[#002D5B]"
-                />
-                <span className="text-gray-500 dark:text-gray-400">to</span>
-                <input
-                  type="date"
-                  value={dateTo}
-                  onChange={e => setDateTo(e.target.value)}
-                  className="px-2 py-1.5 rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 text-xs focus:outline-none focus:ring-1 focus:ring-[#002D5B]"
-                />
-                {(dateFrom || dateTo) && (
-                  <button type="button" onClick={() => { setDateFrom(''); setDateTo(''); }} className="text-red-500 hover:underline">Clear</button>
+              {drivers && drivers.length > 0 && (
+                <select
+                  value={driverFilter}
+                  onChange={e => { setDriverFilter(e.target.value); setCurrentPage(1); }}
+                  className="shrink-0 appearance-none px-3 py-2 rounded-lg text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 border-0 focus:outline-none focus:ring-2 focus:ring-[#002D5B] cursor-pointer"
+                >
+                  <option value="all">🚗 All Drivers</option>
+                  {drivers.map(dr => (
+                    <option key={dr.id} value={dr.id}>{dr.fullName || dr.username}</option>
+                  ))}
+                </select>
+              )}
+              <div className="shrink-0 flex items-center gap-1.5">
+                <label className="relative flex items-center gap-1.5 cursor-pointer group">
+                  <span className={`flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                    filterDate ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'
+                  }`}>
+                    📅 {filterDate ? new Date(filterDate + 'T12:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : 'Date'}
+                  </span>
+                  <input
+                    type="date"
+                    value={filterDate}
+                    onChange={e => { setFilterDate(e.target.value); setCurrentPage(1); }}
+                    className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                  />
+                </label>
+                {filterDate && (
+                  <button type="button" onClick={() => { setFilterDate(''); setCurrentPage(1); }} className="text-xs text-red-500 hover:text-red-700 dark:text-red-400">✕</button>
                 )}
               </div>
             </>

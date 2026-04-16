@@ -197,21 +197,19 @@ function parseCoordinate(value: unknown): number {
 
 export function transformERPData(data: RawERPRow[]): TransformedDelivery[] {
   return data.map((row, index) => {
-    // B2C orders have a personal 'Name' field; B2B only have 'Ship-to Party'.
-    // Prefer 'Name' so customer tracking/SMS uses the individual's name for B2C.
-    const customer =
-      row['Name'] ||
-      row['Customer'] ||
-      row['Customer Name'] ||
-      row['Customer name'] ||
-      row['Payer Name'] ||
+    // B2C: personal name present → individual customer
+    // B2B: no personal name → company (Ship-to Party)
+    const rawName = row['Name'];
+    const nameVal = rawName != null ? String(rawName).trim() : '';
+    const shipToVal = (
       row['Ship-to Party'] ||
       row['Ship To Party'] ||
       row['Ship to Party'] ||
       row['Ship to party'] ||
       row['Ship-to party'] ||
-      row['SHIP TO PARTY'] ||
-      `Customer ${index + 1}`;
+      row['SHIP TO PARTY']
+    );
+    const customer = nameVal || (shipToVal != null ? String(shipToVal).trim() : '') || `Customer ${index + 1}`;
     const address =
       [row['Ship to Street'], row['Ship-to Street'], row['Street'], row['Address'], row['City'], row['Postal code']]
         .filter(Boolean)

@@ -103,6 +103,7 @@ export default function LogisticsTeamPortal() {
   const [contacts, setContacts] = useState<ContactUser[]>([]); // All contacts (drivers + team members)
   const [teamMembers, setTeamMembers] = useState<ContactUser[]>([]); // Admin + delivery_team
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
+  const recentUploads = useDeliveryStore((s) => s.recentUploads ?? []);
   const [alerts, setAlerts] = useState<SystemAlert[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
@@ -850,6 +851,53 @@ export default function LogisticsTeamPortal() {
                     </>
                   )}
                 </div>
+              </div>
+            );
+          })()}
+
+          {/* ── Today's Summary ── */}
+          {(() => {
+            const t0 = new Date(); t0.setHours(0, 0, 0, 0);
+            const uploadsToday = recentUploads.filter(u => new Date(u.uploadedAt) >= t0).length;
+            const totalOrders = deliveries.length;
+            const activeDriverIds = new Set(deliveries.map(d => d.assignedDriverId).filter((id): id is string => Boolean(id)));
+            const deliveredCount = deliveries.filter(d => {
+              const s = (d.status || '').toLowerCase();
+              return ['delivered', 'delivered-with-installation', 'delivered-without-installation', 'finished', 'completed', 'pod-completed'].includes(s);
+            }).length;
+            const unconfirmedCount = deliveries.filter(d => {
+              const s = (d.status || '').toLowerCase();
+              return s === 'scheduled' || s === 'sms_sent' || s === 'unconfirmed';
+            }).length;
+            return (
+              <div className="bg-[#002D5B] rounded-xl p-4 text-white">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-sm">Today&apos;s Summary</h3>
+                  <span className="text-white/50 text-xs">↗</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  {[
+                    { icon: '📤', value: uploadsToday, label: 'Uploads Today' },
+                    { icon: '📦', value: totalOrders, label: 'Total Orders' },
+                    { icon: '🚚', value: activeDriverIds.size, label: 'Active Drivers' },
+                    { icon: '✅', value: deliveredCount, label: 'Delivered' },
+                  ].map(({ icon, value, label }) => (
+                    <div key={label} className="flex items-center gap-2">
+                      <div className="w-7 h-7 bg-white/15 rounded-md flex items-center justify-center shrink-0">
+                        <span className="text-xs" aria-hidden>{icon}</span>
+                      </div>
+                      <div>
+                        <p className="text-white text-xs font-semibold">{value}</p>
+                        <p className="text-white/70 text-[10px] uppercase tracking-wide">{label}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {unconfirmedCount > 0 && (
+                  <div className="mt-3 p-2 bg-white/10 rounded-md">
+                    <p className="text-xs text-white/90">⚠️ {unconfirmedCount} orders awaiting customer response</p>
+                  </div>
+                )}
               </div>
             );
           })()}

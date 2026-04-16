@@ -36,12 +36,6 @@ interface ManageTabProps {
   driverList?: { id: string; fullName?: string | null; username: string }[];
 }
 
-function startOfToday(): Date {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
 function downloadTemplateCsv(): void {
   const headers = 'customer,address,lat,lng,items,phone\n';
   const sample = 'Sample Customer,Dubai Marina,25.0800,55.1400,Refrigerator ERG123,+971500000000\n';
@@ -78,10 +72,8 @@ export default function ManageTab({
     () => (excludeGarbageDeliveries ? excludeTeamPortalGarbageDeliveries(deliveries) : deliveries),
     [deliveries, excludeGarbageDeliveries],
   );
-  const recentUploads = useDeliveryStore((s) => s.recentUploads ?? []);
   const isFileAlreadyUploaded = useDeliveryStore((s) => s.isFileAlreadyUploaded);
   const updateDeliveryStatus = useDeliveryStore((s) => s.updateDeliveryStatus);
-  const setDeliveryListFilter = useDeliveryStore((s) => s.setDeliveryListFilter);
   const manageTabFilter = useDeliveryStore((s) => s.manageTabFilter);
   const setManageTabFilter = useDeliveryStore((s) => s.setManageTabFilter);
 
@@ -145,24 +137,6 @@ export default function ManageTab({
     },
     [editDeliveryId, deliveries, updateDeliveryStatus, onNotifySuccess],
   );
-
-  const todayStats = useMemo(() => {
-    const t0 = startOfToday();
-    const uploads = recentUploads.filter((u) => new Date(u.uploadedAt) >= t0).length;
-    const driverIds = new Set(
-      visibleDeliveries.map((d) => d.assignedDriverId).filter((id): id is string => Boolean(id)),
-    );
-    const delivered = visibleDeliveries.filter((d) => {
-      const s = (d.status || '').toLowerCase();
-      return ['delivered', 'delivered-with-installation', 'delivered-without-installation', 'finished', 'completed', 'pod-completed'].includes(s);
-    }).length;
-    return {
-      uploads,
-      totalOrders: visibleDeliveries.length,
-      activeDrivers: driverIds.size,
-      delivered,
-    };
-  }, [visibleDeliveries, recentUploads]);
 
   const handleFileUpload = useCallback(
     async (file: File) => {
@@ -294,14 +268,6 @@ export default function ManageTab({
     [updateDeliveryStatus, onNotifySuccess, onToastError],
   );
 
-  const handleBulkResendUnconfirmed = useCallback(async () => {
-    const ids = manageOrders.filter((o) => o.status === 'unconfirmed').map((o) => o.id);
-    if (ids.length === 0) return;
-    for (const id of ids) {
-      await sendSmsForDelivery(id);
-    }
-  }, [manageOrders, sendSmsForDelivery]);
-
   const handleCallCustomer = useCallback((phone: string) => {
     const p = phone.replace(/\s/g, '');
     if (!p || p === '—') return;
@@ -359,10 +325,9 @@ export default function ManageTab({
     onSwitchToDeliveriesTab();
   }, [onSwitchToDeliveriesTab]);
 
-  const handleAssignConfirmed = useCallback(() => {
-    setDeliveryListFilter('confirmed');
-    onSwitchToDeliveriesTab();
-  }, [setDeliveryListFilter, onSwitchToDeliveriesTab]);
+  const handleRefresh = useCallback(() => {
+    window.dispatchEvent(new CustomEvent('deliveriesUpdated'));
+  }, []);
 
   return (
     <div
@@ -422,17 +387,14 @@ export default function ManageTab({
             onTogglePriority={onTogglePriority}
             getDriverCapacity={getDriverCapacity}
             enableDispatchFilters={enableDispatchFilters}
+            onRefresh={handleRefresh}
           />
         </div>
         <div className="min-w-0 w-full lg:sticky lg:top-4 lg:self-start">
           <ManageSidebar
-            orders={manageOrders}
             onFileUpload={(f) => void handleFileUpload(f)}
             onDownloadTemplate={downloadTemplateCsv}
-            onAssignConfirmed={handleAssignConfirmed}
-            onBulkResendUnconfirmed={() => void handleBulkResendUnconfirmed()}
             isUploading={isUploading}
-            todayStats={todayStats}
             hideUpload={hideUpload}
           />
         </div>
