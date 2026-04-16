@@ -100,8 +100,8 @@ interface AssignmentMessage {
 
 export default function LogisticsTeamPortal() {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
-  // L6: Default directly to the unified dispatch table (was 'manage-orders')
-  const [deliveriesSubTab, setDeliveriesSubTab] = useState<string>('manage-dispatch');
+  // Default to the unified Manage Delivery Order tab (merged from old manage-dispatch)
+  const [deliveriesSubTab, setDeliveriesSubTab] = useState<string>('manage');
   const [trackingDriverFilter, setTrackingDriverFilter] = useState<string>('all');
   const [trackingSelectedId, setTrackingSelectedId] = useState<string | null>(null);
   const [drivers, setDrivers] = useState<ContactUser[]>([]);
@@ -284,13 +284,13 @@ export default function LogisticsTeamPortal() {
     // Backward-compat: remap old top-level tab names
     if (tabParam === 'operations') tabParam = 'dashboard';
 
-    // Sub-tabs inside Deliveries: manage-dispatch (unified), live-tracking
-    // L6: manage-orders is merged into manage-dispatch; 'deliveries' and 'manage-orders' both go to dispatch
-    const deliveriesSubTabs = ['manage-orders', 'manage-dispatch', 'live-tracking', 'deliveries'];
+    // Sub-tabs inside Deliveries: manage (unified orders+dispatch), live-tracking
+    // manage-dispatch and manage-orders are both legacy aliases for 'manage'
+    const deliveriesSubTabs = ['manage-orders', 'manage-dispatch', 'manage', 'live-tracking', 'deliveries'];
     if (tabParam && deliveriesSubTabs.includes(tabParam)) {
       setActiveTab('deliveries');
-      // L6: both 'deliveries' and 'manage-orders' route to the unified dispatch table
-      const subTab = (tabParam === 'deliveries' || tabParam === 'manage-orders') ? 'manage-dispatch' : tabParam;
+      // Map all legacy dispatch/orders sub-tab names to the current 'manage' tab
+      const subTab = (tabParam === 'deliveries' || tabParam === 'manage-orders' || tabParam === 'manage-dispatch') ? 'manage' : tabParam;
       setDeliveriesSubTab(subTab);
     } else if (tabParam) {
       setActiveTab(tabParam);
@@ -899,8 +899,7 @@ export default function LogisticsTeamPortal() {
                     onClick={() => {
                       useDeliveryStore.getState().setManageTabFilter(targetTab);
                       setActiveTab('deliveries');
-                      // L6: all order views now go to the unified Dispatch table
-                      setDeliveriesSubTab('manage-dispatch');
+                      setDeliveriesSubTab('manage');
                     }}
                     className={`flex flex-col items-center justify-center rounded-xl border p-3 ${bg} ${border} ${hover} cursor-pointer select-none transition-colors`}
                     title={`View ${label} in Delivery Orders & Dispatch`}
@@ -1182,7 +1181,7 @@ export default function LogisticsTeamPortal() {
           hidePageTitle
           excludeGarbageUploadRows
           hideUpload
-          forceTab={deliveriesSubTab === 'manage-orders' ? 'manage' : deliveriesSubTab}
+          forceTab={deliveriesSubTab}
           onTabChange={(id) => setDeliveriesSubTab(id)}
           extraTabs={[
             {
