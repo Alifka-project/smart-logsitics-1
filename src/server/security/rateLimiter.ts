@@ -11,13 +11,13 @@ function getClientIp(req: Request): string {
   return req.ip || req.socket?.remoteAddress || 'unknown';
 }
 
-// Login rate limiter: 5 attempts per 15 minutes per IP.
-// Combined with in-database account lockout for defense in depth.
+// Login rate limiter: 5 attempts per 1 minute per IP.
+// Combined with in-memory account lockout for defense in depth.
 // NOTE: In-memory store resets on process restart (serverless environments).
 // For persistent enforcement, back this with Redis via rate-limit-redis.
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,   // 15 minutes
-  max: 5,                       // 5 login attempts per window
+  windowMs: 60 * 1000,          // 1 minute
+  max: 5,                        // 5 login attempts per window
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true,
@@ -25,8 +25,8 @@ const loginLimiter = rateLimit({
   handler: (_req: Request, res: Response): void => {
     res.status(429).json({
       error: 'too_many_login_attempts',
-      message: 'Too many login attempts. Please try again after 15 minutes.',
-      retryAfter: 15 * 60,
+      message: 'Too many login attempts. Please wait 1 minute before trying again.',
+      retryAfter: 60,
     });
   },
 });

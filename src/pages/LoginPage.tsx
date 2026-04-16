@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api, { setAuthToken } from '../frontend/apiClient';
 import { setAuthData, isAuthenticated } from '../frontend/auth';
@@ -13,6 +13,31 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [passwordErrors, setPasswordErrors] = useState<string[]>([]);
+  // Countdown timer (seconds) shown when the account or IP is rate-limited
+  const [lockoutSeconds, setLockoutSeconds] = useState<number | null>(null);
+  const lockoutIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  /** Start a 1-second tick countdown.  Clears the error automatically at 0. */
+  const startCountdown = (seconds: number) => {
+    if (lockoutIntervalRef.current) clearInterval(lockoutIntervalRef.current);
+    setLockoutSeconds(seconds);
+    lockoutIntervalRef.current = setInterval(() => {
+      setLockoutSeconds(prev => {
+        if (prev === null || prev <= 1) {
+          clearInterval(lockoutIntervalRef.current!);
+          lockoutIntervalRef.current = null;
+          setError(null);
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  // Clean up interval on unmount
+  useEffect(() => {
+    return () => { if (lockoutIntervalRef.current) clearInterval(lockoutIntervalRef.current); };
+  }, []);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -121,11 +146,18 @@ export default function LoginPage() {
         setPasswordErrors(errorDetails);
         setError('Please fix the password requirements');
       } else if (e?.response?.status === 423) {
-        setError(
-          e.response.data?.message ?? 'Account locked due to too many failed attempts',
-        );
+        // Account locked — use server's retryAfterSeconds or compute from lockedUntil
+        const serverSeconds = (e.response.data as { retryAfterSeconds?: number })?.retryAfterSeconds;
+        const lockedUntil = (e.response.data as { lockedUntil?: string })?.lockedUntil;
+        const secs = serverSeconds
+          ?? (lockedUntil ? Math.max(1, Math.ceil((new Date(lockedUntil).getTime() - Date.now()) / 1000)) : 60);
+        setError('locked');
+        startCountdown(secs);
       } else if (e?.response?.status === 429) {
-        setError('Too many login attempts. Please wait 15 minutes and try again.');
+        // IP rate limit — use server's retryAfter header/body or default 60 s
+        const retryAfter = (e.response.data as { retryAfter?: number })?.retryAfter ?? 60;
+        setError('ratelimit');
+        startCountdown(retryAfter);
       } else if (e?.response?.status === 401) {
         setError('Invalid username or password. Please check your credentials and try again.');
       } else if ((e?.response?.status ?? 0) >= 500) {
@@ -143,9 +175,51 @@ export default function LoginPage() {
 
   void rememberMe;
 
+  const isLocked = error === 'locked' || error === 'ratelimit';
+
   const loginFormContent = (
     <>
-      {error && (
+      {/* ── Lockout countdown banner ── */}
+      {isLocked && lockoutSeconds !== null && (
+        <div className="bg-orange-50 border-l-4 border-orange-500 text-orange-900 text-sm p-4 rounded mb-4 text-left">
+          <div className="font-semibold mb-1 flex items-center gap-2">
+            🔒 Account temporarily locked
+          </div>
+          <p className="text-sm text-orange-800">
+            Too many failed login attempts. Please wait before trying again.
+          </p>
+          <div className="mt-3 flex items-center gap-3">
+            <div className="relative w-12 h-12 flex-shrink-0">
+              <svg className="w-12 h-12 -rotate-90" viewBox="0 0 48 48">
+                <circle
+                  cx="24" cy="24" r="20"
+                  fill="none" stroke="#fed7aa" strokeWidth="4"
+                />
+                <circle
+                  cx="24" cy="24" r="20"
+                  fill="none" stroke="#f97316" strokeWidth="4"
+                  strokeDasharray={`${2 * Math.PI * 20}`}
+                  strokeDashoffset={`${2 * Math.PI * 20 * (1 - lockoutSeconds / 60)}`}
+                  strokeLinecap="round"
+                  style={{ transition: 'stroke-dashoffset 0.9s linear' }}
+                />
+              </svg>
+              <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-orange-700">
+                {lockoutSeconds}
+              </span>
+            </div>
+            <div>
+              <p className="text-lg font-bold text-orange-700">
+                {lockoutSeconds}s
+              </p>
+              <p className="text-xs text-orange-600">until you can try again</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Regular error banner ── */}
+      {error && !isLocked && (
         <div className="bg-red-50 border-l-4 border-red-500 text-red-800 text-sm p-3 rounded mb-4 text-left">
           <div className="font-semibold mb-1">Error</div>
           <div>{error}</div>
@@ -168,11 +242,11 @@ export default function LoginPage() {
             type="text"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm outline-none bg-white transition-all focus:border-[#011E41] focus:ring-2 focus:ring-[#011E4122]"
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm outline-none bg-white transition-all focus:border-[#011E41] focus:ring-2 focus:ring-[#011E4122] disabled:opacity-50 disabled:cursor-not-allowed"
             placeholder="Enter your username"
             required
             autoComplete="username"
-            disabled={loading}
+            disabled={loading || isLocked}
           />
         </div>
         <div>
@@ -182,11 +256,11 @@ export default function LoginPage() {
               type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 pr-11 border border-gray-300 rounded-xl text-sm outline-none bg-white transition-all focus:border-[#011E41] focus:ring-2 focus:ring-[#011E4122]"
+              className="w-full px-4 py-3 pr-11 border border-gray-300 rounded-xl text-sm outline-none bg-white transition-all focus:border-[#011E41] focus:ring-2 focus:ring-[#011E4122] disabled:opacity-50 disabled:cursor-not-allowed"
               placeholder="Enter your password"
               required
               autoComplete="current-password"
-              disabled={loading}
+              disabled={loading || isLocked}
             />
             <button
               type="button"
@@ -212,7 +286,7 @@ export default function LoginPage() {
         </div>
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || isLocked}
           className="w-full text-white font-semibold py-3 px-4 rounded-xl bg-[#011E41] hover:bg-[#001529] transition-colors duration-150 disabled:opacity-60 disabled:cursor-not-allowed shadow-md"
         >
           {loading ? (
@@ -239,6 +313,8 @@ export default function LoginPage() {
               </svg>
               Signing in...
             </span>
+          ) : isLocked && lockoutSeconds !== null ? (
+            `Locked — retry in ${lockoutSeconds}s`
           ) : (
             'Sign in'
           )}

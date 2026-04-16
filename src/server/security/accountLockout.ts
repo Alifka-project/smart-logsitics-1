@@ -3,9 +3,9 @@
  * Uses in-memory store (can be migrated to Redis for production)
  */
 
-const LOCKOUT_DURATION = 5 * 60 * 1000; // 5 minutes
+const LOCKOUT_DURATION = 60 * 1000;    // 1 minute
 const MAX_FAILED_ATTEMPTS = 5;
-const ATTEMPT_WINDOW = 5 * 60 * 1000; // 5 minutes
+const ATTEMPT_WINDOW = 60 * 1000;      // 1-minute rolling window
 
 interface LockoutEntry {
   attempts: number;
@@ -17,6 +17,7 @@ interface LockoutStatus {
   locked: true;
   lockedUntil: number;
   remainingMinutes: number;
+  remainingSeconds: number;
 }
 
 // In-memory store: { username: { attempts: number, lockedUntil: timestamp, firstAttempt: timestamp } }
@@ -73,10 +74,12 @@ function isLocked(username: string): false | LockoutStatus {
 
   const now = Date.now();
   if (now < entry.lockedUntil) {
+    const msLeft = entry.lockedUntil - now;
     return {
       locked: true,
       lockedUntil: entry.lockedUntil,
-      remainingMinutes: Math.ceil((entry.lockedUntil - now) / 60000)
+      remainingSeconds: Math.ceil(msLeft / 1000),
+      remainingMinutes: Math.ceil(msLeft / 60000),
     };
   }
 
