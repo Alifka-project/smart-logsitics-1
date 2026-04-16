@@ -13,7 +13,7 @@ interface StatusMetricCardsProps {
 
 const CARD_DEFS = [
   { key: 'uploaded',         sublabel: 'Awaiting action', darkIconBg: 'dark:bg-blue-500/30' },
-  { key: 'sms_sent',         sublabel: 'Awaiting reply',  darkIconBg: 'dark:bg-emerald-500/30' },
+  { key: 'sms_sent',         sublabel: 'Awaiting + no reply', darkIconBg: 'dark:bg-emerald-500/30' },
   { key: 'unconfirmed',      sublabel: 'No reply',        darkIconBg: 'dark:bg-red-500/35' },
   { key: 'next_shipment',    sublabel: 'Tomorrow',        darkIconBg: 'dark:bg-amber-500/30' },
   { key: 'future_schedule',  sublabel: '2+ days out',     darkIconBg: 'dark:bg-indigo-500/30' },
@@ -29,7 +29,7 @@ export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({ orders, on
   const statusCounts = {
     // "Pending Orders" = everything not yet delivered/cancelled/failed — same logic as Needs Attention
     uploaded:         orders.filter((o) => !TERMINAL_WF.has(o.status)).length,
-    sms_sent:         orders.filter((o) => o.status === 'sms_sent').length,
+    sms_sent:         orders.filter((o) => o.status === 'sms_sent' || o.status === 'unconfirmed').length,
     unconfirmed:      orders.filter((o) => o.status === 'unconfirmed').length,
     next_shipment:    orders.filter((o) => o.status === 'next_shipment' || o.status === 'ready_to_dispatch').length,
     future_schedule:  orders.filter((o) => o.status === 'future_schedule').length,

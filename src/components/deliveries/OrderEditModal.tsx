@@ -160,7 +160,7 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
         <div className="shrink-0 border-b border-gray-100 px-4 py-3 dark:border-gray-700">
           <div className="flex items-center justify-between gap-2">
             <h2 id="order-edit-title" className="text-lg font-semibold text-gray-900 dark:text-white">
-              Edit order
+              Update Status
             </h2>
             <button
               type="button"
@@ -177,6 +177,77 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
         </div>
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4">
+          {/* POD Photos — shown when driver has uploaded proof of delivery */}
+          {(() => {
+            const pod = delivery as unknown as {
+              photos?: Array<{ url?: string } | string>;
+              driverSignature?: string;
+              podCompletedAt?: string | Date;
+            };
+            const photos = pod.photos ?? [];
+            const sig = pod.driverSignature;
+            const completedAt = pod.podCompletedAt;
+            if (photos.length === 0 && !sig) return null;
+            const fmtTs = (ts: string | Date) => {
+              const d = new Date(ts);
+              return isNaN(d.getTime()) ? String(ts) : d.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            };
+            return (
+              <div className="rounded-lg border border-teal-200 dark:border-teal-700/50 bg-teal-50 dark:bg-teal-900/10 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-teal-700 dark:text-teal-300">📷 Proof of Delivery</p>
+                  {completedAt && (
+                    <span className="text-[10px] text-teal-600 dark:text-teal-400">{fmtTs(completedAt)}</span>
+                  )}
+                </div>
+                {photos.length > 0 && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {photos.map((photo, idx) => {
+                      const url = typeof photo === 'string' ? photo : (photo.url ?? '');
+                      if (!url) return null;
+                      return (
+                        <a
+                          key={idx}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block rounded-md overflow-hidden border border-teal-200 dark:border-teal-700 hover:opacity-80 transition-opacity"
+                          title={`POD photo ${idx + 1}`}
+                        >
+                          <img
+                            src={url}
+                            alt={`POD photo ${idx + 1}`}
+                            className="w-full h-24 object-cover bg-gray-100 dark:bg-gray-700"
+                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                          />
+                        </a>
+                      );
+                    })}
+                  </div>
+                )}
+                {sig && (
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-medium text-teal-600 dark:text-teal-400 uppercase tracking-wider">Driver Signature</p>
+                    <a
+                      href={sig}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block rounded-md overflow-hidden border border-teal-200 dark:border-teal-700 hover:opacity-80 transition-opacity"
+                      title="Driver signature"
+                    >
+                      <img
+                        src={sig}
+                        alt="Driver signature"
+                        className="w-full h-20 object-contain bg-white dark:bg-gray-800"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    </a>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           {/* PO + Delivery Number — critical tracking info */}
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg px-3 py-2">

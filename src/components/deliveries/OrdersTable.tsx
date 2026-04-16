@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, Download, FileSpreadsheet, Search, X, SlidersHorizontal } from 'lucide-react';
+import { ChevronDown, Download, FileSpreadsheet, RefreshCw, Search, X, SlidersHorizontal } from 'lucide-react';
 import type { DeliveryOrder, DeliveryStatus } from '../../types/delivery';
 import { STATUS_CONFIG } from '../../config/statusColors';
 import { RescheduleModal } from './RescheduleModal';
@@ -207,13 +207,12 @@ function ActionDropdown({
   onStatusChange: _onStatusChange,
   onResendSMS: _onResendSMS,
   onMarkOutForDelivery: _onMarkOutForDelivery,
-  onTrackDelivery,
+  onTrackDelivery: _onTrackDelivery,
   onEditOrder,
   onReschedule: _onReschedule,
 }: ActionDropdownProps) {
   const s = order.status;
   const isTerminal = s === 'delivered' || s === 'cancelled' || s === 'failed';
-  const isOnRoute = s === 'out_for_delivery';
 
   // Terminal orders: show a simple completion indicator, no action button
   if (isTerminal) {
@@ -236,26 +235,15 @@ function ActionDropdown({
       {/* Next-step indicator — always visible, non-clickable */}
       <NextStepBadge status={s} />
 
-      {isOnRoute && (
-        <button
-          type="button"
-          onClick={() => onTrackDelivery?.(order.id)}
-          className="w-full px-2.5 py-1.5 text-[11px] font-semibold rounded border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 whitespace-nowrap transition-colors"
-        >
-          Track →
-        </button>
-      )}
-
-      {!isOnRoute && (
-        <button
-          type="button"
-          onClick={() => onEditOrder(order.id)}
-          className="w-full flex items-center justify-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold rounded border border-[#002D5B]/30 bg-[#002D5B]/5 text-[#002D5B] hover:bg-[#002D5B] hover:text-white dark:border-blue-500/40 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-700 dark:hover:text-white transition-colors whitespace-nowrap"
-          title="Edit order"
-        >
-          Edit Order ✏️
-        </button>
-      )}
+      {/* Single Update Status button for all non-terminal orders */}
+      <button
+        type="button"
+        onClick={() => onEditOrder(order.id)}
+        className="w-full flex items-center justify-center px-2.5 py-1.5 text-[11px] font-semibold rounded border border-[#002D5B]/30 bg-[#002D5B]/5 text-[#002D5B] hover:bg-[#002D5B] hover:text-white dark:border-blue-500/40 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-700 dark:hover:text-white transition-colors whitespace-nowrap"
+        title="Update status"
+      >
+        Update Status
+      </button>
     </div>
   );
 }
@@ -288,7 +276,8 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [assigningDriverId, setAssigningDriverId] = useState<string | null>(null);
   const [todayOnly, setTodayOnly] = useState(false);
-  const [filterDate, setFilterDate] = useState('');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
   const [priorityOnly, setPriorityOnly] = useState(false);
   const [driverFilter, setDriverFilter] = useState<string>('all');
   const tableTopRef = useRef<HTMLDivElement | null>(null);
@@ -320,10 +309,13 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
         const uploadedMs = order.uploadedAt.getTime();
         if (uploadedMs < startOfToday.getTime() || uploadedMs > endOfToday.getTime()) return false;
       }
-      if (filterDate) {
-        const selectedMs = new Date(filterDate + 'T00:00:00').getTime();
-        const selectedEnd = selectedMs + 86400000; // +1 day
-        if (order.uploadedAt.getTime() < selectedMs || order.uploadedAt.getTime() >= selectedEnd) return false;
+      if (filterDateFrom) {
+        const fromMs = new Date(filterDateFrom + 'T00:00:00').getTime();
+        if (order.uploadedAt.getTime() < fromMs) return false;
+      }
+      if (filterDateTo) {
+        const toMs = new Date(filterDateTo + 'T00:00:00').getTime() + 86400000; // include the end date fully
+        if (order.uploadedAt.getTime() >= toMs) return false;
       }
       if (priorityOnly && order.isPriority !== true) return false;
       if (driverFilter !== 'all') {
@@ -331,7 +323,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
       }
       return matchesStatus && matchesSearch;
     });
-  }, [orders, tableTab, searchQuery, todayOnly, filterDate, priorityOnly, driverFilter]);
+  }, [orders, tableTab, searchQuery, todayOnly, filterDateFrom, filterDateTo, priorityOnly, driverFilter]);
 
   const sortedOrders = useMemo(() => {
     const list = [...filteredOrders];
@@ -456,11 +448,11 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
               <button
                 type="button"
                 onClick={onRefresh}
-                className="shrink-0 inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-[#002D5B] dark:hover:text-blue-400 shadow-sm transition-all"
                 title="Refresh orders"
+                aria-label="Refresh orders"
               >
-                <span aria-hidden>🔄</span>
-                <span>Refresh</span>
+                <RefreshCw className="h-4 w-4" />
               </button>
             )}
             {onExport && (
@@ -574,25 +566,40 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
               >
                 🚨 Priority
               </button>
-              {/* Date filter — proper visible input (no hidden overlay) */}
+              {/* Date range filter — from / to */}
               <div className="shrink-0 flex items-center gap-1">
                 <input
                   type="date"
-                  value={filterDate}
-                  onChange={e => { setFilterDate(e.target.value); setCurrentPage(1); }}
-                  title="Filter by upload date"
+                  value={filterDateFrom}
+                  onChange={e => { setFilterDateFrom(e.target.value); setCurrentPage(1); }}
+                  title="From date"
+                  aria-label="Filter from date"
                   className={`px-2 py-[7px] rounded-lg border text-xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#002D5B] transition-colors ${
-                    filterDate
+                    filterDateFrom
                       ? 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
                       : 'border-gray-200 dark:border-gray-500 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300'
                   }`}
                 />
-                {filterDate && (
+                <span className="text-gray-400 dark:text-gray-500 text-xs select-none">–</span>
+                <input
+                  type="date"
+                  value={filterDateTo}
+                  onChange={e => { setFilterDateTo(e.target.value); setCurrentPage(1); }}
+                  title="To date"
+                  aria-label="Filter to date"
+                  className={`px-2 py-[7px] rounded-lg border text-xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#002D5B] transition-colors ${
+                    filterDateTo
+                      ? 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                      : 'border-gray-200 dark:border-gray-500 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                  }`}
+                />
+                {(filterDateFrom || filterDateTo) && (
                   <button
                     type="button"
-                    onClick={() => { setFilterDate(''); setCurrentPage(1); }}
+                    onClick={() => { setFilterDateFrom(''); setFilterDateTo(''); setCurrentPage(1); }}
                     className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 leading-none"
-                    title="Clear date filter"
+                    title="Clear date range"
+                    aria-label="Clear date range"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -602,10 +609,10 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
           )}
 
           {/* Clear all active filters */}
-          {(tableTab !== 'all' || searchQuery || driverFilter !== 'all' || filterDate || todayOnly || priorityOnly) && (
+          {(tableTab !== 'all' || searchQuery || driverFilter !== 'all' || filterDateFrom || filterDateTo || todayOnly || priorityOnly) && (
             <button
               type="button"
-              onClick={() => { onTableTabChange('all'); onSearchChange(''); setDriverFilter('all'); setFilterDate(''); setTodayOnly(false); setPriorityOnly(false); }}
+              onClick={() => { onTableTabChange('all'); onSearchChange(''); setDriverFilter('all'); setFilterDateFrom(''); setFilterDateTo(''); setTodayOnly(false); setPriorityOnly(false); }}
               className="shrink-0 flex items-center gap-1 px-2.5 py-2 rounded-lg text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
             >
               <X className="h-3 w-3" />
