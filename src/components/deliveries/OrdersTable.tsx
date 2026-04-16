@@ -478,29 +478,30 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          {/* Search bar */}
-          <div className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
-            <input
-              type="search"
-              placeholder="Search name, phone, order #, area…"
-              value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full pl-9 pr-9 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-500 rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#002D5B] focus:border-transparent"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => onSearchChange('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-                aria-label="Clear search"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
+        {/* ── Row 1: Search bar (full width, no competition) ── */}
+        <div className="relative mt-4">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
+          <input
+            type="search"
+            placeholder="Search name, phone, order #, area, model…"
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="w-full pl-9 pr-9 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-500 rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#002D5B] focus:border-transparent"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => onSearchChange('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+              aria-label="Clear search"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
 
+        {/* ── Row 2: Filter controls ── */}
+        <div className="mt-2 flex flex-wrap items-center gap-2">
           {/* Status filter */}
           <div className="relative shrink-0">
             <SlidersHorizontal className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
@@ -518,6 +519,23 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
             <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
           </div>
 
+          {/* Driver filter — always shown when a driver list is available */}
+          {drivers && drivers.length > 0 && (
+            <div className="relative shrink-0">
+              <select
+                value={driverFilter}
+                onChange={e => { setDriverFilter(e.target.value); setCurrentPage(1); }}
+                className="appearance-none pl-3 pr-8 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-500 rounded-lg text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#002D5B] cursor-pointer"
+              >
+                <option value="all">🚗 All Drivers</option>
+                {drivers.map(dr => (
+                  <option key={dr.id} value={dr.id}>{dr.fullName || dr.username}</option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
+            </div>
+          )}
+
           {/* Sort */}
           <div className="relative shrink-0">
             <select
@@ -533,18 +551,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
             <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
           </div>
 
-          {/* Clear filters + results count */}
-          {(tableTab !== 'all' || searchQuery) && (
-            <button
-              type="button"
-              onClick={() => { onTableTabChange('all'); onSearchChange(''); setDriverFilter('all'); setFilterDate(''); setTodayOnly(false); setPriorityOnly(false); }}
-              className="shrink-0 flex items-center gap-1 px-2.5 py-2 rounded-lg text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-            >
-              <X className="h-3 w-3" />
-              Clear
-            </button>
-          )}
-
+          {/* Dispatch-only extras: Today, Priority, Date picker */}
           {enableDispatchFilters && (
             <>
               <button
@@ -567,37 +574,43 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
               >
                 🚨 Priority
               </button>
-              {drivers && drivers.length > 0 && (
-                <select
-                  value={driverFilter}
-                  onChange={e => { setDriverFilter(e.target.value); setCurrentPage(1); }}
-                  className="shrink-0 appearance-none px-3 py-2 rounded-lg text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 border-0 focus:outline-none focus:ring-2 focus:ring-[#002D5B] cursor-pointer"
-                >
-                  <option value="all">🚗 All Drivers</option>
-                  {drivers.map(dr => (
-                    <option key={dr.id} value={dr.id}>{dr.fullName || dr.username}</option>
-                  ))}
-                </select>
-              )}
-              <div className="shrink-0 flex items-center gap-1.5">
-                <label className="relative flex items-center gap-1.5 cursor-pointer group">
-                  <span className={`flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                    filterDate ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'
-                  }`}>
-                    📅 {filterDate ? new Date(filterDate + 'T12:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : 'Date'}
-                  </span>
-                  <input
-                    type="date"
-                    value={filterDate}
-                    onChange={e => { setFilterDate(e.target.value); setCurrentPage(1); }}
-                    className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
-                  />
-                </label>
+              {/* Date filter — proper visible input (no hidden overlay) */}
+              <div className="shrink-0 flex items-center gap-1">
+                <input
+                  type="date"
+                  value={filterDate}
+                  onChange={e => { setFilterDate(e.target.value); setCurrentPage(1); }}
+                  title="Filter by upload date"
+                  className={`px-2 py-[7px] rounded-lg border text-xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#002D5B] transition-colors ${
+                    filterDate
+                      ? 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                      : 'border-gray-200 dark:border-gray-500 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                  }`}
+                />
                 {filterDate && (
-                  <button type="button" onClick={() => { setFilterDate(''); setCurrentPage(1); }} className="text-xs text-red-500 hover:text-red-700 dark:text-red-400">✕</button>
+                  <button
+                    type="button"
+                    onClick={() => { setFilterDate(''); setCurrentPage(1); }}
+                    className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 leading-none"
+                    title="Clear date filter"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
                 )}
               </div>
             </>
+          )}
+
+          {/* Clear all active filters */}
+          {(tableTab !== 'all' || searchQuery || driverFilter !== 'all' || filterDate || todayOnly || priorityOnly) && (
+            <button
+              type="button"
+              onClick={() => { onTableTabChange('all'); onSearchChange(''); setDriverFilter('all'); setFilterDate(''); setTodayOnly(false); setPriorityOnly(false); }}
+              className="shrink-0 flex items-center gap-1 px-2.5 py-2 rounded-lg text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+            >
+              <X className="h-3 w-3" />
+              Clear all
+            </button>
           )}
 
           <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400 tabular-nums">

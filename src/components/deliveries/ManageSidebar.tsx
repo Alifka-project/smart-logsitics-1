@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { CheckCircle, Clock, MessageSquare } from 'lucide-react';
+import { CheckCircle, Clock, MessageSquare, Truck } from 'lucide-react';
 import type { DeliveryOrder } from '../../types/delivery';
 import type { OrdersTableTab } from './OrdersTable';
 
@@ -71,14 +71,38 @@ export const ManageSidebar: React.FC<ManageSidebarProps> = ({
     [orders],
   );
 
-  // Truck Capacity: driver assignment summary
-  const driverDeliveryCounts: Record<string, number> = {};
-  orders.forEach(o => {
-    if (o.driverId) driverDeliveryCounts[o.driverId] = (driverDeliveryCounts[o.driverId] ?? 0) + 1;
-  });
-  const assignedDriverCount = Object.keys(driverDeliveryCounts).length;
-  const unassignedOrderCount = orders.filter(o => !o.driverId && !['delivered', 'cancelled', 'failed'].includes(o.status)).length;
-  const totalDrivers = drivers.length;
+  // ── Truck Capacity: group active orders by delivery date, then by driver ──
+  // Mirrors dashboard logic: uses confirmedDeliveryDate → scheduledDate → deliveryDate
+  // (NOT uploadedAt, which was the previous bug causing all orders to show under today)
+  const capacityGroups = useMemo(() => {
+    const groups: Record<string, DeliveryOrder[]> = {};
+    const active = orders.filter(o => !TERMINAL_STATUSES.has(o.status));
+    for (const o of active) {
+      const d = o.confirmedDeliveryDate ?? o.scheduledDate ?? o.deliveryDate;
+      let iso: string;
+      if (d) {
+        // Use local YYYY-MM-DD without UTC shift
+        iso = [
+          d.getFullYear(),
+          String(d.getMonth() + 1).padStart(2, '0'),
+          String(d.getDate()).padStart(2, '0'),
+        ].join('-');
+      } else {
+        iso = 'unscheduled';
+      }
+      (groups[iso] ??= []).push(o);
+    }
+    return groups;
+  }, [orders]);
+
+  const capacityDatesSorted = useMemo(
+    () => Object.keys(capacityGroups).sort((a, b) => {
+      if (a === 'unscheduled') return 1;
+      if (b === 'unscheduled') return -1;
+      return a.localeCompare(b);
+    }),
+    [capacityGroups],
+  );
 
   return (
     <div className="space-y-4">
@@ -182,39 +206,87 @@ export const ManageSidebar: React.FC<ManageSidebarProps> = ({
         )}
       </div>
 
-      {/* ── Truck / Driver Capacity ── */}
+      {/* ── Truck Capacity (matches dashboard date-grouped style) ── */}
       <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-sm text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
-            🚛 Truck Capacity
-          </h3>
-          <span className="text-xs text-gray-400 dark:text-gray-500">{assignedDriverCount}/{totalDrivers > 0 ? totalDrivers : '—'} drivers active</span>
+        <div className="mb-2 flex items-center gap-2">
+          <Truck className="h-4 w-4 flex-shrink-0 text-teal-600 dark:text-teal-400" />
+          <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Truck Capacity</h3>
         </div>
-        <div className="space-y-2 text-xs text-gray-600 dark:text-gray-400">
-          <div className="flex justify-between">
-            <span>Orders assigned to a driver</span>
-            <span className="font-semibold text-blue-600 dark:text-blue-400">{orders.length - unassignedOrderCount}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Orders without driver</span>
-            <span className={`font-semibold ${unassignedOrderCount > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400 dark:text-gray-500'}`}>{unassignedOrderCount}</span>
-          </div>
-          {drivers.length > 0 && (
-            <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700 space-y-1">
-              {drivers.map(dr => {
-                const count = driverDeliveryCounts[dr.id] ?? 0;
-                const pct = orders.length > 0 ? Math.round((count / Math.max(orders.length, 1)) * 100) : 0;
-                return (
-                  <div key={dr.id} className="flex items-center gap-2">
-                    <span className="truncate flex-1 text-[11px]">{dr.fullName || dr.username}</span>
-                    <div className="w-16 h-1.5 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden shrink-0">
-                      <div className="h-full bg-blue-500 rounded-full" style={{ width: `${pct}%` }} />
-                    </div>
-                    <span className="text-[11px] font-medium w-5 text-right shrink-0">{count}</span>
+        <p className="mb-3 text-[10px] leading-snug text-gray-400 dark:text-gray-500">
+          By delivery date. Dispatched / on-route orders count toward{' '}
+          <span className="font-semibold text-gray-500 dark:text-gray-400">today</span>.
+        </p>
+        <div className="space-y-3 max-h-64 overflow-y-auto pr-0.5">
+          {drivers.length === 0 ? (
+            <div className="py-4 text-center text-xs text-gray-400 dark:text-gray-500">No drivers configured</div>
+          ) : capacityDatesSorted.length === 0 ? (
+            <div className="py-4 text-center text-xs text-gray-400 dark:text-gray-500">No active orders</div>
+          ) : (
+            capacityDatesSorted.map((iso) => {
+              const ordersOnDate = capacityGroups[iso] ?? [];
+              // Count assigned orders per driver for this date
+              const driverCounts: Record<string, number> = {};
+              ordersOnDate.forEach(o => {
+                if (o.driverId) driverCounts[o.driverId] = (driverCounts[o.driverId] ?? 0) + 1;
+              });
+              const unassignedOnDate = ordersOnDate.filter(o => !o.driverId).length;
+              const activeDriversOnDate = drivers.filter(dr => (driverCounts[dr.id] ?? 0) > 0);
+
+              const dayLabel = iso === 'unscheduled'
+                ? 'Unscheduled'
+                : new Date(`${iso}T00:00:00`).toLocaleDateString('en-GB', {
+                    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
+                  });
+
+              return (
+                <div key={iso} className="rounded-lg border border-gray-100 dark:border-gray-700 bg-white/40 dark:bg-gray-800/40 p-2">
+                  <p className="mb-1.5 px-0.5 text-[10px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    {dayLabel}
+                    {iso !== 'unscheduled' && (
+                      <span className="ml-1 font-mono font-normal normal-case text-gray-400">({iso})</span>
+                    )}
+                  </p>
+                  <div className="space-y-1.5">
+                    {activeDriversOnDate.length === 0 && unassignedOnDate === 0 ? (
+                      <p className="text-[10px] text-gray-400 dark:text-gray-500 px-1">No assignments yet</p>
+                    ) : (
+                      <>
+                        {[...activeDriversOnDate]
+                          .sort((a, b) => (a.fullName || a.username).localeCompare(b.fullName || b.username))
+                          .map(driver => {
+                            const count = driverCounts[driver.id] ?? 0;
+                            return (
+                              <div
+                                key={driver.id}
+                                className="flex items-start gap-2 rounded-md border border-gray-100 bg-gray-50 px-2 py-1.5 dark:border-gray-700 dark:bg-gray-800/60"
+                              >
+                                <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-teal-400 dark:bg-teal-500" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-[11px] font-semibold text-gray-900 dark:text-gray-100">
+                                    {driver.fullName || driver.username}
+                                  </p>
+                                  <p className="mt-0.5 text-[10px] text-gray-600 dark:text-gray-300">
+                                    <span className="font-mono font-semibold text-teal-700 dark:text-teal-300">{count}</span>
+                                    {' '}order{count !== 1 ? 's' : ''} assigned
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        {unassignedOnDate > 0 && (
+                          <div className="flex items-start gap-2 rounded-md border border-amber-100 bg-amber-50 px-2 py-1.5 dark:border-amber-800/30 dark:bg-amber-900/10">
+                            <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-400 dark:bg-amber-500" />
+                            <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+                              {unassignedOnDate} unassigned
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })
           )}
         </div>
       </div>
