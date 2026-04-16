@@ -405,6 +405,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
 }) => {
   const [rescheduleOrder, setRescheduleOrder] = useState<DeliveryOrder | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [assigningDriverId, setAssigningDriverId] = useState<string | null>(null);
   const [todayOnly, setTodayOnly] = useState(false);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -708,7 +709,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
             <col style={{ width: '110px' }} />
             <col style={{ width: '1%' }} />
             <col style={{ width: '100px' }} />
-            <col style={{ width: '120px' }} />
+            <col style={{ width: '200px' }} />
             <col style={{ width: '140px' }} />
             <col style={{ width: '120px' }} />
           </colgroup>
@@ -747,7 +748,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
               <th className="min-w-[90px] w-[100px] whitespace-nowrap px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Priority
               </th>
-              <th className="min-w-[110px] w-[120px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="min-w-[180px] w-[200px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Driver
               </th>
               <th className="min-w-[130px] w-[140px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
@@ -876,13 +877,57 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                         <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>
                       )}
                     </td>
-                    <td className="min-w-[110px] w-[120px] overflow-hidden px-3 py-2.5 align-middle" data-label="Driver">
-                      {order.driverName ? (
-                        <span className="block truncate text-[13px] font-medium text-indigo-700 dark:text-indigo-300" title={order.driverName}>
-                          🚗 {order.driverName}
-                        </span>
+                    <td className="min-w-[180px] w-[200px] overflow-hidden px-3 py-2.5 align-top" data-label="Driver">
+                      {drivers && drivers.length > 0 && onAssignDriver ? (
+                        <div className="flex flex-col gap-1">
+                          {/* Current driver display */}
+                          {order.driverName && (
+                            <span className="flex items-center gap-1 text-[12px] font-medium text-indigo-700 dark:text-indigo-300 truncate">
+                              <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-green-500" />
+                              {order.driverName}
+                            </span>
+                          )}
+                          {/* Assign / Reassign dropdown */}
+                          <select
+                            value={order.driverId || ''}
+                            disabled={assigningDriverId === order.id}
+                            onChange={async (e) => {
+                              const newDriverId = e.target.value;
+                              if (!newDriverId) return;
+                              setAssigningDriverId(order.id);
+                              try {
+                                await onAssignDriver(order.id, newDriverId);
+                              } finally {
+                                setAssigningDriverId(null);
+                              }
+                            }}
+                            className="w-full px-2 py-1 border border-gray-200 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-[11px] text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#002D5B] disabled:opacity-50 cursor-pointer"
+                          >
+                            <option value="">{order.driverId ? '— Reassign —' : '— Assign driver —'}</option>
+                            {drivers.map((driver) => {
+                              const cap = getDriverCapacity?.(order.id, driver.id);
+                              const capHint = cap ? ` — ${cap.remaining} left (${cap.used}/${cap.max})` : '';
+                              const isFull = cap?.full === true && driver.id !== order.driverId;
+                              return (
+                                <option key={driver.id} value={driver.id} disabled={isFull}>
+                                  {(driver.fullName || driver.username) + capHint}
+                                </option>
+                              );
+                            })}
+                          </select>
+                          {assigningDriverId === order.id && (
+                            <span className="text-[11px] text-blue-500 dark:text-blue-400">Assigning…</span>
+                          )}
+                        </div>
                       ) : (
-                        <span className="text-[12px] text-gray-400 dark:text-gray-500 italic">Unassigned</span>
+                        /* Fallback: just show driver name when no driver list available */
+                        order.driverName ? (
+                          <span className="block truncate text-[13px] font-medium text-indigo-700 dark:text-indigo-300" title={order.driverName}>
+                            🚗 {order.driverName}
+                          </span>
+                        ) : (
+                          <span className="text-[12px] text-gray-400 dark:text-gray-500 italic">Unassigned</span>
+                        )
                       )}
                     </td>
                     <td className="min-w-[130px] w-[140px] overflow-hidden px-3 py-2.5 align-middle" data-label="Status">
