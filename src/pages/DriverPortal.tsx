@@ -117,9 +117,7 @@ export default function DriverPortal() {
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [, setLoadingDeliveries] = useState<boolean>(false);
 
-  // Driver list sub-tab: on-route | confirmed | delivered (D1+D2)
-  const [driverListTab, setDriverListTab] = useState<'on-route' | 'confirmed' | 'delivered'>('on-route');
-  // Separate delivery lists per tab (so switching never drops items from store)
+  // Separate delivery lists per type (on-route / confirmed / finished)
   const [onRouteDeliveries, setOnRouteDeliveries] = useState<Delivery[]>([]);
   const [confirmedDeliveries, setConfirmedDeliveries] = useState<Delivery[]>([]);
   const [finishedDeliveries, setFinishedDeliveries] = useState<Delivery[]>([]);
@@ -161,6 +159,16 @@ export default function DriverPortal() {
   // instead of recalculating via nearest-neighbour.
   const manuallyOrderedRef = useRef<boolean>(false);
   const userOrderRef = useRef<Delivery[]>([]);
+
+  // Ref mirror of deliveryStartedAt so the routing effect can read it without being a dep.
+  const deliveryStartedAtRef = useRef<number | null>(null);
+
+  // Lock stop order after first OSRM calc so distances decrease monotonically on GPS movement.
+  // Only reset when deliveries actually change (new/completed orders).
+  const committedOrderRef = useRef<Delivery[]>([]);
+
+  const confirmedDeliveriesRef = useRef<Delivery[]>([]);
+  const finishedDeliveriesRef = useRef<Delivery[]>([]);
 
   // Callback passed to <DeliveryTable onReorder> so drag-reorder triggers map update
   const handleManualReorder = useCallback((newOrder: Delivery[]) => {
@@ -291,6 +299,9 @@ export default function DriverPortal() {
     isTrackingRef.current = isTracking;
   }, [isTracking]);
 
+  // Keep deliveryStartedAtRef in sync so the routing effect can read it without adding to deps
+  useEffect(() => { deliveryStartedAtRef.current = deliveryStartedAt; }, [deliveryStartedAt]);
+
   useEffect(() => {
     ensureAuth();
     void loadLatestLocation();
@@ -344,29 +355,6 @@ export default function DriverPortal() {
     }
   }, [routeLocation.search]);
 
-  // D1+D2: When driver switches list tab, reload the right deliveries into the store
-  useEffect(() => {
-    const list =
-      driverListTab === 'confirmed' ? confirmedDeliveries
-      : driverListTab === 'delivered' ? finishedDeliveries
-      : onRouteDeliveries;
-    useDeliveryStore.getState().loadDeliveries(list);
-  }, [driverListTab, confirmedDeliveries, finishedDeliveries, onRouteDeliveries]);
-
-  // Sync DeliveryTable filter with the driver list sub-tab so items are visible.
-  // 'delivered' tab needs the 'delivered' filter (terminal statuses bypass active-only filter).
-  // 'confirmed' tab needs 'confirmed' filter to show scheduled-confirmed orders.
-  // 'on-route' tab resets to 'all' (DeliveryTable's onRouteSequenceOnly handles further filtering).
-  useEffect(() => {
-    if (driverListTab === 'delivered') {
-      setDeliveryListFilter('delivered');
-    } else if (driverListTab === 'confirmed') {
-      setDeliveryListFilter('confirmed');
-    } else {
-      setDeliveryListFilter('all');
-    }
-  }, [driverListTab, setDeliveryListFilter]);
-
   // D1: Immediately refresh deliveries after POD so the delivered item appears without waiting 30s
   useEffect(() => {
     const handlePodUpdate = () => {
@@ -376,6 +364,10 @@ export default function DriverPortal() {
     return () => window.removeEventListener('deliveryStatusUpdated', handlePodUpdate);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Keep refs in sync for use inside routing effect closure without adding to deps
+  useEffect(() => { confirmedDeliveriesRef.current = confirmedDeliveries; }, [confirmedDeliveries]);
+  useEffect(() => { finishedDeliveriesRef.current = finishedDeliveries; }, [finishedDeliveries]);
 
   // Initialize map once
   useEffect(() => {
@@ -656,6 +648,9 @@ export default function DriverPortal() {
       : Infinity;
     const deliveriesChanged = deliverySignature !== lastRouteDeliveriesRef.current;
 
+    // When deliveries actually change, reset committed order so we re-optimise
+    if (deliveriesChanged) committedOrderRef.current = [];
+
     // Recalculate when: deliveries changed, driver moved ≥ 20 m (real-time like Google Maps), or no route yet
     if (!deliveriesChanged && originMovedKm < 0.02 && route) {
       return;
@@ -672,10 +667,14 @@ export default function DriverPortal() {
 
     const withCoords = sortByPriority(deliveries.filter(d => normalizeDeliveryCoords(d)));
     const withoutCoords = deliveries.filter(d => !normalizeDeliveryCoords(d));
-    // If driver manually reordered, respect their order; otherwise use nearest-neighbour optimisation
+    // If driver manually reordered, respect their order; otherwise use nearest-neighbour optimisation.
+    // After first OSRM calc, re-use committed order on GPS movement to prevent stop-order jumping.
     const orderedWithCoords = manuallyOrderedRef.current
       ? withCoords
-      : buildNearestNeighborOrder(withCoords, origin);
+      : committedOrderRef.current.length > 0 && !deliveriesChanged
+          // Use committed order on GPS movement — prevents stop-order jumping
+          ? committedOrderRef.current.filter(d => normalizeDeliveryCoords(d))
+          : buildNearestNeighborOrder(withCoords, origin);
     const routeLocations = [origin, ...orderedWithCoords.map(d => normalizeDeliveryCoords(d)!).filter(Boolean)];
 
     if (routeLocations.length < 2) {
@@ -705,9 +704,9 @@ export default function DriverPortal() {
         // D3: 60-min service time per stop (30min install + 30min delivery)
         const SERVICE_TIME_SEC = 60 * 60; // 3600 s
 
-        // D4: If "Start Delivery" was clicked, staticEta base is deliveryStartedAt;
+        // D4: If "Start Delivery" was clicked, staticEta base is deliveryStartedAtRef.current;
         // otherwise fall back to the current baseTime (route first calculated = now).
-        const staticBaseTime = deliveryStartedAt ?? baseTime;
+        const staticBaseTime = deliveryStartedAtRef.current ?? baseTime;
 
         const enriched: EnrichedDelivery[] = orderedWithCoords.map((delivery, index) => {
           cumulativeSeconds += legs[index]?.duration || 0;
@@ -729,7 +728,7 @@ export default function DriverPortal() {
           const existingPlannedEta = (inStore?.['plannedEta'] as string | null | undefined) ?? null;
           // staticEta is locked when "Start Delivery" is clicked; once set, never change.
           const existingStaticEta = (inStore?.['staticEta'] as string | null | undefined) ?? null;
-          const newStaticEta = deliveryStartedAt
+          const newStaticEta = deliveryStartedAtRef.current
             ? (existingStaticEta ?? staticComputedEta) // lock on Start Delivery click
             : null; // not started yet — don't lock
           return {
@@ -752,7 +751,12 @@ export default function DriverPortal() {
 
         const final = [...enriched, ...trailing];
         setOrderedDeliveries(final);
-        updateDeliveryOrder(final);
+        // Merge enriched on-route items with confirmed+finished so the store has all delivery types
+        updateDeliveryOrder([...final, ...confirmedDeliveriesRef.current, ...finishedDeliveriesRef.current]);
+        // Commit the order if this was a fresh optimisation (not just a GPS position update reusing existing order)
+        if (committedOrderRef.current.length === 0 || deliveriesChanged) {
+          committedOrderRef.current = orderedWithCoords;
+        }
         lastRouteOriginRef.current = origin;
         lastRouteDeliveriesRef.current = deliverySignature;
       })
@@ -767,7 +771,7 @@ export default function DriverPortal() {
       .finally(() => {
         setIsRouteLoading(false);
       });
-  }, [deliveries, location, route, buildNearestNeighborOrder, updateDeliveryOrder, deliveryStartedAt]);
+  }, [deliveries, location, buildNearestNeighborOrder, updateDeliveryOrder]);
 
   const loadLatestLocation = async (): Promise<void> => {
     setLoading(true);
@@ -792,7 +796,7 @@ export default function DriverPortal() {
     }
   };
 
-  const loadDeliveries = async (tabOverride?: 'on-route' | 'confirmed' | 'delivered'): Promise<void> => {
+  const loadDeliveries = async (): Promise<void> => {
     setLoadingDeliveries(true);
     try {
       // Fetch active and finished deliveries in parallel
@@ -820,13 +824,8 @@ export default function DriverPortal() {
       userOrderRef.current = [];
       setDeliveries(onRoute);
 
-      // Load the right subset into the delivery store based on current (or forced) tab
-      const tab = tabOverride ?? driverListTab;
-      const storeList =
-        tab === 'confirmed' ? confirmed
-        : tab === 'delivered' ? fetchedFinished
-        : onRoute;
-      useDeliveryStore.getState().loadDeliveries(storeList);
+      // Load ALL deliveries into the store so the unified filter table can show any type
+      useDeliveryStore.getState().loadDeliveries([...onRoute, ...confirmed, ...fetchedFinished]);
 
       console.log(`✓ Loaded ${activeDeliveries.length} active (${onRoute.length} on-route, ${confirmed.length} confirmed) + ${fetchedFinished.length} finished`);
     } catch (deliveryErr: unknown) {
@@ -1110,13 +1109,24 @@ export default function DriverPortal() {
     );
   };
 
-  // D4: Start Delivery — lock static ETAs and force route recalculation
+  // D4: Start Delivery — lock static ETAs directly from existing orderedDeliveries (no OSRM re-run)
   const handleStartDelivery = useCallback(() => {
     const now = Date.now();
     setDeliveryStartedAt(now);
-    // Force route recalculation so staticEta gets set with the new base time
-    lastRouteDeliveriesRef.current = '';
-    lastRouteOriginRef.current = null;
+    // Lock static ETAs immediately from existing orderedDeliveries — no OSRM re-run needed.
+    // Avoids a network call that could fail and make the ETA panel show N/A.
+    const SERVICE_TIME_SEC = 3600; // 60-min service per stop (same as routing effect)
+    setOrderedDeliveries(prev => {
+      if (!prev.length) return prev;
+      return prev.map((d, index) => {
+        if (d.staticEta) return d; // already locked from a previous Start
+        const existingEta = d.estimatedEta ? new Date(d.estimatedEta).getTime() : null;
+        if (!existingEta || isNaN(existingEta)) return d;
+        // staticEta = existing ETA (drive time) + accumulated service time for previous stops
+        const staticEta = new Date(existingEta + index * SERVICE_TIME_SEC * 1000).toISOString();
+        return { ...d, staticEta };
+      });
+    });
   }, []);
 
   const hasRoute = !!(route as DriverRouteData | null)?.coordinates?.length;
@@ -1243,8 +1253,8 @@ export default function DriverPortal() {
             <div className="pp-card p-3 sm:p-6 min-h-[520px]">
               <div className="flex items-center justify-between gap-2 mb-2">
                 <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">Order list</h2>
-                {/* D4: Start Delivery button — shown only on on-route tab, locks static ETAs */}
-                {driverListTab === 'on-route' && (
+                {/* D4: Start Delivery button — shown when there are on-route orders, locks static ETAs */}
+                {onRouteDeliveries.length > 0 && (
                   deliveryStartedAt ? (
                     <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-700">
                       <CheckCircle2 className="w-3.5 h-3.5" />
@@ -1264,62 +1274,14 @@ export default function DriverPortal() {
               </div>
               <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-2">Tap one order to update POD, call customer, or check details</p>
 
-              {/* D1+D2: Driver list sub-tabs — On Route | Confirmed | Delivered */}
-              <div className="flex gap-1.5 mb-3 flex-wrap">
-                {(
-                  [
-                    { id: 'on-route' as const, label: '🚛 On Route', count: onRouteDeliveries.length, activeClass: 'bg-orange-500 text-white' },
-                    { id: 'confirmed' as const, label: '✅ Confirmed', count: confirmedDeliveries.length, activeClass: 'bg-blue-600 text-white' },
-                    { id: 'delivered' as const, label: '📦 Delivered', count: finishedDeliveries.length, activeClass: 'bg-green-600 text-white' },
-                  ] as const
-                ).map(tab => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setDriverListTab(tab.id)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors touch-manipulation ${
-                      driverListTab === tab.id
-                        ? tab.activeClass + ' border-transparent shadow-sm'
-                        : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
-                    }`}
-                  >
-                    {tab.label}
-                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                      driverListTab === tab.id ? 'bg-white/20 text-white' : 'bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
-                    }`}>
-                      {tab.count}
-                    </span>
-                  </button>
-                ))}
+              <div className="max-h-[68vh] md:max-h-[560px] overflow-y-auto pr-1">
+                <DeliveryTable
+                  onSelectDelivery={() => setShowModal(true)}
+                  onCloseDetailModal={() => setShowModal(false)}
+                  onReorder={handleManualReorder}
+                  isDriverPortal={true}
+                />
               </div>
-
-              {driverListTab === 'on-route' && onRouteDeliveries.length === 0 ? (
-                <div className="py-8 text-center text-gray-500 dark:text-gray-400">
-                  <Truck className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  <p>No orders on route.</p>
-                  <p className="text-sm mt-1">Contact your supervisor.</p>
-                </div>
-              ) : driverListTab === 'confirmed' && confirmedDeliveries.length === 0 ? (
-                <div className="py-8 text-center text-gray-500 dark:text-gray-400">
-                  <CheckCircle2 className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  <p>No confirmed orders yet.</p>
-                  <p className="text-sm mt-1">Upcoming confirmed deliveries will appear here.</p>
-                </div>
-              ) : driverListTab === 'delivered' && finishedDeliveries.length === 0 ? (
-                <div className="py-8 text-center text-gray-500 dark:text-gray-400">
-                  <CheckCircle2 className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  <p>No delivered orders yet.</p>
-                </div>
-              ) : (
-                <div className="max-h-[68vh] md:max-h-[560px] overflow-y-auto pr-1">
-                  <DeliveryTable
-                    onSelectDelivery={() => setShowModal(true)}
-                    onCloseDetailModal={() => setShowModal(false)}
-                    onReorder={handleManualReorder}
-                    onRouteSequenceOnly={driverListTab === 'on-route'}
-                  />
-                </div>
-              )}
               {location && (
                 <div className="mt-4 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                   <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0" />
@@ -1338,9 +1300,9 @@ export default function DriverPortal() {
                     <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">{nextEta}</div>
                   </div>
                   <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-2">
-                    <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">P1 Stops</div>
+                    <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Priority</div>
                     <div className="text-sm font-semibold text-red-600 dark:text-red-400">
-                      {storeDeliveries.filter(d => d.priority === 1).length} / {deliveries.length}
+                      {storeDeliveries.filter(d => d.priority === 1 || d.priority === 2 || d.priority === 3).length || 0}
                     </div>
                   </div>
                   <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-2">
@@ -1380,15 +1342,17 @@ export default function DriverPortal() {
                         <div className="font-semibold text-gray-900 dark:text-gray-100">{nextEta}</div>
                       </div>
                       <div className="pp-card p-3">
-                        <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Priority Stops</div>
-                        <div className="font-semibold text-gray-900 dark:text-gray-100 text-xs sm:text-sm">
-                          {storeDeliveries.length === 0 ? '—' : (
-                            <span>
-                              {p1 > 0 && <span className="text-red-600 dark:text-red-400">P1:{p1} </span>}
-                              {p2 > 0 && <span className="text-orange-500 dark:text-orange-400">P2:{p2} </span>}
-                              {p3 > 0 && <span className="text-gray-600 dark:text-gray-300">P3:{p3}</span>}
-                            </span>
-                          )}
+                        <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Priority Orders</div>
+                        <div className="font-semibold text-xs sm:text-sm">
+                          {(() => {
+                            const total = p1 + p2 + p3;
+                            if (total === 0) return <span className="text-gray-400 dark:text-gray-500">None</span>;
+                            return (
+                              <span className="text-red-600 dark:text-red-400">
+                                {total} order{total > 1 ? 's' : ''}
+                              </span>
+                            );
+                          })()}
                         </div>
                       </div>
                       <div className="pp-card p-3">
