@@ -487,7 +487,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
               placeholder="Search name, phone, order #, area…"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full pl-9 pr-9 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#002D5B] focus:border-transparent"
+              className="w-full pl-9 pr-9 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-500 rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#002D5B] focus:border-transparent"
             />
             {searchQuery && (
               <button
@@ -507,7 +507,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
             <select
               value={tableTab}
               onChange={(e) => onTableTabChange(e.target.value as OrdersTableTab)}
-              className="appearance-none pl-8 pr-8 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#002D5B] cursor-pointer"
+              className="appearance-none pl-8 pr-8 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-500 rounded-lg text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#002D5B] cursor-pointer"
             >
               {filterTabs.map((tab) => (
                 <option key={tab.key} value={tab.key}>
@@ -523,7 +523,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
             <select
               value={sortBy}
               onChange={(e) => onSortChange(e.target.value)}
-              className="appearance-none pl-3 pr-8 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#002D5B] cursor-pointer"
+              className="appearance-none pl-3 pr-8 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-500 rounded-lg text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#002D5B] cursor-pointer"
             >
               <option value="newest">↓ Newest</option>
               <option value="oldest">↑ Oldest</option>

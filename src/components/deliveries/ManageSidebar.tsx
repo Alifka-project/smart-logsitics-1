@@ -1,6 +1,8 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
+import { CheckCircle, Clock, MessageSquare } from 'lucide-react';
 import type { DeliveryOrder } from '../../types/delivery';
+import type { OrdersTableTab } from './OrdersTable';
 
 const ACCEPT = {
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
@@ -15,6 +17,8 @@ interface ManageSidebarProps {
   isUploading: boolean;
   /** When true, hides the file upload dropzone (e.g. logistics_team role cannot upload) */
   hideUpload?: boolean;
+  /** Called when a Needs Attention mini-card is tapped — filters the orders table */
+  onTabClick?: (tab: OrdersTableTab) => void;
 }
 
 export const ManageSidebar: React.FC<ManageSidebarProps> = ({
@@ -23,6 +27,7 @@ export const ManageSidebar: React.FC<ManageSidebarProps> = ({
   onFileUpload,
   isUploading,
   hideUpload = false,
+  onTabClick,
 }) => {
   const [showPolicy, setShowPolicy] = useState(false);
 
@@ -41,29 +46,25 @@ export const ManageSidebar: React.FC<ManageSidebarProps> = ({
     noClick: true,
   });
 
-  // ── Metrics ──────────────────────────────────────────────────────
-  const now = new Date();
-  const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
-  const cutoffHour = 15; // 3 PM upload cutoff
+  // ── Needs Attention metrics (mirrors dashboard actionItems) ──────
+  const TERMINAL = useMemo(() => new Set(['delivered', 'cancelled', 'failed']), []);
+  const DISPATCH_DONE = useMemo(() => new Set(['out_for_delivery', 'order_delay', 'delivered', 'cancelled', 'failed', 'rescheduled']), []);
 
-  // Needs Attention: delayed orders + orders uploaded after cutoff still pending dispatch
-  const delayedOrders = orders.filter(o => o.status === 'order_delay');
-  const lateUploads = orders.filter(o => {
-    if (!['uploaded', 'sms_sent', 'unconfirmed', 'confirmed', 'next_shipment', 'future_schedule', 'scheduled'].includes(o.status)) return false;
-    const h = o.uploadedAt.getHours();
-    const uploadedToday = o.uploadedAt >= todayStart;
-    return uploadedToday && h >= cutoffHour;
-  });
-  const needsAttentionCount = delayedOrders.length + lateUploads.length;
-  const needsAttentionItems: { label: string; count: number; color: string }[] = [
-    ...(delayedOrders.length > 0 ? [{ label: 'Order Delays', count: delayedOrders.length, color: 'text-red-600 dark:text-red-400' }] : []),
-    ...(lateUploads.length > 0 ? [{ label: 'Late Uploads (after 3 PM)', count: lateUploads.length, color: 'text-amber-600 dark:text-amber-400' }] : []),
-  ];
-
-  // Awaiting Confirm: customers who have not confirmed yet
-  const awaitingOrders = orders.filter(o => o.status === 'sms_sent' || o.status === 'unconfirmed');
-  const unassignedConfirmed = orders.filter(o =>
-    (o.status === 'confirmed' || o.status === 'next_shipment' || o.status === 'ready_to_dispatch') && !o.driverId
+  const pendingOrdersCount = useMemo(
+    () => orders.filter(o => !TERMINAL.has(o.status)).length,
+    [orders, TERMINAL],
+  );
+  const unassignedCount = useMemo(
+    () => orders.filter(o => !DISPATCH_DONE.has(o.status) && !o.driverId).length,
+    [orders, DISPATCH_DONE],
+  );
+  const awaitingOrders = useMemo(
+    () => orders.filter(o => o.status === 'sms_sent' || o.status === 'unconfirmed'),
+    [orders],
+  );
+  const orderDelayCount = useMemo(
+    () => orders.filter(o => o.status === 'order_delay').length,
+    [orders],
   );
 
   // Truck Capacity: driver assignment summary
@@ -104,56 +105,77 @@ export const ManageSidebar: React.FC<ManageSidebarProps> = ({
         </div>
       )}
 
-      {/* ── Needs Attention ── */}
-      <div className={`rounded-xl p-4 border ${needsAttentionCount > 0 ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800/40' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'}`}>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className={`font-semibold text-sm flex items-center gap-1.5 ${needsAttentionCount > 0 ? 'text-red-700 dark:text-red-300' : 'text-gray-700 dark:text-gray-300'}`}>
-            🚨 Needs Attention
-          </h3>
-          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${needsAttentionCount > 0 ? 'bg-red-600 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'}`}>
-            {needsAttentionCount}
-          </span>
+      {/* ── Needs Attention (mirrors dashboard 2×2 grid) ── */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
+        <div className="mb-3 flex items-center gap-2">
+          <span className="text-amber-500 text-base" aria-hidden>⚠️</span>
+          <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Needs Attention</h3>
         </div>
-        {needsAttentionCount === 0 ? (
-          <p className="text-xs text-gray-500 dark:text-gray-400">All orders are on track ✓</p>
-        ) : (
-          <div className="space-y-2">
-            {needsAttentionItems.map(item => (
-              <div key={item.label} className="flex items-center justify-between">
-                <span className="text-xs text-gray-700 dark:text-gray-300">{item.label}</span>
-                <span className={`text-xs font-bold ${item.color}`}>{item.count}</span>
-              </div>
-            ))}
-          </div>
+        <div className="grid grid-cols-2 gap-2">
+          {([
+            { tab: 'all',               count: pendingOrdersCount, label: 'Pending Orders',   sublabel: 'Not yet completed', bg: 'bg-amber-50 dark:bg-amber-900/20',  border: 'border-amber-100 dark:border-amber-800/30',  hover: 'hover:bg-amber-100 dark:hover:bg-amber-900/30',  countColor: 'text-amber-600 dark:text-amber-400',  labelColor: 'text-amber-700 dark:text-amber-400'   },
+            { tab: 'pending',           count: unassignedCount,    label: 'Unassigned',       sublabel: 'Needs driver',      bg: 'bg-orange-50 dark:bg-orange-900/20',border: 'border-orange-100 dark:border-orange-800/30', hover: 'hover:bg-orange-100 dark:hover:bg-orange-900/30',countColor: 'text-orange-600 dark:text-orange-400',labelColor: 'text-orange-700 dark:text-orange-400' },
+            { tab: 'awaiting_customer', count: awaitingOrders.length, label: 'Awaiting Customer',sublabel: 'No confirmation',bg: 'bg-purple-50 dark:bg-purple-900/20',border: 'border-purple-100 dark:border-purple-800/30', hover: 'hover:bg-purple-100 dark:hover:bg-purple-900/30',countColor: 'text-purple-600 dark:text-purple-400',labelColor: 'text-purple-700 dark:text-purple-400' },
+            { tab: 'order_delay',       count: orderDelayCount,    label: 'Order Delays',     sublabel: 'Needs resolution',  bg: 'bg-red-50 dark:bg-red-900/20',     border: 'border-red-100 dark:border-red-800/30',      hover: 'hover:bg-red-100 dark:hover:bg-red-900/30',     countColor: 'text-red-600 dark:text-red-400',      labelColor: 'text-red-700 dark:text-red-400'       },
+          ] as { tab: OrdersTableTab; count: number; label: string; sublabel: string; bg: string; border: string; hover: string; countColor: string; labelColor: string }[]).map(({ tab, count, label, sublabel, bg, border, hover, countColor, labelColor }) => (
+            <div
+              key={label}
+              onClick={() => onTabClick?.(tab)}
+              className={`flex flex-col items-center justify-center rounded-xl border p-3 ${bg} ${border} ${onTabClick ? `${hover} cursor-pointer` : ''} select-none transition-colors`}
+              title={onTabClick ? `View ${label} in Delivery Orders` : undefined}
+            >
+              <span className={`text-xl font-bold ${countColor}`}>{count}</span>
+              <span className={`mt-0.5 text-center text-xs font-semibold leading-tight ${labelColor}`}>{label}</span>
+              <span className="mt-0.5 text-center text-[10px] text-gray-400 dark:text-gray-500">→ {sublabel}</span>
+            </div>
+          ))}
+        </div>
+        {onTabClick && (pendingOrdersCount > 0 || unassignedCount > 0 || awaitingOrders.length > 0 || orderDelayCount > 0) && (
+          <p className="mt-3 text-center text-[10px] text-gray-400 dark:text-gray-500">Tap any card to filter the order table</p>
         )}
       </div>
 
-      {/* ── Awaiting Customer Confirmation ── */}
-      <div className={`rounded-xl p-4 border ${awaitingOrders.length > 0 ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800/40' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'}`}>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className={`font-semibold text-sm flex items-center gap-1.5 ${awaitingOrders.length > 0 ? 'text-amber-700 dark:text-amber-300' : 'text-gray-700 dark:text-gray-300'}`}>
-            📩 Awaiting Confirmation
-          </h3>
-          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${awaitingOrders.length > 0 ? 'bg-amber-500 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'}`}>
-            {awaitingOrders.length}
-          </span>
-        </div>
-        <div className="space-y-1.5 text-xs text-gray-600 dark:text-gray-400">
-          <div className="flex justify-between">
-            <span>SMS sent, no reply yet</span>
-            <span className="font-semibold text-amber-600 dark:text-amber-400">{orders.filter(o => o.status === 'sms_sent').length}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>No response (needs resend)</span>
-            <span className="font-semibold text-red-600 dark:text-red-400">{orders.filter(o => o.status === 'unconfirmed').length}</span>
-          </div>
-          {unassignedConfirmed.length > 0 && (
-            <div className="flex justify-between border-t border-amber-200 dark:border-amber-800/30 pt-1.5 mt-1.5">
-              <span>Confirmed but no driver</span>
-              <span className="font-semibold text-orange-600 dark:text-orange-400">{unassignedConfirmed.length}</span>
-            </div>
+      {/* ── Awaiting Customer Response (mirrors dashboard scrollable list) ── */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
+        <div className="mb-3 flex items-center gap-2">
+          <MessageSquare className="h-4 w-4 flex-shrink-0 text-purple-500" />
+          <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Awaiting Customer Response</h3>
+          {awaitingOrders.length > 0 && (
+            <span className="ml-auto rounded-full bg-purple-100 px-2 py-0.5 text-xs font-bold text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+              {awaitingOrders.length}
+            </span>
           )}
         </div>
+        {awaitingOrders.length === 0 ? (
+          <div className="flex items-center justify-center py-4 text-sm text-gray-400 dark:text-gray-500">
+            <CheckCircle className="mr-2 h-4 w-4 flex-shrink-0 text-green-400" />
+            All customers responded ✓
+          </div>
+        ) : (
+          <div className="max-h-52 overflow-y-auto pr-0.5 space-y-2">
+            {awaitingOrders.map((o) => {
+              const sentAt = o.smsSentAt ?? o.uploadedAt;
+              const diff = Date.now() - sentAt.getTime();
+              const h = Math.floor(diff / 3_600_000);
+              const m = Math.floor((diff % 3_600_000) / 60_000);
+              const sentAgo = h > 0 ? `${h}h ago` : `${m}m ago`;
+              return (
+                <div key={o.id} className="flex items-start gap-3 rounded-lg border border-purple-100 bg-purple-50 p-2.5 dark:border-purple-800/20 dark:bg-purple-900/10">
+                  <Clock className="mt-0.5 h-4 w-4 flex-shrink-0 text-purple-500" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {o.customerName}
+                    </p>
+                    <p className="truncate text-xs text-gray-500 dark:text-gray-400">
+                      {o.orderNumber ? `PO: ${o.orderNumber}` : ''}{o.area ? ` · ${o.area}` : ''}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-xs text-purple-600 dark:text-purple-400">{sentAgo}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* ── Truck / Driver Capacity ── */}

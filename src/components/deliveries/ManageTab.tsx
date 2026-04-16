@@ -386,6 +386,7 @@ export default function ManageTab({
             onFileUpload={(f) => void handleFileUpload(f)}
             isUploading={isUploading}
             hideUpload={hideUpload}
+            onTabClick={handleTableTabChange}
           />
         </div>
       </div>
