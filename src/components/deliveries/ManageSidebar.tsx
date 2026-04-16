@@ -10,6 +10,13 @@ const ACCEPT = {
   'text/csv': ['.csv'],
 };
 
+// Statuses where the order is considered "completed/terminal" — no longer pending
+const TERMINAL_STATUSES = new Set<string>(['delivered', 'cancelled', 'failed']);
+// Statuses where the order has already been dispatched / handled — exclude from "unassigned"
+const DISPATCH_DONE_STATUSES = new Set<string>([
+  'out_for_delivery', 'order_delay', 'delivered', 'cancelled', 'failed', 'rescheduled',
+]);
+
 interface ManageSidebarProps {
   orders: DeliveryOrder[];
   drivers?: { id: string; fullName?: string | null; username: string }[];
@@ -47,16 +54,13 @@ export const ManageSidebar: React.FC<ManageSidebarProps> = ({
   });
 
   // ── Needs Attention metrics (mirrors dashboard actionItems) ──────
-  const TERMINAL = useMemo(() => new Set(['delivered', 'cancelled', 'failed']), []);
-  const DISPATCH_DONE = useMemo(() => new Set(['out_for_delivery', 'order_delay', 'delivered', 'cancelled', 'failed', 'rescheduled']), []);
-
   const pendingOrdersCount = useMemo(
-    () => orders.filter(o => !TERMINAL.has(o.status)).length,
-    [orders, TERMINAL],
+    () => orders.filter(o => !TERMINAL_STATUSES.has(o.status)).length,
+    [orders],
   );
   const unassignedCount = useMemo(
-    () => orders.filter(o => !DISPATCH_DONE.has(o.status) && !o.driverId).length,
-    [orders, DISPATCH_DONE],
+    () => orders.filter(o => !DISPATCH_DONE_STATUSES.has(o.status) && !o.driverId).length,
+    [orders],
   );
   const awaitingOrders = useMemo(
     () => orders.filter(o => o.status === 'sms_sent' || o.status === 'unconfirmed'),
