@@ -26,6 +26,12 @@ interface ManageTabProps {
   onToastError: (message: string) => void;
   onNotifySuccess: (title: string, message?: string) => void;
   onExportDeliveries: () => void;
+  /** Logistics-only: toggle the priority flag */
+  onTogglePriority?: (orderId: string, newIsPriority: boolean) => void;
+  /** Logistics-only: driver capacity hint provider */
+  getDriverCapacity?: (orderId: string, driverId: string) => { used: number; max: number; remaining: number; full: boolean } | null;
+  /** Logistics-only: enable Today + date range filters */
+  enableDispatchFilters?: boolean;
 }
 
 function startOfToday(): Date {
@@ -57,6 +63,9 @@ export default function ManageTab({
   onToastError,
   onNotifySuccess,
   onExportDeliveries,
+  onTogglePriority,
+  getDriverCapacity,
+  enableDispatchFilters = false,
 }: ManageTabProps) {
   const fileUploadRef = useRef<FileUploadHandle>(null);
   const pendingHashes = useRef<Set<string>>(new Set());
@@ -404,6 +413,9 @@ export default function ManageTab({
             onSortChange={setSortBy}
             drivers={drivers}
             onAssignDriver={(id, dId) => void handleAssignDriver(id, dId)}
+            onTogglePriority={onTogglePriority}
+            getDriverCapacity={getDriverCapacity}
+            enableDispatchFilters={enableDispatchFilters}
           />
         </div>
         <div className="min-w-0 w-full lg:sticky lg:top-4 lg:self-start">

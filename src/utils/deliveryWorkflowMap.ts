@@ -262,6 +262,7 @@ export function deliveryToManageOrder(delivery: Delivery): DeliveryOrder {
     driverId: delivery.assignedDriverId ?? undefined,
     driverName: (rec.driverName as string) || delivery.driverName || undefined,
     priority: priorityFromDelivery(delivery),
+    isPriority: (delivery.metadata as Record<string, unknown> | undefined)?.isPriority === true,
     notes: delivery.deliveryNotes ?? delivery.conditionNotes ?? undefined,
     failureReason: status === 'failed' ? (delivery.conditionNotes ?? undefined) : undefined,
     isRescheduled,

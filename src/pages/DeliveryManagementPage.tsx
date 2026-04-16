@@ -75,6 +75,12 @@ interface DeliveryManagementPageProps {
   forceTab?: string;
   /** Called when user clicks any tab, so parent can sync its own state */
   onTabChange?: (tabId: string) => void;
+  /** Logistics-only: toggle the priority flag */
+  onTogglePriority?: (orderId: string, newIsPriority: boolean) => void;
+  /** Logistics-only: driver capacity hint provider */
+  getDriverCapacity?: (orderId: string, driverId: string) => { used: number; max: number; remaining: number; full: boolean } | null;
+  /** Logistics-only: enable Today + date range filters */
+  enableDispatchFilters?: boolean;
 }
 
 export default function DeliveryManagementPage({
@@ -86,6 +92,9 @@ export default function DeliveryManagementPage({
   extraTabs = [],
   forceTab,
   onTabChange,
+  onTogglePriority,
+  getDriverCapacity,
+  enableDispatchFilters = false,
 }: DeliveryManagementPageProps) {
   const deliveries = useDeliveryStore((state) => state.deliveries ?? []);
   const deliveryListFilter = useDeliveryStore((state) => state.deliveryListFilter ?? 'all');
@@ -457,6 +466,9 @@ export default function DeliveryManagementPage({
           onToastError={(msg) => error(msg)}
           onNotifySuccess={(title, message) => success(title, message ?? '')}
           onExportDeliveries={handleExport}
+          onTogglePriority={onTogglePriority}
+          getDriverCapacity={getDriverCapacity}
+          enableDispatchFilters={enableDispatchFilters}
         />
       )}
 

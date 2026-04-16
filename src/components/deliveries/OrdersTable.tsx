@@ -55,6 +55,12 @@ interface OrdersTableProps {
   drivers?: { id: string; fullName?: string | null; username: string }[];
   /** Optional: callback when a driver is assigned to an order */
   onAssignDriver?: (orderId: string, driverId: string) => void;
+  /** Toggle the priority flag for an order (Logistics-only) */
+  onTogglePriority?: (orderId: string, newIsPriority: boolean) => void;
+  /** Returns driver capacity info for a given order+driver pair */
+  getDriverCapacity?: (orderId: string, driverId: string) => { used: number; max: number; remaining: number; full: boolean } | null;
+  /** Enable Today + date range filters in header */
+  enableDispatchFilters?: boolean;
 }
 
 const CONFIRMED_STATUSES = new Set<DeliveryStatus>(['confirmed', 'next_shipment', 'future_schedule', 'ready_to_dispatch']);
@@ -197,6 +203,7 @@ interface ActionDropdownProps {
   onReschedule: (order: DeliveryOrder) => void;
   drivers?: { id: string; fullName?: string | null; username: string }[];
   onAssignDriver?: (orderId: string, driverId: string) => void;
+  getDriverCapacity?: (orderId: string, driverId: string) => { used: number; max: number; remaining: number; full: boolean } | null;
 }
 
 function ActionDropdown({
@@ -209,6 +216,7 @@ function ActionDropdown({
   onReschedule,
   drivers,
   onAssignDriver,
+  getDriverCapacity,
 }: ActionDropdownProps) {
   const [open, setOpen] = useState(false);
   const [dispatching, setDispatching] = useState(false);
@@ -351,9 +359,16 @@ function ActionDropdown({
                     className="w-full text-xs border border-gray-200 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#002D5B]"
                   >
                     <option value="">🚗 Select driver…</option>
-                    {drivers.map((d) => (
-                      <option key={d.id} value={d.id}>{d.fullName || d.username}</option>
-                    ))}
+                    {drivers.map((d) => {
+                      const cap = getDriverCapacity?.(order.id, d.id);
+                      const capHint = cap ? ` — ${cap.remaining} left (${cap.used}/${cap.max})` : '';
+                      const isCurrentlyAssigned = order.driverId === d.id;
+                      return (
+                        <option key={d.id} value={d.id} disabled={cap?.full === true && !isCurrentlyAssigned}>
+                          {(d.fullName || d.username) + capHint}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
               </>
@@ -384,13 +399,26 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
   onSortChange,
   drivers,
   onAssignDriver,
+  onTogglePriority,
+  getDriverCapacity,
+  enableDispatchFilters = false,
 }) => {
   const [rescheduleOrder, setRescheduleOrder] = useState<DeliveryOrder | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [todayOnly, setTodayOnly] = useState(false);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [priorityOnly, setPriorityOnly] = useState(false);
   const tableTopRef = useRef<HTMLDivElement | null>(null);
   const itemsPerPage = 20;
 
   const filteredOrders = useMemo(() => {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+    const dateFromMs = dateFrom ? new Date(dateFrom + 'T00:00:00').getTime() : null;
+    const dateToMs = dateTo ? new Date(dateTo + 'T23:59:59').getTime() : null;
     return orders.filter((order) => {
       const matchesStatus = matchesTableTab(order, tableTab);
       const q = searchQuery.trim().toLowerCase();
@@ -403,9 +431,19 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
         order.product.toLowerCase().includes(q) ||
         (order.model?.toLowerCase().includes(q) ?? false) ||
         (order.productDescription?.toLowerCase().includes(q) ?? false);
+      if (todayOnly) {
+        const uploadedMs = order.uploadedAt.getTime();
+        if (uploadedMs < startOfToday.getTime() || uploadedMs > endOfToday.getTime()) return false;
+      }
+      if (dateFromMs != null || dateToMs != null) {
+        const uploadedMs = order.uploadedAt.getTime();
+        if (dateFromMs != null && uploadedMs < dateFromMs) return false;
+        if (dateToMs != null && uploadedMs > dateToMs) return false;
+      }
+      if (priorityOnly && order.isPriority !== true) return false;
       return matchesStatus && matchesSearch;
     });
-  }, [orders, tableTab, searchQuery]);
+  }, [orders, tableTab, searchQuery, todayOnly, dateFrom, dateTo, priorityOnly]);
 
   const sortedOrders = useMemo(() => {
     const list = [...filteredOrders];
@@ -605,6 +643,51 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
               Clear
             </button>
           )}
+
+          {enableDispatchFilters && (
+            <>
+              <button
+                type="button"
+                onClick={() => setTodayOnly(v => !v)}
+                className={`shrink-0 px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                  todayOnly ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'
+                }`}
+                title="Show only orders uploaded today"
+              >
+                📅 Today
+              </button>
+              <button
+                type="button"
+                onClick={() => setPriorityOnly(v => !v)}
+                className={`shrink-0 px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                  priorityOnly ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'
+                }`}
+                title="Show only priority orders"
+              >
+                🚨 Priority
+              </button>
+              <div className="shrink-0 flex items-center gap-1.5 text-xs">
+                <span className="text-gray-500 dark:text-gray-400">From</span>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={e => setDateFrom(e.target.value)}
+                  className="px-2 py-1.5 rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 text-xs focus:outline-none focus:ring-1 focus:ring-[#002D5B]"
+                />
+                <span className="text-gray-500 dark:text-gray-400">to</span>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={e => setDateTo(e.target.value)}
+                  className="px-2 py-1.5 rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 text-xs focus:outline-none focus:ring-1 focus:ring-[#002D5B]"
+                />
+                {(dateFrom || dateTo) && (
+                  <button type="button" onClick={() => { setDateFrom(''); setDateTo(''); }} className="text-red-500 hover:underline">Clear</button>
+                )}
+              </div>
+            </>
+          )}
+
           <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400 tabular-nums">
             {sortedOrders.length} {sortedOrders.length === 1 ? 'order' : 'orders'}
           </span>
@@ -624,6 +707,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
             <col style={{ width: '85px' }} />
             <col style={{ width: '110px' }} />
             <col style={{ width: '1%' }} />
+            <col style={{ width: '100px' }} />
             <col style={{ width: '120px' }} />
             <col style={{ width: '140px' }} />
             <col style={{ width: '120px' }} />
@@ -660,6 +744,9 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
               <th className="whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Description
               </th>
+              <th className="min-w-[90px] w-[100px] whitespace-nowrap px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                Priority
+              </th>
               <th className="min-w-[110px] w-[120px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Driver
               </th>
@@ -674,7 +761,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700/80">
             {paginatedOrders.length === 0 ? (
               <tr>
-                <td colSpan={13} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                <td colSpan={14} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                   No orders match the current filters.
                 </td>
               </tr>
@@ -771,6 +858,24 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                         {order.productDescription || order.product}
                       </span>
                     </td>
+                    <td className="min-w-[90px] w-[100px] px-3 py-2.5 align-middle text-center" data-label="Priority">
+                      {onTogglePriority ? (
+                        <button
+                          type="button"
+                          onClick={() => onTogglePriority(order.id, !order.isPriority)}
+                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold transition-colors whitespace-nowrap ${
+                            order.isPriority
+                              ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-300 dark:border-red-700 hover:bg-red-200 dark:hover:bg-red-900/50'
+                              : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600'
+                          }`}
+                          title={order.isPriority ? 'Click to set Normal' : 'Click to set Priority'}
+                        >
+                          {order.isPriority ? '🚨 Priority' : '📦 Normal'}
+                        </button>
+                      ) : (
+                        <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>
+                      )}
+                    </td>
                     <td className="min-w-[110px] w-[120px] overflow-hidden px-3 py-2.5 align-middle" data-label="Driver">
                       {order.driverName ? (
                         <span className="block truncate text-[13px] font-medium text-indigo-700 dark:text-indigo-300" title={order.driverName}>
@@ -799,6 +904,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                         onReschedule={(o) => setRescheduleOrder(o)}
                         drivers={drivers}
                         onAssignDriver={onAssignDriver}
+                        getDriverCapacity={getDriverCapacity}
                       />
                     </td>
                   </tr>

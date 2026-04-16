@@ -42,6 +42,8 @@ export interface DeliveryOrder {
   driverId?: string;
   driverName?: string;
   priority?: 'normal' | 'high' | 'urgent';
+  /** Logistics-only flag toggled via the Priority button in the orders table */
+  isPriority?: boolean;
   notes?: string;
   failureReason?: string;
   /** True when the raw DB status is 'rescheduled' — workflow status may be a date bucket. */

@@ -93,11 +93,6 @@ interface SystemAlert {
   timestamp: Date;
 }
 
-interface AssignmentMessage {
-  type: 'success' | 'error';
-  text: string;
-}
-
 export default function LogisticsTeamPortal() {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   // Default to the unified Manage Delivery Order tab (merged from old manage-dispatch)
@@ -141,25 +136,6 @@ export default function LogisticsTeamPortal() {
     [driverCapacityByDate],
   );
 
-  // Control tab state
-  const [assigningDelivery, setAssigningDelivery] = useState<string | null>(null);
-  const [assignmentMessage, setAssignmentMessage] = useState<AssignmentMessage | null>(null);
-  const [markingOFD, setMarkingOFD] = useState<string | null>(null);
-  const [markingDelay, setMarkingDelay] = useState<string | null>(null);
-  const [dispatchFilter, setDispatchFilter] = useState<'all' | 'overdue' | 'unassigned' | 'awaiting' | 'delay'>('all');
-  const [sendingSms, setSendingSms] = useState<string | null>(null);
-  const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
-  const [opsSearch, setOpsSearch] = useState<string>('');
-  const [opsStatusFilter, setOpsStatusFilter] = useState<string>('all');
-  const [opsSortCol, setOpsSortCol] = useState<'date' | 'gmd' | 'deldate' | 'customer' | 'status' | null>(null);
-  const [opsSortDir, setOpsSortDir] = useState<'asc' | 'desc'>('asc');
-  const [opsTodayOnly, setOpsTodayOnly] = useState(false);
-  const [opsDateFrom, setOpsDateFrom] = useState('');
-  const [opsDateTo, setOpsDateTo] = useState('');
-  const [opsPage, setOpsPage] = useState(1);
-  const OPS_PAGE_SIZE = 20;
-  const dispatchTableRef = useRef<HTMLDivElement | null>(null);
-  
   // Communication tab state
   const [selectedContact, setSelectedContact] = useState<ContactUser | null>(null); // Changed from selectedDriver
   const [messages, setMessages] = useState<TeamMessage[]>([]);
@@ -192,7 +168,6 @@ export default function LogisticsTeamPortal() {
   const [routeLoading, setRouteLoading] = useState(false);
   const [driverRoutes, setDriverRoutes] = useState<DriverRoute[]>([]);
   const driverRouteKeyRef = useRef<string>('');
-  const [togglingPriority, setTogglingPriority] = useState<string | null>(null);
 
   const formatMessageTimestamp = (value: string | Date | null | undefined): string => {
     if (!value) return '';
@@ -284,13 +259,14 @@ export default function LogisticsTeamPortal() {
     // Backward-compat: remap old top-level tab names
     if (tabParam === 'operations') tabParam = 'dashboard';
 
-    // Sub-tabs inside Deliveries: manage (unified orders+dispatch), live-tracking
+    // Sub-tabs inside Deliveries: manage (unified orders+dispatch), live-maps
     // manage-dispatch and manage-orders are both legacy aliases for 'manage'
-    const deliveriesSubTabs = ['manage-orders', 'manage-dispatch', 'manage', 'live-tracking', 'deliveries'];
+    const deliveriesSubTabs = ['manage-orders', 'manage-dispatch', 'manage', 'live-tracking', 'live-maps', 'deliveries'];
     if (tabParam && deliveriesSubTabs.includes(tabParam)) {
       setActiveTab('deliveries');
       // Map all legacy dispatch/orders sub-tab names to the current 'manage' tab
-      const subTab = (tabParam === 'deliveries' || tabParam === 'manage-orders' || tabParam === 'manage-dispatch') ? 'manage' : tabParam;
+      // live-tracking is the legacy name for live-maps
+      const subTab = (tabParam === 'deliveries' || tabParam === 'manage-orders' || tabParam === 'manage-dispatch') ? 'manage' : tabParam === 'live-tracking' ? 'live-maps' : tabParam;
       setDeliveriesSubTab(subTab);
     } else if (tabParam) {
       setActiveTab(tabParam);
@@ -1181,18 +1157,29 @@ export default function LogisticsTeamPortal() {
           hidePageTitle
           excludeGarbageUploadRows
           hideUpload
+          hideDeliveriesTab
+          enableDispatchFilters
+          onTogglePriority={async (orderId, newIsPriority) => {
+            try {
+              await api.put(`/deliveries/admin/${orderId}/priority`, { isPriority: newIsPriority });
+              void loadData();
+            } catch { /* silent */ }
+          }}
+          getDriverCapacity={(orderId, driverId) => {
+            const d = deliveries.find(x => x.id === orderId);
+            if (!d) return null;
+            return getDriverCapacity(d, driverId) ?? null;
+          }}
           forceTab={deliveriesSubTab}
           onTabChange={(id) => setDeliveriesSubTab(id)}
           extraTabs={[
             {
-              id: 'live-tracking',
-              label: 'Live Tracking',
+              id: 'live-maps',
+              label: 'Live Maps',
               icon: MapPin,
               content: (() => {
-            // Only show out-for-delivery / on-route orders
+            // Filter by driver when selected; show all deliveries (not just OFD)
             const trackingDeliveries = deliveries.filter(d => {
-              const s = (d.status || '').toLowerCase();
-              if (s !== 'out-for-delivery') return false;
               if (trackingDriverFilter === 'all') return true;
               const ext = d as unknown as { tracking?: { driverId?: string } };
               return ext.tracking?.driverId === trackingDriverFilter || d.assignedDriverId === trackingDriverFilter;
