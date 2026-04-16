@@ -46,9 +46,11 @@ export default function DeliveryMap({
   const driverRouteLayers = useRef<L.Layer[]>([]);
   const deliveryMarkers = useRef<(L.Marker | null)[]>([]);
   const driverMarkersRef = useRef<L.Marker[]>([]);
-  // Only auto-fit bounds once on initial data load — never again so the user
-  // can freely zoom/pan without being reset every 5 s.
+  // Auto-fit on first data load — never again once user has panned/zoomed.
   const hasInitialFit = useRef(false);
+  // Set to true when a real user gesture (drag/scroll-zoom/pinch) is detected.
+  // After that, we stop calling fitBounds on any live update.
+  const userInteracted = useRef(false);
 
   // ── Effect 1: create the map ONCE, clean up on unmount ────────────────────
   useEffect(() => {
@@ -90,11 +92,24 @@ export default function DeliveryMap({
     mapInstance.current = map;
     setTimeout(() => map.invalidateSize(), 100);
 
+    // Detect real user interaction via native DOM events attached to Leaflet's
+    // movestart/zoomstart events.  Programmatic calls (fitBounds, panTo) also
+    // fire these events but WITHOUT an originalEvent, so we can tell them apart.
+    const onMoveStart = (e: L.LeafletEvent & { originalEvent?: Event }) => {
+      if (e.originalEvent) userInteracted.current = true;
+    };
+    const onZoomStart = (e: L.LeafletEvent & { originalEvent?: Event }) => {
+      if (e.originalEvent) userInteracted.current = true;
+    };
+    map.on('movestart', onMoveStart as L.LeafletEventHandlerFn);
+    map.on('zoomstart', onZoomStart as L.LeafletEventHandlerFn);
+
     return () => {
       try { map.stop(); } catch { /* ignore */ }
       map.remove();
       mapInstance.current = null;
       hasInitialFit.current = false;
+      userInteracted.current = false;
     };
   }, []); // run once
 
@@ -163,8 +178,10 @@ export default function DeliveryMap({
 
     deliveryMarkers.current = newMarkers;
 
-    // Fit bounds only on the first time we have delivery data
-    if (!hasInitialFit.current && validForFit.length > 0) {
+    // Fit bounds only on first data load, and only if the user hasn't already
+    // panned or zoomed (userInteracted guards against late-arriving data
+    // resetting a zoom the user manually set).
+    if (!hasInitialFit.current && !userInteracted.current && validForFit.length > 0) {
       hasInitialFit.current = true;
       try {
         const group = L.featureGroup(validForFit);
@@ -271,9 +288,8 @@ export default function DeliveryMap({
 
     routeLayers.current = [outline, line, animated];
 
-    // Only fit to route on first load (hasInitialFit not yet set means no
-    // deliveries arrived first; otherwise keep the user's current viewport).
-    if (!hasInitialFit.current) {
+    // Only fit to route on first load — skip if user has already panned/zoomed.
+    if (!hasInitialFit.current && !userInteracted.current) {
       hasInitialFit.current = true;
       try {
         const bounds = line.getBounds();
@@ -327,7 +343,7 @@ export default function DeliveryMap({
       driverRouteLayers.current.push(outline, line);
     });
 
-    if (!hasInitialFit.current) {
+    if (!hasInitialFit.current && !userInteracted.current) {
       hasInitialFit.current = true;
       try {
         const allCoords = driverRoutes.flatMap((dr) => dr.coordinates) as [number, number][];

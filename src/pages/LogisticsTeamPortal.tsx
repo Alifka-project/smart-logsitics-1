@@ -22,7 +22,9 @@ import {
   Package,
   Search,
   ChevronLeft,
+  Camera,
 } from 'lucide-react';
+import DeliveryDetailModal from '../components/DeliveryDetailModal';
 import DeliveryMap from '../components/MapView/DeliveryMap';
 import DeliveryManagementPage from './DeliveryManagementPage';
 import PaginationBar from '../components/common/PaginationBar';
@@ -99,6 +101,7 @@ export default function LogisticsTeamPortal() {
   const [deliveriesSubTab, setDeliveriesSubTab] = useState<string>('manage');
   const [trackingDriverFilter, setTrackingDriverFilter] = useState<string>('all');
   const [trackingSelectedId, setTrackingSelectedId] = useState<string | null>(null);
+  const [podModalDelivery, setPodModalDelivery] = useState<Delivery | null>(null);
   const [drivers, setDrivers] = useState<ContactUser[]>([]);
   const [contacts, setContacts] = useState<ContactUser[]>([]); // All contacts (drivers + team members)
   const [teamMembers, setTeamMembers] = useState<ContactUser[]>([]); // Admin + delivery_team
@@ -1238,10 +1241,18 @@ export default function LogisticsTeamPortal() {
               : null;
 
             return (
-              <div className="flex gap-3" style={{ height: 'max(560px, calc(100dvh - 240px))' }}>
-
-                {/* ── Map 70% ── */}
-                <div className="flex flex-col min-w-0" style={{ flex: '0 0 70%' }}>
+              /* Grid layout: map takes 1fr, order-list is fixed 290px.
+                 This avoids the 70%+30%+gap overflow that made cards clip. */
+              <div
+                className="grid gap-3"
+                style={{
+                  height: 'max(560px, calc(100dvh - 240px))',
+                  gridTemplateColumns: '1fr 290px',
+                  overflow: 'hidden',
+                }}
+              >
+                {/* ── Map panel ── */}
+                <div className="flex flex-col min-w-0 min-h-0">
                   <div className="pp-card overflow-hidden flex-1 relative" style={{ minHeight: 0 }}>
                     {routeLoading && (
                       <div className="absolute inset-0 flex items-center justify-center bg-white/60 dark:bg-gray-900/60 z-10">
@@ -1270,18 +1281,18 @@ export default function LogisticsTeamPortal() {
                   </div>
                 </div>
 
-                {/* ── Order list 30% ── */}
-                <div className="flex flex-col gap-2 min-w-0" style={{ flex: '0 0 30%' }}>
+                {/* ── Order list panel (fixed 290px) ── */}
+                <div className="flex flex-col gap-2 min-w-0 min-h-0" style={{ width: 290 }}>
                   {/* Header + driver filter */}
                   <div className="pp-card p-3 flex-shrink-0">
                     <div className="flex items-center gap-2 mb-2">
                       <NavigationIcon className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                      <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Live Orders</h2>
-                      <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500">{trackingDeliveries.length} orders</span>
+                      <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">Live Orders</h2>
+                      <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500 flex-shrink-0">{trackingDeliveries.length}</span>
                       <button
                         type="button"
                         onClick={() => void loadData()}
-                        className="text-xs text-gray-400 hover:text-blue-600 transition-colors"
+                        className="text-xs text-gray-400 hover:text-blue-600 transition-colors flex-shrink-0"
                         title="Refresh"
                       >
                         <RefreshCw className="w-3.5 h-3.5" />
@@ -1300,7 +1311,7 @@ export default function LogisticsTeamPortal() {
                         }).length;
                         return (
                           <option key={dr.id} value={dr.id}>
-                            {dr.fullName || dr.username} — {onRoute > 0 ? `${onRoute} on route` : 'no active'}
+                            {dr.fullName || dr.username} — {onRoute > 0 ? `${onRoute} on route` : 'idle'}
                           </option>
                         );
                       })}
@@ -1309,20 +1320,20 @@ export default function LogisticsTeamPortal() {
                       <button
                         type="button"
                         onClick={() => setTrackingSelectedId(null)}
-                        className="mt-2 w-full text-[11px] text-blue-600 dark:text-blue-400 hover:underline"
+                        className="mt-1.5 w-full text-[11px] text-blue-600 dark:text-blue-400 hover:underline"
                       >
                         ✕ Clear selection
                       </button>
                     )}
                   </div>
 
-                  {/* Scrollable cards — styled like DeliveryCard */}
-                  <div className="flex-1 overflow-y-auto space-y-2 pr-0.5" style={{ minHeight: 0 }}>
+                  {/* Scrollable order cards */}
+                  <div className="flex-1 overflow-y-auto space-y-1.5" style={{ minHeight: 0 }}>
                     {trackingDeliveries.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-500 text-sm gap-2">
                         <NavigationIcon className="w-8 h-8 opacity-30" />
                         <p className="font-medium">No active deliveries</p>
-                        <p className="text-xs text-center">Orders with status "Out for Delivery" will appear here</p>
+                        <p className="text-xs text-center">Orders out for delivery will appear here</p>
                       </div>
                     ) : trackingDeliveries.map((delivery, idx) => {
                       const dExt = delivery as unknown as {
@@ -1345,7 +1356,7 @@ export default function LogisticsTeamPortal() {
                       const etaText = (() => {
                         if (etaMinutes != null && etaMinutes > 0) {
                           return etaMinutes < 60
-                            ? `${etaMinutes} min`
+                            ? `${etaMinutes}m`
                             : `${Math.floor(etaMinutes / 60)}h ${etaMinutes % 60}m`;
                         }
                         if (dExt.confirmedDeliveryDate) {
@@ -1356,86 +1367,101 @@ export default function LogisticsTeamPortal() {
                             return h > 0 ? `${h}h ${m}m` : `${m}m`;
                           }
                         }
-                        return 'Calculating…';
+                        return '—';
                       })();
 
                       const delDateShort = dExt.confirmedDeliveryDate
                         ? new Date(dExt.confirmedDeliveryDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
                         : null;
 
+                      // Selection highlight takes priority over priority colour so
+                      // the blue ring is always visible regardless of order type.
+                      const cardBg = isSelected
+                        ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-400 dark:border-blue-500'
+                        : isPriority
+                        ? 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700'
+                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600';
+
                       return (
                         <div
                           key={delivery.id}
-                          onClick={() => setTrackingSelectedId(isSelected ? null : delivery.id)}
-                          title={isSelected ? 'Click to deselect' : 'Click to highlight on map'}
-                          className={`flex flex-col rounded-lg border transition-all cursor-pointer ${
-                            isPriority
-                              ? 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700'
-                              : isSelected
-                              ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-400 dark:border-blue-500'
-                              : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600'
-                          } ${isSelected ? 'ring-2 ring-blue-400 dark:ring-blue-500 shadow-md' : 'hover:shadow-md'}`}
+                          className={`rounded-lg border transition-all overflow-hidden ${cardBg} ${
+                            isSelected ? 'ring-2 ring-blue-400 dark:ring-blue-500 shadow-md' : 'hover:shadow-sm'
+                          }`}
                         >
-                          <div className="flex items-start gap-2 p-3">
+                          {/* Click area — selects/deselects on map */}
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => setTrackingSelectedId(isSelected ? null : delivery.id)}
+                            onKeyDown={e => e.key === 'Enter' && setTrackingSelectedId(isSelected ? null : delivery.id)}
+                            className="flex items-start gap-2 p-2.5 cursor-pointer"
+                            title={isSelected ? 'Click to deselect' : 'Click to highlight on map'}
+                          >
                             {/* Stop number */}
-                            <span className="text-base font-bold text-blue-600 dark:text-blue-400 w-7 flex-shrink-0 pt-0.5">
+                            <span className="text-sm font-bold text-blue-600 dark:text-blue-400 w-6 flex-shrink-0 leading-5">
                               {idx + 1}.
                             </span>
 
-                            <div className="flex-1 min-w-0 space-y-1.5">
-                              {/* Customer + badges */}
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                            <div className="flex-1 min-w-0 space-y-1">
+                              {/* Customer name + badges row */}
+                              <div className="flex items-center gap-1 min-w-0">
+                                <span className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate flex-1 min-w-0">
                                   {delivery.customer || 'Unknown Customer'}
                                 </span>
                                 {isPriority && (
-                                  <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-red-600 text-white shrink-0">
+                                  <span className="text-[9px] font-bold uppercase px-1 py-0.5 rounded bg-red-600 text-white flex-shrink-0">
                                     P1
                                   </span>
                                 )}
                                 {isSelected && (
-                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 shrink-0">
-                                    ● on map
+                                  <span className="text-[9px] font-semibold px-1 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 flex-shrink-0">
+                                    ● map
                                   </span>
                                 )}
                               </div>
 
-                              {/* PO number */}
-                              {delivery.poNumber && (
-                                <p className="text-[11px] text-gray-400 dark:text-gray-500 font-mono">
-                                  PO: {delivery.poNumber}
+                              {/* Address — 1 line truncate */}
+                              {delivery.address && (
+                                <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
+                                  📍 {delivery.address}
                                 </p>
                               )}
 
-                              {/* Address */}
-                              {delivery.address && (
-                                <div className="text-xs text-gray-600 dark:text-gray-400 flex items-start gap-1">
-                                  📍 <span className="break-words">{delivery.address}</span>
-                                </div>
-                              )}
-
-                              {/* Driver */}
+                              {/* Driver row */}
                               {assignedDriver && (
-                                <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                                  <Truck className="w-3 h-3 shrink-0" />
-                                  <span className="truncate font-medium text-indigo-600 dark:text-indigo-400">
+                                <div className="flex items-center gap-1">
+                                  <Truck className="w-3 h-3 text-indigo-500 dark:text-indigo-400 flex-shrink-0" />
+                                  <span className="text-[11px] font-medium text-indigo-600 dark:text-indigo-400 truncate">
                                     {assignedDriver.fullName || assignedDriver.username}
                                   </span>
                                 </div>
                               )}
 
-                              {/* ETA + delivery date row */}
-                              <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
-                                  <Clock className="w-3 h-3" /> ETA {etaText}
+                              {/* ETA + date row */}
+                              <div className="flex items-center gap-2">
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 flex-shrink-0">
+                                  <Clock className="w-2.5 h-2.5" /> {etaText}
                                 </span>
                                 {delDateShort && (
-                                  <span className="text-[11px] text-gray-400 dark:text-gray-500">
-                                    Del: {delDateShort}
+                                  <span className="text-[10px] text-gray-400 dark:text-gray-500 truncate">
+                                    {delDateShort}
                                   </span>
                                 )}
                               </div>
                             </div>
+                          </div>
+
+                          {/* POD upload button — separated from card click area */}
+                          <div className="border-t border-gray-100 dark:border-gray-700 px-2.5 py-1.5">
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setPodModalDelivery(delivery); }}
+                              className="w-full flex items-center justify-center gap-1 text-[11px] font-medium text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                            >
+                              <Camera className="w-3 h-3" />
+                              Upload / View POD
+                            </button>
                           </div>
                         </div>
                       );
@@ -1829,6 +1855,21 @@ export default function LogisticsTeamPortal() {
       )}
 
       </div>{/* end tab-enter wrapper */}
+
+      {/* ── POD upload / view modal (opened from Live Maps order cards) ── */}
+      {podModalDelivery && (
+        <DeliveryDetailModal
+          delivery={podModalDelivery as unknown as import('../types').Delivery & Record<string, unknown>}
+          isOpen={true}
+          onClose={() => setPodModalDelivery(null)}
+          onStatusUpdate={(deliveryId, newStatus) => {
+            window.dispatchEvent(new CustomEvent('deliveryStatusUpdated', {
+              detail: { deliveryId, status: newStatus, updatedAt: new Date() },
+            }));
+            void loadData();
+          }}
+        />
+      )}
     </div>
   );
 }
