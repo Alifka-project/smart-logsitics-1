@@ -51,6 +51,10 @@ interface OrdersTableProps {
   onSearchChange: (query: string) => void;
   sortBy: string;
   onSortChange: (sort: string) => void;
+  /** Optional: list of drivers for the Assign Driver action (combined dispatch feature) */
+  drivers?: { id: string; fullName?: string | null; username: string }[];
+  /** Optional: callback when a driver is assigned to an order */
+  onAssignDriver?: (orderId: string, driverId: string) => void;
 }
 
 const CONFIRMED_STATUSES = new Set<DeliveryStatus>(['confirmed', 'next_shipment', 'future_schedule', 'ready_to_dispatch']);
@@ -191,6 +195,8 @@ interface ActionDropdownProps {
   onTrackDelivery?: (orderId: string) => void;
   onEditOrder: (orderId: string) => void;
   onReschedule: (order: DeliveryOrder) => void;
+  drivers?: { id: string; fullName?: string | null; username: string }[];
+  onAssignDriver?: (orderId: string, driverId: string) => void;
 }
 
 function ActionDropdown({
@@ -201,6 +207,8 @@ function ActionDropdown({
   onTrackDelivery,
   onEditOrder,
   onReschedule,
+  drivers,
+  onAssignDriver,
 }: ActionDropdownProps) {
   const [open, setOpen] = useState(false);
   const [dispatching, setDispatching] = useState(false);
@@ -327,6 +335,29 @@ function ActionDropdown({
             >
               <span aria-hidden>✕</span> Cancel Order
             </button>
+            {drivers && drivers.length > 0 && onAssignDriver && (
+              <>
+                <div className="my-1 h-px bg-gray-100 dark:bg-gray-700" />
+                <div className="px-3.5 py-2">
+                  <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase mb-1.5">Assign Driver</p>
+                  <select
+                    defaultValue=""
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        onAssignDriver(order.id, e.target.value);
+                        close();
+                      }
+                    }}
+                    className="w-full text-xs border border-gray-200 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#002D5B]"
+                  >
+                    <option value="">🚗 Select driver…</option>
+                    {drivers.map((d) => (
+                      <option key={d.id} value={d.id}>{d.fullName || d.username}</option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            )}
           </div>,
           document.body,
         )}
@@ -351,6 +382,8 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
   onSearchChange,
   sortBy,
   onSortChange,
+  drivers,
+  onAssignDriver,
 }) => {
   const [rescheduleOrder, setRescheduleOrder] = useState<DeliveryOrder | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -721,6 +754,8 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                         onTrackDelivery={onTrackDelivery}
                         onEditOrder={onEditOrder}
                         onReschedule={(o) => setRescheduleOrder(o)}
+                        drivers={drivers}
+                        onAssignDriver={onAssignDriver}
                       />
                     </td>
                   </tr>

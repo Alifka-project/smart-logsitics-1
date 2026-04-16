@@ -86,6 +86,15 @@ export default function ManageTab({
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('newest');
   const [isUploading, setIsUploading] = useState(false);
+  const [drivers, setDrivers] = useState<{ id: string; fullName?: string | null; username: string }[]>([]);
+
+  // Fetch driver list for the Assign Driver action in the orders table
+  useEffect(() => {
+    api.get('/admin/users?role=driver').then((res) => {
+      const users = (res.data?.users ?? []) as { id: string; fullName?: string | null; username: string }[];
+      setDrivers(users);
+    }).catch(() => {});
+  }, []);
   const [editDeliveryId, setEditDeliveryId] = useState<string | null>(null);
   const ordersTableRef = useRef<HTMLDivElement | null>(null);
 
@@ -312,6 +321,20 @@ export default function ManageTab({
     }, 50);
   }, []);
 
+  const handleAssignDriver = useCallback(
+    async (orderId: string, driverId: string) => {
+      try {
+        await api.put(`/deliveries/admin/${orderId}/assign`, { driverId });
+        onNotifySuccess('Driver assigned', 'Driver successfully assigned to this delivery.');
+        window.dispatchEvent(new CustomEvent('deliveriesUpdated'));
+      } catch (e: unknown) {
+        const err = e as { response?: { data?: { error?: string } }; message?: string };
+        onToastError(err?.response?.data?.error ?? err?.message ?? 'Failed to assign driver');
+      }
+    },
+    [onNotifySuccess, onToastError],
+  );
+
   const handleTrackDelivery = useCallback(() => {
     onSwitchToDeliveriesTab();
   }, [onSwitchToDeliveriesTab]);
@@ -374,6 +397,8 @@ export default function ManageTab({
             onSearchChange={setSearchQuery}
             sortBy={sortBy}
             onSortChange={setSortBy}
+            drivers={drivers}
+            onAssignDriver={(id, dId) => void handleAssignDriver(id, dId)}
           />
         </div>
         <div className="min-w-0 w-full lg:sticky lg:top-4 lg:self-start">
