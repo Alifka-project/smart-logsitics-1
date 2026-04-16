@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import ReactDOM from 'react-dom';
 import { ChevronDown, Download, FileSpreadsheet, Search, X, SlidersHorizontal } from 'lucide-react';
 import type { DeliveryOrder, DeliveryStatus } from '../../types/delivery';
 import { STATUS_CONFIG } from '../../config/statusColors';
@@ -69,6 +68,9 @@ const SCHEDULED_STATUSES = new Set<DeliveryStatus>(['scheduled', 'next_shipment'
 const PENDING_TERMINAL = new Set<DeliveryStatus>(['delivered', 'cancelled', 'failed']);
 // Delivered workflow statuses (backend variants are already mapped to 'delivered' by deliveryToManageOrder)
 const DELIVERED_STATUSES = new Set<DeliveryStatus>(['delivered']);
+// Statuses that should display as "Confirmed" in the Status column pill
+// (the Action column already shows the specific sub-status via NextStepBadge)
+const DISPLAY_AS_CONFIRMED = new Set<DeliveryStatus>(['next_shipment', 'future_schedule', 'ready_to_dispatch', 'rescheduled']);
 
 function matchesTableTab(order: DeliveryOrder, tab: OrdersTableTab): boolean {
   switch (tab) {
@@ -87,10 +89,6 @@ function matchesTableTab(order: DeliveryOrder, tab: OrdersTableTab): boolean {
   }
 }
 
-const MENU_BTN =
-  'w-full flex items-center gap-2 px-3.5 py-2 text-[12px] text-left text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/80 transition-colors';
-const MENU_BTN_DANGER =
-  'w-full flex items-center gap-2 px-3.5 py-2 text-[12px] text-left text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors';
 
 interface StepConfig {
   label: string;
@@ -201,45 +199,22 @@ interface ActionDropdownProps {
   onTrackDelivery?: (orderId: string) => void;
   onEditOrder: (orderId: string) => void;
   onReschedule: (order: DeliveryOrder) => void;
-  drivers?: { id: string; fullName?: string | null; username: string }[];
-  onAssignDriver?: (orderId: string, driverId: string) => void;
-  getDriverCapacity?: (orderId: string, driverId: string) => { used: number; max: number; remaining: number; full: boolean } | null;
 }
 
 function ActionDropdown({
   order,
-  onStatusChange,
-  onResendSMS,
-  onMarkOutForDelivery,
+  onStatusChange: _onStatusChange,
+  onResendSMS: _onResendSMS,
+  onMarkOutForDelivery: _onMarkOutForDelivery,
   onTrackDelivery,
   onEditOrder,
-  onReschedule,
-  drivers,
-  onAssignDriver,
-  getDriverCapacity,
+  onReschedule: _onReschedule,
 }: ActionDropdownProps) {
-  const [open, setOpen] = useState(false);
-  const [dispatching, setDispatching] = useState(false);
-  const btnRef = useRef<HTMLButtonElement>(null);
-  const dropRef = useRef<HTMLDivElement>(null);
-  const [dropPos, setDropPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
-
-  useEffect(() => {
-    if (!open) return;
-    const handle = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (btnRef.current?.contains(target) || dropRef.current?.contains(target)) return;
-      setOpen(false);
-    };
-    document.addEventListener('mousedown', handle);
-    return () => document.removeEventListener('mousedown', handle);
-  }, [open]);
-
   const s = order.status;
   const isTerminal = s === 'delivered' || s === 'cancelled' || s === 'failed';
   const isOnRoute = s === 'out_for_delivery';
 
-  // Terminal orders: show a simple completion indicator, no action dropdown
+  // Terminal orders: show a simple completion indicator, no action button
   if (isTerminal) {
     const termKey = `terminal_${s}` as 'terminal_delivered' | 'terminal_cancelled' | 'terminal_failed';
     const cfg = NEXT_STEP_CONFIG[termKey];
@@ -254,27 +229,6 @@ function ActionDropdown({
       </span>
     );
   }
-
-  const showSMS = s === 'uploaded' || s === 'sms_sent' || s === 'unconfirmed';
-  const showDispatch = !isOnRoute && onMarkOutForDelivery != null;
-  const showReschedule = !showSMS;
-
-  const handleToggle = () => {
-    if (!open && btnRef.current) {
-      const rect = btnRef.current.getBoundingClientRect();
-      setDropPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
-    }
-    setOpen((o) => !o);
-  };
-
-  const close = () => setOpen(false);
-
-  const handleDispatch = async () => {
-    if (!onMarkOutForDelivery) return;
-    close();
-    setDispatching(true);
-    try { await onMarkOutForDelivery(order.id); } finally { setDispatching(false); }
-  };
 
   return (
     <div className="flex flex-col items-stretch gap-1.5">
@@ -291,91 +245,16 @@ function ActionDropdown({
         </button>
       )}
 
-      <div className="relative">
+      {!isOnRoute && (
         <button
-          ref={btnRef}
           type="button"
-          onClick={handleToggle}
-          disabled={dispatching}
-          className="w-full flex items-center justify-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold rounded border border-[#002D5B]/30 bg-[#002D5B]/5 text-[#002D5B] hover:bg-[#002D5B] hover:text-white dark:border-blue-500/40 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-700 dark:hover:text-white transition-colors whitespace-nowrap disabled:opacity-60"
-          title="Update delivery status"
+          onClick={() => onEditOrder(order.id)}
+          className="w-full flex items-center justify-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold rounded border border-[#002D5B]/30 bg-[#002D5B]/5 text-[#002D5B] hover:bg-[#002D5B] hover:text-white dark:border-blue-500/40 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-700 dark:hover:text-white transition-colors whitespace-nowrap"
+          title="Edit order"
         >
-          {dispatching ? 'Dispatching…' : 'Update Status'}
-          {!dispatching && (
-            <ChevronDown className={`h-3 w-3 shrink-0 transition-transform duration-150 ${open ? '-rotate-180' : ''}`} />
-          )}
+          Edit Order ✏️
         </button>
-      </div>
-      {open &&
-        ReactDOM.createPortal(
-          <div
-            ref={dropRef}
-            style={{ position: 'fixed', top: dropPos.top, right: dropPos.right, zIndex: 9999 }}
-            className="w-44 rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-600 dark:bg-gray-800 overflow-hidden py-1"
-          >
-            {showSMS && (
-              <button type="button" className={MENU_BTN} onClick={() => { onResendSMS(order.id); close(); }}>
-                <span aria-hidden>📱</span>
-                {s === 'unconfirmed' ? 'Resend SMS' : 'Send SMS'}
-              </button>
-            )}
-            {showDispatch && (
-              <button type="button" className={MENU_BTN} onClick={() => void handleDispatch()}>
-                <span aria-hidden>🚚</span> Dispatch
-              </button>
-            )}
-            {showReschedule && (
-              <button type="button" className={MENU_BTN} onClick={() => { onReschedule(order); close(); }}>
-                <span aria-hidden>📅</span> Reschedule
-              </button>
-            )}
-            <button type="button" className={MENU_BTN} onClick={() => { onEditOrder(order.id); close(); }}>
-              <span aria-hidden>✏️</span> Edit Details
-            </button>
-            <div className="my-1 h-px bg-gray-100 dark:bg-gray-700" />
-            <button
-              type="button"
-              className={MENU_BTN_DANGER}
-              onClick={() => {
-                if (window.confirm('Cancel this order?')) onStatusChange(order.id, 'cancelled');
-                close();
-              }}
-            >
-              <span aria-hidden>✕</span> Cancel Order
-            </button>
-            {drivers && drivers.length > 0 && onAssignDriver && (
-              <>
-                <div className="my-1 h-px bg-gray-100 dark:bg-gray-700" />
-                <div className="px-3.5 py-2">
-                  <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase mb-1.5">Assign Driver</p>
-                  <select
-                    defaultValue=""
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        onAssignDriver(order.id, e.target.value);
-                        close();
-                      }
-                    }}
-                    className="w-full text-xs border border-gray-200 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#002D5B]"
-                  >
-                    <option value="">🚗 Select driver…</option>
-                    {drivers.map((d) => {
-                      const cap = getDriverCapacity?.(order.id, d.id);
-                      const capHint = cap ? ` — ${cap.remaining} left (${cap.used}/${cap.max})` : '';
-                      const isCurrentlyAssigned = order.driverId === d.id;
-                      return (
-                        <option key={d.id} value={d.id} disabled={cap?.full === true && !isCurrentlyAssigned}>
-                          {(d.fullName || d.username) + capHint}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-              </>
-            )}
-          </div>,
-          document.body,
-        )}
+      )}
     </div>
   );
 }
@@ -877,7 +756,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                         <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>
                       )}
                     </td>
-                    <td className="min-w-[180px] w-[200px] overflow-hidden px-3 py-2.5 align-top" data-label="Driver">
+                    <td className="min-w-[180px] w-[200px] overflow-hidden px-3 py-2.5 align-middle" data-label="Driver">
                       {drivers && drivers.length > 0 && onAssignDriver ? (
                         <div className="flex flex-col gap-1">
                           {/* Current driver display */}
@@ -901,7 +780,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                                 setAssigningDriverId(null);
                               }
                             }}
-                            className="w-full px-2 py-1 border border-gray-200 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-[11px] text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#002D5B] disabled:opacity-50 cursor-pointer"
+                            className="w-full max-w-full px-2 py-1 border border-gray-200 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-[11px] text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#002D5B] disabled:opacity-50 cursor-pointer"
                           >
                             <option value="">{order.driverId ? '— Reassign —' : '— Assign driver —'}</option>
                             {drivers.map((driver) => {
@@ -932,10 +811,10 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                     </td>
                     <td className="min-w-[130px] w-[140px] overflow-hidden px-3 py-2.5 align-middle" data-label="Status">
                       <div className="inline-flex flex-col gap-1 max-w-full">
-                        <OrderStatusPill status={order.isRescheduled ? 'rescheduled' : order.status} />
-                        {order.isRescheduled && order.status !== 'rescheduled' && (
-                          <OrderStatusPill status={order.status} />
-                        )}
+                        <OrderStatusPill status={
+                          DISPLAY_AS_CONFIRMED.has(order.status) ? 'confirmed' :
+                          order.isRescheduled ? 'rescheduled' : order.status
+                        } />
                       </div>
                     </td>
                     <td className="min-w-[110px] w-[120px] px-3 py-2.5 align-middle" data-label="Action">
@@ -947,9 +826,6 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                         onTrackDelivery={onTrackDelivery}
                         onEditOrder={onEditOrder}
                         onReschedule={(o) => setRescheduleOrder(o)}
-                        drivers={drivers}
-                        onAssignDriver={onAssignDriver}
-                        getDriverCapacity={getDriverCapacity}
                       />
                     </td>
                   </tr>

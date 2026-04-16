@@ -125,7 +125,7 @@ export default function ManageTab({
   );
 
   const handleOrderEditSaved = useCallback(
-    (updated: { status: string; notes?: string; scheduledDateIso?: string; goodsMovementDate?: string }) => {
+    (updated: { status: string; notes?: string; scheduledDateIso?: string; goodsMovementDate?: string; address?: string; phone?: string }) => {
       if (!editDeliveryId) return;
       const raw = deliveries.find((d) => d.id === editDeliveryId);
       if (!raw) return;
@@ -444,6 +444,9 @@ export default function ManageTab({
           onClose={() => setEditDeliveryId(null)}
           onSaved={handleOrderEditSaved}
           onToastError={onToastError}
+          onResendSMS={async () => { await handleResendSMS(editDeliveryId!); }}
+          onReschedule={async (newDate, reason) => { await handleAdminReschedule(editDeliveryId!, newDate, reason); }}
+          onDispatch={async () => { await handleMarkOutForDelivery(editDeliveryId!); }}
         />
       )}
     </div>

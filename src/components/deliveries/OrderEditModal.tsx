@@ -32,8 +32,11 @@ function toDateInputValue(d: Date): string {
 interface OrderEditModalProps {
   delivery: Delivery;
   onClose: () => void;
-  onSaved: (updated: { status: string; notes?: string; scheduledDateIso?: string; goodsMovementDate?: string }) => void;
+  onSaved: (updated: { status: string; notes?: string; scheduledDateIso?: string; goodsMovementDate?: string; address?: string; phone?: string }) => void;
   onToastError: (message: string) => void;
+  onResendSMS?: () => Promise<void>;
+  onReschedule?: (newDate: Date, reason: string) => Promise<void>;
+  onDispatch?: () => Promise<void>;
 }
 
 export const OrderEditModal: React.FC<OrderEditModalProps> = ({
@@ -41,6 +44,9 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
   onClose,
   onSaved,
   onToastError,
+  onResendSMS,
+  onReschedule,
+  onDispatch,
 }) => {
   const order: DeliveryOrder = useMemo(() => deliveryToManageOrder(delivery), [delivery]);
 
@@ -55,6 +61,12 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
     return '';
   });
   const [saving, setSaving] = useState(false);
+  const [phone, setPhone] = useState(delivery.phone?.toString() ?? '');
+  const [address, setAddress] = useState(delivery.address?.trim() ?? '');
+  const [sendingSms, setSendingSms] = useState(false);
+  const [dispatching, setDispatching] = useState(false);
+  const [rescheduleDate, setRescheduleDate] = useState('');
+  const [rescheduleReason, setRescheduleReason] = useState('');
 
   const existingGMD = (delivery as unknown as { goodsMovementDate?: string | Date | null }).goodsMovementDate;
   const [gmdStr, setGmdStr] = useState(() => {
@@ -92,6 +104,8 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
         customer: delivery.customer ?? undefined,
         address: delivery.address ?? undefined,
       };
+      if (phone.trim()) payload.phone = phone.trim();
+      if (address.trim()) payload.address = address.trim();
       if (dateStr.trim()) {
         payload.scheduledDate = new Date(dateStr + 'T12:00:00').toISOString();
       }
@@ -113,6 +127,8 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
           notes: notes.trim() || undefined,
           scheduledDateIso,
           goodsMovementDate,
+          address: address.trim() || undefined,
+          phone: phone.trim() || undefined,
         });
         onClose();
       } else {
@@ -177,6 +193,49 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
             </div>
           </div>
 
+          {/* Phone number — editable */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
+              📞 Phone Number
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+971 50 000 0000"
+                className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#002D5B] dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+              />
+              {onResendSMS && (
+                <button
+                  type="button"
+                  disabled={sendingSms}
+                  onClick={async () => {
+                    setSendingSms(true);
+                    try { await onResendSMS(); } finally { setSendingSms(false); }
+                  }}
+                  className="shrink-0 px-3 py-2 rounded-lg bg-purple-600 text-white text-xs font-semibold hover:bg-purple-700 disabled:opacity-50 whitespace-nowrap"
+                >
+                  {sendingSms ? '…' : '📱 Resend SMS'}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Delivery Address — editable */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
+              📍 Delivery Address
+            </label>
+            <textarea
+              rows={2}
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="Full delivery address…"
+              className="w-full resize-y rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#002D5B] dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+            />
+          </div>
+
           <div>
             <label htmlFor="edit-status" className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
               Status
@@ -225,6 +284,56 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
             />
             <p className="mt-1 text-[11px] text-amber-600">Required before dispatching (out-for-delivery / in-transit)</p>
           </div>
+
+          {/* Reschedule */}
+          {onReschedule && (
+            <div className="rounded-lg border border-orange-200 dark:border-orange-800/40 bg-orange-50 dark:bg-orange-900/10 p-3 space-y-2">
+              <p className="text-xs font-semibold text-orange-700 dark:text-orange-300">📅 Reschedule Delivery</p>
+              <input
+                type="date"
+                value={rescheduleDate}
+                onChange={(e) => setRescheduleDate(e.target.value)}
+                className="w-full rounded-lg border border-orange-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-400 dark:border-orange-700 dark:bg-gray-900 dark:text-white"
+              />
+              <input
+                type="text"
+                value={rescheduleReason}
+                onChange={(e) => setRescheduleReason(e.target.value)}
+                placeholder="Reason for reschedule…"
+                className="w-full rounded-lg border border-orange-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-400 dark:border-orange-700 dark:bg-gray-900 dark:text-white"
+              />
+              <button
+                type="button"
+                disabled={!rescheduleDate || !rescheduleReason.trim()}
+                onClick={async () => {
+                  if (!rescheduleDate || !rescheduleReason.trim()) return;
+                  await onReschedule(new Date(rescheduleDate + 'T12:00:00'), rescheduleReason.trim());
+                  onClose();
+                }}
+                className="w-full py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold disabled:opacity-50 transition-colors"
+              >
+                Confirm Reschedule
+              </button>
+            </div>
+          )}
+
+          {onDispatch && (
+            <div className="rounded-lg border border-green-200 dark:border-green-800/40 bg-green-50 dark:bg-green-900/10 p-3">
+              <p className="text-xs font-semibold text-green-700 dark:text-green-300 mb-2">🚚 Dispatch</p>
+              <button
+                type="button"
+                disabled={dispatching || !hasGMD}
+                onClick={async () => {
+                  setDispatching(true);
+                  try { await onDispatch(); onClose(); } finally { setDispatching(false); }
+                }}
+                className="w-full py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-semibold disabled:opacity-50 transition-colors"
+                title={!hasGMD ? 'Set GMD date first' : 'Mark as Out for Delivery'}
+              >
+                {dispatching ? 'Dispatching…' : hasGMD ? '🚚 Mark Out for Delivery' : 'Set GMD date first'}
+              </button>
+            </div>
+          )}
 
           {DISPATCH_STATUSES.has(apiStatus) && !hasGMD && (
             <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-xs text-red-700">
