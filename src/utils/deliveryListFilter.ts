@@ -93,11 +93,6 @@ const COMPLETED_STATUSES = new Set([
   'delivered', 'delivered-with-installation', 'delivered-without-installation',
   'completed', 'pod-completed', 'finished', 'cancelled',
 ]);
-// Kept for backward-compatibility in other callers
-const DELIVERED_STATUSES = new Set([
-  'delivered', 'delivered-with-installation', 'delivered-without-installation',
-  'completed', 'pod-completed', 'finished', 'cancelled', 'returned',
-]);
 
 const ACTIVE_STATUSES = new Set([
   // Pre-dispatch statuses

@@ -1,6 +1,5 @@
 import type { Delivery } from '../types';
 import type { DeliveryOrder, DeliveryStatus } from '../types/delivery';
-import { isDubaiPublicHoliday } from './dubaiHolidays';
 import { getOrderType } from './deliveryDisplayFields';
 
 const UNCONFIRMED_HOURS = 24;
