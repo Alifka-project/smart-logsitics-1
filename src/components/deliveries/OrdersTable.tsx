@@ -1,10 +1,246 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, Download, FileSpreadsheet, RefreshCw, Search, X, SlidersHorizontal } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Calendar, ChevronDown, ChevronLeft, ChevronRight, Download, FileSpreadsheet, RefreshCw, Search, X, SlidersHorizontal } from 'lucide-react';
 import type { DeliveryOrder, DeliveryStatus } from '../../types/delivery';
 import { STATUS_CONFIG } from '../../config/statusColors';
 import { RescheduleModal } from './RescheduleModal';
 import PaginationBar from '../common/PaginationBar';
 import { rescheduleDateToWorkflow } from '../../utils/deliveryWorkflowMap';
+
+// ── Calendar Date Range Picker ─────────────────────────────────────────────────
+interface DateRangePickerProps {
+  from: string;   // YYYY-MM-DD or ''
+  to: string;     // YYYY-MM-DD or ''
+  onChange: (from: string, to: string) => void;
+}
+
+function DateRangePicker({ from, to, onChange }: DateRangePickerProps) {
+  const [open, setOpen] = useState(false);
+  const [hoverDate, setHoverDate] = useState<string | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Calendar display state — month/year
+  const today = new Date();
+  const [calYear, setCalYear] = useState(today.getFullYear());
+  const [calMonth, setCalMonth] = useState(today.getMonth()); // 0-based
+
+  // Selection phase: 'start' = waiting for first click, 'end' = waiting for second click
+  const [phase, setPhase] = useState<'start' | 'end'>('start');
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    if (open) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  // Reset phase when popover opens
+  useEffect(() => {
+    if (open) setPhase(from && !to ? 'end' : 'start');
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const prevMonth = useCallback(() => {
+    setCalMonth(m => { if (m === 0) { setCalYear(y => y - 1); return 11; } return m - 1; });
+  }, []);
+  const nextMonth = useCallback(() => {
+    setCalMonth(m => { if (m === 11) { setCalYear(y => y + 1); return 0; } return m + 1; });
+  }, []);
+
+  // Build grid: blank cells for days before the 1st, then all days
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const firstDow = new Date(calYear, calMonth, 1).getDay(); // 0=Sun
+
+  const toIso = (y: number, m: number, d: number) =>
+    `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+  const handleDayClick = (iso: string) => {
+    if (phase === 'start') {
+      onChange(iso, '');
+      setPhase('end');
+    } else {
+      if (iso < from) {
+        // Clicked before start — swap
+        onChange(iso, from);
+      } else {
+        onChange(from, iso);
+      }
+      setPhase('start');
+      setOpen(false);
+    }
+  };
+
+  const effectiveEnd = phase === 'end' && hoverDate ? hoverDate : to;
+
+  const rangeStart = from && effectiveEnd ? (from <= effectiveEnd ? from : effectiveEnd) : from;
+  const rangeEnd   = from && effectiveEnd ? (from <= effectiveEnd ? effectiveEnd : from) : effectiveEnd;
+
+  const isStart   = (iso: string) => iso === from;
+  const isEnd     = (iso: string) => iso === to;
+  const isInRange = (iso: string) => !!rangeStart && !!rangeEnd && iso > rangeStart && iso < rangeEnd;
+  const isRangeEdge = (iso: string) => iso === rangeStart || iso === rangeEnd;
+
+  // Label for the trigger button
+  const fmtLabel = (iso: string) =>
+    new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const triggerLabel = from && to
+    ? `${fmtLabel(from)} – ${fmtLabel(to)}`
+    : from
+    ? `From ${fmtLabel(from)}`
+    : 'Date range';
+
+  const MONTH_NAMES = ['January','February','March','April','May','June',
+                       'July','August','September','October','November','December'];
+  const DOW = ['S','M','T','W','T','F','S'];
+
+  return (
+    <div className="relative shrink-0" ref={ref}>
+      {/* Trigger button */}
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#002D5B] ${
+          from || to
+            ? 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+            : 'border-gray-200 dark:border-gray-500 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-400'
+        }`}
+        aria-label="Open date range picker"
+      >
+        <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
+        <span className="max-w-[180px] truncate">{triggerLabel}</span>
+        {(from || to) && (
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={(e) => { e.stopPropagation(); onChange('', ''); setPhase('start'); }}
+            onKeyDown={(e) => e.key === 'Enter' && (e.stopPropagation(), onChange('', ''), setPhase('start'))}
+            className="ml-0.5 text-blue-400 hover:text-blue-700 dark:hover:text-blue-200 rounded"
+            aria-label="Clear date range"
+          >
+            <X className="h-3 w-3" />
+          </span>
+        )}
+      </button>
+
+      {/* Calendar popover */}
+      {open && (
+        <div className="absolute left-0 top-full z-50 mt-1 w-72 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-xl p-4 select-none"
+          style={{ minWidth: 280 }}
+        >
+          {/* Month navigation */}
+          <div className="flex items-center justify-between mb-3">
+            <button type="button" onClick={prevMonth}
+              className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors"
+              aria-label="Previous month"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+              {MONTH_NAMES[calMonth]} {calYear}
+            </span>
+            <button type="button" onClick={nextMonth}
+              className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors"
+              aria-label="Next month"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Hint text */}
+          <p className="text-[10px] text-center text-gray-400 dark:text-gray-500 mb-2">
+            {phase === 'start' ? 'Click a start date' : 'Click an end date'}
+          </p>
+
+          {/* Day-of-week headers */}
+          <div className="grid grid-cols-7 mb-1">
+            {DOW.map((d, i) => (
+              <div key={i} className="text-center text-[10px] font-bold text-gray-400 dark:text-gray-500 py-1">{d}</div>
+            ))}
+          </div>
+
+          {/* Day grid */}
+          <div className="grid grid-cols-7">
+            {/* Leading blank cells */}
+            {Array.from({ length: firstDow }).map((_, i) => <div key={`b${i}`} />)}
+
+            {/* Day cells */}
+            {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
+              const iso = toIso(calYear, calMonth, day);
+              const selected = isStart(iso) || isEnd(iso);
+              const inRange = isInRange(iso);
+              const edge = isRangeEdge(iso);
+
+              return (
+                <div
+                  key={day}
+                  onClick={() => handleDayClick(iso)}
+                  onMouseEnter={() => phase === 'end' && setHoverDate(iso)}
+                  onMouseLeave={() => setHoverDate(null)}
+                  className={`
+                    relative flex items-center justify-center h-8 text-xs font-medium cursor-pointer transition-colors
+                    ${selected
+                      ? 'text-white z-10'
+                      : inRange
+                      ? 'text-blue-800 dark:text-blue-200'
+                      : 'text-gray-700 dark:text-gray-200 hover:text-[#002D5B] dark:hover:text-blue-300'}
+                    ${inRange && !edge ? 'bg-blue-100 dark:bg-blue-900/40' : ''}
+                    ${isStart(iso) && to ? 'rounded-l-full' : ''}
+                    ${isEnd(iso) && from ? 'rounded-r-full' : ''}
+                    ${!from && !to ? 'hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full' : ''}
+                  `}
+                >
+                  {/* Filled circle for selected / edge days */}
+                  {(selected || (edge && from && effectiveEnd)) && (
+                    <span className="absolute inset-[2px] rounded-full bg-[#002D5B] dark:bg-blue-600 z-0" />
+                  )}
+                  {/* Hover circle for non-selected, non-range days */}
+                  {!selected && !inRange && !edge && (
+                    <span className="absolute inset-[2px] rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 z-0" />
+                  )}
+                  <span className="relative z-10">{day}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Footer: quick presets */}
+          <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex flex-wrap gap-1.5">
+            {[
+              { label: 'Today', fn: () => { const t = toIso(today.getFullYear(), today.getMonth(), today.getDate()); onChange(t, t); setOpen(false); } },
+              { label: 'This week', fn: () => {
+                const d = new Date(); d.setDate(d.getDate() - d.getDay());
+                const s = toIso(d.getFullYear(), d.getMonth(), d.getDate());
+                d.setDate(d.getDate() + 6);
+                const e = toIso(d.getFullYear(), d.getMonth(), d.getDate());
+                onChange(s, e); setOpen(false);
+              }},
+              { label: 'This month', fn: () => {
+                const s = toIso(today.getFullYear(), today.getMonth(), 1);
+                const e = toIso(today.getFullYear(), today.getMonth(), new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate());
+                onChange(s, e); setOpen(false);
+              }},
+              { label: 'Clear', fn: () => { onChange('', ''); setPhase('start'); setOpen(false); } },
+            ].map(({ label, fn }) => (
+              <button
+                key={label}
+                type="button"
+                onClick={fn}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
+                  label === 'Clear'
+                    ? 'text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-800'
+                    : 'text-[#002D5B] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+// ──────────────────────────────────────────────────────────────────────────────
 
 export type OrdersTableTab =
   | 'all'
@@ -292,6 +528,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
   const [filterDateTo, setFilterDateTo] = useState('');
   const [priorityOnly, setPriorityOnly] = useState(false);
   const [driverFilter, setDriverFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const tableTopRef = useRef<HTMLDivElement | null>(null);
   const itemsPerPage = 20;
 
@@ -317,25 +554,54 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
         (order.driverName?.toLowerCase().includes(q) ?? false) ||
         (order.orderType?.toLowerCase().includes(q) ?? false) ||
         order.status.toLowerCase().includes(q);
-      if (todayOnly) {
-        const uploadedMs = order.uploadedAt.getTime();
-        if (uploadedMs < startOfToday.getTime() || uploadedMs > endOfToday.getTime()) return false;
+
+      // ── Granular status filter (specific status values) ──
+      if (statusFilter !== 'all') {
+        const s = order.status as string;
+        const matched = (() => {
+          switch (statusFilter) {
+            case 'pending':          return s === 'uploaded';
+            case 'sms_sent':        return s === 'sms_sent';
+            case 'unconfirmed':      return s === 'unconfirmed';
+            case 'confirmed':        return s === 'confirmed' || s === 'next_shipment' || s === 'future_schedule' || s === 'ready_to_dispatch';
+            case 'scheduled':        return s === 'scheduled';
+            case 'out_for_delivery': return s === 'out_for_delivery';
+            case 'order_delay':      return s === 'order_delay';
+            case 'rescheduled':      return s === 'rescheduled' || order.isRescheduled === true;
+            case 'delivered':        return s === 'delivered';
+            case 'cancelled':        return s === 'cancelled';
+            default:                 return s === statusFilter;
+          }
+        })();
+        if (!matched) return false;
       }
+
+      // ── Today-only filter (uses confirmed delivery date, fallback to uploadedAt) ──
+      if (todayOnly) {
+        const refDate = order.confirmedDeliveryDate ?? order.scheduledDate ?? order.uploadedAt;
+        const refMs = refDate.getTime();
+        if (refMs < startOfToday.getTime() || refMs > endOfToday.getTime()) return false;
+      }
+
+      // ── Date range filter (uses confirmed delivery date, fallback to uploadedAt) ──
       if (filterDateFrom) {
+        const refDate = order.confirmedDeliveryDate ?? order.scheduledDate ?? order.uploadedAt;
         const fromMs = new Date(filterDateFrom + 'T00:00:00').getTime();
-        if (order.uploadedAt.getTime() < fromMs) return false;
+        if (refDate.getTime() < fromMs) return false;
       }
       if (filterDateTo) {
-        const toMs = new Date(filterDateTo + 'T00:00:00').getTime() + 86400000; // include the end date fully
-        if (order.uploadedAt.getTime() >= toMs) return false;
+        const refDate = order.confirmedDeliveryDate ?? order.scheduledDate ?? order.uploadedAt;
+        const toMs = new Date(filterDateTo + 'T00:00:00').getTime() + 86400000;
+        if (refDate.getTime() >= toMs) return false;
       }
+
       if (priorityOnly && order.isPriority !== true) return false;
       if (driverFilter !== 'all') {
         if (order.driverId !== driverFilter) return false;
       }
       return matchesStatus && matchesSearch;
     });
-  }, [orders, tableTab, searchQuery, todayOnly, filterDateFrom, filterDateTo, priorityOnly, driverFilter]);
+  }, [orders, tableTab, searchQuery, statusFilter, todayOnly, filterDateFrom, filterDateTo, priorityOnly, driverFilter]);
 
   const sortedOrders = useMemo(() => {
     const list = [...filteredOrders];
@@ -365,7 +631,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [tableTab, searchQuery, sortBy]);
+  }, [tableTab, searchQuery, sortBy, statusFilter]);
 
   const paginatedOrders = sortedOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
@@ -506,12 +772,12 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
 
         {/* ── Row 2: Filter controls ── */}
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          {/* Status filter */}
+          {/* Category / Group filter (tab) */}
           <div className="relative shrink-0">
             <SlidersHorizontal className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
             <select
               value={tableTab}
-              onChange={(e) => onTableTabChange(e.target.value as OrdersTableTab)}
+              onChange={(e) => { onTableTabChange(e.target.value as OrdersTableTab); setStatusFilter('all'); }}
               className="appearance-none pl-8 pr-8 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-500 rounded-lg text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#002D5B] cursor-pointer"
             >
               {filterTabs.map((tab) => (
@@ -523,7 +789,39 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
             <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
           </div>
 
-          {/* Driver filter — always shown when a driver list is available */}
+          {/* Granular Status filter */}
+          <div className="relative shrink-0">
+            <select
+              value={statusFilter}
+              onChange={e => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+              className={`appearance-none pl-3 pr-8 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-[#002D5B] cursor-pointer transition-colors ${
+                statusFilter !== 'all'
+                  ? 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-medium'
+                  : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-500 text-gray-700 dark:text-gray-200'
+              }`}
+            >
+              <option value="all">All Statuses</option>
+              <optgroup label="── Active">
+                <option value="pending">Pending / Uploaded</option>
+                <option value="sms_sent">SMS Sent (Awaiting)</option>
+                <option value="unconfirmed">No Response</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="scheduled">Scheduled</option>
+                <option value="out_for_delivery">Out for Delivery</option>
+              </optgroup>
+              <optgroup label="── Issues">
+                <option value="order_delay">Order Delay</option>
+                <option value="rescheduled">Rescheduled</option>
+              </optgroup>
+              <optgroup label="── Closed">
+                <option value="delivered">Delivered / Completed</option>
+                <option value="cancelled">Cancelled</option>
+              </optgroup>
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
+          </div>
+
+          {/* Driver filter */}
           {drivers && drivers.length > 0 && (
             <div className="relative shrink-0">
               <select
@@ -555,22 +853,22 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
             <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
           </div>
 
-          {/* Dispatch-only extras: Today, Priority, Date picker */}
+          {/* Dispatch-only extras: Today, Priority, Calendar date range */}
           {enableDispatchFilters && (
             <>
               <button
                 type="button"
-                onClick={() => setTodayOnly(v => !v)}
+                onClick={() => { setTodayOnly(v => !v); setCurrentPage(1); }}
                 className={`shrink-0 px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
                   todayOnly ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'
                 }`}
-                title="Show only orders uploaded today"
+                title="Show only orders for today's delivery date"
               >
                 📅 Today
               </button>
               <button
                 type="button"
-                onClick={() => setPriorityOnly(v => !v)}
+                onClick={() => { setPriorityOnly(v => !v); setCurrentPage(1); }}
                 className={`shrink-0 px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
                   priorityOnly ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'
                 }`}
@@ -578,53 +876,29 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
               >
                 🚨 Priority
               </button>
-              {/* Date range filter — from / to */}
-              <div className="shrink-0 flex items-center gap-1">
-                <input
-                  type="date"
-                  value={filterDateFrom}
-                  onChange={e => { setFilterDateFrom(e.target.value); setCurrentPage(1); }}
-                  title="From date"
-                  aria-label="Filter from date"
-                  className={`px-2 py-[7px] rounded-lg border text-xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#002D5B] transition-colors ${
-                    filterDateFrom
-                      ? 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
-                      : 'border-gray-200 dark:border-gray-500 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                  }`}
-                />
-                <span className="text-gray-400 dark:text-gray-500 text-xs select-none">–</span>
-                <input
-                  type="date"
-                  value={filterDateTo}
-                  onChange={e => { setFilterDateTo(e.target.value); setCurrentPage(1); }}
-                  title="To date"
-                  aria-label="Filter to date"
-                  className={`px-2 py-[7px] rounded-lg border text-xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#002D5B] transition-colors ${
-                    filterDateTo
-                      ? 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
-                      : 'border-gray-200 dark:border-gray-500 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                  }`}
-                />
-                {(filterDateFrom || filterDateTo) && (
-                  <button
-                    type="button"
-                    onClick={() => { setFilterDateFrom(''); setFilterDateTo(''); setCurrentPage(1); }}
-                    className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 leading-none"
-                    title="Clear date range"
-                    aria-label="Clear date range"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
+              {/* ── Calendar date range picker ── */}
+              <DateRangePicker
+                from={filterDateFrom}
+                to={filterDateTo}
+                onChange={(f, t) => { setFilterDateFrom(f); setFilterDateTo(t); setCurrentPage(1); }}
+              />
             </>
           )}
 
           {/* Clear all active filters */}
-          {(tableTab !== 'all' || searchQuery || driverFilter !== 'all' || filterDateFrom || filterDateTo || todayOnly || priorityOnly) && (
+          {(tableTab !== 'all' || searchQuery || driverFilter !== 'all' || statusFilter !== 'all' || filterDateFrom || filterDateTo || todayOnly || priorityOnly) && (
             <button
               type="button"
-              onClick={() => { onTableTabChange('all'); onSearchChange(''); setDriverFilter('all'); setFilterDateFrom(''); setFilterDateTo(''); setTodayOnly(false); setPriorityOnly(false); }}
+              onClick={() => {
+                onTableTabChange('all');
+                onSearchChange('');
+                setDriverFilter('all');
+                setStatusFilter('all');
+                setFilterDateFrom('');
+                setFilterDateTo('');
+                setTodayOnly(false);
+                setPriorityOnly(false);
+              }}
               className="shrink-0 flex items-center gap-1 px-2.5 py-2 rounded-lg text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
             >
               <X className="h-3 w-3" />
