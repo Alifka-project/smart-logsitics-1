@@ -444,6 +444,11 @@ router.put('/admin/:id/priority', authenticate, requireAnyRole('admin', 'logisti
       data: { metadata: updatedMeta },
     });
 
+    // Invalidate caches so both portals see the updated priority immediately
+    cache.invalidatePrefix('tracking:');
+    cache.invalidatePrefix('dashboard:');
+    cache.invalidatePrefix('deliveries:list:');
+
     res.json({ ok: true, isPriority: updatedMeta.isPriority });
   } catch (err: unknown) {
     const e = err as { message?: string };

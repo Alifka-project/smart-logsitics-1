@@ -410,8 +410,19 @@ export default function DeliveryTeamPortal() {
   // Listen for cross-portal data updates (e.g. Logistics portal assigns driver/priority)
   useEffect(() => {
     const handler = () => void loadData();
+    // Both event names are used by different parts of the logistics portal
     window.addEventListener('deliveriesUpdated', handler);
-    return () => window.removeEventListener('deliveriesUpdated', handler);
+    window.addEventListener('deliveryStatusUpdated', handler);
+    // Cross-tab sync: when Logistics portal writes to localStorage, reload fresh from API
+    const storageHandler = (e: StorageEvent) => {
+      if (e.key && e.key.includes('deliveries_data')) void loadData();
+    };
+    window.addEventListener('storage', storageHandler);
+    return () => {
+      window.removeEventListener('deliveriesUpdated', handler);
+      window.removeEventListener('deliveryStatusUpdated', handler);
+      window.removeEventListener('storage', storageHandler);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1450,8 +1461,9 @@ export default function DeliveryTeamPortal() {
                         const workflowOrder = deliveryToManageOrder(delivery);
                         const isOFDWorkflow = workflowOrder.status === 'out_for_delivery';
                         const isDelayWorkflow = workflowOrder.status === 'order_delay';
-                        const isPriority = (meta as Record<string, unknown>).isPriority === true ||
-                          (delivery as unknown as { isPriority?: boolean }).isPriority === true;
+                        // workflowOrder already extracts isPriority from metadata via deliveryToManageOrder
+                        const isPriority = workflowOrder.isPriority === true ||
+                          (meta as Record<string, unknown>).isPriority === true;
                         const isDispatchable = ['pending', 'scheduled', 'uploaded', 'confirmed', 'scheduled-confirmed'].includes(rawStatus);
                         const hasGMD = !!dExt.goodsMovementDate;
                         // Show "Send SMS" (WhatsApp) until the customer confirms — regardless of
