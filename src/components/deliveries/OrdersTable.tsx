@@ -576,11 +576,17 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
         if (!matched) return false;
       }
 
-      // ── Today-only filter (uses confirmed delivery date, fallback to uploadedAt) ──
+      // ── Today filter: orders being processed today ──
+      // Includes: delivery date = today, out_for_delivery (on route now), order_delay (needs action today)
       if (todayOnly) {
-        const refDate = order.confirmedDeliveryDate ?? order.scheduledDate ?? order.uploadedAt;
-        const refMs = refDate.getTime();
-        if (refMs < startOfToday.getTime() || refMs > endOfToday.getTime()) return false;
+        const s = order.status as string;
+        const isActiveNow = s === 'out_for_delivery' || s === 'order_delay';
+        if (!isActiveNow) {
+          const refDate = order.confirmedDeliveryDate ?? order.scheduledDate;
+          if (!refDate) return false;
+          const refMs = refDate.getTime();
+          if (refMs < startOfToday.getTime() || refMs > endOfToday.getTime()) return false;
+        }
       }
 
       // ── Date range filter (uses confirmed delivery date, fallback to uploadedAt) ──
@@ -715,15 +721,12 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
       <div ref={tableTopRef} />
       <div className="border-b border-gray-100 px-3 py-3 dark:border-gray-700 sm:px-4 space-y-2.5">
 
-        {/* ── Row 1: Title + count + refresh + export ── */}
+        {/* ── Row 1: Title + refresh + export ── */}
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-base font-semibold tracking-tight text-gray-900 dark:text-white whitespace-nowrap">
+          <h2 className="text-xl font-bold tracking-tight text-gray-900 dark:text-white whitespace-nowrap">
             Delivery Orders
           </h2>
           <div className="flex items-center gap-2 shrink-0">
-            <span className="text-[11px] text-gray-400 dark:text-gray-500 tabular-nums whitespace-nowrap">
-              {sortedOrders.length} order{sortedOrders.length !== 1 ? 's' : ''}
-            </span>
             {onRefresh && (
               <button
                 type="button"
