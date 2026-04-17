@@ -713,72 +713,46 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200/80 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
       <div ref={tableTopRef} />
-      <div className="border-b border-gray-100 px-4 py-4 dark:border-gray-700 sm:px-5">
-        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold tracking-tight text-gray-900 dark:text-white">Delivery Orders</h2>
-            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-              Filter by status, search, and sort below — KPI cards above are summary only.
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {onRefresh && (
+      <div className="border-b border-gray-100 px-3 py-3 dark:border-gray-700 sm:px-4">
+
+        {/* ── Single toolbar row: title · search · filters · actions ── */}
+        <div className="flex items-center gap-2 min-w-0">
+
+          {/* Title — hidden on small screens to save space */}
+          <h2 className="hidden lg:block shrink-0 text-base font-semibold tracking-tight text-gray-900 dark:text-white whitespace-nowrap">
+            Delivery Orders
+          </h2>
+
+          {/* ── Search (flex-1 so it fills available space) ── */}
+          <div className="relative flex-1 min-w-0" style={{ minWidth: 120 }}>
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
+            <input
+              type="search"
+              placeholder="Search name, PO, phone, area…"
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="w-full pl-8 pr-7 py-[7px] bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-500 rounded-lg text-xs text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#002D5B] focus:border-transparent"
+            />
+            {searchQuery && (
               <button
                 type="button"
-                onClick={onRefresh}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-[#002D5B] dark:hover:text-blue-400 shadow-sm transition-all"
-                title="Refresh orders"
-                aria-label="Refresh orders"
+                onClick={() => onSearchChange('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                aria-label="Clear search"
               >
-                <RefreshCw className="h-4 w-4" />
-              </button>
-            )}
-            {onExport && (
-              <button
-                type="button"
-                onClick={onExport}
-                className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 shadow-sm hover:shadow-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
-                title="Export current filtered orders to Excel"
-              >
-                <FileSpreadsheet className="h-4 w-4 shrink-0" aria-hidden />
-                <span>Export Excel</span>
-                <Download className="h-3.5 w-3.5 shrink-0 opacity-75" aria-hidden />
+                <X className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
-        </div>
 
-        {/* ── Row 1: Search bar (full width, no competition) ── */}
-        <div className="relative mt-4">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
-          <input
-            type="search"
-            placeholder="Search name, phone, order #, area, model…"
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full pl-9 pr-9 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-500 rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#002D5B] focus:border-transparent"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => onSearchChange('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-              aria-label="Clear search"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-
-        {/* ── Row 2: Filter controls ── */}
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          {/* Category / Group filter (tab) */}
+          {/* ── Category filter ── */}
           <div className="relative shrink-0">
-            <SlidersHorizontal className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
+            <SlidersHorizontal className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
             <select
               value={tableTab}
               onChange={(e) => { onTableTabChange(e.target.value as OrdersTableTab); setStatusFilter('all'); }}
-              className="appearance-none pl-8 pr-8 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-500 rounded-lg text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#002D5B] cursor-pointer"
+              className="appearance-none pl-6 pr-6 py-[7px] bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-500 rounded-lg text-xs text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#002D5B] cursor-pointer"
+              style={{ maxWidth: 148 }}
             >
               {filterTabs.map((tab) => (
                 <option key={tab.key} value={tab.key}>
@@ -786,97 +760,99 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                 </option>
               ))}
             </select>
-            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
+            <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
           </div>
 
-          {/* Granular Status filter */}
+          {/* ── Granular status filter ── */}
           <div className="relative shrink-0">
             <select
               value={statusFilter}
               onChange={e => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-              className={`appearance-none pl-3 pr-8 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-[#002D5B] cursor-pointer transition-colors ${
+              style={{ maxWidth: 134 }}
+              className={`appearance-none pl-2.5 pr-6 py-[7px] rounded-lg border text-xs focus:outline-none focus:ring-2 focus:ring-[#002D5B] cursor-pointer transition-colors ${
                 statusFilter !== 'all'
-                  ? 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-medium'
+                  ? 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-semibold'
                   : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-500 text-gray-700 dark:text-gray-200'
               }`}
             >
               <option value="all">All Statuses</option>
-              <optgroup label="── Active">
-                <option value="pending">Pending / Uploaded</option>
-                <option value="sms_sent">SMS Sent (Awaiting)</option>
+              <optgroup label="Active">
+                <option value="pending">Pending</option>
+                <option value="sms_sent">SMS Sent</option>
                 <option value="unconfirmed">No Response</option>
                 <option value="confirmed">Confirmed</option>
                 <option value="scheduled">Scheduled</option>
                 <option value="out_for_delivery">Out for Delivery</option>
               </optgroup>
-              <optgroup label="── Issues">
+              <optgroup label="Issues">
                 <option value="order_delay">Order Delay</option>
                 <option value="rescheduled">Rescheduled</option>
               </optgroup>
-              <optgroup label="── Closed">
-                <option value="delivered">Delivered / Completed</option>
+              <optgroup label="Closed">
+                <option value="delivered">Delivered</option>
                 <option value="cancelled">Cancelled</option>
               </optgroup>
             </select>
-            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
+            <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
           </div>
 
-          {/* Driver filter */}
+          {/* ── Driver filter ── */}
           {drivers && drivers.length > 0 && (
             <div className="relative shrink-0">
               <select
                 value={driverFilter}
                 onChange={e => { setDriverFilter(e.target.value); setCurrentPage(1); }}
-                className="appearance-none pl-3 pr-8 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-500 rounded-lg text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#002D5B] cursor-pointer"
+                style={{ maxWidth: 120 }}
+                className="appearance-none pl-2.5 pr-6 py-[7px] bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-500 rounded-lg text-xs text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#002D5B] cursor-pointer"
               >
-                <option value="all">🚗 All Drivers</option>
+                <option value="all">All Drivers</option>
                 {drivers.map(dr => (
                   <option key={dr.id} value={dr.id}>{dr.fullName || dr.username}</option>
                 ))}
               </select>
-              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
+              <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
             </div>
           )}
 
-          {/* Sort */}
+          {/* ── Sort ── */}
           <div className="relative shrink-0">
             <select
               value={sortBy}
               onChange={(e) => onSortChange(e.target.value)}
-              className="appearance-none pl-3 pr-8 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-500 rounded-lg text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#002D5B] cursor-pointer"
+              style={{ maxWidth: 108 }}
+              className="appearance-none pl-2.5 pr-6 py-[7px] bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-500 rounded-lg text-xs text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#002D5B] cursor-pointer"
             >
               <option value="newest">↓ Newest</option>
               <option value="oldest">↑ Oldest</option>
-              <option value="customer">A–Z Customer</option>
+              <option value="customer">A–Z Name</option>
               <option value="area">A–Z Area</option>
             </select>
-            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
+            <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
           </div>
 
-          {/* Dispatch-only extras: Today, Priority, Calendar date range */}
+          {/* ── Dispatch-only: Today · Priority · Date range ── */}
           {enableDispatchFilters && (
             <>
               <button
                 type="button"
                 onClick={() => { setTodayOnly(v => !v); setCurrentPage(1); }}
-                className={`shrink-0 px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                className={`shrink-0 px-2.5 py-[7px] rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
                   todayOnly ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'
                 }`}
                 title="Show only orders for today's delivery date"
               >
-                📅 Today
+                Today
               </button>
               <button
                 type="button"
                 onClick={() => { setPriorityOnly(v => !v); setCurrentPage(1); }}
-                className={`shrink-0 px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                className={`shrink-0 px-2.5 py-[7px] rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
                   priorityOnly ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'
                 }`}
                 title="Show only priority orders"
               >
-                🚨 Priority
+                🚨 P1
               </button>
-              {/* ── Calendar date range picker ── */}
               <DateRangePicker
                 from={filterDateFrom}
                 to={filterDateTo}
@@ -885,7 +861,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
             </>
           )}
 
-          {/* Clear all active filters */}
+          {/* ── Clear all ── */}
           {(tableTab !== 'all' || searchQuery || driverFilter !== 'all' || statusFilter !== 'all' || filterDateFrom || filterDateTo || todayOnly || priorityOnly) && (
             <button
               type="button"
@@ -899,16 +875,43 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                 setTodayOnly(false);
                 setPriorityOnly(false);
               }}
-              className="shrink-0 flex items-center gap-1 px-2.5 py-2 rounded-lg text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              className="shrink-0 flex items-center gap-1 px-2 py-[7px] rounded-lg text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-colors"
+              title="Clear all filters"
             >
               <X className="h-3 w-3" />
-              Clear all
             </button>
           )}
 
-          <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400 tabular-nums">
-            {sortedOrders.length} {sortedOrders.length === 1 ? 'order' : 'orders'}
+          {/* ── Order count ── */}
+          <span className="shrink-0 text-[11px] text-gray-400 dark:text-gray-500 tabular-nums whitespace-nowrap">
+            {sortedOrders.length} order{sortedOrders.length !== 1 ? 's' : ''}
           </span>
+
+          {/* ── Refresh ── */}
+          {onRefresh && (
+            <button
+              type="button"
+              onClick={onRefresh}
+              className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-400 hover:text-[#002D5B] dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+              title="Refresh"
+              aria-label="Refresh orders"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+            </button>
+          )}
+
+          {/* ── Export ── */}
+          {onExport && (
+            <button
+              type="button"
+              onClick={onExport}
+              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-[7px] rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors whitespace-nowrap"
+              title="Export to Excel"
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              Export
+            </button>
+          )}
         </div>
       </div>
 
