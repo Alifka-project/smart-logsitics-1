@@ -1095,7 +1095,14 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                           {order.isPriority ? '🚨 Priority' : '📦 Normal'}
                         </button>
                       ) : (
-                        <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>
+                        /* Read-only badge for portals that cannot change priority (e.g. Delivery Team) */
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap ${
+                          order.isPriority
+                            ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-300 dark:border-red-700'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-600'
+                        }`}>
+                          {order.isPriority ? '🚨 Priority' : '📦 Normal'}
+                        </span>
                       )}
                     </td>
                     <td className="min-w-[180px] w-[200px] overflow-hidden px-3 py-2.5 align-middle" data-label="Driver">
