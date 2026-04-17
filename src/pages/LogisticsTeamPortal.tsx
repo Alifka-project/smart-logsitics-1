@@ -135,10 +135,13 @@ export default function LogisticsTeamPortal() {
     return driverCapacityByDate[iso]?.[driverId];
   }, [driverCapacityByDate, getCapacityDateIso]);
 
-  const capacityDatesSorted = useMemo(
-    () => [...Object.keys(driverCapacityByDate)].sort(),
-    [driverCapacityByDate],
-  );
+  const capacityDatesSorted = useMemo(() => {
+    // Only show today and future dates — never past dates
+    const todayIso = getTodayIsoDubai();
+    return [...Object.keys(driverCapacityByDate)]
+      .filter(iso => iso >= todayIso)
+      .sort();
+  }, [driverCapacityByDate]);
 
   // Communication tab state
   const [selectedContact, setSelectedContact] = useState<ContactUser | null>(null); // Changed from selectedDriver

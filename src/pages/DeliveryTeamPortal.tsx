@@ -126,11 +126,14 @@ export default function DeliveryTeamPortal() {
     if (!Number.isFinite(t)) return fallbackCapacityDateIso;
     return formatInstantToDubaiIsoDate(t);
   }, [fallbackCapacityDateIso]);
-  /** Dubai ISO dates we have capacity snapshots for (sorted), always includes today + tomorrow once loaded. */
-  const capacityDatesSorted = useMemo(
-    () => [...Object.keys(driverCapacityByDate)].sort(),
-    [driverCapacityByDate],
-  );
+  /** Dubai ISO dates we have capacity snapshots for (sorted, today + future only). */
+  const capacityDatesSorted = useMemo(() => {
+    // Filter out past dates — only show today and future
+    const todayIso = getTodayIsoDubai();
+    return [...Object.keys(driverCapacityByDate)]
+      .filter(iso => iso >= todayIso)
+      .sort();
+  }, [driverCapacityByDate]);
 
   // Control tab state
   const [assignmentMessage, setAssignmentMessage] = useState<AssignmentMessage | null>(null);

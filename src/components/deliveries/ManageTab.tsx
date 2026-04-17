@@ -387,6 +387,7 @@ export default function ManageTab({
             isUploading={isUploading}
             hideUpload={hideUpload}
             onTabClick={handleTableTabChange}
+            showActionCards={enableDispatchFilters}
           />
         </div>
       </div>
