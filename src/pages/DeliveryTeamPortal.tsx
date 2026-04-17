@@ -1666,7 +1666,7 @@ export default function DeliveryTeamPortal() {
 
       {/* Deliveries Tab */}
       {activeTab === 'deliveries' && (
-        <DeliveryManagementPage hidePageTitle excludeGarbageUploadRows />
+        <DeliveryManagementPage hidePageTitle excludeGarbageUploadRows enableDispatchFilters />
       )}
 
       {/* Live Maps Tab */}

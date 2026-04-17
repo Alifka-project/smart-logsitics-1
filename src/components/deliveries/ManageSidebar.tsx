@@ -67,7 +67,7 @@ export const ManageSidebar: React.FC<ManageSidebarProps> = ({
     accept: ACCEPT,
     multiple: false,
     disabled: isUploading,
-    noClick: true,
+    // noClick defaults to false — entire card is clickable to open the file browser
   });
 
   // ── Today's Summary (shown in Delivery Team Portal sidebar) ──────────────
