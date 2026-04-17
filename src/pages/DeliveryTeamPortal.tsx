@@ -124,6 +124,7 @@ export default function DeliveryTeamPortal() {
   // Live Maps tab state
   const [trackingDriverFilter, setTrackingDriverFilter] = useState<string>('all');
   const [trackingSelectedId, setTrackingSelectedId] = useState<string | null>(null);
+  const [liveMapFilter, setLiveMapFilter] = useState<'all' | 'priority' | 'confirmed' | 'delayed'>('all');
   const [monitoringRoute] = useState<{ coordinates: [number, number][] } | null>(null);
   const [routeLoading] = useState(false);
   const [driverRoutes, setDriverRoutes] = useState<DriverRoute[]>([]);
@@ -974,7 +975,6 @@ export default function DeliveryTeamPortal() {
           {[
             { id: 'operations', label: 'Operations', icon: Activity },
             { id: 'deliveries', label: 'Deliveries', icon: Package },
-            { id: 'livemaps', label: 'Live Maps', icon: MapPin },
             { id: 'communication', label: 'Communication', icon: MessageSquare },
             { id: 'reports', label: 'Reports & Analytics', icon: BarChart2 },
           ].map(tab => {
@@ -1690,8 +1690,28 @@ export default function DeliveryTeamPortal() {
             if (bDate) return 1;
             return (a.customer || '').localeCompare(b.customer || '');
           });
+        // Apply order-type filter (priority / confirmed / delayed) on top of driver+terminal filter
+        const nowTs = Date.now();
+        const tdFilteredDeliveries = liveMapFilter === 'all' ? tdDeliveries : tdDeliveries.filter(d => {
+          const dExt2 = d as unknown as { metadata?: Record<string, unknown>; confirmedDeliveryDate?: string };
+          if (liveMapFilter === 'priority') {
+            return dExt2.metadata?.isPriority === true || (d as unknown as { isPriority?: boolean }).isPriority === true;
+          }
+          if (liveMapFilter === 'confirmed') {
+            const s = (d.status || '').toLowerCase();
+            return s === 'confirmed' || s === 'scheduled-confirmed' || s === 'scheduled_confirmed';
+          }
+          if (liveMapFilter === 'delayed') {
+            const raw = dExt2.confirmedDeliveryDate;
+            if (!raw) return false;
+            const eod = new Date(raw); eod.setHours(23, 59, 59, 999);
+            return nowTs > eod.getTime();
+          }
+          return true;
+        });
+
         const tdHighlightIdx = trackingSelectedId
-          ? tdDeliveries.findIndex(d => d.id === trackingSelectedId)
+          ? tdFilteredDeliveries.findIndex(d => d.id === trackingSelectedId)
           : null;
 
         // Live Maps content — pixel-for-pixel match with Logistics portal Live Maps tab
@@ -1709,7 +1729,7 @@ export default function DeliveryTeamPortal() {
                   </div>
                 )}
                 <DeliveryMap
-                  deliveries={tdDeliveries}
+                  deliveries={tdFilteredDeliveries}
                   route={monitoringRoute}
                   highlightedIndex={tdHighlightIdx === -1 ? null : tdHighlightIdx}
                   driverLocations={drivers
@@ -1736,12 +1756,16 @@ export default function DeliveryTeamPortal() {
                 <div className="flex items-center gap-2 mb-2">
                   <NavigationIcon className="w-4 h-4 text-blue-500 flex-shrink-0" />
                   <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">Live Orders</h2>
-                  <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500 flex-shrink-0">{tdDeliveries.length}</span>
+                  <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500 flex-shrink-0">
+                    {tdFilteredDeliveries.length}{liveMapFilter !== 'all' ? `/${tdDeliveries.length}` : ''}
+                  </span>
                   <button type="button" onClick={() => void loadData()}
                     className="text-xs text-gray-400 hover:text-blue-600 transition-colors flex-shrink-0" title="Refresh">
                     <RefreshCw className="w-3.5 h-3.5" />
                   </button>
                 </div>
+
+                {/* Driver filter */}
                 <select
                   value={trackingDriverFilter}
                   onChange={e => { setTrackingDriverFilter(e.target.value); setTrackingSelectedId(null); }}
@@ -1760,6 +1784,33 @@ export default function DeliveryTeamPortal() {
                     );
                   })}
                 </select>
+
+                {/* Order-type filter pills */}
+                <div className="flex gap-1 flex-wrap mt-2">
+                  {([
+                    { id: 'all' as const,       label: 'All' },
+                    { id: 'priority' as const,  label: '🚨 Priority' },
+                    { id: 'confirmed' as const, label: '✓ Confirmed' },
+                    { id: 'delayed' as const,   label: '⚠ Delayed' },
+                  ]).map(f => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => { setLiveMapFilter(f.id); setTrackingSelectedId(null); }}
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-colors ${
+                        liveMapFilter === f.id
+                          ? f.id === 'priority'  ? 'bg-red-600 text-white border-red-600'
+                          : f.id === 'confirmed' ? 'bg-green-600 text-white border-green-600'
+                          : f.id === 'delayed'   ? 'bg-amber-500 text-white border-amber-500'
+                          :                        'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500'
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+
                 {trackingSelectedId && (
                   <button type="button" onClick={() => setTrackingSelectedId(null)}
                     className="mt-1.5 w-full text-[11px] text-blue-600 dark:text-blue-400 hover:underline">
@@ -1769,13 +1820,18 @@ export default function DeliveryTeamPortal() {
               </div>
 
               <div className="flex-1 overflow-y-auto space-y-1.5" style={{ minHeight: 0 }}>
-                {tdDeliveries.length === 0 ? (
+                {tdFilteredDeliveries.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-500 text-sm gap-2">
                     <NavigationIcon className="w-8 h-8 opacity-30" />
-                    <p className="font-medium">No active deliveries</p>
-                    <p className="text-xs text-center">Orders out for delivery will appear here</p>
+                    <p className="font-medium">No {liveMapFilter !== 'all' ? liveMapFilter : 'active'} deliveries</p>
+                    <p className="text-xs text-center">
+                      {liveMapFilter === 'priority'  ? 'No priority orders in active list' :
+                       liveMapFilter === 'confirmed' ? 'No confirmed orders in active list' :
+                       liveMapFilter === 'delayed'   ? 'No overdue orders — great!' :
+                       'Orders out for delivery will appear here'}
+                    </p>
                   </div>
-                ) : tdDeliveries.map((delivery, idx) => {
+                ) : tdFilteredDeliveries.map((delivery, idx) => {
                   const dExt = delivery as unknown as {
                     tracking?: { driverId?: string };
                     confirmedDeliveryDate?: string;
@@ -1886,222 +1942,6 @@ export default function DeliveryTeamPortal() {
         );
       })()}
 
-      {/* Live Maps Tab (top-level portal tab — same UI, shared state with Deliveries sub-tab) */}
-      {activeTab === 'livemaps' && (() => {
-        const LIVE_TERMINAL = new Set(['delivered', 'cancelled', 'failed', 'returned', 'pod-completed',
-          'delivered-with-installation', 'delivered-without-installation', 'finished', 'completed']);
-        const trackingDeliveries = deliveries
-          .filter(d => {
-            if (LIVE_TERMINAL.has((d.status || '').toLowerCase())) return false;
-            if (trackingDriverFilter === 'all') return true;
-            const ext = d as unknown as { tracking?: { driverId?: string } };
-            const liveDriverId = ext.tracking?.driverId;
-            if (liveDriverId && liveDriverId !== trackingDriverFilter) return false;
-            return liveDriverId === trackingDriverFilter || d.assignedDriverId === trackingDriverFilter;
-          })
-          .sort((a, b) => {
-            const am = (a as unknown as { metadata?: Record<string, unknown> }).metadata ?? {};
-            const bm = (b as unknown as { metadata?: Record<string, unknown> }).metadata ?? {};
-            if (am.isPriority && !bm.isPriority) return -1;
-            if (!am.isPriority && bm.isPriority) return 1;
-            const aDate = (a as unknown as { confirmedDeliveryDate?: string }).confirmedDeliveryDate;
-            const bDate = (b as unknown as { confirmedDeliveryDate?: string }).confirmedDeliveryDate;
-            if (aDate && bDate) return new Date(aDate).getTime() - new Date(bDate).getTime();
-            if (aDate) return -1;
-            if (bDate) return 1;
-            return (a.customer || '').localeCompare(b.customer || '');
-          });
-        const highlightedIndex = trackingSelectedId
-          ? trackingDeliveries.findIndex(d => d.id === trackingSelectedId)
-          : null;
-
-        return (
-          <div
-            className="grid gap-3"
-            style={{ height: 'max(560px, calc(100dvh - 240px))', gridTemplateColumns: '1fr 290px', overflow: 'hidden' }}
-          >
-            {/* Map panel */}
-            <div className="flex flex-col min-w-0 min-h-0">
-              <div className="pp-card overflow-hidden flex-1 relative" style={{ minHeight: 0 }}>
-                {routeLoading && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-white/60 dark:bg-gray-900/60 z-10">
-                    <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                  </div>
-                )}
-                <DeliveryMap
-                  deliveries={trackingDeliveries}
-                  route={monitoringRoute}
-                  highlightedIndex={highlightedIndex === -1 ? null : highlightedIndex}
-                  driverLocations={drivers
-                    .filter(dr => trackingDriverFilter === 'all' || dr.id === trackingDriverFilter)
-                    .filter(dr => dr.tracking?.location && Number.isFinite(dr.tracking.location.lat))
-                    .map(dr => ({
-                      id: dr.id,
-                      name: dr.fullName || dr.username,
-                      username: dr.username,
-                      status: isContactOnline(dr) ? 'online' : 'offline',
-                      lat: dr.tracking!.location!.lat,
-                      lng: dr.tracking!.location!.lng,
-                      speed: dr.tracking!.location!.speed ?? undefined,
-                    }))}
-                  driverRoutes={trackingDriverFilter === 'all' ? driverRoutes : driverRoutes.filter(r => r.driverId === trackingDriverFilter)}
-                  mapClassName="w-full h-full"
-                />
-              </div>
-            </div>
-
-            {/* Order list panel */}
-            <div className="flex flex-col gap-2 min-w-0 min-h-0" style={{ width: 290 }}>
-              <div className="pp-card p-3 flex-shrink-0">
-                <div className="flex items-center gap-2 mb-2">
-                  <NavigationIcon className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                  <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">Live Orders</h2>
-                  <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500 flex-shrink-0">{trackingDeliveries.length}</span>
-                  <button type="button" onClick={() => void loadData()}
-                    className="text-xs text-gray-400 hover:text-blue-600 transition-colors flex-shrink-0" title="Refresh">
-                    <RefreshCw className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-                <select
-                  value={trackingDriverFilter}
-                  onChange={e => { setTrackingDriverFilter(e.target.value); setTrackingSelectedId(null); }}
-                  className="w-full px-2 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="all">All Drivers ({drivers.length})</option>
-                  {drivers.map(dr => {
-                    const onRoute = deliveries.filter(d => {
-                      const ext = d as unknown as { tracking?: { driverId?: string } };
-                      return (ext.tracking?.driverId === dr.id || d.assignedDriverId === dr.id) && (d.status||'').toLowerCase() === 'out-for-delivery';
-                    }).length;
-                    return (
-                      <option key={dr.id} value={dr.id}>
-                        {dr.fullName || dr.username} — {onRoute > 0 ? `${onRoute} on route` : 'idle'}
-                      </option>
-                    );
-                  })}
-                </select>
-                {trackingSelectedId && (
-                  <button type="button" onClick={() => setTrackingSelectedId(null)}
-                    className="mt-1.5 w-full text-[11px] text-blue-600 dark:text-blue-400 hover:underline">
-                    ✕ Clear selection
-                  </button>
-                )}
-              </div>
-
-              <div className="flex-1 overflow-y-auto space-y-1.5" style={{ minHeight: 0 }}>
-                {trackingDeliveries.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-500 text-sm gap-2">
-                    <NavigationIcon className="w-8 h-8 opacity-30" />
-                    <p className="font-medium">No active deliveries</p>
-                    <p className="text-xs text-center">Out-for-delivery orders appear here</p>
-                  </div>
-                ) : trackingDeliveries.map((delivery, idx) => {
-                  const dExt = delivery as unknown as {
-                    tracking?: { driverId?: string };
-                    confirmedDeliveryDate?: string;
-                    etaMinutes?: number;
-                    metadata?: Record<string, unknown>;
-                  };
-                  const meta2 = dExt.metadata ?? {};
-                  const isPrio = meta2.isPriority === true || (delivery as unknown as { isPriority?: boolean }).isPriority === true;
-                  const assignedDriver = drivers.find(dr =>
-                    dr.id === dExt.tracking?.driverId || dr.id === delivery.assignedDriverId
-                  );
-                  const isSelected = delivery.id === trackingSelectedId;
-
-                  const etaMinutes = dExt.etaMinutes ?? null;
-                  const now = new Date();
-                  const realtimeEtaText = etaMinutes != null && etaMinutes > 0
-                    ? (etaMinutes < 60 ? `${etaMinutes}m` : `${Math.floor(etaMinutes / 60)}h ${etaMinutes % 60}m`)
-                    : '—';
-                  const plannedDate = dExt.confirmedDeliveryDate ? new Date(dExt.confirmedDeliveryDate) : null;
-                  const plannedEtaText = plannedDate
-                    ? plannedDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', timeZone: 'Asia/Dubai' })
-                    : '—';
-
-                  type LiveStatus = 'on_time' | 'delayed' | 'overdue' | null;
-                  const liveStatus: LiveStatus = (() => {
-                    if (!plannedDate) return null;
-                    const endOfDay = new Date(plannedDate); endOfDay.setHours(23, 59, 59, 999);
-                    if (now > endOfDay) return 'overdue';
-                    if (etaMinutes != null && etaMinutes >= 0) {
-                      const eta = new Date(now.getTime() + etaMinutes * 60000);
-                      return eta <= endOfDay ? 'on_time' : 'delayed';
-                    }
-                    return null;
-                  })();
-
-                  const cardBg = isSelected
-                    ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-400 dark:border-blue-500'
-                    : isPrio
-                    ? 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700'
-                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600';
-
-                  return (
-                    <div key={delivery.id}
-                      className={`rounded-lg border transition-all overflow-hidden ${cardBg} ${
-                        isSelected ? 'ring-2 ring-blue-400 dark:ring-blue-500 shadow-md' : 'hover:shadow-sm'
-                      }`}
-                    >
-                      <div
-                        role="button" tabIndex={0}
-                        onClick={() => setTrackingSelectedId(isSelected ? null : delivery.id)}
-                        onKeyDown={e => e.key === 'Enter' && setTrackingSelectedId(isSelected ? null : delivery.id)}
-                        className="flex items-start gap-2 p-2.5 cursor-pointer"
-                      >
-                        <span className="text-sm font-bold text-blue-600 dark:text-blue-400 w-6 flex-shrink-0 leading-5">{idx + 1}.</span>
-                        <div className="flex-1 min-w-0 space-y-1">
-                          <div className="flex items-center gap-1 min-w-0">
-                            <span className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate flex-1 min-w-0">
-                              {delivery.customer || 'Unknown'}
-                            </span>
-                            {isPrio && <span className="text-[9px] font-bold uppercase px-1 py-0.5 rounded bg-red-600 text-white flex-shrink-0">P1</span>}
-                          </div>
-                          {delivery.poNumber && (
-                            <p className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">PO: {delivery.poNumber}</p>
-                          )}
-                          {delivery.address && (
-                            <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">📍 {delivery.address}</p>
-                          )}
-                          {assignedDriver && (
-                            <div className="flex items-center gap-1">
-                              <Truck className="w-3 h-3 text-indigo-500 flex-shrink-0" />
-                              <span className="text-[11px] font-medium text-indigo-600 dark:text-indigo-400 truncate">
-                                {assignedDriver.fullName || assignedDriver.username}
-                              </span>
-                            </div>
-                          )}
-                          <div className="grid grid-cols-2 gap-1 pt-0.5">
-                            <div className="flex flex-col">
-                              <span className="text-[9px] text-gray-400 dark:text-gray-500 uppercase tracking-wide leading-none mb-0.5">Planned</span>
-                              <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-200">{plannedEtaText}</span>
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-[9px] text-gray-400 dark:text-gray-500 uppercase tracking-wide leading-none mb-0.5">Live ETA</span>
-                              <span className={`text-[11px] font-semibold ${realtimeEtaText === '—' ? 'text-gray-400 dark:text-gray-500' : 'text-blue-700 dark:text-blue-300'}`}>
-                                {realtimeEtaText === '—' ? '— no GPS' : realtimeEtaText}
-                              </span>
-                            </div>
-                          </div>
-                          {liveStatus && (
-                            <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
-                              liveStatus === 'on_time' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
-                              : liveStatus === 'overdue' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-                              : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
-                            }`}>
-                              {liveStatus === 'on_time' ? '✓ On Time' : liveStatus === 'overdue' ? '⚠ Overdue' : '⚠ Delayed'}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        );
-      })()}
 
       {/* Communication Tab — two-column chat layout */}
       {activeTab === 'communication' && (
