@@ -32,6 +32,14 @@ interface ManageSidebarProps {
    * simple How to Use guide instead — keeping each portal visually distinct.
    */
   showActionCards?: boolean;
+  /**
+   * Logistics portal: per-date per-driver capacity data from the capacity API.
+   * Keys: ISO date string → driverId → { used, remaining, max, full }
+   * When provided, the Truck Capacity card renders in dashboard format (remaining/used/max + FULL badge).
+   */
+  driverCapacityByDate?: Record<string, Record<string, { used: number; remaining: number; max: number; full: boolean }>>;
+  /** Set of driver IDs currently considered online (for the online/offline status dot) */
+  onlineDriverIds?: Set<string>;
 }
 
 export const ManageSidebar: React.FC<ManageSidebarProps> = ({
@@ -42,6 +50,8 @@ export const ManageSidebar: React.FC<ManageSidebarProps> = ({
   hideUpload = false,
   onTabClick,
   showActionCards = false,
+  driverCapacityByDate,
+  onlineDriverIds,
 }) => {
   const [showPolicy, setShowPolicy] = useState(false);
 
@@ -122,14 +132,16 @@ export const ManageSidebar: React.FC<ManageSidebarProps> = ({
   const capacityDatesSorted = useMemo(() => {
     // Filter out past dates — only show today and future (plus 'unscheduled')
     const todayFilter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dubai' }).format(new Date());
-    return Object.keys(capacityGroups)
-      .filter(iso => iso === 'unscheduled' || iso >= todayFilter)
-      .sort((a, b) => {
-        if (a === 'unscheduled') return 1;
-        if (b === 'unscheduled') return -1;
-        return a.localeCompare(b);
-      });
-  }, [capacityGroups]);
+    // Prefer API-sourced dates from driverCapacityByDate when available (no 'unscheduled' key in API data)
+    const keys = driverCapacityByDate && Object.keys(driverCapacityByDate).length > 0
+      ? Object.keys(driverCapacityByDate).filter(iso => iso >= todayFilter)
+      : Object.keys(capacityGroups).filter(iso => iso === 'unscheduled' || iso >= todayFilter);
+    return keys.sort((a, b) => {
+      if (a === 'unscheduled') return 1;
+      if (b === 'unscheduled') return -1;
+      return a.localeCompare(b);
+    });
+  }, [capacityGroups, driverCapacityByDate]);
 
   return (
     <div className="space-y-4">
@@ -290,35 +302,29 @@ export const ManageSidebar: React.FC<ManageSidebarProps> = ({
             )}
           </div>
 
-          {/* ── Truck Capacity (today + future dates only) ── */}
+          {/* ── Truck Capacity (today + future, dashboard format) ── */}
           <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
             <div className="mb-2 flex items-center gap-2">
               <Truck className="h-4 w-4 flex-shrink-0 text-teal-600 dark:text-teal-400" />
-              <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Truck Capacity</h3>
+              <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Truck capacity</h3>
             </div>
             <p className="mb-3 text-[10px] leading-snug text-gray-400 dark:text-gray-500">
-              By delivery date (today onwards). Dispatched / on-route orders count toward{' '}
+              By delivery date (Dubai). Dispatched / on-route orders count toward{' '}
               <span className="font-semibold text-gray-500 dark:text-gray-400">today</span>.
             </p>
             <div className="space-y-3 max-h-64 overflow-y-auto pr-0.5">
               {drivers.length === 0 ? (
-                <div className="py-4 text-center text-xs text-gray-400 dark:text-gray-500">No drivers configured</div>
+                <div className="py-4 text-center text-xs text-gray-400 dark:text-gray-500">No drivers</div>
               ) : capacityDatesSorted.length === 0 ? (
-                <div className="py-4 text-center text-xs text-gray-400 dark:text-gray-500">No upcoming orders</div>
+                <div className="py-4 text-center text-xs text-gray-400 dark:text-gray-500">
+                  {driverCapacityByDate ? 'Loading capacity…' : 'No upcoming orders'}
+                </div>
               ) : (
                 capacityDatesSorted.map((iso) => {
-                  const ordersOnDate = capacityGroups[iso] ?? [];
-                  const driverCounts: Record<string, number> = {};
-                  ordersOnDate.forEach(o => {
-                    if (o.driverId) driverCounts[o.driverId] = (driverCounts[o.driverId] ?? 0) + 1;
-                  });
-                  const unassignedOnDate = ordersOnDate.filter(o => !o.driverId).length;
-                  const activeDriversOnDate = drivers.filter(dr => (driverCounts[dr.id] ?? 0) > 0);
-
                   const dayLabel = iso === 'unscheduled'
                     ? 'Unscheduled'
-                    : new Date(`${iso}T00:00:00`).toLocaleDateString('en-GB', {
-                        weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
+                    : new Date(`${iso}T00:00:00+04:00`).toLocaleDateString('en-AE', {
+                        timeZone: 'Asia/Dubai', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
                       });
 
                   return (
@@ -330,42 +336,37 @@ export const ManageSidebar: React.FC<ManageSidebarProps> = ({
                         )}
                       </p>
                       <div className="space-y-1.5">
-                        {activeDriversOnDate.length === 0 && unassignedOnDate === 0 ? (
-                          <p className="text-[10px] text-gray-400 dark:text-gray-500 px-1">No assignments yet</p>
-                        ) : (
-                          <>
-                            {[...activeDriversOnDate]
-                              .sort((a, b) => (a.fullName || a.username).localeCompare(b.fullName || b.username))
-                              .map(driver => {
-                                const count = driverCounts[driver.id] ?? 0;
-                                return (
-                                  <div
-                                    key={driver.id}
-                                    className="flex items-start gap-2 rounded-md border border-gray-100 bg-gray-50 px-2 py-1.5 dark:border-gray-700 dark:bg-gray-800/60"
-                                  >
-                                    <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-teal-400 dark:bg-teal-500" />
-                                    <div className="min-w-0 flex-1">
-                                      <p className="truncate text-[11px] font-semibold text-gray-900 dark:text-gray-100">
-                                        {driver.fullName || driver.username}
-                                      </p>
-                                      <p className="mt-0.5 text-[10px] text-gray-600 dark:text-gray-300">
-                                        <span className="font-mono font-semibold text-teal-700 dark:text-teal-300">{count}</span>
-                                        {' '}order{count !== 1 ? 's' : ''} assigned
-                                      </p>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            {unassignedOnDate > 0 && (
-                              <div className="flex items-start gap-2 rounded-md border border-amber-100 bg-amber-50 px-2 py-1.5 dark:border-amber-800/30 dark:bg-amber-900/10">
-                                <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-400 dark:bg-amber-500" />
-                                <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">
-                                  {unassignedOnDate} unassigned
-                                </p>
+                        {[...drivers]
+                          .sort((a, b) => String(a.fullName || a.username || '').localeCompare(String(b.fullName || b.username || '')))
+                          .map((driver) => {
+                            const cap = driverCapacityByDate?.[iso]?.[driver.id];
+                            const online = onlineDriverIds?.has(driver.id) ?? false;
+                            return (
+                              <div
+                                key={`${iso}-${driver.id}`}
+                                className="flex items-start gap-2 rounded-md border border-gray-100 bg-gray-50 px-2 py-1.5 dark:border-gray-700 dark:bg-gray-800/60"
+                              >
+                                <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${online ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-[11px] font-semibold text-gray-900 dark:text-gray-100">
+                                    {driver.fullName || driver.username}
+                                  </p>
+                                  {cap ? (
+                                    <p className="mt-0.5 text-[10px] text-gray-600 dark:text-gray-300">
+                                      <span className="font-mono font-semibold text-teal-700 dark:text-teal-300">{cap.remaining}</span> left
+                                      <span className="text-gray-400 dark:text-gray-500"> · </span>
+                                      {cap.used}/{cap.max} used
+                                    </p>
+                                  ) : (
+                                    <p className="mt-0.5 text-[10px] text-gray-400 dark:text-gray-500">—</p>
+                                  )}
+                                </div>
+                                {cap?.full && (
+                                  <span className="shrink-0 text-[9px] font-bold text-red-600 dark:text-red-400">FULL</span>
+                                )}
                               </div>
-                            )}
-                          </>
-                        )}
+                            );
+                          })}
                       </div>
                     </div>
                   );

@@ -83,6 +83,10 @@ interface DeliveryManagementPageProps {
   enableDispatchFilters?: boolean;
   /** Logistics-only: pre-loaded driver list (avoids a second API call inside ManageTab) */
   driverList?: { id: string; fullName?: string | null; username: string }[];
+  /** Logistics-only: per-date per-driver capacity for the sidebar Truck Capacity card */
+  driverCapacityByDate?: Record<string, Record<string, { used: number; remaining: number; max: number; full: boolean }>>;
+  /** Logistics-only: set of online driver IDs for the sidebar status dot */
+  onlineDriverIds?: Set<string>;
 }
 
 export default function DeliveryManagementPage({
@@ -98,6 +102,8 @@ export default function DeliveryManagementPage({
   getDriverCapacity,
   enableDispatchFilters = false,
   driverList,
+  driverCapacityByDate,
+  onlineDriverIds,
 }: DeliveryManagementPageProps) {
   const deliveries = useDeliveryStore((state) => state.deliveries ?? []);
   const deliveryListFilter = useDeliveryStore((state) => state.deliveryListFilter ?? 'all');
@@ -473,6 +479,8 @@ export default function DeliveryManagementPage({
           getDriverCapacity={getDriverCapacity}
           enableDispatchFilters={enableDispatchFilters}
           driverList={driverList}
+          driverCapacityByDate={driverCapacityByDate}
+          onlineDriverIds={onlineDriverIds}
         />
       )}
 

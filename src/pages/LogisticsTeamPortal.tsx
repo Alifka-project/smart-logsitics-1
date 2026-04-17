@@ -1225,6 +1225,8 @@ export default function LogisticsTeamPortal() {
             return getDriverCapacity(d, driverId) ?? null;
           }}
           driverList={drivers.map(dr => ({ id: dr.id, fullName: dr.fullName ?? null, username: dr.username }))}
+          driverCapacityByDate={driverCapacityByDate}
+          onlineDriverIds={new Set(drivers.filter(dr => isContactOnline(dr)).map(dr => dr.id))}
           forceTab={deliveriesSubTab}
           onTabChange={(id) => setDeliveriesSubTab(id)}
           extraTabs={[

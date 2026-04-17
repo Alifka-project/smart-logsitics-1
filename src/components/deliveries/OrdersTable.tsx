@@ -124,7 +124,7 @@ function DateRangePicker({ from, to, onChange }: DateRangePickerProps) {
 
       {/* Calendar popover */}
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-1 w-72 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-xl p-4 select-none"
+        <div className="absolute right-0 top-full z-50 mt-1 w-72 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-xl p-4 select-none"
           style={{ minWidth: 280 }}
         >
           {/* Month navigation */}
@@ -713,18 +713,47 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200/80 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
       <div ref={tableTopRef} />
-      <div className="border-b border-gray-100 px-3 py-3 dark:border-gray-700 sm:px-4">
+      <div className="border-b border-gray-100 px-3 py-3 dark:border-gray-700 sm:px-4 space-y-2.5">
 
-        {/* ── Single toolbar row: title · search · filters · actions ── */}
-        <div className="flex items-center gap-2 min-w-0">
-
-          {/* Title — hidden on small screens to save space */}
-          <h2 className="hidden lg:block shrink-0 text-base font-semibold tracking-tight text-gray-900 dark:text-white whitespace-nowrap">
+        {/* ── Row 1: Title + count + refresh + export ── */}
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-base font-semibold tracking-tight text-gray-900 dark:text-white whitespace-nowrap">
             Delivery Orders
           </h2>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-[11px] text-gray-400 dark:text-gray-500 tabular-nums whitespace-nowrap">
+              {sortedOrders.length} order{sortedOrders.length !== 1 ? 's' : ''}
+            </span>
+            {onRefresh && (
+              <button
+                type="button"
+                onClick={onRefresh}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-400 hover:text-[#002D5B] dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+                title="Refresh"
+                aria-label="Refresh orders"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {onExport && (
+              <button
+                type="button"
+                onClick={onExport}
+                className="inline-flex items-center gap-1.5 px-3 py-[7px] rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors whitespace-nowrap"
+                title="Export to Excel"
+              >
+                <FileSpreadsheet className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                Export
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* ── Row 2: Filters ── */}
+        <div className="flex items-center gap-2 min-w-0 flex-wrap">
 
           {/* ── Search (flex-1 so it fills available space) ── */}
-          <div className="relative flex-1 min-w-0" style={{ minWidth: 120 }}>
+          <div className="relative flex-1 min-w-0" style={{ minWidth: 140 }}>
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
             <input
               type="search"
@@ -879,37 +908,6 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
               title="Clear all filters"
             >
               <X className="h-3 w-3" />
-            </button>
-          )}
-
-          {/* ── Order count ── */}
-          <span className="shrink-0 text-[11px] text-gray-400 dark:text-gray-500 tabular-nums whitespace-nowrap">
-            {sortedOrders.length} order{sortedOrders.length !== 1 ? 's' : ''}
-          </span>
-
-          {/* ── Refresh ── */}
-          {onRefresh && (
-            <button
-              type="button"
-              onClick={onRefresh}
-              className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-400 hover:text-[#002D5B] dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
-              title="Refresh"
-              aria-label="Refresh orders"
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-            </button>
-          )}
-
-          {/* ── Export ── */}
-          {onExport && (
-            <button
-              type="button"
-              onClick={onExport}
-              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-[7px] rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors whitespace-nowrap"
-              title="Export to Excel"
-            >
-              <FileSpreadsheet className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              Export
             </button>
           )}
         </div>

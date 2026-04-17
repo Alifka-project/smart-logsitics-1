@@ -34,6 +34,10 @@ interface ManageTabProps {
   enableDispatchFilters?: boolean;
   /** Logistics-only: pre-loaded driver list from parent (skips local API fetch) */
   driverList?: { id: string; fullName?: string | null; username: string }[];
+  /** Logistics-only: per-date per-driver capacity for the sidebar Truck Capacity card */
+  driverCapacityByDate?: Record<string, Record<string, { used: number; remaining: number; max: number; full: boolean }>>;
+  /** Logistics-only: set of online driver IDs for the sidebar status dot */
+  onlineDriverIds?: Set<string>;
 }
 
 
@@ -52,6 +56,8 @@ export default function ManageTab({
   getDriverCapacity,
   enableDispatchFilters = false,
   driverList,
+  driverCapacityByDate,
+  onlineDriverIds,
 }: ManageTabProps) {
   const fileUploadRef = useRef<FileUploadHandle>(null);
   const pendingHashes = useRef<Set<string>>(new Set());
@@ -388,6 +394,8 @@ export default function ManageTab({
             hideUpload={hideUpload}
             onTabClick={handleTableTabChange}
             showActionCards={enableDispatchFilters}
+            driverCapacityByDate={driverCapacityByDate}
+            onlineDriverIds={onlineDriverIds}
           />
         </div>
       </div>
