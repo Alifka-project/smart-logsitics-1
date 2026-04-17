@@ -88,6 +88,12 @@ export function excludeTeamPortalGarbageDeliveries<T extends Record<string, unkn
   return arr.filter((row) => !isTeamPortalGarbageDelivery(row as unknown as Delivery));
 }
 
+// "Completed" = successfully delivered OR cancelled — excludes returned/failed
+const COMPLETED_STATUSES = new Set([
+  'delivered', 'delivered-with-installation', 'delivered-without-installation',
+  'completed', 'pod-completed', 'finished', 'cancelled',
+]);
+// Kept for backward-compatibility in other callers
 const DELIVERED_STATUSES = new Set([
   'delivered', 'delivered-with-installation', 'delivered-without-installation',
   'completed', 'pod-completed', 'finished', 'cancelled', 'returned',
@@ -170,9 +176,27 @@ export function applyDeliveryListFilter(
       return active.filter((d) => d.priority === 1);
     case 'out_for_delivery':
       return active.filter((d) => isOnRouteDeliveryListStatus((d.status || '').toLowerCase()));
-    case 'delivered':
-      // Bypass active filter — show terminal (delivered/cancelled/returned) deliveries.
-      return list.filter((d) => DELIVERED_STATUSES.has((d.status || '').toLowerCase()));
+    case 'delivered': {
+      // "Completed" view: delivered + cancelled orders within the last 3 days.
+      // Excludes returned/failed (those stay in their own bucket).
+      const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+      const cutoff = Date.now() - THREE_DAYS_MS;
+      return list.filter((d) => {
+        if (!COMPLETED_STATUSES.has((d.status || '').toLowerCase())) return false;
+        // Apply 3-day recency window — fall back to "always show" when no date available
+        const rec = d as unknown as Record<string, unknown>;
+        const dateStr =
+          (d.deliveredAt as string | null | undefined) ??
+          (d.podCompletedAt as string | null | undefined) ??
+          (d.updatedAt as string | null | undefined) ??
+          (rec.updated_at as string | null | undefined) ??
+          (rec.created_at as string | null | undefined) ??
+          (d.createdAt as string | null | undefined);
+        if (!dateStr) return true; // no date info → always show
+        const ts = new Date(String(dateStr)).getTime();
+        return !isNaN(ts) && ts >= cutoff;
+      });
+    }
     case 'on_time':
       return active.filter((d) => getEtaStatus(d) === 'on_time');
     case 'delayed':

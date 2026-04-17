@@ -174,8 +174,10 @@ export default function DriverPortal() {
   const handleManualReorder = useCallback((newOrder: Delivery[]) => {
     manuallyOrderedRef.current = true;
     userOrderRef.current = newOrder;
-    // Update local deliveries state so the routing useEffect re-runs with the new order
-    setDeliveries(newOrder);
+    // Only keep on-route items in deliveries state (used by the routing effect).
+    // The full reordered store list is handled by updateDeliveryOrder inside handleCardDrop.
+    const onRouteOnly = newOrder.filter(d => isOnRouteDeliveryListStatus((d.status || '').toLowerCase()));
+    setDeliveries(onRouteOnly.length > 0 ? onRouteOnly : newOrder);
     // Clear the last-origin ref so the effect does not short-circuit
     lastRouteDeliveriesRef.current = '';
   }, []);
@@ -213,10 +215,15 @@ export default function DriverPortal() {
     const d = delivery as unknown as Record<string, unknown>;
     const latRaw = d['lat'] ?? d['Lat'] ?? d['latitude'] ?? d['Latitude'];
     const lngRaw = d['lng'] ?? d['Lng'] ?? d['longitude'] ?? d['Longitude'];
-    const lat = Number.parseFloat(String(latRaw));
-    const lng = Number.parseFloat(String(lngRaw));
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-    return { lat, lng };
+    const a = Number.parseFloat(String(latRaw));
+    const b = Number.parseFloat(String(lngRaw));
+    if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+    // UAE bounding box validation + auto-correct lat/lng swap
+    const inUAE = (la: number, lo: number) =>
+      la >= 22.0 && la <= 26.5 && lo >= 51.0 && lo <= 56.5;
+    if (inUAE(a, b)) return { lat: a, lng: b };
+    if (inUAE(b, a)) return { lat: b, lng: a }; // GeoJSON swap — auto-fix
+    return null; // outside UAE bounds — skip pin
   };
 
   const buildNearestNeighborOrder = useCallback((items: Delivery[], start: LatLng): Delivery[] => {
@@ -1133,6 +1140,10 @@ export default function DriverPortal() {
   const routeStats = route as DriverRouteData | null;
   const nextStop = (orderedDeliveries[0] || deliveries[0]) as EnrichedDelivery | undefined;
   const nextEta = nextStop ? formatEta(nextStop.eta ?? nextStop.estimatedEta) : 'N/A';
+  // Planned ETA: first route calculation (never changes) — shows baseline before/after Start Delivery
+  const nextPlannedEta = nextStop ? formatEta(nextStop.plannedEta ?? nextStop.staticEta ?? nextStop.estimatedEta) : 'N/A';
+  // Live ETA: current GPS-based estimate (updates as driver moves)
+  const nextLiveEta = nextStop ? formatEta(nextStop.estimatedEta ?? nextStop.eta) : 'N/A';
   const speedKmh = location?.speed != null ? (location.speed * 3.6).toFixed(1) : 'N/A';
 
   return (
@@ -1302,7 +1313,10 @@ export default function DriverPortal() {
                   <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-2">
                     <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Priority</div>
                     <div className="text-sm font-semibold text-red-600 dark:text-red-400">
-                      {storeDeliveries.filter(d => d.priority === 1 || d.priority === 2 || d.priority === 3).length || 0}
+                      {storeDeliveries.filter(d => {
+                        const meta = (d as unknown as { metadata?: { isPriority?: boolean } }).metadata;
+                        return d.priority === 1 || d.priority === 2 || meta?.isPriority === true;
+                      }).length || 0}
                     </div>
                   </div>
                   <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-2">
@@ -1313,9 +1327,11 @@ export default function DriverPortal() {
               </div>
 
               {(() => {
-                const p1 = storeDeliveries.filter(d => d.priority === 1).length;
-                const p2 = storeDeliveries.filter(d => d.priority === 2).length;
-                const p3 = storeDeliveries.filter(d => d.priority === 3).length;
+                // Count genuinely priority orders: P1 (urgent), P2 (high), or logistics-set isPriority flag
+                const priorityCount = storeDeliveries.filter(d => {
+                  const meta = (d as unknown as { metadata?: { isPriority?: boolean } }).metadata;
+                  return d.priority === 1 || d.priority === 2 || meta?.isPriority === true;
+                }).length;
                 const delayedCount = orderedDeliveries.filter(d => getEtaStatus(d) === 'delayed').length;
                 const routeStatusLabel = isRouteLoading
                   ? 'Routing…'
@@ -1338,21 +1354,26 @@ export default function DriverPortal() {
                     <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Routing & ETA</h3>
                     <div className="grid grid-cols-2 gap-2 sm:gap-3 text-sm">
                       <div className="pp-card p-3">
-                        <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Next ETA</div>
-                        <div className="font-semibold text-gray-900 dark:text-gray-100">{nextEta}</div>
+                        <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Planned ETA</div>
+                        <div className="font-semibold text-gray-900 dark:text-gray-100">{nextPlannedEta}</div>
+                        <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
+                          {deliveryStartedAt ? '🔒 Locked at start' : 'First route calc'}
+                        </div>
+                      </div>
+                      <div className="pp-card p-3">
+                        <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Live ETA</div>
+                        <div className="font-semibold text-blue-600 dark:text-blue-400">{nextLiveEta}</div>
+                        <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">Real-time GPS</div>
                       </div>
                       <div className="pp-card p-3">
                         <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Priority Orders</div>
                         <div className="font-semibold text-xs sm:text-sm">
-                          {(() => {
-                            const total = p1 + p2 + p3;
-                            if (total === 0) return <span className="text-gray-400 dark:text-gray-500">None</span>;
-                            return (
-                              <span className="text-red-600 dark:text-red-400">
-                                {total} order{total > 1 ? 's' : ''}
+                          {priorityCount === 0
+                            ? <span className="text-gray-400 dark:text-gray-500">None</span>
+                            : <span className="text-red-600 dark:text-red-400">
+                                {priorityCount} order{priorityCount > 1 ? 's' : ''}
                               </span>
-                            );
-                          })()}
+                          }
                         </div>
                       </div>
                       <div className="pp-card p-3">

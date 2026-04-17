@@ -211,11 +211,15 @@ export default function DeliveryTable({
     return list.map((delivery, displayIndex) => ({
       delivery,
       displayIndex,
-      dragIndex: undefined as number | undefined,
+      // Driver portal on-route filter: provide drag index so stops can be reordered
+      dragIndex: (isDriverPortal && deliveryListFilter === 'out_for_delivery')
+        ? items.findIndex(x => x.id === delivery.id)
+        : undefined as number | undefined,
     }));
   }, [activeFromItems, deliveries, deliveryListFilter, items, selectedDriver, onRouteSequenceOnly, isDriverPortal]);
 
-  const dragEnabled = deliveryListFilter === 'all';
+  // Drag enabled on 'all' filter, plus on-route filter in driver portal (so driver can reorder stops)
+  const dragEnabled = deliveryListFilter === 'all' || (isDriverPortal && deliveryListFilter === 'out_for_delivery');
 
   const handleCardDrop = (): void => {
     if (!dragEnabled) return;
@@ -241,7 +245,7 @@ export default function DeliveryTable({
         { id: 'p1',               label: '🚨 P1 Urgent', activeClass: 'bg-red-600 text-white' },
         { id: 'on_time',          label: '✓ On Time',    activeClass: 'bg-green-600 text-white' },
         { id: 'delayed',          label: '⚠ Delayed',    activeClass: 'bg-amber-500 text-white' },
-        { id: 'delivered',        label: '📦 Delivered',  activeClass: 'bg-green-700 text-white' },
+        { id: 'delivered',        label: '✅ Completed',  activeClass: 'bg-green-700 text-white' },
       ]
     : onRouteSequenceOnly
       ? [
@@ -260,7 +264,7 @@ export default function DeliveryTable({
           { id: 'delivered',       label: 'Delivered',    activeClass: 'bg-green-600 text-white' },
         ];
 
-  const isDeliveredFilter = deliveryListFilter === 'delivered';
+  const isDeliveredFilter = deliveryListFilter === 'delivered'; // used for "Completed" empty state
 
   return (
     <div className="pp-dash-card p-4 sm:p-6 transition-colors">
@@ -381,7 +385,7 @@ export default function DeliveryTable({
       {rows.length === 0 && (
         <div className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm">
           {isDeliveredFilter
-            ? 'No finished deliveries yet. Completed and returned orders will appear here.'
+            ? 'No completed deliveries in the last 3 days. Delivered and cancelled orders from the past 3 days appear here.'
             : 'No deliveries match this filter.'}
         </div>
       )}

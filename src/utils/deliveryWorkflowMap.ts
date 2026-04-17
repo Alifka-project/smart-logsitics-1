@@ -49,7 +49,7 @@ export function isTodayDate(date: Date): boolean {
  *   - Today is Saturday → tomorrow is Sunday (no delivery) → next delivery day = Monday (+2)
  *   - All other days → next delivery day = tomorrow (+1)
  */
-function nextDeliveryDayOffset(): number {
+export function nextDeliveryDayOffset(): number {
   // 0=Sun, 1=Mon, …, 6=Sat in Dubai local time (UTC+4 approx)
   const dubaiDay = new Date(Date.now() + 4 * 60 * 60 * 1000).getUTCDay();
   return dubaiDay === 6 ? 2 : 1; // Saturday → skip Sunday → Monday is +2
@@ -138,6 +138,10 @@ function deriveWorkflowStatus(d: Delivery, smsSentAt: Date | undefined): Deliver
       parseOptDate((d.metadata as Record<string, unknown> | null)?.scheduledDate as string) ??
       parseOptDate((d.metadata as Record<string, unknown> | null)?.scheduled_date as string);
     if (targetDate && isOverdue(targetDate)) return 'order_delay';
+    // Also flag as order_delay when the Goods Movement Date (GMD) is in the past
+    // but the order hasn't been delivered yet — goods were dispatched on a past date.
+    const gmdDate = parseOptDate((d as Record<string, unknown>).goodsMovementDate);
+    if (gmdDate && isOverdue(gmdDate)) return 'order_delay';
     return 'out_for_delivery';
   }
 

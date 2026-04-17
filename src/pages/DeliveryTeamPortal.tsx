@@ -37,7 +37,7 @@ import DeliveryMap from '../components/MapView/DeliveryMap';
 import { computePerDriverRoutes } from '../services/advancedRoutingService';
 import type { DriverRoute } from '../services/advancedRoutingService';
 import useDeliveryStore from '../store/useDeliveryStore';
-import { deliveryToManageOrder } from '../utils/deliveryWorkflowMap';
+import { deliveryToManageOrder, nextDeliveryDayOffset } from '../utils/deliveryWorkflowMap';
 import { excludeTeamPortalGarbageDeliveries } from '../utils/deliveryListFilter';
 import { getTodayIsoDubai, addCalendarDaysDubai, formatInstantToDubaiIsoDate } from '../utils/dubaiCalendarIso';
 import {
@@ -847,13 +847,14 @@ export default function DeliveryTeamPortal() {
     })),
   [allDashDeliveries]);
 
-  /** Tomorrow (Dubai calendar) — read-only list for Reports tab */
+  /** Next delivery day (Dubai calendar, skips Sunday) — read-only list for Reports tab */
   const reportTomorrowDeliveries = useMemo(() => {
     const DUBAI_OFFSET_MS = 4 * 60 * 60 * 1000;
     const nowDubai = new Date(Date.now() + DUBAI_OFFSET_MS);
-    const tomorrowDubai = new Date(nowDubai);
-    tomorrowDubai.setUTCDate(tomorrowDubai.getUTCDate() + 1);
-    const tomorrowIso = tomorrowDubai.toISOString().slice(0, 10);
+    // Use the same UAE-aware offset: Saturday → +2 (skip Sunday), all other days → +1
+    const nextDayDubai = new Date(nowDubai);
+    nextDayDubai.setUTCDate(nextDayDubai.getUTCDate() + nextDeliveryDayOffset());
+    const tomorrowIso = nextDayDubai.toISOString().slice(0, 10);
 
     const excluded = new Set([
       'delivered', 'delivered-with-installation', 'delivered-without-installation',
@@ -2421,9 +2422,10 @@ export default function DeliveryTeamPortal() {
                         { label: 'Future Schedule', value: allDashWithWorkflow.filter(({ ws }) => ws === 'future_schedule').length, color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300' },
                         { label: 'On Route', value: allDashWithWorkflow.filter(({ ws }) => ws === 'out_for_delivery').length, color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' },
                         { label: 'Order Delay', value: allDashWithWorkflow.filter(({ ws }) => ws === 'order_delay').length, color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' },
+                        { label: 'Rescheduled', value: allDashWithWorkflow.filter(({ ws }) => ws === 'rescheduled').length, color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' },
                         { label: 'Delivered', value: allDashWithWorkflow.filter(({ ws }) => ws === 'delivered').length, color: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' },
                         { label: 'Cancelled', value: allDashWithWorkflow.filter(({ ws }) => ws === 'cancelled').length, color: 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400' },
-                        { label: 'Failed / Returned', value: allDashWithWorkflow.filter(({ ws }) => ws === 'failed').length, color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' },
+                        { label: 'Failed / Returned', value: allDashWithWorkflow.filter(({ ws }) => ws === 'failed').length, color: 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300' },
                       ].map(({ label, value, color }) => (
                         <span key={label} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${color}`}>
                           <span className="font-bold text-sm">{value}</span> {label}
@@ -2664,17 +2666,18 @@ export default function DeliveryTeamPortal() {
                 </div>
               </div>
 
-              {/* Tomorrow delivery list — read-only, between charts and driver performance */}
+              {/* Next delivery day list — read-only, between charts and driver performance */}
               <div className="pp-card p-5">
                 <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-1 flex flex-wrap items-center gap-2">
                   <Truck className="w-5 h-5 text-orange-500 shrink-0" />
-                  Tomorrow&apos;s delivery list
+                  Next Delivery Day
                   <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-xs font-normal text-gray-600 dark:text-gray-400">
                     {reportTomorrowDeliveries.tomorrowIso}
                   </span>
+                  <span className="text-[10px] font-normal text-gray-400 dark:text-gray-500">(Sunday = no deliveries in UAE)</span>
                 </h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-                  Confirmed delivery date equals tomorrow in Dubai time. Read-only snapshot ({reportTomorrowDeliveries.rows.length} order{reportTomorrowDeliveries.rows.length === 1 ? '' : 's'}).
+                  Orders confirmed for the next working delivery day in Dubai time. Read-only snapshot ({reportTomorrowDeliveries.rows.length} order{reportTomorrowDeliveries.rows.length === 1 ? '' : 's'}).
                 </p>
                 {reportTomorrowDeliveries.rows.length === 0 ? (
                   <p className="text-sm text-gray-400 dark:text-gray-500 py-6 text-center">No deliveries scheduled for this date.</p>

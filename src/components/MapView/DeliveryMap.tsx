@@ -4,6 +4,24 @@ import 'leaflet/dist/leaflet.css';
 import type { Delivery, RouteResult } from '../../types';
 import type { DriverRoute } from '../../services/advancedRoutingService';
 
+// UAE bounding box (covers all 7 emirates + a small margin)
+const UAE_LAT_MIN = 22.0, UAE_LAT_MAX = 26.5;
+const UAE_LNG_MIN = 51.0, UAE_LNG_MAX = 56.5;
+
+/**
+ * Validates coordinates against the UAE bounding box.
+ * Auto-corrects the common GeoJSON lat/lng swap bug:
+ *   some importers store coordinates as [lng, lat] instead of [lat, lng].
+ * Returns [lat, lng] or null when coordinates cannot be resolved to UAE.
+ */
+function resolveUAECoords(a: number, b: number): [number, number] | null {
+  const inUAE = (la: number, lo: number) =>
+    la >= UAE_LAT_MIN && la <= UAE_LAT_MAX && lo >= UAE_LNG_MIN && lo <= UAE_LNG_MAX;
+  if (inUAE(a, b)) return [a, b];        // already correct
+  if (inUAE(b, a)) return [b, a];        // lat/lng swapped — auto-fix
+  return null;                            // not in UAE bounding box
+}
+
 // Fix Leaflet default marker icons
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)['_getIconUrl'];
 L.Icon.Default.mergeOptions({
@@ -127,18 +145,30 @@ export default function DeliveryMap({
 
     deliveries.forEach((delivery, index) => {
       const d = delivery as Record<string, unknown>;
-      const latRaw = (delivery.lat as unknown) || d['Lat'] || d['latitude'] || d['Latitude'];
-      const lngRaw = (delivery.lng as unknown) || d['Lng'] || d['longitude'] || d['Longitude'];
-      const lat = parseFloat(String(latRaw));
-      const lng = parseFloat(String(lngRaw));
+      const latRaw = (delivery.lat as unknown) ?? d['Lat'] ?? d['latitude'] ?? d['Latitude'];
+      const lngRaw = (delivery.lng as unknown) ?? d['Lng'] ?? d['longitude'] ?? d['Longitude'];
+      const latParsed = parseFloat(String(latRaw));
+      const lngParsed = parseFloat(String(lngRaw));
 
-      if (!latRaw || !lngRaw || isNaN(lat) || isNaN(lng)) {
+      // Validate UAE bounds and auto-correct lat/lng swap
+      if (isNaN(latParsed) || isNaN(lngParsed)) {
         newMarkers.push(null);
         return;
       }
+      const resolved = resolveUAECoords(latParsed, lngParsed);
+      if (!resolved) {
+        newMarkers.push(null);
+        return;
+      }
+      const [lat, lng] = resolved;
 
+      const isPriorityMeta = (delivery as unknown as { metadata?: { isPriority?: boolean } }).metadata?.isPriority === true;
       const color =
-        delivery.priority === 1 ? 'red' : delivery.priority === 2 ? 'orange' : 'blue';
+        delivery.priority === 1 || isPriorityMeta ? 'red'
+        : delivery.priority === 2 ? 'orange'
+        : 'blue';
+
+      const priorityLabel = (delivery.priority === 1 || isPriorityMeta) ? 'URGENT' : delivery.priority === 2 ? 'HIGH' : 'NORMAL';
 
       const popupContent = `
         <div style="font-family:'DM Sans','Inter',sans-serif;font-size:12px;min-width:250px;">
@@ -154,7 +184,7 @@ export default function DeliveryMap({
             <strong>ETA:</strong> ${(delivery as unknown as { etaMinutes?: number }).etaMinutes != null ? `${(delivery as unknown as { etaMinutes?: number }).etaMinutes} min` : 'Calculating...'}<br>
             <strong>Priority:</strong>
             <span style="color:${color === 'red' ? 'red' : color === 'orange' ? 'orange' : 'blue'};font-weight:bold;">
-              ${delivery.priority === 1 ? 'HIGH' : delivery.priority === 2 ? 'MEDIUM' : 'LOW'}
+              ${priorityLabel}
             </span>
           </div>
         </div>
