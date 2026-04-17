@@ -92,7 +92,7 @@ async function sendConfirmationSms(
     const expiresAt = tokenExpiry || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
     // Get delivery details
-    const delivery = await prisma.delivery.findUnique({
+    const delivery = await prisma!.delivery.findUnique({
       where: { id: deliveryId }
     });
 
@@ -134,7 +134,7 @@ async function sendConfirmationSms(
     // ──────────────────────────────────────────────────────────────────────────
 
     // Update delivery with token + mark as scheduled
-    await prisma.delivery.update({
+    await prisma!.delivery.update({
       where: { id: deliveryId },
       data: {
         confirmationToken,
@@ -144,7 +144,7 @@ async function sendConfirmationSms(
       } as Record<string, unknown>
     });
     // Non-critical: track send time (requires add_sms_sent_at migration on prod DB)
-    prisma.delivery.update({
+    prisma!.delivery.update({
       where: { id: deliveryId },
       data: { smsSentAt: new Date() } as Record<string, unknown>
     }).catch((e: unknown) => {
@@ -199,7 +199,7 @@ async function validateConfirmationToken(token: string): Promise<ValidationResul
       return { isValid: false, error: 'Token is required' };
     }
 
-    const delivery = await prisma.delivery.findUnique({
+    const delivery = await prisma!.delivery.findUnique({
       where: { confirmationToken: token } as any
     }) as Record<string, unknown> | null;
 
@@ -285,7 +285,7 @@ async function confirmDelivery(token: string, deliveryDateInput: Date | string):
 
     const confirmedAt = dubaiDayRangeUtc(iso).start;
 
-    const updatedDelivery = await prisma.$transaction(async tx => {
+    const updatedDelivery = await prisma!.$transaction(async tx => {
       await assertSlotAvailable(tx, deliveryId, iso, itemsStr, meta);
       return tx.delivery.update({
         where: { id: deliveryId },
@@ -391,7 +391,7 @@ async function sendRescheduleSms(
   reason?: string
 ): Promise<SendRescheduleSmsResult> {
   try {
-    const delivery = await prisma.delivery.findUnique({ where: { id: deliveryId } }) as Record<string, unknown> | null;
+    const delivery = await prisma!.delivery.findUnique({ where: { id: deliveryId } }) as Record<string, unknown> | null;
     if (!delivery) throw new Error(`Delivery not found: ${deliveryId}`);
 
     const phone = delivery.phone as string | null;
@@ -433,7 +433,7 @@ async function sendRescheduleSms(
 
     // ── Reschedule: D7 SMS → WhatsApp API → deep-link ───────────────────────
     let whatsappUrl: string | undefined;
-    let smsResult: SmsSendResult;
+    let smsResult: SmsSendResult = { messageId: `wa-link-${Date.now()}`, status: 'whatsapp_link_generated' };
     let rescheduleProvider = process.env.SMS_PROVIDER || 'd7';
     try {
       smsResult = await smsAdapter!.sendSms({
@@ -449,7 +449,7 @@ async function sendRescheduleSms(
           const waRes = await sendWhatsApp(normalizedPhone, smsMessage);
           if (waRes.ok) {
             rescheduleProvider = 'whatsapp-api';
-            smsResult = { messageId: (waRes as Record<string, unknown>).messageId as string || `wa-${Date.now()}`, status: 'sent' };
+            smsResult = { messageId: waRes.messageId || `wa-${Date.now()}`, status: 'sent' };
             waSent = true;
             console.log(`[SMS] Reschedule WhatsApp sent to ${normalizedPhone}`);
           }
