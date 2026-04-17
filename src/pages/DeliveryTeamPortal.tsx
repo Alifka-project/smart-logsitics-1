@@ -24,13 +24,18 @@ import {
   BarChart2,
   TrendingUp,
   FileText,
-  Download
+  Download,
+  MapPin,
+  Camera
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   Cell, PieChart, Pie, CartesianGrid, Legend
 } from 'recharts';
 import DeliveryManagementPage from './DeliveryManagementPage';
+import DeliveryMap from '../components/MapView/DeliveryMap';
+import { computePerDriverRoutes } from '../services/advancedRoutingService';
+import type { DriverRoute } from '../services/advancedRoutingService';
 import useDeliveryStore from '../store/useDeliveryStore';
 import { deliveryToManageOrder } from '../utils/deliveryWorkflowMap';
 import { excludeTeamPortalGarbageDeliveries } from '../utils/deliveryListFilter';
@@ -44,6 +49,7 @@ import {
   displayModelForOps,
   displayPhone,
   displayPoNumber,
+  getOrderType,
 } from '../utils/deliveryDisplayFields';
 import type { Delivery, AuthUser } from '../types';
 // WhatsAppSendModal is mounted globally in App.tsx — no local import needed
@@ -103,13 +109,25 @@ export default function DeliveryTeamPortal() {
   const [drivers, setDrivers] = useState<ContactUser[]>([]);
   const [contacts, setContacts] = useState<ContactUser[]>([]); // All contacts (drivers + team members)
   const [teamMembers, setTeamMembers] = useState<ContactUser[]>([]); // Admin + delivery_team
-  const [deliveries, setDeliveries] = useState<Delivery[]>([]);
+  // Use the shared Zustand store so data stays in sync with any portal that updates it
+  const rawStoreDeliveries = useDeliveryStore((s) => s.deliveries ?? []);
+  const deliveries = useMemo(
+    () => excludeTeamPortalGarbageDeliveries(rawStoreDeliveries),
+    [rawStoreDeliveries]
+  );
   const [alerts, setAlerts] = useState<SystemAlert[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   
   // Per-driver daily capacity by date: ISO date -> driverId -> capacity
   const [driverCapacityByDate, setDriverCapacityByDate] = useState<Record<string, Record<string, { used: number; remaining: number; max: number; full: boolean }>>>({});
+  // Live Maps tab state
+  const [trackingDriverFilter, setTrackingDriverFilter] = useState<string>('all');
+  const [trackingSelectedId, setTrackingSelectedId] = useState<string | null>(null);
+  const [monitoringRoute] = useState<{ coordinates: [number, number][] } | null>(null);
+  const [routeLoading] = useState(false);
+  const [driverRoutes, setDriverRoutes] = useState<DriverRoute[]>([]);
+  const driverRouteKeyRef = useRef<string>('');
   const fallbackCapacityDateIso = useMemo(() => {
     const nowDubai = new Date(Date.now() + 4 * 60 * 60 * 1000);
     nowDubai.setUTCDate(nowDubai.getUTCDate() + 1);
@@ -364,13 +382,38 @@ export default function DeliveryTeamPortal() {
   useEffect(() => {
     if (activeTab !== 'communication') return;
     if (!messagesEndRef.current) return;
-    
+
     requestAnimationFrame(() => {
       if (messagesEndRef.current) {
         messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
       }
     });
   }, [messages, activeTab]);
+
+  // Compute per-driver routes for live maps whenever driver/delivery list changes
+  useEffect(() => {
+    if (activeTab !== 'livemaps') return;
+    const activeDrivers = drivers.filter(dr => dr.tracking?.location);
+    const key = activeDrivers.map(d => d.id).join(',') + '|' + deliveries.filter(d => {
+      const s = (d.status || '').toLowerCase();
+      return s === 'out-for-delivery' || s === 'in-transit';
+    }).map(d => d.id).join(',');
+    if (key === driverRouteKeyRef.current) return;
+    driverRouteKeyRef.current = key;
+    if (!key || key === '|') { setDriverRoutes([]); return; }
+    void computePerDriverRoutes(
+      drivers as Parameters<typeof computePerDriverRoutes>[0],
+      deliveries as Parameters<typeof computePerDriverRoutes>[1],
+    ).then(setDriverRoutes);
+  }, [activeTab, drivers, deliveries]);
+
+  // Listen for cross-portal data updates (e.g. Logistics portal assigns driver/priority)
+  useEffect(() => {
+    const handler = () => void loadData();
+    window.addEventListener('deliveriesUpdated', handler);
+    return () => window.removeEventListener('deliveriesUpdated', handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const loadData = async (): Promise<void> => {
     try {
@@ -387,7 +430,6 @@ export default function DeliveryTeamPortal() {
 
       const allDeliveries = (deliveriesRes.data?.deliveries || []) as Delivery[];
       const portalDeliveries = excludeTeamPortalGarbageDeliveries(allDeliveries);
-      setDeliveries(portalDeliveries);
 
       // Sync to store so Deliveries tab shows same list as monitoring
       useDeliveryStore.getState().loadDeliveries(portalDeliveries);
@@ -921,6 +963,7 @@ export default function DeliveryTeamPortal() {
           {[
             { id: 'operations', label: 'Operations', icon: Activity },
             { id: 'deliveries', label: 'Deliveries', icon: Package },
+            { id: 'livemaps', label: 'Live Maps', icon: MapPin },
             { id: 'communication', label: 'Communication', icon: MessageSquare },
             { id: 'reports', label: 'Reports & Analytics', icon: BarChart2 },
           ].map(tab => {
@@ -1167,16 +1210,22 @@ export default function DeliveryTeamPortal() {
                   }
                 }
                 if (opsTodayOnly) {
-                  const dExt2 = d as unknown as { createdAt?: string };
-                  const created = dExt2.createdAt ? new Date(dExt2.createdAt) : null;
-                  if (!created || created < todayStart || created > todayEnd) return false;
+                  const s = (d.status || '').toLowerCase();
+                  const isActiveToday = s === 'out-for-delivery' || s === 'order-delay';
+                  if (!isActiveToday) {
+                    const dExt2 = d as unknown as { confirmedDeliveryDate?: string; scheduledDate?: string };
+                    const refRaw = dExt2.confirmedDeliveryDate ?? dExt2.scheduledDate;
+                    const refDate = refRaw ? new Date(refRaw) : null;
+                    if (!refDate || refDate < todayStart || refDate > todayEnd) return false;
+                  }
                 }
                 if (dateFromMs || dateToMs) {
-                  const dExt2 = d as unknown as { createdAt?: string };
-                  const created = dExt2.createdAt ? new Date(dExt2.createdAt).getTime() : null;
-                  if (!created) return false;
-                  if (dateFromMs && created < dateFromMs) return false;
-                  if (dateToMs && created > dateToMs) return false;
+                  const dExt2 = d as unknown as { confirmedDeliveryDate?: string; scheduledDate?: string; createdAt?: string };
+                  const refRaw = dExt2.confirmedDeliveryDate ?? dExt2.scheduledDate ?? dExt2.createdAt;
+                  const refTs = refRaw ? new Date(refRaw).getTime() : null;
+                  if (!refTs) return false;
+                  if (dateFromMs && refTs < dateFromMs) return false;
+                  if (dateToMs && refTs > dateToMs) return false;
                 }
                 if (!q) return true;
                 const meta = ((d as unknown as { metadata?: Record<string, unknown> }).metadata ?? {});
@@ -1401,7 +1450,8 @@ export default function DeliveryTeamPortal() {
                         const workflowOrder = deliveryToManageOrder(delivery);
                         const isOFDWorkflow = workflowOrder.status === 'out_for_delivery';
                         const isDelayWorkflow = workflowOrder.status === 'order_delay';
-                        const isPriority = (meta as Record<string, unknown>).isPriority === true;
+                        const isPriority = (meta as Record<string, unknown>).isPriority === true ||
+                          (delivery as unknown as { isPriority?: boolean }).isPriority === true;
                         const isDispatchable = ['pending', 'scheduled', 'uploaded', 'confirmed', 'scheduled-confirmed'].includes(rawStatus);
                         const hasGMD = !!dExt.goodsMovementDate;
                         // Show "Send SMS" (WhatsApp) until the customer confirms — regardless of
@@ -1439,7 +1489,16 @@ export default function DeliveryTeamPortal() {
                             <td className="px-3 py-2.5 font-mono text-gray-700 dark:text-gray-300 whitespace-nowrap">{displayPoNumber(delivery)}</td>
                             <td className="px-3 py-2.5 font-mono text-gray-600 dark:text-gray-400 whitespace-nowrap">{delNum}</td>
                             <td className="px-3 py-2.5">
-                              <div className="font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">{displayCustomerName(delivery)}</div>
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className={`shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide ${
+                                  getOrderType(delivery) === 'B2C'
+                                    ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300'
+                                    : 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300'
+                                }`}>
+                                  {getOrderType(delivery)}
+                                </span>
+                                <span className="font-medium text-gray-900 dark:text-gray-100 truncate">{displayCustomerName(delivery)}</span>
+                              </div>
                             </td>
                             <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 whitespace-nowrap">{displayPhone(delivery)}</td>
                             <td className="px-3 py-2.5 max-w-[180px]">
@@ -1597,6 +1656,224 @@ export default function DeliveryTeamPortal() {
       {activeTab === 'deliveries' && (
         <DeliveryManagementPage hidePageTitle excludeGarbageUploadRows />
       )}
+
+      {/* Live Maps Tab */}
+      {activeTab === 'livemaps' && (() => {
+        // Filter active deliveries for the live map (same logic as Logistics portal)
+        const LIVE_TERMINAL = new Set(['delivered', 'cancelled', 'failed', 'returned', 'pod-completed',
+          'delivered-with-installation', 'delivered-without-installation', 'finished', 'completed']);
+        const trackingDeliveries = deliveries
+          .filter(d => {
+            if (LIVE_TERMINAL.has((d.status || '').toLowerCase())) return false;
+            if (trackingDriverFilter === 'all') return true;
+            const ext = d as unknown as { tracking?: { driverId?: string } };
+            const liveDriverId = ext.tracking?.driverId;
+            if (liveDriverId && liveDriverId !== trackingDriverFilter) return false;
+            return liveDriverId === trackingDriverFilter || d.assignedDriverId === trackingDriverFilter;
+          })
+          .sort((a, b) => {
+            const am = (a as unknown as { metadata?: Record<string, unknown> }).metadata ?? {};
+            const bm = (b as unknown as { metadata?: Record<string, unknown> }).metadata ?? {};
+            if (am.isPriority && !bm.isPriority) return -1;
+            if (!am.isPriority && bm.isPriority) return 1;
+            const aDate = (a as unknown as { confirmedDeliveryDate?: string }).confirmedDeliveryDate;
+            const bDate = (b as unknown as { confirmedDeliveryDate?: string }).confirmedDeliveryDate;
+            if (aDate && bDate) return new Date(aDate).getTime() - new Date(bDate).getTime();
+            if (aDate) return -1;
+            if (bDate) return 1;
+            return (a.customer || '').localeCompare(b.customer || '');
+          });
+        const highlightedIndex = trackingSelectedId
+          ? trackingDeliveries.findIndex(d => d.id === trackingSelectedId)
+          : null;
+
+        return (
+          <div
+            className="grid gap-3"
+            style={{ height: 'max(560px, calc(100dvh - 240px))', gridTemplateColumns: '1fr 290px', overflow: 'hidden' }}
+          >
+            {/* Map panel */}
+            <div className="flex flex-col min-w-0 min-h-0">
+              <div className="pp-card overflow-hidden flex-1 relative" style={{ minHeight: 0 }}>
+                {routeLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-white/60 dark:bg-gray-900/60 z-10">
+                    <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                  </div>
+                )}
+                <DeliveryMap
+                  deliveries={trackingDeliveries}
+                  route={monitoringRoute}
+                  highlightedIndex={highlightedIndex === -1 ? null : highlightedIndex}
+                  driverLocations={drivers
+                    .filter(dr => trackingDriverFilter === 'all' || dr.id === trackingDriverFilter)
+                    .filter(dr => dr.tracking?.location && Number.isFinite(dr.tracking.location.lat))
+                    .map(dr => ({
+                      id: dr.id,
+                      name: dr.fullName || dr.username,
+                      username: dr.username,
+                      status: isContactOnline(dr) ? 'online' : 'offline',
+                      lat: dr.tracking!.location!.lat,
+                      lng: dr.tracking!.location!.lng,
+                      speed: dr.tracking!.location!.speed ?? undefined,
+                    }))}
+                  driverRoutes={trackingDriverFilter === 'all' ? driverRoutes : driverRoutes.filter(r => r.driverId === trackingDriverFilter)}
+                  mapClassName="w-full h-full"
+                />
+              </div>
+            </div>
+
+            {/* Order list panel */}
+            <div className="flex flex-col gap-2 min-w-0 min-h-0" style={{ width: 290 }}>
+              <div className="pp-card p-3 flex-shrink-0">
+                <div className="flex items-center gap-2 mb-2">
+                  <NavigationIcon className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                  <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">Live Orders</h2>
+                  <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500 flex-shrink-0">{trackingDeliveries.length}</span>
+                  <button type="button" onClick={() => void loadData()}
+                    className="text-xs text-gray-400 hover:text-blue-600 transition-colors flex-shrink-0" title="Refresh">
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <select
+                  value={trackingDriverFilter}
+                  onChange={e => { setTrackingDriverFilter(e.target.value); setTrackingSelectedId(null); }}
+                  className="w-full px-2 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Drivers ({drivers.length})</option>
+                  {drivers.map(dr => {
+                    const onRoute = deliveries.filter(d => {
+                      const ext = d as unknown as { tracking?: { driverId?: string } };
+                      return (ext.tracking?.driverId === dr.id || d.assignedDriverId === dr.id) && (d.status||'').toLowerCase() === 'out-for-delivery';
+                    }).length;
+                    return (
+                      <option key={dr.id} value={dr.id}>
+                        {dr.fullName || dr.username} — {onRoute > 0 ? `${onRoute} on route` : 'idle'}
+                      </option>
+                    );
+                  })}
+                </select>
+                {trackingSelectedId && (
+                  <button type="button" onClick={() => setTrackingSelectedId(null)}
+                    className="mt-1.5 w-full text-[11px] text-blue-600 dark:text-blue-400 hover:underline">
+                    ✕ Clear selection
+                  </button>
+                )}
+              </div>
+
+              <div className="flex-1 overflow-y-auto space-y-1.5" style={{ minHeight: 0 }}>
+                {trackingDeliveries.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-500 text-sm gap-2">
+                    <NavigationIcon className="w-8 h-8 opacity-30" />
+                    <p className="font-medium">No active deliveries</p>
+                    <p className="text-xs text-center">Out-for-delivery orders appear here</p>
+                  </div>
+                ) : trackingDeliveries.map((delivery, idx) => {
+                  const dExt = delivery as unknown as {
+                    tracking?: { driverId?: string };
+                    confirmedDeliveryDate?: string;
+                    etaMinutes?: number;
+                    metadata?: Record<string, unknown>;
+                  };
+                  const meta2 = dExt.metadata ?? {};
+                  const isPrio = meta2.isPriority === true || (delivery as unknown as { isPriority?: boolean }).isPriority === true;
+                  const assignedDriver = drivers.find(dr =>
+                    dr.id === dExt.tracking?.driverId || dr.id === delivery.assignedDriverId
+                  );
+                  const isSelected = delivery.id === trackingSelectedId;
+
+                  const etaMinutes = dExt.etaMinutes ?? null;
+                  const now = new Date();
+                  const realtimeEtaText = etaMinutes != null && etaMinutes > 0
+                    ? (etaMinutes < 60 ? `${etaMinutes}m` : `${Math.floor(etaMinutes / 60)}h ${etaMinutes % 60}m`)
+                    : '—';
+                  const plannedDate = dExt.confirmedDeliveryDate ? new Date(dExt.confirmedDeliveryDate) : null;
+                  const plannedEtaText = plannedDate
+                    ? plannedDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', timeZone: 'Asia/Dubai' })
+                    : '—';
+
+                  type LiveStatus = 'on_time' | 'delayed' | 'overdue' | null;
+                  const liveStatus: LiveStatus = (() => {
+                    if (!plannedDate) return null;
+                    const endOfDay = new Date(plannedDate); endOfDay.setHours(23, 59, 59, 999);
+                    if (now > endOfDay) return 'overdue';
+                    if (etaMinutes != null && etaMinutes >= 0) {
+                      const eta = new Date(now.getTime() + etaMinutes * 60000);
+                      return eta <= endOfDay ? 'on_time' : 'delayed';
+                    }
+                    return null;
+                  })();
+
+                  const cardBg = isSelected
+                    ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-400 dark:border-blue-500'
+                    : isPrio
+                    ? 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700'
+                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600';
+
+                  return (
+                    <div key={delivery.id}
+                      className={`rounded-lg border transition-all overflow-hidden ${cardBg} ${
+                        isSelected ? 'ring-2 ring-blue-400 dark:ring-blue-500 shadow-md' : 'hover:shadow-sm'
+                      }`}
+                    >
+                      <div
+                        role="button" tabIndex={0}
+                        onClick={() => setTrackingSelectedId(isSelected ? null : delivery.id)}
+                        onKeyDown={e => e.key === 'Enter' && setTrackingSelectedId(isSelected ? null : delivery.id)}
+                        className="flex items-start gap-2 p-2.5 cursor-pointer"
+                      >
+                        <span className="text-sm font-bold text-blue-600 dark:text-blue-400 w-6 flex-shrink-0 leading-5">{idx + 1}.</span>
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <div className="flex items-center gap-1 min-w-0">
+                            <span className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate flex-1 min-w-0">
+                              {delivery.customer || 'Unknown'}
+                            </span>
+                            {isPrio && <span className="text-[9px] font-bold uppercase px-1 py-0.5 rounded bg-red-600 text-white flex-shrink-0">P1</span>}
+                          </div>
+                          {delivery.poNumber && (
+                            <p className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">PO: {delivery.poNumber}</p>
+                          )}
+                          {delivery.address && (
+                            <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">📍 {delivery.address}</p>
+                          )}
+                          {assignedDriver && (
+                            <div className="flex items-center gap-1">
+                              <Truck className="w-3 h-3 text-indigo-500 flex-shrink-0" />
+                              <span className="text-[11px] font-medium text-indigo-600 dark:text-indigo-400 truncate">
+                                {assignedDriver.fullName || assignedDriver.username}
+                              </span>
+                            </div>
+                          )}
+                          <div className="grid grid-cols-2 gap-1 pt-0.5">
+                            <div className="flex flex-col">
+                              <span className="text-[9px] text-gray-400 dark:text-gray-500 uppercase tracking-wide leading-none mb-0.5">Planned</span>
+                              <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-200">{plannedEtaText}</span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-[9px] text-gray-400 dark:text-gray-500 uppercase tracking-wide leading-none mb-0.5">Live ETA</span>
+                              <span className={`text-[11px] font-semibold ${realtimeEtaText === '—' ? 'text-gray-400 dark:text-gray-500' : 'text-blue-700 dark:text-blue-300'}`}>
+                                {realtimeEtaText === '—' ? '— no GPS' : realtimeEtaText}
+                              </span>
+                            </div>
+                          </div>
+                          {liveStatus && (
+                            <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                              liveStatus === 'on_time' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                              : liveStatus === 'overdue' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                              : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+                            }`}>
+                              {liveStatus === 'on_time' ? '✓ On Time' : liveStatus === 'overdue' ? '⚠ Overdue' : '⚠ Delayed'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Communication Tab — two-column chat layout */}
       {activeTab === 'communication' && (

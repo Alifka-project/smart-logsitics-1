@@ -70,26 +70,38 @@ export function displayDeliveryNumber(delivery: Delivery): string {
 }
 
 export function displayCustomerName(delivery: Delivery): string {
-  const meta = (delivery.metadata ?? {}) as Record<string, unknown>;
   const orig = getDeliveryOriginalRow(delivery);
+  // Determine B2B/B2C from the source row — same logic as getOrderType
+  const shipToName = str(orig['Ship-to Name'] ?? orig['Ship to Name'] ?? orig['ShipToName'] ?? orig['Ship-To Name']);
+  const individualName = str(orig['Name']);
+
+  // B2B: use ship-to / company name
+  if (shipToName) return shipToName;
+  // B2C: use individual name
+  if (individualName) return individualName;
+
+  // Legacy fallback — data uploaded before originalRow was captured
+  const meta = (delivery.metadata ?? {}) as Record<string, unknown>;
   const rec = delivery as unknown as Record<string, unknown>;
-  const v =
+  return (
     str(delivery.customer) ??
     str(meta.customerName) ??
     str(orig['Customer']) ??
-    str(orig['Name']) ??          // B2C individual name takes priority over Ship-to
-    str(orig['Ship-to Name']) ??  // B2B fallback — company/ship-to party
-    str(rec['customerName']);
-  return v ?? '—';
+    str(rec['customerName']) ??
+    '—'
+  );
 }
 
 /**
- * Determine order type: B2C if the SAP row has an individual 'Name' field,
- * B2B if it only has 'Ship-to Name' (company/party).
- * B2C orders use the customer's personal name; B2B use ship-to party name.
+ * Determine order type: B2B if Ship-to Name variant present (company/party order),
+ * B2C if individual Name field present but no Ship-to Name.
  */
 export function getOrderType(delivery: Delivery): 'B2C' | 'B2B' {
   const orig = getDeliveryOriginalRow(delivery);
+  // If any Ship-to Name variant is present → always B2B (company/party order)
+  const shipToName = orig['Ship-to Name'] ?? orig['Ship to Name'] ?? orig['ShipToName'] ?? orig['Ship-To Name'];
+  if (shipToName && String(shipToName).trim().length > 0) return 'B2B';
+  // No Ship-to Name → B2C if individual Name field present
   const name = orig['Name'];
   return (name && String(name).trim().length > 0) ? 'B2C' : 'B2B';
 }
