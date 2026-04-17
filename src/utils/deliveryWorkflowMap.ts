@@ -44,14 +44,31 @@ export function isTodayDate(date: Date): boolean {
 }
 
 /**
+ * Returns how many calendar days from today the NEXT delivery day is.
+ * UAE rule: Sunday = no deliveries.
+ *   - Today is Saturday → tomorrow is Sunday (no delivery) → next delivery day = Monday (+2)
+ *   - All other days → next delivery day = tomorrow (+1)
+ */
+function nextDeliveryDayOffset(): number {
+  // 0=Sun, 1=Mon, …, 6=Sat in Dubai local time (UTC+4 approx)
+  const dubaiDay = new Date(Date.now() + 4 * 60 * 60 * 1000).getUTCDay();
+  return dubaiDay === 6 ? 2 : 1; // Saturday → skip Sunday → Monday is +2
+}
+
+/**
  * Classify a confirmedDeliveryDate relative to Dubai "today" into a shipment tier.
- * - 'next'   : Exactly tomorrow (diffDays === 1) → Next Shipment
- * - 'future' : Day after tomorrow or later (diffDays >= 2) → Future Schedule
+ * - 'next'   : Falls on the next DELIVERY day (skips Sunday — UAE day off) → Next Shipment
+ * - 'future' : Any later date → Future Schedule
+ *
+ * Examples (UAE):
+ *   Today = Fri  → next delivery day = Sat (+1)  → diff 1 = 'next'
+ *   Today = Sat  → next delivery day = Mon (+2)  → diff 2 = 'next', diff 1 (Sun) = 'future'
+ *   Today = Sun  → next delivery day = Mon (+1)  → diff 1 = 'next'
  */
 export function classifyConfirmedDate(date: Date): 'next' | 'future' {
   const diffDays = calDiffFromTodayDubai(date);
-  if (diffDays === 1) return 'next';  // tomorrow only            → Next Shipment
-  return 'future';                    // 2+ days out              → Future Schedule
+  if (diffDays === nextDeliveryDayOffset()) return 'next'; // Next working delivery day
+  return 'future';                                         // Further out → Future Schedule
 }
 
 function priorityFromDelivery(d: Delivery): 'normal' | 'high' | 'urgent' | undefined {

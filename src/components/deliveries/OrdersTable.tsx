@@ -468,6 +468,12 @@ function ActionDropdown({
 
   return (
     <div className="flex flex-col items-stretch gap-1.5">
+      {/* Rescheduled tag — shown whenever this order was previously rescheduled */}
+      {order.isRescheduled && (
+        <span className="inline-flex w-full items-center justify-center gap-1 px-1.5 py-1 rounded border text-[10px] font-semibold leading-none bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800/40">
+          🔄 Rescheduled
+        </span>
+      )}
       {/* Next-step indicator — always visible, non-clickable */}
       <NextStepBadge status={s} />
 
