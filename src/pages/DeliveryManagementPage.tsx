@@ -21,6 +21,14 @@ import type { Delivery } from '../types';
 import { exportAsXlsx, exportAsCsv } from '../utils/exportDeliveries';
 import type { LucideIcon } from 'lucide-react';
 
+// Terminal statuses that should NOT appear on the Live Maps sub-tab in embedded portals.
+// Mirrors the filter used by the Logistics portal Live Maps tab.
+const PORTAL_MAP_TERMINAL = new Set([
+  'delivered', 'cancelled', 'failed', 'returned', 'pod-completed',
+  'delivered-with-installation', 'delivered-without-installation',
+  'finished', 'completed', 'cancelled-failed',
+]);
+
 // Route result shape returned by advancedRoutingService
 interface AdvancedRouteResult {
   distanceKm: number;
@@ -142,6 +150,20 @@ export default function DeliveryManagementPage({
     if (effectiveExcludeGarbage) list = excludeTeamPortalGarbageDeliveries(list);
     return list;
   }, [deliveries, deliveryListFilter, effectiveExcludeGarbage, onRouteSequenceOnly]);
+
+  // Live Maps sub-tab: in embedded team portals, show ALL non-terminal deliveries from DB
+  // (same logic as Logistics portal Live Maps — not limited to on-route-sequence only).
+  const mapDisplayDeliveries = useMemo((): Delivery[] => {
+    if (!excludeGarbageUploadRows) return displayDeliveries;
+    let list = deliveries.filter(
+      (d) => !PORTAL_MAP_TERMINAL.has((d.status || '').toLowerCase()),
+    );
+    if (effectiveExcludeGarbage) {
+      list = excludeTeamPortalGarbageDeliveries(list as Record<string, unknown>[]) as Delivery[];
+    }
+    return list;
+  }, [deliveries, displayDeliveries, excludeGarbageUploadRows, effectiveExcludeGarbage]);
+
   const [showModal, setShowModal] = useState<boolean>(false);
   const [route, setRoute] = useState<AdvancedRouteResult | null>(null);
   const [isLoadingRoute, setIsLoadingRoute] = useState<boolean>(false);
@@ -227,16 +249,16 @@ export default function DeliveryManagementPage({
   }, []);
 
   // Recalculate route when the visible delivery list changes while on the deliveries tab
-  // (Upload → loadDeliveries updates store → displayDeliveries changes → route recalculates)
+  // (Upload → loadDeliveries updates store → mapDisplayDeliveries changes → route recalculates)
   useEffect(() => {
-    if (activeTab === 'deliveries' && displayDeliveries.length > 0) {
+    if (activeTab === 'deliveries' && mapDisplayDeliveries.length > 0) {
       void loadRoute();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, displayDeliveries, deliveryListFilter]);
+  }, [activeTab, mapDisplayDeliveries, deliveryListFilter]);
 
   const loadRoute = async (): Promise<void> => {
-    if (displayDeliveries.length === 0) return;
+    if (mapDisplayDeliveries.length === 0) return;
 
     setIsLoadingRoute(true);
     setRouteError(null);
@@ -246,11 +268,11 @@ export default function DeliveryManagementPage({
     try {
       const locations = [
         { lat: 25.0053, lng: 55.0760 },
-        ...displayDeliveries.map((d: Delivery) => ({ lat: d.lat, lng: d.lng }))
+        ...mapDisplayDeliveries.map((d: Delivery) => ({ lat: d.lat, lng: d.lng }))
       ];
 
       try {
-        const routeData = (await calculateRoute(locations, displayDeliveries, true)) as unknown as AdvancedRouteResult;
+        const routeData = (await calculateRoute(locations, mapDisplayDeliveries, true)) as unknown as AdvancedRouteResult;
         setRoute(routeData);
         setIsOptimized(routeData.optimized === true);
       } catch (apiError: unknown) {
@@ -267,7 +289,7 @@ export default function DeliveryManagementPage({
       setRouteError('Failed to generate route. Showing delivery locations only.');
       const locations = [
         { lat: 25.0053, lng: 55.0760 },
-        ...displayDeliveries.map((d: Delivery) => ({ lat: d.lat, lng: d.lng }))
+        ...mapDisplayDeliveries.map((d: Delivery) => ({ lat: d.lat, lng: d.lng }))
       ];
       setRoute(generateFallbackRoute(locations) as unknown as AdvancedRouteResult);
     } finally {
@@ -379,7 +401,7 @@ export default function DeliveryManagementPage({
 
   const noDeliveriesForDeliveriesTab =
     effectiveExcludeGarbage && !hideManageTab
-      ? displayDeliveries.length === 0
+      ? mapDisplayDeliveries.length === 0
       : deliveries.length === 0;
 
   return (
@@ -495,9 +517,14 @@ export default function DeliveryManagementPage({
             <div className="pp-dash-card p-8 text-center transition-colors">
               <Database className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
               <p className="text-gray-600 dark:text-gray-400 text-lg mb-4">
-                {hideManageTab ? 'No deliveries assigned yet.' : 'No deliveries loaded'}
+                {hideManageTab
+                  ? 'No deliveries assigned yet.'
+                  : excludeGarbageUploadRows
+                  ? 'No active deliveries to display.'
+                  : 'No deliveries loaded'}
               </p>
-              {!hideManageTab && (
+              {/* Only show Upload button on the standalone /deliveries page, not inside team portals */}
+              {!hideManageTab && !excludeGarbageUploadRows && (
                 <button
                   onClick={() => setActiveTab('manage')}
                   className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -507,6 +534,9 @@ export default function DeliveryManagementPage({
               )}
               {hideManageTab && (
                 <p className="text-sm text-gray-500 dark:text-gray-400">Contact your supervisor to assign deliveries.</p>
+              )}
+              {!hideManageTab && excludeGarbageUploadRows && (
+                <p className="text-sm text-gray-500 dark:text-gray-400">On-route and confirmed deliveries appear here automatically.</p>
               )}
             </div>
           ) : (
@@ -524,13 +554,13 @@ export default function DeliveryManagementPage({
                     <div className="text-center">
                       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
                       <p className="text-gray-600 dark:text-gray-400 text-sm">
-                        Calculating route for {displayDeliveries.length} stops…
+                        Calculating route for {mapDisplayDeliveries.length} stops…
                       </p>
                     </div>
                   </div>
                 ) : (
                   <DeliveryMap
-                    deliveries={displayDeliveries}
+                    deliveries={mapDisplayDeliveries}
                     route={route as unknown as import('../types').RouteResult}
                     highlightedIndex={hoveredDeliveryIndex}
                     mapClassName="h-full"
@@ -596,7 +626,7 @@ export default function DeliveryManagementPage({
                     </div>
                     <div className="grid grid-cols-3 gap-1.5 text-center">
                       <div>
-                        <div className="text-lg font-bold">{displayDeliveries.length}</div>
+                        <div className="text-lg font-bold">{mapDisplayDeliveries.length}</div>
                         <div className="text-[10px] opacity-80">Stops</div>
                       </div>
                       <div>
@@ -604,7 +634,7 @@ export default function DeliveryManagementPage({
                         <div className="text-[10px] opacity-80">km total</div>
                       </div>
                       <div>
-                        <div className="text-lg font-bold">{(route.timeHours + displayDeliveries.length).toFixed(1)}</div>
+                        <div className="text-lg font-bold">{(route.timeHours + mapDisplayDeliveries.length).toFixed(1)}</div>
                         <div className="text-[10px] opacity-80">hrs est.</div>
                       </div>
                     </div>
