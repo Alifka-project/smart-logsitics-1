@@ -57,18 +57,13 @@ export function nextDeliveryDayOffset(): number {
 
 /**
  * Classify a confirmedDeliveryDate relative to Dubai "today" into a shipment tier.
- * - 'next'   : Falls on the next DELIVERY day (skips Sunday — UAE day off) → Next Shipment
- * - 'future' : Any later date → Future Schedule
- *
- * Examples (UAE):
- *   Today = Fri  → next delivery day = Sat (+1)  → diff 1 = 'next'
- *   Today = Sat  → next delivery day = Mon (+2)  → diff 2 = 'next', diff 1 (Sun) = 'future'
- *   Today = Sun  → next delivery day = Mon (+1)  → diff 1 = 'next'
+ * - 'next'   : Exactly tomorrow → Next Shipment
+ * - 'future' : 2+ days out → Future Schedule
  */
 export function classifyConfirmedDate(date: Date): 'next' | 'future' {
   const diffDays = calDiffFromTodayDubai(date);
-  if (diffDays === nextDeliveryDayOffset()) return 'next'; // Next working delivery day
-  return 'future';                                         // Further out → Future Schedule
+  if (diffDays === 1) return 'next'; // Tomorrow only → Next Shipment
+  return 'future';                   // 2+ days out → Future Schedule
 }
 
 function priorityFromDelivery(d: Delivery): 'normal' | 'high' | 'urgent' | undefined {
@@ -310,6 +305,7 @@ export function workflowToApiPatch(
     case 'confirmed':
     case 'next_shipment':
     case 'future_schedule':
+    case 'ready_to_dispatch':
       return { apiStatus: 'scheduled-confirmed', updateData: { metadata: meta as Delivery['metadata'] } };
     case 'scheduled':
       return { apiStatus: 'scheduled-confirmed', updateData: { metadata: meta as Delivery['metadata'] } };

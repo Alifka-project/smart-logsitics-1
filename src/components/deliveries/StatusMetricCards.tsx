@@ -15,7 +15,7 @@ const CARD_DEFS = [
   { key: 'uploaded',         sublabel: 'Awaiting action', darkIconBg: 'dark:bg-blue-500/30' },
   { key: 'sms_sent',         sublabel: 'Awaiting + no reply', darkIconBg: 'dark:bg-emerald-500/30' },
   { key: 'unconfirmed',      sublabel: 'No reply',        darkIconBg: 'dark:bg-red-500/35' },
-  { key: 'next_shipment',    sublabel: 'Next delivery day', darkIconBg: 'dark:bg-amber-500/30' },
+  { key: 'next_shipment',    sublabel: 'Tomorrow',          darkIconBg: 'dark:bg-amber-500/30' },
   { key: 'future_schedule',  sublabel: '2+ days out',     darkIconBg: 'dark:bg-indigo-500/30' },
   { key: 'out_for_delivery', sublabel: 'Dispatched',      darkIconBg: 'dark:bg-orange-500/30' },
   { key: 'order_delay',      sublabel: 'Needs attention', darkIconBg: 'dark:bg-rose-500/35' },

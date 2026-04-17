@@ -192,7 +192,7 @@ export function applyDeliveryListFilter(
           (rec.updated_at as string | null | undefined) ??
           (rec.created_at as string | null | undefined) ??
           (d.createdAt as string | null | undefined);
-        if (!dateStr) return true; // no date info → always show
+        if (!dateStr) return false; // no date info → cannot confirm recency, exclude
         const ts = new Date(String(dateStr)).getTime();
         return !isNaN(ts) && ts >= cutoff;
       });

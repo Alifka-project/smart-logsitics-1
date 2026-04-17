@@ -307,7 +307,7 @@ const PENDING_TERMINAL = new Set<DeliveryStatus>(['delivered', 'cancelled', 'fai
 const DELIVERED_STATUSES = new Set<DeliveryStatus>(['delivered']);
 // Statuses that should display as "Confirmed" in the Status column pill
 // (the Action column already shows the specific sub-status via NextStepBadge)
-const DISPLAY_AS_CONFIRMED = new Set<DeliveryStatus>(['next_shipment', 'future_schedule', 'ready_to_dispatch', 'rescheduled']);
+const DISPLAY_AS_CONFIRMED = new Set<DeliveryStatus>(['next_shipment', 'future_schedule', 'ready_to_dispatch']);
 
 function matchesTableTab(order: DeliveryOrder, tab: OrdersTableTab): boolean {
   switch (tab) {
@@ -315,7 +315,7 @@ function matchesTableTab(order: DeliveryOrder, tab: OrdersTableTab): boolean {
     case 'pending':       return !PENDING_TERMINAL.has(order.status);
     case 'awaiting_customer': return order.status === 'sms_sent' || order.status === 'unconfirmed';
     case 'confirmed':      return CONFIRMED_STATUSES.has(order.status);
-    case 'next_shipment':  return order.status === 'next_shipment';
+    case 'next_shipment':  return order.status === 'next_shipment' || order.status === 'ready_to_dispatch';
     case 'future_schedule': return order.status === 'future_schedule';
     case 'scheduled':      return SCHEDULED_STATUSES.has(order.status);
     case 'out_for_delivery':  return order.status === 'out_for_delivery';
@@ -709,7 +709,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
     { key: 'future_schedule',  label: 'Future Schedule',  count: orders.filter((o) => o.status === 'future_schedule').length },
     { key: 'out_for_delivery', label: 'On Route',         count: orders.filter((o) => o.status === 'out_for_delivery').length },
     { key: 'order_delay',      label: 'Order Delay',      count: orders.filter((o) => o.status === 'order_delay').length },
-    { key: 'rescheduled',      label: 'Rescheduled',      count: orders.filter((o) => o.isRescheduled === true).length },
+    { key: 'rescheduled',      label: 'Rescheduled',      count: orders.filter((o) => o.status === 'rescheduled' || o.isRescheduled === true).length },
     { key: 'delivered',        label: 'Delivered',        count: orders.filter((o) => DELIVERED_STATUSES.has(o.status)).length },
   ];
 

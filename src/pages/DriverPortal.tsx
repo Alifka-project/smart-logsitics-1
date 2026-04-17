@@ -805,6 +805,8 @@ export default function DriverPortal() {
 
   const loadDeliveries = async (): Promise<void> => {
     setLoadingDeliveries(true);
+    // Reset so routing effect recalculates from scratch on every fresh load (prevents stale route on re-login)
+    lastRouteDeliveriesRef.current = '';
     try {
       // Fetch active and finished deliveries in parallel
       const [activeRes, finishedRes] = await Promise.all([

@@ -37,7 +37,7 @@ import DeliveryMap from '../components/MapView/DeliveryMap';
 import { computePerDriverRoutes } from '../services/advancedRoutingService';
 import type { DriverRoute } from '../services/advancedRoutingService';
 import useDeliveryStore from '../store/useDeliveryStore';
-import { deliveryToManageOrder, nextDeliveryDayOffset } from '../utils/deliveryWorkflowMap';
+import { deliveryToManageOrder } from '../utils/deliveryWorkflowMap';
 import { excludeTeamPortalGarbageDeliveries } from '../utils/deliveryListFilter';
 import { getTodayIsoDubai, addCalendarDaysDubai, formatInstantToDubaiIsoDate } from '../utils/dubaiCalendarIso';
 import {
@@ -847,14 +847,13 @@ export default function DeliveryTeamPortal() {
     })),
   [allDashDeliveries]);
 
-  /** Next delivery day (Dubai calendar, skips Sunday) — read-only list for Reports tab */
+  /** Tomorrow's delivery list (Dubai calendar +1 day) — read-only snapshot for Reports tab */
   const reportTomorrowDeliveries = useMemo(() => {
     const DUBAI_OFFSET_MS = 4 * 60 * 60 * 1000;
     const nowDubai = new Date(Date.now() + DUBAI_OFFSET_MS);
-    // Use the same UAE-aware offset: Saturday → +2 (skip Sunday), all other days → +1
-    const nextDayDubai = new Date(nowDubai);
-    nextDayDubai.setUTCDate(nextDayDubai.getUTCDate() + nextDeliveryDayOffset());
-    const tomorrowIso = nextDayDubai.toISOString().slice(0, 10);
+    const tomorrowDubai = new Date(nowDubai);
+    tomorrowDubai.setUTCDate(tomorrowDubai.getUTCDate() + 1);
+    const tomorrowIso = tomorrowDubai.toISOString().slice(0, 10);
 
     const excluded = new Set([
       'delivered', 'delivered-with-installation', 'delivered-without-installation',
@@ -1700,7 +1699,7 @@ export default function DeliveryTeamPortal() {
           }
           if (liveMapFilter === 'confirmed') {
             const s = (d.status || '').toLowerCase();
-            return s === 'confirmed' || s === 'scheduled-confirmed' || s === 'scheduled_confirmed';
+            return s === 'confirmed' || s === 'scheduled-confirmed' || s === 'rescheduled';
           }
           if (liveMapFilter === 'delayed') {
             const raw = dExt2.confirmedDeliveryDate;
@@ -2666,18 +2665,17 @@ export default function DeliveryTeamPortal() {
                 </div>
               </div>
 
-              {/* Next delivery day list — read-only, between charts and driver performance */}
+              {/* Tomorrow's delivery list — read-only, between charts and driver performance */}
               <div className="pp-card p-5">
                 <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-1 flex flex-wrap items-center gap-2">
                   <Truck className="w-5 h-5 text-orange-500 shrink-0" />
-                  Next Delivery Day
+                  Tomorrow's Deliveries
                   <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-xs font-normal text-gray-600 dark:text-gray-400">
                     {reportTomorrowDeliveries.tomorrowIso}
                   </span>
-                  <span className="text-[10px] font-normal text-gray-400 dark:text-gray-500">(Sunday = no deliveries in UAE)</span>
                 </h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-                  Orders confirmed for the next working delivery day in Dubai time. Read-only snapshot ({reportTomorrowDeliveries.rows.length} order{reportTomorrowDeliveries.rows.length === 1 ? '' : 's'}).
+                  Orders confirmed for tomorrow in Dubai time. Read-only snapshot ({reportTomorrowDeliveries.rows.length} order{reportTomorrowDeliveries.rows.length === 1 ? '' : 's'}).
                 </p>
                 {reportTomorrowDeliveries.rows.length === 0 ? (
                   <p className="text-sm text-gray-400 dark:text-gray-500 py-6 text-center">No deliveries scheduled for this date.</p>
