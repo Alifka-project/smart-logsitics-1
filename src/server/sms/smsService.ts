@@ -8,8 +8,7 @@ import crypto from 'crypto';
 import prisma from '../db/prisma';
 import { normalizeUAEPhone } from '../utils/phoneUtils';
 import { SmsSendOptions, SmsSendResult } from './adapter';
-// WhatsApp imports — kept for easy re-enable; inactive while SMS (D7) is the active channel
-// import { sendWhatsAppDeliveryConfirmation, isWhatsAppConfigured } from './whatsappApiAdapter';
+import { sendWhatsApp, isWhatsAppConfigured } from './whatsappApiAdapter';
 import { buildWhatsAppLink } from './waLink';
 import {
   confirmationRequestMessage,
@@ -432,9 +431,10 @@ async function sendRescheduleSms(
       trackingLink
     );
 
-    // ── Reschedule SMS via D7, fallback to WhatsApp deep-link ───────────────
+    // ── Reschedule: D7 SMS → WhatsApp API → deep-link ───────────────────────
     let whatsappUrl: string | undefined;
     let smsResult: SmsSendResult;
+    let rescheduleProvider = process.env.SMS_PROVIDER || 'd7';
     try {
       smsResult = await smsAdapter!.sendSms({
         to: normalizedPhone, body: smsMessage,
@@ -442,9 +442,26 @@ async function sendRescheduleSms(
       });
       console.log(`[SMS] Reschedule SMS sent to ${normalizedPhone}, id: ${smsResult.messageId}`);
     } catch (d7Err: unknown) {
-      console.warn(`[SMS] D7 reschedule SMS failed, falling back to WhatsApp link:`, (d7Err as Error).message);
-      whatsappUrl = buildWhatsAppLink(normalizedPhone, smsMessage);
-      smsResult = { messageId: `wa-link-${Date.now()}`, status: 'whatsapp_link_generated' };
+      console.warn(`[SMS] D7 reschedule SMS failed, trying WhatsApp API:`, (d7Err as Error).message);
+      let waSent = false;
+      if (isWhatsAppConfigured()) {
+        try {
+          const waRes = await sendWhatsApp(normalizedPhone, smsMessage);
+          if (waRes.ok) {
+            rescheduleProvider = 'whatsapp-api';
+            smsResult = { messageId: (waRes as Record<string, unknown>).messageId as string || `wa-${Date.now()}`, status: 'sent' };
+            waSent = true;
+            console.log(`[SMS] Reschedule WhatsApp sent to ${normalizedPhone}`);
+          }
+        } catch (waErr: unknown) {
+          console.warn(`[SMS] WhatsApp API also failed:`, (waErr as Error).message);
+        }
+      }
+      if (!waSent) {
+        rescheduleProvider = 'whatsapp-link';
+        whatsappUrl = buildWhatsAppLink(normalizedPhone, smsMessage);
+        smsResult = { messageId: `wa-link-${Date.now()}`, status: 'whatsapp_link_generated' };
+      }
     }
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -453,7 +470,7 @@ async function sendRescheduleSms(
         deliveryId,
         phoneNumber: normalizedPhone,
         messageContent: smsMessage,
-        smsProvider: process.env.SMS_PROVIDER || 'd7',
+        smsProvider: rescheduleProvider,
         externalMessageId: smsResult.messageId,
         status: smsResult.status || 'sent',
         sentAt: new Date(),
@@ -507,7 +524,7 @@ async function getCustomerTracking(token: string): Promise<CustomerTrackingResul
 
     // Get assignment info
     const assignment = await (prisma as any).deliveryAssignment.findFirst({
-      where: { deliveryId: delivery.id as string, status: { in: ['assigned', 'in_progress'] } },
+      where: { deliveryId: delivery.id as string },  // remove status filter
       include: {
         driver: {
           select: {
@@ -516,7 +533,8 @@ async function getCustomerTracking(token: string): Promise<CustomerTrackingResul
             phone: true
           }
         }
-      }
+      },
+      orderBy: { assignedAt: 'desc' }
     }) as Record<string, unknown> | null;
 
     // Get latest location if driver is assigned

@@ -656,31 +656,52 @@ export default function CustomerTrackingPage() {
                   <p style={{ fontWeight: 700, fontSize: 12, color: '#1e293b', lineHeight: 1.25 }}>{trackingInfo.driver.name}</p>
                 </div>
               </div>
-              {trackingInfo.driver.phone && (
-                <div className="driver-actions">
-                  <a href={`tel:${trackingInfo.driver.phone}`} className="btn-driver-action btn-driver-action--primary">
-                    <Phone style={{ width: 13, height: 13 }} />
-                    Call
+              <div className="driver-actions">
+                <a href={`tel:${trackingInfo.driver.phone || '+971524408687'}`} className="btn-driver-action btn-driver-action--primary">
+                  <Phone style={{ width: 13, height: 13 }} />
+                  Call Driver
+                </a>
+                {whatsAppLinkForPhone(trackingInfo.driver.phone || '+971524408687') && (
+                  <a
+                    href={whatsAppLinkForPhone(trackingInfo.driver.phone || '+971524408687')!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-driver-action"
+                  >
+                    <MessageSquare style={{ width: 13, height: 13, color: '#25D366' }} />
+                    WhatsApp
                   </a>
-                  {whatsAppLinkForPhone(trackingInfo.driver.phone) && (
-                    <a
-                      href={whatsAppLinkForPhone(trackingInfo.driver.phone)!}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn-driver-action"
-                    >
-                      <MessageSquare style={{ width: 13, height: 13, color: '#25D366' }} />
-                      WhatsApp
-                    </a>
-                  )}
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="card anim-card anim-card-3" style={{ padding: '10px 12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Phone style={{ width: 13, height: 13, color: '#64748b' }} />
                 </div>
-              )}
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <p style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Support</p>
+                  <p style={{ fontWeight: 700, fontSize: 12, color: '#1e293b', lineHeight: 1.25 }}>Electrolux Delivery</p>
+                </div>
+              </div>
+              <div className="driver-actions">
+                <a href="tel:+971524408687" className="btn-driver-action btn-driver-action--primary">
+                  <Phone style={{ width: 13, height: 13 }} />
+                  Call Us
+                </a>
+                <a
+                  href="https://wa.me/971524408687"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-driver-action"
+                >
+                  <MessageSquare style={{ width: 13, height: 13, color: '#25D366' }} />
+                  WhatsApp
+                </a>
+              </div>
             </div>
-          ) : delivery.confirmedDeliveryDate ? (
-            <div className="card anim-card anim-card-3" style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <p style={{ fontSize: 11, color: '#94a3b8', textAlign: 'center' }}>Driver not yet assigned</p>
-            </div>
-          ) : null}
+          )}
         </div>
 
         {/* ── Map ─────────────────────────────────────────────────── */}

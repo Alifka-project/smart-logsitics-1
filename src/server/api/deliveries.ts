@@ -353,6 +353,68 @@ router.put('/driver/:id/status', authenticate, requireRole('driver'), async (req
       res.status(code).json({ error: result.error || 'update_failed' });
       return;
     }
+
+    // Fire-and-forget: notify customer for key driver-triggered status changes
+    const lowerStatus = (body.status || '').toLowerCase();
+    const updatedDelivery = result.delivery as Record<string, unknown>;
+    const previousDelivery = result.previousDelivery as Record<string, unknown> | undefined;
+    const phone = (updatedDelivery.phone || previousDelivery?.phone) as string | undefined;
+    if (phone) {
+      (async () => {
+        try {
+          const normalizedPhone = normalizeUAEPhone(phone) || phone;
+          const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
+          const token = (updatedDelivery.confirmationToken || previousDelivery?.confirmationToken) as string | undefined;
+          const trackingLink = token ? `${frontendUrl}/customer-tracking/${token}` : null;
+          const customerName = (updatedDelivery.customer || previousDelivery?.customer || 'Valued Customer') as string;
+          const poNum = (updatedDelivery.poNumber || previousDelivery?.poNumber) as string | undefined;
+          const poRef = poNum ? `#${poNum}` : '';
+
+          // Shared send helper: D7 SMS → WhatsApp API → deep-link
+          const trySend = async (msgBody: string, msgType: string): Promise<void> => {
+            let provider = 'd7';
+            let status = 'sent';
+            try {
+              if (smsAdapter) {
+                await smsAdapter.sendSms({ to: normalizedPhone, body: msgBody, metadata: { deliveryId: deliveryIdParam, type: msgType } });
+                console.log(`[Driver SMS] ${msgType} sent to ${normalizedPhone}`);
+              } else throw new Error('no smsAdapter');
+            } catch {
+              if (isWhatsAppConfigured()) {
+                try {
+                  provider = 'whatsapp-api';
+                  const waRes = await sendWhatsApp(normalizedPhone, msgBody);
+                  status = waRes.ok ? 'sent' : 'failed';
+                  console.log(`[Driver WhatsApp] ${msgType} to ${normalizedPhone}:`, waRes.ok ? 'ok' : waRes.error);
+                } catch {
+                  provider = 'whatsapp-link';
+                  status = 'whatsapp_link_generated';
+                }
+              } else {
+                provider = 'whatsapp-link';
+                status = 'whatsapp_link_generated';
+              }
+            }
+            await prisma.smsLog.create({ data: { deliveryId: deliveryIdParam, phoneNumber: normalizedPhone, messageContent: msgBody, smsProvider: provider, status, sentAt: new Date(), metadata: { type: msgType } } });
+          };
+
+          // Out for delivery — driver marked order as dispatched
+          if (lowerStatus === 'out-for-delivery') {
+            await trySend(outForDeliveryMessage(customerName, poRef, trackingLink), 'status_out_for_delivery');
+          }
+
+          // Delivery completed — driver submitted POD
+          const completionStatuses = ['completed', 'delivered', 'delivered-with-installation', 'delivered-without-installation', 'pod-completed', 'finished'];
+          const prevStatus = String(previousDelivery?.status || '').toLowerCase();
+          if (completionStatuses.includes(lowerStatus) && !completionStatuses.includes(prevStatus)) {
+            await trySend(deliveryCompletedMessage(customerName, poRef), 'status_order_finished');
+          }
+        } catch (notifyErr: unknown) {
+          console.warn('[Deliveries] Driver status SMS notify failed:', (notifyErr as Error).message);
+        }
+      })();
+    }
+
     res.json({ ok: true, delivery: result.delivery });
   } catch (err: unknown) {
     const e = err as { message?: string };
@@ -455,14 +517,14 @@ router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_
         const poNum = (updatedDelivery.poNumber || existingDelivery.poNumber) as string | undefined;
         const poRef = poNum ? `#${poNum}` : '';
 
-        // ── Helper: send via D7 SMS; fall back to WhatsApp API, then deep-link ──
+        // ── Helper: send via D7 SMS → WhatsApp API → deep-link (always delivers) ──
         const silentSend = async (msgBody: string, msgType: string): Promise<string | undefined> => {
           let waUrl: string | undefined;
           let sendStatus = 'sent';
           let smsProvider = 'd7';
 
           try {
-            // Primary: D7 Networks SMS (always attempt first)
+            // Primary: D7 Networks SMS
             if (smsAdapter) {
               const result = await smsAdapter.sendSms({
                 to: normalizedPhone,
@@ -471,23 +533,33 @@ router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_
               });
               sendStatus = result?.messageId ? 'sent' : 'failed';
               console.log(`[D7 SMS] ${msgType} sent to ${normalizedPhone}: ${sendStatus}`);
-            } else if (isWhatsAppConfigured()) {
-              // Fallback: WhatsApp API
-              smsProvider = 'whatsapp-api';
-              const res = await sendWhatsApp(normalizedPhone, msgBody);
-              sendStatus = res.ok ? 'sent' : 'failed';
-              console.log(`[WhatsApp] ${msgType} fallback send to ${normalizedPhone}:`, res.ok ? 'ok' : res.error);
             } else {
-              // Last resort: deep-link only
+              throw new Error('smsAdapter not configured — trying WhatsApp');
+            }
+          } catch (smsErr: unknown) {
+            const se = smsErr as { message?: string };
+            console.warn(`[SMS] D7 SMS failed for ${msgType} (${se.message}) — trying WhatsApp API`);
+            // Fallback 1: WhatsApp API via D7
+            if (isWhatsAppConfigured()) {
+              try {
+                smsProvider = 'whatsapp-api';
+                const waRes = await sendWhatsApp(normalizedPhone, msgBody);
+                sendStatus = waRes.ok ? 'sent' : 'failed';
+                console.log(`[WhatsApp] ${msgType} to ${normalizedPhone}:`, waRes.ok ? 'ok' : waRes.error);
+              } catch (waErr: unknown) {
+                const we = waErr as { message?: string };
+                console.warn(`[WhatsApp] ${msgType} also failed (${we.message}) — deep-link fallback`);
+                smsProvider = 'whatsapp-link';
+                sendStatus = 'whatsapp_link_generated';
+                waUrl = buildWhatsAppLink(normalizedPhone, msgBody);
+              }
+            } else {
+              // Last resort: wa.me deep-link
               smsProvider = 'whatsapp-link';
               sendStatus = 'whatsapp_link_generated';
               waUrl = buildWhatsAppLink(normalizedPhone, msgBody);
-              console.log(`[SMS] No D7/WhatsApp credentials — deep-link fallback for ${msgType}`);
+              console.log(`[SMS] No WhatsApp credentials — deep-link fallback for ${msgType}`);
             }
-          } catch (sendErr: unknown) {
-            const se = sendErr as { message?: string };
-            sendStatus = 'failed';
-            console.error(`[SMS] ${msgType} send failed:`, se.message);
           }
 
           await prisma.smsLog.create({
@@ -501,7 +573,7 @@ router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_
               metadata: { type: msgType, ...(waUrl ? { whatsappUrl: waUrl } : {}) }
             }
           });
-          return waUrl;  // only set for deep-link fallback
+          return waUrl;
         };
 
         // Out for delivery

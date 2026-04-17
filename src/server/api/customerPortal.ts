@@ -213,24 +213,39 @@ router.get('/tracking/:token', async (req: Request, res: Response): Promise<void
     // Compute live ETA from driver's current GPS location to delivery address
     const deliveryRaw = tracking.delivery as Record<string, unknown>;
     let liveEta: string | null = null;
-    const isOnRoute = ['out-for-delivery', 'out_for_delivery'].includes(tracking.delivery.status);
+    // Show ETA for any active on-route or confirmed+assigned status
+    const isOnRoute = ['out-for-delivery', 'out_for_delivery', 'in-transit'].includes(tracking.delivery.status);
     if (
       isOnRoute &&
       tracking.tracking.driverLocation &&
       typeof deliveryRaw.lat === 'number' &&
       typeof deliveryRaw.lng === 'number'
     ) {
+      const dLoc = tracking.tracking.driverLocation;
+      const toLat = deliveryRaw.lat as number;
+      const toLng = deliveryRaw.lng as number;
       try {
-        const dLoc = tracking.tracking.driverLocation;
         const route = await fetchDrivingRouteBetweenPoints(
           { lat: dLoc.latitude, lng: dLoc.longitude },
-          { lat: deliveryRaw.lat as number, lng: deliveryRaw.lng as number },
+          { lat: toLat, lng: toLng },
         );
         if (route?.durationS) {
           liveEta = new Date(Date.now() + route.durationS * 1000).toISOString();
         }
       } catch {
-        // fall back to static eta
+        // OSRM unavailable — fall through to straight-line estimate
+      }
+      // If OSRM failed or returned nothing, estimate via straight-line distance at 40 km/h
+      if (!liveEta) {
+        const R = 6371;
+        const dLatR = (toLat - dLoc.latitude) * Math.PI / 180;
+        const dLonR = (toLng - dLoc.longitude) * Math.PI / 180;
+        const a = Math.sin(dLatR / 2) ** 2
+          + Math.cos(dLoc.latitude * Math.PI / 180) * Math.cos(toLat * Math.PI / 180) * Math.sin(dLonR / 2) ** 2;
+        const distKm = 2 * R * Math.asin(Math.sqrt(a));
+        // 40 km/h city average, 1.3 road-factor multiplier, minimum 5 minutes
+        const drivingSec = Math.max(300, (distKm * 1.3 / 40) * 3600);
+        liveEta = new Date(Date.now() + drivingSec * 1000).toISOString();
       }
     }
 
