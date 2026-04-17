@@ -209,7 +209,7 @@ function ActionDropdown({
   onMarkOutForDelivery: _onMarkOutForDelivery,
   onTrackDelivery: _onTrackDelivery,
   onEditOrder,
-  onReschedule: _onReschedule,
+  onReschedule,
 }: ActionDropdownProps) {
   const s = order.status;
   const isTerminal = s === 'delivered' || s === 'cancelled' || s === 'failed';
@@ -235,7 +235,19 @@ function ActionDropdown({
       {/* Next-step indicator — always visible, non-clickable */}
       <NextStepBadge status={s} />
 
-      {/* Single Update Status button for all non-terminal orders */}
+      {/* Reschedule button — only for order_delay rows */}
+      {s === 'order_delay' && (
+        <button
+          type="button"
+          onClick={() => onReschedule(order)}
+          className="w-full flex items-center justify-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold rounded border border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-500 hover:text-white dark:border-amber-500/60 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-600 dark:hover:text-white transition-colors whitespace-nowrap"
+          title="Reschedule this delivery and notify customer"
+        >
+          📅 Reschedule
+        </button>
+      )}
+
+      {/* Update Status button for all non-terminal orders */}
       <button
         type="button"
         onClick={() => onEditOrder(order.id)}

@@ -1233,12 +1233,38 @@ export default function LogisticsTeamPortal() {
               label: 'Live Maps',
               icon: MapPin,
               content: (() => {
-            // Filter by driver when selected; show all deliveries (not just OFD)
-            const trackingDeliveries = deliveries.filter(d => {
-              if (trackingDriverFilter === 'all') return true;
-              const ext = d as unknown as { tracking?: { driverId?: string } };
-              return ext.tracking?.driverId === trackingDriverFilter || d.assignedDriverId === trackingDriverFilter;
-            });
+            // Filter deliveries for the live-maps panel.
+            // When a specific driver is selected:
+            //   - If a delivery's LIVE tracking says it belongs to ANOTHER driver, exclude it
+            //     (prevents "mixed stops" where reassigned orders appear under the wrong driver).
+            //   - Otherwise include if tracking.driverId OR assignedDriverId matches.
+            // Only include non-terminal (active) orders so completed orders don't inflate stop count.
+            const LIVE_TERMINAL = new Set(['delivered', 'cancelled', 'failed', 'returned', 'pod-completed',
+              'delivered-with-installation', 'delivered-without-installation', 'finished', 'completed']);
+            const trackingDeliveries = deliveries
+              .filter(d => {
+                // Always exclude terminal orders from the live map
+                if (LIVE_TERMINAL.has((d.status || '').toLowerCase())) return false;
+                if (trackingDriverFilter === 'all') return true;
+                const ext = d as unknown as { tracking?: { driverId?: string } };
+                const liveDriverId = ext.tracking?.driverId;
+                // If tracking data points to a DIFFERENT driver, exclude (no mixed stops)
+                if (liveDriverId && liveDriverId !== trackingDriverFilter) return false;
+                return liveDriverId === trackingDriverFilter || d.assignedDriverId === trackingDriverFilter;
+              })
+              // Sort: priority first → by confirmed delivery date → by customer name
+              .sort((a, b) => {
+                const am = (a as unknown as { metadata?: Record<string, unknown> }).metadata ?? {};
+                const bm = (b as unknown as { metadata?: Record<string, unknown> }).metadata ?? {};
+                if (am.isPriority && !bm.isPriority) return -1;
+                if (!am.isPriority && bm.isPriority) return 1;
+                const aDate = (a as unknown as { confirmedDeliveryDate?: string }).confirmedDeliveryDate;
+                const bDate = (b as unknown as { confirmedDeliveryDate?: string }).confirmedDeliveryDate;
+                if (aDate && bDate) return new Date(aDate).getTime() - new Date(bDate).getTime();
+                if (aDate) return -1;
+                if (bDate) return 1;
+                return (a.customer || '').localeCompare(b.customer || '');
+              });
             const highlightedIndex = trackingSelectedId
               ? trackingDeliveries.findIndex(d => d.id === trackingSelectedId)
               : null;
@@ -1354,28 +1380,45 @@ export default function LogisticsTeamPortal() {
                       );
                       const isSelected = delivery.id === trackingSelectedId;
 
-                      // ETA: etaMinutes from routing, or time remaining to delivery date
+                      // ── ETA: planned delivery date vs live routing ETA ────────
                       const etaMinutes = dExt.etaMinutes ?? null;
-                      const etaText = (() => {
+                      const now = new Date();
+
+                      // Realtime ETA text (from OSRM routing via driver GPS)
+                      const realtimeEtaText = (() => {
                         if (etaMinutes != null && etaMinutes > 0) {
                           return etaMinutes < 60
                             ? `${etaMinutes}m`
                             : `${Math.floor(etaMinutes / 60)}h ${etaMinutes % 60}m`;
                         }
-                        if (dExt.confirmedDeliveryDate) {
-                          const ms = new Date(dExt.confirmedDeliveryDate).getTime() - Date.now();
-                          if (ms > 0 && ms < 24 * 3600000) {
-                            const h = Math.floor(ms / 3600000);
-                            const m = Math.floor((ms % 3600000) / 60000);
-                            return h > 0 ? `${h}h ${m}m` : `${m}m`;
-                          }
-                        }
                         return '—';
                       })();
 
-                      const delDateShort = dExt.confirmedDeliveryDate
-                        ? new Date(dExt.confirmedDeliveryDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+                      // Planned ETA = confirmed delivery date (formatted)
+                      const plannedDate = dExt.confirmedDeliveryDate
+                        ? new Date(dExt.confirmedDeliveryDate)
                         : null;
+                      const plannedEtaText = plannedDate
+                        ? plannedDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', timeZone: 'Asia/Dubai' })
+                        : '—';
+
+                      // On-time / delayed / overdue indicator
+                      type LiveStatus = 'on_time' | 'delayed' | 'overdue' | null;
+                      const liveStatus: LiveStatus = (() => {
+                        if (!plannedDate) return null;
+                        const endOfPlannedDay = new Date(plannedDate);
+                        endOfPlannedDay.setHours(23, 59, 59, 999);
+                        // If planned date already passed with no delivery → overdue
+                        if (now > endOfPlannedDay) return 'overdue';
+                        // If we have live ETA, compare arrival time to end of planned day
+                        if (etaMinutes != null && etaMinutes >= 0) {
+                          const eta = new Date(now.getTime() + etaMinutes * 60000);
+                          return eta <= endOfPlannedDay ? 'on_time' : 'delayed';
+                        }
+                        return null;
+                      })();
+
+                      const delDateShort = plannedEtaText; // alias for existing references below
 
                       // Selection highlight takes priority over priority colour so
                       // the blue ring is always visible regardless of order type.
@@ -1424,6 +1467,13 @@ export default function LogisticsTeamPortal() {
                                 )}
                               </div>
 
+                              {/* PO number */}
+                              {delivery.poNumber && (
+                                <p className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">
+                                  PO: {delivery.poNumber}
+                                </p>
+                              )}
+
                               {/* Address — 1 line truncate */}
                               {delivery.address && (
                                 <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
@@ -1441,17 +1491,34 @@ export default function LogisticsTeamPortal() {
                                 </div>
                               )}
 
-                              {/* ETA + date row */}
-                              <div className="flex items-center gap-2">
-                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 flex-shrink-0">
-                                  <Clock className="w-2.5 h-2.5" /> {etaText}
-                                </span>
-                                {delDateShort && (
-                                  <span className="text-[10px] text-gray-400 dark:text-gray-500 truncate">
-                                    {delDateShort}
+                              {/* ── ETA section: Planned + Realtime ── */}
+                              <div className="grid grid-cols-2 gap-1 pt-0.5">
+                                <div className="flex flex-col">
+                                  <span className="text-[9px] text-gray-400 dark:text-gray-500 uppercase tracking-wide leading-none mb-0.5">Planned</span>
+                                  <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-200">{delDateShort}</span>
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className="text-[9px] text-gray-400 dark:text-gray-500 uppercase tracking-wide leading-none mb-0.5">Live ETA</span>
+                                  <span className={`text-[11px] font-semibold ${realtimeEtaText === '—' ? 'text-gray-400 dark:text-gray-500' : 'text-blue-700 dark:text-blue-300'}`}>
+                                    {realtimeEtaText === '—' ? '— no GPS' : realtimeEtaText}
                                   </span>
-                                )}
+                                </div>
                               </div>
+
+                              {/* On-time / Delayed / Overdue badge */}
+                              {liveStatus && (
+                                <div>
+                                  <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                                    liveStatus === 'on_time'
+                                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                                      : liveStatus === 'overdue'
+                                      ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                                      : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+                                  }`}>
+                                    {liveStatus === 'on_time' ? '✓ On Time' : liveStatus === 'overdue' ? '⚠ Overdue' : '⚠ Delayed'}
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           </div>
 

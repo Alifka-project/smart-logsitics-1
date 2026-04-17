@@ -240,14 +240,14 @@ export default function ManageTab({
           newDeliveryDate: dubaiIsoDate,
           reason,
         });
-        updateDeliveryStatus(orderId, 'scheduled-confirmed');
+        updateDeliveryStatus(orderId, 'rescheduled');
         const rescheduleData = response.data as { whatsappUrl?: string };
         if (rescheduleData?.whatsappUrl) {
           window.open(rescheduleData.whatsappUrl, '_blank', 'noopener,noreferrer');
         }
-        onNotifySuccess('Delivery rescheduled', 'Customer has been notified.');
+        onNotifySuccess('Delivery rescheduled', 'Customer has been notified via SMS/WhatsApp.');
         window.dispatchEvent(new CustomEvent('deliveryStatusUpdated', {
-          detail: { deliveryId: orderId, status: 'scheduled-confirmed', updatedAt: new Date() },
+          detail: { deliveryId: orderId, status: 'rescheduled', updatedAt: new Date() },
         }));
       } catch (e: unknown) {
         const err = e as { response?: { data?: { error?: string } }; message?: string };
