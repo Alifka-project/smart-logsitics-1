@@ -30,8 +30,15 @@ interface ManageTabProps {
   onTogglePriority?: (orderId: string, newIsPriority: boolean) => void;
   /** Logistics-only: driver capacity hint provider */
   getDriverCapacity?: (orderId: string, driverId: string) => { used: number; max: number; remaining: number; full: boolean } | null;
-  /** Logistics-only: enable Today + date range filters */
+  /** Logistics-only: enable Today + date range filters in the orders table */
   enableDispatchFilters?: boolean;
+  /**
+   * Controls which sidebar cards are shown.
+   * true  → Logistics view: Needs Attention + Awaiting Customer + Truck Capacity + Policy Guide
+   * false → Delivery Team view: Today's Summary + How to Use
+   * Defaults to the value of enableDispatchFilters for backward compatibility.
+   */
+  showActionCards?: boolean;
   /** Logistics-only: pre-loaded driver list from parent (skips local API fetch) */
   driverList?: { id: string; fullName?: string | null; username: string }[];
   /** Logistics-only: per-date per-driver capacity for the sidebar Truck Capacity card */
@@ -55,6 +62,7 @@ export default function ManageTab({
   onTogglePriority,
   getDriverCapacity,
   enableDispatchFilters = false,
+  showActionCards,
   driverList,
   driverCapacityByDate,
   onlineDriverIds,
@@ -393,7 +401,7 @@ export default function ManageTab({
             isUploading={isUploading}
             hideUpload={hideUpload}
             onTabClick={handleTableTabChange}
-            showActionCards={enableDispatchFilters}
+            showActionCards={showActionCards ?? enableDispatchFilters}
             driverCapacityByDate={driverCapacityByDate}
             onlineDriverIds={onlineDriverIds}
           />

@@ -87,8 +87,14 @@ interface DeliveryManagementPageProps {
   onTogglePriority?: (orderId: string, newIsPriority: boolean) => void;
   /** Logistics-only: driver capacity hint provider */
   getDriverCapacity?: (orderId: string, driverId: string) => { used: number; max: number; remaining: number; full: boolean } | null;
-  /** Logistics-only: enable Today + date range filters */
+  /** Logistics-only: enable Today + date range filters in the orders table */
   enableDispatchFilters?: boolean;
+  /**
+   * Controls sidebar cards. true = Logistics view (Needs Attention etc.).
+   * false = Delivery Team view (Today's Summary + How to Use).
+   * Defaults to enableDispatchFilters when omitted.
+   */
+  showActionCards?: boolean;
   /** Logistics-only: pre-loaded driver list (avoids a second API call inside ManageTab) */
   driverList?: { id: string; fullName?: string | null; username: string }[];
   /** Logistics-only: per-date per-driver capacity for the sidebar Truck Capacity card */
@@ -109,6 +115,7 @@ export default function DeliveryManagementPage({
   onTogglePriority,
   getDriverCapacity,
   enableDispatchFilters = false,
+  showActionCards,
   driverList,
   driverCapacityByDate,
   onlineDriverIds,
@@ -500,6 +507,7 @@ export default function DeliveryManagementPage({
           onTogglePriority={onTogglePriority}
           getDriverCapacity={getDriverCapacity}
           enableDispatchFilters={enableDispatchFilters}
+          showActionCards={showActionCards}
           driverList={driverList}
           driverCapacityByDate={driverCapacityByDate}
           onlineDriverIds={onlineDriverIds}

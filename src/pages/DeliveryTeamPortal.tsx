@@ -1936,6 +1936,7 @@ export default function DeliveryTeamPortal() {
             hidePageTitle
             excludeGarbageUploadRows
             enableDispatchFilters
+            showActionCards={false}
             hideDeliveriesTab
             extraTabs={[{ id: 'live-maps', label: 'Live Maps', icon: MapPin, content: liveMapsContent }]}
           />
