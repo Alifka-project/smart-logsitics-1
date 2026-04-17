@@ -421,10 +421,10 @@ export default function DeliveryManagementPage({
         </div>
       )}
 
-      {/* Tab Navigation - hidden when only Deliveries (Driver Portal) */}
+      {/* Tab Navigation - hidden when only Deliveries (Driver Portal) or only one tab */}
       {/* Inside team portals we omit the page title; keep this rail non-sticky so it does not
           stack over Manage tab content (portal already has a sticky tab bar). */}
-      {!hideManageTab && (
+      {!hideManageTab && tabs.length > 1 && (
       <div
         className={
           hidePageTitle
