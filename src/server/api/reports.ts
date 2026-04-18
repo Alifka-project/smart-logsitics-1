@@ -528,7 +528,15 @@ router.get('/pod', authenticate, requireAnyRole('admin', 'delivery_team'), async
     const deliveries = await prisma.delivery.findMany({
       where: {
         status: {
-          in: ['delivered', 'completed', 'done', 'delivered-with-installation', 'delivered-without-installation']
+          in: [
+            'delivered',
+            'delivered-with-installation',
+            'delivered-without-installation',
+            'completed',
+            'done',
+            'pod-completed',
+            'finished',
+          ]
         },
         ...(parsedStartDate || parsedEndDate ? {
           OR: [
