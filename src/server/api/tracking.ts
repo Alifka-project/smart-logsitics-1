@@ -61,15 +61,14 @@ router.get('/deliveries', authenticate, requireAnyRole('admin', 'delivery_team',
               { status: { notIn: [...ALWAYS_EXCLUDED, ...DELIVERED_STATUSES] } },
               // Recently delivered (last 24 h) — powers the "Delivered Today" dashboard card
               { status: { in: DELIVERED_STATUSES }, updatedAt: { gte: cutoff24h } },
-              // Delivered WITHOUT any POD (signature or photos) within last 30 days →
-              // must stay visible so logistics staff can chase up the missing proof.
-              // Once any POD evidence is uploaded (signature or photos), the order
-              // drops out of this clause and disappears after the normal 24 h window.
+              // Delivered WITHOUT any signature within last 30 days → must stay visible
+              // until a Proof of Delivery is uploaded.
+              // Note: photo-only POD (admin upload) sets updatedAt, so those orders
+              // are covered by the 24 h clause above and naturally drop off after 24 h.
               {
                 status: { in: DELIVERED_STATUSES },
                 driverSignature: null,
                 customerSignature: null,
-                photos: null,
                 updatedAt: { gte: cutoff30d },
               },
             ],
