@@ -663,13 +663,16 @@ export default function DriverPortal() {
       return;
     }
 
-    // Priority deliveries bubble to the front before distance-based ordering
+    // Priority deliveries bubble to the front before distance-based ordering.
+    // Score: 0 = P1/isPriority (urgent), 1 = P2 (high), 2 = normal
     const sortByPriority = (arr: Delivery[]) => {
-      const isPrio = (d: Delivery) => {
+      const score = (d: Delivery): number => {
         const m = (d as unknown as { metadata?: Record<string, unknown> }).metadata ?? {};
-        return m.isPriority === true;
+        if (d.priority === 1 || m.isPriority === true) return 0;
+        if (d.priority === 2) return 1;
+        return 2;
       };
-      return [...arr.filter(isPrio), ...arr.filter(d => !isPrio(d))];
+      return [...arr].sort((a, b) => score(a) - score(b));
     };
 
     const withCoords = sortByPriority(deliveries.filter(d => normalizeDeliveryCoords(d)));

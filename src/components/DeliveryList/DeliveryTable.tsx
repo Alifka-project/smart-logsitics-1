@@ -31,6 +31,16 @@ interface DeliveryTableProps {
   isDriverPortal?: boolean;
 }
 
+// ─── Priority sort helper (driver portal) ─────────────────────────────────────
+// Returns 0 for P1/isPriority (urgent), 1 for P2 (high), 2 for normal.
+// Used to keep priority orders pinned to the top of every driver list view.
+function driverPriorityScore(d: Delivery): number {
+  const meta = (d as unknown as { metadata?: { isPriority?: boolean } }).metadata;
+  if (d.priority === 1 || meta?.isPriority === true) return 0;
+  if (d.priority === 2) return 1;
+  return 2;
+}
+
 // ─── Export helpers ────────────────────────────────────────────────────────────
 
 function fmtDate(v: unknown): string {
@@ -191,7 +201,11 @@ export default function DeliveryTable({
 
   const rows = useMemo(() => {
     if (deliveryListFilter === 'all') {
-      return activeFromItems.map((delivery, displayIndex) => ({
+      // In driver portal, always show priority orders at the top
+      const base = isDriverPortal
+        ? [...activeFromItems].sort((a, b) => driverPriorityScore(a) - driverPriorityScore(b))
+        : activeFromItems;
+      return base.map((delivery, displayIndex) => ({
         delivery,
         displayIndex,
         dragIndex: items.findIndex((x) => x.id === delivery.id),
@@ -207,6 +221,10 @@ export default function DeliveryTable({
     // Apply driver filter for on-route view
     if (deliveryListFilter === 'out_for_delivery' && selectedDriver !== 'all') {
       list = list.filter((d) => (d.driverName || '').trim() === selectedDriver);
+    }
+    // In driver portal, keep priority orders at the top of every filtered view
+    if (isDriverPortal) {
+      list = [...list].sort((a, b) => driverPriorityScore(a) - driverPriorityScore(b));
     }
     return list.map((delivery, displayIndex) => ({
       delivery,
