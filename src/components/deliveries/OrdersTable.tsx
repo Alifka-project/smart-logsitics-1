@@ -253,7 +253,8 @@ export type OrdersTableTab =
   | 'out_for_delivery'
   | 'order_delay'
   | 'rescheduled'
-  | 'delivered';       // completed / delivered orders
+  | 'delivered'        // completed / delivered orders
+  | 'pending_pod';     // delivered orders that are still missing a Proof of Delivery
 
 function OrderStatusPill({ status }: { status: DeliveryStatus }): React.ReactElement {
   const c = STATUS_CONFIG[status];
@@ -311,18 +312,20 @@ const DISPLAY_AS_CONFIRMED = new Set<DeliveryStatus>(['next_shipment', 'future_s
 
 function matchesTableTab(order: DeliveryOrder, tab: OrdersTableTab): boolean {
   switch (tab) {
-    case 'all':           return true;
-    case 'pending':       return !PENDING_TERMINAL.has(order.status);
+    case 'all':               return true;
+    case 'pending':           return !PENDING_TERMINAL.has(order.status);
     case 'awaiting_customer': return order.status === 'sms_sent' || order.status === 'unconfirmed';
-    case 'confirmed':      return CONFIRMED_STATUSES.has(order.status);
-    case 'next_shipment':  return order.status === 'next_shipment' || order.status === 'ready_to_dispatch';
-    case 'future_schedule': return order.status === 'future_schedule';
-    case 'scheduled':      return SCHEDULED_STATUSES.has(order.status);
+    case 'confirmed':         return CONFIRMED_STATUSES.has(order.status);
+    case 'next_shipment':     return order.status === 'next_shipment' || order.status === 'ready_to_dispatch';
+    case 'future_schedule':   return order.status === 'future_schedule';
+    case 'scheduled':         return SCHEDULED_STATUSES.has(order.status);
     case 'out_for_delivery':  return order.status === 'out_for_delivery';
-    case 'order_delay':   return order.status === 'order_delay';
-    case 'rescheduled':   return order.status === 'rescheduled' || order.isRescheduled === true;
-    case 'delivered':     return DELIVERED_STATUSES.has(order.status);
-    default:              return true;
+    case 'order_delay':       return order.status === 'order_delay';
+    case 'rescheduled':       return order.status === 'rescheduled' || order.isRescheduled === true;
+    case 'delivered':         return DELIVERED_STATUSES.has(order.status);
+    // Delivered orders that are still missing a Proof of Delivery — must stay actionable
+    case 'pending_pod':       return order.status === 'delivered' && !order.hasPod;
+    default:                  return true;
   }
 }
 
@@ -336,7 +339,7 @@ interface StepConfig {
 }
 
 /** Maps workflow status → next-step indicator(s) shown in the action column */
-const NEXT_STEP_CONFIG: Partial<Record<DeliveryStatus | 'terminal_delivered' | 'terminal_cancelled' | 'terminal_failed', StepConfig>> = {
+const NEXT_STEP_CONFIG: Partial<Record<DeliveryStatus | 'terminal_delivered' | 'terminal_delivered_no_pod' | 'terminal_cancelled' | 'terminal_failed', StepConfig>> = {
   uploaded:    {
     label: 'Resend SMS',      icon: '📱',
     cls: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800/40',
@@ -388,6 +391,10 @@ const NEXT_STEP_CONFIG: Partial<Record<DeliveryStatus | 'terminal_delivered' | '
   terminal_delivered: {
     label: 'POD Submitted',   icon: '✓',
     cls: 'bg-green-50 text-green-600 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800/40',
+  },
+  terminal_delivered_no_pod: {
+    label: 'Upload POD',      icon: '⚠',
+    cls: 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-700/60',
   },
   terminal_cancelled: {
     label: 'Cancelled',       icon: '✕',
@@ -450,7 +457,24 @@ function ActionDropdown({
   const s = order.status;
   const isTerminal = s === 'delivered' || s === 'cancelled' || s === 'failed';
 
-  // Terminal orders: show a simple completion indicator, no action button
+  // Delivered but missing POD — show an actionable "Upload POD" button
+  if (s === 'delivered' && !order.hasPod) {
+    const cfg = NEXT_STEP_CONFIG['terminal_delivered_no_pod']!;
+    return (
+      <button
+        type="button"
+        onClick={() => onEditOrder(order.id)}
+        className={`inline-flex w-full items-center justify-center gap-1 px-1.5 py-1 rounded border text-[10px] font-semibold leading-none cursor-pointer hover:brightness-95 active:scale-95 transition-all ${cfg.cls}`}
+        title="Open order to upload Proof of Delivery"
+        aria-label={cfg.label}
+      >
+        <span aria-hidden>{cfg.icon}</span>
+        {cfg.label}
+      </button>
+    );
+  }
+
+  // Other terminal orders (cancelled, failed, or delivered WITH pod): static indicator
   if (isTerminal) {
     const termKey = `terminal_${s}` as 'terminal_delivered' | 'terminal_cancelled' | 'terminal_failed';
     const cfg = NEXT_STEP_CONFIG[termKey];
@@ -701,7 +725,9 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
     ) : <span className="text-gray-400 dark:text-gray-500">—</span>;
   };
 
-  const filterTabs: { key: OrdersTableTab; label: string; count: number }[] = [
+  const noPodCount = orders.filter((o) => o.status === 'delivered' && !o.hasPod).length;
+
+  const filterTabs: { key: OrdersTableTab; label: string; count: number; urgent?: boolean }[] = [
     { key: 'all',              label: 'All',              count: orders.length },
     { key: 'pending',          label: 'Pending Orders',   count: orders.filter((o) => !PENDING_TERMINAL.has(o.status)).length },
     { key: 'awaiting_customer',label: 'Awaiting Customer',count: orders.filter((o) => o.status === 'sms_sent' || o.status === 'unconfirmed').length },
@@ -711,6 +737,8 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
     { key: 'order_delay',      label: 'Order Delay',      count: orders.filter((o) => o.status === 'order_delay').length },
     { key: 'rescheduled',      label: 'Rescheduled',      count: orders.filter((o) => o.status === 'rescheduled' || o.isRescheduled === true).length },
     { key: 'delivered',        label: 'Delivered',        count: orders.filter((o) => DELIVERED_STATUSES.has(o.status)).length },
+    // Delivered orders missing POD — shown with an amber warning style when count > 0
+    { key: 'pending_pod',      label: 'No POD',           count: noPodCount, urgent: noPodCount > 0 },
   ];
 
   const scrollToTableTop = (): void => {
@@ -794,7 +822,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
             >
               {filterTabs.map((tab) => (
                 <option key={tab.key} value={tab.key}>
-                  {tab.label} ({tab.count})
+                  {tab.urgent ? `⚠ ${tab.label}` : tab.label} ({tab.count})
                 </option>
               ))}
             </select>
@@ -997,10 +1025,15 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
               paginatedOrders.map((order) => {
                 const fmtDate = (d: Date) =>
                   d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' });
+                const isNoPod = order.status === 'delivered' && !order.hasPod;
                 return (
                   <tr
                     key={order.id}
-                    className="transition-colors hover:bg-gray-50/90 dark:hover:bg-gray-900/40"
+                    className={`transition-colors ${
+                      isNoPod
+                        ? 'bg-amber-50/60 dark:bg-amber-900/10 hover:bg-amber-50 dark:hover:bg-amber-900/20'
+                        : 'hover:bg-gray-50/90 dark:hover:bg-gray-900/40'
+                    }`}
                   >
                     <td className="min-w-[130px] w-[140px] overflow-hidden px-3 py-2.5 align-middle" data-label="Customer">
                       <span className="line-clamp-2 block font-medium leading-snug text-gray-900 dark:text-white" title={order.customerName}>
@@ -1170,6 +1203,11 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                           DISPLAY_AS_CONFIRMED.has(order.status) ? 'confirmed' :
                           order.isRescheduled ? 'rescheduled' : order.status
                         } />
+                        {isNoPod && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border text-[10px] font-semibold bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-700/60 whitespace-nowrap">
+                            ⚠ No POD
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="min-w-[110px] w-[120px] px-3 py-2.5 align-middle" data-label="Action">

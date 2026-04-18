@@ -50,6 +50,12 @@ export interface DeliveryOrder {
   isRescheduled?: boolean;
   /** Order type: B2C has individual customer name, B2B uses Ship-to party as customer. */
   orderType?: 'B2B' | 'B2C';
+  /**
+   * True when a Proof of Delivery (photo, driver signature, or podCompletedAt timestamp) exists.
+   * Delivered orders where this is false must remain visible in the manage orders table
+   * until the POD is uploaded.
+   */
+  hasPod?: boolean;
 }
 
 /** Optional UI / reporting shape; persisted uploads use `UploadRecord` in the store. */

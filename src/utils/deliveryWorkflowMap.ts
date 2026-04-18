@@ -253,6 +253,16 @@ export function deliveryToManageOrder(delivery: Delivery): DeliveryOrder {
 
   const isRescheduled = (delivery.status || '').toLowerCase() === 'rescheduled';
 
+  // POD is considered present when any of: podCompletedAt timestamp, driver/customer
+  // signature, or at least one uploaded photo exists. Delivered orders with hasPod=false
+  // must stay visible in the manage orders table until POD is uploaded.
+  const hasPod = !!(
+    delivery.podCompletedAt ||
+    delivery.driverSignature ||
+    delivery.customerSignature ||
+    (delivery.photos && delivery.photos.length > 0)
+  );
+
   return {
     id: delivery.id,
     orderNumber,
@@ -282,6 +292,7 @@ export function deliveryToManageOrder(delivery: Delivery): DeliveryOrder {
     failureReason: status === 'failed' ? (delivery.conditionNotes ?? undefined) : undefined,
     isRescheduled,
     orderType: getOrderType(delivery),
+    hasPod,
   };
 }
 
