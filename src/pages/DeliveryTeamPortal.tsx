@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  Cell, PieChart, Pie, CartesianGrid, Legend
+  Cell, PieChart, Pie, CartesianGrid, Legend, LabelList
 } from 'recharts';
 import DeliveryManagementPage from './DeliveryManagementPage';
 import DeliveryMap from '../components/MapView/DeliveryMap';
@@ -824,6 +824,22 @@ export default function DeliveryTeamPortal() {
     return Object.values(map)
       .map(r => ({ ...r, successRate: r.assigned > 0 ? Math.round((r.delivered / r.assigned) * 100) : 0 }))
       .sort((a, b) => b.assigned - a.assigned);
+  }, [reportsDeliveries]);
+
+  const topB2BCustomers = useMemo(() => {
+    const map: Record<string, { customer: string; orders: number; delivered: number }> = {};
+    for (const d of reportsDeliveries) {
+      const name = (d.customer as string | undefined | null)?.trim();
+      if (!name) continue;
+      if (!map[name]) map[name] = { customer: name, orders: 0, delivered: 0 };
+      map[name].orders++;
+      const s = (d.status ?? '').toLowerCase();
+      if (DELIVERED_STATUSES.has(s)) map[name].delivered++;
+    }
+    return Object.values(map)
+      .sort((a, b) => b.orders - a.orders)
+      .slice(0, 10)
+      .map(r => ({ ...r, customer: r.customer.length > 18 ? r.customer.slice(0, 17) + '…' : r.customer }));
   }, [reportsDeliveries]);
 
   // Extract PNC / Model ID / item description from delivery metadata (same fields as adminDashboard.ts)
@@ -2604,8 +2620,8 @@ export default function DeliveryTeamPortal() {
               {/* Charts row */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 {/* Delivery Trend */}
-                <div className="pp-card p-5 lg:col-span-2">
-                  <div className="flex items-center justify-between mb-4">
+                <div className="pp-card p-5 lg:col-span-2 flex flex-col">
+                  <div className="flex items-center justify-between mb-4 shrink-0">
                     <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Delivery Trend</h3>
                     <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-0.5 gap-0.5">
                       {(['7d','30d','90d'] as const).map(p => (
@@ -2617,20 +2633,28 @@ export default function DeliveryTeamPortal() {
                     </div>
                   </div>
                   {trendData.length === 0 ? (
-                    <div className="flex items-center justify-center h-44 text-gray-400 dark:text-gray-500 text-sm">No data for this period</div>
+                    <div className="flex items-center justify-center flex-1 min-h-[200px] text-gray-400 dark:text-gray-500 text-sm">No data for this period</div>
                   ) : (
-                    <ResponsiveContainer width="100%" height={220}>
-                      <BarChart data={trendData} margin={{ top: 4, right: 4, bottom: 4, left: -12 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid, #e5e7eb)" />
-                        <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--chart-tick, #6b7280)' }} />
-                        <YAxis tick={{ fontSize: 11, fill: 'var(--chart-tick, #6b7280)' }} allowDecimals={false} />
-                        <Tooltip {...TOOLTIP_STYLE} />
-                        <Legend wrapperStyle={{ fontSize: 12 }} />
-                        <Bar dataKey="delivered" name="Delivered" fill={CHART_COLORS.delivered} radius={[3,3,0,0]} stackId="a" />
-                        <Bar dataKey="cancelled" name="Cancelled" fill={CHART_COLORS.cancelled} radius={[0,0,0,0]} stackId="a" />
-                        <Bar dataKey="rescheduled" name="Rescheduled" fill={CHART_COLORS.rescheduled} radius={[3,3,0,0]} stackId="a" />
-                      </BarChart>
-                    </ResponsiveContainer>
+                    <div className="flex-1 min-h-[200px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={trendData} margin={{ top: 4, right: 8, bottom: reportsPeriod === '90d' ? 36 : 4, left: -12 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid, #e5e7eb)" />
+                          <XAxis
+                            dataKey="date"
+                            tick={{ fontSize: reportsPeriod === '90d' ? 9 : 11, fill: 'var(--chart-tick, #6b7280)' }}
+                            angle={reportsPeriod === '90d' ? -45 : 0}
+                            textAnchor={reportsPeriod === '90d' ? 'end' : 'middle'}
+                            height={reportsPeriod === '90d' ? 52 : 24}
+                          />
+                          <YAxis tick={{ fontSize: 11, fill: 'var(--chart-tick, #6b7280)' }} allowDecimals={false} />
+                          <Tooltip {...TOOLTIP_STYLE} />
+                          <Legend wrapperStyle={{ fontSize: 12 }} />
+                          <Bar dataKey="delivered" name="Delivered" fill={CHART_COLORS.delivered} radius={[3,3,0,0]} stackId="a" maxBarSize={reportsPeriod === '90d' ? 10 : 28} />
+                          <Bar dataKey="cancelled" name="Cancelled" fill={CHART_COLORS.cancelled} radius={[0,0,0,0]} stackId="a" maxBarSize={reportsPeriod === '90d' ? 10 : 28} />
+                          <Bar dataKey="rescheduled" name="Rescheduled" fill={CHART_COLORS.rescheduled} radius={[3,3,0,0]} stackId="a" maxBarSize={reportsPeriod === '90d' ? 10 : 28} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
                   )}
                 </div>
 
@@ -2657,14 +2681,14 @@ export default function DeliveryTeamPortal() {
                     </ResponsiveContainer>
                   )}
                   {/* Legend */}
-                  <div className="mt-2 space-y-1">
+                  <div className="mt-2 space-y-1.5">
                     {statusDistribution.map((item, i) => (
-                      <div key={item.name} className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
+                      <div key={item.name} className="flex items-center justify-between text-xs text-gray-700 dark:text-gray-200">
                         <span className="flex items-center gap-1.5">
                           <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: PIE_PALETTE[i % PIE_PALETTE.length] }} />
-                          {item.name}
+                          <span className="font-medium">{item.name}</span>
                         </span>
-                        <span className="font-medium text-gray-800 dark:text-gray-200">{item.value}</span>
+                        <span className="font-semibold tabular-nums text-gray-900 dark:text-white ml-3">{item.value}</span>
                       </div>
                     ))}
                   </div>
@@ -2742,46 +2766,81 @@ export default function DeliveryTeamPortal() {
                 )}
               </div>
 
-              {/* Driver Performance */}
-              <div className="pp-card p-5">
-                <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
-                  <Users className="w-5 h-5 text-blue-500" />
-                  Driver Performance
-                </h3>
-                {driverPerformance.length === 0 ? (
-                  <p className="text-sm text-gray-400 dark:text-gray-500 py-4 text-center">No driver data for this period</p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-gray-200 dark:border-gray-700">
-                          <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Driver</th>
-                          <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Assigned</th>
-                          <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Delivered</th>
-                          <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Cancelled</th>
-                          <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Success %</th>
-                          <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">POD</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                        {driverPerformance.map((dr) => (
-                          <tr key={dr.name} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                            <td className="py-2.5 px-3 font-medium text-gray-900 dark:text-gray-100">{dr.name}</td>
-                            <td className="py-2.5 px-3 text-right text-gray-700 dark:text-gray-300">{dr.assigned}</td>
-                            <td className="py-2.5 px-3 text-right text-green-600 dark:text-green-400 font-medium">{dr.delivered}</td>
-                            <td className="py-2.5 px-3 text-right text-red-500 dark:text-red-400">{dr.cancelled}</td>
-                            <td className="py-2.5 px-3 text-right">
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${dr.successRate >= 80 ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : dr.successRate >= 60 ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'}`}>
-                                {dr.successRate}%
-                              </span>
-                            </td>
-                            <td className="py-2.5 px-3 text-right text-purple-600 dark:text-purple-400">{dr.podCompleted}</td>
+              {/* Driver Performance + Top B2B Customers — side by side at 50/50 */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+                {/* Driver Performance */}
+                <div className="pp-card p-5">
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+                    <Users className="w-5 h-5 text-blue-500" />
+                    Driver Performance
+                  </h3>
+                  {driverPerformance.length === 0 ? (
+                    <p className="text-sm text-gray-400 dark:text-gray-500 py-4 text-center">No driver data for this period</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-gray-200 dark:border-gray-700">
+                            <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Driver</th>
+                            <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Assigned</th>
+                            <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Delivered</th>
+                            <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Cancelled</th>
+                            <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Success %</th>
+                            <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">POD</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                          {driverPerformance.map((dr) => (
+                            <tr key={dr.name} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                              <td className="py-2.5 px-3 font-medium text-gray-900 dark:text-gray-100">{dr.name}</td>
+                              <td className="py-2.5 px-3 text-right text-gray-700 dark:text-gray-300">{dr.assigned}</td>
+                              <td className="py-2.5 px-3 text-right text-green-600 dark:text-green-400 font-medium">{dr.delivered}</td>
+                              <td className="py-2.5 px-3 text-right text-red-500 dark:text-red-400">{dr.cancelled}</td>
+                              <td className="py-2.5 px-3 text-right">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${dr.successRate >= 80 ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : dr.successRate >= 60 ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'}`}>
+                                  {dr.successRate}%
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-right text-purple-600 dark:text-purple-400">{dr.podCompleted}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                {/* Top B2B Customers */}
+                <div className="pp-card p-5 flex flex-col">
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2 shrink-0">
+                    <TrendingUp className="w-5 h-5 text-purple-500" />
+                    Top B2B Customers
+                    <span className="ml-1 text-xs font-normal text-gray-400 dark:text-gray-500">
+                      ({reportsPeriod === '7d' ? 'last 7 days' : reportsPeriod === '30d' ? 'last 30 days' : 'last 90 days'})
+                    </span>
+                  </h3>
+                  {topB2BCustomers.length === 0 ? (
+                    <p className="text-sm text-gray-400 dark:text-gray-500 py-4 text-center">No customer data for this period</p>
+                  ) : (
+                    <div className="flex-1 min-h-[260px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={topB2BCustomers} layout="vertical" margin={{ top: 4, right: 40, bottom: 4, left: 4 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid, #e5e7eb)" horizontal={false} />
+                          <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--chart-tick, #6b7280)' }} allowDecimals={false} />
+                          <YAxis type="category" dataKey="customer" tick={{ fontSize: 11, fill: 'var(--chart-tick, #6b7280)' }} width={130} />
+                          <Tooltip {...TOOLTIP_STYLE} />
+                          <Legend wrapperStyle={{ fontSize: 12 }} />
+                          <Bar dataKey="orders" name="Total Orders" fill="#6366f1" radius={[0,3,3,0]} maxBarSize={14}>
+                            <LabelList dataKey="orders" position="right" style={{ fontSize: 11, fill: 'var(--chart-tick, #6b7280)', fontWeight: 600 }} />
+                          </Bar>
+                          <Bar dataKey="delivered" name="Delivered" fill="#22c55e" radius={[0,3,3,0]} maxBarSize={14} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </div>
+
               </div>
 
 
