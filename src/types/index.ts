@@ -78,6 +78,11 @@ export interface Delivery {
   deliveryNumber?: string | null;
   goodsMovementDate?: string | Date | null;
   smsSentAt?: string | Date | null;
+  /**
+   * Server-computed: true when at least one signature or 'pod-completed' status indicates
+   * a Proof of Delivery exists. Populated by the tracking API; undefined when not available.
+   */
+  hasPod?: boolean;
   // Computed/enriched fields added on frontend
   distanceFromWarehouse?: number;
   priority?: number;

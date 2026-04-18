@@ -253,14 +253,17 @@ export function deliveryToManageOrder(delivery: Delivery): DeliveryOrder {
 
   const isRescheduled = (delivery.status || '').toLowerCase() === 'rescheduled';
 
-  // POD is considered present when any of: podCompletedAt timestamp, driver/customer
-  // signature, or at least one uploaded photo exists. Delivered orders with hasPod=false
-  // must stay visible in the manage orders table until POD is uploaded.
-  const hasPod = !!(
-    delivery.podCompletedAt ||
-    delivery.driverSignature ||
-    delivery.customerSignature ||
-    (delivery.photos && delivery.photos.length > 0)
+  // hasPod — prefer the server-computed boolean returned by the tracking API (most accurate).
+  // Fall back to local field checks when the server field is absent (e.g. non-tracking fetch).
+  // Note: podCompletedAt is intentionally excluded — it is stamped automatically on ANY
+  // delivery status change to a terminal state and does NOT indicate actual POD upload.
+  const hasPod: boolean = delivery.hasPod === true || (
+    delivery.hasPod === undefined && !!(
+      delivery.driverSignature ||
+      delivery.customerSignature ||
+      (delivery.photos && delivery.photos.length > 0) ||
+      String(delivery.status || '').toLowerCase() === 'pod-completed'
+    )
   );
 
   return {
