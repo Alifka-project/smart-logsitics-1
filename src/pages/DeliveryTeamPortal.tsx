@@ -2660,9 +2660,9 @@ export default function DeliveryTeamPortal() {
 
                 {/* Status Distribution */}
                 <div className="pp-card p-5">
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                  <h3 className="text-base font-semibold mb-4" style={{ color: 'var(--text)' }}>
                     Status Breakdown
-                    <span className="ml-2 text-xs font-normal text-gray-400 dark:text-gray-500">({reportsPeriod === '7d' ? 'last 7 days' : reportsPeriod === '30d' ? 'last 30 days' : 'last 90 days'})</span>
+                    <span className="ml-2 text-xs font-normal" style={{ color: 'var(--text2)' }}>({reportsPeriod === '7d' ? 'last 7 days' : reportsPeriod === '30d' ? 'last 30 days' : 'last 90 days'})</span>
                   </h3>
                   {statusDistribution.length === 0 ? (
                     <div className="flex items-center justify-center h-44 text-gray-400 dark:text-gray-500 text-sm">No data</div>
@@ -2680,15 +2680,15 @@ export default function DeliveryTeamPortal() {
                       </PieChart>
                     </ResponsiveContainer>
                   )}
-                  {/* Legend */}
+                  {/* Legend — use CSS token vars so text is always visible in both modes */}
                   <div className="mt-2 space-y-1.5">
                     {statusDistribution.map((item, i) => (
-                      <div key={item.name} className="flex items-center justify-between text-xs text-gray-700 dark:text-gray-200">
+                      <div key={item.name} className="flex items-center justify-between text-xs" style={{ color: 'var(--text2)' }}>
                         <span className="flex items-center gap-1.5">
                           <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: PIE_PALETTE[i % PIE_PALETTE.length] }} />
                           <span className="font-medium">{item.name}</span>
                         </span>
-                        <span className="font-semibold tabular-nums text-gray-900 dark:text-white ml-3">{item.value}</span>
+                        <span className="font-bold tabular-nums ml-3" style={{ color: 'var(--text)' }}>{item.value}</span>
                       </div>
                     ))}
                   </div>
