@@ -1272,13 +1272,11 @@ export default function LogisticsTeamPortal() {
               : null;
 
             return (
-              /* Grid layout: map takes 1fr, order-list is fixed 290px.
-                 This avoids the 70%+30%+gap overflow that made cards clip. */
+              /* Grid layout: map 1fr + fixed 290px sidebar on sm+; single column on mobile. */
               <div
-                className="grid gap-3"
+                className="grid gap-3 grid-cols-1 sm:grid-cols-[1fr_290px]"
                 style={{
                   height: 'max(560px, calc(100dvh - 240px))',
-                  gridTemplateColumns: '1fr 290px',
                   overflow: 'hidden',
                 }}
               >
@@ -1312,8 +1310,8 @@ export default function LogisticsTeamPortal() {
                   </div>
                 </div>
 
-                {/* ── Order list panel (fixed 290px) ── */}
-                <div className="flex flex-col gap-2 min-w-0 min-h-0" style={{ width: 290 }}>
+                {/* ── Order list panel (full-width on mobile, 290px on sm+) ── */}
+                <div className="flex flex-col gap-2 min-w-0 min-h-0 w-full sm:w-[290px]">
                   {/* Header + driver filter */}
                   <div className="pp-card p-3 flex-shrink-0">
                     <div className="flex items-center gap-2 mb-2">

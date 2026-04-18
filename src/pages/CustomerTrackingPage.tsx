@@ -92,9 +92,10 @@ const STYLES = `
   }
   .btn-driver-action {
     flex: 1;
-    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
     padding: 7px 8px; border-radius: 10px; font-size: 11px; font-weight: 700;
     text-decoration: none; border: 1px solid #e2e8f0; background: #f8fafc; color: #0f172a;
+    box-sizing: border-box; min-width: 0;
     transition: background 0.15s ease, border-color 0.15s ease;
   }
   .btn-driver-action:hover { background: #f0f7ff; border-color: #00305733; }
