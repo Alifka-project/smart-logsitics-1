@@ -437,7 +437,9 @@ export default function ManageTab({
           isOpen={true}
           onClose={() => setPodDeliveryId(null)}
           onStatusUpdate={(deliveryId, newStatus) => {
-            updateDeliveryStatus(deliveryId, newStatus);
+            // Mark hasPod:true immediately so the row leaves the "No POD" tab
+            // without waiting for the next server refresh.
+            updateDeliveryStatus(deliveryId, newStatus, { hasPod: true });
             window.dispatchEvent(new CustomEvent('deliveryStatusUpdated', {
               detail: { deliveryId, status: newStatus, updatedAt: new Date() },
             }));

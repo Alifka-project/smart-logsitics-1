@@ -94,6 +94,7 @@ router.get('/deliveries', authenticate, requireAnyRole('admin', 'delivery_team',
             // POD indicator fields — returned to compute hasPod flag; raw values NOT forwarded to client
             driverSignature: true,
             customerSignature: true,
+            photos: true,
             assignments: {
               take: 1,
               orderBy: { assignedAt: 'desc' },
@@ -123,13 +124,18 @@ router.get('/deliveries', authenticate, requireAnyRole('admin', 'delivery_team',
         confirmationStatus: string | null; confirmationToken: string | null;
         customerConfirmedAt: Date | null; confirmedDeliveryDate: Date | null;
         smsSentAt: Date | null; goodsMovementDate: Date | null; deliveryNumber: string | null;
-        driverSignature: string | null; customerSignature: string | null;
+        driverSignature: string | null; customerSignature: string | null; photos: unknown;
         assignments: { driverId: string | null; status: string; assignedAt: Date | null; driver?: { fullName?: string } | null }[];
       }[]).map(d => {
-        // Compute hasPod server-side: true when at least one signature is present OR
-        // the status is 'pod-completed' (explicit POD submission status).
-        // Raw signature values are intentionally NOT forwarded to the client.
-        const hasPod = !!(d.driverSignature || d.customerSignature || d.status === 'pod-completed');
+        // Compute hasPod server-side: true when at least one signature OR photo is present,
+        // or the status is 'pod-completed' (explicit POD submission status).
+        // Raw signature/photo values are intentionally NOT forwarded to the client.
+        const hasPod = !!(
+          d.driverSignature ||
+          d.customerSignature ||
+          d.status === 'pod-completed' ||
+          (Array.isArray(d.photos) && d.photos.length > 0)
+        );
 
         return {
           id: d.id,
