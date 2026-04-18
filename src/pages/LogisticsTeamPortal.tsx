@@ -101,6 +101,7 @@ export default function LogisticsTeamPortal() {
   const [deliveriesSubTab, setDeliveriesSubTab] = useState<string>('manage');
   const [trackingDriverFilter, setTrackingDriverFilter] = useState<string>('all');
   const [trackingSelectedId, setTrackingSelectedId] = useState<string | null>(null);
+  const [liveStatusFilter, setLiveStatusFilter] = useState<'all' | 'out_for_delivery' | 'confirmed' | 'priority' | 'delayed'>('all');
   const [podModalDelivery, setPodModalDelivery] = useState<Delivery | null>(null);
   const [drivers, setDrivers] = useState<ContactUser[]>([]);
   const [contacts, setContacts] = useState<ContactUser[]>([]); // All contacts (drivers + team members)
@@ -1236,30 +1237,65 @@ export default function LogisticsTeamPortal() {
               icon: MapPin,
               content: (() => {
             // Filter deliveries for the live-maps panel.
-            // When a specific driver is selected:
-            //   - If a delivery's LIVE tracking says it belongs to ANOTHER driver, exclude it
-            //     (prevents "mixed stops" where reassigned orders appear under the wrong driver).
-            //   - Otherwise include if tracking.driverId OR assignedDriverId matches.
-            // Only include non-terminal (active) orders so completed orders don't inflate stop count.
+            // Rules:
+            //   1. Always exclude terminal statuses (delivered, cancelled, etc.)
+            //   2. Only include orders that have a driver assigned (live tracking OR assignedDriverId)
+            //      — unassigned pending/confirmed orders should not appear on the live map
+            //   3. When a specific driver is selected, show only that driver's orders
+            //   4. Apply the status-based quick filter (liveStatusFilter)
             const LIVE_TERMINAL = new Set(['delivered', 'cancelled', 'failed', 'returned', 'pod-completed',
               'delivered-with-installation', 'delivered-without-installation', 'finished', 'completed']);
+            const nowForFilter = new Date();
             const trackingDeliveries = deliveries
               .filter(d => {
-                // Always exclude terminal orders from the live map
+                // 1. Exclude terminal orders
                 if (LIVE_TERMINAL.has((d.status || '').toLowerCase())) return false;
-                if (trackingDriverFilter === 'all') return true;
-                const ext = d as unknown as { tracking?: { driverId?: string } };
+
+                const ext = d as unknown as { tracking?: { driverId?: string }; confirmedDeliveryDate?: string; metadata?: Record<string, unknown> };
                 const liveDriverId = ext.tracking?.driverId;
-                // If tracking data points to a DIFFERENT driver, exclude (no mixed stops)
-                if (liveDriverId && liveDriverId !== trackingDriverFilter) return false;
-                return liveDriverId === trackingDriverFilter || d.assignedDriverId === trackingDriverFilter;
+
+                // 2. Only show orders that have a driver (assigned or live tracking)
+                const hasDriver = liveDriverId || d.assignedDriverId;
+                if (!hasDriver) return false;
+
+                // 3. Driver filter
+                if (trackingDriverFilter !== 'all') {
+                  if (liveDriverId && liveDriverId !== trackingDriverFilter) return false;
+                  if (!(liveDriverId === trackingDriverFilter || d.assignedDriverId === trackingDriverFilter)) return false;
+                }
+
+                // 4. Status quick filter
+                const status = (d.status || '').toLowerCase();
+                if (liveStatusFilter === 'out_for_delivery') {
+                  return status === 'out-for-delivery';
+                }
+                if (liveStatusFilter === 'confirmed') {
+                  return ['confirmed', 'scheduled-confirmed', 'rescheduled'].includes(status);
+                }
+                if (liveStatusFilter === 'priority') {
+                  const meta = ext.metadata ?? {};
+                  return d.priority === 1 || meta.isPriority === true || d.priority === 2;
+                }
+                if (liveStatusFilter === 'delayed') {
+                  const confirmedDate = ext.confirmedDeliveryDate;
+                  if (!confirmedDate) return false;
+                  const endOfDay = new Date(confirmedDate);
+                  endOfDay.setHours(23, 59, 59, 999);
+                  return nowForFilter > endOfDay;
+                }
+                return true; // 'all'
               })
-              // Sort: priority first → by confirmed delivery date → by customer name
+              // Sort: priority first → out-for-delivery before confirmed → by confirmed date → by name
               .sort((a, b) => {
                 const am = (a as unknown as { metadata?: Record<string, unknown> }).metadata ?? {};
                 const bm = (b as unknown as { metadata?: Record<string, unknown> }).metadata ?? {};
-                if (am.isPriority && !bm.isPriority) return -1;
-                if (!am.isPriority && bm.isPriority) return 1;
+                const ap = a.priority === 1 || am.isPriority === true ? 0 : a.priority === 2 ? 1 : 2;
+                const bp = b.priority === 1 || bm.isPriority === true ? 0 : b.priority === 2 ? 1 : 2;
+                if (ap !== bp) return ap - bp;
+                // out-for-delivery before other statuses
+                const aOfd = (a.status || '').toLowerCase() === 'out-for-delivery' ? 0 : 1;
+                const bOfd = (b.status || '').toLowerCase() === 'out-for-delivery' ? 0 : 1;
+                if (aOfd !== bOfd) return aOfd - bOfd;
                 const aDate = (a as unknown as { confirmedDeliveryDate?: string }).confirmedDeliveryDate;
                 const bDate = (b as unknown as { confirmedDeliveryDate?: string }).confirmedDeliveryDate;
                 if (aDate && bDate) return new Date(aDate).getTime() - new Date(bDate).getTime();
@@ -1312,12 +1348,15 @@ export default function LogisticsTeamPortal() {
 
                 {/* ── Order list panel (full-width on mobile, 290px on sm+) ── */}
                 <div className="flex flex-col gap-2 min-w-0 min-h-0 w-full sm:w-[290px]">
-                  {/* Header + driver filter */}
-                  <div className="pp-card p-3 flex-shrink-0">
-                    <div className="flex items-center gap-2 mb-2">
+                  {/* Header + driver filter + status pills */}
+                  <div className="pp-card p-3 flex-shrink-0 space-y-2">
+                    {/* Title row */}
+                    <div className="flex items-center gap-2">
                       <NavigationIcon className="w-4 h-4 text-blue-500 flex-shrink-0" />
                       <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">Live Orders</h2>
-                      <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500 flex-shrink-0">{trackingDeliveries.length}</span>
+                      <span className="ml-auto text-[10px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                        {trackingDeliveries.length}
+                      </span>
                       <button
                         type="button"
                         onClick={() => void loadData()}
@@ -1327,31 +1366,66 @@ export default function LogisticsTeamPortal() {
                         <RefreshCw className="w-3.5 h-3.5" />
                       </button>
                     </div>
+
+                    {/* Driver dropdown */}
                     <select
                       value={trackingDriverFilter}
                       onChange={e => { setTrackingDriverFilter(e.target.value); setTrackingSelectedId(null); }}
                       className="w-full px-2 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="all">All Drivers ({drivers.length})</option>
+                      <option value="all">All Drivers</option>
                       {drivers.map(dr => {
-                        const onRoute = deliveries.filter(d => {
+                        const driverOrders = deliveries.filter(d => {
                           const ext = d as unknown as { tracking?: { driverId?: string } };
-                          return (ext.tracking?.driverId === dr.id || d.assignedDriverId === dr.id) && (d.status||'').toLowerCase() === 'out-for-delivery';
-                        }).length;
+                          return (ext.tracking?.driverId === dr.id || d.assignedDriverId === dr.id)
+                            && !LIVE_TERMINAL.has((d.status || '').toLowerCase());
+                        });
+                        const onRoute = driverOrders.filter(d => (d.status || '').toLowerCase() === 'out-for-delivery').length;
                         return (
                           <option key={dr.id} value={dr.id}>
-                            {dr.fullName || dr.username} — {onRoute > 0 ? `${onRoute} on route` : 'idle'}
+                            {dr.fullName || dr.username} — {onRoute > 0 ? `${onRoute} on route` : `${driverOrders.length} assigned`}
                           </option>
                         );
                       })}
                     </select>
+
+                    {/* Status quick-filter pills */}
+                    <div className="flex flex-wrap gap-1">
+                      {(
+                        [
+                          { key: 'all',              label: 'All' },
+                          { key: 'out_for_delivery', label: 'On Route' },
+                          { key: 'confirmed',        label: 'Confirmed' },
+                          { key: 'priority',         label: 'Priority' },
+                          { key: 'delayed',          label: 'Delayed' },
+                        ] as { key: typeof liveStatusFilter; label: string }[]
+                      ).map(f => (
+                        <button
+                          key={f.key}
+                          type="button"
+                          onClick={() => setLiveStatusFilter(f.key)}
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold transition-colors ${
+                            liveStatusFilter === f.key
+                              ? f.key === 'delayed'   ? 'bg-red-600 text-white'
+                              : f.key === 'priority'  ? 'bg-orange-500 text-white'
+                              : f.key === 'confirmed' ? 'bg-green-600 text-white'
+                              : f.key === 'out_for_delivery' ? 'bg-blue-600 text-white'
+                              : 'bg-gray-700 text-white dark:bg-gray-200 dark:text-gray-900'
+                              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                          }`}
+                        >
+                          {f.label}
+                        </button>
+                      ))}
+                    </div>
+
                     {trackingSelectedId && (
                       <button
                         type="button"
                         onClick={() => setTrackingSelectedId(null)}
-                        className="mt-1.5 w-full text-[11px] text-blue-600 dark:text-blue-400 hover:underline"
+                        className="w-full text-[11px] text-blue-600 dark:text-blue-400 hover:underline"
                       >
-                        ✕ Clear selection
+                        ✕ Clear map selection
                       </button>
                     )}
                   </div>
