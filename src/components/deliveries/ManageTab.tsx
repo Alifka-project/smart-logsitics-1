@@ -11,6 +11,7 @@ import { StatusMetricCards } from './StatusMetricCards';
 import { OrdersTable, type OrdersTableTab } from './OrdersTable';
 import { ManageSidebar } from './ManageSidebar';
 import { OrderEditModal } from './OrderEditModal';
+import DeliveryDetailModal from '../DeliveryDetailModal';
 
 interface ManageTabProps {
   /** When true (embedded in team portals), tighter padding and gaps below sub-tabs */
@@ -106,6 +107,7 @@ export default function ManageTab({
     }).catch(() => {});
   }, [driverList]);
   const [editDeliveryId, setEditDeliveryId] = useState<string | null>(null);
+  const [podDeliveryId, setPodDeliveryId] = useState<string | null>(null);
   const ordersTableRef = useRef<HTMLDivElement | null>(null);
 
   const manageOrders = useMemo(
@@ -117,6 +119,13 @@ export default function ManageTab({
     (): Delivery | null =>
       editDeliveryId ? (deliveries.find((d) => d.id === editDeliveryId) ?? null) : null,
     [deliveries, editDeliveryId],
+  );
+
+  // Full Delivery object for the POD upload modal
+  const podDelivery = useMemo(
+    (): Delivery | null =>
+      podDeliveryId ? (deliveries.find((d) => d.id === podDeliveryId) ?? null) : null,
+    [deliveries, podDeliveryId],
   );
 
   const handleOrderEditSaved = useCallback(
@@ -379,6 +388,7 @@ export default function ManageTab({
             onWhatsApp={handleWhatsApp}
             onTrackDelivery={() => handleTrackDelivery()}
             onEditOrder={(id) => setEditDeliveryId(id)}
+            onUploadPod={(id) => setPodDeliveryId(id)}
             onMarkOutForDelivery={handleMarkOutForDelivery}
             onExport={onExportDeliveries}
             searchQuery={searchQuery}
@@ -417,6 +427,22 @@ export default function ManageTab({
           onResendSMS={async () => { await handleResendSMS(editDeliveryId!); }}
           onReschedule={async (newDate, reason) => { await handleAdminReschedule(editDeliveryId!, newDate, reason); }}
           onDispatch={async () => { await handleMarkOutForDelivery(editDeliveryId!); }}
+        />
+      )}
+
+      {/* POD upload modal — opened when "Upload POD" is clicked on a delivered-no-POD row */}
+      {podDelivery && (
+        <DeliveryDetailModal
+          delivery={podDelivery as Delivery & Record<string, unknown>}
+          isOpen={true}
+          onClose={() => setPodDeliveryId(null)}
+          onStatusUpdate={(deliveryId, newStatus) => {
+            updateDeliveryStatus(deliveryId, newStatus);
+            window.dispatchEvent(new CustomEvent('deliveryStatusUpdated', {
+              detail: { deliveryId, status: newStatus, updatedAt: new Date() },
+            }));
+            setPodDeliveryId(null);
+          }}
         />
       )}
     </div>

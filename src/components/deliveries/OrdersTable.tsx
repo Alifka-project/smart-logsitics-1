@@ -298,6 +298,11 @@ interface OrdersTableProps {
   /** Enable Today + date range filters in header */
   enableDispatchFilters?: boolean;
   onRefresh?: () => void;
+  /**
+   * Called when the user clicks "Upload POD" on a delivered-no-POD row.
+   * The parent should open the DeliveryDetailModal for this order ID.
+   */
+  onUploadPod?: (orderId: string) => void;
 }
 
 const CONFIRMED_STATUSES = new Set<DeliveryStatus>(['confirmed', 'next_shipment', 'future_schedule', 'ready_to_dispatch']);
@@ -443,6 +448,7 @@ interface ActionDropdownProps {
   onTrackDelivery?: (orderId: string) => void;
   onEditOrder: (orderId: string) => void;
   onReschedule: (order: DeliveryOrder) => void;
+  onUploadPod?: (orderId: string) => void;
 }
 
 function ActionDropdown({
@@ -453,6 +459,7 @@ function ActionDropdown({
   onTrackDelivery: _onTrackDelivery,
   onEditOrder,
   onReschedule,
+  onUploadPod,
 }: ActionDropdownProps) {
   const s = order.status;
   const isTerminal = s === 'delivered' || s === 'cancelled' || s === 'failed';
@@ -460,12 +467,19 @@ function ActionDropdown({
   // Delivered but missing POD — show an actionable "Upload POD" button
   if (s === 'delivered' && !order.hasPod) {
     const cfg = NEXT_STEP_CONFIG['terminal_delivered_no_pod']!;
+    const handleClick = () => {
+      if (onUploadPod) {
+        onUploadPod(order.id);
+      } else {
+        onEditOrder(order.id);
+      }
+    };
     return (
       <button
         type="button"
-        onClick={() => onEditOrder(order.id)}
+        onClick={handleClick}
         className={`inline-flex w-full items-center justify-center gap-1 px-1.5 py-1 rounded border text-[10px] font-semibold leading-none cursor-pointer hover:brightness-95 active:scale-95 transition-all ${cfg.cls}`}
-        title="Open order to upload Proof of Delivery"
+        title="Upload Proof of Delivery"
         aria-label={cfg.label}
       >
         <span aria-hidden>{cfg.icon}</span>
@@ -549,6 +563,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
   getDriverCapacity,
   enableDispatchFilters = false,
   onRefresh,
+  onUploadPod,
 }) => {
   const [rescheduleOrder, setRescheduleOrder] = useState<DeliveryOrder | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -1219,6 +1234,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                         onTrackDelivery={onTrackDelivery}
                         onEditOrder={onEditOrder}
                         onReschedule={(o) => setRescheduleOrder(o)}
+                        onUploadPod={onUploadPod}
                       />
                     </td>
                   </tr>
