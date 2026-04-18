@@ -903,7 +903,8 @@ export default function DeliveryTeamPortal() {
       }
       if (q) {
         const { pnc, modelId, description } = extractItemMeta(d);
-        const haystack = [d.poNumber, d.id, d.customer, d.address, d.driverName, pnc, modelId, description]
+        const delivNum = displayDeliveryNumber(d as unknown as Delivery);
+        const haystack = [d.poNumber, delivNum, d.id, d.customer, d.address, d.driverName, pnc, modelId, description]
           .map(v => String(v ?? '').toLowerCase()).join(' ');
         if (!haystack.includes(q)) return false;
       }
@@ -919,7 +920,8 @@ export default function DeliveryTeamPortal() {
         return podSortDir === 'asc' ? ta - tb : tb - ta;
       }
       let va = '', vb = '';
-      if (podSortKey === 'poNumber')  { va = String(ad.poNumber ?? '');  vb = String(bd.poNumber ?? ''); }
+      if (podSortKey === 'poNumber')   { va = String(ad.poNumber ?? '');  vb = String(bd.poNumber ?? ''); }
+      if (podSortKey === 'deliveryNo') { va = displayDeliveryNumber(ad as unknown as Delivery); vb = displayDeliveryNumber(bd as unknown as Delivery); }
       if (podSortKey === 'customer')  { va = String(ad.customer ?? '');  vb = String(bd.customer ?? ''); }
       if (podSortKey === 'driver')    { va = String(ad.driverName ?? '');vb = String(bd.driverName ?? ''); }
       if (podSortKey === 'status')    { va = a.ws;                       vb = b.ws; }
@@ -2370,12 +2372,13 @@ export default function DeliveryTeamPortal() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <button
                           onClick={() => {
-                            const header = 'No,Delivery ID,PO Number,Customer,Address,PNC (Material),Model ID,Description,Driver,Date,Status\n';
+                            const header = 'No,PO Number,Delivery Number,Customer,Address,PNC (Material),Model ID,Description,Driver,Date,Status\n';
                             const rows = podDeliveries.map(({ d, ws }, i) => {
                               const { pnc, modelId, description } = extractItemMeta(d);
                               const dateRaw = d.delivered_at ?? d.deliveredAt ?? d.created_at ?? d.createdAt ?? '';
                               const dateStr = dateRaw ? new Date(dateRaw as string).toLocaleDateString('en-GB') : '';
-                              return [i + 1, d.id ?? '', d.poNumber ?? '', d.customer ?? '', d.address ?? '', pnc, modelId, description, d.driverName ?? 'Unassigned', dateStr, ws].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
+                              const delivNum = displayDeliveryNumber(d as unknown as Delivery);
+                              return [i + 1, d.poNumber ?? '', delivNum, d.customer ?? '', d.address ?? '', pnc, modelId, description, d.driverName ?? 'Unassigned', dateStr, ws].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
                             }).join('\n');
                             const blob = new Blob(['\uFEFF' + header + rows], { type: 'text/csv;charset=utf-8' });
                             const url = URL.createObjectURL(blob);
@@ -2492,7 +2495,8 @@ export default function DeliveryTeamPortal() {
                               <tr className="border-b border-gray-200 dark:border-gray-700">
                                 <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-8">#</th>
                                 {([
-                                  { key: 'poNumber',     label: 'Delivery No.',    cls: 'whitespace-nowrap' },
+                                  { key: 'poNumber',     label: 'PO Number',        cls: 'whitespace-nowrap' },
+                                  { key: 'deliveryNo',   label: 'Delivery No.',     cls: 'whitespace-nowrap' },
                                   { key: 'customer',     label: 'Customer',         cls: '' },
                                   { key: 'pnc',          label: 'PNC (Material)',   cls: 'whitespace-nowrap' },
                                   { key: 'modelId',      label: 'Model ID',         cls: 'whitespace-nowrap' },
@@ -2560,9 +2564,11 @@ export default function DeliveryTeamPortal() {
                                 return (
                                   <tr key={String(d.id ?? idx)} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                                     <td className="py-2.5 px-3 text-xs text-gray-400 dark:text-gray-500">{globalIdx + 1}</td>
-                                    <td className="py-2.5 px-3 whitespace-nowrap">
-                                      <span className="font-mono text-xs text-gray-700 dark:text-gray-300">{d.poNumber ?? '—'}</span>
-                                      {d.id && <span className="block font-mono text-[10px] text-gray-400 dark:text-gray-600">{String(d.id).slice(0,8)}</span>}
+                                    <td className="py-2.5 px-3 font-mono text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                                      {displayPoNumber(d as unknown as Delivery) || '—'}
+                                    </td>
+                                    <td className="py-2.5 px-3 font-mono text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                                      {displayDeliveryNumber(d as unknown as Delivery) || '—'}
                                     </td>
                                     <td className="py-2.5 px-3 font-medium text-gray-900 dark:text-gray-100 max-w-[140px]"><span className="block truncate">{d.customer ?? '—'}</span></td>
                                     <td className="py-2.5 px-3 font-mono text-xs text-blue-700 dark:text-blue-400 whitespace-nowrap">{pnc}</td>
