@@ -817,6 +817,22 @@ export default function LogisticsTeamPortal() {
             const kpiPct = durations.length > 0 ? Math.round((kpiMet / durations.length) * 100) : null;
             const avgMin = durations.length > 0 ? Math.round(durations.filter(ms => ms >= 0).reduce((a, b) => a + b, 0) / durations.length / 60000) : null;
 
+            // New stat cards
+            const todayDelivery = deliveries.filter(d => {
+              const raw = (d as unknown as { confirmedDeliveryDate?: string | null }).confirmedDeliveryDate;
+              if (!raw) return false;
+              const t = Date.parse(String(raw));
+              return Number.isFinite(t) && t >= todayMs && t < tomorrowMs;
+            }).length;
+            const recentDelivered = deliveries.filter(d => {
+              const s = (d.status || '').toLowerCase();
+              return ['delivered', 'delivered-with-installation', 'delivered-without-installation', 'pod-completed', 'finished'].includes(s);
+            }).length;
+            const recentCancelled = deliveries.filter(d => {
+              const s = (d.status || '').toLowerCase();
+              return s === 'cancelled' || s === 'returned';
+            }).length;
+
             return (
               <div className="flex flex-col lg:flex-row gap-4 items-stretch">
 
@@ -847,39 +863,41 @@ export default function LogisticsTeamPortal() {
                   )}
                 </div>
 
-                {/* ── KPI Stats — 70% · 2-row grid: top 3 equal + bottom 2 wider ── */}
-                <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 lg:auto-rows-fr">
-                  {/* ── Row 1 · 3 equal columns ── */}
+                {/* ── KPI Stats + Actions — 70% · 4-col grid ── */}
+                <div className="flex-1 grid grid-cols-2 lg:grid-cols-4 gap-3">
+
+                  {/* ── Row 1: 4 primary KPI stats ── */}
                   <div
                     onClick={() => { setActiveTab('deliveries'); setDeliveriesSubTab('manage'); }}
-                    className="pp-card p-4 flex flex-col items-center justify-center h-full text-center cursor-pointer hover:ring-2 hover:ring-amber-400 transition-all lg:col-span-2"
-                    title="Click to view Manage Delivery Orders"
+                    className="pp-card p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:ring-2 hover:ring-amber-400 transition-all"
+                    title="Deliveries with no Goods Movement Date"
                   >
                     <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Pending GMD</div>
                     <div className="text-3xl font-bold text-amber-600 dark:text-amber-400">{pendingGMD}</div>
                     <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">no movement date</div>
                   </div>
-                  <div className="pp-card p-4 flex flex-col items-center justify-center h-full text-center lg:col-span-2">
+                  <div className="pp-card p-4 flex flex-col items-center justify-center text-center">
                     <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Today Processed</div>
                     <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">{todayProcessed}</div>
                     <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">new POs today</div>
                   </div>
-                  <div className="pp-card p-4 flex flex-col items-center justify-center h-full text-center lg:col-span-2">
-                    <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Delivered</div>
-                    <div className="text-3xl font-bold text-green-600 dark:text-green-400">{deliveredKPI}</div>
-                    <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">completed</div>
+                  <div className="pp-card p-4 flex flex-col items-center justify-center text-center">
+                    <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Today Delivery</div>
+                    <div className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">{todayDelivery}</div>
+                    <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">scheduled today</div>
                   </div>
-                  {/* ── Row 2 · 2 wider columns ── */}
                   <div
                     onClick={() => { setActiveTab('deliveries'); setDeliveriesSubTab('manage'); }}
-                    className="pp-card p-4 flex flex-col items-center justify-center h-full text-center cursor-pointer hover:ring-2 hover:ring-red-400 transition-all lg:col-span-3"
-                    title="Click to view Manage Delivery Orders"
+                    className="pp-card p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:ring-2 hover:ring-red-400 transition-all"
+                    title="Delivered orders missing proof of delivery"
                   >
                     <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Pending POD</div>
                     <div className={`text-3xl font-bold ${pendingPOD > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400 dark:text-gray-500'}`}>{pendingPOD}</div>
                     <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">no proof attached</div>
                   </div>
-                  <div className="pp-card p-4 flex flex-col items-center justify-center h-full text-center lg:col-span-3">
+
+                  {/* ── Row 2: 4 secondary stats ── */}
+                  <div className="pp-card p-4 flex flex-col items-center justify-center text-center">
                     <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Delivery KPI</div>
                     {kpiPct !== null ? (
                       <>
@@ -893,6 +911,52 @@ export default function LogisticsTeamPortal() {
                       </>
                     )}
                   </div>
+                  <div className="pp-card p-4 flex flex-col items-center justify-center text-center">
+                    <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Total Delivered</div>
+                    <div className="text-3xl font-bold text-green-600 dark:text-green-400">{deliveredKPI}</div>
+                    <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">completed</div>
+                  </div>
+                  <div className="pp-card p-4 flex flex-col items-center justify-center text-center">
+                    <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Recent Delivered</div>
+                    <div className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{recentDelivered}</div>
+                    <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">incl. with POD</div>
+                  </div>
+                  <div className="pp-card p-4 flex flex-col items-center justify-center text-center">
+                    <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Cancelled</div>
+                    <div className={`text-3xl font-bold ${recentCancelled > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-gray-400 dark:text-gray-500'}`}>{recentCancelled}</div>
+                    <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">cancelled / returned</div>
+                  </div>
+
+                  {/* ── Row 3: Action buttons ── */}
+                  <div
+                    onClick={() => { setActiveTab('deliveries'); setDeliveriesSubTab('manage'); }}
+                    className="col-span-2 lg:col-span-2 rounded-xl p-4 flex items-center gap-3 cursor-pointer bg-[#002D5B] hover:bg-[#003d7a] transition-all group shadow-sm"
+                    title="Open Delivery Orders & Dispatch"
+                  >
+                    <div className="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center flex-shrink-0">
+                      <Package className="w-4 h-4 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-semibold text-sm leading-tight">Manage Delivery Orders</p>
+                      <p className="text-white/60 text-[10px] mt-0.5">View, assign &amp; dispatch</p>
+                    </div>
+                    <span className="text-white/50 group-hover:text-white/80 text-lg leading-none transition-colors">→</span>
+                  </div>
+                  <div
+                    onClick={() => setActiveTab('live-maps')}
+                    className="col-span-2 lg:col-span-2 rounded-xl p-4 flex items-center gap-3 cursor-pointer bg-emerald-700 hover:bg-emerald-600 transition-all group shadow-sm"
+                    title="Open Live Driver Tracking"
+                  >
+                    <div className="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center flex-shrink-0">
+                      <NavigationIcon className="w-4 h-4 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-semibold text-sm leading-tight">Live Tracking</p>
+                      <p className="text-white/60 text-[10px] mt-0.5">Real-time driver map</p>
+                    </div>
+                    <span className="text-white/50 group-hover:text-white/80 text-lg leading-none transition-colors">→</span>
+                  </div>
+
                 </div>
 
               </div>
