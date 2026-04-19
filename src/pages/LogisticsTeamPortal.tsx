@@ -943,7 +943,7 @@ export default function LogisticsTeamPortal() {
                     <span className="text-white/50 group-hover:text-white/80 text-lg leading-none transition-colors">→</span>
                   </div>
                   <div
-                    onClick={() => setActiveTab('live-maps')}
+                    onClick={() => { setActiveTab('deliveries'); setDeliveriesSubTab('live-maps'); }}
                     className="col-span-2 lg:col-span-2 rounded-xl p-4 flex items-center gap-3 cursor-pointer bg-emerald-700 hover:bg-emerald-600 transition-all group shadow-sm"
                     title="Open Live Driver Tracking"
                   >
