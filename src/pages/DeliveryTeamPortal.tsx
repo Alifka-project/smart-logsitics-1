@@ -1220,6 +1220,230 @@ export default function DeliveryTeamPortal() {
             </div>
           </div>
 
+          {/* ── Analytics: Delivery Trend + Status Breakdown ────────────── */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            {/* Delivery Trend */}
+            <div className="pp-card p-5 lg:col-span-2 flex flex-col">
+              <div className="flex items-center justify-between mb-4 shrink-0">
+                <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Delivery Trend</h3>
+                <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-0.5 gap-0.5">
+                  {(['7d','30d','90d'] as const).map(p => (
+                    <button key={p} onClick={() => setReportsPeriod(p)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${reportsPeriod === p ? 'bg-white dark:bg-gray-700 text-blue-700 dark:text-blue-300 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
+                      {p === '7d' ? '7d' : p === '30d' ? '30d' : '90d'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {trendData.length === 0 ? (
+                <div className="flex items-center justify-center flex-1 min-h-[200px] text-gray-400 dark:text-gray-500 text-sm">No data for this period</div>
+              ) : (
+                <div className="flex-1 min-h-[200px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={trendData} margin={{ top: 4, right: 8, bottom: reportsPeriod === '90d' ? 36 : 4, left: -12 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid, #e5e7eb)" />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fontSize: reportsPeriod === '90d' ? 9 : 11, fill: 'var(--chart-tick, #6b7280)' }}
+                        angle={reportsPeriod === '90d' ? -45 : 0}
+                        textAnchor={reportsPeriod === '90d' ? 'end' : 'middle'}
+                        height={reportsPeriod === '90d' ? 52 : 24}
+                      />
+                      <YAxis tick={{ fontSize: 11, fill: 'var(--chart-tick, #6b7280)' }} allowDecimals={false} />
+                      <Tooltip {...TOOLTIP_STYLE} />
+                      <Legend wrapperStyle={{ fontSize: 12 }} />
+                      <Bar dataKey="delivered" name="Delivered" fill={CHART_COLORS.delivered} radius={[3,3,0,0]} stackId="a" maxBarSize={reportsPeriod === '90d' ? 10 : 28} />
+                      <Bar dataKey="cancelled" name="Cancelled" fill={CHART_COLORS.cancelled} radius={[0,0,0,0]} stackId="a" maxBarSize={reportsPeriod === '90d' ? 10 : 28} />
+                      <Bar dataKey="rescheduled" name="Rescheduled" fill={CHART_COLORS.rescheduled} radius={[3,3,0,0]} stackId="a" maxBarSize={reportsPeriod === '90d' ? 10 : 28} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </div>
+
+            {/* Status Distribution */}
+            <div className="pp-card p-5">
+              <h3 className="text-base font-semibold mb-4" style={{ color: 'var(--text)' }}>
+                Status Breakdown
+                <span className="ml-2 text-xs font-normal" style={{ color: 'var(--text2)' }}>({reportsPeriod === '7d' ? 'last 7 days' : reportsPeriod === '30d' ? 'last 30 days' : 'last 90 days'})</span>
+              </h3>
+              {statusDistribution.length === 0 ? (
+                <div className="flex items-center justify-center h-44 text-gray-400 dark:text-gray-500 text-sm">No data</div>
+              ) : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie data={statusDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} innerRadius={36}
+                      label={false}
+                      labelLine={false}>
+                      {statusDistribution.map((_, i) => (
+                        <Cell key={i} fill={PIE_PALETTE[i % PIE_PALETTE.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip {...TOOLTIP_STYLE} />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+              {/* Legend — use CSS token vars so text is always visible in both modes */}
+              <div className="mt-2 space-y-1.5">
+                {statusDistribution.map((item, i) => (
+                  <div key={item.name} className="flex items-center justify-between text-xs" style={{ color: 'var(--text2)' }}>
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: PIE_PALETTE[i % PIE_PALETTE.length] }} />
+                      <span className="font-medium">{item.name}</span>
+                    </span>
+                    <span className="font-bold tabular-nums ml-3" style={{ color: 'var(--text)' }}>{item.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* ── Analytics: Tomorrow's Deliveries ────────────────────────── */}
+          <div className="pp-card p-5">
+            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-1 flex flex-wrap items-center gap-2">
+              <Truck className="w-5 h-5 text-orange-500 shrink-0" />
+              Tomorrow's Deliveries
+              <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-xs font-normal text-gray-600 dark:text-gray-400">
+                {reportTomorrowDeliveries.tomorrowIso}
+              </span>
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+              Orders confirmed for tomorrow in Dubai time. Read-only snapshot ({reportTomorrowDeliveries.rows.length} order{reportTomorrowDeliveries.rows.length === 1 ? '' : 's'}).
+            </p>
+            {reportTomorrowDeliveries.rows.length === 0 ? (
+              <p className="text-sm text-gray-400 dark:text-gray-500 py-6 text-center">No deliveries scheduled for this date.</p>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border border-gray-100 dark:border-gray-800">
+                <table className="w-full text-sm min-w-[960px]">
+                  <thead className="bg-gray-50 dark:bg-gray-800/95 border-b border-gray-200 dark:border-gray-700">
+                    <tr>
+                      <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-10">#</th>
+                      <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">PO number</th>
+                      <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Delivery no.</th>
+                      <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Customer</th>
+                      <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Phone</th>
+                      <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider min-w-[180px]">Address</th>
+                      <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Confirmed date</th>
+                      <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Driver</th>
+                      <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">API status</th>
+                      <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Workflow</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                    {reportTomorrowDeliveries.rows.map((d, i) => {
+                      const meta = (d as unknown as { metadata?: { originalDeliveryNumber?: string } }).metadata;
+                      const delNo = meta?.originalDeliveryNumber != null ? String(meta.originalDeliveryNumber) : '—';
+                      const phoneRaw = (d as Record<string, unknown>).phone;
+                      const phone = phoneRaw != null && String(phoneRaw).trim() ? String(phoneRaw).trim() : '—';
+                      const confRaw = d.confirmedDeliveryDate as string | undefined;
+                      const confFmt = confRaw
+                        ? new Date(confRaw).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                        : '—';
+                      const wf = deliveryToManageOrder(d as unknown as Delivery).status;
+                      const wfLabel =
+                        wf === 'next_shipment' ? 'Next Shipment' :
+                        wf === 'future_schedule' ? 'Future Schedule' :
+                        wf === 'order_delay' ? 'Order Delay' :
+                        wf === 'out_for_delivery' ? 'On Route' :
+                        wf === 'rescheduled' ? 'Rescheduled' :
+                        wf === 'confirmed' ? 'Confirmed' :
+                        wf;
+                      return (
+                        <tr key={String(d.id ?? i)} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                          <td className="py-2.5 px-3 text-xs text-gray-400 dark:text-gray-500 tabular-nums">{i + 1}</td>
+                          <td className="py-2.5 px-3 font-mono text-xs text-gray-800 dark:text-gray-200 whitespace-nowrap">{d.poNumber ?? '—'}</td>
+                          <td className="py-2.5 px-3 font-mono text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">{delNo}</td>
+                          <td className="py-2.5 px-3 font-medium text-gray-900 dark:text-gray-100 max-w-[160px]"><span className="block truncate" title={d.customer ?? ''}>{d.customer ?? '—'}</span></td>
+                          <td className="py-2.5 px-3 text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap tabular-nums">{phone}</td>
+                          <td className="py-2.5 px-3 text-xs text-gray-600 dark:text-gray-400 max-w-[280px]"><span className="line-clamp-2" title={d.address ?? ''}>{d.address ?? '—'}</span></td>
+                          <td className="py-2.5 px-3 text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">{confFmt}</td>
+                          <td className="py-2.5 px-3 text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">{d.driverName ?? '—'}</td>
+                          <td className="py-2.5 px-3 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap capitalize">{String(d.status ?? '—').replace(/-/g, ' ')}</td>
+                          <td className="py-2.5 px-3 text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">{wfLabel}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* ── Analytics: Driver Performance + Top B2B Customers ───────── */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {/* Driver Performance */}
+            <div className="pp-card p-5">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+                <Users className="w-5 h-5 text-blue-500" />
+                Driver Performance
+              </h3>
+              {driverPerformance.length === 0 ? (
+                <p className="text-sm text-gray-400 dark:text-gray-500 py-4 text-center">No driver data for this period</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200 dark:border-gray-700">
+                        <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Driver</th>
+                        <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Assigned</th>
+                        <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Delivered</th>
+                        <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Cancelled</th>
+                        <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Success %</th>
+                        <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">POD</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                      {driverPerformance.map((dr) => (
+                        <tr key={dr.name} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                          <td className="py-2.5 px-3 font-medium text-gray-900 dark:text-gray-100">{dr.name}</td>
+                          <td className="py-2.5 px-3 text-right text-gray-700 dark:text-gray-300">{dr.assigned}</td>
+                          <td className="py-2.5 px-3 text-right text-green-600 dark:text-green-400 font-medium">{dr.delivered}</td>
+                          <td className="py-2.5 px-3 text-right text-red-500 dark:text-red-400">{dr.cancelled}</td>
+                          <td className="py-2.5 px-3 text-right">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${dr.successRate >= 80 ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : dr.successRate >= 60 ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'}`}>
+                              {dr.successRate}%
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-right text-purple-600 dark:text-purple-400">{dr.podCompleted}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Top B2B Customers */}
+            <div className="pp-card p-5 flex flex-col">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2 shrink-0">
+                <TrendingUp className="w-5 h-5 text-purple-500" />
+                Top B2B Customers
+                <span className="ml-1 text-xs font-normal text-gray-400 dark:text-gray-500">
+                  ({reportsPeriod === '7d' ? 'last 7 days' : reportsPeriod === '30d' ? 'last 30 days' : 'last 90 days'})
+                </span>
+              </h3>
+              {topB2BCustomers.length === 0 ? (
+                <p className="text-sm text-gray-400 dark:text-gray-500 py-4 text-center">No customer data for this period</p>
+              ) : (
+                <div className="flex-1 min-h-[260px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={topB2BCustomers} layout="vertical" margin={{ top: 4, right: 40, bottom: 4, left: 4 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid, #e5e7eb)" horizontal={false} />
+                      <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--chart-tick, #6b7280)' }} allowDecimals={false} />
+                      <YAxis type="category" dataKey="customer" tick={{ fontSize: 11, fill: 'var(--chart-tick, #6b7280)' }} width={130} />
+                      <Tooltip {...TOOLTIP_STYLE} />
+                      <Legend wrapperStyle={{ fontSize: 12 }} />
+                      <Bar dataKey="orders" name="Total Orders" fill="#6366f1" radius={[0,3,3,0]} maxBarSize={14}>
+                        <LabelList dataKey="orders" position="right" style={{ fontSize: 11, fill: 'var(--chart-tick, #6b7280)', fontWeight: 600 }} />
+                      </Bar>
+                      <Bar dataKey="delivered" name="Delivered" fill="#22c55e" radius={[0,3,3,0]} maxBarSize={14} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* ── Full-Width Order Detail Table — hidden; set showOrderTable=true below to restore ── */}
           {(() => {
             const showOrderTable = false;
@@ -2354,17 +2578,8 @@ export default function DeliveryTeamPortal() {
       {/* ── Reports & Analytics Tab ─────────────────────────────────────── */}
       {activeTab === 'reports' && (
         <div className="space-y-6">
-          {reportsLoading && !dashData ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-3" />
-                <p className="text-gray-500 dark:text-gray-400 text-sm">Loading analytics…</p>
-              </div>
-            </div>
-          ) : (
-            <>
-              {/* ── Delivery Report Table (moved above charts) ─────────────── */}
-              {(() => {
+          {/* ── Order Report ─────────────────────────────────────────── */}
+          {(() => {
                 const totalPages = Math.max(1, Math.ceil(podDeliveries.length / POD_PAGE_SIZE));
                 const safePage = Math.min(podPage, totalPages);
                 const pageRows = podDeliveries.slice((safePage - 1) * POD_PAGE_SIZE, safePage * POD_PAGE_SIZE);
@@ -2388,7 +2603,7 @@ export default function DeliveryTeamPortal() {
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                       <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                         <FileText className="w-5 h-5 text-purple-500" />
-                        Delivery Report
+                        Order Report
                         <span className="ml-1 px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-xs font-normal">
                           {podDeliveries.length} / {allDashDeliveries.length} records
                         </span>
@@ -2630,236 +2845,6 @@ export default function DeliveryTeamPortal() {
                   </div>
                 );
               })()}
-
-              {/* Charts row */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                {/* Delivery Trend */}
-                <div className="pp-card p-5 lg:col-span-2 flex flex-col">
-                  <div className="flex items-center justify-between mb-4 shrink-0">
-                    <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Delivery Trend</h3>
-                    <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-0.5 gap-0.5">
-                      {(['7d','30d','90d'] as const).map(p => (
-                        <button key={p} onClick={() => setReportsPeriod(p)}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${reportsPeriod === p ? 'bg-white dark:bg-gray-700 text-blue-700 dark:text-blue-300 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
-                          {p === '7d' ? '7d' : p === '30d' ? '30d' : '90d'}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  {trendData.length === 0 ? (
-                    <div className="flex items-center justify-center flex-1 min-h-[200px] text-gray-400 dark:text-gray-500 text-sm">No data for this period</div>
-                  ) : (
-                    <div className="flex-1 min-h-[200px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={trendData} margin={{ top: 4, right: 8, bottom: reportsPeriod === '90d' ? 36 : 4, left: -12 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid, #e5e7eb)" />
-                          <XAxis
-                            dataKey="date"
-                            tick={{ fontSize: reportsPeriod === '90d' ? 9 : 11, fill: 'var(--chart-tick, #6b7280)' }}
-                            angle={reportsPeriod === '90d' ? -45 : 0}
-                            textAnchor={reportsPeriod === '90d' ? 'end' : 'middle'}
-                            height={reportsPeriod === '90d' ? 52 : 24}
-                          />
-                          <YAxis tick={{ fontSize: 11, fill: 'var(--chart-tick, #6b7280)' }} allowDecimals={false} />
-                          <Tooltip {...TOOLTIP_STYLE} />
-                          <Legend wrapperStyle={{ fontSize: 12 }} />
-                          <Bar dataKey="delivered" name="Delivered" fill={CHART_COLORS.delivered} radius={[3,3,0,0]} stackId="a" maxBarSize={reportsPeriod === '90d' ? 10 : 28} />
-                          <Bar dataKey="cancelled" name="Cancelled" fill={CHART_COLORS.cancelled} radius={[0,0,0,0]} stackId="a" maxBarSize={reportsPeriod === '90d' ? 10 : 28} />
-                          <Bar dataKey="rescheduled" name="Rescheduled" fill={CHART_COLORS.rescheduled} radius={[3,3,0,0]} stackId="a" maxBarSize={reportsPeriod === '90d' ? 10 : 28} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  )}
-                </div>
-
-                {/* Status Distribution */}
-                <div className="pp-card p-5">
-                  <h3 className="text-base font-semibold mb-4" style={{ color: 'var(--text)' }}>
-                    Status Breakdown
-                    <span className="ml-2 text-xs font-normal" style={{ color: 'var(--text2)' }}>({reportsPeriod === '7d' ? 'last 7 days' : reportsPeriod === '30d' ? 'last 30 days' : 'last 90 days'})</span>
-                  </h3>
-                  {statusDistribution.length === 0 ? (
-                    <div className="flex items-center justify-center h-44 text-gray-400 dark:text-gray-500 text-sm">No data</div>
-                  ) : (
-                    <ResponsiveContainer width="100%" height={220}>
-                      <PieChart>
-                        <Pie data={statusDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} innerRadius={36}
-                          label={false}
-                          labelLine={false}>
-                          {statusDistribution.map((_, i) => (
-                            <Cell key={i} fill={PIE_PALETTE[i % PIE_PALETTE.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip {...TOOLTIP_STYLE} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  )}
-                  {/* Legend — use CSS token vars so text is always visible in both modes */}
-                  <div className="mt-2 space-y-1.5">
-                    {statusDistribution.map((item, i) => (
-                      <div key={item.name} className="flex items-center justify-between text-xs" style={{ color: 'var(--text2)' }}>
-                        <span className="flex items-center gap-1.5">
-                          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: PIE_PALETTE[i % PIE_PALETTE.length] }} />
-                          <span className="font-medium">{item.name}</span>
-                        </span>
-                        <span className="font-bold tabular-nums ml-3" style={{ color: 'var(--text)' }}>{item.value}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Tomorrow's delivery list — read-only, between charts and driver performance */}
-              <div className="pp-card p-5">
-                <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-1 flex flex-wrap items-center gap-2">
-                  <Truck className="w-5 h-5 text-orange-500 shrink-0" />
-                  Tomorrow's Deliveries
-                  <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-xs font-normal text-gray-600 dark:text-gray-400">
-                    {reportTomorrowDeliveries.tomorrowIso}
-                  </span>
-                </h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-                  Orders confirmed for tomorrow in Dubai time. Read-only snapshot ({reportTomorrowDeliveries.rows.length} order{reportTomorrowDeliveries.rows.length === 1 ? '' : 's'}).
-                </p>
-                {reportTomorrowDeliveries.rows.length === 0 ? (
-                  <p className="text-sm text-gray-400 dark:text-gray-500 py-6 text-center">No deliveries scheduled for this date.</p>
-                ) : (
-                  <div className="overflow-x-auto rounded-lg border border-gray-100 dark:border-gray-800">
-                    <table className="w-full text-sm min-w-[960px]">
-                      <thead className="bg-gray-50 dark:bg-gray-800/95 border-b border-gray-200 dark:border-gray-700">
-                        <tr>
-                          <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-10">#</th>
-                          <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">PO number</th>
-                          <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Delivery no.</th>
-                          <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Customer</th>
-                          <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Phone</th>
-                          <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider min-w-[180px]">Address</th>
-                          <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Confirmed date</th>
-                          <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Driver</th>
-                          <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">API status</th>
-                          <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Workflow</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                        {reportTomorrowDeliveries.rows.map((d, i) => {
-                          const meta = (d as unknown as { metadata?: { originalDeliveryNumber?: string } }).metadata;
-                          const delNo = meta?.originalDeliveryNumber != null ? String(meta.originalDeliveryNumber) : '—';
-                          const phoneRaw = (d as Record<string, unknown>).phone;
-                          const phone = phoneRaw != null && String(phoneRaw).trim() ? String(phoneRaw).trim() : '—';
-                          const confRaw = d.confirmedDeliveryDate as string | undefined;
-                          const confFmt = confRaw
-                            ? new Date(confRaw).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-                            : '—';
-                          const wf = deliveryToManageOrder(d as unknown as Delivery).status;
-                          const wfLabel =
-                            wf === 'next_shipment' ? 'Next Shipment' :
-                            wf === 'future_schedule' ? 'Future Schedule' :
-                            wf === 'order_delay' ? 'Order Delay' :
-                            wf === 'out_for_delivery' ? 'On Route' :
-                            wf === 'rescheduled' ? 'Rescheduled' :
-                            wf === 'confirmed' ? 'Confirmed' :
-                            wf;
-                          return (
-                            <tr key={String(d.id ?? i)} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                              <td className="py-2.5 px-3 text-xs text-gray-400 dark:text-gray-500 tabular-nums">{i + 1}</td>
-                              <td className="py-2.5 px-3 font-mono text-xs text-gray-800 dark:text-gray-200 whitespace-nowrap">{d.poNumber ?? '—'}</td>
-                              <td className="py-2.5 px-3 font-mono text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">{delNo}</td>
-                              <td className="py-2.5 px-3 font-medium text-gray-900 dark:text-gray-100 max-w-[160px]"><span className="block truncate" title={d.customer ?? ''}>{d.customer ?? '—'}</span></td>
-                              <td className="py-2.5 px-3 text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap tabular-nums">{phone}</td>
-                              <td className="py-2.5 px-3 text-xs text-gray-600 dark:text-gray-400 max-w-[280px]"><span className="line-clamp-2" title={d.address ?? ''}>{d.address ?? '—'}</span></td>
-                              <td className="py-2.5 px-3 text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">{confFmt}</td>
-                              <td className="py-2.5 px-3 text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">{d.driverName ?? '—'}</td>
-                              <td className="py-2.5 px-3 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap capitalize">{String(d.status ?? '—').replace(/-/g, ' ')}</td>
-                              <td className="py-2.5 px-3 text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">{wfLabel}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-
-              {/* Driver Performance + Top B2B Customers — side by side at 50/50 */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-
-                {/* Driver Performance */}
-                <div className="pp-card p-5">
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
-                    <Users className="w-5 h-5 text-blue-500" />
-                    Driver Performance
-                  </h3>
-                  {driverPerformance.length === 0 ? (
-                    <p className="text-sm text-gray-400 dark:text-gray-500 py-4 text-center">No driver data for this period</p>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-gray-200 dark:border-gray-700">
-                            <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Driver</th>
-                            <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Assigned</th>
-                            <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Delivered</th>
-                            <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Cancelled</th>
-                            <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Success %</th>
-                            <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">POD</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                          {driverPerformance.map((dr) => (
-                            <tr key={dr.name} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                              <td className="py-2.5 px-3 font-medium text-gray-900 dark:text-gray-100">{dr.name}</td>
-                              <td className="py-2.5 px-3 text-right text-gray-700 dark:text-gray-300">{dr.assigned}</td>
-                              <td className="py-2.5 px-3 text-right text-green-600 dark:text-green-400 font-medium">{dr.delivered}</td>
-                              <td className="py-2.5 px-3 text-right text-red-500 dark:text-red-400">{dr.cancelled}</td>
-                              <td className="py-2.5 px-3 text-right">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${dr.successRate >= 80 ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : dr.successRate >= 60 ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'}`}>
-                                  {dr.successRate}%
-                                </span>
-                              </td>
-                              <td className="py-2.5 px-3 text-right text-purple-600 dark:text-purple-400">{dr.podCompleted}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-
-                {/* Top B2B Customers */}
-                <div className="pp-card p-5 flex flex-col">
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2 shrink-0">
-                    <TrendingUp className="w-5 h-5 text-purple-500" />
-                    Top B2B Customers
-                    <span className="ml-1 text-xs font-normal text-gray-400 dark:text-gray-500">
-                      ({reportsPeriod === '7d' ? 'last 7 days' : reportsPeriod === '30d' ? 'last 30 days' : 'last 90 days'})
-                    </span>
-                  </h3>
-                  {topB2BCustomers.length === 0 ? (
-                    <p className="text-sm text-gray-400 dark:text-gray-500 py-4 text-center">No customer data for this period</p>
-                  ) : (
-                    <div className="flex-1 min-h-[260px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={topB2BCustomers} layout="vertical" margin={{ top: 4, right: 40, bottom: 4, left: 4 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid, #e5e7eb)" horizontal={false} />
-                          <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--chart-tick, #6b7280)' }} allowDecimals={false} />
-                          <YAxis type="category" dataKey="customer" tick={{ fontSize: 11, fill: 'var(--chart-tick, #6b7280)' }} width={130} />
-                          <Tooltip {...TOOLTIP_STYLE} />
-                          <Legend wrapperStyle={{ fontSize: 12 }} />
-                          <Bar dataKey="orders" name="Total Orders" fill="#6366f1" radius={[0,3,3,0]} maxBarSize={14}>
-                            <LabelList dataKey="orders" position="right" style={{ fontSize: 11, fill: 'var(--chart-tick, #6b7280)', fontWeight: 600 }} />
-                          </Bar>
-                          <Bar dataKey="delivered" name="Delivered" fill="#22c55e" radius={[0,3,3,0]} maxBarSize={14} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  )}
-                </div>
-
-              </div>
-
-
-            </>
-          )}
         </div>
       )}
 
