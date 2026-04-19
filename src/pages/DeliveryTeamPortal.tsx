@@ -2797,7 +2797,7 @@ export default function DeliveryTeamPortal() {
                 const pageNums: number[] = [];
                 const half = 2;
                 let start = Math.max(1, safePage - half);
-                let end = Math.min(totalPages, start + 4);
+                const end = Math.min(totalPages, start + 4);
                 if (end - start < 4) start = Math.max(1, end - 4);
                 for (let i = start; i <= end; i++) pageNums.push(i);
 

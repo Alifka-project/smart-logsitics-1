@@ -57,7 +57,7 @@ class EmailService {
 
     // Try to use nodemailer if available
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
+       
       const nodemailer = require('nodemailer');
 
       if (this.smtpEnabled && smtpHost) {
