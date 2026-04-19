@@ -46,6 +46,12 @@ interface ManageTabProps {
   driverCapacityByDate?: Record<string, Record<string, { used: number; remaining: number; max: number; full: boolean }>>;
   /** Logistics-only: set of online driver IDs for the sidebar status dot */
   onlineDriverIds?: Set<string>;
+  /** Delivery Team Portal: show Material (PNC) column in orders table */
+  showMaterialColumn?: boolean;
+  /** Delivery Team Portal: show Qty column in orders table */
+  showQtyColumn?: boolean;
+  /** Delivery Team Portal: show plain driver name only — no icon/dropdown */
+  simpleDriverDisplay?: boolean;
 }
 
 
@@ -67,6 +73,9 @@ export default function ManageTab({
   driverList,
   driverCapacityByDate,
   onlineDriverIds,
+  showMaterialColumn = false,
+  showQtyColumn = false,
+  simpleDriverDisplay = false,
 }: ManageTabProps) {
   const fileUploadRef = useRef<FileUploadHandle>(null);
   const pendingHashes = useRef<Set<string>>(new Set());
@@ -401,6 +410,9 @@ export default function ManageTab({
             getDriverCapacity={getDriverCapacity}
             enableDispatchFilters={enableDispatchFilters}
             onRefresh={handleRefresh}
+            showMaterialColumn={showMaterialColumn}
+            showQtyColumn={showQtyColumn}
+            simpleDriverDisplay={simpleDriverDisplay}
           />
         </div>
         <div className="min-w-0 w-full lg:sticky lg:top-4 lg:self-start">

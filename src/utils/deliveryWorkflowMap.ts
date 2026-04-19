@@ -232,6 +232,10 @@ export function deliveryToManageOrder(delivery: Delivery): DeliveryOrder {
   const model = modelRaw != null && String(modelRaw).trim() ? String(modelRaw).trim() : undefined;
   const descRaw = origRow['Description'] ?? origRow['description'] ?? origRow['Product Description'] ?? origRow['product_description'];
   const productDescription = descRaw != null && String(descRaw).trim() ? String(descRaw).trim() : undefined;
+  const materialRaw = origRow['Material'] ?? origRow['material'] ?? origRow['Material Number'] ?? origRow['PNC'] ?? origRow['Matnr'];
+  const material = materialRaw != null && String(materialRaw).trim() ? String(materialRaw).trim() : undefined;
+  const qtyRaw = origRow['Order Quantity'] ?? origRow['Confirmed quantity'] ?? origRow['Total Line Deliv. Qt'] ?? origRow['Order Qty'] ?? origRow['Quantity'] ?? origRow['qty'];
+  const qty = qtyRaw != null && String(qtyRaw).trim() ? String(qtyRaw).trim() : undefined;
 
   const confirmedAt =
     parseOptDate((meta as Record<string, unknown>).confirmedAt) ??
@@ -279,6 +283,8 @@ export function deliveryToManageOrder(delivery: Delivery): DeliveryOrder {
     productSKU,
     model,
     productDescription,
+    material,
+    qty,
     status,
     uploadedAt,
     smsSentAt: smsSentAt,

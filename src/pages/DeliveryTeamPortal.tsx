@@ -1961,6 +1961,9 @@ export default function DeliveryTeamPortal() {
             enableDispatchFilters
             showActionCards={false}
             hideDeliveriesTab
+            showMaterialColumn
+            showQtyColumn
+            simpleDriverDisplay
             extraTabs={[{ id: 'live-maps', label: 'Live Maps', icon: MapPin, content: liveMapsContent }]}
           />
         );

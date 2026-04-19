@@ -31,6 +31,10 @@ export interface DeliveryOrder {
   productSKU?: string;
   model?: string;
   productDescription?: string;
+  /** Material / PNC code extracted from SAP metadata (e.g. orig['Material']) */
+  material?: string;
+  /** Order quantity from SAP metadata */
+  qty?: string;
   status: DeliveryStatus;
   uploadedAt: Date;
   smsSentAt?: Date;

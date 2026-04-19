@@ -101,6 +101,12 @@ interface DeliveryManagementPageProps {
   driverCapacityByDate?: Record<string, Record<string, { used: number; remaining: number; max: number; full: boolean }>>;
   /** Logistics-only: set of online driver IDs for the sidebar status dot */
   onlineDriverIds?: Set<string>;
+  /** Delivery Team Portal: add Material (PNC) column to the manage orders table */
+  showMaterialColumn?: boolean;
+  /** Delivery Team Portal: add Qty column to the manage orders table */
+  showQtyColumn?: boolean;
+  /** Delivery Team Portal: show plain driver name only in Driver column (no icon/dropdown) */
+  simpleDriverDisplay?: boolean;
 }
 
 export default function DeliveryManagementPage({
@@ -119,6 +125,9 @@ export default function DeliveryManagementPage({
   driverList,
   driverCapacityByDate,
   onlineDriverIds,
+  showMaterialColumn = false,
+  showQtyColumn = false,
+  simpleDriverDisplay = false,
 }: DeliveryManagementPageProps) {
   const deliveries = useDeliveryStore((state) => state.deliveries ?? []);
   const deliveryListFilter = useDeliveryStore((state) => state.deliveryListFilter ?? 'all');
@@ -511,6 +520,9 @@ export default function DeliveryManagementPage({
           driverList={driverList}
           driverCapacityByDate={driverCapacityByDate}
           onlineDriverIds={onlineDriverIds}
+          showMaterialColumn={showMaterialColumn}
+          showQtyColumn={showQtyColumn}
+          simpleDriverDisplay={simpleDriverDisplay}
         />
       )}
 

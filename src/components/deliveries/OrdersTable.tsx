@@ -303,6 +303,12 @@ interface OrdersTableProps {
    * The parent should open the DeliveryDetailModal for this order ID.
    */
   onUploadPod?: (orderId: string) => void;
+  /** Delivery Team Portal: show a Material (PNC) column */
+  showMaterialColumn?: boolean;
+  /** Delivery Team Portal: show a Qty column */
+  showQtyColumn?: boolean;
+  /** Delivery Team Portal: show only plain driver name text — no icon, no assignment dropdown */
+  simpleDriverDisplay?: boolean;
 }
 
 const CONFIRMED_STATUSES = new Set<DeliveryStatus>(['confirmed', 'next_shipment', 'future_schedule', 'ready_to_dispatch']);
@@ -564,6 +570,9 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
   enableDispatchFilters = false,
   onRefresh,
   onUploadPod,
+  showMaterialColumn = false,
+  showQtyColumn = false,
+  simpleDriverDisplay = false,
 }) => {
   const [rescheduleOrder, setRescheduleOrder] = useState<DeliveryOrder | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -1015,10 +1024,20 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
               <th className="whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Description
               </th>
+              {showMaterialColumn && (
+                <th className="min-w-[100px] w-[110px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  Material
+                </th>
+              )}
+              {showQtyColumn && (
+                <th className="min-w-[55px] w-[60px] whitespace-nowrap px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  Qty
+                </th>
+              )}
               <th className="min-w-[90px] w-[100px] whitespace-nowrap px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Priority
               </th>
-              <th className="min-w-[180px] w-[200px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className={`whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 ${simpleDriverDisplay ? 'min-w-[120px] w-[130px]' : 'min-w-[180px] w-[200px]'}`}>
                 Driver
               </th>
               <th className="min-w-[130px] w-[140px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
@@ -1134,6 +1153,20 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                         {order.productDescription || order.product}
                       </span>
                     </td>
+                    {showMaterialColumn && (
+                      <td className="min-w-[100px] w-[110px] overflow-hidden px-3 py-2.5 align-middle" data-label="Material">
+                        <span className="block truncate font-mono text-[12px] text-blue-700 dark:text-blue-400" title={order.material ?? '—'}>
+                          {order.material ?? '—'}
+                        </span>
+                      </td>
+                    )}
+                    {showQtyColumn && (
+                      <td className="min-w-[55px] w-[60px] px-3 py-2.5 align-middle text-center" data-label="Qty">
+                        <span className="font-semibold tabular-nums text-[13px] text-gray-700 dark:text-gray-300">
+                          {order.qty ?? '—'}
+                        </span>
+                      </td>
+                    )}
                     <td className="min-w-[90px] w-[100px] px-3 py-2.5 align-middle text-center" data-label="Priority">
                       {onTogglePriority ? (
                         <button
@@ -1159,8 +1192,17 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                         </span>
                       )}
                     </td>
-                    <td className="min-w-[180px] w-[200px] overflow-hidden px-3 py-2.5 align-middle" data-label="Driver">
-                      {drivers && drivers.length > 0 && onAssignDriver ? (
+                    <td className={`overflow-hidden px-3 py-2.5 align-middle ${simpleDriverDisplay ? 'min-w-[120px] w-[130px]' : 'min-w-[180px] w-[200px]'}`} data-label="Driver">
+                      {simpleDriverDisplay ? (
+                        /* Delivery Team Portal: read-only plain text — no icon, no dropdown */
+                        order.driverName ? (
+                          <span className="block truncate text-[13px] font-medium text-gray-800 dark:text-gray-200" title={order.driverName}>
+                            {order.driverName}
+                          </span>
+                        ) : (
+                          <span className="text-[12px] text-gray-400 dark:text-gray-500 italic">Unassigned</span>
+                        )
+                      ) : drivers && drivers.length > 0 && onAssignDriver ? (
                         <div className="flex flex-col gap-1">
                           {/* Current driver display */}
                           {order.driverName && (
@@ -1205,7 +1247,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                         /* Fallback: just show driver name when no driver list available */
                         order.driverName ? (
                           <span className="block truncate text-[13px] font-medium text-indigo-700 dark:text-indigo-300" title={order.driverName}>
-                            🚗 {order.driverName}
+                            {order.driverName}
                           </span>
                         ) : (
                           <span className="text-[12px] text-gray-400 dark:text-gray-500 italic">Unassigned</span>
