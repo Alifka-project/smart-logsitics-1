@@ -2551,20 +2551,27 @@ export default function DeliveryTeamPortal() {
                     </div>
                   ) : (() => {
                     // Resolve current user identity once for all messages
-                    const currentUser = getCurrentUser() as (AuthUser & { account?: { role?: string } }) | null;
+                    const currentUser = getCurrentUser() as (AuthUser & { account?: { role?: string }; role?: string }) | null;
                     const currentUserId = String(currentUser?.sub || '');
-                    // The contact's ID is always known — use it as the primary anchor
+                    const myRole = String(currentUser?.role || currentUser?.account?.role || '');
+                    const contactRole = String(selectedContact.account?.role || selectedContact.role || '');
                     const contactId = String(selectedContact.id || '');
 
-                    // In a 1:1 chat every message is either FROM the contact or FROM me.
-                    // Check the contact's ID first (most reliable — no dependency on currentUser.sub format).
-                    // If the message sender matches the contact → received (LEFT).
-                    // If it explicitly matches my ID → sent (RIGHT).
-                    // If neither match, assume it was sent by me (safe in a 1:1 thread).
+                    // KEY FACTS about the data model:
+                    // • adminId = the SENDER's ID — set server-side by the auth token (reliable)
+                    // • driverId = the RECIPIENT's ID — always = selectedContact.id in the send payload
+                    //             → do NOT use driverId to detect the sender
+                    // • senderRole = the SENDER's role → most reliable when roles differ
                     const getIsSent = (msg: TeamMessage): boolean => {
-                      if (contactId && (String(msg.adminId || '') === contactId || String(msg.driverId || '') === contactId)) return false;
-                      if (currentUserId && (String(msg.adminId || '') === currentUserId || String(msg.driverId || '') === currentUserId)) return true;
-                      return true; // 1:1 chat: if not from contact, it's from me
+                      // 1. Role comparison (unambiguous when roles differ)
+                      if (msg.senderRole && myRole && contactRole && myRole !== contactRole) {
+                        if (msg.senderRole === myRole) return true;
+                        if (msg.senderRole === contactRole) return false;
+                      }
+                      // 2. adminId is the sender's ID (server-set, not the payload driverId)
+                      if (currentUserId && String(msg.adminId || '') === currentUserId) return true;
+                      if (contactId && String(msg.adminId || '') === contactId) return false;
+                      return false; // default: received
                     };
 
                     // Group messages by calendar date for date separators

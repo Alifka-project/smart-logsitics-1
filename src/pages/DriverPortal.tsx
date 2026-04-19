@@ -1566,16 +1566,11 @@ export default function DriverPortal() {
                     </div>
                   ) : (
                     messages.map((msg, idx) => {
-                      // Contact-ID-first: in a 1:1 chat, if the sender ID matches
-                      // the selected contact → received (LEFT). Otherwise it's mine (RIGHT).
-                      // Fall back to role check if IDs are unavailable.
-                      const contactId = String(selectedContact.id || '');
-                      const isFromOther = (() => {
-                        if (contactId && (String(msg.adminId || '') === contactId || String(msg.driverId || '') === contactId)) return true;
-                        if (msg.senderRole === 'driver') return false; // driver messages are mine
-                        if (msg.senderRole && msg.senderRole !== 'driver') return true;
-                        return false; // default: treat as mine
-                      })();
+                      // For the driver portal: the current user IS the driver.
+                      // - senderRole === 'driver' OR from === 'driver' → sent by me → RIGHT
+                      // - any other senderRole (admin, delivery_team, etc.) → from the contact → LEFT
+                      // The 'from' field is set locally right after sending before a reload.
+                      const isFromOther = !(msg.senderRole === 'driver' || msg.from === 'driver');
                       const messageText = msg.text || msg.content || '';
                       const messageTime = msg.timestamp || msg.createdAt;
                       const roleConfig: Record<string, { label: string; color: string }> = {
