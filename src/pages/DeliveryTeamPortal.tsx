@@ -26,7 +26,8 @@ import {
   FileText,
   Download,
   MapPin,
-  Camera
+  Camera,
+  Calendar
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -1015,7 +1016,7 @@ export default function DeliveryTeamPortal() {
             { id: 'operations', label: 'Dashboard', icon: Activity },
             { id: 'deliveries', label: 'Deliveries', icon: Package },
             { id: 'communication', label: 'Communication', icon: MessageSquare },
-            { id: 'reports', label: 'Reports & Analytics', icon: BarChart2 },
+            { id: 'reports', label: 'Reports', icon: BarChart2 },
           ].map(tab => {
             const Icon = tab.icon;
             return (
@@ -2673,26 +2674,35 @@ export default function DeliveryTeamPortal() {
                       </div>
                     </div>
 
-                    {/* Summary chips — always based on full dataset (independent of chart period) */}
+                    {/* Summary chips — clickable shortcuts to filter by status */}
                     <div className="flex flex-wrap gap-2 mb-4">
-                      {[
-                        { label: 'Total', value: allDashWithWorkflow.length, color: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' },
-                        { label: 'Next Shipment', value: allDashWithWorkflow.filter(({ ws }) => ws === 'next_shipment').length, color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' },
-                        { label: 'Future Schedule', value: allDashWithWorkflow.filter(({ ws }) => ws === 'future_schedule').length, color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300' },
-                        { label: 'On Route', value: allDashWithWorkflow.filter(({ ws }) => ws === 'out_for_delivery').length, color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' },
-                        { label: 'Order Delay', value: allDashWithWorkflow.filter(({ ws }) => ws === 'order_delay').length, color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' },
-                        { label: 'Rescheduled', value: allDashWithWorkflow.filter(({ ws }) => ws === 'rescheduled').length, color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' },
-                        { label: 'Delivered', value: allDashWithWorkflow.filter(({ ws }) => ws === 'delivered').length, color: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' },
-                        { label: 'Cancelled', value: allDashWithWorkflow.filter(({ ws }) => ws === 'cancelled').length, color: 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400' },
-                        { label: 'Failed / Returned', value: allDashWithWorkflow.filter(({ ws }) => ws === 'failed').length, color: 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300' },
-                      ].map(({ label, value, color }) => (
-                        <span key={label} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${color}`}>
+                      {([
+                        { label: 'Total',            statusKey: 'all',              value: allDashWithWorkflow.length,                                                    color: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300',         activeColor: 'ring-2 ring-gray-400 dark:ring-gray-400' },
+                        { label: 'Next Shipment',    statusKey: 'next_shipment',    value: allDashWithWorkflow.filter(({ ws }) => ws === 'next_shipment').length,          color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300',   activeColor: 'ring-2 ring-amber-400' },
+                        { label: 'Future Schedule',  statusKey: 'future_schedule',  value: allDashWithWorkflow.filter(({ ws }) => ws === 'future_schedule').length,        color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300', activeColor: 'ring-2 ring-indigo-400' },
+                        { label: 'On Route',         statusKey: 'out_for_delivery', value: allDashWithWorkflow.filter(({ ws }) => ws === 'out_for_delivery').length,       color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',       activeColor: 'ring-2 ring-blue-400' },
+                        { label: 'Order Delay',      statusKey: 'order_delay',      value: allDashWithWorkflow.filter(({ ws }) => ws === 'order_delay').length,            color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',           activeColor: 'ring-2 ring-red-400' },
+                        { label: 'Rescheduled',      statusKey: 'rescheduled',      value: allDashWithWorkflow.filter(({ ws }) => ws === 'rescheduled').length,            color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300', activeColor: 'ring-2 ring-orange-400' },
+                        { label: 'Awaiting',         statusKey: 'sms_sent',         value: allDashWithWorkflow.filter(({ ws }) => ws === 'sms_sent').length,               color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300', activeColor: 'ring-2 ring-yellow-400' },
+                        { label: 'No Response',      statusKey: 'unconfirmed',      value: allDashWithWorkflow.filter(({ ws }) => ws === 'unconfirmed').length,            color: 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300',       activeColor: 'ring-2 ring-rose-400' },
+                        { label: 'Confirmed',        statusKey: 'confirmed',        value: allDashWithWorkflow.filter(({ ws }) => ws === 'confirmed').length,              color: 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300',       activeColor: 'ring-2 ring-teal-400' },
+                        { label: 'Delivered',        statusKey: 'delivered',        value: allDashWithWorkflow.filter(({ ws }) => ws === 'delivered').length,              color: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',   activeColor: 'ring-2 ring-green-400' },
+                        { label: 'Cancelled',        statusKey: 'cancelled',        value: allDashWithWorkflow.filter(({ ws }) => ws === 'cancelled').length,              color: 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400',         activeColor: 'ring-2 ring-gray-400' },
+                        { label: 'Failed / Returned',statusKey: 'failed',           value: allDashWithWorkflow.filter(({ ws }) => ws === 'failed').length,                color: 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300',       activeColor: 'ring-2 ring-rose-400' },
+                      ] as { label: string; statusKey: string; value: number; color: string; activeColor: string }[]).map(({ label, statusKey, value, color, activeColor }) => (
+                        <button
+                          key={label}
+                          type="button"
+                          onClick={() => { setPodStatusFilter(statusKey); setPodPage(1); }}
+                          title={`Filter by: ${label}`}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer hover:opacity-80 ${color} ${podStatusFilter === statusKey ? `${activeColor} ring-offset-1` : ''}`}
+                        >
                           <span className="font-bold text-sm">{value}</span> {label}
-                        </span>
+                        </button>
                       ))}
                     </div>
 
-                    {/* Filters — single compact row */}
+                    {/* Filters row */}
                     <div className="flex flex-wrap items-center gap-2 mb-4">
                       {/* Search */}
                       <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-1 min-w-[160px]">
@@ -2702,23 +2712,28 @@ export default function DeliveryTeamPortal() {
                           className="flex-1 bg-transparent text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 outline-none min-w-0" />
                         {podSearch && <button onClick={() => setPodSearch('')} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-[10px] flex-shrink-0">✕</button>}
                       </div>
-                      {/* Date from */}
-                      <input type="date" value={podDateFrom} onChange={e => setPodDateFrom(e.target.value)}
-                        title="From date"
-                        className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-blue-500 w-[130px]" />
-                      {/* Date to */}
-                      <input type="date" value={podDateTo} onChange={e => setPodDateTo(e.target.value)}
-                        title="To date"
-                        className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-blue-500 w-[130px]" />
-                      {/* Status */}
-                      <select value={podStatusFilter} onChange={e => setPodStatusFilter(e.target.value)}
+                      {/* Date range — unified From → To in one styled box */}
+                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                        <Calendar className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                        <input type="date" value={podDateFrom} onChange={e => { setPodDateFrom(e.target.value); setPodPage(1); }}
+                          className="bg-transparent text-xs text-gray-700 dark:text-gray-300 outline-none w-[108px]" />
+                        <span className="text-gray-400 dark:text-gray-500 text-xs select-none">—</span>
+                        <input type="date" value={podDateTo} onChange={e => { setPodDateTo(e.target.value); setPodPage(1); }}
+                          className="bg-transparent text-xs text-gray-700 dark:text-gray-300 outline-none w-[108px]" />
+                        {(podDateFrom || podDateTo) && (
+                          <button onClick={() => { setPodDateFrom(''); setPodDateTo(''); setPodPage(1); }}
+                            className="text-gray-400 hover:text-red-500 dark:hover:text-red-400 text-[10px] flex-shrink-0 ml-0.5">✕</button>
+                        )}
+                      </div>
+                      {/* Status dropdown (secondary to chip shortcuts above) */}
+                      <select value={podStatusFilter} onChange={e => { setPodStatusFilter(e.target.value); setPodPage(1); }}
                         className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="all">All Statuses</option>
-                        <option value="out_for_delivery">On Route (Out for Delivery)</option>
+                        <option value="out_for_delivery">On Route</option>
                         <option value="next_shipment">Next Shipment</option>
                         <option value="future_schedule">Future Schedule</option>
                         <option value="order_delay">Order Delay</option>
-                        <option value="sms_sent">Awaiting Customer (SMS Sent)</option>
+                        <option value="sms_sent">Awaiting Customer</option>
                         <option value="unconfirmed">No Response</option>
                         <option value="uploaded">Pending Order</option>
                         <option value="confirmed">Customer Confirmed</option>
@@ -2728,18 +2743,22 @@ export default function DeliveryTeamPortal() {
                         <option value="cancelled">Cancelled</option>
                       </select>
                       {/* Driver */}
-                      <select value={podDriverFilter} onChange={e => setPodDriverFilter(e.target.value)}
+                      <select value={podDriverFilter} onChange={e => { setPodDriverFilter(e.target.value); setPodPage(1); }}
                         className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="all">All Drivers</option>
                         {podDriverOptions.map(name => <option key={name} value={name}>{name}</option>)}
                       </select>
-                      {/* Clear */}
-                      {(podSearch || podStatusFilter !== 'all' || podDriverFilter !== 'all' || podDateFrom || podDateTo) && (
-                        <button onClick={() => { setPodSearch(''); setPodStatusFilter('all'); setPodDriverFilter('all'); setPodDateFrom(''); setPodDateTo(''); }}
-                          className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors whitespace-nowrap">
-                          Clear all
-                        </button>
-                      )}
+                      {/* Reset all — always visible */}
+                      <button
+                        onClick={() => { setPodSearch(''); setPodStatusFilter('all'); setPodDriverFilter('all'); setPodDateFrom(''); setPodDateTo(''); setPodPage(1); }}
+                        className={`px-2.5 py-1.5 rounded-lg border text-xs whitespace-nowrap transition-colors ${
+                          (podSearch || podStatusFilter !== 'all' || podDriverFilter !== 'all' || podDateFrom || podDateTo)
+                            ? 'border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
+                            : 'border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800'
+                        }`}
+                      >
+                        Reset filters
+                      </button>
                     </div>
 
                     {podDeliveries.length === 0 ? (
