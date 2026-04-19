@@ -195,6 +195,19 @@ export default function DeliveryTeamPortal() {
   const [highlightDeliveryId, setHighlightDeliveryId] = useState<string | null>(null);
   const highlightRowRef = useRef<HTMLTableRowElement | null>(null);
 
+  // Track dark mode via MutationObserver so tooltip colours stay in sync
+  // (dark mode is toggled by adding/removing `.dark` on <html>, not via React state)
+  const [isDark, setIsDark] = useState(
+    typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+  );
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains('dark'));
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
+
   // Reports & Analytics tab state
   interface DashTotals {
     total: number; delivered: number; cancelled: number; rescheduled: number;
@@ -957,11 +970,16 @@ export default function DeliveryTeamPortal() {
 
   const CHART_COLORS = { delivered: '#22c55e', cancelled: '#ef4444', rescheduled: '#f59e0b', returned: '#8b5cf6', pending: '#94a3b8' };
   const PIE_PALETTE = ['#22c55e','#ef4444','#f59e0b','#3b82f6','#8b5cf6','#94a3b8','#06b6d4','#f97316','#ec4899','#14b8a6','#a855f7','#64748b'];
+  // Explicit colours derived from isDark state — avoids CSS-variable resolution
+  // issues inside Recharts tooltip portals and overrides entry.color on item rows.
+  const ttFg  = isDark ? '#f1f5f9' : '#111827';
+  const ttBg  = isDark ? '#0f172a' : '#ffffff';
+  const ttBdr = isDark ? 'rgba(255,255,255,0.12)' : '#e5e7eb';
   const TOOLTIP_STYLE = {
     wrapperStyle: { zIndex: 9999 },
-    contentStyle: { background: 'var(--chart-tooltip-bg, #fff)', border: '1px solid var(--chart-tooltip-border, #e5e7eb)', borderRadius: '12px', fontSize: '13px', color: 'var(--chart-tooltip-fg, #111)', padding: '10px 14px', minWidth: '130px', boxShadow: '0 8px 24px -4px rgba(0,0,0,0.18)' },
-    labelStyle: { fontWeight: 600, marginBottom: '4px' },
-    itemStyle: { fontSize: '13px', padding: '2px 0' },
+    contentStyle: { background: ttBg, border: `1px solid ${ttBdr}`, borderRadius: '12px', fontSize: '13px', color: ttFg, padding: '10px 14px', minWidth: '130px', boxShadow: '0 8px 24px -4px rgba(0,0,0,0.18)' },
+    labelStyle: { fontWeight: 600 as const, marginBottom: '4px', color: ttFg },
+    itemStyle: { fontSize: '13px', padding: '2px 0', color: ttFg },
   };
   // ────────────────────────────────────────────────────────────────────────────
 
