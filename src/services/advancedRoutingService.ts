@@ -428,14 +428,19 @@ export async function computePerDriverRoutes(
       const name = driver.fullName || driver.full_name || driver.username || 'Driver';
       const color = DRIVER_ROUTE_COLORS[idx % DRIVER_ROUTE_COLORS.length];
 
-      // Collect this driver's OFD stops with valid coords
+      // Collect this driver's active stops with valid, real coordinates.
+      // Includes out-for-delivery AND in-transit (both mean the driver is en route).
+      // Skips stops that use the default fallback coords (_usedDefaultCoords=true)
+      // since those all cluster at one Dubai point and corrupt the route geometry.
+      const ACTIVE_ROUTE_STATUSES = new Set(['out-for-delivery', 'in-transit', 'in-progress']);
       const stops = deliveries
         .filter((d) => {
-          const dExt = d as { tracking?: { driverId?: string }; assignedDriverId?: string | null };
+          const dExt = d as { tracking?: { driverId?: string }; assignedDriverId?: string | null; _usedDefaultCoords?: boolean };
           const isAssigned =
             dExt.tracking?.driverId === driver.id || d.assignedDriverId === driver.id;
-          const isOFD = (d.status || '').toLowerCase() === 'out-for-delivery';
-          return isAssigned && isOFD;
+          const isActive = ACTIVE_ROUTE_STATUSES.has((d.status || '').toLowerCase());
+          const hasRealCoords = !dExt._usedDefaultCoords;
+          return isAssigned && isActive && hasRealCoords;
         })
         .map((d) => {
           const lat = Number(d.lat);

@@ -1150,7 +1150,7 @@ export default function DeliveryTeamPortal() {
                   <CheckCircle className="mr-2 h-4 w-4 flex-shrink-0 text-green-400" /> All customers responded
                 </div>
               ) : (
-                <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-0.5 max-h-[180px]">
+                <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-0.5">
                   {actionItems.awaitingConfirmation.map((delivery, idx) => {
                     const sentAgo = (() => {
                       const t = delivery.updatedAt || delivery.createdAt || delivery.created_at;
