@@ -198,7 +198,7 @@ export default function LogisticsTeamPortal() {
   useEffect(() => {
     const currentUser = getCurrentUser();
     if (!currentUser) {
-      console.error('[DeliveryTeamPortal] No user found');
+      console.error('[LogisticsTeamPortal] No user found');
       return;
     }
 
@@ -633,9 +633,8 @@ export default function LogisticsTeamPortal() {
     // Derive workflow status once for every delivery using the shared helper
     const orders = list.map(d => ({ raw: d, order: deliveryToManageOrder(d) }));
 
-    // Pending Orders: everything not yet delivered, cancelled, or failed/returned
-    const TERMINAL = new Set(['delivered', 'cancelled', 'failed']);
-    const pendingOrders = orders.filter(({ order }) => !TERMINAL.has(order.status)).map(({ raw }) => raw);
+    // Pending Orders: everything not yet in a terminal state (consistent with TERMINAL_STATUSES)
+    const pendingOrders = orders.filter(({ order }) => !TERMINAL_STATUSES.has(order.status)).map(({ raw }) => raw);
 
     // Unassigned: active non-dispatched orders with no driver
     const DISPATCH_DONE = new Set(['out_for_delivery', 'order_delay', 'delivered', 'cancelled', 'failed', 'rescheduled']);
@@ -771,7 +770,8 @@ export default function LogisticsTeamPortal() {
           {/* ── KPI Stats Row ── */}
           {(() => {
             const todayIso = getTodayIsoDubai();
-            const todayMs = new Date(todayIso).getTime();
+            // Anchor to Dubai midnight (UTC+4) so counts are correct for the first 4 hours of the day
+            const todayMs = new Date(todayIso + 'T00:00:00+04:00').getTime();
             const tomorrowMs = todayMs + 86400000;
 
             // Pending GMD: active orders without a goods movement date
@@ -864,7 +864,8 @@ export default function LogisticsTeamPortal() {
 
           {/* ── Today's Summary ── */}
           {(() => {
-            const t0 = new Date(); t0.setHours(0, 0, 0, 0);
+            // Use Dubai midnight so "today" is correct for the first 4 hours of the Dubai day
+            const t0 = new Date(getTodayIsoDubai() + 'T00:00:00+04:00');
             const uploadsToday = recentUploads.filter(u => new Date(u.uploadedAt) >= t0).length;
             const totalOrders = deliveries.length;
             const activeDriverIds = new Set(deliveries.map(d => d.assignedDriverId).filter((id): id is string => Boolean(id)));
@@ -999,7 +1000,7 @@ export default function LogisticsTeamPortal() {
               const DUBAI_OFFSET_MS = 4 * 60 * 60 * 1000;
               const todayIso = new Date(Date.now() + DUBAI_OFFSET_MS).toISOString().slice(0, 10);
               const tomorrowIso = new Date(Date.now() + DUBAI_OFFSET_MS + 86400000).toISOString().slice(0, 10);
-              const ACTIVE_S = new Set(['pending','uploaded','scheduled','scheduled-confirmed','confirmed','out-for-delivery','in-transit','in-progress','order-delay','rescheduled','sms-sent','sms_sent','unconfirmed']);
+              const ACTIVE_S = new Set(['pending','uploaded','scheduled','scheduled-confirmed','confirmed','out-for-delivery','in-transit','in-progress','order-delay','order_delay','rescheduled','sms-sent','sms_sent','unconfirmed']);
 
               // Map: dateIso → driverId → { name, count, ofd, delay }
               const dateDriverMap = new Map<string, Map<string, { name: string; count: number; ofd: number; delay: number }>>();
@@ -1024,7 +1025,7 @@ export default function LogisticsTeamPortal() {
                 const entry = dMap.get(driverId) ?? { name: driverName, count: 0, ofd: 0, delay: 0 };
                 entry.count++;
                 if (['out-for-delivery','in-transit','in-progress'].includes(s)) entry.ofd++;
-                if (s === 'order-delay') entry.delay++;
+                if (s === 'order-delay' || s === 'order_delay') entry.delay++;
                 dMap.set(driverId, entry);
               });
 
@@ -1842,6 +1843,7 @@ export default function LogisticsTeamPortal() {
                             {' '}·{' '}
                             {selectedContact.account.role === 'admin' ? 'Admin'
                               : selectedContact.account.role === 'delivery_team' ? 'Delivery Team'
+                              : selectedContact.account.role === 'logistics_team' ? 'Logistics Team'
                               : 'Driver'}
                           </span>
                         )}
@@ -1891,19 +1893,14 @@ export default function LogisticsTeamPortal() {
                     // Resolve current user identity once for all messages
                     const currentUser = getCurrentUser() as (AuthUser & { account?: { role?: string } }) | null;
                     const currentUserId = String(currentUser?.sub || '');
-                    const currentUserRole = String(currentUser?.account?.role || currentUser?.role || '');
-                    // Admin-side roles — messages from these roles count as "sent by me"
-                    const isAdminSide = ['admin', 'delivery_team', 'logistics_team', 'delivery-team', 'logistics-team'].includes(currentUserRole);
-                    const ADMIN_SENDER_ROLES = new Set(['admin', 'delivery_team', 'logistics_team', 'delivery-team', 'logistics-team']);
 
-                    // Determine if a message was sent by the current user
+                    // Determine if a message was sent by the current user.
+                    // Use ONLY the stored sender ID — never role-based fallback, because
+                    // when two admin-side users chat, every message has an admin senderRole
+                    // and the fallback would wrongly mark ALL messages as "sent by me".
                     const getIsSent = (msg: TeamMessage): boolean => {
-                      // Most accurate: check if my userId matches adminId directly
                       if (currentUserId && String(msg.adminId || '') === currentUserId) return true;
                       if (currentUserId && String(msg.driverId || '') === currentUserId) return true;
-                      // Fallback: role-based (admin-side users see admin-role messages as sent)
-                      if (isAdminSide && msg.senderRole && ADMIN_SENDER_ROLES.has(msg.senderRole)) return true;
-                      if (!isAdminSide && msg.senderRole === 'driver') return true;
                       return false;
                     };
 

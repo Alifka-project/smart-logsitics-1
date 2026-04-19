@@ -175,6 +175,7 @@ export default function DeliveryTeamPortal() {
   const [selectedContact, setSelectedContact] = useState<ContactUser | null>(null); // Changed from selectedDriver
   const [messages, setMessages] = useState<TeamMessage[]>([]);
   const [newMessage, setNewMessage] = useState<string>('');
+  const [contactSearch, setContactSearch] = useState<string>('');
   const [loadingMessages, setLoadingMessages] = useState<boolean>(false);
   const [sendingMessage, setSendingMessage] = useState<boolean>(false);
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
@@ -407,7 +408,7 @@ export default function DeliveryTeamPortal() {
 
   // Compute per-driver routes for live maps whenever driver/delivery list changes
   useEffect(() => {
-    if (activeTab !== 'livemaps') return;
+    if (activeTab !== 'live-maps') return;
     const activeDrivers = drivers.filter(dr => dr.tracking?.location);
     const key = activeDrivers.map(d => d.id).join(',') + '|' + deliveries.filter(d => {
       const s = (d.status || '').toLowerCase();
@@ -2335,6 +2336,8 @@ export default function DeliveryTeamPortal() {
                 <input
                   type="text"
                   placeholder="Search contacts…"
+                  value={contactSearch}
+                  onChange={e => setContactSearch(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 text-sm rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 border-0 focus:ring-2 focus:ring-blue-500 outline-none"
                 />
               </div>
@@ -2348,7 +2351,11 @@ export default function DeliveryTeamPortal() {
                   <div className="px-4 pt-3 pb-1">
                     <span className="text-[10px] font-bold tracking-widest text-gray-400 dark:text-gray-500 uppercase">Team</span>
                   </div>
-                  {teamMembers.map(member => {
+                  {teamMembers.filter(m => {
+                    if (!contactSearch.trim()) return true;
+                    const q = contactSearch.toLowerCase();
+                    return (m.fullName || '').toLowerCase().includes(q) || (m.username || '').toLowerCase().includes(q);
+                  }).map(member => {
                     const isOnline = isContactOnline(member);
                     const isSelected = selectedContact?.id === member.id;
                     const unreadCount = unreadByDriverId[member.id] || 0;
@@ -2406,7 +2413,11 @@ export default function DeliveryTeamPortal() {
                   <div className="px-4 pt-3 pb-1">
                     <span className="text-[10px] font-bold tracking-widest text-gray-400 dark:text-gray-500 uppercase">Drivers</span>
                   </div>
-                  {drivers.map(driver => {
+                  {drivers.filter(d => {
+                    if (!contactSearch.trim()) return true;
+                    const q = contactSearch.toLowerCase();
+                    return (d.fullName || '').toLowerCase().includes(q) || (d.username || '').toLowerCase().includes(q);
+                  }).map(driver => {
                     const isOnline = isContactOnline(driver);
                     const isSelected = selectedContact?.id === driver.id;
                     const unreadCount = unreadByDriverId[driver.id] || 0;
@@ -2492,6 +2503,7 @@ export default function DeliveryTeamPortal() {
                             {' '}·{' '}
                             {selectedContact.account.role === 'admin' ? 'Admin'
                               : selectedContact.account.role === 'delivery_team' ? 'Delivery Team'
+                              : selectedContact.account.role === 'logistics_team' ? 'Logistics Team'
                               : 'Driver'}
                           </span>
                         )}
@@ -2541,19 +2553,14 @@ export default function DeliveryTeamPortal() {
                     // Resolve current user identity once for all messages
                     const currentUser = getCurrentUser() as (AuthUser & { account?: { role?: string } }) | null;
                     const currentUserId = String(currentUser?.sub || '');
-                    const currentUserRole = String(currentUser?.account?.role || currentUser?.role || '');
-                    // Admin-side roles can see admin messages as "sent by me"
-                    const isAdminSide = ['admin', 'delivery_team', 'logistics_team', 'delivery-team', 'logistics-team'].includes(currentUserRole);
-                    const ADMIN_SENDER_ROLES = new Set(['admin', 'delivery_team', 'logistics_team', 'delivery-team', 'logistics-team']);
 
-                    // Determine if a message was sent by the current user
+                    // Determine if a message was sent by the current user.
+                    // Use ONLY the stored sender ID — never role-based fallback, because
+                    // when two admin-side users chat, every message has an admin senderRole
+                    // and the fallback would wrongly mark ALL messages as "sent by me".
                     const getIsSent = (msg: TeamMessage): boolean => {
-                      // Most accurate: check if my userId matches adminId
                       if (currentUserId && String(msg.adminId || '') === currentUserId) return true;
                       if (currentUserId && String(msg.driverId || '') === currentUserId) return true;
-                      // Fallback: role-based detection
-                      if (isAdminSide && msg.senderRole && ADMIN_SENDER_ROLES.has(msg.senderRole)) return true;
-                      if (!isAdminSide && msg.senderRole === 'driver') return true;
                       return false;
                     };
 

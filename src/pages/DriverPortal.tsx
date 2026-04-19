@@ -129,6 +129,7 @@ export default function DriverPortal() {
   // Messaging state
   const [messages, setMessages] = useState<DriverMessage[]>([]);
   const [newMessage, setNewMessage] = useState<string>('');
+  const [contactSearch, setContactSearch] = useState<string>('');
   const [sendingMessage, setSendingMessage] = useState<boolean>(false);
   const [loadingMessages, setLoadingMessages] = useState<boolean>(false);
   const [contacts, setContacts] = useState<ContactUser[]>([]);
@@ -207,7 +208,8 @@ export default function DriverPortal() {
       month: 'short',
       day: '2-digit',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      timeZone: 'Asia/Dubai',
     });
   };
 
@@ -322,22 +324,7 @@ export default function DriverPortal() {
     const deliveryInterval = setInterval(() => {
       if (!document.hidden) void loadDeliveries();
     }, 30000);
-    // Real-time ETA refresh: every 30 s recompute ETAs from current GPS without full OSRM round-trip
-    const etaRefreshInterval = setInterval(() => {
-      if (document.hidden) return;
-      setOrderedDeliveries(prev => {
-        if (!prev.length) return prev;
-        const now = Date.now();
-        return prev.map((d, i) => {
-          // Re-base the ETA from "now" using the existing cumulative offset stored in estimatedEta
-          const existingEta = d.estimatedEta ? new Date(d.estimatedEta).getTime() : null;
-          if (!existingEta) return d;
-          // Shift the ETA by the difference in time since last calc (approximate)
-          const refreshedEta = new Date(existingEta).toISOString();
-          return { ...d, estimatedEta: refreshedEta, routeIndex: i + 1 };
-        });
-      });
-    }, 30000);
+    // Note: ETA refresh is handled by the OSRM routing effect which re-runs on GPS position change.
     // Auto-start GPS when driver logs in – tracking always on
     const t = setTimeout(() => {
       if (navigator.geolocation && !isTrackingRef.current) {
@@ -348,7 +335,6 @@ export default function DriverPortal() {
       cleanup();
       clearInterval(notificationInterval);
       clearInterval(deliveryInterval);
-      clearInterval(etaRefreshInterval);
       clearTimeout(t);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1185,11 +1171,14 @@ export default function DriverPortal() {
               >
                 <Icon className="w-5 h-5" />
                 {tab.label}
-                {tab.id === 'orders' && deliveries.filter(d => isOnRouteDeliveryListStatus((d.status || '').toLowerCase())).length > 0 && (
-                  <span className="ml-2 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-semibold px-2 py-0.5 rounded-full">
-                    {deliveries.filter(d => isOnRouteDeliveryListStatus((d.status || '').toLowerCase())).length}
-                  </span>
-                )}
+                {tab.id === 'orders' && (() => {
+                  const onRouteCount = deliveries.filter(d => isOnRouteDeliveryListStatus((d.status || '').toLowerCase())).length;
+                  return onRouteCount > 0 ? (
+                    <span className="ml-2 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-semibold px-2 py-0.5 rounded-full">
+                      {onRouteCount}
+                    </span>
+                  ) : null;
+                })()}
                 {tab.id === 'messages' && notifications > 0 && (
                   <span className="ml-2 bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
                     {notifications}
@@ -1438,6 +1427,8 @@ export default function DriverPortal() {
                   <input
                     type="text"
                     placeholder="Search contacts…"
+                    value={contactSearch}
+                    onChange={e => setContactSearch(e.target.value)}
                     className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 border-0 focus:ring-2 focus:ring-blue-500 outline-none"
                   />
                 </div>
@@ -1455,7 +1446,11 @@ export default function DriverPortal() {
                         <div className="px-4 pt-3 pb-1">
                           <span className="text-[10px] font-bold tracking-widest text-gray-400 dark:text-gray-500 uppercase">Team</span>
                         </div>
-                        {teamMembers.map(member => {
+                        {teamMembers.filter(m => {
+                          if (!contactSearch.trim()) return true;
+                          const q = contactSearch.toLowerCase();
+                          return (m.fullName || '').toLowerCase().includes(q) || (m.username || '').toLowerCase().includes(q);
+                        }).map(member => {
                           const isOnline = isContactOnline(member);
                           const initials = (member.fullName || member.username || '?')[0].toUpperCase();
                           const roleLabel = member.account?.role === 'admin' ? 'Admin'
