@@ -337,9 +337,9 @@ export default function DeliveryTeamPortal() {
     }
   }, [highlightDeliveryId, deliveries]);
 
-  // Load reports data when reports tab is active
+  // Load reports data when dashboard or reports tab is active (charts live on both)
   useEffect(() => {
-    if (activeTab === 'reports') {
+    if (activeTab === 'operations' || activeTab === 'reports') {
       void loadReportsData();
     }
   }, [activeTab, loadReportsData]);
