@@ -122,6 +122,9 @@ export default function DeliveryTeamPortal() {
   
   // Per-driver daily capacity by date: ISO date -> driverId -> capacity
   const [driverCapacityByDate, setDriverCapacityByDate] = useState<Record<string, Record<string, { used: number; remaining: number; max: number; full: boolean }>>>({});
+  // Sub-tab within Deliveries (tracks 'manage' vs 'live-maps')
+  const [deliveriesSubTab, setDeliveriesSubTab] = useState<string>('manage');
+
   // Live Maps tab state
   const [trackingDriverFilter, setTrackingDriverFilter] = useState<string>('all');
   const [trackingSelectedId, setTrackingSelectedId] = useState<string | null>(null);
@@ -406,9 +409,11 @@ export default function DeliveryTeamPortal() {
     });
   }, [messages, activeTab]);
 
-  // Compute per-driver routes for live maps whenever driver/delivery list changes
+  // Compute per-driver routes when the Live Maps sub-tab is active.
+  // NOTE: in DeliveryTeamPortal, live-maps is a sub-tab inside the 'deliveries'
+  // top-level tab — activeTab is always 'deliveries', never 'live-maps'.
   useEffect(() => {
-    if (activeTab !== 'live-maps') return;
+    if (!(activeTab === 'deliveries' && deliveriesSubTab === 'live-maps')) return;
     const activeDrivers = drivers.filter(dr => dr.tracking?.location);
     const key = activeDrivers.map(d => d.id).join(',') + '|' + deliveries.filter(d => {
       const s = (d.status || '').toLowerCase();
@@ -421,7 +426,7 @@ export default function DeliveryTeamPortal() {
       drivers as Parameters<typeof computePerDriverRoutes>[0],
       deliveries as Parameters<typeof computePerDriverRoutes>[1],
     ).then(setDriverRoutes);
-  }, [activeTab, drivers, deliveries]);
+  }, [activeTab, deliveriesSubTab, drivers, deliveries]);
 
   // Listen for cross-portal data updates (e.g. Logistics portal assigns driver/priority)
   useEffect(() => {
@@ -2317,6 +2322,8 @@ export default function DeliveryTeamPortal() {
             showMaterialColumn
             showQtyColumn
             simpleDriverDisplay
+            forceTab={deliveriesSubTab}
+            onTabChange={(id) => setDeliveriesSubTab(id)}
             extraTabs={[{ id: 'live-maps', label: 'Live Maps', icon: MapPin, content: liveMapsContent }]}
           />
         );
