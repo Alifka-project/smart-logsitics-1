@@ -273,7 +273,7 @@ router.get('/drivers', authenticate, requireAnyRole('admin', 'delivery_team', 'l
         return [];
       }
 
-      let locationsMap: Record<string, {
+      const locationsMap: Record<string, {
         driverId: string; latitude: number; longitude: number;
         heading: number | null; speed: number | null; accuracy: number | null; recordedAt: Date;
       }> = {};

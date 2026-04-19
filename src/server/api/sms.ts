@@ -17,7 +17,7 @@ interface SmsAdapter {
 // Twilio adapter is kept in codebase but disabled (not currently used).
 let smsAdapter: SmsAdapter;
 try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+   
   const D7Adapter = require('../sms/d7Adapter.js').default;
   smsAdapter = new D7Adapter(process.env) as SmsAdapter;
   console.log('[SMS] D7 Networks adapter initialized');

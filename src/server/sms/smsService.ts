@@ -33,7 +33,7 @@ interface SmsAdapterLike {
 let smsAdapter: SmsAdapterLike | null = null;
 
 try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+   
   const D7Adapter = require('./d7Adapter').default;
   smsAdapter = new D7Adapter(process.env) as SmsAdapterLike;
   console.log('[SMS] D7 Networks adapter initialized');

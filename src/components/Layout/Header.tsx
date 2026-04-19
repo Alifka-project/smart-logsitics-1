@@ -500,7 +500,7 @@ export default function Header({ isAdmin = false }: HeaderProps) {
     } catch {
       setSearchResults({ answer:'Search failed. Please try again.', results:[], drivers:[] });
     } finally { setSearchLoading(false); }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);  
 
   const triggerSuggestion = useCallback(async (text: string) => {
     setSearchQuery(text); setSearchLoading(true); setShowSearch(true);

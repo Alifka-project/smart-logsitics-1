@@ -153,6 +153,7 @@ export default function DriverPortal() {
   const { toasts, removeToast, success, error: toastError } = useToast();
   const updateDeliveryOrder = useDeliveryStore((s) => s.updateDeliveryOrder);
   const setDeliveryListFilter = useDeliveryStore((s) => s.setDeliveryListFilter);
+  const updateDeliveryStatus = useDeliveryStore((s) => s.updateDeliveryStatus);
   // Store deliveries carry priority (assigned by loadDeliveries) — used for priority breakdown display
   const storeDeliveries = useDeliveryStore((s) => s.deliveries);
 
@@ -355,7 +356,7 @@ export default function DriverPortal() {
     };
     window.addEventListener('deliveryStatusUpdated', handlePodUpdate);
     return () => window.removeEventListener('deliveryStatusUpdated', handlePodUpdate);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, []);
 
   // Keep refs in sync for use inside routing effect closure without adding to deps
@@ -1106,6 +1107,76 @@ export default function DriverPortal() {
       { enableHighAccuracy: false, timeout: 30000, maximumAge: 60000 }
     );
   };
+
+  /**
+   * Auto-arrival SMS trigger.
+   *
+   * Rationale: sometimes a delivery's geocoded pin lands a few hundred metres
+   * off the real doorway (low-quality Nominatim match, POI vs street, etc.)
+   * — see geocodingService. So we don't require the driver to sit exactly on
+   * the pin; instead we fire a one-time "driver is arriving shortly" SMS when
+   * the GPS comes within 2 km of the stop.
+   *
+   * Idempotency is enforced three ways:
+   *  - in-memory Set so we don't spam within the same tab session
+   *  - metadata.arrivalNotifiedAt check so reload-then-re-enter-zone is safe
+   *  - the server endpoint itself rejects a second send with alreadyNotified=true
+   */
+  const ARRIVAL_RADIUS_KM = 2;
+  const autoArrivalSentRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!location || !deliveries.length) return;
+    const driverLat = location.latitude;
+    const driverLng = location.longitude;
+    if (!isFinite(driverLat) || !isFinite(driverLng)) return;
+
+    deliveries.forEach((d) => {
+      if (!d.id || !d.phone) return;
+      const status = (d.status || '').toLowerCase();
+      if (!['out-for-delivery', 'in-transit', 'in-progress'].includes(status)) return;
+
+      const meta = (d.metadata as { arrivalNotifiedAt?: string } | null | undefined) || null;
+      if (meta?.arrivalNotifiedAt) return;                     // already sent (persisted)
+      if (autoArrivalSentRef.current.has(String(d.id))) return; // already firing in this session
+
+      const dLat = typeof d.lat === 'number' ? d.lat : parseFloat(String(d.lat));
+      const dLng = typeof d.lng === 'number' ? d.lng : parseFloat(String(d.lng));
+      if (!isFinite(dLat) || !isFinite(dLng)) return;
+
+      const distanceKm = calculateDistance(driverLat, driverLng, dLat, dLng);
+      if (distanceKm > ARRIVAL_RADIUS_KM) return;
+
+      // Claim the slot synchronously before the network call so a second
+      // effect run (GPS fires frequently) can't double-fire while we're awaiting.
+      autoArrivalSentRef.current.add(String(d.id));
+      (async () => {
+        try {
+          const res = await api.post(
+            `/deliveries/${encodeURIComponent(String(d.id))}/notify-arrival`,
+            { trigger: 'auto_2km_proximity', distanceKm: Number(distanceKm.toFixed(3)) },
+          );
+          const data = res.data as { ok?: boolean; arrivalNotifiedAt?: string; alreadyNotified?: boolean };
+          if (data?.ok && data.arrivalNotifiedAt) {
+            // Mirror the flag into the store so the card instantly shows "Customer Notified"
+            updateDeliveryStatus(String(d.id), d.status || '', {
+              metadata: {
+                ...((d.metadata as Record<string, unknown>) || {}),
+                arrivalNotifiedAt: data.arrivalNotifiedAt,
+                arrivalNotifiedTrigger: 'auto_2km_proximity',
+              } as Delivery['metadata'],
+            });
+            if (!data.alreadyNotified) {
+              success(`Arrival SMS sent — ${d.customer || 'customer'} (${distanceKm.toFixed(1)} km)`);
+            }
+          }
+        } catch (err) {
+          // On failure, drop the slot so a later GPS tick retries
+          autoArrivalSentRef.current.delete(String(d.id));
+          console.warn('[DriverPortal] Auto-arrival notify failed for', d.id, err);
+        }
+      })();
+    });
+  }, [location, deliveries, updateDeliveryStatus, success]);
 
   // D4: Start Delivery — lock static ETAs directly from existing orderedDeliveries (no OSRM re-run)
   const handleStartDelivery = useCallback(() => {

@@ -319,7 +319,7 @@ function buildTrendBucketsAndRange(
       guard++;
     }
   } else if (period === 'month') {
-    let d = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
+    const d = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
     const endM = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), 1);
     let guard = 0;
     while (d.getTime() <= endM.getTime() && guard < TREND_BUCKET_MAX) {
@@ -1452,7 +1452,7 @@ export default function AdminDashboardPage(): React.ReactElement {
   }, [topItemsData, data?.analytics?.topItems]);
 
   const topCustomersData = useMemo<CustomerItem[]>(() => {
-    let rows = (data?.analytics?.topCustomers || []).filter(r => {
+    const rows = (data?.analytics?.topCustomers || []).filter(r => {
       const q = topCustomersSearch.trim().toLowerCase();
       const matchArea = topCustomersAreaFilter === 'all' || (r.primaryArea || '') === topCustomersAreaFilter;
       const matchSearch = !q || (r.customer || '').toLowerCase().includes(q) || (r.primaryArea || '').toLowerCase().includes(q);

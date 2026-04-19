@@ -70,6 +70,26 @@ Thank you for your patience,
 Electrolux Delivery Team`;
 }
 
+/**
+ * Sent when the driver is within ~2 km of the customer's address (auto) or
+ * when the driver manually taps the "Arrived" button on the order card.
+ * Purpose: give the customer a short-notice heads-up to be available at the door.
+ */
+export function driverArrivingMessage(
+  customerName: string,
+  poRef: string,
+  trackingLink: string | null
+): string {
+  return `Dear ${customerName},
+
+Our Electrolux delivery team is arriving shortly with your order ${poRef}. Please be ready to receive your delivery.
+${trackingLink ? `\nTrack your delivery:\n${trackingLink}\n` : ''}
+For assistance, please contact the Electrolux Delivery Team at +971581046674.
+
+Thank you,
+Electrolux Delivery Team`;
+}
+
 export function deliveryCompletedMessage(customerName: string, poRef: string): string {
   return `Dear ${customerName},
 

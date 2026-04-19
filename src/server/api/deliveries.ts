@@ -7,7 +7,8 @@ import {
   outForDeliveryMessage,
   orderDelayMessage,
   deliveryCompletedMessage,
-  cancellationMessage
+  cancellationMessage,
+  driverArrivingMessage
 } from '../sms/customerMessageTemplates';
 import { smsAdapter } from '../sms/smsService';
 import { normalizeUAEPhone } from '../utils/phoneUtils';
@@ -1784,6 +1785,144 @@ router.post('/:id/send-sms', authenticate, requireAnyRole('admin', 'delivery_tea
       error: 'send_sms_failed',
       message: e.message || 'Failed to send SMS. Please check delivery data.'
     });
+  }
+});
+
+/**
+ * POST /api/deliveries/:id/notify-arrival
+ *
+ * Fires the "driver is arriving shortly" SMS/WhatsApp to the customer.
+ *
+ * Two triggers converge on this endpoint:
+ *  1. Driver taps the "Arrived" button on the order card (manual).
+ *  2. Driver portal detects GPS is within ~2 km of the delivery (auto).
+ *
+ * Idempotent: if `metadata.arrivalNotifiedAt` is already set, returns 200
+ * with `alreadyNotified=true` and does NOT send another message.
+ *
+ * Allowed roles: driver (only for their assigned deliveries), delivery_team, admin.
+ */
+router.post('/:id/notify-arrival', authenticate, requireAnyRole('driver', 'delivery_team', 'admin'), async (req: Request, res: Response): Promise<void> => {
+  const { id: deliveryId } = req.params as { id: string };
+  const user = req.user as { sub?: string; role?: string } | undefined;
+  if (!deliveryId) {
+    res.status(400).json({ error: 'delivery_id_required' });
+    return;
+  }
+
+  try {
+    const delivery = await prisma.delivery.findUnique({ where: { id: deliveryId } });
+    if (!delivery) {
+      res.status(404).json({ error: 'delivery_not_found' });
+      return;
+    }
+
+    // Driver must be assigned to this delivery (admin/delivery_team can notify anywhere)
+    if (user?.role === 'driver') {
+      const assignment = await prisma.deliveryAssignment.findFirst({
+        where: { deliveryId, driverId: user.sub, status: { in: ['assigned', 'in_progress'] } },
+      });
+      if (!assignment) {
+        res.status(403).json({ error: 'delivery_not_assigned_to_driver' });
+        return;
+      }
+    }
+
+    // Idempotency: only send once per delivery
+    const existingMeta = (delivery.metadata as Record<string, unknown> | null) || {};
+    if (existingMeta.arrivalNotifiedAt) {
+      res.json({
+        ok: true,
+        alreadyNotified: true,
+        arrivalNotifiedAt: existingMeta.arrivalNotifiedAt,
+        message: 'Arrival SMS was already sent for this delivery',
+      });
+      return;
+    }
+
+    if (!delivery.phone) {
+      res.status(400).json({ error: 'no_phone', message: 'Delivery has no phone number' });
+      return;
+    }
+    const normalizedPhone = normalizeUAEPhone(delivery.phone) || delivery.phone;
+
+    const customerName = delivery.customer || 'Valued Customer';
+    const poRef = delivery.poNumber ? `#${delivery.poNumber}` : '';
+    const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
+    const trackingLink = delivery.confirmationToken
+      ? `${frontendUrl}/customer-tracking/${delivery.confirmationToken}`
+      : null;
+    const smsBody = driverArrivingMessage(customerName, poRef, trackingLink);
+
+    // Send: D7 SMS → WhatsApp API → wa.me link (same cascade as other driver notifications)
+    let provider = 'd7';
+    let sendStatus = 'sent';
+    try {
+      if (smsAdapter) {
+        await smsAdapter.sendSms({
+          to: normalizedPhone,
+          body: smsBody,
+          metadata: { deliveryId, type: 'driver_arriving', triggeredBy: req.body?.trigger || 'manual' },
+        });
+      } else {
+        throw new Error('no smsAdapter');
+      }
+    } catch (d7Err: unknown) {
+      console.warn(`[Arrival] D7 SMS failed for ${deliveryId}:`, (d7Err as Error).message);
+      if (isWhatsAppConfigured()) {
+        try {
+          provider = 'whatsapp-api';
+          const waRes = await sendWhatsApp(normalizedPhone, smsBody);
+          sendStatus = waRes.ok ? 'sent' : 'failed';
+        } catch {
+          provider = 'whatsapp-link';
+          sendStatus = 'whatsapp_link_generated';
+        }
+      } else {
+        provider = 'whatsapp-link';
+        sendStatus = 'whatsapp_link_generated';
+      }
+    }
+
+    const arrivalNotifiedAt = new Date().toISOString();
+
+    // Persist flag in metadata JSON (no schema migration needed)
+    await prisma.delivery.update({
+      where: { id: deliveryId },
+      data: {
+        metadata: {
+          ...existingMeta,
+          arrivalNotifiedAt,
+          arrivalNotifiedTrigger: req.body?.trigger || 'manual',
+        },
+      },
+    });
+
+    // Audit trail
+    await prisma.smsLog.create({
+      data: {
+        deliveryId,
+        phoneNumber: normalizedPhone,
+        messageContent: smsBody,
+        smsProvider: provider,
+        status: sendStatus,
+        sentAt: new Date(),
+        metadata: { type: 'driver_arriving', trigger: req.body?.trigger || 'manual' },
+      },
+    }).catch((e: Error) => console.warn('[Arrival] smsLog insert failed:', e.message));
+
+    res.json({
+      ok: true,
+      alreadyNotified: false,
+      arrivalNotifiedAt,
+      provider,
+      status: sendStatus,
+      message: 'Arrival SMS sent to customer',
+    });
+  } catch (err: unknown) {
+    const e = err as { message?: string };
+    console.error('[Arrival] notify-arrival failed:', e.message);
+    res.status(500).json({ error: 'notify_arrival_failed', detail: e.message });
   }
 });
 

@@ -28,7 +28,7 @@ export default function PaginationBar({
 
   const half = 2;
   let start  = Math.max(1, page - half);
-  let end    = Math.min(totalPages, start + 4);
+  const end    = Math.min(totalPages, start + 4);
   if (end - start < 4) start = Math.max(1, end - 4);
   const nums: number[] = [];
   for (let i = start; i <= end; i++) nums.push(i);

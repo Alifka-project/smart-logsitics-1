@@ -24,7 +24,7 @@ function cleanAddress(raw: unknown): string {
   if (!raw) return '';
   let s = String(raw);
   s = s.replace(/_x000D_/gi, ' ');
-  // eslint-disable-next-line no-control-regex
+   
   s = s.replace(/[\x00-\x1F]/g, ' ');
   s = s.replace(/\b0{3,}\b/g, '');
   s = s.replace(/\b\d{5}\b/g, '');
@@ -63,6 +63,27 @@ interface NominatimResult {
   type?: string;
 }
 
+// Dubai viewport bounding box (also used by isValidDubaiCoordinates below).
+// Order for Nominatim viewbox: left,top,right,bottom (lng,lat,lng,lat).
+const DUBAI_BBOX = { minLng: 54.8, maxLng: 55.7, minLat: 24.7, maxLat: 25.5 } as const;
+const DUBAI_VIEWBOX = `${DUBAI_BBOX.minLng},${DUBAI_BBOX.maxLat},${DUBAI_BBOX.maxLng},${DUBAI_BBOX.minLat}`;
+
+// Address types that represent too broad a region to be useful for a
+// street-level delivery — if a geocoder returns these we treat the match
+// as low confidence and keep searching.
+const TOO_BROAD_TYPES = new Set([
+  'country', 'state', 'county', 'region', 'province',
+  'administrative', 'city', 'town', 'village', 'municipality',
+]);
+
+function inDubai(lat: number | null | undefined, lng: number | null | undefined): boolean {
+  if (lat == null || lng == null || !isFinite(lat) || !isFinite(lng)) return false;
+  return (
+    lat >= DUBAI_BBOX.minLat && lat <= DUBAI_BBOX.maxLat &&
+    lng >= DUBAI_BBOX.minLng && lng <= DUBAI_BBOX.maxLng
+  );
+}
+
 async function tryQuery(q: string, ctx: string): Promise<GeocodeResult | null> {
   const timeSinceLastRequest = Date.now() - lastRequestTime;
   if (timeSinceLastRequest < REQUEST_DELAY) {
@@ -73,23 +94,60 @@ async function tryQuery(q: string, ctx: string): Promise<GeocodeResult | null> {
   const searchQuery = ctx ? `${q}, ${ctx}` : q;
   console.log(`[Geocoding] Searching for: ${searchQuery}`);
 
+  // Ask for top 3, constrained to Dubai viewbox, then pick the first result
+  // that passes bbox + addresstype validation. `bounded=1` forces Nominatim
+  // to return ONLY results inside the viewbox (no bleed into neighbouring
+  // emirates or random "Dubai" matches in other countries).
   const response = await axios.get<NominatimResult[]>(
     'https://nominatim.openstreetmap.org/search',
     {
-      params: { q: searchQuery, format: 'json', limit: 1, countrycodes: 'ae', addressdetails: 1 },
+      params: {
+        q: searchQuery,
+        format: 'json',
+        limit: 3,
+        countrycodes: 'ae',
+        addressdetails: 1,
+        viewbox: DUBAI_VIEWBOX,
+        bounded: 1,
+      },
       headers: { 'User-Agent': 'SmartLogistics/1.0' },
       timeout: 10000,
     },
   );
 
   if (!response.data || response.data.length === 0) return null;
-  const result = response.data[0];
+
+  // Filter to candidates that are actually inside Dubai and specific enough
+  // to be a real delivery target (not just "city of Dubai"). If none match,
+  // drop only the bbox check to keep a best-effort fallback.
+  const specific = response.data.filter((r) => {
+    const lat = parseFloat(r.lat);
+    const lng = parseFloat(r.lon);
+    const type = (r.addresstype || r.type || '').toLowerCase();
+    return inDubai(lat, lng) && !TOO_BROAD_TYPES.has(type);
+  });
+
+  const candidate = specific[0] || response.data.find((r) => inDubai(parseFloat(r.lat), parseFloat(r.lon)));
+  if (!candidate) {
+    console.warn(`[Geocoding] Nominatim returned ${response.data.length} results but none inside Dubai bbox for: ${searchQuery}`);
+    return null;
+  }
+
+  const lat = parseFloat(candidate.lat);
+  const lng = parseFloat(candidate.lon);
+  const type = (candidate.addresstype || candidate.type || '').toLowerCase();
+  const isBroad = TOO_BROAD_TYPES.has(type);
+  // Downgrade broad-area matches so downstream code can prefer a street-level fallback.
+  const baseAccuracy: GeocodeAccuracy =
+    candidate.importance > 0.7 ? 'HIGH' : candidate.importance > 0.4 ? 'MEDIUM' : 'LOW';
+  const accuracy: GeocodeAccuracy = isBroad ? 'LOW' : baseAccuracy;
+
   return {
-    lat: parseFloat(result.lat),
-    lng: parseFloat(result.lon),
-    accuracy: (result.importance > 0.7 ? 'HIGH' : result.importance > 0.4 ? 'MEDIUM' : 'LOW') as GeocodeAccuracy,
-    displayName: result.display_name,
-    addresstype: result.addresstype,
+    lat,
+    lng,
+    accuracy,
+    displayName: candidate.display_name,
+    addresstype: candidate.addresstype,
   };
 }
 
@@ -98,20 +156,45 @@ async function tryMapbox(q: string, ctx: string): Promise<GeocodeResult | null> 
   try {
     const search = encodeURIComponent((q + (ctx ? `, ${ctx}` : '')).trim());
     const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${search}.json`;
+    // Mapbox bbox format: minLng,minLat,maxLng,maxLat — constrains results to Dubai
     const res = await axios.get<{ features?: Array<{ center?: number[]; relevance?: number; place_name?: string; place_type?: string[] }> }>(url, {
-      params: { access_token: MAPBOX_TOKEN, limit: 1, country: 'ae' },
+      params: {
+        access_token: MAPBOX_TOKEN,
+        limit: 3,
+        country: 'ae',
+        bbox: `${DUBAI_BBOX.minLng},${DUBAI_BBOX.minLat},${DUBAI_BBOX.maxLng},${DUBAI_BBOX.maxLat}`,
+        types: 'address,poi,place,neighborhood,locality',
+      },
       timeout: 8000,
     });
-    const feature = res.data?.features?.[0];
-    if (!feature) return null;
-    const [lng, lat] = feature.center || [];
-    const relevance = feature.relevance || 0;
+    const features = res.data?.features || [];
+    if (!features.length) return null;
+
+    // Pick the first feature that is inside Dubai and specific enough
+    const candidate =
+      features.find((f) => {
+        const [lng, lat] = f.center || [];
+        const type = (f.place_type?.[0] || '').toLowerCase();
+        return inDubai(parseFloat(String(lat)), parseFloat(String(lng))) && !TOO_BROAD_TYPES.has(type);
+      }) ||
+      features.find((f) => {
+        const [lng, lat] = f.center || [];
+        return inDubai(parseFloat(String(lat)), parseFloat(String(lng)));
+      });
+
+    if (!candidate) return null;
+    const [lng, lat] = candidate.center || [];
+    const relevance = candidate.relevance || 0;
+    const type = (candidate.place_type?.[0] || '').toLowerCase();
+    const isBroad = TOO_BROAD_TYPES.has(type);
+    const baseAccuracy: GeocodeAccuracy =
+      relevance > 0.85 ? 'HIGH' : relevance > 0.55 ? 'MEDIUM' : 'LOW';
     return {
       lat: parseFloat(String(lat)),
       lng: parseFloat(String(lng)),
-      accuracy: (relevance > 0.85 ? 'HIGH' : relevance > 0.55 ? 'MEDIUM' : 'LOW') as GeocodeAccuracy,
-      displayName: feature.place_name,
-      addresstype: feature.place_type?.[0] || 'unknown',
+      accuracy: (isBroad ? 'LOW' : baseAccuracy) as GeocodeAccuracy,
+      displayName: candidate.place_name,
+      addresstype: candidate.place_type?.[0] || 'unknown',
     };
   } catch {
     return null;
@@ -122,16 +205,33 @@ async function tryGoogle(q: string, ctx: string): Promise<GeocodeResult | null> 
   if (!GOOGLE_GEOCODING_KEY) return null;
   try {
     const addr = encodeURIComponent((q + (ctx ? `, ${ctx}` : '')).trim());
-    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${addr}&key=${GOOGLE_GEOCODING_KEY}&components=country:AE`;
+    // bounds format: south,west|north,east — biases (not restricts) to Dubai
+    const bounds = `${DUBAI_BBOX.minLat},${DUBAI_BBOX.minLng}|${DUBAI_BBOX.maxLat},${DUBAI_BBOX.maxLng}`;
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${addr}&key=${GOOGLE_GEOCODING_KEY}&components=country:AE&bounds=${encodeURIComponent(bounds)}`;
     const res = await axios.get<{ results?: Array<{ geometry: { location: { lat: number; lng: number } }; formatted_address: string; types?: string[] }> }>(url, { timeout: 8000 });
-    const r = res.data?.results?.[0];
+    const results = res.data?.results || [];
+    if (!results.length) return null;
+
+    // Prefer a street/premise match inside Dubai, else any Dubai result.
+    const specific = results.find((r) => {
+      const lat = r.geometry.location.lat;
+      const lng = r.geometry.location.lng;
+      const types = r.types || [];
+      const isSpecific = types.includes('street_address') || types.includes('premise') || types.includes('subpremise') || types.includes('route');
+      return inDubai(lat, lng) && isSpecific;
+    });
+    const fallback = results.find((r) => inDubai(r.geometry.location.lat, r.geometry.location.lng));
+    const r = specific || fallback;
     if (!r) return null;
+
     const types = r.types || [];
     const accuracy = (types.includes('street_address') || types.includes('premise')
       ? 'HIGH'
-      : types.includes('locality')
+      : types.includes('route') || types.includes('subpremise')
       ? 'MEDIUM'
-      : 'LOW') as GeocodeAccuracy;
+      : types.some((t) => TOO_BROAD_TYPES.has(t))
+      ? 'LOW'
+      : 'MEDIUM') as GeocodeAccuracy;
     return {
       lat: r.geometry.location.lat,
       lng: r.geometry.location.lng,
@@ -289,7 +389,7 @@ export function filterGeocodeResults(
 }
 
 export function isValidDubaiCoordinates(lat: number, lng: number): boolean {
-  return lat >= 24.7 && lat <= 25.5 && lng >= 54.8 && lng <= 55.7;
+  return inDubai(lat, lng);
 }
 
 export function clearGeocodeCache(): void {

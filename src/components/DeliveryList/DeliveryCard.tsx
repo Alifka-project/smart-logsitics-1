@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MapPin, Package, Phone, Navigation, GripVertical, MessageCircle, Truck } from 'lucide-react';
+import { MapPin, Package, Phone, Navigation, GripVertical, MessageCircle, Truck, BellRing, CheckCircle2 } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import api from '../../frontend/apiClient';
 import useDeliveryStore from '../../store/useDeliveryStore';
@@ -43,6 +43,11 @@ export default function DeliveryCard({
   onMouseLeave,
 }: DeliveryCardProps) {
   const [markingOutForDelivery, setMarkingOutForDelivery] = useState(false);
+  const [notifyingArrival, setNotifyingArrival] = useState(false);
+  // Local shadow of metadata.arrivalNotifiedAt — persists instantly after click
+  // even before the store syncs. Server is source of truth on next fetch.
+  const initialArrivalAt = ((delivery.metadata as { arrivalNotifiedAt?: string } | null | undefined)?.arrivalNotifiedAt) || null;
+  const [arrivalNotifiedAt, setArrivalNotifiedAt] = useState<string | null>(initialArrivalAt);
   const updateDeliveryStatus = useDeliveryStore((state) => state.updateDeliveryStatus);
   const dynamicDistanceKm =
     typeof (delivery as Delivery & { distanceFromDriverKm?: number }).distanceFromDriverKm === 'number'
@@ -122,6 +127,39 @@ export default function DeliveryCard({
     }
   };
 
+  /**
+   * "Arrived" button — tells the customer the driver is pulling up now.
+   * Hits POST /deliveries/:id/notify-arrival which is idempotent on the
+   * server side (metadata.arrivalNotifiedAt), so double-tapping is safe.
+   */
+  const handleNotifyArrival = async (e: React.MouseEvent): Promise<void> => {
+    e.stopPropagation();
+    if (notifyingArrival || arrivalNotifiedAt || !delivery.id) return;
+    setNotifyingArrival(true);
+    try {
+      const response = await api.post(
+        `/deliveries/${encodeURIComponent(String(delivery.id))}/notify-arrival`,
+        { trigger: 'manual' },
+      );
+      const data = response.data as { ok?: boolean; arrivalNotifiedAt?: string };
+      if (data?.ok && data.arrivalNotifiedAt) {
+        setArrivalNotifiedAt(data.arrivalNotifiedAt);
+        // Keep store in sync so refresh still reflects the "notified" state
+        updateDeliveryStatus(delivery.id as string, (delivery.status || '').toString(), {
+          metadata: {
+            ...((delivery.metadata as Record<string, unknown>) || {}),
+            arrivalNotifiedAt: data.arrivalNotifiedAt,
+            arrivalNotifiedTrigger: 'manual',
+          } as Delivery['metadata'],
+        });
+      }
+    } catch (err) {
+      console.error('[DeliveryCard] notify-arrival failed:', err);
+    } finally {
+      setNotifyingArrival(false);
+    }
+  };
+
   const isP1 = delivery.priority === 1;
   // Also treat logistics-set "isPriority" metadata flag as priority (syncs from logistics portal)
   const isPriorityMeta = (delivery as unknown as { metadata?: { isPriority?: boolean } }).metadata?.isPriority === true;
@@ -130,6 +168,11 @@ export default function DeliveryCard({
   const canMarkOutForDelivery = ['pending', 'scheduled', 'uploaded', 'confirmed', 'scheduled-confirmed'].includes(
     (delivery.status || '').toLowerCase(),
   );
+  // "Arrived" is relevant while the driver is actively delivering
+  const isOnRoad = ['out-for-delivery', 'in-transit', 'in-progress'].includes(
+    (delivery.status || '').toLowerCase(),
+  );
+  const canNotifyArrival = isOnRoad && !!delivery.phone && !arrivalNotifiedAt;
 
   return (
     <div
@@ -296,6 +339,27 @@ export default function DeliveryCard({
                 <Truck className="w-3.5 h-3.5" />
                 {markingOutForDelivery ? 'Updating…' : 'Out for Delivery'}
               </button>
+            )}
+            {canNotifyArrival && (
+              <button
+                type="button"
+                onClick={(e) => { void handleNotifyArrival(e); }}
+                disabled={notifyingArrival}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                title="Send 'arriving now' SMS to customer"
+              >
+                <BellRing className="w-3.5 h-3.5" />
+                {notifyingArrival ? 'Notifying…' : 'Arrived'}
+              </button>
+            )}
+            {arrivalNotifiedAt && isOnRoad && (
+              <div
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700"
+                title={`Arrival SMS sent ${new Date(arrivalNotifiedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Customer Notified
+              </div>
             )}
           </div>
         </div>
