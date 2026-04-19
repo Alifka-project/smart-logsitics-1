@@ -843,13 +843,15 @@ export default function DeliveryTeamPortal() {
   }, [reportsDeliveries]);
 
   // Extract PNC / Model ID / item description from delivery metadata (same fields as adminDashboard.ts)
-  const extractItemMeta = useCallback((d: DashDelivery): { pnc: string; modelId: string; description: string } => {
+  const extractItemMeta = useCallback((d: DashDelivery): { pnc: string; modelId: string; description: string; qty: string } => {
     const meta = (d.metadata as Record<string, unknown>) ?? {};
     const orig = ((meta.originalRow ?? meta._originalRow ?? {}) as Record<string, unknown>);
     const pnc = String(orig['Material'] ?? orig['material'] ?? orig['Material Number'] ?? orig['PNC'] ?? orig['pnc'] ?? '').trim();
     const modelId = String(orig['MODEL ID'] ?? orig['Model ID'] ?? orig['model_id'] ?? orig['ModelID'] ?? orig['Model'] ?? orig['model'] ?? '').trim();
     const description = String(orig['Description'] ?? orig['description'] ?? d.items ?? meta['items'] ?? '').trim();
-    return { pnc: pnc || '—', modelId: modelId || '—', description: description || '—' };
+    const qtyRaw = orig['Order Quantity'] ?? orig['Confirmed quantity'] ?? orig['Total Line Deliv. Qt'] ?? orig['Order Qty'] ?? orig['Quantity'] ?? orig['qty'] ?? null;
+    const qty = String(qtyRaw ?? '').trim() || '—';
+    return { pnc: pnc || '—', modelId: modelId || '—', description: description || '—', qty };
   }, []);
 
   // Raw full list — NOT filtered by the top period selector
@@ -942,9 +944,10 @@ export default function DeliveryTeamPortal() {
       if (podSortKey === 'driver')    { va = String(ad.driverName ?? '');vb = String(bd.driverName ?? ''); }
       if (podSortKey === 'status')    { va = a.ws;                       vb = b.ws; }
       if (podSortKey === 'address')   { va = String(ad.address ?? '');   vb = String(bd.address ?? ''); }
-      if (podSortKey === 'pnc')       { va = extractItemMeta(ad).pnc;   vb = extractItemMeta(bd).pnc; }
-      if (podSortKey === 'modelId')   { va = extractItemMeta(ad).modelId; vb = extractItemMeta(bd).modelId; }
+      if (podSortKey === 'pnc')       { va = extractItemMeta(ad).pnc;         vb = extractItemMeta(bd).pnc; }
+      if (podSortKey === 'modelId')   { va = extractItemMeta(ad).modelId;      vb = extractItemMeta(bd).modelId; }
       if (podSortKey === 'description'){ va = extractItemMeta(ad).description; vb = extractItemMeta(bd).description; }
+      if (podSortKey === 'qty')       { va = extractItemMeta(ad).qty;          vb = extractItemMeta(bd).qty; }
       const cmp = va.localeCompare(vb, undefined, { sensitivity: 'base' });
       return podSortDir === 'asc' ? cmp : -cmp;
     });
@@ -991,7 +994,7 @@ export default function DeliveryTeamPortal() {
       <div className="pp-sticky-tab-rail pp-card mt-0 mb-2 overflow-x-auto px-2 py-2 md:mb-3">
         <nav className="flex flex-wrap gap-2 min-w-max md:min-w-0">
           {[
-            { id: 'operations', label: 'Operations', icon: Activity },
+            { id: 'operations', label: 'Dashboard', icon: Activity },
             { id: 'deliveries', label: 'Deliveries', icon: Package },
             { id: 'communication', label: 'Communication', icon: MessageSquare },
             { id: 'reports', label: 'Reports & Analytics', icon: BarChart2 },
@@ -1217,8 +1220,10 @@ export default function DeliveryTeamPortal() {
             </div>
           </div>
 
-          {/* ── Full-Width Order Detail Table ── */}
+          {/* ── Full-Width Order Detail Table — hidden; set showOrderTable=true below to restore ── */}
           {(() => {
+            const showOrderTable = false;
+            if (!showOrderTable) return null;
             const q = opsSearch.toLowerCase().trim();
             const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
             const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
@@ -2388,13 +2393,13 @@ export default function DeliveryTeamPortal() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <button
                           onClick={() => {
-                            const header = 'No,PO Number,Delivery Number,Customer,Address,PNC (Material),Model ID,Description,Driver,Date,Status\n';
+                            const header = 'No,PO Number,Delivery Number,Customer,Material,Model ID,Description,Qty,Address,Driver,Date,Status\n';
                             const rows = podDeliveries.map(({ d, ws }, i) => {
-                              const { pnc, modelId, description } = extractItemMeta(d);
+                              const { pnc, modelId, description, qty } = extractItemMeta(d);
                               const dateRaw = d.delivered_at ?? d.deliveredAt ?? d.created_at ?? d.createdAt ?? '';
                               const dateStr = dateRaw ? new Date(dateRaw as string).toLocaleDateString('en-GB') : '';
                               const delivNum = displayDeliveryNumber(d as unknown as Delivery);
-                              return [i + 1, d.poNumber ?? '', delivNum, d.customer ?? '', d.address ?? '', pnc, modelId, description, d.driverName ?? 'Unassigned', dateStr, ws].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
+                              return [i + 1, d.poNumber ?? '', delivNum, d.customer ?? '', pnc, modelId, description, qty, d.address ?? '', d.driverName ?? 'Unassigned', dateStr, ws].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
                             }).join('\n');
                             const blob = new Blob(['\uFEFF' + header + rows], { type: 'text/csv;charset=utf-8' });
                             const url = URL.createObjectURL(blob);
@@ -2506,21 +2511,22 @@ export default function DeliveryTeamPortal() {
                     ) : (
                       <>
                         <div className="overflow-x-auto rounded-lg border border-gray-100 dark:border-gray-800">
-                          <table className="w-full text-sm min-w-[900px]">
+                          <table className="w-full text-sm min-w-[1050px]">
                             <thead className="bg-gray-50 dark:bg-gray-800/95">
                               <tr className="border-b border-gray-200 dark:border-gray-700">
-                                <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-8">#</th>
+                                <th className="text-left py-2 px-2.5 text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-8">#</th>
                                 {([
-                                  { key: 'poNumber',     label: 'PO Number',        cls: 'whitespace-nowrap' },
-                                  { key: 'deliveryNo',   label: 'Delivery No.',     cls: 'whitespace-nowrap' },
-                                  { key: 'customer',     label: 'Customer',         cls: '' },
-                                  { key: 'pnc',          label: 'PNC (Material)',   cls: 'whitespace-nowrap' },
-                                  { key: 'modelId',      label: 'Model ID',         cls: 'whitespace-nowrap' },
-                                  { key: 'description',  label: 'Description',      cls: 'hidden lg:table-cell' },
-                                  { key: 'address',      label: 'Address',          cls: 'hidden md:table-cell' },
-                                  { key: 'driver',       label: 'Driver',           cls: '' },
-                                  { key: 'date',         label: 'Date',             cls: 'whitespace-nowrap' },
-                                  { key: 'status',       label: 'Status',           cls: '' },
+                                  { key: 'poNumber',     label: 'PO Number',   cls: 'whitespace-nowrap' },
+                                  { key: 'deliveryNo',   label: 'Delivery No.', cls: 'whitespace-nowrap' },
+                                  { key: 'customer',     label: 'Customer',    cls: '' },
+                                  { key: 'pnc',          label: 'Material',    cls: 'whitespace-nowrap' },
+                                  { key: 'modelId',      label: 'Model ID',    cls: 'whitespace-nowrap' },
+                                  { key: 'description',  label: 'Description', cls: 'hidden lg:table-cell' },
+                                  { key: 'qty',          label: 'Qty',         cls: 'whitespace-nowrap text-center' },
+                                  { key: 'address',      label: 'Address',     cls: 'hidden md:table-cell' },
+                                  { key: 'driver',       label: 'Driver',      cls: 'whitespace-nowrap' },
+                                  { key: 'date',         label: 'Date',        cls: 'whitespace-nowrap' },
+                                  { key: 'status',       label: 'Status',      cls: '' },
                                 ] as { key: string; label: string; cls: string }[]).map(col => (
                                   <th
                                     key={col.key}
@@ -2547,7 +2553,7 @@ export default function DeliveryTeamPortal() {
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                               {pageRows.map(({ d, ws }, idx) => {
                                 const globalIdx = (safePage - 1) * POD_PAGE_SIZE + idx;
-                                const { pnc, modelId, description } = extractItemMeta(d);
+                                const { pnc, modelId, description, qty } = extractItemMeta(d);
                                 const dateRaw = d.delivered_at ?? d.deliveredAt ?? d.created_at ?? d.createdAt;
                                 const formattedDate = dateRaw ? new Date(dateRaw as string).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
                                 const statusLabel =
@@ -2579,22 +2585,27 @@ export default function DeliveryTeamPortal() {
                                   'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400';
                                 return (
                                   <tr key={String(d.id ?? idx)} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                                    <td className="py-2.5 px-3 text-xs text-gray-400 dark:text-gray-500">{globalIdx + 1}</td>
-                                    <td className="py-2.5 px-3 font-mono text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                                    <td className="py-2 px-2.5 text-xs text-gray-400 dark:text-gray-500 tabular-nums">{globalIdx + 1}</td>
+                                    <td className="py-2 px-2.5 font-mono text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">
                                       {displayPoNumber(d as unknown as Delivery) || '—'}
                                     </td>
-                                    <td className="py-2.5 px-3 font-mono text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                                    <td className="py-2 px-2.5 font-mono text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
                                       {displayDeliveryNumber(d as unknown as Delivery) || '—'}
                                     </td>
-                                    <td className="py-2.5 px-3 font-medium text-gray-900 dark:text-gray-100 max-w-[140px]"><span className="block truncate">{d.customer ?? '—'}</span></td>
-                                    <td className="py-2.5 px-3 font-mono text-xs text-blue-700 dark:text-blue-400 whitespace-nowrap">{pnc}</td>
-                                    <td className="py-2.5 px-3 font-mono text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">{modelId}</td>
-                                    <td className="py-2.5 px-3 text-gray-500 dark:text-gray-400 hidden lg:table-cell max-w-[160px]"><span className="block truncate text-xs">{description}</span></td>
-                                    <td className="py-2.5 px-3 text-gray-500 dark:text-gray-400 hidden md:table-cell max-w-[150px]"><span className="block truncate text-xs">{d.address ?? '—'}</span></td>
-                                    <td className="py-2.5 px-3 text-gray-700 dark:text-gray-300 whitespace-nowrap text-xs">{d.driverName ?? <span className="text-gray-400 italic">Unassigned</span>}</td>
-                                    <td className="py-2.5 px-3 text-gray-500 dark:text-gray-400 whitespace-nowrap text-xs">{formattedDate}</td>
-                                    <td className="py-2.5 px-3">
-                                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${statusColor}`}>{statusLabel}</span>
+                                    <td className="py-2 px-2.5 font-medium text-xs text-gray-900 dark:text-gray-100 max-w-[130px]"><span className="block truncate">{d.customer ?? '—'}</span></td>
+                                    <td className="py-2 px-2.5 font-mono text-xs text-blue-700 dark:text-blue-400 whitespace-nowrap">{pnc}</td>
+                                    <td className="py-2 px-2.5 font-mono text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">{modelId}</td>
+                                    <td className="py-2 px-2.5 text-gray-500 dark:text-gray-400 hidden lg:table-cell max-w-[140px]"><span className="block truncate text-xs">{description}</span></td>
+                                    <td className="py-2 px-2.5 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap tabular-nums">{qty}</td>
+                                    <td className="py-2 px-2.5 text-gray-500 dark:text-gray-400 hidden md:table-cell max-w-[130px]"><span className="block truncate text-xs">{d.address ?? '—'}</span></td>
+                                    <td className="py-2 px-2.5 whitespace-nowrap text-xs">
+                                      {d.driverName
+                                        ? <span className="text-gray-800 dark:text-gray-200 font-medium">{d.driverName}</span>
+                                        : <span className="text-gray-400 dark:text-gray-500 italic">Unassigned</span>}
+                                    </td>
+                                    <td className="py-2 px-2.5 text-gray-500 dark:text-gray-400 whitespace-nowrap text-xs">{formattedDate}</td>
+                                    <td className="py-2 px-2.5">
+                                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${statusColor}`}>{statusLabel}</span>
                                     </td>
                                   </tr>
                                 );
