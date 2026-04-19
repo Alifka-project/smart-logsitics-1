@@ -185,6 +185,8 @@ interface TrackingDelivery extends Delivery {
   rescheduledAt?: string | null;
   deliveryNumber?: string | null;
   originalDeliveryNumber?: string | null;
+  /** Set by notify-arrival endpoint — used as a fallback alongside DeliveryEvent */
+  arrivalNotifiedAt?: string | null;
 }
 
 interface TrackingData {
@@ -201,27 +203,41 @@ const TIMELINE_STEPS: TimelineStep[] = [
     matchStatuses: ['scheduled', 'confirmed', 'scheduled-confirmed', 'rescheduled'], matchEvents: ['customer_confirmed', 'delivery_scheduled', 'admin_rescheduled'] },
   { id: 'out_for_delivery', label: 'Out for Delivery', desc: 'On its way to you', icon: Truck,
     matchStatuses: ['out-for-delivery', 'in-transit'], matchEvents: ['out_for_delivery', 'status_updated_out_for_delivery'] },
-  { id: 'items_arrived', label: 'Items Arrived', desc: 'Delivered to your address', icon: MapPin,
-    matchStatuses: [], matchEvents: ['delivery_completed', 'status_updated_delivered'] },
+  { id: 'items_arrived', label: 'Items Arrived', desc: 'Driver is at your door', icon: MapPin,
+    matchStatuses: [], matchEvents: ['driver_arrived', 'delivery_completed', 'status_updated_delivered'] },
   { id: 'order_finished', label: 'Order Finished', desc: 'All done — thank you!', icon: Star,
     matchStatuses: ['delivered', 'delivered-with-installation', 'delivered-without-installation', 'finished', 'completed', 'pod-completed'], matchEvents: ['pod_completed', 'order_finished'] },
 ];
 
-function resolveCurrentStep(status: string | null | undefined, timeline: TrackingEvent[] | undefined): number {
+function resolveCurrentStep(
+  status: string | null | undefined,
+  timeline: TrackingEvent[] | undefined,
+  arrivalNotifiedAt?: string | null,
+): number {
   const s = (status || '').toLowerCase();
   for (let i = TIMELINE_STEPS.length - 1; i >= 0; i--) {
     const step = TIMELINE_STEPS[i];
     if (step.matchStatuses.includes(s)) return i;
     if (timeline?.some(e => step.matchEvents.includes(e.type as string))) return i;
+    // Fallback: if this is the 'items_arrived' step and the metadata flag is set,
+    // treat it as active even if the DeliveryEvent row hasn't loaded yet.
+    if (step.id === 'items_arrived' && arrivalNotifiedAt) return i;
   }
   return 0;
 }
 
-function getStepTimestamp(step: TimelineStep, timeline: TrackingEvent[] | undefined): string | Date | null {
-  if (!timeline) return null;
-  for (const ev of timeline) {
-    if (step.matchEvents.includes(ev.type as string)) return ev.timestamp;
+function getStepTimestamp(
+  step: TimelineStep,
+  timeline: TrackingEvent[] | undefined,
+  arrivalNotifiedAt?: string | null,
+): string | Date | null {
+  if (timeline) {
+    for (const ev of timeline) {
+      if (step.matchEvents.includes(ev.type as string)) return ev.timestamp;
+    }
   }
+  // Fallback for items_arrived: use the metadata timestamp if no event row yet
+  if (step.id === 'items_arrived' && arrivalNotifiedAt) return arrivalNotifiedAt;
   return null;
 }
 
@@ -269,10 +285,10 @@ const STATUS_HERO: Record<number, StatusHero> = {
   3: {
     bg: '#FFFFFF',
     color: '#15803D',
-    label: 'Delivered',
+    label: 'Arrived',
     icon: MapPin,
-    title: 'Your order has arrived',
-    subtitle: 'Delivered to your address successfully.',
+    title: 'Your driver is here!',
+    subtitle: 'Your delivery team has arrived at your address — please be ready to receive your items.',
   },
   4: {
     bg: '#FFFFFF',
@@ -408,7 +424,7 @@ export default function CustomerTrackingPage() {
   if (!tracking) return null;
 
   const { delivery, tracking: trackingInfo, timeline } = tracking;
-  const currentStep = resolveCurrentStep(delivery.status, timeline);
+  const currentStep = resolveCurrentStep(delivery.status, timeline, delivery.arrivalNotifiedAt);
   const hero = STATUS_HERO[currentStep] || STATUS_HERO[0];
   const customerDeliveryNo = displayDeliveryNumberForCustomer(delivery);
 
@@ -549,7 +565,7 @@ export default function CustomerTrackingPage() {
               const isActive  = idx === currentStep;
               const isPending = idx > currentStep;
               const Icon      = step.icon;
-              const ts        = getStepTimestamp(step, timeline);
+              const ts        = getStepTimestamp(step, timeline, delivery.arrivalNotifiedAt);
               const isLast    = idx === TIMELINE_STEPS.length - 1;
 
               return (

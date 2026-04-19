@@ -1911,6 +1911,22 @@ router.post('/:id/notify-arrival', authenticate, requireAnyRole('driver', 'deliv
       },
     }).catch((e: Error) => console.warn('[Arrival] smsLog insert failed:', e.message));
 
+    // Write a DeliveryEvent so the customer tracking timeline advances to "Items Arrived"
+    await prisma.deliveryEvent.create({
+      data: {
+        deliveryId,
+        eventType: 'driver_arrived',
+        payload: {
+          trigger: req.body?.trigger || 'manual',
+          notifiedAt: arrivalNotifiedAt,
+          smsProvider: provider,
+          smsStatus: sendStatus,
+        },
+        actorType: (user?.role as string) || 'driver',
+        actorId: user?.sub || null,
+      },
+    }).catch((e: Error) => console.warn('[Arrival] deliveryEvent insert failed:', e.message));
+
     res.json({
       ok: true,
       alreadyNotified: false,

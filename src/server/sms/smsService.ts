@@ -501,6 +501,7 @@ interface CustomerTrackingResult {
     lng: unknown;
     deliveryNumber: string | null;
     originalDeliveryNumber: string | null;
+    arrivalNotifiedAt: string | null;
   };
   tracking: {
     assignment: unknown;
@@ -577,6 +578,9 @@ async function getCustomerTracking(token: string): Promise<CustomerTrackingResul
         confirmedDeliveryDate: delivery.confirmedDeliveryDate,
         rescheduleReason: (meta.rescheduleReason as string | null) ?? null,
         rescheduledAt: (meta.rescheduledAt as string | null) ?? null,
+        // Expose arrival flag so customer tracking page can also check it
+        // without depending solely on the DeliveryEvent row.
+        arrivalNotifiedAt: (meta.arrivalNotifiedAt as string | null) ?? null,
         lat: delivery.lat,
         lng: delivery.lng,
         deliveryNumber: deliveryNumberCol,
