@@ -26,14 +26,14 @@ import {
   FileText,
   Download,
   MapPin,
-  Camera,
-  Calendar
+  Camera
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   Cell, PieChart, Pie, CartesianGrid, Legend, LabelList
 } from 'recharts';
 import DeliveryManagementPage from './DeliveryManagementPage';
+import { DateRangePicker } from '../components/common/DateRangePicker';
 import DeliveryMap from '../components/MapView/DeliveryMap';
 import { computePerDriverRoutes } from '../services/advancedRoutingService';
 import type { DriverRoute } from '../services/advancedRoutingService';
@@ -2712,19 +2712,12 @@ export default function DeliveryTeamPortal() {
                           className="flex-1 bg-transparent text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 outline-none min-w-0" />
                         {podSearch && <button onClick={() => setPodSearch('')} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-[10px] flex-shrink-0">✕</button>}
                       </div>
-                      {/* Date range — unified From → To in one styled box */}
-                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-                        <Calendar className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                        <input type="date" value={podDateFrom} onChange={e => { setPodDateFrom(e.target.value); setPodPage(1); }}
-                          className="bg-transparent text-xs text-gray-700 dark:text-gray-300 outline-none w-[108px]" />
-                        <span className="text-gray-400 dark:text-gray-500 text-xs select-none">—</span>
-                        <input type="date" value={podDateTo} onChange={e => { setPodDateTo(e.target.value); setPodPage(1); }}
-                          className="bg-transparent text-xs text-gray-700 dark:text-gray-300 outline-none w-[108px]" />
-                        {(podDateFrom || podDateTo) && (
-                          <button onClick={() => { setPodDateFrom(''); setPodDateTo(''); setPodPage(1); }}
-                            className="text-gray-400 hover:text-red-500 dark:hover:text-red-400 text-[10px] flex-shrink-0 ml-0.5">✕</button>
-                        )}
-                      </div>
+                      {/* Date range — calendar picker */}
+                      <DateRangePicker
+                        from={podDateFrom}
+                        to={podDateTo}
+                        onChange={(f, t) => { setPodDateFrom(f); setPodDateTo(t); setPodPage(1); }}
+                      />
                       {/* Status dropdown (secondary to chip shortcuts above) */}
                       <select value={podStatusFilter} onChange={e => { setPodStatusFilter(e.target.value); setPodPage(1); }}
                         className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-blue-500">
