@@ -844,15 +844,15 @@ export default function LogisticsTeamPortal() {
                   </div>
                   <div className="grid grid-cols-2 gap-2.5 flex-1">
                     {[
-                      { icon: '📤', value: uploadsToday,        label: 'Uploads Today'   },
-                      { icon: '📦', value: totalOrders,         label: 'Total Orders'    },
-                      { icon: '🚚', value: activeDriverIds.size, label: 'Active Drivers'  },
-                      { icon: '✅', value: deliveredSummary,    label: 'Delivered'       },
-                    ].map(({ icon, value, label }) => (
-                      <div key={label} className="bg-white/10 hover:bg-white/15 transition-colors rounded-lg p-3 flex flex-col gap-1">
-                        <span className="text-base leading-none" aria-hidden>{icon}</span>
-                        <p className="text-white text-2xl font-bold leading-none mt-1">{value}</p>
-                        <p className="text-white/60 text-[10px] uppercase tracking-wider leading-tight">{label}</p>
+                      { value: uploadsToday,         label: 'Uploads Today',  sub: 'files today',  color: 'text-sky-300'   },
+                      { value: totalOrders,          label: 'Total Orders',   sub: 'in system',    color: 'text-white'     },
+                      { value: activeDriverIds.size, label: 'Active Drivers', sub: 'on the road',  color: 'text-amber-300' },
+                      { value: deliveredSummary,     label: 'Delivered',      sub: 'completed',    color: 'text-green-300' },
+                    ].map(({ value, label, sub, color }) => (
+                      <div key={label} className="bg-white/10 hover:bg-white/15 transition-colors rounded-lg p-3 flex flex-col justify-between gap-1">
+                        <p className="text-white/50 text-[10px] uppercase tracking-widest font-medium leading-tight">{label}</p>
+                        <p className={`text-3xl font-bold leading-none tabular-nums ${color}`}>{value}</p>
+                        <p className="text-white/30 text-[9px] uppercase tracking-wider leading-tight">{sub}</p>
                       </div>
                     ))}
                   </div>
