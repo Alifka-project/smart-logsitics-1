@@ -11,6 +11,8 @@ export function DateRangePicker({ from, to, onChange }: DateRangePickerProps) {
   const [open, setOpen] = useState(false);
   const [hoverDate, setHoverDate] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  // Smart positioning: flip to right-aligned when near right edge of viewport
+  const [dropRight, setDropRight] = useState(false);
 
   // Calendar display state — month/year
   const today = new Date();
@@ -27,6 +29,17 @@ export function DateRangePicker({ from, to, onChange }: DateRangePickerProps) {
     };
     if (open) document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  // Determine if the popup should open left-aligned or right-aligned
+  // (flip to right-aligned when near the right edge to avoid clipping)
+  useEffect(() => {
+    if (open && ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      const popupWidth = 288; // w-72
+      const spaceRight = window.innerWidth - rect.left;
+      setDropRight(spaceRight < popupWidth + 8);
+    }
   }, [open]);
 
   // Reset phase when popover opens
@@ -118,7 +131,7 @@ export function DateRangePicker({ from, to, onChange }: DateRangePickerProps) {
       {/* Calendar popover */}
       {open && (
         <div
-          className="absolute left-0 top-full z-50 mt-1 w-72 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-xl p-4 select-none"
+          className={`absolute ${dropRight ? 'right-0' : 'left-0'} top-full z-[9999] mt-1 w-72 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-xl p-4 select-none`}
           style={{ minWidth: 280 }}
         >
           {/* Month navigation */}

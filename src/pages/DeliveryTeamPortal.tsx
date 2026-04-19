@@ -1179,75 +1179,138 @@ export default function DeliveryTeamPortal() {
               )}
             </div>
 
-            {/* RIGHT 40%: Today's Driver Assignments */}
+            {/* RIGHT 40%: Driver Assignments grouped by delivery date */}
             {(() => {
               const ACTIVE = new Set(['pending','uploaded','scheduled','scheduled-confirmed','confirmed','out-for-delivery','in-transit','in-progress','order-delay','rescheduled','sms-sent','sms_sent','unconfirmed']);
-              const todayAssigned = deliveries.filter(d => {
+              const DUBAI_OFFSET_MS = 4 * 60 * 60 * 1000;
+              const todayIso = new Date(Date.now() + DUBAI_OFFSET_MS).toISOString().slice(0, 10);
+              const tomorrowIso = new Date(Date.now() + DUBAI_OFFSET_MS + 86400000).toISOString().slice(0, 10);
+
+              // Get delivery date for an order (Dubai time)
+              const getDeliveryDate = (d: Delivery): string => {
+                const s = (d.status || '').toLowerCase();
+                if (['out-for-delivery', 'in-transit', 'in-progress'].includes(s)) return todayIso;
+                const raw = (d as unknown as { confirmedDeliveryDate?: string }).confirmedDeliveryDate;
+                if (!raw) return todayIso;
+                const t = Date.parse(String(raw));
+                if (!Number.isFinite(t)) return todayIso;
+                return new Date(t + DUBAI_OFFSET_MS).toISOString().slice(0, 10);
+              };
+
+              // Only assigned & active orders
+              const assignedOrders = deliveries.filter(d => {
                 const s = (d.status || '').toLowerCase();
                 if (!ACTIVE.has(s)) return false;
                 return !!(d.assignedDriverId || (d as Record<string,unknown>).driverName);
               });
-              // Group by driver
-              const driverMap = new Map<string, { name: string; ids: string[]; ofd: number; delay: number }>();
-              todayAssigned.forEach(d => {
-                const key = d.assignedDriverId || String((d as Record<string,unknown>).driverName || 'Unknown');
-                const name = String((d as Record<string,unknown>).driverName || d.assignedDriverId || 'Unknown');
-                const s = (d.status || '').toLowerCase();
-                const entry = driverMap.get(key) ?? { name, ids: [], ofd: 0, delay: 0 };
-                entry.ids.push(d.id);
-                if (s === 'out-for-delivery' || s === 'in-transit' || s === 'in-progress') entry.ofd++;
-                if (s === 'order-delay') entry.delay++;
-                driverMap.set(key, entry);
+
+              // Group by delivery date (today + future only)
+              const dateMap = new Map<string, Delivery[]>();
+              assignedOrders.forEach(d => {
+                const iso = getDeliveryDate(d);
+                if (iso < todayIso) return; // skip overdue
+                const arr = dateMap.get(iso) ?? [];
+                arr.push(d);
+                dateMap.set(iso, arr);
               });
-              const rows = Array.from(driverMap.values()).sort((a, b) => b.ids.length - a.ids.length);
+
+              const sortedDates = Array.from(dateMap.keys()).sort();
+
+              // For each date build driver rows
+              const dateGroups = sortedDates.map(iso => {
+                const orders = dateMap.get(iso)!;
+                const dMap = new Map<string, { name: string; ids: string[]; ofd: number; delay: number }>();
+                orders.forEach(d => {
+                  const key = d.assignedDriverId || String((d as Record<string,unknown>).driverName || 'Unknown');
+                  const name = String((d as Record<string,unknown>).driverName || d.assignedDriverId || 'Unknown');
+                  const s = (d.status || '').toLowerCase();
+                  const entry = dMap.get(key) ?? { name, ids: [], ofd: 0, delay: 0 };
+                  entry.ids.push(d.id);
+                  if (['out-for-delivery','in-transit','in-progress'].includes(s)) entry.ofd++;
+                  if (s === 'order-delay') entry.delay++;
+                  dMap.set(key, entry);
+                });
+                const label = iso === todayIso
+                  ? 'Today'
+                  : iso === tomorrowIso
+                  ? 'Tomorrow'
+                  : new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+                return {
+                  iso, label, total: orders.length,
+                  drivers: Array.from(dMap.values()).sort((a, b) => b.ids.length - a.ids.length),
+                };
+              });
+
               const unassignedCount = deliveries.filter(d => {
                 const s = (d.status || '').toLowerCase();
                 return ACTIVE.has(s) && !d.assignedDriverId && !(d as Record<string,unknown>).driverName;
               }).length;
+
+              const totalAssigned = assignedOrders.length;
+
               return (
                 <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:col-span-2">
                   <div className="mb-2 flex flex-shrink-0 items-center gap-2">
                     <Truck className="h-5 w-5 flex-shrink-0 text-teal-600 dark:text-teal-400" />
                     <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Driver Assignments</h2>
-                    <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500">{todayAssigned.length} active orders</span>
+                    <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500">{totalAssigned} active orders</span>
                   </div>
                   <p className="mb-3 flex-shrink-0 text-[10px] leading-snug text-gray-400 dark:text-gray-500">
-                    Active (non-terminal) orders currently assigned to each driver. Click a row to view in Deliveries tab.
+                    Orders grouped by delivery date. Click a row to view in Deliveries tab.
                   </p>
-                  <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-0.5">
-                    {rows.length === 0 ? (
+                  <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-0.5">
+                    {dateGroups.length === 0 && unassignedCount === 0 ? (
                       <p className="py-6 text-center text-sm text-gray-400 dark:text-gray-500">No assigned orders</p>
                     ) : (
-                      rows.map(row => (
-                        <div
-                          key={row.name}
-                          onClick={() => { useDeliveryStore.getState().setManageTabFilter('all'); setActiveTab('deliveries'); }}
-                          title={`View ${row.name}'s orders in Deliveries tab`}
-                          className="flex items-center gap-3 rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 px-3 py-2.5 cursor-pointer hover:bg-teal-50 dark:hover:bg-teal-900/20 hover:border-teal-200 dark:hover:border-teal-700 transition-colors"
-                        >
-                          {/* Driver initial avatar */}
-                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-100 dark:bg-teal-900/40 text-xs font-bold text-teal-700 dark:text-teal-300">
-                            {row.name.charAt(0).toUpperCase()}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">{row.name}</p>
-                            <div className="mt-0.5 flex flex-wrap gap-1.5">
-                              {row.ofd > 0 && (
-                                <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
-                                  🚛 {row.ofd} on route
-                                </span>
-                              )}
-                              {row.delay > 0 && (
-                                <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300">
-                                  ⚠ {row.delay} delayed
-                                </span>
-                              )}
-                            </div>
+                      dateGroups.map(group => (
+                        <div key={group.iso}>
+                          {/* Date header */}
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                              group.iso === todayIso
+                                ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                                : group.iso === tomorrowIso
+                                ? 'bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300'
+                                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                            }`}>
+                              {group.label}
+                            </span>
+                            <span className="text-[10px] text-gray-400 dark:text-gray-500">{group.iso}</span>
+                            <span className="ml-auto text-[10px] font-semibold text-gray-500 dark:text-gray-400">{group.total} orders</span>
                           </div>
-                          {/* Order count badge */}
-                          <span className="shrink-0 rounded-full bg-teal-600 dark:bg-teal-500 px-2.5 py-1 text-xs font-bold text-white tabular-nums">
-                            {row.ids.length}
-                          </span>
+                          {/* Driver rows for this date */}
+                          <div className="space-y-1.5">
+                            {group.drivers.map(row => (
+                              <div
+                                key={row.name + group.iso}
+                                onClick={() => { useDeliveryStore.getState().setManageTabFilter('all'); setActiveTab('deliveries'); }}
+                                title={`View ${row.name}'s orders — delivery ${group.label}`}
+                                className="flex items-center gap-3 rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 px-3 py-2 cursor-pointer hover:bg-teal-50 dark:hover:bg-teal-900/20 hover:border-teal-200 dark:hover:border-teal-700 transition-colors"
+                              >
+                                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-teal-100 dark:bg-teal-900/40 text-xs font-bold text-teal-700 dark:text-teal-300">
+                                  {row.name.charAt(0).toUpperCase()}
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">{row.name}</p>
+                                  <div className="mt-0.5 flex flex-wrap gap-1">
+                                    {row.ofd > 0 && (
+                                      <span className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                                        🚛 {row.ofd} on route
+                                      </span>
+                                    )}
+                                    {row.delay > 0 && (
+                                      <span className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300">
+                                        ⚠ {row.delay} delayed
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <span className="shrink-0 rounded-full bg-teal-600 dark:bg-teal-500 px-2 py-0.5 text-xs font-bold text-white tabular-nums">
+                                  {row.ids.length}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       ))
                     )}
@@ -1256,10 +1319,10 @@ export default function DeliveryTeamPortal() {
                         onClick={() => { useDeliveryStore.getState().setManageTabFilter('pending'); setActiveTab('deliveries'); }}
                         className="flex items-center gap-3 rounded-lg border border-orange-100 dark:border-orange-800/30 bg-orange-50 dark:bg-orange-900/10 px-3 py-2.5 cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900/20 transition-colors"
                       >
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/40 text-xs font-bold text-orange-500">?</span>
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/40 text-xs font-bold text-orange-500">?</span>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-semibold text-orange-700 dark:text-orange-400">Unassigned</p>
-                          <p className="text-[10px] text-orange-500 dark:text-orange-500">Needs driver assignment</p>
+                          <p className="text-[10px] text-orange-500">Needs driver assignment</p>
                         </div>
                         <span className="shrink-0 rounded-full bg-orange-500 px-2.5 py-1 text-xs font-bold text-white tabular-nums">{unassignedCount}</span>
                       </div>
@@ -2464,73 +2527,131 @@ export default function DeliveryTeamPortal() {
                         </p>
                       </div>
                     </div>
-                  ) : (
-                    messages.map(msg => {
-                      const currentUser = getCurrentUser() as (AuthUser & { account?: { role?: string } }) | null;
-                      const currentUserId = currentUser?.sub;
-                      const currentUserRole = currentUser?.account?.role || currentUser?.role;
-                      const msgAdminId = String(msg.adminId);
-                      const userId = String(currentUserId);
-                      const isSentByAdminId = msgAdminId === userId;
-                      const isSentByRole = msg.senderRole === currentUserRole;
-                      const isSent = currentUserRole === 'delivery_team' ? isSentByRole : isSentByAdminId;
+                  ) : (() => {
+                    // Resolve current user identity once for all messages
+                    const currentUser = getCurrentUser() as (AuthUser & { account?: { role?: string } }) | null;
+                    const currentUserId = String(currentUser?.sub || '');
+                    const currentUserRole = String(currentUser?.account?.role || currentUser?.role || '');
+                    // Admin-side roles can see admin messages as "sent by me"
+                    const isAdminSide = ['admin', 'delivery_team', 'logistics_team', 'delivery-team', 'logistics-team'].includes(currentUserRole);
+                    const ADMIN_SENDER_ROLES = new Set(['admin', 'delivery_team', 'logistics_team', 'delivery-team', 'logistics-team']);
 
-                      if (messages.indexOf(msg) === 0) {
-                        console.log('[DeliveryTeam Message Debug]', {
-                          messageId: msg.id, adminId: msg.adminId, driverId: msg.driverId,
-                          senderRole: msg.senderRole, currentUserId, currentUserRole,
-                          isSentByAdminId, isSentByRole, isSent,
-                          content: msg.content?.substring(0, 20)
-                        });
-                      }
+                    // Determine if a message was sent by the current user
+                    const getIsSent = (msg: TeamMessage): boolean => {
+                      // Most accurate: check if my userId matches adminId
+                      if (currentUserId && String(msg.adminId || '') === currentUserId) return true;
+                      if (currentUserId && String(msg.driverId || '') === currentUserId) return true;
+                      // Fallback: role-based detection
+                      if (isAdminSide && msg.senderRole && ADMIN_SENDER_ROLES.has(msg.senderRole)) return true;
+                      if (!isAdminSide && msg.senderRole === 'driver') return true;
+                      return false;
+                    };
+
+                    // Group messages by calendar date for date separators
+                    let lastDateLabel = '';
+
+                    return messages.map((msg, idx) => {
+                      const isSent = getIsSent(msg);
+
+                      // Date separator logic
+                      const msgDate = msg.createdAt ? new Date(msg.createdAt) : null;
+                      const dateLabel = msgDate
+                        ? msgDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
+                        : '';
+                      const showDateSep = dateLabel && dateLabel !== lastDateLabel;
+                      if (showDateSep) lastDateLabel = dateLabel;
+
+                      // Show contact avatar only on first received message in a group
+                      const prevMsg = idx > 0 ? messages[idx - 1] : null;
+                      const prevIsSent = prevMsg ? getIsSent(prevMsg) : true;
+                      const isFirstInGroup = !prevMsg || prevIsSent !== isSent;
+
+                      const contactInitial = (selectedContact.fullName || selectedContact.username || '?')[0].toUpperCase();
+                      const contactName = selectedContact.fullName || selectedContact.username || 'Contact';
 
                       return (
-                        <div key={msg.id} className={`chat-message-enter flex items-end gap-2 ${isSent ? 'justify-end' : 'justify-start'}`}>
-                          {!isSent && (
-                            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-gray-400 to-gray-600 flex-shrink-0 flex items-center justify-center text-white text-xs font-semibold shadow-sm">
-                              {(selectedContact.fullName || selectedContact.username || '?')[0].toUpperCase()}
+                        <React.Fragment key={msg.id}>
+                          {/* Date separator */}
+                          {showDateSep && (
+                            <div className="flex items-center gap-3 my-2">
+                              <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+                              <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500 whitespace-nowrap px-2">{dateLabel}</span>
+                              <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
                             </div>
                           )}
-                          <div className="max-w-[88%] sm:max-w-[75%]">
-                            <div className={`px-4 py-2.5 shadow-sm ${
-                              isSent
-                                ? 'bg-blue-600 dark:bg-blue-500 text-white rounded-2xl rounded-tr-sm'
-                                : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700 rounded-2xl rounded-tl-sm'
-                            }`}>
-                              {/* Attachment rendering */}
-                              {msg.attachmentUrl && msg.attachmentType?.startsWith('image/') && (
-                                <a href={msg.attachmentUrl} target="_blank" rel="noopener noreferrer" className="block mb-2">
-                                  <img
-                                    src={msg.attachmentUrl}
-                                    alt={msg.attachmentName || 'attachment'}
-                                    className="max-w-full rounded-lg max-h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                                  />
-                                </a>
+
+                          <div className={`chat-message-enter flex items-end gap-2 ${isSent ? 'justify-end' : 'justify-start'}`}>
+                            {/* Contact avatar — shown for received messages, only on first in group */}
+                            {!isSent ? (
+                              isFirstInGroup ? (
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-500 to-slate-700 flex-shrink-0 flex items-center justify-center text-white text-xs font-bold shadow-sm self-end">
+                                  {contactInitial}
+                                </div>
+                              ) : (
+                                <div className="w-8 flex-shrink-0" /> /* spacer to align bubbles */
+                              )
+                            ) : null}
+
+                            <div className={`max-w-[80%] sm:max-w-[70%] ${isSent ? 'items-end' : 'items-start'} flex flex-col`}>
+                              {/* Sender label on first message of a group */}
+                              {isFirstInGroup && (
+                                <span className={`text-[10px] font-semibold mb-1 px-1 ${
+                                  isSent
+                                    ? 'text-blue-500 dark:text-blue-400 text-right self-end'
+                                    : 'text-gray-500 dark:text-gray-400 text-left'
+                                }`}>
+                                  {isSent ? 'You' : contactName}
+                                </span>
                               )}
-                              {msg.attachmentUrl && !msg.attachmentType?.startsWith('image/') && (
-                                <a
-                                  href={msg.attachmentUrl}
-                                  download={msg.attachmentName || 'file'}
-                                  className={`flex items-center gap-2 mb-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                                    isSent
-                                      ? 'bg-blue-500 text-white hover:bg-blue-400'
-                                      : 'bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400 hover:bg-gray-200'
-                                  }`}
-                                >
-                                  <Paperclip className="w-4 h-4 flex-shrink-0" />
-                                  <span className="truncate">{msg.attachmentName || 'Download file'}</span>
-                                </a>
-                              )}
-                              {msg.content && <p className="text-sm leading-relaxed">{msg.content}</p>}
+
+                              <div className={`px-4 py-2.5 shadow-sm ${
+                                isSent
+                                  ? 'bg-blue-600 dark:bg-blue-500 text-white rounded-2xl rounded-tr-sm'
+                                  : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-600 rounded-2xl rounded-tl-sm'
+                              }`}>
+                                {/* Attachment rendering */}
+                                {msg.attachmentUrl && msg.attachmentType?.startsWith('image/') && (
+                                  <a href={msg.attachmentUrl} target="_blank" rel="noopener noreferrer" className="block mb-2">
+                                    <img
+                                      src={msg.attachmentUrl}
+                                      alt={msg.attachmentName || 'attachment'}
+                                      className="max-w-full rounded-lg max-h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                    />
+                                  </a>
+                                )}
+                                {msg.attachmentUrl && !msg.attachmentType?.startsWith('image/') && (
+                                  <a
+                                    href={msg.attachmentUrl}
+                                    download={msg.attachmentName || 'file'}
+                                    className={`flex items-center gap-2 mb-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                      isSent
+                                        ? 'bg-blue-500 text-white hover:bg-blue-400'
+                                        : 'bg-gray-100 dark:bg-gray-600 text-blue-600 dark:text-blue-300 hover:bg-gray-200'
+                                    }`}
+                                  >
+                                    <Paperclip className="w-4 h-4 flex-shrink-0" />
+                                    <span className="truncate">{msg.attachmentName || 'Download file'}</span>
+                                  </a>
+                                )}
+                                {msg.content && <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>}
+                              </div>
+                              <p className={`text-[10px] mt-1 px-1 text-gray-400 dark:text-gray-500 ${isSent ? 'text-right' : 'text-left'}`}>
+                                {formatMessageTimestamp(msg.createdAt)}
+                              </p>
                             </div>
-                            <p className={`text-[11px] mt-1 px-1 text-gray-400 dark:text-gray-500 ${isSent ? 'text-right' : 'text-left'}`}>
-                              {formatMessageTimestamp(msg.createdAt)}
-                            </p>
+
+                            {/* "You" avatar on sent messages */}
+                            {isSent && isFirstInGroup && (
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex-shrink-0 flex items-center justify-center text-white text-xs font-bold shadow-sm self-end">
+                                {(currentUser?.username || 'Y')[0].toUpperCase()}
+                              </div>
+                            )}
+                            {isSent && !isFirstInGroup && <div className="w-8 flex-shrink-0" />}
                           </div>
-                        </div>
+                        </React.Fragment>
                       );
-                    })
-                  )}
+                    });
+                  })()}
                   <div ref={messagesEndRef} />
                 </div>
 
