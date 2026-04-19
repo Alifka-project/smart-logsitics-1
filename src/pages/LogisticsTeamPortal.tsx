@@ -994,68 +994,112 @@ export default function LogisticsTeamPortal() {
               )}
             </div>
 
-            <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[340px]">
-              <div className="mb-2 flex flex-shrink-0 items-center gap-2">
-                <Truck className="h-5 w-5 flex-shrink-0 text-teal-600 dark:text-teal-400" />
-                <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Truck capacity</h2>
-              </div>
-              <p className="mb-2 flex-shrink-0 text-[10px] leading-snug text-gray-400 dark:text-gray-500">
-                By delivery date (Dubai). Dispatched / on-route orders count toward <span className="font-semibold text-gray-500 dark:text-gray-400">today</span>.
-              </p>
-              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-0.5">
-                {drivers.length === 0 ? (
-                  <div className="py-6 text-center text-sm text-gray-400 dark:text-gray-500">No drivers</div>
-                ) : capacityDatesSorted.length === 0 ? (
-                  <div className="py-4 text-center text-xs text-gray-400 dark:text-gray-500">Loading capacity…</div>
-                ) : (
-                  capacityDatesSorted.map((iso) => {
-                    const dayLabel = new Date(`${iso}T00:00:00+04:00`).toLocaleDateString('en-AE', {
-                      timeZone: 'Asia/Dubai', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'
-                    });
-                    return (
-                      <div key={iso} className="rounded-lg border border-gray-100 dark:border-gray-700 bg-white/40 dark:bg-gray-800/40 p-2">
-                        <p className="mb-1.5 px-0.5 text-[10px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                          {dayLabel} <span className="font-mono font-normal normal-case text-gray-400">({iso})</span>
-                        </p>
-                        <div className="space-y-1.5">
-                          {[...drivers]
-                            .sort((a, b) => String(a.fullName || a.username || '').localeCompare(String(b.fullName || b.username || '')))
-                            .map((driver) => {
-                              const cap = driverCapacityByDate[iso]?.[driver.id];
-                              const online = isContactOnline(driver);
-                              return (
-                                <div
-                                  key={`${iso}-${driver.id}`}
-                                  className="flex items-start gap-2 rounded-md border border-gray-100 bg-gray-50 px-2 py-1.5 dark:border-gray-700 dark:bg-gray-800/60"
-                                >
-                                  <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${online ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
-                                  <div className="min-w-0 flex-1">
-                                    <p className="truncate text-[11px] font-semibold text-gray-900 dark:text-gray-100">
-                                      {driver.fullName || driver.username}
-                                    </p>
-                                    {cap ? (
-                                      <p className="mt-0.5 text-[10px] text-gray-600 dark:text-gray-300">
-                                        <span className="font-mono font-semibold text-teal-700 dark:text-teal-300">{cap.remaining}</span> left
-                                        <span className="text-gray-400 dark:text-gray-500"> · </span>
-                                        {cap.used}/{cap.max} used
-                                      </p>
-                                    ) : (
-                                      <p className="mt-0.5 text-[10px] text-gray-400 dark:text-gray-500">—</p>
-                                    )}
+            {(() => {
+              // Build: date → driver → order count (from live deliveries, not just capacity API)
+              const DUBAI_OFFSET_MS = 4 * 60 * 60 * 1000;
+              const todayIso = new Date(Date.now() + DUBAI_OFFSET_MS).toISOString().slice(0, 10);
+              const tomorrowIso = new Date(Date.now() + DUBAI_OFFSET_MS + 86400000).toISOString().slice(0, 10);
+              const ACTIVE_S = new Set(['pending','uploaded','scheduled','scheduled-confirmed','confirmed','out-for-delivery','in-transit','in-progress','order-delay','rescheduled','sms-sent','sms_sent','unconfirmed']);
+
+              // Map: dateIso → driverId → { name, count, ofd, delay }
+              const dateDriverMap = new Map<string, Map<string, { name: string; count: number; ofd: number; delay: number }>>();
+              deliveries.forEach(d => {
+                const s = (d.status || '').toLowerCase();
+                if (!ACTIVE_S.has(s)) return;
+                const driverId = d.assignedDriverId || String((d as Record<string,unknown>).driverName || '');
+                if (!driverId) return;
+                // Delivery date in Dubai
+                let dateIso = todayIso;
+                if (!['out-for-delivery','in-transit','in-progress'].includes(s)) {
+                  const raw = (d as unknown as { confirmedDeliveryDate?: string }).confirmedDeliveryDate;
+                  if (raw) {
+                    const t = Date.parse(String(raw));
+                    if (Number.isFinite(t)) dateIso = new Date(t + DUBAI_OFFSET_MS).toISOString().slice(0, 10);
+                  }
+                }
+                if (dateIso < todayIso) return; // skip past dates
+                if (!dateDriverMap.has(dateIso)) dateDriverMap.set(dateIso, new Map());
+                const dMap = dateDriverMap.get(dateIso)!;
+                const driverName = String((d as Record<string,unknown>).driverName || driverId);
+                const entry = dMap.get(driverId) ?? { name: driverName, count: 0, ofd: 0, delay: 0 };
+                entry.count++;
+                if (['out-for-delivery','in-transit','in-progress'].includes(s)) entry.ofd++;
+                if (s === 'order-delay') entry.delay++;
+                dMap.set(driverId, entry);
+              });
+
+              // Only show dates that actually have orders
+              const activeDates = Array.from(dateDriverMap.keys()).sort();
+
+              return (
+                <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[340px]">
+                  <div className="mb-2 flex flex-shrink-0 items-center gap-2">
+                    <Truck className="h-5 w-5 flex-shrink-0 text-teal-600 dark:text-teal-400" />
+                    <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Truck Capacity</h2>
+                    <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500">by delivery date</span>
+                  </div>
+                  <p className="mb-2 flex-shrink-0 text-[10px] leading-snug text-gray-400 dark:text-gray-500">
+                    Active orders grouped by confirmed delivery date (Dubai). On-route orders count to <span className="font-semibold">today</span>.
+                  </p>
+                  <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-0.5">
+                    {activeDates.length === 0 ? (
+                      <div className="py-6 text-center text-sm text-gray-400 dark:text-gray-500">No active assigned orders</div>
+                    ) : (
+                      activeDates.map((iso) => {
+                        const driverRows = Array.from(dateDriverMap.get(iso)!.entries())
+                          .map(([driverId, info]) => ({ driverId, ...info }))
+                          .sort((a, b) => b.count - a.count);
+                        const totalForDate = driverRows.reduce((s, r) => s + r.count, 0);
+                        const isToday = iso === todayIso;
+                        const isTomorrow = iso === tomorrowIso;
+                        const dateChipLabel = isToday ? 'Today' : isTomorrow ? 'Tomorrow'
+                          : new Date(`${iso}T00:00:00+04:00`).toLocaleDateString('en-AE', { timeZone: 'Asia/Dubai', weekday: 'short', day: 'numeric', month: 'short' });
+                        return (
+                          <div key={iso} className="rounded-lg border border-gray-100 dark:border-gray-700 bg-white/40 dark:bg-gray-800/40 p-2">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                                isToday ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                                : isTomorrow ? 'bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300'
+                                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                              }`}>{dateChipLabel}</span>
+                              <span className="font-mono text-[10px] text-gray-400 dark:text-gray-500">{iso}</span>
+                              <span className="ml-auto text-[10px] font-semibold text-gray-500 dark:text-gray-400">{totalForDate} orders</span>
+                            </div>
+                            <div className="space-y-1.5">
+                              {driverRows.map((row) => {
+                                const cap = driverCapacityByDate[iso]?.[row.driverId];
+                                // find the driver object for online status
+                                const driverObj = drivers.find(dr => dr.id === row.driverId);
+                                const online = driverObj ? isContactOnline(driverObj) : false;
+                                return (
+                                  <div key={`${iso}-${row.driverId}`}
+                                    className="flex items-center gap-2 rounded-md border border-gray-100 bg-gray-50 px-2 py-1.5 dark:border-gray-700 dark:bg-gray-800/60"
+                                  >
+                                    <span className={`h-2 w-2 shrink-0 rounded-full ${online ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                                    <div className="min-w-0 flex-1">
+                                      <p className="truncate text-[11px] font-semibold text-gray-900 dark:text-gray-100">{row.name}</p>
+                                      <div className="flex flex-wrap gap-1 mt-0.5">
+                                        {row.ofd > 0 && <span className="text-[9px] text-blue-600 dark:text-blue-400">🚛 {row.ofd} on route</span>}
+                                        {row.delay > 0 && <span className="text-[9px] text-red-600 dark:text-red-400">⚠ {row.delay} delayed</span>}
+                                        {cap && <span className="text-[9px] text-gray-500 dark:text-gray-400">{cap.used}/{cap.max} cap used</span>}
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <span className="rounded-full bg-teal-600 dark:bg-teal-500 px-2 py-0.5 text-[10px] font-bold text-white tabular-nums">{row.count}</span>
+                                      {cap?.full && <span className="text-[9px] font-bold text-red-600 dark:text-red-400">FULL</span>}
+                                    </div>
                                   </div>
-                                  {cap?.full && (
-                                    <span className="shrink-0 text-[9px] font-bold text-red-600 dark:text-red-400">FULL</span>
-                                  )}
-                                </div>
-                              );
-                            })}
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           {/* ── Driver Status + 2 Charts (3-column, same height as Needs Attention) ── */}
@@ -1843,62 +1887,118 @@ export default function LogisticsTeamPortal() {
                         </p>
                       </div>
                     </div>
-                  ) : (
-                    messages.map(msg => {
-                      const currentUser = getCurrentUser() as (AuthUser & { account?: { role?: string } }) | null;
-                      const currentUserId = currentUser?.sub;
-                      // A message is "sent by me" when:
-                      // 1. My ID matches adminId (staff side of conversation), AND
-                      // 2. The sender is not a driver (driver messages also store adminId = the staff they messaged)
-                      const isSent = String(msg.adminId) === String(currentUserId) && msg.senderRole !== 'driver';
+                  ) : (() => {
+                    // Resolve current user identity once for all messages
+                    const currentUser = getCurrentUser() as (AuthUser & { account?: { role?: string } }) | null;
+                    const currentUserId = String(currentUser?.sub || '');
+                    const currentUserRole = String(currentUser?.account?.role || currentUser?.role || '');
+                    // Admin-side roles — messages from these roles count as "sent by me"
+                    const isAdminSide = ['admin', 'delivery_team', 'logistics_team', 'delivery-team', 'logistics-team'].includes(currentUserRole);
+                    const ADMIN_SENDER_ROLES = new Set(['admin', 'delivery_team', 'logistics_team', 'delivery-team', 'logistics-team']);
+
+                    // Determine if a message was sent by the current user
+                    const getIsSent = (msg: TeamMessage): boolean => {
+                      // Most accurate: check if my userId matches adminId directly
+                      if (currentUserId && String(msg.adminId || '') === currentUserId) return true;
+                      if (currentUserId && String(msg.driverId || '') === currentUserId) return true;
+                      // Fallback: role-based (admin-side users see admin-role messages as sent)
+                      if (isAdminSide && msg.senderRole && ADMIN_SENDER_ROLES.has(msg.senderRole)) return true;
+                      if (!isAdminSide && msg.senderRole === 'driver') return true;
+                      return false;
+                    };
+
+                    const contactName = selectedContact.fullName || selectedContact.username || 'Contact';
+                    const contactInitial = contactName[0].toUpperCase();
+                    let lastDateLabel = '';
+
+                    return messages.map((msg, idx) => {
+                      const isSent = getIsSent(msg);
+
+                      // Date separator
+                      const msgDate = msg.createdAt ? new Date(msg.createdAt) : null;
+                      const dateLabel = msgDate
+                        ? msgDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
+                        : '';
+                      const showDateSep = dateLabel && dateLabel !== lastDateLabel;
+                      if (showDateSep) lastDateLabel = dateLabel;
+
+                      // Show sender name/avatar only on first msg in a group
+                      const prevMsg = idx > 0 ? messages[idx - 1] : null;
+                      const prevIsSent = prevMsg ? getIsSent(prevMsg) : true;
+                      const isFirstInGroup = !prevMsg || prevIsSent !== isSent;
 
                       return (
-                        <div key={msg.id} className={`chat-message-enter flex items-end gap-2 ${isSent ? 'justify-end' : 'justify-start'}`}>
-                          {!isSent && (
-                            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-gray-400 to-gray-600 flex-shrink-0 flex items-center justify-center text-white text-xs font-semibold shadow-sm">
-                              {(selectedContact.fullName || selectedContact.username || '?')[0].toUpperCase()}
+                        <React.Fragment key={msg.id}>
+                          {/* Date separator */}
+                          {showDateSep && (
+                            <div className="flex items-center gap-3 my-2">
+                              <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+                              <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500 whitespace-nowrap px-2">{dateLabel}</span>
+                              <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
                             </div>
                           )}
-                          <div className="max-w-[88%] sm:max-w-[75%]">
-                            <div className={`px-4 py-2.5 shadow-sm ${
-                              isSent
-                                ? 'bg-blue-600 dark:bg-blue-500 text-white rounded-2xl rounded-tr-sm'
-                                : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700 rounded-2xl rounded-tl-sm'
-                            }`}>
-                              {/* Attachment rendering */}
-                              {msg.attachmentUrl && msg.attachmentType?.startsWith('image/') && (
-                                <a href={msg.attachmentUrl} target="_blank" rel="noopener noreferrer" className="block mb-2">
-                                  <img
-                                    src={msg.attachmentUrl}
-                                    alt={msg.attachmentName || 'attachment'}
-                                    className="max-w-full rounded-lg max-h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                                  />
-                                </a>
+
+                          <div className={`chat-message-enter flex items-end gap-2 ${isSent ? 'justify-end' : 'justify-start'}`}>
+                            {/* Contact avatar — left side, only on first in group */}
+                            {!isSent ? (
+                              isFirstInGroup ? (
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-500 to-slate-700 flex-shrink-0 flex items-center justify-center text-white text-xs font-bold shadow-sm self-end">
+                                  {contactInitial}
+                                </div>
+                              ) : <div className="w-8 flex-shrink-0" />
+                            ) : null}
+
+                            <div className={`max-w-[80%] sm:max-w-[70%] flex flex-col ${isSent ? 'items-end' : 'items-start'}`}>
+                              {/* Sender label on first msg in group */}
+                              {isFirstInGroup && (
+                                <span className={`text-[10px] font-semibold mb-1 px-1 ${
+                                  isSent ? 'text-blue-500 dark:text-blue-400 self-end' : 'text-gray-500 dark:text-gray-400'
+                                }`}>
+                                  {isSent ? 'You' : contactName}
+                                </span>
                               )}
-                              {msg.attachmentUrl && !msg.attachmentType?.startsWith('image/') && (
-                                <a
-                                  href={msg.attachmentUrl}
-                                  download={msg.attachmentName || 'file'}
-                                  className={`flex items-center gap-2 mb-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                                    isSent
-                                      ? 'bg-blue-500 text-white hover:bg-blue-400'
-                                      : 'bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400 hover:bg-gray-200'
-                                  }`}
-                                >
-                                  <Paperclip className="w-4 h-4 flex-shrink-0" />
-                                  <span className="truncate">{msg.attachmentName || 'Download file'}</span>
-                                </a>
-                              )}
-                              {msg.content && <p className="text-sm leading-relaxed">{msg.content}</p>}
+
+                              <div className={`px-4 py-2.5 shadow-sm ${
+                                isSent
+                                  ? 'bg-blue-600 dark:bg-blue-500 text-white rounded-2xl rounded-tr-sm'
+                                  : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-600 rounded-2xl rounded-tl-sm'
+                              }`}>
+                                {/* Attachment rendering */}
+                                {msg.attachmentUrl && msg.attachmentType?.startsWith('image/') && (
+                                  <a href={msg.attachmentUrl} target="_blank" rel="noopener noreferrer" className="block mb-2">
+                                    <img src={msg.attachmentUrl} alt={msg.attachmentName || 'attachment'}
+                                      className="max-w-full rounded-lg max-h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity" />
+                                  </a>
+                                )}
+                                {msg.attachmentUrl && !msg.attachmentType?.startsWith('image/') && (
+                                  <a href={msg.attachmentUrl} download={msg.attachmentName || 'file'}
+                                    className={`flex items-center gap-2 mb-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                      isSent ? 'bg-blue-500 text-white hover:bg-blue-400' : 'bg-gray-100 dark:bg-gray-600 text-blue-600 dark:text-blue-300 hover:bg-gray-200'
+                                    }`}>
+                                    <Paperclip className="w-4 h-4 flex-shrink-0" />
+                                    <span className="truncate">{msg.attachmentName || 'Download file'}</span>
+                                  </a>
+                                )}
+                                {msg.content && <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>}
+                              </div>
+                              <p className={`text-[10px] mt-1 px-1 text-gray-400 dark:text-gray-500 ${isSent ? 'text-right' : 'text-left'}`}>
+                                {formatMessageTimestamp(msg.createdAt)}
+                              </p>
                             </div>
-                            <p className={`text-[11px] mt-1 px-1 text-gray-400 dark:text-gray-500 ${isSent ? 'text-right' : 'text-left'}`}>
-                              {formatMessageTimestamp(msg.createdAt)}
-                            </p>
+
+                            {/* "You" avatar — right side, only on first in group */}
+                            {isSent ? (
+                              isFirstInGroup ? (
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex-shrink-0 flex items-center justify-center text-white text-xs font-bold shadow-sm self-end">
+                                  {(currentUser?.username || 'Y')[0].toUpperCase()}
+                                </div>
+                              ) : <div className="w-8 flex-shrink-0" />
+                            ) : null}
                           </div>
-                        </div>
+                        </React.Fragment>
                       );
-                    })
-                  )}
+                    });
+                  })()}
                   <div ref={messagesEndRef} />
                 </div>
 
