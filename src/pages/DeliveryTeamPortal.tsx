@@ -2553,15 +2553,18 @@ export default function DeliveryTeamPortal() {
                     // Resolve current user identity once for all messages
                     const currentUser = getCurrentUser() as (AuthUser & { account?: { role?: string } }) | null;
                     const currentUserId = String(currentUser?.sub || '');
+                    // The contact's ID is always known — use it as the primary anchor
+                    const contactId = String(selectedContact.id || '');
 
-                    // Determine if a message was sent by the current user.
-                    // Use ONLY the stored sender ID — never role-based fallback, because
-                    // when two admin-side users chat, every message has an admin senderRole
-                    // and the fallback would wrongly mark ALL messages as "sent by me".
+                    // In a 1:1 chat every message is either FROM the contact or FROM me.
+                    // Check the contact's ID first (most reliable — no dependency on currentUser.sub format).
+                    // If the message sender matches the contact → received (LEFT).
+                    // If it explicitly matches my ID → sent (RIGHT).
+                    // If neither match, assume it was sent by me (safe in a 1:1 thread).
                     const getIsSent = (msg: TeamMessage): boolean => {
-                      if (currentUserId && String(msg.adminId || '') === currentUserId) return true;
-                      if (currentUserId && String(msg.driverId || '') === currentUserId) return true;
-                      return false;
+                      if (contactId && (String(msg.adminId || '') === contactId || String(msg.driverId || '') === contactId)) return false;
+                      if (currentUserId && (String(msg.adminId || '') === currentUserId || String(msg.driverId || '') === currentUserId)) return true;
+                      return true; // 1:1 chat: if not from contact, it's from me
                     };
 
                     // Group messages by calendar date for date separators
