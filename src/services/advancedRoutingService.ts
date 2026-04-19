@@ -453,8 +453,8 @@ export async function computePerDriverRoutes(
       const locations = [{ lat: loc.lat, lng: loc.lng }, ...stops];
 
       if (locations.length < 2) {
-        // Driver online but no assigned OFD stops — just mark their position
-        return { driverId: driver.id, name, color, coordinates: [[loc.lat, loc.lng] as [number, number]] };
+        // Driver online but no active stops with real coords — return empty so no broken polyline is rendered
+        return { driverId: driver.id, name, color, coordinates: [] };
       }
 
       try {

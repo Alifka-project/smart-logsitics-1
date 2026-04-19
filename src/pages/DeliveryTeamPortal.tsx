@@ -11,13 +11,11 @@ import {
   Clock,
   RefreshCw,
   Truck,
-  Settings,
   MessageSquare,
   Phone,
   Send,
   Paperclip,
   Navigation as NavigationIcon,
-  Circle,
   Package,
   Search,
   ChevronLeft,
@@ -26,7 +24,6 @@ import {
   FileText,
   Download,
   MapPin,
-  Camera
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -161,8 +158,6 @@ export default function DeliveryTeamPortal() {
   // Control tab state
   const [assignmentMessage, setAssignmentMessage] = useState<AssignmentMessage | null>(null);
   const [markingOFD, setMarkingOFD] = useState<string | null>(null);
-  const [markingDelay, setMarkingDelay] = useState<string | null>(null);
-  const [dispatchFilter, setDispatchFilter] = useState<'all' | 'overdue' | 'unassigned' | 'awaiting' | 'delay'>('all');
   const [sendingSms, setSendingSms] = useState<string | null>(null);
   const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
   const [opsSearch, setOpsSearch] = useState<string>('');
@@ -172,8 +167,6 @@ export default function DeliveryTeamPortal() {
   const [opsTodayOnly, setOpsTodayOnly] = useState(false);
   const [opsDateFrom, setOpsDateFrom] = useState('');
   const [opsDateTo, setOpsDateTo] = useState('');
-  const dispatchTableRef = useRef<HTMLDivElement | null>(null);
-  
   // Communication tab state
   const [selectedContact, setSelectedContact] = useState<ContactUser | null>(null); // Changed from selectedDriver
   const [messages, setMessages] = useState<TeamMessage[]>([]);

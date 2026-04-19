@@ -993,9 +993,7 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team'), a
           console.warn(`[Deliveries/Upload] Auto-assign failed for ${d.id}:`, (assignErr as Error).message);
         }
 
-        // 2. Notify customer that their order is out for delivery
-        // SMS TEMPORARILY DISABLED — D7 compliance pending.
-        // Restore: smsAdapter.sendSms({ to: d.phone, body: smsBody, ... })
+        // 2. Notify customer that their order is out for delivery (D7 SMS → WhatsApp fallback)
         if (d.phone) {
           try {
             const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
@@ -1006,14 +1004,38 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team'), a
             const poRef = d.poNumber ? `#${d.poNumber}` : '';
             const smsBody = outForDeliveryMessage(customerName, poRef, trackingLink);
 
-            let sendStatus = 'whatsapp_link_generated';
-            if (isWhatsAppConfigured()) {
-              const waRes = await sendWhatsApp(d.phone, smsBody);
-              sendStatus = waRes.ok ? 'sent' : 'failed';
-              console.log(`[WhatsApp] GMD dispatch silent send for ${d.id}:`, waRes.ok ? 'ok' : waRes.error);
-            } else {
-              const fallbackUrl = buildWhatsAppLink(d.phone, smsBody);
-              console.log(`[WhatsApp] No API creds — GMD fallback link for ${d.id}:`, fallbackUrl);
+            let sendStatus = 'failed';
+            let smsProvider = 'd7';
+
+            // Primary: D7 SMS
+            if (smsAdapter) {
+              try {
+                const smsResult = await smsAdapter.sendSms({
+                  to: d.phone,
+                  body: smsBody,
+                  metadata: { deliveryId: d.id, type: 'status_out_for_delivery', triggeredBy: 'gmd_upload' }
+                });
+                sendStatus = smsResult.status === 'accepted' || smsResult.status === 'queued' ? 'sent' : 'failed';
+                console.log(`[D7] GMD dispatch SMS for ${d.id}:`, sendStatus, smsResult.messageId || '');
+              } catch (d7Err: unknown) {
+                console.warn(`[D7] GMD dispatch SMS failed for ${d.id}:`, (d7Err as Error).message, '— trying WhatsApp');
+                sendStatus = 'failed';
+              }
+            }
+
+            // Fallback: WhatsApp if D7 failed or not configured
+            if (sendStatus !== 'sent') {
+              if (isWhatsAppConfigured()) {
+                smsProvider = 'whatsapp-api';
+                const waRes = await sendWhatsApp(d.phone, smsBody);
+                sendStatus = waRes.ok ? 'sent' : 'failed';
+                console.log(`[WhatsApp] GMD dispatch fallback for ${d.id}:`, waRes.ok ? 'ok' : waRes.error);
+              } else {
+                smsProvider = 'whatsapp-link';
+                sendStatus = 'whatsapp_link_generated';
+                const fallbackUrl = buildWhatsAppLink(d.phone, smsBody);
+                console.log(`[WhatsApp] No API creds — GMD fallback link for ${d.id}:`, fallbackUrl);
+              }
             }
 
             await prisma.smsLog.create({
@@ -1021,14 +1043,14 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team'), a
                 deliveryId: d.id,
                 phoneNumber: d.phone,
                 messageContent: smsBody,
-                smsProvider: isWhatsAppConfigured() ? 'whatsapp-api' : 'whatsapp-link',
+                smsProvider,
                 status: sendStatus,
                 sentAt: new Date(),
                 metadata: { type: 'status_out_for_delivery', triggeredBy: 'gmd_upload' }
               }
             });
           } catch (smsErr: unknown) {
-            console.warn(`[Deliveries/Upload] WhatsApp notification failed for ${d.id}:`, (smsErr as Error).message);
+            console.warn(`[Deliveries/Upload] Notification failed for ${d.id}:`, (smsErr as Error).message);
           }
         }
 

@@ -117,8 +117,11 @@ class D7Adapter extends SmsAdapter {
       const responseBody = e.response?.data;
       console.error(`[D7] Template SMS failed — HTTP: ${status}, body:`, JSON.stringify(responseBody));
       console.warn('[D7] Template send failed — retrying as free-text');
-      // Fallback: reconstruct free-text from params if template route fails
-      return this._sendViaSms(to, (res as unknown as null) ?? '');
+      // Fallback: reconstruct free-text body from params (params = [customerName, orderRef, link])
+      const fallbackBody = params.length >= 3
+        ? `Dear ${params[0]},\n\nYour Electrolux order ${params[1]} is ready for delivery.\n\nPlease confirm your preferred delivery date using the link below:\n${params[2]}\n\nThank you,\nElectrolux Delivery Team.`
+        : params.join(' ');
+      return this._sendViaSms(to, fallbackBody);
     }
 
     const data = res.data as Record<string, unknown>;

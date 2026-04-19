@@ -27,26 +27,16 @@ import {
 import DeliveryDetailModal from '../components/DeliveryDetailModal';
 import DeliveryMap from '../components/MapView/DeliveryMap';
 import DeliveryManagementPage from './DeliveryManagementPage';
-import PaginationBar from '../components/common/PaginationBar';
+
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { calculateRoute, generateFallbackRoute, computePerDriverRoutes } from '../services/advancedRoutingService';
 import type { DriverRoute } from '../services/advancedRoutingService';
 import useDeliveryStore from '../store/useDeliveryStore';
-import { deliveryToManageOrder, classifyConfirmedDate } from '../utils/deliveryWorkflowMap';
+import { deliveryToManageOrder } from '../utils/deliveryWorkflowMap';
 import { excludeTeamPortalGarbageDeliveries } from '../utils/deliveryListFilter';
-import { isDubaiPublicHoliday } from '../utils/dubaiHolidays';
+
 import { getTodayIsoDubai, addCalendarDaysDubai, formatInstantToDubaiIsoDate } from '../utils/dubaiCalendarIso';
-import {
-  displayCityForOps,
-  displayCustomerName,
-  displayDeliveryNumber,
-  displayDescriptionForOps,
-  displayMaterialForOps,
-  displayModelForOps,
-  displayPhone,
-  displayPoNumber,
-  getOrderType,
-} from '../utils/deliveryDisplayFields';
+
 import type { Delivery, AuthUser } from '../types';
 // WhatsAppSendModal is mounted globally in App.tsx — no local import needed
 
@@ -701,13 +691,6 @@ export default function LogisticsTeamPortal() {
       default:                  return { label: delivery.status?.replace(/-/g, ' ') || 'Pending', color: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' };
     }
   };
-
-  // Active = non-terminal deliveries that have a driver assigned.
-  const activeDeliveries = deliveries.filter(d => {
-    const dWithTracking = d as unknown as { tracking?: { driverId?: string } };
-    return !TERMINAL_STATUSES.has((d.status || '').toLowerCase()) &&
-           (dWithTracking.tracking?.driverId || d.assignedDriverId);
-  });
 
   // ────────────────────────────────────────────────────────────────────────────
 
