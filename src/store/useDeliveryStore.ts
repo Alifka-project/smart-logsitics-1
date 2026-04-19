@@ -57,6 +57,8 @@ interface DeliveryStore {
   deliveryListFilter: DeliveryListFilter;
   /** Set by Needs Attention cards to pre-filter the ManageTab OrdersTable. Cleared after use. */
   manageTabFilter: string | null;
+  /** Set by Driver Assignment clicks to pre-filter the table by driver + date. Cleared after use. */
+  manageTabPreset: { driverId?: string; dateFrom?: string; dateTo?: string } | null;
   recentUploads: UploadRecord[];
   /** Successful file upload hashes (duplicate file prevention). */
   uploadedFileHashes: string[];
@@ -73,6 +75,7 @@ interface DeliveryStore {
   setRoute: (route: RouteResult) => void;
   setDeliveryListFilter: (filter: DeliveryListFilter) => void;
   setManageTabFilter: (filter: string | null) => void;
+  setManageTabPreset: (preset: { driverId?: string; dateFrom?: string; dateTo?: string } | null) => void;
 
   beginUploadRecord: (filename: string, fileHash: string) => string;
   completeUploadRecord: (id: string, orderCount: number, fileHash: string) => void;
@@ -156,6 +159,7 @@ const useDeliveryStore = create<DeliveryStore>((set, get) => ({
   currentPage: 'list',
   deliveryListFilter: 'all',
   manageTabFilter: null,
+  manageTabPreset: null,
   recentUploads: loadRecentUploadsFromStorage(),
   uploadedFileHashes: loadHashesFromStorage(),
 
@@ -417,6 +421,10 @@ const useDeliveryStore = create<DeliveryStore>((set, get) => ({
 
   setManageTabFilter: (filter: string | null): void => {
     set({ manageTabFilter: filter });
+  },
+
+  setManageTabPreset: (preset): void => {
+    set({ manageTabPreset: preset });
   },
 
   isFileAlreadyUploaded: (hash: string): boolean => {

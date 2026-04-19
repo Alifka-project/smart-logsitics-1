@@ -1186,15 +1186,19 @@ export default function DeliveryTeamPortal() {
               const todayIso = new Date(Date.now() + DUBAI_OFFSET_MS).toISOString().slice(0, 10);
               const tomorrowIso = new Date(Date.now() + DUBAI_OFFSET_MS + 86400000).toISOString().slice(0, 10);
 
-              // Get delivery date for an order (Dubai time)
+              // Get delivery date: always use confirmedDeliveryDate when set.
+              // OFD orders without a date fall back to today. This prevents OFD
+              // orders from appearing under Sunday when their actual date is Monday.
               const getDeliveryDate = (d: Delivery): string => {
+                const raw = (d as unknown as { confirmedDeliveryDate?: string }).confirmedDeliveryDate;
+                if (raw) {
+                  const t = Date.parse(String(raw));
+                  if (Number.isFinite(t)) return new Date(t + DUBAI_OFFSET_MS).toISOString().slice(0, 10);
+                }
+                // No confirmedDeliveryDate — OFD orders are being delivered today
                 const s = (d.status || '').toLowerCase();
                 if (['out-for-delivery', 'in-transit', 'in-progress'].includes(s)) return todayIso;
-                const raw = (d as unknown as { confirmedDeliveryDate?: string }).confirmedDeliveryDate;
-                if (!raw) return todayIso;
-                const t = Date.parse(String(raw));
-                if (!Number.isFinite(t)) return todayIso;
-                return new Date(t + DUBAI_OFFSET_MS).toISOString().slice(0, 10);
+                return todayIso;
               };
 
               // Only assigned & active orders
@@ -1204,11 +1208,11 @@ export default function DeliveryTeamPortal() {
                 return !!(d.assignedDriverId || (d as Record<string,unknown>).driverName);
               });
 
-              // Group by delivery date (today + future only)
+              // Group by delivery date — only today + future; skip overdue
               const dateMap = new Map<string, Delivery[]>();
               assignedOrders.forEach(d => {
                 const iso = getDeliveryDate(d);
-                if (iso < todayIso) return; // skip overdue
+                if (iso < todayIso) return; // skip past dates
                 const arr = dateMap.get(iso) ?? [];
                 arr.push(d);
                 dateMap.set(iso, arr);
@@ -1216,24 +1220,21 @@ export default function DeliveryTeamPortal() {
 
               const sortedDates = Array.from(dateMap.keys()).sort();
 
-              // For each date build driver rows
+              // For each date build driver rows; include driverId for deep-link filter
               const dateGroups = sortedDates.map(iso => {
                 const orders = dateMap.get(iso)!;
-                const dMap = new Map<string, { name: string; ids: string[]; ofd: number; delay: number }>();
+                const dMap = new Map<string, { driverId: string; name: string; ids: string[]; ofd: number; delay: number }>();
                 orders.forEach(d => {
-                  const key = d.assignedDriverId || String((d as Record<string,unknown>).driverName || 'Unknown');
+                  const driverId = d.assignedDriverId || String((d as Record<string,unknown>).driverName || 'Unknown');
                   const name = String((d as Record<string,unknown>).driverName || d.assignedDriverId || 'Unknown');
                   const s = (d.status || '').toLowerCase();
-                  const entry = dMap.get(key) ?? { name, ids: [], ofd: 0, delay: 0 };
+                  const entry = dMap.get(driverId) ?? { driverId, name, ids: [], ofd: 0, delay: 0 };
                   entry.ids.push(d.id);
                   if (['out-for-delivery','in-transit','in-progress'].includes(s)) entry.ofd++;
                   if (s === 'order-delay') entry.delay++;
-                  dMap.set(key, entry);
+                  dMap.set(driverId, entry);
                 });
-                const label = iso === todayIso
-                  ? 'Today'
-                  : iso === tomorrowIso
-                  ? 'Tomorrow'
+                const label = iso === todayIso ? 'Today' : iso === tomorrowIso ? 'Tomorrow'
                   : new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
                 return {
                   iso, label, total: orders.length,
@@ -1256,7 +1257,7 @@ export default function DeliveryTeamPortal() {
                     <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500">{totalAssigned} active orders</span>
                   </div>
                   <p className="mb-3 flex-shrink-0 text-[10px] leading-snug text-gray-400 dark:text-gray-500">
-                    Orders grouped by delivery date. Click a row to view in Deliveries tab.
+                    By delivery date. Click a driver row to open filtered table.
                   </p>
                   <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-0.5">
                     {dateGroups.length === 0 && unassignedCount === 0 ? (
@@ -1282,9 +1283,18 @@ export default function DeliveryTeamPortal() {
                           <div className="space-y-1.5">
                             {group.drivers.map(row => (
                               <div
-                                key={row.name + group.iso}
-                                onClick={() => { useDeliveryStore.getState().setManageTabFilter('all'); setActiveTab('deliveries'); }}
-                                title={`View ${row.name}'s orders — delivery ${group.label}`}
+                                key={row.driverId + group.iso}
+                                onClick={() => {
+                                  // Deep-link: filter table by this driver + this delivery date
+                                  useDeliveryStore.getState().setManageTabFilter('all');
+                                  useDeliveryStore.getState().setManageTabPreset({
+                                    driverId: row.driverId,
+                                    dateFrom: group.iso,
+                                    dateTo: group.iso,
+                                  });
+                                  setActiveTab('deliveries');
+                                }}
+                                title={`${row.name} · ${group.label} · ${row.ids.length} order${row.ids.length === 1 ? '' : 's'} → open filtered table`}
                                 className="flex items-center gap-3 rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 px-3 py-2 cursor-pointer hover:bg-teal-50 dark:hover:bg-teal-900/20 hover:border-teal-200 dark:hover:border-teal-700 transition-colors"
                               >
                                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-teal-100 dark:bg-teal-900/40 text-xs font-bold text-teal-700 dark:text-teal-300">

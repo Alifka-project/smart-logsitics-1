@@ -6,6 +6,7 @@ import { STATUS_CONFIG } from '../../config/statusColors';
 import { RescheduleModal } from './RescheduleModal';
 import PaginationBar from '../common/PaginationBar';
 import { rescheduleDateToWorkflow } from '../../utils/deliveryWorkflowMap';
+import useDeliveryStore from '../../store/useDeliveryStore';
 
 // ── DateRangePicker is imported from components/common/DateRangePicker ──────────
 
@@ -352,6 +353,20 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const tableTopRef = useRef<HTMLDivElement | null>(null);
   const itemsPerPage = 20;
+
+  // Apply driver+date preset set by Dashboard → Driver Assignments click
+  const manageTabPreset = useDeliveryStore((s) => s.manageTabPreset);
+  const setManageTabPreset = useDeliveryStore((s) => s.setManageTabPreset);
+  useEffect(() => {
+    if (!manageTabPreset) return;
+    if (manageTabPreset.driverId) setDriverFilter(manageTabPreset.driverId);
+    if (manageTabPreset.dateFrom) setFilterDateFrom(manageTabPreset.dateFrom);
+    if (manageTabPreset.dateTo)   setFilterDateTo(manageTabPreset.dateTo);
+    setCurrentPage(1);
+    setManageTabPreset(null); // consume & clear
+    // Scroll to table top after a tick
+    requestAnimationFrame(() => tableTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }, [manageTabPreset, setManageTabPreset]);
 
   const filteredOrders = useMemo(() => {
     const startOfToday = new Date();
