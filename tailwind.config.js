@@ -40,8 +40,16 @@ export default {
         lg: '1024px', xl: '1280px', '2xl': '1536px',
       },
       fontFamily: {
-        sans: ['DM Sans', 'Inter', '-apple-system', 'BlinkMacSystemFont',
-               'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'sans-serif'],
+        // Single canonical stack: Electrolux Sans → DM Sans → system fallbacks.
+        // font-sans / font-mono / font-serif all resolve to the same family so
+        // every element — including monospaced IDs, POs, and coordinates —
+        // renders in the Electrolux brand typeface.
+        sans:  ['Electrolux Sans', 'DM Sans', 'Inter', '-apple-system', 'BlinkMacSystemFont',
+                'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'sans-serif'],
+        mono:  ['Electrolux Sans', 'DM Sans', 'Inter', '-apple-system', 'BlinkMacSystemFont',
+                'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'sans-serif'],
+        serif: ['Electrolux Sans', 'DM Sans', 'Inter', '-apple-system', 'BlinkMacSystemFont',
+                'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'sans-serif'],
       },
       borderRadius: {
         /* Mapped to tokens */

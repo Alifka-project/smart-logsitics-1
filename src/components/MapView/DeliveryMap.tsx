@@ -98,7 +98,7 @@ export default function DeliveryMap({
     })
       .addTo(map)
       .bindPopup(
-        `<div style="font-family:'DM Sans','Inter',sans-serif;font-size:12px;">
+        `<div style="font-family:var(--font-sans);font-size:12px;">
           <b style="font-size:14px;">🏭 Warehouse (Start)</b><br>
           <strong>Location:</strong> Jebel Ali Free Zone<br>
           <strong>Coordinates:</strong> 25.0053, 55.0760<br>
@@ -171,7 +171,7 @@ export default function DeliveryMap({
       const priorityLabel = (delivery.priority === 1 || isPriorityMeta) ? 'URGENT' : delivery.priority === 2 ? 'HIGH' : 'NORMAL';
 
       const popupContent = `
-        <div style="font-family:'DM Sans','Inter',sans-serif;font-size:12px;min-width:250px;">
+        <div style="font-family:var(--font-sans);font-size:12px;min-width:250px;">
           <b style="font-size:14px;color:#667eea;">Stop ${index + 1}</b><br>
           <hr style="margin:4px 0;border:none;border-top:1px solid #ddd;">
           <div style="margin:4px 0;">
@@ -262,7 +262,7 @@ export default function DeliveryMap({
       })
         .addTo(map)
         .bindPopup(
-          `<div style="font-family:'DM Sans','Inter',sans-serif;font-size:12px;min-width:200px;">
+          `<div style="font-family:var(--font-sans);font-size:12px;min-width:200px;">
             <b style="font-size:14px;">🚚 ${driverName}</b><br>
             <strong>Status:</strong> ${driver.status || 'in transit'}<br>
             <strong>Speed:</strong> ${driver.speedKmh != null ? `${driver.speedKmh} km/h` : 'N/A'}<br>
@@ -363,7 +363,7 @@ export default function DeliveryMap({
         color: dr.color, weight: 4, opacity: 0.9, lineCap: 'round', lineJoin: 'round',
       }).addTo(map);
       line.bindPopup(
-        `<div style="font-family:'DM Sans','Inter',sans-serif;font-size:12px;">
+        `<div style="font-family:var(--font-sans);font-size:12px;">
           <b style="color:${dr.color};">🚚 ${dr.name}</b><br>
           <small>Route from current GPS position</small>
         </div>`,

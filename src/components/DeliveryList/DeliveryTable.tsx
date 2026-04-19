@@ -107,7 +107,7 @@ function exportToHTML(rows: Delivery[]): void {
           <span style="background:${statusBg};color:${statusColor};padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;">${d.status ?? '—'}</span>
         </div>
         <table style="width:100%;border-collapse:collapse;font-size:13px;color:#374151;">
-          <tr><td style="padding:4px 8px;width:130px;color:#6b7280;font-weight:500;">PO Number</td><td style="padding:4px 8px;font-family:monospace;">${d.poNumber ?? '—'}</td></tr>
+          <tr><td style="padding:4px 8px;width:130px;color:#6b7280;font-weight:500;">PO Number</td><td style="padding:4px 8px;font-family:inherit;letter-spacing:0.02em;">${d.poNumber ?? '—'}</td></tr>
           <tr><td style="padding:4px 8px;color:#6b7280;font-weight:500;">Items</td><td style="padding:4px 8px;">${d.items ?? '—'}</td></tr>
           <tr><td style="padding:4px 8px;color:#6b7280;font-weight:500;">Address</td><td style="padding:4px 8px;">${d.address ?? '—'}</td></tr>
           <tr><td style="padding:4px 8px;color:#6b7280;font-weight:500;">Phone</td><td style="padding:4px 8px;">${d.phone ?? '—'}</td></tr>
@@ -125,7 +125,7 @@ function exportToHTML(rows: Delivery[]): void {
 
   const date = new Date().toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><title>Driver Delivery Report — ${date}</title>
-  <style>*{box-sizing:border-box;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f9fafb;padding:24px;color:#111827;}h1{font-size:22px;font-weight:700;margin-bottom:4px;}p.sub{font-size:13px;color:#6b7280;margin-bottom:24px;}@media print{body{background:#fff;padding:12px;}}</style>
+  <style>*{box-sizing:border-box;}body{font-family:'Electrolux Sans','DM Sans','Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f9fafb;padding:24px;color:#111827;}h1{font-size:22px;font-weight:700;margin-bottom:4px;}p.sub{font-size:13px;color:#6b7280;margin-bottom:24px;}@media print{body{background:#fff;padding:12px;}}</style>
   </head><body>
   <h1>Driver Delivery Report</h1><p class="sub">Generated: ${date} &nbsp;·&nbsp; ${rows.length} order(s)</p>
   ${rows_html}

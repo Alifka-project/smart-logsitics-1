@@ -3,9 +3,36 @@
 @tailwind utilities;
 
 /* ═══════════════════════════════════════════════════════════
+   TYPOGRAPHY — Electrolux Sans (canonical) with DM Sans fallback
+   ═══════════════════════════════════════════════════════════
+   Uses src:local() so the proprietary Electrolux Sans family —
+   if installed on the user's device or added later via a private
+   CDN — is picked up automatically. DM Sans (loaded from Google
+   Fonts in index.html) is the public fallback and closely matches
+   Electrolux Sans in weight, x-height, and geometric proportions. */
+@font-face {
+  font-family: 'Electrolux Sans';
+  src: local('Electrolux Sans'), local('ElectroluxSans'), local('Electrolux-Sans');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Electrolux Sans';
+  src: local('Electrolux Sans Italic'), local('ElectroluxSans-Italic');
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* ═══════════════════════════════════════════════════════════
    DESIGN TOKENS  — PolicyPilot-style floating surface system
    ═══════════════════════════════════════════════════════════ */
 :root {
+  /* ── Canonical font stack (reference this everywhere) ── */
+  --font-sans: 'Electrolux Sans', 'DM Sans', 'Inter', -apple-system,
+    BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
   /* ── Page backgrounds (tinted, never pure white/black) ── */
   --bg:         #F5F6FA;   /* page bg: soft cool tint */
   --surface:    #FFFFFF;   /* card / nav surface */
@@ -158,8 +185,7 @@
   html       { color-scheme: dark; } /* default until class is applied */
 
   * {
-    font-family: 'DM Sans', 'Inter', -apple-system, BlinkMacSystemFont,
-      'Segoe UI', Roboto, sans-serif;
+    font-family: var(--font-sans);
     box-sizing: border-box;
   }
 

@@ -340,7 +340,7 @@ function generateHTMLReportWithImages(
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>POD Report with Images - ${timestamp}</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        body { font-family: 'Electrolux Sans', 'DM Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; margin: 20px; background: #f5f5f5; }
         .header { background: #003d82; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
         .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
         .stat-card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
