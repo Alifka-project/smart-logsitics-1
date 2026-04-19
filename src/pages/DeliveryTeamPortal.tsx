@@ -2552,7 +2552,8 @@ export default function DeliveryTeamPortal() {
                   ) : (() => {
                     // Resolve current user identity once for all messages
                     const currentUser = getCurrentUser() as (AuthUser & { account?: { role?: string }; role?: string }) | null;
-                    const currentUserId = String(currentUser?.sub || '');
+                    // client_user stores 'id', not 'sub' — sub is only in the JWT payload
+                    const currentUserId = String(currentUser?.id || currentUser?.sub || '');
                     const myRole = String(currentUser?.role || currentUser?.account?.role || '');
                     const contactRole = String(selectedContact.account?.role || selectedContact.role || '');
                     const contactId = String(selectedContact.id || '');

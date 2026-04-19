@@ -1892,7 +1892,8 @@ export default function LogisticsTeamPortal() {
                   ) : (() => {
                     // Resolve current user identity once for all messages
                     const currentUser = getCurrentUser() as (AuthUser & { account?: { role?: string }; role?: string }) | null;
-                    const currentUserId = String(currentUser?.sub || '');
+                    // client_user stores 'id', not 'sub' — sub is only in the JWT payload
+                    const currentUserId = String(currentUser?.id || currentUser?.sub || '');
                     // My role (e.g. 'logistics_team') vs the contact's role (e.g. 'delivery_team' or 'driver')
                     const myRole = String(currentUser?.role || currentUser?.account?.role || '');
                     const contactRole = String(selectedContact.account?.role || selectedContact.role || '');
