@@ -767,41 +767,44 @@ export default function LogisticsTeamPortal() {
       {activeTab === 'dashboard' && (
         <div className="space-y-4 md:space-y-5">
 
-          {/* ── KPI Stats Row ── */}
+          {/* ── Today's Summary (30%) + KPI Stats (70%) side-by-side ── */}
           {(() => {
             const todayIso = getTodayIsoDubai();
-            // Anchor to Dubai midnight (UTC+4) so counts are correct for the first 4 hours of the day
             const todayMs = new Date(todayIso + 'T00:00:00+04:00').getTime();
             const tomorrowMs = todayMs + 86400000;
+            const t0 = new Date(todayIso + 'T00:00:00+04:00');
 
-            // Pending GMD: active orders without a goods movement date
+            // Today's Summary stats
+            const uploadsToday = recentUploads.filter(u => new Date(u.uploadedAt) >= t0).length;
+            const totalOrders = deliveries.length;
+            const activeDriverIds = new Set(deliveries.map(d => d.assignedDriverId).filter((id): id is string => Boolean(id)));
+            const deliveredSummary = deliveries.filter(d => {
+              const s = (d.status || '').toLowerCase();
+              return ['delivered', 'delivered-with-installation', 'delivered-without-installation', 'finished', 'completed', 'pod-completed'].includes(s);
+            }).length;
+            const unconfirmedCount = deliveries.filter(d => {
+              const s = (d.status || '').toLowerCase();
+              return s === 'scheduled' || s === 'sms_sent' || s === 'unconfirmed';
+            }).length;
+
+            // KPI Stats
             const pendingGMD = deliveries.filter(d => {
               const ext = d as unknown as { goodsMovementDate?: string };
               return !ext.goodsMovementDate && !TERMINAL_STATUSES.has((d.status || '').toLowerCase());
             }).length;
-
-            // Today processed: deliveries created today (new POs uploaded today)
             const todayProcessed = deliveries.filter(d => {
               const ext = d as unknown as { createdAt?: string };
               if (!ext.createdAt) return false;
               const t = new Date(ext.createdAt).getTime();
               return t >= todayMs && t < tomorrowMs;
             }).length;
-
-            // Delivered: terminal-status deliveries
-            const deliveredCount = deliveries.filter(d =>
-              TERMINAL_STATUSES.has((d.status || '').toLowerCase())
-            ).length;
-
-            // Pending POD: delivered but no proof of delivery attached
+            const deliveredKPI = deliveries.filter(d => TERMINAL_STATUSES.has((d.status || '').toLowerCase())).length;
             const pendingPOD = deliveries.filter(d => {
               const s = (d.status || '').toLowerCase();
               const ext = d as unknown as { podCompletedAt?: string; photos?: unknown[]; driverSignature?: string };
               const isDelivered = ['delivered', 'pod-completed', 'delivered-with-installation', 'delivered-without-installation'].includes(s);
               return isDelivered && !ext.podCompletedAt && !ext.driverSignature && (!ext.photos || (ext.photos as unknown[]).length === 0);
             }).length;
-
-            // KPI: % of deliveries completed within 1 hour (customerConfirmedAt → deliveredAt)
             const timed = deliveries.filter(d => {
               const ext = d as unknown as { customerConfirmedAt?: string; deliveredAt?: string; podCompletedAt?: string };
               return !!ext.customerConfirmedAt && !!(ext.deliveredAt || ext.podCompletedAt);
@@ -815,97 +818,81 @@ export default function LogisticsTeamPortal() {
             const avgMin = durations.length > 0 ? Math.round(durations.filter(ms => ms >= 0).reduce((a, b) => a + b, 0) / durations.length / 60000) : null;
 
             return (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                <div
-                  onClick={() => { setActiveTab('deliveries'); setDeliveriesSubTab('manage'); }}
-                  className="pp-card p-4 text-center cursor-pointer hover:ring-2 hover:ring-amber-400 transition-all"
-                  title="Click to view Manage Delivery Orders"
-                >
-                  <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Pending GMD</div>
-                  <div className="text-3xl font-bold text-amber-600 dark:text-amber-400">{pendingGMD}</div>
-                  <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">no movement date</div>
-                </div>
-                <div className="pp-card p-4 text-center">
-                  <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Today Processed</div>
-                  <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">{todayProcessed}</div>
-                  <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">new POs today</div>
-                </div>
-                <div className="pp-card p-4 text-center">
-                  <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Delivered</div>
-                  <div className="text-3xl font-bold text-green-600 dark:text-green-400">{deliveredCount}</div>
-                  <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">completed</div>
-                </div>
-                <div
-                  onClick={() => { setActiveTab('deliveries'); setDeliveriesSubTab('manage'); }}
-                  className="pp-card p-4 text-center cursor-pointer hover:ring-2 hover:ring-red-400 transition-all"
-                  title="Click to view Manage Delivery Orders"
-                >
-                  <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Pending POD</div>
-                  <div className={`text-3xl font-bold ${pendingPOD > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400 dark:text-gray-500'}`}>{pendingPOD}</div>
-                  <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">no proof attached</div>
-                </div>
-                <div className="pp-card p-4 text-center">
-                  <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Delivery KPI</div>
-                  {kpiPct !== null ? (
-                    <>
-                      <div className={`text-3xl font-bold ${kpiPct >= 80 ? 'text-green-600 dark:text-green-400' : kpiPct >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>{kpiPct}%</div>
-                      <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">≤1h target · avg {avgMin}m</div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="text-3xl font-bold text-gray-300 dark:text-gray-600">—</div>
-                      <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">target ≤1h/delivery</div>
-                    </>
+              <div className="flex flex-col lg:flex-row gap-4 items-stretch">
+
+                {/* ── Today's Summary — 30% ── */}
+                <div className="bg-[#002D5B] rounded-xl p-4 sm:p-5 text-white flex flex-col lg:w-[30%] lg:shrink-0">
+                  <div className="flex items-center justify-between mb-4 flex-shrink-0">
+                    <h3 className="font-semibold text-sm tracking-wide">Today&apos;s Summary</h3>
+                    <span className="text-white/40 text-xs">↗</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2.5 flex-1">
+                    {[
+                      { icon: '📤', value: uploadsToday,        label: 'Uploads Today'   },
+                      { icon: '📦', value: totalOrders,         label: 'Total Orders'    },
+                      { icon: '🚚', value: activeDriverIds.size, label: 'Active Drivers'  },
+                      { icon: '✅', value: deliveredSummary,    label: 'Delivered'       },
+                    ].map(({ icon, value, label }) => (
+                      <div key={label} className="bg-white/10 hover:bg-white/15 transition-colors rounded-lg p-3 flex flex-col gap-1">
+                        <span className="text-base leading-none" aria-hidden>{icon}</span>
+                        <p className="text-white text-2xl font-bold leading-none mt-1">{value}</p>
+                        <p className="text-white/60 text-[10px] uppercase tracking-wider leading-tight">{label}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {unconfirmedCount > 0 && (
+                    <div className="mt-3 flex-shrink-0 p-2.5 bg-amber-400/20 border border-amber-400/30 rounded-lg">
+                      <p className="text-xs text-amber-200">⚠️ {unconfirmedCount} orders awaiting customer response</p>
+                    </div>
                   )}
                 </div>
-              </div>
-            );
-          })()}
 
-          {/* ── Today's Summary ── */}
-          {(() => {
-            // Use Dubai midnight so "today" is correct for the first 4 hours of the Dubai day
-            const t0 = new Date(getTodayIsoDubai() + 'T00:00:00+04:00');
-            const uploadsToday = recentUploads.filter(u => new Date(u.uploadedAt) >= t0).length;
-            const totalOrders = deliveries.length;
-            const activeDriverIds = new Set(deliveries.map(d => d.assignedDriverId).filter((id): id is string => Boolean(id)));
-            const deliveredCount = deliveries.filter(d => {
-              const s = (d.status || '').toLowerCase();
-              return ['delivered', 'delivered-with-installation', 'delivered-without-installation', 'finished', 'completed', 'pod-completed'].includes(s);
-            }).length;
-            const unconfirmedCount = deliveries.filter(d => {
-              const s = (d.status || '').toLowerCase();
-              return s === 'scheduled' || s === 'sms_sent' || s === 'unconfirmed';
-            }).length;
-            return (
-              <div className="bg-[#002D5B] rounded-xl p-4 text-white">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold text-sm">Today&apos;s Summary</h3>
-                  <span className="text-white/50 text-xs">↗</span>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  {[
-                    { icon: '📤', value: uploadsToday, label: 'Uploads Today' },
-                    { icon: '📦', value: totalOrders, label: 'Total Orders' },
-                    { icon: '🚚', value: activeDriverIds.size, label: 'Active Drivers' },
-                    { icon: '✅', value: deliveredCount, label: 'Delivered' },
-                  ].map(({ icon, value, label }) => (
-                    <div key={label} className="flex items-center gap-2">
-                      <div className="w-7 h-7 bg-white/15 rounded-md flex items-center justify-center shrink-0">
-                        <span className="text-xs" aria-hidden>{icon}</span>
-                      </div>
-                      <div>
-                        <p className="text-white text-xs font-semibold">{value}</p>
-                        <p className="text-white/70 text-[10px] uppercase tracking-wide">{label}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {unconfirmedCount > 0 && (
-                  <div className="mt-3 p-2 bg-white/10 rounded-md">
-                    <p className="text-xs text-white/90">⚠️ {unconfirmedCount} orders awaiting customer response</p>
+                {/* ── KPI Stats — 70% ── */}
+                <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5 gap-3 content-start">
+                  <div
+                    onClick={() => { setActiveTab('deliveries'); setDeliveriesSubTab('manage'); }}
+                    className="pp-card p-4 text-center cursor-pointer hover:ring-2 hover:ring-amber-400 transition-all"
+                    title="Click to view Manage Delivery Orders"
+                  >
+                    <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Pending GMD</div>
+                    <div className="text-3xl font-bold text-amber-600 dark:text-amber-400">{pendingGMD}</div>
+                    <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">no movement date</div>
                   </div>
-                )}
+                  <div className="pp-card p-4 text-center">
+                    <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Today Processed</div>
+                    <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">{todayProcessed}</div>
+                    <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">new POs today</div>
+                  </div>
+                  <div className="pp-card p-4 text-center">
+                    <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Delivered</div>
+                    <div className="text-3xl font-bold text-green-600 dark:text-green-400">{deliveredKPI}</div>
+                    <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">completed</div>
+                  </div>
+                  <div
+                    onClick={() => { setActiveTab('deliveries'); setDeliveriesSubTab('manage'); }}
+                    className="pp-card p-4 text-center cursor-pointer hover:ring-2 hover:ring-red-400 transition-all"
+                    title="Click to view Manage Delivery Orders"
+                  >
+                    <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Pending POD</div>
+                    <div className={`text-3xl font-bold ${pendingPOD > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400 dark:text-gray-500'}`}>{pendingPOD}</div>
+                    <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">no proof attached</div>
+                  </div>
+                  <div className="pp-card p-4 text-center sm:col-span-1">
+                    <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Delivery KPI</div>
+                    {kpiPct !== null ? (
+                      <>
+                        <div className={`text-3xl font-bold ${kpiPct >= 80 ? 'text-green-600 dark:text-green-400' : kpiPct >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>{kpiPct}%</div>
+                        <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">≤1h target · avg {avgMin}m</div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-3xl font-bold text-gray-300 dark:text-gray-600">—</div>
+                        <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">target ≤1h/delivery</div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
               </div>
             );
           })()}
