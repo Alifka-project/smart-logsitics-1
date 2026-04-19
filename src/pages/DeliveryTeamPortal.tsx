@@ -1090,28 +1090,27 @@ export default function DeliveryTeamPortal() {
             );
           })()}
 
-          {/* ── Needs Attention · Awaiting Customer · Truck capacity (equal thirds on large screens) ── */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-stretch">
-            {/* Needs Attention */}
-            <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[340px]">
+          {/* ── Combined: Needs Attention + Awaiting Customer (60%) | Driver Assignments (40%) ── */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-5 lg:items-stretch">
+
+            {/* LEFT 60%: Needs Attention + Awaiting Customer stacked in one card */}
+            <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:col-span-3">
+
+              {/* — Needs Attention — */}
               <div className="mb-3 flex flex-shrink-0 items-center gap-2">
                 <AlertCircle className="h-5 w-5 flex-shrink-0 text-amber-500" />
                 <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Needs Attention</h2>
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto pr-0.5">
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
-                  {([
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 shrink-0">
+                {([
                   { tableTab: 'all',               count: actionItems.pendingOrders.length,        label: 'Pending Orders',    sublabel: 'Not yet completed', bg: 'bg-amber-50 dark:bg-amber-900/20',  border: 'border-amber-100 dark:border-amber-800/30',   hover: 'hover:bg-amber-100 dark:hover:bg-amber-900/30',   countColor: 'text-amber-600 dark:text-amber-400',   labelColor: 'text-amber-700 dark:text-amber-400'   },
                   { tableTab: 'pending',           count: actionItems.unassigned.length,           label: 'Unassigned',        sublabel: 'Needs driver',      bg: 'bg-orange-50 dark:bg-orange-900/20',border: 'border-orange-100 dark:border-orange-800/30',  hover: 'hover:bg-orange-100 dark:hover:bg-orange-900/30', countColor: 'text-orange-600 dark:text-orange-400', labelColor: 'text-orange-700 dark:text-orange-400' },
-                  { tableTab: 'awaiting_customer', count: actionItems.awaitingConfirmation.length, label: 'Awaiting Customer',  sublabel: 'No confirmation',  bg: 'bg-purple-50 dark:bg-purple-900/20',border: 'border-purple-100 dark:border-purple-800/30',  hover: 'hover:bg-purple-100 dark:hover:bg-purple-900/30', countColor: 'text-purple-600 dark:text-purple-400', labelColor: 'text-purple-700 dark:text-purple-400' },
+                  { tableTab: 'awaiting_customer', count: actionItems.awaitingConfirmation.length, label: 'Awaiting',          sublabel: 'No confirmation',  bg: 'bg-purple-50 dark:bg-purple-900/20',border: 'border-purple-100 dark:border-purple-800/30',  hover: 'hover:bg-purple-100 dark:hover:bg-purple-900/30', countColor: 'text-purple-600 dark:text-purple-400', labelColor: 'text-purple-700 dark:text-purple-400' },
                   { tableTab: 'order_delay',       count: actionItems.orderDelay.length,           label: 'Order Delays',      sublabel: 'Needs resolution',  bg: 'bg-red-50 dark:bg-red-900/20',     border: 'border-red-100 dark:border-red-800/30',        hover: 'hover:bg-red-100 dark:hover:bg-red-900/30',       countColor: 'text-red-600 dark:text-red-400',       labelColor: 'text-red-700 dark:text-red-400'       },
                 ] as const).map(({ tableTab: targetTab, count, label, sublabel, bg, border, hover, countColor, labelColor }) => (
                   <div
                     key={label}
-                    onClick={() => {
-                      useDeliveryStore.getState().setManageTabFilter(targetTab);
-                      setActiveTab('deliveries');
-                    }}
+                    onClick={() => { useDeliveryStore.getState().setManageTabFilter(targetTab); setActiveTab('deliveries'); }}
                     className={`flex flex-col items-center justify-center rounded-xl border p-3 ${bg} ${border} ${hover} cursor-pointer select-none transition-colors`}
                     title={`View ${label} in Delivery Orders table`}
                   >
@@ -1120,30 +1119,32 @@ export default function DeliveryTeamPortal() {
                     <span className="mt-0.5 text-center text-[10px] text-gray-400 dark:text-gray-500">→ {sublabel}</span>
                   </div>
                 ))}
-                </div>
-                {(actionItems.pendingOrders.length > 0 || actionItems.unassigned.length > 0 || actionItems.awaitingConfirmation.length > 0 || actionItems.orderDelay.length > 0) && (
-                  <p className="mt-3 text-center text-xs text-gray-400 dark:text-gray-500">Tap any card to open the filtered order list in Deliveries tab</p>
-                )}
               </div>
-            </div>
 
-            {/* Awaiting Customer Response list */}
-            <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[340px]">
-              <div className="mb-3 flex flex-shrink-0 items-center gap-2">
+              {/* Divider */}
+              <div className="my-4 border-t border-gray-100 dark:border-gray-700 shrink-0" />
+
+              {/* — Awaiting Customer Response — */}
+              <div
+                className="flex flex-shrink-0 items-center gap-2 mb-3 cursor-pointer group"
+                onClick={() => { useDeliveryStore.getState().setManageTabFilter('awaiting_customer'); setActiveTab('deliveries'); }}
+                title="View awaiting customers in Delivery Orders table"
+              >
                 <MessageSquare className="h-5 w-5 flex-shrink-0 text-purple-500" />
-                <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Awaiting Customer Response</h2>
+                <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">Awaiting Customer Response</h2>
                 {actionItems.awaitingConfirmation.length > 0 && (
                   <span className="ml-auto rounded-full bg-purple-100 px-2 py-0.5 text-xs font-bold text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
                     {actionItems.awaitingConfirmation.length}
                   </span>
                 )}
+                <span className="ml-1 text-[10px] text-purple-400 dark:text-purple-500 group-hover:underline shrink-0">→ View all</span>
               </div>
               {actionItems.awaitingConfirmation.length === 0 ? (
                 <div className="flex min-h-0 flex-1 items-center justify-center py-4 text-sm text-gray-400 dark:text-gray-500">
                   <CheckCircle className="mr-2 h-4 w-4 flex-shrink-0 text-green-400" /> All customers responded
                 </div>
               ) : (
-                <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-0.5">
+                <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-0.5 max-h-[180px]">
                   {actionItems.awaitingConfirmation.map((delivery, idx) => {
                     const sentAgo = (() => {
                       const t = delivery.updatedAt || delivery.createdAt || delivery.created_at;
@@ -1154,7 +1155,11 @@ export default function DeliveryTeamPortal() {
                       return h > 0 ? `${h}h ago` : `${m}m ago`;
                     })();
                     return (
-                      <div key={delivery.id || idx} className="flex items-start gap-3 rounded-lg border border-purple-100 bg-purple-50 p-2.5 dark:border-purple-800/20 dark:bg-purple-900/10">
+                      <div
+                        key={delivery.id || idx}
+                        onClick={() => { useDeliveryStore.getState().setManageTabFilter('awaiting_customer'); setActiveTab('deliveries'); }}
+                        className="flex items-start gap-3 rounded-lg border border-purple-100 bg-purple-50 p-2.5 dark:border-purple-800/20 dark:bg-purple-900/10 cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900/20 transition-colors"
+                      >
                         <Clock className="mt-0.5 h-4 w-4 flex-shrink-0 text-purple-500" />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -1174,69 +1179,171 @@ export default function DeliveryTeamPortal() {
               )}
             </div>
 
-            {/* Truck capacity — per Dubai calendar day (today / tomorrow / …); on-route counts on today */}
-            <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[340px]">
-              <div className="mb-2 flex flex-shrink-0 items-center gap-2">
-                <Truck className="h-5 w-5 flex-shrink-0 text-teal-600 dark:text-teal-400" />
-                <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Truck capacity</h2>
-              </div>
-              <p className="mb-2 flex-shrink-0 text-[10px] leading-snug text-gray-400 dark:text-gray-500">
-                By delivery date (Dubai). Dispatched / on-route orders count toward <span className="font-semibold text-gray-500 dark:text-gray-400">today</span>.
-              </p>
-              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-0.5">
-                {drivers.length === 0 ? (
-                  <div className="py-6 text-center text-sm text-gray-400 dark:text-gray-500">No drivers</div>
-                ) : capacityDatesSorted.length === 0 ? (
-                  <div className="py-4 text-center text-xs text-gray-400 dark:text-gray-500">Loading capacity…</div>
-                ) : (
-                  capacityDatesSorted.map((iso) => {
-                    const dayLabel = new Date(`${iso}T00:00:00+04:00`).toLocaleDateString('en-AE', {
-                      timeZone: 'Asia/Dubai', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'
-                    });
-                    return (
-                      <div key={iso} className="rounded-lg border border-gray-100 dark:border-gray-700 bg-white/40 dark:bg-gray-800/40 p-2">
-                        <p className="mb-1.5 px-0.5 text-[10px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                          {dayLabel} <span className="font-mono font-normal normal-case text-gray-400">({iso})</span>
-                        </p>
-                        <div className="space-y-1.5">
-                          {[...drivers]
-                            .sort((a, b) => String(a.fullName || a.username || '').localeCompare(String(b.fullName || b.username || '')))
-                            .map((driver) => {
-                              const cap = driverCapacityByDate[iso]?.[driver.id];
-                              const online = isContactOnline(driver);
-                              return (
-                                <div
-                                  key={`${iso}-${driver.id}`}
-                                  className="flex items-start gap-2 rounded-md border border-gray-100 bg-gray-50 px-2 py-1.5 dark:border-gray-700 dark:bg-gray-800/60"
-                                >
-                                  <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${online ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
-                                  <div className="min-w-0 flex-1">
-                                    <p className="truncate text-[11px] font-semibold text-gray-900 dark:text-gray-100">
-                                      {driver.fullName || driver.username}
-                                    </p>
-                                    {cap ? (
-                                      <p className="mt-0.5 text-[10px] text-gray-600 dark:text-gray-300">
-                                        <span className="font-mono font-semibold text-teal-700 dark:text-teal-300">{cap.remaining}</span> left
-                                        <span className="text-gray-400 dark:text-gray-500"> · </span>
-                                        {cap.used}/{cap.max} used
-                                      </p>
-                                    ) : (
-                                      <p className="mt-0.5 text-[10px] text-gray-400 dark:text-gray-500">—</p>
-                                    )}
-                                  </div>
-                                  {cap?.full && (
-                                    <span className="shrink-0 text-[9px] font-bold text-red-600 dark:text-red-400">FULL</span>
-                                  )}
-                                </div>
-                              );
-                            })}
+            {/* RIGHT 40%: Today's Driver Assignments */}
+            {(() => {
+              const ACTIVE = new Set(['pending','uploaded','scheduled','scheduled-confirmed','confirmed','out-for-delivery','in-transit','in-progress','order-delay','rescheduled','sms-sent','sms_sent','unconfirmed']);
+              const todayAssigned = deliveries.filter(d => {
+                const s = (d.status || '').toLowerCase();
+                if (!ACTIVE.has(s)) return false;
+                return !!(d.assignedDriverId || (d as Record<string,unknown>).driverName);
+              });
+              // Group by driver
+              const driverMap = new Map<string, { name: string; ids: string[]; ofd: number; delay: number }>();
+              todayAssigned.forEach(d => {
+                const key = d.assignedDriverId || String((d as Record<string,unknown>).driverName || 'Unknown');
+                const name = String((d as Record<string,unknown>).driverName || d.assignedDriverId || 'Unknown');
+                const s = (d.status || '').toLowerCase();
+                const entry = driverMap.get(key) ?? { name, ids: [], ofd: 0, delay: 0 };
+                entry.ids.push(d.id);
+                if (s === 'out-for-delivery' || s === 'in-transit' || s === 'in-progress') entry.ofd++;
+                if (s === 'order-delay') entry.delay++;
+                driverMap.set(key, entry);
+              });
+              const rows = Array.from(driverMap.values()).sort((a, b) => b.ids.length - a.ids.length);
+              const unassignedCount = deliveries.filter(d => {
+                const s = (d.status || '').toLowerCase();
+                return ACTIVE.has(s) && !d.assignedDriverId && !(d as Record<string,unknown>).driverName;
+              }).length;
+              return (
+                <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:col-span-2">
+                  <div className="mb-2 flex flex-shrink-0 items-center gap-2">
+                    <Truck className="h-5 w-5 flex-shrink-0 text-teal-600 dark:text-teal-400" />
+                    <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Driver Assignments</h2>
+                    <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500">{todayAssigned.length} active orders</span>
+                  </div>
+                  <p className="mb-3 flex-shrink-0 text-[10px] leading-snug text-gray-400 dark:text-gray-500">
+                    Active (non-terminal) orders currently assigned to each driver. Click a row to view in Deliveries tab.
+                  </p>
+                  <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-0.5">
+                    {rows.length === 0 ? (
+                      <p className="py-6 text-center text-sm text-gray-400 dark:text-gray-500">No assigned orders</p>
+                    ) : (
+                      rows.map(row => (
+                        <div
+                          key={row.name}
+                          onClick={() => { useDeliveryStore.getState().setManageTabFilter('all'); setActiveTab('deliveries'); }}
+                          title={`View ${row.name}'s orders in Deliveries tab`}
+                          className="flex items-center gap-3 rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 px-3 py-2.5 cursor-pointer hover:bg-teal-50 dark:hover:bg-teal-900/20 hover:border-teal-200 dark:hover:border-teal-700 transition-colors"
+                        >
+                          {/* Driver initial avatar */}
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-100 dark:bg-teal-900/40 text-xs font-bold text-teal-700 dark:text-teal-300">
+                            {row.name.charAt(0).toUpperCase()}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">{row.name}</p>
+                            <div className="mt-0.5 flex flex-wrap gap-1.5">
+                              {row.ofd > 0 && (
+                                <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                                  🚛 {row.ofd} on route
+                                </span>
+                              )}
+                              {row.delay > 0 && (
+                                <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300">
+                                  ⚠ {row.delay} delayed
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {/* Order count badge */}
+                          <span className="shrink-0 rounded-full bg-teal-600 dark:bg-teal-500 px-2.5 py-1 text-xs font-bold text-white tabular-nums">
+                            {row.ids.length}
+                          </span>
                         </div>
+                      ))
+                    )}
+                    {unassignedCount > 0 && (
+                      <div
+                        onClick={() => { useDeliveryStore.getState().setManageTabFilter('pending'); setActiveTab('deliveries'); }}
+                        className="flex items-center gap-3 rounded-lg border border-orange-100 dark:border-orange-800/30 bg-orange-50 dark:bg-orange-900/10 px-3 py-2.5 cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900/20 transition-colors"
+                      >
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/40 text-xs font-bold text-orange-500">?</span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-orange-700 dark:text-orange-400">Unassigned</p>
+                          <p className="text-[10px] text-orange-500 dark:text-orange-500">Needs driver assignment</p>
+                        </div>
+                        <span className="shrink-0 rounded-full bg-orange-500 px-2.5 py-1 text-xs font-bold text-white tabular-nums">{unassignedCount}</span>
                       </div>
-                    );
-                  })
-                )}
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* ── Analytics: Tomorrow's Deliveries ────────────────────────── */}
+          <div className="pp-card p-5">
+            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-1 flex flex-wrap items-center gap-2">
+              <Truck className="w-5 h-5 text-orange-500 shrink-0" />
+              Tomorrow's Deliveries
+              <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-xs font-normal text-gray-600 dark:text-gray-400">
+                {reportTomorrowDeliveries.tomorrowIso}
+              </span>
+              <span className="ml-auto text-xs text-gray-400 dark:text-gray-500 font-normal">{reportTomorrowDeliveries.rows.length} order{reportTomorrowDeliveries.rows.length === 1 ? '' : 's'}</span>
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+              Orders confirmed for tomorrow in Dubai time. Click a row to view in Deliveries tab.
+            </p>
+            {reportTomorrowDeliveries.rows.length === 0 ? (
+              <p className="text-sm text-gray-400 dark:text-gray-500 py-6 text-center">No deliveries scheduled for this date.</p>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border border-gray-100 dark:border-gray-800">
+                <table className="w-full text-sm min-w-[960px]">
+                  <thead className="bg-gray-50 dark:bg-gray-800/95 border-b border-gray-200 dark:border-gray-700">
+                    <tr>
+                      <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-10">#</th>
+                      <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">PO number</th>
+                      <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Delivery no.</th>
+                      <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Customer</th>
+                      <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Phone</th>
+                      <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider min-w-[180px]">Address</th>
+                      <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Confirmed date</th>
+                      <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Driver</th>
+                      <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">API status</th>
+                      <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Workflow</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                    {reportTomorrowDeliveries.rows.map((d, i) => {
+                      const meta = (d as unknown as { metadata?: { originalDeliveryNumber?: string } }).metadata;
+                      const delNo = meta?.originalDeliveryNumber != null ? String(meta.originalDeliveryNumber) : '—';
+                      const phoneRaw = (d as Record<string, unknown>).phone;
+                      const phone = phoneRaw != null && String(phoneRaw).trim() ? String(phoneRaw).trim() : '—';
+                      const confRaw = d.confirmedDeliveryDate as string | undefined;
+                      const confFmt = confRaw
+                        ? new Date(confRaw).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                        : '—';
+                      const wf = deliveryToManageOrder(d as unknown as Delivery).status;
+                      const wfLabel =
+                        wf === 'next_shipment' ? 'Next Shipment' :
+                        wf === 'future_schedule' ? 'Future Schedule' :
+                        wf === 'order_delay' ? 'Order Delay' :
+                        wf === 'out_for_delivery' ? 'On Route' :
+                        wf === 'rescheduled' ? 'Rescheduled' :
+                        wf === 'confirmed' ? 'Confirmed' :
+                        wf;
+                      return (
+                        <tr
+                          key={String(d.id ?? i)}
+                          onClick={() => { useDeliveryStore.getState().setManageTabFilter('all'); setActiveTab('deliveries'); }}
+                          className="hover:bg-orange-50 dark:hover:bg-orange-900/10 cursor-pointer transition-colors"
+                        >
+                          <td className="py-2.5 px-3 text-xs text-gray-400 dark:text-gray-500 tabular-nums">{i + 1}</td>
+                          <td className="py-2.5 px-3 font-mono text-xs text-gray-800 dark:text-gray-200 whitespace-nowrap">{d.poNumber ?? '—'}</td>
+                          <td className="py-2.5 px-3 font-mono text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">{delNo}</td>
+                          <td className="py-2.5 px-3 font-medium text-gray-900 dark:text-gray-100 max-w-[160px]"><span className="block truncate" title={d.customer ?? ''}>{d.customer ?? '—'}</span></td>
+                          <td className="py-2.5 px-3 text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap tabular-nums">{phone}</td>
+                          <td className="py-2.5 px-3 text-xs text-gray-600 dark:text-gray-400 max-w-[280px]"><span className="line-clamp-2" title={d.address ?? ''}>{d.address ?? '—'}</span></td>
+                          <td className="py-2.5 px-3 text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">{confFmt}</td>
+                          <td className="py-2.5 px-3 text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">{d.driverName ?? '—'}</td>
+                          <td className="py-2.5 px-3 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap capitalize">{String(d.status ?? '—').replace(/-/g, ' ')}</td>
+                          <td className="py-2.5 px-3 text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">{wfLabel}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            </div>
+            )}
           </div>
 
           {/* ── Analytics: Delivery Trend + Status Breakdown ────────────── */}
@@ -1315,77 +1422,6 @@ export default function DeliveryTeamPortal() {
                 ))}
               </div>
             </div>
-          </div>
-
-          {/* ── Analytics: Tomorrow's Deliveries ────────────────────────── */}
-          <div className="pp-card p-5">
-            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-1 flex flex-wrap items-center gap-2">
-              <Truck className="w-5 h-5 text-orange-500 shrink-0" />
-              Tomorrow's Deliveries
-              <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-xs font-normal text-gray-600 dark:text-gray-400">
-                {reportTomorrowDeliveries.tomorrowIso}
-              </span>
-            </h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-              Orders confirmed for tomorrow in Dubai time. Read-only snapshot ({reportTomorrowDeliveries.rows.length} order{reportTomorrowDeliveries.rows.length === 1 ? '' : 's'}).
-            </p>
-            {reportTomorrowDeliveries.rows.length === 0 ? (
-              <p className="text-sm text-gray-400 dark:text-gray-500 py-6 text-center">No deliveries scheduled for this date.</p>
-            ) : (
-              <div className="overflow-x-auto rounded-lg border border-gray-100 dark:border-gray-800">
-                <table className="w-full text-sm min-w-[960px]">
-                  <thead className="bg-gray-50 dark:bg-gray-800/95 border-b border-gray-200 dark:border-gray-700">
-                    <tr>
-                      <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-10">#</th>
-                      <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">PO number</th>
-                      <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Delivery no.</th>
-                      <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Customer</th>
-                      <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Phone</th>
-                      <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider min-w-[180px]">Address</th>
-                      <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Confirmed date</th>
-                      <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Driver</th>
-                      <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">API status</th>
-                      <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Workflow</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                    {reportTomorrowDeliveries.rows.map((d, i) => {
-                      const meta = (d as unknown as { metadata?: { originalDeliveryNumber?: string } }).metadata;
-                      const delNo = meta?.originalDeliveryNumber != null ? String(meta.originalDeliveryNumber) : '—';
-                      const phoneRaw = (d as Record<string, unknown>).phone;
-                      const phone = phoneRaw != null && String(phoneRaw).trim() ? String(phoneRaw).trim() : '—';
-                      const confRaw = d.confirmedDeliveryDate as string | undefined;
-                      const confFmt = confRaw
-                        ? new Date(confRaw).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-                        : '—';
-                      const wf = deliveryToManageOrder(d as unknown as Delivery).status;
-                      const wfLabel =
-                        wf === 'next_shipment' ? 'Next Shipment' :
-                        wf === 'future_schedule' ? 'Future Schedule' :
-                        wf === 'order_delay' ? 'Order Delay' :
-                        wf === 'out_for_delivery' ? 'On Route' :
-                        wf === 'rescheduled' ? 'Rescheduled' :
-                        wf === 'confirmed' ? 'Confirmed' :
-                        wf;
-                      return (
-                        <tr key={String(d.id ?? i)} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                          <td className="py-2.5 px-3 text-xs text-gray-400 dark:text-gray-500 tabular-nums">{i + 1}</td>
-                          <td className="py-2.5 px-3 font-mono text-xs text-gray-800 dark:text-gray-200 whitespace-nowrap">{d.poNumber ?? '—'}</td>
-                          <td className="py-2.5 px-3 font-mono text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">{delNo}</td>
-                          <td className="py-2.5 px-3 font-medium text-gray-900 dark:text-gray-100 max-w-[160px]"><span className="block truncate" title={d.customer ?? ''}>{d.customer ?? '—'}</span></td>
-                          <td className="py-2.5 px-3 text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap tabular-nums">{phone}</td>
-                          <td className="py-2.5 px-3 text-xs text-gray-600 dark:text-gray-400 max-w-[280px]"><span className="line-clamp-2" title={d.address ?? ''}>{d.address ?? '—'}</span></td>
-                          <td className="py-2.5 px-3 text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">{confFmt}</td>
-                          <td className="py-2.5 px-3 text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">{d.driverName ?? '—'}</td>
-                          <td className="py-2.5 px-3 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap capitalize">{String(d.status ?? '—').replace(/-/g, ' ')}</td>
-                          <td className="py-2.5 px-3 text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">{wfLabel}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
           </div>
 
           {/* ── Analytics: Driver Performance + Top B2B Customers ───────── */}
