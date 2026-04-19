@@ -168,7 +168,12 @@ export function applyDeliveryListFilter(
         return s === 'confirmed' || s === 'scheduled-confirmed';
       });
     case 'p1':
-      return active.filter((d) => d.priority === 1);
+      // Match numeric priority 1 OR the metadata.isPriority flag set by the
+      // logistics portal — both signals must be treated as "P1 Urgent".
+      return active.filter((d) => {
+        const meta = (d as unknown as { metadata?: { isPriority?: boolean } }).metadata;
+        return d.priority === 1 || meta?.isPriority === true;
+      });
     case 'out_for_delivery':
       return active.filter((d) => isOnRouteDeliveryListStatus((d.status || '').toLowerCase()));
     case 'delivered': {
