@@ -848,36 +848,36 @@ export default function LogisticsTeamPortal() {
                 </div>
 
                 {/* ── KPI Stats — 70% ── */}
-                <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5 gap-3 content-start">
+                <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5 gap-3 auto-rows-fr">
                   <div
                     onClick={() => { setActiveTab('deliveries'); setDeliveriesSubTab('manage'); }}
-                    className="pp-card p-4 text-center cursor-pointer hover:ring-2 hover:ring-amber-400 transition-all"
+                    className="pp-card p-4 flex flex-col items-center justify-center h-full text-center cursor-pointer hover:ring-2 hover:ring-amber-400 transition-all"
                     title="Click to view Manage Delivery Orders"
                   >
                     <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Pending GMD</div>
                     <div className="text-3xl font-bold text-amber-600 dark:text-amber-400">{pendingGMD}</div>
                     <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">no movement date</div>
                   </div>
-                  <div className="pp-card p-4 text-center">
+                  <div className="pp-card p-4 flex flex-col items-center justify-center h-full text-center">
                     <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Today Processed</div>
                     <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">{todayProcessed}</div>
                     <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">new POs today</div>
                   </div>
-                  <div className="pp-card p-4 text-center">
+                  <div className="pp-card p-4 flex flex-col items-center justify-center h-full text-center">
                     <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Delivered</div>
                     <div className="text-3xl font-bold text-green-600 dark:text-green-400">{deliveredKPI}</div>
                     <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">completed</div>
                   </div>
                   <div
                     onClick={() => { setActiveTab('deliveries'); setDeliveriesSubTab('manage'); }}
-                    className="pp-card p-4 text-center cursor-pointer hover:ring-2 hover:ring-red-400 transition-all"
+                    className="pp-card p-4 flex flex-col items-center justify-center h-full text-center cursor-pointer hover:ring-2 hover:ring-red-400 transition-all"
                     title="Click to view Manage Delivery Orders"
                   >
                     <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Pending POD</div>
                     <div className={`text-3xl font-bold ${pendingPOD > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400 dark:text-gray-500'}`}>{pendingPOD}</div>
                     <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">no proof attached</div>
                   </div>
-                  <div className="pp-card p-4 text-center sm:col-span-1">
+                  <div className="pp-card p-4 flex flex-col items-center justify-center h-full text-center sm:col-span-1">
                     <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Delivery KPI</div>
                     {kpiPct !== null ? (
                       <>
