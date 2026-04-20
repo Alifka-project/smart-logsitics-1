@@ -154,6 +154,10 @@ try {
 app.use('/auth', require('../dist-server/server/api/auth').default);
 app.use('/sms/webhook', require('../dist-server/server/api/smsWebhook').default);
 app.use('/customer', require('../dist-server/server/api/customerPortal').default);
+// Auto-ingest endpoint — uses X-API-Key auth (not session cookie). Must be
+// mounted before the authenticate middleware below so PA / OneDrive callers
+// without a session can reach it. Disabled by default; set INGEST_ENABLED=true.
+app.use('/ingest', require('../dist-server/server/api/ingest').default);
 
 // Migration endpoint is DISABLED in runtime for safety.
 // Run Prisma migrations via CLI: npx prisma migrate deploy
@@ -323,11 +327,12 @@ app.get('/diag/status', async (req, res) => {
 // Protect all other routes - EXCEPT public endpoints
 app.use((req, res, next) => {
   // Allow public routes without authentication
-  if (req.path.startsWith('/customer/') || 
+  if (req.path.startsWith('/customer/') ||
       req.path.startsWith('/auth/') ||
       req.path.startsWith('/health') ||
       req.path.startsWith('/diag/') ||
-      req.path.startsWith('/sms/webhook')) {
+      req.path.startsWith('/sms/webhook') ||
+      req.path.startsWith('/ingest')) {
     return next();
   }
   // Require authentication for all other routes
@@ -340,7 +345,8 @@ app.use((req, res, next) => {
       req.path.startsWith('/customer/') ||
       req.path.startsWith('/health') ||
       req.path.startsWith('/diag/') ||
-      req.path.startsWith('/sms/webhook')) {
+      req.path.startsWith('/sms/webhook') ||
+      req.path.startsWith('/ingest')) {
     return next();
   }
   requireCSRF(req, res, next);
