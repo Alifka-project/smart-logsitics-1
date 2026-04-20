@@ -47,7 +47,6 @@ const router = (0, express_1.Router)();
 // Twilio adapter is kept in codebase but disabled (not currently used).
 let smsAdapter;
 try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const D7Adapter = require('../sms/d7Adapter.js').default;
     smsAdapter = new D7Adapter(process.env);
     console.log('[SMS] D7 Networks adapter initialized');

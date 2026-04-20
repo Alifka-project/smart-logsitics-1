@@ -82,19 +82,32 @@ router.get('/deliveries', auth_js_1.authenticate, (0, auth_js_1.requireAnyRole)(
                 // 'rescheduled' is intentionally NOT here — rescheduled orders must
                 // remain visible until the customer confirms a new date.
                 const ALWAYS_EXCLUDED = ['cancelled', 'returned'];
-                // Delivered-type statuses: excluded beyond 24 h but included for today's card.
+                // Delivered-type statuses: excluded beyond 24 h unless POD is still missing.
                 const DELIVERED_STATUSES = [
                     'delivered', 'delivered-with-installation', 'delivered-without-installation',
                     'completed', 'pod-completed', 'finished',
                 ];
                 const cutoff24h = new Date(Date.now() - 86400000); // 24 hours ago
+                // Include delivered-no-POD orders up to 30 days back so logistics staff
+                // can see and action them even after the 24 h window closes.
+                const cutoff30d = new Date(Date.now() - 30 * 86400000);
                 dbDeliveries = await prisma_js_1.default.delivery.findMany({
                     where: {
                         OR: [
                             // All active (non-terminal) deliveries
                             { status: { notIn: [...ALWAYS_EXCLUDED, ...DELIVERED_STATUSES] } },
-                            // Recently delivered (last 24 h) — powers the "Delivered Today" card
+                            // Recently delivered (last 24 h) — powers the "Delivered Today" dashboard card
                             { status: { in: DELIVERED_STATUSES }, updatedAt: { gte: cutoff24h } },
+                            // Delivered WITHOUT any signature within last 30 days → must stay visible
+                            // until a Proof of Delivery is uploaded.
+                            // Note: photo-only POD (admin upload) sets updatedAt, so those orders
+                            // are covered by the 24 h clause above and naturally drop off after 24 h.
+                            {
+                                status: { in: DELIVERED_STATUSES },
+                                driverSignature: null,
+                                customerSignature: null,
+                                updatedAt: { gte: cutoff30d },
+                            },
                         ],
                     },
                     select: {
@@ -117,6 +130,10 @@ router.get('/deliveries', auth_js_1.authenticate, (0, auth_js_1.requireAnyRole)(
                         smsSentAt: true,
                         goodsMovementDate: true,
                         deliveryNumber: true,
+                        // POD indicator fields — returned to compute hasPod flag; raw values NOT forwarded to client
+                        driverSignature: true,
+                        customerSignature: true,
+                        photos: true,
                         assignments: {
                             take: 1,
                             orderBy: { assignedAt: 'desc' },
@@ -131,7 +148,7 @@ router.get('/deliveries', auth_js_1.authenticate, (0, auth_js_1.requireAnyRole)(
                         }
                     },
                     orderBy: { createdAt: 'desc' },
-                    take: 500
+                    take: 600
                 });
             }
             catch (err) {
@@ -139,39 +156,49 @@ router.get('/deliveries', auth_js_1.authenticate, (0, auth_js_1.requireAnyRole)(
                 console.error('[Tracking] Prisma query error:', e.message);
                 dbDeliveries = [];
             }
-            let deliveries = dbDeliveries.map(d => ({
-                id: d.id,
-                customer: d.customer,
-                address: d.address,
-                phone: d.phone,
-                lat: d.lat,
-                lng: d.lng,
-                status: d.status,
-                items: d.items,
-                metadata: d.metadata,
-                poNumber: d.poNumber,
-                created_at: d.createdAt,
-                createdAt: d.createdAt,
-                created: d.createdAt,
-                updatedAt: d.updatedAt,
-                confirmationStatus: d.confirmationStatus,
-                confirmationToken: d.confirmationToken,
-                customerConfirmedAt: d.customerConfirmedAt,
-                confirmedDeliveryDate: d.confirmedDeliveryDate,
-                smsSentAt: d.smsSentAt,
-                goodsMovementDate: d.goodsMovementDate,
-                deliveryNumber: d.deliveryNumber,
-                assignedDriverId: d.assignments?.[0]?.driverId || null,
-                driverName: d.assignments?.[0]?.driver?.fullName || null,
-                assignmentStatus: d.assignments?.[0]?.status || 'unassigned',
-                tracking: {
-                    assigned: !!(d.assignments?.[0]?.driverId),
-                    driverId: d.assignments?.[0]?.driverId || null,
-                    status: d.assignments?.[0]?.status || 'unassigned',
-                    assignedAt: d.assignments?.[0]?.assignedAt || null,
-                    lastLocation: null
-                }
-            }));
+            let deliveries = dbDeliveries.map(d => {
+                // Compute hasPod server-side: true when at least one signature OR photo is present,
+                // or the status is 'pod-completed' (explicit POD submission status).
+                // Raw signature/photo values are intentionally NOT forwarded to the client.
+                const hasPod = !!(d.driverSignature ||
+                    d.customerSignature ||
+                    d.status === 'pod-completed' ||
+                    (Array.isArray(d.photos) && d.photos.length > 0));
+                return {
+                    id: d.id,
+                    customer: d.customer,
+                    address: d.address,
+                    phone: d.phone,
+                    lat: d.lat,
+                    lng: d.lng,
+                    status: d.status,
+                    items: d.items,
+                    metadata: d.metadata,
+                    poNumber: d.poNumber,
+                    created_at: d.createdAt,
+                    createdAt: d.createdAt,
+                    created: d.createdAt,
+                    updatedAt: d.updatedAt,
+                    confirmationStatus: d.confirmationStatus,
+                    confirmationToken: d.confirmationToken,
+                    customerConfirmedAt: d.customerConfirmedAt,
+                    confirmedDeliveryDate: d.confirmedDeliveryDate,
+                    smsSentAt: d.smsSentAt,
+                    goodsMovementDate: d.goodsMovementDate,
+                    deliveryNumber: d.deliveryNumber,
+                    hasPod,
+                    assignedDriverId: d.assignments?.[0]?.driverId || null,
+                    driverName: d.assignments?.[0]?.driver?.fullName || null,
+                    assignmentStatus: d.assignments?.[0]?.status || 'unassigned',
+                    tracking: {
+                        assigned: !!(d.assignments?.[0]?.driverId),
+                        driverId: d.assignments?.[0]?.driverId || null,
+                        status: d.assignments?.[0]?.status || 'unassigned',
+                        assignedAt: d.assignments?.[0]?.assignedAt || null,
+                        lastLocation: null
+                    }
+                };
+            });
             try {
                 const deliveriesResp = await sapService_js_1.default.call('/Deliveries', 'get');
                 let sapDeliveries = [];
@@ -258,7 +285,7 @@ router.get('/drivers', auth_js_1.authenticate, (0, auth_js_1.requireAnyRole)('ad
                 console.warn('[Tracking] No active drivers found in database.');
                 return [];
             }
-            let locationsMap = {};
+            const locationsMap = {};
             try {
                 const driverIds = prismaDrivers.map(d => d.id).filter(Boolean);
                 if (driverIds.length > 0) {

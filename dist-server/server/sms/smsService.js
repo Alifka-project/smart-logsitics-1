@@ -18,8 +18,8 @@ exports.getCustomerTracking = getCustomerTracking;
 const crypto_1 = __importDefault(require("crypto"));
 const prisma_1 = __importDefault(require("../db/prisma"));
 const phoneUtils_1 = require("../utils/phoneUtils");
-const waLink_1 = require("./waLink");
 const whatsappApiAdapter_1 = require("./whatsappApiAdapter");
+const waLink_1 = require("./waLink");
 const customerMessageTemplates_1 = require("./customerMessageTemplates");
 const deliveryCapacityService_1 = require("../services/deliveryCapacityService");
 const cache = require('../cache');
@@ -30,7 +30,6 @@ const { autoAssignDelivery } = require('../services/autoAssignmentService');
 let smsAdapter = null;
 exports.smsAdapter = smsAdapter;
 try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const D7Adapter = require('./d7Adapter').default;
     exports.smsAdapter = smsAdapter = new D7Adapter(process.env);
     console.log('[SMS] D7 Networks adapter initialized');
@@ -86,39 +85,27 @@ async function sendConfirmationSms(deliveryId, phoneNumber, tokenExpiry = null) 
         const poNumber = delivery.poNumber;
         const poRef = poNumber ? `#${poNumber}` : '';
         const smsMessage = (0, customerMessageTemplates_1.confirmationRequestMessage)(customerName, poRef, confirmationLink);
-        // ── SMS API TEMPORARILY DISABLED — D7 provider compliance pending ──────────
-        // Re-enable once D7 approval is granted:
-        // const smsResult = await smsAdapter!.sendSms({
-        //   to: finalPhone, body: smsMessage,
-        //   metadata: { deliveryId, type: 'confirmation_request' }
-        // });
-        // ── WhatsApp silent background send (no popup, no button) ────────────────
-        let smsResult;
-        let whatsappUrl;
-        if ((0, whatsappApiAdapter_1.isWhatsAppConfigured)()) {
-            const waResult = await (0, whatsappApiAdapter_1.sendWhatsAppDeliveryConfirmation)(finalPhone, {
-                fullTextBody: smsMessage,
-                customerName,
-                poRef,
-                confirmationLink
-            });
-            if (!waResult.ok) {
-                const detail = waResult.error || 'unknown_error';
-                console.error(`[SMS→WhatsApp] Send failed for ${finalPhone}:`, detail);
-                throw new Error(`WhatsApp confirmation failed: ${detail}. Check server logs, D7/Meta template (D7_WHATSAPP_CONFIRMATION_TEMPLATE), and D7_WHATSAPP_NUMBER.`);
-            }
-            smsResult = {
-                messageId: waResult.messageId || `wa-${Date.now()}`,
-                status: 'sent',
-            };
-            console.log(`[SMS→WhatsApp] Silent send to ${finalPhone}: ok (provider=${waResult.provider || 'unknown'})`);
-        }
-        else {
-            // Fallback: wa.me deep-link (requires manual send — use until API creds are set)
-            whatsappUrl = (0, waLink_1.buildWhatsAppLink)(finalPhone, smsMessage);
-            smsResult = { messageId: `wa-link-${Date.now()}`, status: 'whatsapp_link_generated' };
-            console.log('[SMS→WhatsApp] No API creds — deep-link fallback for', finalPhone);
-        }
+        // ── SMS via D7 Networks ───────────────────────────────────────────────────
+        const smsResult = await smsAdapter.sendSms({
+            to: finalPhone, body: smsMessage,
+            metadata: { deliveryId, type: 'confirmation_request' }
+        });
+        const whatsappUrl = undefined; // wa.me fallback not needed while SMS is active
+        // ── WhatsApp path (kept for reference — temporarily disabled) ─────────────
+        // let smsResult: SmsSendResult;
+        // let whatsappUrl: string | undefined;
+        // if (isWhatsAppConfigured()) {
+        //   const waResult = await sendWhatsAppDeliveryConfirmation(finalPhone, {
+        //     fullTextBody: smsMessage, customerName, poRef, confirmationLink
+        //   });
+        //   if (!waResult.ok) {
+        //     throw new Error(`WhatsApp confirmation failed: ${waResult.error || 'unknown_error'}`);
+        //   }
+        //   smsResult = { messageId: waResult.messageId || `wa-${Date.now()}`, status: 'sent' };
+        // } else {
+        //   whatsappUrl = buildWhatsAppLink(finalPhone, smsMessage);
+        //   smsResult = { messageId: `wa-link-${Date.now()}`, status: 'whatsapp_link_generated' };
+        // }
         // ──────────────────────────────────────────────────────────────────────────
         // Update delivery with token + mark as scheduled
         await prisma_1.default.delivery.update({
@@ -143,14 +130,14 @@ async function sendConfirmationSms(deliveryId, phoneNumber, tokenExpiry = null) 
                 deliveryId,
                 phoneNumber: finalPhone,
                 messageContent: smsMessage,
-                smsProvider: (0, whatsappApiAdapter_1.isWhatsAppConfigured)() ? 'whatsapp-api' : process.env.SMS_PROVIDER || 'd7',
+                smsProvider: process.env.SMS_PROVIDER || 'd7',
                 externalMessageId: smsResult.messageId,
                 status: smsResult.status || 'sent',
                 sentAt: new Date(),
                 metadata: {
                     type: 'confirmation_request',
                     tokenExpiry: expiresAt.toISOString(),
-                    channel: (0, whatsappApiAdapter_1.isWhatsAppConfigured)() ? 'whatsapp' : 'whatsapp_link_fallback',
+                    channel: 'sms',
                 }
             }
         });
@@ -284,30 +271,29 @@ async function confirmDelivery(token, deliveryDateInput) {
                 const trackingLink = confirmToken ? `${frontendUrl}/customer-tracking/${confirmToken}` : null;
                 // Same text as legacy SMS thank-you; optional tracking URL on next line (SMS would include when sent)
                 const confirmationMessage = (0, customerMessageTemplates_1.thankYouAfterConfirmationMessage)(iso, trackingLink);
-                // ── SMS API TEMPORARILY DISABLED — D7 provider compliance pending ────
-                // Re-enable by restoring the smsAdapter.sendSms call below.
-                // await smsAdapter!.sendSms({
-                //   to: delivery.phone as string,
-                //   body: confirmationMessage,
-                //   metadata: { deliveryId, type: 'confirmation_received' }
-                // });
-                // ── WhatsApp silent background send ─────────────────────────────────
+                // ── SMS thank-you via D7 ─────────────────────────────────────────────
                 const normalizedPhone = (0, phoneUtils_1.normalizeUAEPhone)(delivery.phone) || delivery.phone;
-                // No approved thank-you template yet — wa.me fallback only.
-                // Once D7_WHATSAPP_CONFIRMED_TEMPLATE is approved, wire it in here.
-                thankYouWhatsappUrl = (0, waLink_1.buildWhatsAppLink)(normalizedPhone, confirmationMessage);
-                const thankYouStatus = 'whatsapp_link_generated';
-                const thankYouProvider = 'whatsapp-link';
-                console.log('[SMS→WhatsApp] Thank-you wa.me fallback for', normalizedPhone, '(no confirmed template yet)');
+                const thankYouSmsResult = await smsAdapter.sendSms({
+                    to: normalizedPhone,
+                    body: confirmationMessage,
+                    metadata: { deliveryId, type: 'confirmation_received' }
+                });
+                console.log(`[SMS] Thank-you SMS sent to ${normalizedPhone}, id: ${thankYouSmsResult.messageId}`);
+                // ── WhatsApp thank-you path (kept for reference — temporarily disabled) ──
+                // thankYouWhatsappUrl = buildWhatsAppLink(normalizedPhone, confirmationMessage);
+                // const thankYouStatus = 'whatsapp_link_generated';
+                // const thankYouProvider = 'whatsapp-link';
+                // ────────────────────────────────────────────────────────────────────────
                 await prisma_1.default.smsLog.create({
                     data: {
                         deliveryId,
-                        phoneNumber: delivery.phone,
+                        phoneNumber: normalizedPhone,
                         messageContent: confirmationMessage,
-                        smsProvider: thankYouProvider,
-                        status: thankYouStatus,
+                        smsProvider: process.env.SMS_PROVIDER || 'd7',
+                        externalMessageId: thankYouSmsResult.messageId,
+                        status: thankYouSmsResult.status || 'sent',
                         sentAt: new Date(),
-                        metadata: { type: 'confirmation_received', whatsappUrl: thankYouWhatsappUrl }
+                        metadata: { type: 'confirmation_received', channel: 'sms' }
                     }
                 });
             }
@@ -338,40 +324,73 @@ async function sendRescheduleSms(deliveryId, newDeliveryDate, reason) {
         if (!phone)
             return { ok: false, error: 'no_phone' };
         const normalizedPhone = (0, phoneUtils_1.normalizeUAEPhone)(phone) || phone;
-        const customerName = delivery.customer || 'Valued Customer';
+        // Prefer individual 'Name' from original row (B2C) over Ship-to party name (B2B)
+        const meta = delivery.metadata && typeof delivery.metadata === 'object'
+            ? delivery.metadata : {};
+        const origRow = (meta.originalRow || meta._originalRow);
+        const b2cName = origRow?.['Name'] ? String(origRow['Name']).trim() || null : null;
+        const customerName = b2cName || delivery.customer || 'Valued Customer';
         const poNumber = delivery.poNumber;
         const poRef = poNumber ? `#${poNumber}` : '';
-        const formattedDate = newDeliveryDate.toLocaleDateString('en-AE', {
-            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+        // Extract Dubai calendar date from the Date object to avoid UTC edge cases,
+        // then format from an explicit Dubai midnight for a consistent date string.
+        const dubaiIso = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Dubai', year: 'numeric', month: '2-digit', day: '2-digit',
+        }).format(newDeliveryDate);
+        const formattedDate = new Date(`${dubaiIso}T00:00:00+04:00`).toLocaleDateString('en-AE', {
+            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+            timeZone: 'Asia/Dubai',
         });
         const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
         const token = delivery.confirmationToken;
         const trackingLink = token ? `${frontendUrl}/customer-tracking/${token}` : null;
         const reasonText = reason ? reason.trim() : 'operational requirements';
         const smsMessage = (0, customerMessageTemplates_1.rescheduleNotificationMessage)(customerName, poRef, formattedDate, reasonText, trackingLink);
-        // ── SMS API TEMPORARILY DISABLED — D7 provider compliance pending ──────────
-        // Re-enable by removing comment wrapper once approval is granted.
-        // const smsResult = await smsAdapter!.sendSms({
-        //   to: normalizedPhone, body: smsMessage,
-        //   metadata: { deliveryId, type: 'admin_reschedule_notification' }
-        // });
-        // ── WhatsApp silent background send ──────────────────────────────────────
-        // No approved reschedule template yet — wa.me fallback only.
-        // Once D7_WHATSAPP_RESCHEDULED_TEMPLATE is approved, wire it in here.
-        const whatsappUrl = (0, waLink_1.buildWhatsAppLink)(normalizedPhone, smsMessage);
-        const smsResult = { messageId: `wa-link-${Date.now()}`, status: 'whatsapp_link_generated' };
-        console.log('[SMS→WhatsApp] Reschedule wa.me fallback for', normalizedPhone, '(no rescheduled template yet)');
-        // ──────────────────────────────────────────────────────────────────────────
+        // ── Reschedule: D7 SMS → WhatsApp API → deep-link ───────────────────────
+        let whatsappUrl;
+        let smsResult = { messageId: `wa-link-${Date.now()}`, status: 'whatsapp_link_generated' };
+        let rescheduleProvider = process.env.SMS_PROVIDER || 'd7';
+        try {
+            smsResult = await smsAdapter.sendSms({
+                to: normalizedPhone, body: smsMessage,
+                metadata: { deliveryId, type: 'admin_reschedule_notification' }
+            });
+            console.log(`[SMS] Reschedule SMS sent to ${normalizedPhone}, id: ${smsResult.messageId}`);
+        }
+        catch (d7Err) {
+            console.warn(`[SMS] D7 reschedule SMS failed, trying WhatsApp API:`, d7Err.message);
+            let waSent = false;
+            if ((0, whatsappApiAdapter_1.isWhatsAppConfigured)()) {
+                try {
+                    const waRes = await (0, whatsappApiAdapter_1.sendWhatsApp)(normalizedPhone, smsMessage);
+                    if (waRes.ok) {
+                        rescheduleProvider = 'whatsapp-api';
+                        smsResult = { messageId: waRes.messageId || `wa-${Date.now()}`, status: 'sent' };
+                        waSent = true;
+                        console.log(`[SMS] Reschedule WhatsApp sent to ${normalizedPhone}`);
+                    }
+                }
+                catch (waErr) {
+                    console.warn(`[SMS] WhatsApp API also failed:`, waErr.message);
+                }
+            }
+            if (!waSent) {
+                rescheduleProvider = 'whatsapp-link';
+                whatsappUrl = (0, waLink_1.buildWhatsAppLink)(normalizedPhone, smsMessage);
+                smsResult = { messageId: `wa-link-${Date.now()}`, status: 'whatsapp_link_generated' };
+            }
+        }
+        // ─────────────────────────────────────────────────────────────────────────
         await prisma_1.default.smsLog.create({
             data: {
                 deliveryId,
                 phoneNumber: normalizedPhone,
                 messageContent: smsMessage,
-                smsProvider: (0, whatsappApiAdapter_1.isWhatsAppConfigured)() ? 'whatsapp-api' : 'whatsapp-link',
+                smsProvider: rescheduleProvider,
                 externalMessageId: smsResult.messageId,
                 status: smsResult.status || 'sent',
                 sentAt: new Date(),
-                metadata: { type: 'admin_reschedule_notification', newDeliveryDate: newDeliveryDate.toISOString(), reason: reasonText, whatsappUrl }
+                metadata: { type: 'admin_reschedule_notification', newDeliveryDate: newDeliveryDate.toISOString(), reason: reasonText, channel: 'sms' }
             }
         });
         return { ok: true, messageId: smsResult.messageId, whatsappUrl };
@@ -394,7 +413,7 @@ async function getCustomerTracking(token) {
         const delivery = validation.delivery;
         // Get assignment info
         const assignment = await prisma_1.default.deliveryAssignment.findFirst({
-            where: { deliveryId: delivery.id, status: { in: ['assigned', 'in_progress'] } },
+            where: { deliveryId: delivery.id }, // remove status filter
             include: {
                 driver: {
                     select: {
@@ -403,7 +422,8 @@ async function getCustomerTracking(token) {
                         phone: true
                     }
                 }
-            }
+            },
+            orderBy: { assignedAt: 'desc' }
         });
         // Get latest location if driver is assigned
         let driverLocation = null;
@@ -439,6 +459,9 @@ async function getCustomerTracking(token) {
                 confirmedDeliveryDate: delivery.confirmedDeliveryDate,
                 rescheduleReason: meta.rescheduleReason ?? null,
                 rescheduledAt: meta.rescheduledAt ?? null,
+                // Expose arrival flag so customer tracking page can also check it
+                // without depending solely on the DeliveryEvent row.
+                arrivalNotifiedAt: meta.arrivalNotifiedAt ?? null,
                 lat: delivery.lat,
                 lng: delivery.lng,
                 deliveryNumber: deliveryNumberCol,

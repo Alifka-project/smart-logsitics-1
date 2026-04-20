@@ -172,9 +172,14 @@ const auth_js_2 = __importDefault(require("./api/auth.js"));
 const smsWebhook_js_1 = __importDefault(require("./api/smsWebhook.js"));
 const customerPortal_js_1 = __importDefault(require("./api/customerPortal.js"));
 const sms_js_1 = __importDefault(require("./api/sms.js"));
+const ingest_js_1 = __importDefault(require("./api/ingest.js"));
 app.use('/api/auth', auth_js_2.default);
 app.use('/api/sms/webhook', smsWebhook_js_1.default);
 app.use('/api/customer', customerPortal_js_1.default);
+// Auto-ingest endpoint uses its own API-key auth; mounted before session middleware
+// so Power Automate / OneDrive callers without a session cookie can reach it.
+// Disabled by default — set INGEST_ENABLED=true to activate.
+app.use('/api/ingest', ingest_js_1.default);
 // Public SMS confirmation endpoint (before auth middleware)
 app.post('/api/sms/confirm', async (req, res) => {
     return sms_js_1.default.confirm(req, res);

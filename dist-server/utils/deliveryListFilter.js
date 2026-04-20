@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.getEtaStatus = getEtaStatus;
 exports.isTeamPortalGarbageDelivery = isTeamPortalGarbageDelivery;
 exports.excludeTeamPortalGarbageDeliveries = excludeTeamPortalGarbageDeliveries;
 exports.isActiveDeliveryListStatus = isActiveDeliveryListStatus;
@@ -8,6 +9,18 @@ exports.getOnRouteDeliveriesForList = getOnRouteDeliveriesForList;
 exports.getActiveDeliveriesForList = getActiveDeliveriesForList;
 exports.applyDeliveryListFilter = applyDeliveryListFilter;
 exports.countForDeliveryListFilter = countForDeliveryListFilter;
+/** Delay threshold: if estimatedEta is more than this many ms after plannedEta → Delayed (D3: 1-hour rule) */
+const DELAY_THRESHOLD_MS = 60 * 60 * 1000; // 60 minutes (1 hour)
+function getEtaStatus(d) {
+    const planned = d['plannedEta'];
+    const estimated = d['estimatedEta']
+        ?? (d.estimatedTime instanceof Date ? d.estimatedTime.toISOString()
+            : typeof d.estimatedTime === 'string' ? d.estimatedTime : null);
+    if (!planned || !estimated)
+        return 'unknown';
+    const diff = new Date(estimated).getTime() - new Date(planned).getTime();
+    return diff > DELAY_THRESHOLD_MS ? 'delayed' : 'on_time';
+}
 /** Placeholder customer from failed Excel mapping (`Customer 1`, `Customer3`, …). */
 const PLACEHOLDER_CUSTOMER = /^customer\s*\d+$/i;
 function normalizeSpaces(s) {
@@ -84,9 +97,10 @@ function excludeTeamPortalGarbageDeliveries(list) {
     const arr = list ?? [];
     return arr.filter((row) => !isTeamPortalGarbageDelivery(row));
 }
-const DELIVERED_STATUSES = new Set([
+// "Completed" = successfully delivered OR cancelled — excludes returned/failed
+const COMPLETED_STATUSES = new Set([
     'delivered', 'delivered-with-installation', 'delivered-without-installation',
-    'completed', 'pod-completed', 'cancelled', 'returned',
+    'completed', 'pod-completed', 'finished', 'cancelled',
 ]);
 const ACTIVE_STATUSES = new Set([
     // Pre-dispatch statuses
@@ -155,12 +169,40 @@ function applyDeliveryListFilter(deliveries, filter) {
                 return s === 'confirmed' || s === 'scheduled-confirmed';
             });
         case 'p1':
-            return active.filter((d) => d.priority === 1);
+            // Match numeric priority 1 OR the metadata.isPriority flag set by the
+            // logistics portal — both signals must be treated as "P1 Urgent".
+            return active.filter((d) => {
+                const meta = d.metadata;
+                return d.priority === 1 || meta?.isPriority === true;
+            });
         case 'out_for_delivery':
             return active.filter((d) => isOnRouteDeliveryListStatus((d.status || '').toLowerCase()));
-        case 'delivered':
-            // Bypass active filter — show terminal (delivered/cancelled/returned) deliveries.
-            return list.filter((d) => DELIVERED_STATUSES.has((d.status || '').toLowerCase()));
+        case 'delivered': {
+            // "Completed" view: delivered + cancelled orders within the last 3 days.
+            // Excludes returned/failed (those stay in their own bucket).
+            const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+            const cutoff = Date.now() - THREE_DAYS_MS;
+            return list.filter((d) => {
+                if (!COMPLETED_STATUSES.has((d.status || '').toLowerCase()))
+                    return false;
+                // Apply 3-day recency window — fall back to "always show" when no date available
+                const rec = d;
+                const dateStr = d.deliveredAt ??
+                    d.podCompletedAt ??
+                    d.updatedAt ??
+                    rec.updated_at ??
+                    rec.created_at ??
+                    d.createdAt;
+                if (!dateStr)
+                    return false; // no date info → cannot confirm recency, exclude
+                const ts = new Date(String(dateStr)).getTime();
+                return !isNaN(ts) && ts >= cutoff;
+            });
+        }
+        case 'on_time':
+            return active.filter((d) => getEtaStatus(d) === 'on_time');
+        case 'delayed':
+            return active.filter((d) => getEtaStatus(d) === 'delayed');
         default:
             return active;
     }

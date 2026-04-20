@@ -314,7 +314,7 @@ router.get('/:id/live', async (req, res) => {
 // Statuses that require no further action from the driver.
 const DRIVER_TERMINAL_STATUSES = [
     'delivered', 'delivered-with-installation', 'delivered-without-installation',
-    'completed', 'pod-completed', 'cancelled', 'returned',
+    'completed', 'pod-completed', 'finished', 'cancelled', 'returned',
 ];
 router.get('/deliveries', auth_js_1.authenticate, async (req, res) => {
     try {
@@ -398,7 +398,7 @@ router.get('/deliveries', auth_js_1.authenticate, async (req, res) => {
  */
 const DRIVER_FINISHED_STATUSES = [
     'delivered', 'delivered-with-installation', 'delivered-without-installation',
-    'completed', 'pod-completed', 'cancelled', 'returned',
+    'completed', 'pod-completed', 'finished', 'cancelled', 'returned',
 ];
 router.get('/deliveries/finished', auth_js_1.authenticate, async (req, res) => {
     try {

@@ -50,7 +50,7 @@ async function sendConfirmationEmail({ toEmail, customerName, confirmationLink, 
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
-<body style="margin:0;padding:0;background:#f5f7fa;font-family:Arial,sans-serif;">
+<body style="margin:0;padding:0;background:#f5f7fa;font-family:'Electrolux Sans','DM Sans','Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;padding:40px 20px;">
     <tr>
       <td align="center">

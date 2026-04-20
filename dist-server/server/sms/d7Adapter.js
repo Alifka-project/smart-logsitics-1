@@ -6,18 +6,29 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const adapter_1 = __importDefault(require("./adapter"));
 const axios_1 = __importDefault(require("axios"));
 const phoneUtils_1 = require("../utils/phoneUtils");
-// Regular SMS endpoint — works for most countries but UAE carrier blocks all
-// unregistered senders (requires TRA registration, takes 3-7 business days)
+// Regular SMS endpoint — used for all numbers
 const D7_SMS_URL = 'https://api.d7networks.com/messages/v1/send';
-// OTP endpoint — uses D7's pre-approved short-code routes that bypass UAE
-// carrier restrictions. Accepts custom message_text with {{otp}} placeholder.
-const D7_OTP_URL = 'https://api.d7networks.com/verify/v1/otp/send-otp';
+// Variables extracted from a confirmation request message for template sending.
+// Order matches D7 template: {{1}}=name, {{2}}=poRef, {{3}}=confirmationLink
+function extractTemplateParams(body) {
+    // Match: "Dear <name>," at start
+    const nameMatch = body.match(/^Dear (.+?),/);
+    // Match: "order <poRef> is"
+    const poMatch = body.match(/order (.+?) is ready/);
+    // Match a URL on its own line (https://...)
+    const urlMatch = body.match(/\n(https?:\/\/\S+)\n/);
+    if (nameMatch && poMatch && urlMatch) {
+        return [nameMatch[1].trim(), poMatch[1].trim(), urlMatch[1].trim()];
+    }
+    return null;
+}
 class D7Adapter extends adapter_1.default {
     constructor(config) {
         super(config);
-        // Strip any surrounding quotes, newlines, or whitespace that can corrupt the header
         this.apiToken = (config.D7_API_TOKEN || '').replace(/^["'\s]+|["'\s]+$/g, '');
-        this.originator = (config.D7_ORIGINATOR || 'SignOTP').trim();
+        this.originator = (config.D7_ORIGINATOR || 'Electrolux').trim();
+        // Optional: D7 SMS template name/ID for UAE template-based sending
+        this.smsTemplateId = (process.env.D7_SMS_TEMPLATE_ID || '').trim() || null;
     }
     async sendSms({ to, body, metadata = {} }) {
         if (!this.apiToken) {
@@ -35,7 +46,6 @@ class D7Adapter extends adapter_1.default {
             error.code = 'D7_BODY_MISSING';
             throw error;
         }
-        // Normalize phone: UAE local formats → +971XXXXXXXXX, international → kept as-is
         const normalizedTo = (0, phoneUtils_1.normalizePhone)(to);
         if (normalizedTo && normalizedTo !== to) {
             console.log(`[D7] Phone normalized: "${to}" → "${normalizedTo}"`);
@@ -44,33 +54,36 @@ class D7Adapter extends adapter_1.default {
             console.warn(`[D7] Phone "${normalizedTo}" does not look like a valid E.164 number — sending anyway`);
         }
         const finalTo = normalizedTo || to;
-        // Use OTP route for UAE (+971) — bypasses carrier rejection of unregistered senders.
-        // For non-UAE numbers, fall back to regular SMS API.
-        const isUAE = finalTo.startsWith('+971');
-        if (isUAE) {
-            return this._sendViaOtp(finalTo, body);
+        // If a D7 SMS template ID is configured, use template-based sending (UAE-approved route).
+        // Otherwise fall back to free-text (works for non-UAE numbers).
+        if (this.smsTemplateId) {
+            const params = extractTemplateParams(body);
+            if (params) {
+                return this._sendViaTemplate(finalTo, this.smsTemplateId, params);
+            }
+            console.warn('[D7] Could not extract template params from body — falling back to free-text');
         }
         return this._sendViaSms(finalTo, body);
     }
-    // ── OTP route (UAE) ────────────────────────────────────────────────────────
-    // The OTP API uses D7's pre-registered short codes accepted by UAE carriers.
-    // We embed the full confirmation message in message_text; {{otp}} becomes a
-    // 6-digit ref code appended at the end. Customers just click the link.
-    async _sendViaOtp(to, body) {
-        // Append the {{otp}} placeholder as a reference code at the end
-        const messageWithCode = `${body}\n\nRef: {{otp}}`;
+    // ── Template-based SMS (UAE) ────────────────────────────────────────────────
+    // Uses a pre-approved D7 SMS template referenced by ID/name.
+    // D7 substitutes {{1}}, {{2}}, {{3}} with the provided params on their side.
+    async _sendViaTemplate(to, templateId, params) {
         const payload = {
-            originator: this.originator,
-            recipient: to,
-            expiry: 172800, // 48 hours — matches the confirmation link expiry
-            data_coding: 'text',
-            otp_length: 6,
-            message_text: messageWithCode
+            messages: [{
+                    channel: 'sms',
+                    recipients: [to],
+                    template: templateId,
+                    params
+                }],
+            message_globals: {
+                originator: this.originator
+            }
         };
-        console.log(`[D7] Sending delivery confirmation via OTP route to ${to}`);
+        console.log(`[D7] Sending via template "${templateId}" to ${to}, params:`, params);
         let res;
         try {
-            res = await axios_1.default.post(D7_OTP_URL, payload, {
+            res = await axios_1.default.post(D7_SMS_URL, payload, {
                 timeout: 15000,
                 headers: {
                     'Content-Type': 'application/json',
@@ -83,25 +96,26 @@ class D7Adapter extends adapter_1.default {
             const e = axiosErr;
             const status = e.response?.status;
             const responseBody = e.response?.data;
-            const errCode = e.code || 'NO_CODE';
-            const errMsg = e.message || 'no message';
-            console.error(`[D7] OTP request failed — code: ${errCode}, message: ${errMsg}, HTTP: ${status}, body:`, JSON.stringify(responseBody));
-            const err = new Error(`D7 OTP failed [${errCode}]: ${errMsg} | HTTP ${status} | ${JSON.stringify(responseBody)}`);
-            err.code = 'D7_OTP_HTTP_ERROR';
-            err.response = e.response;
-            throw err;
+            console.error(`[D7] Template SMS failed — HTTP: ${status}, body:`, JSON.stringify(responseBody));
+            console.warn('[D7] Template send failed — retrying as free-text');
+            // Fallback: reconstruct free-text body from params (params = [customerName, orderRef, link])
+            const fallbackBody = params.length >= 3
+                ? `Dear ${params[0]},\n\nYour Electrolux order ${params[1]} is ready for delivery.\n\nPlease confirm your preferred delivery date using the link below:\n${params[2]}\n\nThank you,\nElectrolux Delivery Team.`
+                : params.join(' ');
+            return this._sendViaSms(to, fallbackBody);
         }
         const data = res.data;
-        console.log(`[D7] OTP response:`, JSON.stringify(data));
-        if (!data.otp_id) {
-            const error = new Error(`D7 OTP rejected: ${JSON.stringify(data)}`);
-            error.code = 'D7_OTP_REJECTED';
-            throw error;
+        console.log(`[D7] Template SMS response:`, JSON.stringify(data));
+        if (data.status !== 'accepted') {
+            console.warn('[D7] Template route rejected — falling back to free-text');
+            // Reconstruct message from params for fallback
+            const fallbackBody = `Dear ${params[0]},\n\nYour Electrolux order ${params[1]} is ready for delivery.\n\nPlease confirm your preferred delivery date using the link below:\n${params[2]}\n\nThank you,\nElectrolux Delivery Team.`;
+            return this._sendViaSms(to, fallbackBody);
         }
-        console.log(`[D7] OTP route accepted, otp_id: ${data.otp_id}, status: ${data.status}`);
-        return { messageId: data.otp_id, status: data.status || 'sent', raw: data };
+        console.log(`[D7] Template SMS accepted, request_id: ${data.request_id}`);
+        return { messageId: data.request_id, status: data.status, raw: data };
     }
-    // ── Regular SMS route (non-UAE) ────────────────────────────────────────────
+    // ── Free-text SMS (all numbers when no template configured) ────────────────
     async _sendViaSms(to, body) {
         const payload = {
             messages: [{
@@ -115,7 +129,7 @@ class D7Adapter extends adapter_1.default {
                 originator: this.originator
             }
         };
-        console.log(`[D7] Sending SMS to ${to} via D7 regular SMS, originator: ${this.originator}`);
+        console.log(`[D7] Sending SMS to ${to}, originator: ${this.originator}`);
         let res;
         try {
             res = await axios_1.default.post(D7_SMS_URL, payload, {

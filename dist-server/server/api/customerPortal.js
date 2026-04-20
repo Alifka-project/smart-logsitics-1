@@ -157,6 +157,40 @@ router.get('/tracking/:token', async (req, res) => {
             timestamp: event.createdAt,
             details: event.payload
         }));
+        // Compute live ETA from driver's current GPS location to delivery address
+        const deliveryRaw = tracking.delivery;
+        let liveEta = null;
+        // Show ETA for any active on-route or confirmed+assigned status
+        const isOnRoute = ['out-for-delivery', 'out_for_delivery', 'in-transit'].includes(tracking.delivery.status);
+        if (isOnRoute &&
+            tracking.tracking.driverLocation &&
+            typeof deliveryRaw.lat === 'number' &&
+            typeof deliveryRaw.lng === 'number') {
+            const dLoc = tracking.tracking.driverLocation;
+            const toLat = deliveryRaw.lat;
+            const toLng = deliveryRaw.lng;
+            try {
+                const route = await (0, drivingRouteService_js_1.fetchDrivingRouteBetweenPoints)({ lat: dLoc.latitude, lng: dLoc.longitude }, { lat: toLat, lng: toLng });
+                if (route?.durationS) {
+                    liveEta = new Date(Date.now() + route.durationS * 1000).toISOString();
+                }
+            }
+            catch {
+                // OSRM unavailable — fall through to straight-line estimate
+            }
+            // If OSRM failed or returned nothing, estimate via straight-line distance at 40 km/h
+            if (!liveEta) {
+                const R = 6371;
+                const dLatR = (toLat - dLoc.latitude) * Math.PI / 180;
+                const dLonR = (toLng - dLoc.longitude) * Math.PI / 180;
+                const a = Math.sin(dLatR / 2) ** 2
+                    + Math.cos(dLoc.latitude * Math.PI / 180) * Math.cos(toLat * Math.PI / 180) * Math.sin(dLonR / 2) ** 2;
+                const distKm = 2 * R * Math.asin(Math.sqrt(a));
+                // 40 km/h city average, 1.3 road-factor multiplier, minimum 5 minutes
+                const drivingSec = Math.max(300, (distKm * 1.3 / 40) * 3600);
+                liveEta = new Date(Date.now() + drivingSec * 1000).toISOString();
+            }
+        }
         return void res.json({
             ok: true,
             delivery: {
@@ -165,7 +199,7 @@ router.get('/tracking/:token', async (req, res) => {
             },
             tracking: {
                 status: tracking.delivery.status,
-                eta: tracking.tracking.eta,
+                eta: liveEta ?? tracking.tracking.eta,
                 driver: tracking.tracking.assignment?.driver ? {
                     name: tracking.tracking.assignment.driver.fullName,
                     phone: tracking.tracking.assignment.driver.phone

@@ -8,9 +8,9 @@ exports.recordFailedAttempt = recordFailedAttempt;
 exports.recordSuccess = recordSuccess;
 exports.isLocked = isLocked;
 exports.getRemainingAttempts = getRemainingAttempts;
-const LOCKOUT_DURATION = 30 * 60 * 1000; // 30 minutes
+const LOCKOUT_DURATION = 60 * 1000; // 1 minute
 const MAX_FAILED_ATTEMPTS = 5;
-const ATTEMPT_WINDOW = 15 * 60 * 1000; // 15 minutes
+const ATTEMPT_WINDOW = 60 * 1000; // 1-minute rolling window
 // In-memory store: { username: { attempts: number, lockedUntil: timestamp, firstAttempt: timestamp } }
 const lockoutStore = new Map();
 // Cleanup old entries every 5 minutes
@@ -57,10 +57,12 @@ function isLocked(username) {
     }
     const now = Date.now();
     if (now < entry.lockedUntil) {
+        const msLeft = entry.lockedUntil - now;
         return {
             locked: true,
             lockedUntil: entry.lockedUntil,
-            remainingMinutes: Math.ceil((entry.lockedUntil - now) / 60000)
+            remainingSeconds: Math.ceil(msLeft / 1000),
+            remainingMinutes: Math.ceil(msLeft / 60000),
         };
     }
     // Lock expired, clean up
