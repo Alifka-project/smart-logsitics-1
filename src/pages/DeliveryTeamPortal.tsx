@@ -2854,8 +2854,28 @@ export default function DeliveryTeamPortal() {
                             const token = localStorage.getItem('auth_token') ?? '';
                             const clientKey = localStorage.getItem('client_key') ?? '';
                             const base = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
-                            void fetch(`${base}/api/admin/reports/pod?format=html`, {
-                              headers: { 'Authorization': token ? `Bearer ${token}` : '', 'X-Client-Key': clientKey },
+                            // POD report honours the currently applied filters
+                            // (search / PO / status / driver / date range) by
+                            // sending the visible delivery IDs. Backend still
+                            // restricts to delivered-status orders.
+                            const ids = podDeliveries.map(({ d }) => String(d.id)).filter(Boolean);
+                            if (ids.length === 0) {
+                              alert('No orders match the current filters — adjust filters before downloading.');
+                              return;
+                            }
+                            void fetch(`${base}/api/admin/reports/pod`, {
+                              method: 'POST',
+                              headers: {
+                                'Authorization': token ? `Bearer ${token}` : '',
+                                'X-Client-Key': clientKey,
+                                'Content-Type': 'application/json',
+                              },
+                              body: JSON.stringify({
+                                ids,
+                                format: 'html',
+                                startDate: podDateFrom || undefined,
+                                endDate: podDateTo || undefined,
+                              }),
                             }).then(async (res) => {
                               if (!res.ok) throw new Error('Failed');
                               const blob = await res.blob();
