@@ -7,7 +7,6 @@ import {
   outForDeliveryMessage,
   orderDelayMessage,
   deliveryCompletedMessage,
-  cancellationMessage,
   driverArrivingMessage
 } from '../sms/customerMessageTemplates';
 import { smsAdapter } from '../sms/smsService';
@@ -411,10 +410,13 @@ router.put('/driver/:id/status', authenticate, requireRole('driver'), async (req
             await trySend(deliveryCompletedMessage(customerName, poRef), 'status_order_finished');
           }
 
-          // Rejected or cancelled — notify customer (driver-triggered cancellation)
+          // Rejected or cancelled — treat as a terminal / "finished" order from the
+          // customer's perspective and send the same thank-you message we use for
+          // a successful delivery. (Business decision: thank the customer either way.)
           const cancelStatuses = ['cancelled', 'rejected'];
           if (cancelStatuses.includes(lowerStatus) && !cancelStatuses.includes(prevStatus)) {
-            await trySend(cancellationMessage(customerName, poRef, trackingLink), 'status_cancelled');
+            console.log(`[Driver SMS] Firing rejection/cancel SMS for delivery ${deliveryIdParam}, prev=${prevStatus}, new=${lowerStatus}, phone=${normalizedPhone}`);
+            await trySend(deliveryCompletedMessage(customerName, poRef), 'status_order_finished');
           }
         } catch (notifyErr: unknown) {
           console.warn('[Deliveries] Driver status SMS notify failed:', (notifyErr as Error).message);
@@ -601,10 +603,11 @@ router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_
           statusWhatsappUrl = await silentSend(body, 'status_order_delay');
         }
 
-        // Cancelled or rejected — both notify the customer that the order won't be delivered
+        // Cancelled or rejected — send the same thank-you message used for delivered
+        // orders (business decision: the order is "closed" from the customer's POV).
         if (lowerStatus === 'cancelled' || lowerStatus === 'rejected') {
-          const body = cancellationMessage(customerName, poRef, trackingLink);
-          statusWhatsappUrl = await silentSend(body, 'status_cancelled');
+          const body = deliveryCompletedMessage(customerName, poRef);
+          statusWhatsappUrl = await silentSend(body, 'status_order_finished');
         }
 
         // Completed / delivered variants — all trigger the delivery-completed message
