@@ -758,7 +758,17 @@ export default function LogisticsTeamPortal() {
             const t0 = new Date(todayIso + 'T00:00:00+04:00');
 
             // Today's Summary stats
-            const uploadsToday = recentUploads.filter(u => new Date(u.uploadedAt) >= t0).length;
+            // Count actual deliveries created today (server-side truth).
+            // The local `recentUploads` store is per-user and per-session, so it
+            // misses uploads done elsewhere (admin/delivery-team portals, SAP, OneDrive).
+            const uploadsToday = deliveries.filter(d => {
+              const ext = d as unknown as { createdAt?: string };
+              if (!ext.createdAt) return false;
+              const t = new Date(ext.createdAt).getTime();
+              return t >= todayMs && t < tomorrowMs;
+            }).length;
+            // recentUploads kept here for compatibility; no longer used for this card.
+            void recentUploads;
             const totalOrders = deliveries.length;
             const activeDriverIds = new Set(deliveries.map(d => d.assignedDriverId).filter((id): id is string => Boolean(id)));
             const deliveredSummary = deliveries.filter(d => {
@@ -827,7 +837,7 @@ export default function LogisticsTeamPortal() {
                   </div>
                   <div className="grid grid-cols-2 gap-2.5 flex-1">
                     {[
-                      { value: uploadsToday,         label: 'Uploads Today',  sub: 'files today',  color: 'text-sky-300'   },
+                      { value: uploadsToday,         label: 'Uploaded Today', sub: 'orders today', color: 'text-sky-300'   },
                       { value: totalOrders,          label: 'Total Orders',   sub: 'in system',    color: 'text-white'     },
                       { value: activeDriverIds.size, label: 'Active Drivers', sub: 'on the road',  color: 'text-amber-300' },
                       { value: deliveredSummary,     label: 'Delivered',      sub: 'completed',    color: 'text-green-300' },
@@ -851,7 +861,11 @@ export default function LogisticsTeamPortal() {
 
                   {/* ── Row 1: 4 primary KPI stats ── */}
                   <div
-                    onClick={() => { setActiveTab('deliveries'); setDeliveriesSubTab('manage'); }}
+                    onClick={() => {
+                      useDeliveryStore.getState().setManageTabFilter('pending_gmd');
+                      setActiveTab('deliveries');
+                      setDeliveriesSubTab('manage');
+                    }}
                     className="pp-card p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:ring-2 hover:ring-amber-400 transition-all"
                     title="Deliveries with no Goods Movement Date"
                   >
@@ -870,7 +884,11 @@ export default function LogisticsTeamPortal() {
                     <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">scheduled today</div>
                   </div>
                   <div
-                    onClick={() => { setActiveTab('deliveries'); setDeliveriesSubTab('manage'); }}
+                    onClick={() => {
+                      useDeliveryStore.getState().setManageTabFilter('pending_pod');
+                      setActiveTab('deliveries');
+                      setDeliveriesSubTab('manage');
+                    }}
                     className="pp-card p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:ring-2 hover:ring-red-400 transition-all"
                     title="Delivered orders missing proof of delivery"
                   >
@@ -1295,6 +1313,7 @@ export default function LogisticsTeamPortal() {
           hideUpload
           hideDeliveriesTab
           enableDispatchFilters
+          showMaterialColumn
           getDriverCapacity={(orderId, driverId) => {
             const d = deliveries.find(x => x.id === orderId);
             if (!d) return null;

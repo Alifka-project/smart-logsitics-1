@@ -22,7 +22,8 @@ export type OrdersTableTab =
   | 'order_delay'
   | 'rescheduled'
   | 'delivered'        // completed / delivered orders
-  | 'pending_pod';     // delivered orders that are still missing a Proof of Delivery
+  | 'pending_pod'      // delivered orders that are still missing a Proof of Delivery
+  | 'pending_gmd';     // active orders with no Goods Movement Date
 
 function OrderStatusPill({ status }: { status: DeliveryStatus }): React.ReactElement {
   const c = STATUS_CONFIG[status];
@@ -104,6 +105,8 @@ function matchesTableTab(order: DeliveryOrder, tab: OrdersTableTab): boolean {
     case 'delivered':         return DELIVERED_STATUSES.has(order.status);
     // Delivered orders that are still missing a Proof of Delivery — must stay actionable
     case 'pending_pod':       return order.status === 'delivered' && !order.hasPod;
+    // Active orders without a Goods Movement Date (pre-dispatch) — actionable by logistics
+    case 'pending_gmd':       return !order.goodsMovementDate && !PENDING_TERMINAL.has(order.status);
     default:                  return true;
   }
 }
@@ -533,10 +536,13 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
 
   const noPodCount = orders.filter((o) => o.status === 'delivered' && !o.hasPod).length;
 
+  const pendingGmdCount = orders.filter((o) => !o.goodsMovementDate && !PENDING_TERMINAL.has(o.status)).length;
+
   const filterTabs: { key: OrdersTableTab; label: string; count: number; urgent?: boolean }[] = [
     { key: 'all',              label: 'All',              count: orders.length },
     { key: 'pending',          label: 'Pending Orders',   count: orders.filter((o) => !PENDING_TERMINAL.has(o.status)).length },
     { key: 'awaiting_customer',label: 'Awaiting Customer',count: orders.filter((o) => o.status === 'sms_sent' || o.status === 'unconfirmed').length },
+    { key: 'pending_gmd',      label: 'Pending GMD',      count: pendingGmdCount, urgent: pendingGmdCount > 0 },
     { key: 'next_shipment',    label: 'Next Shipment',    count: orders.filter((o) => o.status === 'next_shipment' || o.status === 'ready_to_dispatch').length },
     { key: 'future_schedule',  label: 'Future Schedule',  count: orders.filter((o) => o.status === 'future_schedule').length },
     { key: 'out_for_delivery', label: 'On Route',         count: orders.filter((o) => o.status === 'out_for_delivery').length },
@@ -631,39 +637,6 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                   {tab.urgent ? `⚠ ${tab.label}` : tab.label} ({tab.count})
                 </option>
               ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
-          </div>
-
-          {/* ── Granular status filter ── */}
-          <div className="relative shrink-0">
-            <select
-              value={statusFilter}
-              onChange={e => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-              style={{ maxWidth: 134 }}
-              className={`appearance-none pl-2.5 pr-6 py-[7px] rounded-lg border text-xs focus:outline-none focus:ring-2 focus:ring-[#032145] cursor-pointer transition-colors ${
-                statusFilter !== 'all'
-                  ? 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-semibold'
-                  : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-500 text-gray-700 dark:text-gray-200'
-              }`}
-            >
-              <option value="all">All Statuses</option>
-              <optgroup label="Active">
-                <option value="pending">Pending</option>
-                <option value="sms_sent">SMS Sent</option>
-                <option value="unconfirmed">No Response</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="scheduled">Scheduled</option>
-                <option value="out_for_delivery">Out for Delivery</option>
-              </optgroup>
-              <optgroup label="Issues">
-                <option value="order_delay">Order Delay</option>
-                <option value="rescheduled">Rescheduled</option>
-              </optgroup>
-              <optgroup label="Closed">
-                <option value="delivered">Delivered</option>
-                <option value="cancelled">Cancelled</option>
-              </optgroup>
             </select>
             <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
           </div>

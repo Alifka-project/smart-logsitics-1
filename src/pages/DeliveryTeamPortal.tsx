@@ -1144,7 +1144,7 @@ export default function DeliveryTeamPortal() {
                 </div>
               ) : (
                 <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-0.5">
-                  {actionItems.awaitingConfirmation.map((delivery, idx) => {
+                  {actionItems.awaitingConfirmation.slice(0, 8).map((delivery, idx) => {
                     const sentAgo = (() => {
                       const t = delivery.updatedAt || delivery.createdAt || delivery.created_at;
                       if (!t) return null;
@@ -1174,6 +1174,15 @@ export default function DeliveryTeamPortal() {
                       </div>
                     );
                   })}
+                  {actionItems.awaitingConfirmation.length > 8 && (
+                    <button
+                      type="button"
+                      onClick={() => { useDeliveryStore.getState().setManageTabFilter('awaiting_customer'); setActiveTab('deliveries'); }}
+                      className="w-full rounded-lg border border-dashed border-purple-200 dark:border-purple-800/40 bg-purple-50/60 dark:bg-purple-900/10 py-2 text-xs font-medium text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/20 transition-colors"
+                    >
+                      View all {actionItems.awaitingConfirmation.length} awaiting customers →
+                    </button>
+                  )}
                 </div>
               )}
             </div>

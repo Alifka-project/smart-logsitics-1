@@ -289,7 +289,7 @@ router.get('/:id/live', async (req: Request, res: Response): Promise<void> => {
 // Statuses that require no further action from the driver.
 const DRIVER_TERMINAL_STATUSES = [
   'delivered', 'delivered-with-installation', 'delivered-without-installation',
-  'completed', 'pod-completed', 'finished', 'cancelled', 'returned',
+  'completed', 'pod-completed', 'finished', 'cancelled', 'rejected', 'returned',
 ];
 
 router.get('/deliveries', authenticate, async (req: Request, res: Response): Promise<void> => {
@@ -375,7 +375,7 @@ router.get('/deliveries', authenticate, async (req: Request, res: Response): Pro
  */
 const DRIVER_FINISHED_STATUSES = [
   'delivered', 'delivered-with-installation', 'delivered-without-installation',
-  'completed', 'pod-completed', 'finished', 'cancelled', 'returned',
+  'completed', 'pod-completed', 'finished', 'cancelled', 'rejected', 'returned',
 ];
 
 router.get('/deliveries/finished', authenticate, async (req: Request, res: Response): Promise<void> => {

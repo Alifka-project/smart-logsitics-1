@@ -143,6 +143,12 @@ export default function CustomerModal({
       return;
     }
 
+    if (status === 'rejected' && !notes.trim()) {
+      setSubmitError('Please describe the reason for rejection in the comments');
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       console.log('[CustomerModal] Starting status update...');
       console.log('[CustomerModal] Delivery ID:', selectedDelivery.id);
@@ -418,6 +424,7 @@ export default function CustomerModal({
               !status ||
               (status !== 'rescheduled' && status !== 'rejected' && (!driverSignature || !customerSignature)) ||
               (status === 'rescheduled' && !rescheduleDate) ||
+              (status === 'rejected' && !notes.trim()) ||
               isSubmitting
             }
             className="w-full py-3.5 sm:py-3 min-h-[48px] bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold rounded-lg hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all touch-manipulation text-base sm:text-base"

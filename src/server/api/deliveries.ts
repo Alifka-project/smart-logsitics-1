@@ -189,7 +189,7 @@ async function updateDeliveryStatusHandler(
   }
 
   const isTerminalStatus = ['delivered', 'completed', 'delivered-with-installation',
-    'delivered-without-installation', 'pod-completed', 'finished', 'cancelled', 'returned', 'failed'].includes(status.toLowerCase());
+    'delivered-without-installation', 'pod-completed', 'finished', 'cancelled', 'rejected', 'returned', 'failed'].includes(status.toLowerCase());
 
   // Run delivery update + assignment closure atomically so both succeed or both fail.
   // Driver status recalculation runs outside the transaction (read-then-write, low-risk).
@@ -410,6 +410,12 @@ router.put('/driver/:id/status', authenticate, requireRole('driver'), async (req
           if (completionStatuses.includes(lowerStatus) && !completionStatuses.includes(prevStatus)) {
             await trySend(deliveryCompletedMessage(customerName, poRef), 'status_order_finished');
           }
+
+          // Rejected or cancelled — notify customer (driver-triggered cancellation)
+          const cancelStatuses = ['cancelled', 'rejected'];
+          if (cancelStatuses.includes(lowerStatus) && !cancelStatuses.includes(prevStatus)) {
+            await trySend(cancellationMessage(customerName, poRef, trackingLink), 'status_cancelled');
+          }
         } catch (notifyErr: unknown) {
           console.warn('[Deliveries] Driver status SMS notify failed:', (notifyErr as Error).message);
         }
@@ -595,8 +601,8 @@ router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_
           statusWhatsappUrl = await silentSend(body, 'status_order_delay');
         }
 
-        // Cancelled
-        if (lowerStatus === 'cancelled') {
+        // Cancelled or rejected — both notify the customer that the order won't be delivered
+        if (lowerStatus === 'cancelled' || lowerStatus === 'rejected') {
           const body = cancellationMessage(customerName, poRef, trackingLink);
           statusWhatsappUrl = await silentSend(body, 'status_cancelled');
         }

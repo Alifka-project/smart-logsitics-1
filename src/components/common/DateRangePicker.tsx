@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Calendar, ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 export interface DateRangePickerProps {
@@ -11,8 +12,10 @@ export function DateRangePicker({ from, to, onChange }: DateRangePickerProps) {
   const [open, setOpen] = useState(false);
   const [hoverDate, setHoverDate] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
-  // Smart positioning: flip to right-aligned when near right edge of viewport
-  const [dropRight, setDropRight] = useState(false);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  // Portal-positioned popover: compute viewport coordinates so it escapes any
+  // overflow-hidden parents (which was clipping the calendar in Logistics portal).
+  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
 
   // Calendar display state — month/year
   const today = new Date();
@@ -22,24 +25,39 @@ export function DateRangePicker({ from, to, onChange }: DateRangePickerProps) {
   // Selection phase: 'start' = waiting for first click, 'end' = waiting for second click
   const [phase, setPhase] = useState<'start' | 'end'>('start');
 
-  // Close on outside click
+  // Close on outside click (must ignore clicks inside the portalled popover too)
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (ref.current && ref.current.contains(target)) return;
+      if (popoverRef.current && popoverRef.current.contains(target)) return;
+      setOpen(false);
     };
     if (open) document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  // Determine if the popup should open left-aligned or right-aligned
-  // (flip to right-aligned when near the right edge to avoid clipping)
+  // Compute popover position relative to the viewport; re-position on scroll/resize.
   useEffect(() => {
-    if (open && ref.current) {
+    if (!open) { setPopoverPos(null); return; }
+    const place = () => {
+      if (!ref.current) return;
       const rect = ref.current.getBoundingClientRect();
       const popupWidth = 288; // w-72
+      const margin = 8;
       const spaceRight = window.innerWidth - rect.left;
-      setDropRight(spaceRight < popupWidth + 8);
-    }
+      const left = spaceRight < popupWidth + margin
+        ? Math.max(margin, rect.right - popupWidth)
+        : rect.left;
+      setPopoverPos({ top: rect.bottom + 4, left });
+    };
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+    };
   }, [open]);
 
   // Reset phase when popover opens
@@ -128,11 +146,12 @@ export function DateRangePicker({ from, to, onChange }: DateRangePickerProps) {
         )}
       </button>
 
-      {/* Calendar popover */}
-      {open && (
+      {/* Calendar popover — portalled so it escapes overflow:hidden parents */}
+      {open && popoverPos && createPortal(
         <div
-          className={`absolute ${dropRight ? 'right-0' : 'left-0'} top-full z-[9999] mt-1 w-72 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-xl p-4 select-none`}
-          style={{ minWidth: 280 }}
+          ref={popoverRef}
+          className="fixed z-[9999] w-72 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-xl p-4 select-none"
+          style={{ top: popoverPos.top, left: popoverPos.left, minWidth: 280 }}
         >
           {/* Month navigation */}
           <div className="flex items-center justify-between mb-3">
@@ -237,7 +256,8 @@ export function DateRangePicker({ from, to, onChange }: DateRangePickerProps) {
               </button>
             ))}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
