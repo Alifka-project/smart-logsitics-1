@@ -1295,12 +1295,6 @@ export default function LogisticsTeamPortal() {
           hideUpload
           hideDeliveriesTab
           enableDispatchFilters
-          onTogglePriority={async (orderId, newIsPriority) => {
-            try {
-              await api.put(`/deliveries/admin/${orderId}/priority`, { isPriority: newIsPriority });
-              void loadData();
-            } catch { /* silent */ }
-          }}
           getDriverCapacity={(orderId, driverId) => {
             const d = deliveries.find(x => x.id === orderId);
             if (!d) return null;
@@ -1355,7 +1349,7 @@ export default function LogisticsTeamPortal() {
                 }
                 if (liveStatusFilter === 'priority') {
                   const meta = ext.metadata ?? {};
-                  return d.priority === 1 || meta.isPriority === true || d.priority === 2;
+                  return meta.isPriority === true;
                 }
                 if (liveStatusFilter === 'delayed') {
                   const confirmedDate = ext.confirmedDeliveryDate;
@@ -1370,8 +1364,8 @@ export default function LogisticsTeamPortal() {
               .sort((a, b) => {
                 const am = (a as unknown as { metadata?: Record<string, unknown> }).metadata ?? {};
                 const bm = (b as unknown as { metadata?: Record<string, unknown> }).metadata ?? {};
-                const ap = a.priority === 1 || am.isPriority === true ? 0 : a.priority === 2 ? 1 : 2;
-                const bp = b.priority === 1 || bm.isPriority === true ? 0 : b.priority === 2 ? 1 : 2;
+                const ap = am.isPriority === true ? 0 : 1;
+                const bp = bm.isPriority === true ? 0 : 1;
                 if (ap !== bp) return ap - bp;
                 // out-for-delivery before other statuses
                 const aOfd = (a.status || '').toLowerCase() === 'out-for-delivery' ? 0 : 1;

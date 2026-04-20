@@ -163,12 +163,9 @@ export default function DeliveryMap({
       const [lat, lng] = resolved;
 
       const isPriorityMeta = (delivery as unknown as { metadata?: { isPriority?: boolean } }).metadata?.isPriority === true;
-      const color =
-        delivery.priority === 1 || isPriorityMeta ? 'red'
-        : delivery.priority === 2 ? 'orange'
-        : 'blue';
+      const color = isPriorityMeta ? 'red' : 'blue';
 
-      const priorityLabel = (delivery.priority === 1 || isPriorityMeta) ? 'URGENT' : delivery.priority === 2 ? 'HIGH' : 'NORMAL';
+      const priorityLabel = isPriorityMeta ? 'URGENT' : 'NORMAL';
 
       const popupContent = `
         <div style="font-family:var(--font-sans);font-size:12px;min-width:250px;">
@@ -183,7 +180,7 @@ export default function DeliveryMap({
             }<br>
             <strong>ETA:</strong> ${(delivery as unknown as { etaMinutes?: number }).etaMinutes != null ? `${(delivery as unknown as { etaMinutes?: number }).etaMinutes} min` : 'Calculating...'}<br>
             <strong>Priority:</strong>
-            <span style="color:${color === 'red' ? 'red' : color === 'orange' ? 'orange' : 'blue'};font-weight:bold;">
+            <span style="color:${color === 'red' ? 'red' : 'blue'};font-weight:bold;">
               ${priorityLabel}
             </span>
           </div>

@@ -148,7 +148,10 @@ export default function HomePage() {
               </div>
               <div className="min-w-0 max-w-[280px]">
                 <div className="text-3xl font-bold text-primary-700 dark:text-primary-300">
-                  {deliveries.filter((d) => d.priority === 1).length}
+                  {deliveries.filter((d) => {
+                    const meta = (d as unknown as { metadata?: { isPriority?: boolean } }).metadata;
+                    return meta?.isPriority === true;
+                  }).length}
                 </div>
                 <div className="text-sm text-primary-800 dark:text-primary-200">High Priority</div>
               </div>

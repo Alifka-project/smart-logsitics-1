@@ -32,13 +32,11 @@ interface DeliveryTableProps {
 }
 
 // ─── Priority sort helper (driver portal) ─────────────────────────────────────
-// Returns 0 for P1/isPriority (urgent), 1 for P2 (high), 2 for normal.
-// Used to keep priority orders pinned to the top of every driver list view.
+// Priority is owned by Delivery Team / Admin via metadata.isPriority.
+// Returns 0 for manual-priority orders, 1 for everyone else.
 function driverPriorityScore(d: Delivery): number {
   const meta = (d as unknown as { metadata?: { isPriority?: boolean } }).metadata;
-  if (d.priority === 1 || meta?.isPriority === true) return 0;
-  if (d.priority === 2) return 1;
-  return 2;
+  return meta?.isPriority === true ? 0 : 1;
 }
 
 // ─── Export helpers ────────────────────────────────────────────────────────────

@@ -2315,6 +2315,12 @@ export default function DeliveryTeamPortal() {
             showMaterialColumn
             showQtyColumn
             simpleDriverDisplay
+            onTogglePriority={async (orderId, newIsPriority) => {
+              try {
+                await api.put(`/deliveries/admin/${orderId}/priority`, { isPriority: newIsPriority });
+                void loadData();
+              } catch { /* silent */ }
+            }}
             forceTab={deliveriesSubTab}
             onTabChange={(id) => setDeliveriesSubTab(id)}
             extraTabs={[{ id: 'live-maps', label: 'Live Maps', icon: MapPin, content: liveMapsContent }]}

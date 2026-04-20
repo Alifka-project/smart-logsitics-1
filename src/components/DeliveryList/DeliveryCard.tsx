@@ -160,11 +160,9 @@ export default function DeliveryCard({
     }
   };
 
-  const isP1 = delivery.priority === 1;
-  // Also treat logistics-set "isPriority" metadata flag as priority (syncs from logistics portal)
-  const isPriorityMeta = (delivery as unknown as { metadata?: { isPriority?: boolean } }).metadata?.isPriority === true;
-  const showPriority = isP1 || isPriorityMeta;  // unified priority indicator
-  const isHighPriority = !showPriority && delivery.priority === 2; // P2 High (not urgent)
+  // Priority is a business decision owned by Delivery Team / Admin, stored in metadata.isPriority.
+  // The numeric `priority` (1/2/3) is distance-based routing data and must NOT drive the Priority badge.
+  const showPriority = (delivery as unknown as { metadata?: { isPriority?: boolean } }).metadata?.isPriority === true;
   const canMarkOutForDelivery = ['pending', 'scheduled', 'uploaded', 'confirmed', 'scheduled-confirmed'].includes(
     (delivery.status || '').toLowerCase(),
   );
@@ -209,8 +207,6 @@ export default function DeliveryCard({
       className={`flex flex-col rounded-lg border transition-all ${
         showPriority
           ? 'bg-red-100 dark:bg-red-900/40 border-red-400 dark:border-red-600'
-          : isHighPriority
-          ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-300 dark:border-orange-700'
           : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800/90'
       } ${
         canDrag ? 'cursor-move' : 'cursor-pointer'
@@ -246,11 +242,6 @@ export default function DeliveryCard({
             {showPriority && (
               <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-red-600 text-white">
                 🚨 Priority
-              </span>
-            )}
-            {isHighPriority && (
-              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-200 dark:bg-orange-800/40 text-orange-800 dark:text-orange-200">
-                High
               </span>
             )}
           </div>

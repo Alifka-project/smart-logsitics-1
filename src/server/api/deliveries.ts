@@ -424,9 +424,10 @@ router.put('/driver/:id/status', authenticate, requireRole('driver'), async (req
   }
 });
 
-// PUT /api/admin/deliveries/:id/priority - Toggle manual priority (logistics + admin only)
+// PUT /api/admin/deliveries/:id/priority - Toggle manual priority (delivery team + admin only)
+// Priority is a business decision owned by the Delivery Team; Logistics cannot set it.
 // body: { isPriority: boolean }
-router.put('/admin/:id/priority', authenticate, requireAnyRole('admin', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
+router.put('/admin/:id/priority', authenticate, requireAnyRole('admin', 'delivery_team'), async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params as { id: string };
   const { isPriority } = req.body as { isPriority?: boolean };
 

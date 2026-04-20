@@ -650,14 +650,12 @@ export default function DriverPortal() {
       return;
     }
 
-    // Priority deliveries bubble to the front before distance-based ordering.
-    // Score: 0 = P1/isPriority (urgent), 1 = P2 (high), 2 = normal
+    // Priority is owned by Delivery Team / Admin via metadata.isPriority.
+    // Manual priority bubbles to the front; everything else keeps its distance-based order.
     const sortByPriority = (arr: Delivery[]) => {
       const score = (d: Delivery): number => {
         const m = (d as unknown as { metadata?: Record<string, unknown> }).metadata ?? {};
-        if (d.priority === 1 || m.isPriority === true) return 0;
-        if (d.priority === 2) return 1;
-        return 2;
+        return m.isPriority === true ? 0 : 1;
       };
       return [...arr].sort((a, b) => score(a) - score(b));
     };
@@ -1380,7 +1378,7 @@ export default function DriverPortal() {
                     <div className="text-sm font-semibold text-red-600 dark:text-red-400">
                       {storeDeliveries.filter(d => {
                         const meta = (d as unknown as { metadata?: { isPriority?: boolean } }).metadata;
-                        return d.priority === 1 || d.priority === 2 || meta?.isPriority === true;
+                        return meta?.isPriority === true;
                       }).length || 0}
                     </div>
                   </div>
@@ -1392,10 +1390,11 @@ export default function DriverPortal() {
               </div>
 
               {(() => {
-                // Count genuinely priority orders: P1 (urgent), P2 (high), or logistics-set isPriority flag
+                // Priority is owned by Delivery Team / Admin and stored in metadata.isPriority.
+                // Distance-based priority (1/2/3) is routing-only and must NOT surface as "Priority" in the UI.
                 const priorityCount = storeDeliveries.filter(d => {
                   const meta = (d as unknown as { metadata?: { isPriority?: boolean } }).metadata;
-                  return d.priority === 1 || d.priority === 2 || meta?.isPriority === true;
+                  return meta?.isPriority === true;
                 }).length;
                 const delayedCount = orderedDeliveries.filter(d => getEtaStatus(d) === 'delayed').length;
                 const routeStatusLabel = isRouteLoading
