@@ -88,10 +88,12 @@ export function excludeTeamPortalGarbageDeliveries<T extends Record<string, unkn
   return arr.filter((row) => !isTeamPortalGarbageDelivery(row as unknown as Delivery));
 }
 
-// "Completed" = successfully delivered OR cancelled — excludes returned/failed
+// "Completed" = successfully delivered only. Rejected/cancelled orders are
+// terminal too but represent a failed outcome and must not be grouped with
+// successful deliveries in the driver's sequence.
 const COMPLETED_STATUSES = new Set([
   'delivered', 'delivered-with-installation', 'delivered-without-installation',
-  'completed', 'pod-completed', 'finished', 'cancelled',
+  'completed', 'pod-completed', 'finished',
 ]);
 
 const ACTIVE_STATUSES = new Set([
