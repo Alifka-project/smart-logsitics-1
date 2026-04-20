@@ -185,14 +185,15 @@ async function sendD7WhatsAppTemplate(phoneRaw, templateName, languageCode, body
     if (rec.ok === false)
         return { ok: false, error: rec.error, provider: 'd7' };
     const originator = d7WhatsAppOriginatorDigits();
-    // D7 WhatsApp v2 template format (verified against live API responses):
+    // D7 WhatsApp v2 template format:
     //   - field name is `template_id` (not `name`)
     //   - `language` is a plain string enum value (e.g. "en")
-    //   - body variables use `body_parameter_values` dict {"0":val,"1":val,...}
-    //     NOT Meta-style `components` array — D7 does not parse components and
-    //     sees 0 params, causing 400 TEMPLATE_PARAMETER_COUNT_MISMATCH
+    //   - body variables use `body_parameter_values` dict with 1-indexed keys
+    //     matching the {{1}}..{{N}} placeholders in the template text.
+    //     0-indexed keys cause 400 TEMPLATE_PARAMETER_COUNT_MISMATCH because
+    //     D7 counts variables by matching {{N}} placeholders (1-based).
     const bodyParamValues = {};
-    bodyParameters.forEach((text, i) => { bodyParamValues[String(i)] = text; });
+    bodyParameters.forEach((text, i) => { bodyParamValues[String(i + 1)] = text; });
     const content = {
         message_type: 'TEMPLATE',
         template: {
@@ -211,7 +212,7 @@ async function sendD7WhatsAppTemplate(phoneRaw, templateName, languageCode, body
     ]);
 }
 /** Matches Electrolux SMS/portal copy (customerMessageTemplates). */
-const DEFAULT_ASSISTANCE_PHONE = '+971524408687';
+const DEFAULT_ASSISTANCE_PHONE = '+971581046674';
 /**
  * Build the params array for the confirmation template.
  *
@@ -279,7 +280,16 @@ async function sendWhatsAppDeliveryConfirmation(phone, parts) {
         }
         console.warn(`[D7 WhatsApp] Count mismatch with ${count} param(s), trying fewer...`);
     }
-    return { ok: false, error: 'Template rejected for all param counts (1–4). Check D7 dashboard for template variable count.', provider: 'd7' };
+    // All template param counts failed — fall back to plain TEXT so the customer
+    // still receives the confirmation link (session messages may be blocked for
+    // first contact, but this ensures delivery in active 24h windows / sandbox).
+    console.warn('[D7 WhatsApp] All template param counts failed — falling back to plain TEXT message');
+    const textResult = await sendD7WhatsApp(phone, parts.fullTextBody);
+    if (textResult.ok) {
+        console.log('[D7 WhatsApp] Plain TEXT fallback succeeded');
+        return textResult;
+    }
+    return { ok: false, error: `Template rejected for all param counts (1–4) and TEXT fallback also failed: ${textResult.error}. Check D7 dashboard for template variable count.`, provider: 'd7' };
 }
 // ── Green API ────────────────────────────────────────────────────────────────
 async function sendGreenApi(phone, message) {

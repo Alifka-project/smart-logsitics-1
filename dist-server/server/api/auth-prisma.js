@@ -24,8 +24,9 @@ router.post('/login', loginLimiter, async (req, res) => {
     if (lockoutStatus) {
         return void res.status(423).json({
             error: 'account_locked',
-            message: `Account locked due to too many failed attempts. Try again in ${lockoutStatus.remainingMinutes} minutes.`,
-            lockedUntil: new Date(lockoutStatus.lockedUntil).toISOString()
+            message: `Too many failed attempts. Please wait ${lockoutStatus.remainingSeconds} seconds before trying again.`,
+            lockedUntil: new Date(lockoutStatus.lockedUntil).toISOString(),
+            retryAfterSeconds: lockoutStatus.remainingSeconds,
         });
     }
     try {

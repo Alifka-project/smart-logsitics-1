@@ -12,7 +12,6 @@ async function call(endpoint, method = 'get', data = null, params = {}) {
         if (!sapBaseUrl) {
             return { data: { value: [] } };
         }
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const axios = require('axios');
         const url = `${sapBaseUrl}${endpoint}`;
         const auth = { username: process.env.SAP_USERNAME || '', password: process.env.SAP_PASSWORD || '' };
