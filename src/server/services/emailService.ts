@@ -130,9 +130,9 @@ class EmailService {
         <style>
           body { font-family: 'Electrolux Sans', 'DM Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; }
           .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background-color: #011E41; color: white; padding: 20px; text-align: center; }
+          .header { background-color: #032145; color: white; padding: 20px; text-align: center; }
           .content { padding: 20px; background-color: #f9f9f9; }
-          .button { display: inline-block; padding: 12px 24px; background-color: #011E41; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+          .button { display: inline-block; padding: 12px 24px; background-color: #032145; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
           .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
           .warning { background-color: #fff3cd; border: 1px solid #ffc107; padding: 10px; border-radius: 5px; margin: 15px 0; }
         </style>

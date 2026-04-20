@@ -820,7 +820,7 @@ export default function LogisticsTeamPortal() {
               <div className="flex flex-col lg:flex-row gap-4 items-stretch">
 
                 {/* ── Today's Summary — 30% ── */}
-                <div className="bg-[#002D5B] rounded-xl p-4 sm:p-5 text-white flex flex-col lg:w-[30%] lg:shrink-0">
+                <div className="bg-[#032145] rounded-xl p-4 sm:p-5 text-white flex flex-col lg:w-[30%] lg:shrink-0">
                   <div className="flex items-center justify-between mb-4 flex-shrink-0">
                     <h3 className="font-semibold text-sm tracking-wide">Today&apos;s Summary</h3>
                     <span className="text-white/40 text-xs">↗</span>
@@ -913,7 +913,7 @@ export default function LogisticsTeamPortal() {
                   {/* ── Row 3: Action buttons ── */}
                   <div
                     onClick={() => { setActiveTab('deliveries'); setDeliveriesSubTab('manage'); }}
-                    className="col-span-2 lg:col-span-2 rounded-xl p-4 flex items-center gap-3 cursor-pointer bg-[#002D5B] hover:bg-[#003d7a] transition-all group shadow-sm"
+                    className="col-span-2 lg:col-span-2 rounded-xl p-4 flex items-center gap-3 cursor-pointer bg-[#032145] hover:bg-[#06325f] transition-all group shadow-sm"
                     title="Open Delivery Orders & Dispatch"
                   >
                     <div className="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center flex-shrink-0">

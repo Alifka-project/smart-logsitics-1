@@ -105,7 +105,7 @@ export function DateRangePicker({ from, to, onChange }: DateRangePickerProps) {
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
-        className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#002D5B] ${
+        className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#032145] ${
           from || to
             ? 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
             : 'border-gray-200 dark:border-gray-500 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-400'
@@ -186,7 +186,7 @@ export function DateRangePicker({ from, to, onChange }: DateRangePickerProps) {
                       ? 'text-white z-10'
                       : inRange
                       ? 'text-blue-800 dark:text-blue-200'
-                      : 'text-gray-700 dark:text-gray-200 hover:text-[#002D5B] dark:hover:text-blue-300'}
+                      : 'text-gray-700 dark:text-gray-200 hover:text-[#032145] dark:hover:text-blue-300'}
                     ${inRange && !edge ? 'bg-blue-100 dark:bg-blue-900/40' : ''}
                     ${isStart(iso) && to ? 'rounded-l-full' : ''}
                     ${isEnd(iso) && from ? 'rounded-r-full' : ''}
@@ -194,7 +194,7 @@ export function DateRangePicker({ from, to, onChange }: DateRangePickerProps) {
                   `}
                 >
                   {(selected || (edge && from && effectiveEnd)) && (
-                    <span className="absolute inset-[2px] rounded-full bg-[#002D5B] dark:bg-blue-600 z-0" />
+                    <span className="absolute inset-[2px] rounded-full bg-[#032145] dark:bg-blue-600 z-0" />
                   )}
                   {!selected && !inRange && !edge && (
                     <span className="absolute inset-[2px] rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 z-0" />
@@ -230,7 +230,7 @@ export function DateRangePicker({ from, to, onChange }: DateRangePickerProps) {
                 className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
                   label === 'Clear'
                     ? 'text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-800'
-                    : 'text-[#002D5B] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
+                    : 'text-[#032145] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
                 }`}
               >
                 {label}

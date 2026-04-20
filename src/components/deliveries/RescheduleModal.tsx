@@ -111,7 +111,7 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({ order, onClose
                     flex-1 min-w-[90px] py-2 px-3 rounded-lg text-sm border transition-all
                     ${
                       selectedDate != null && toDubaiDateStr(selectedDate) === toDubaiDateStr(option.date)
-                        ? 'bg-[#002D5B] text-white border-[#002D5B]'
+                        ? 'bg-[#032145] text-white border-[#032145]'
                         : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
                     }
                   `}
@@ -132,7 +132,7 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({ order, onClose
                 const v = e.target.value;
                 if (v) setSelectedDate(new Date(v + 'T12:00:00+04:00'));
               }}
-              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#002D5B]"
+              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#032145]"
             />
           </div>
 
@@ -142,7 +142,7 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({ order, onClose
             <select
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#002D5B]"
+              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#032145]"
             >
               {RESCHEDULE_REASONS.map((r) => (
                 <option key={r} value={r}>{r}</option>
@@ -154,7 +154,7 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({ order, onClose
                 placeholder="Please specify the reason…"
                 value={customReason}
                 onChange={(e) => setCustomReason(e.target.value)}
-                className="mt-2 w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#002D5B]"
+                className="mt-2 w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#032145]"
               />
             )}
           </div>
@@ -196,7 +196,7 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({ order, onClose
             type="button"
             onClick={handleConfirm}
             disabled={!canConfirm}
-            className="flex-1 py-2 px-4 bg-[#002D5B] text-white rounded-lg hover:bg-[#001f3f] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 py-2 px-4 bg-[#032145] text-white rounded-lg hover:bg-[#021432] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Confirm Reschedule
           </button>

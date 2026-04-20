@@ -116,13 +116,13 @@ export const STATUS_CONFIG: Record<DeliveryStatus, StatusVisualConfig> = {
   out_for_delivery: {
     label: 'On Route',
     pillLabel: 'On Route',
-    bgColor: 'bg-[#002D5B]/8',
-    textColor: 'text-[#002D5B]',
-    borderColor: 'border-[#002D5B]/20 dark:border-blue-400/25',
-    iconBg: 'bg-[#002D5B]/15',
+    bgColor: 'bg-[#032145]/8',
+    textColor: 'text-[#032145]',
+    borderColor: 'border-[#032145]/20 dark:border-blue-400/25',
+    iconBg: 'bg-[#032145]/15',
     icon: '🚚',
     badgeStyle:
-      'bg-[#002D5B]/10 text-[#002D5B] dark:bg-blue-400/15 dark:text-blue-100',
+      'bg-[#032145]/10 text-[#032145] dark:bg-blue-400/15 dark:text-blue-100',
     highlight: true,
     highlightRing: 'outline outline-1 outline-blue-400 bg-blue-50/60 dark:bg-blue-900/20',
   },
@@ -167,8 +167,8 @@ export const STATUS_CONFIG: Record<DeliveryStatus, StatusVisualConfig> = {
 };
 
 export const BRAND_COLORS = {
-  primary: '#002D5B',
-  primaryHover: '#001f3f',
+  primary: '#032145',
+  primaryHover: '#021432',
   secondary: '#f9fafb',
   accent: '#f59e0b',
 } as const;

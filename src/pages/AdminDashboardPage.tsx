@@ -2138,7 +2138,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                   onClick={() => applyTrendPreset(k)}
                   className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
                     trendsActivePreset === k
-                      ? 'bg-[#002D5B] border-[#002D5B] text-white shadow-sm'
+                      ? 'bg-[#032145] border-[#032145] text-white shadow-sm'
                       : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
                   }`}
                 >

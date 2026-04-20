@@ -74,7 +74,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
             return (
               <NavLink key={path} to={path} onClick={() => { if (mobileOpen && onMobileClose) onMobileClose(); }}
                 className="group relative flex items-center gap-3 rounded-xl transition-all duration-200 cursor-pointer"
-                style={{ padding: collapsed ? '10px 12px' : '10px 14px', background: active ? 'var(--accent-glow)' : 'transparent', color: active ? 'var(--accent)' : 'var(--text-muted)', border: active ? '1px solid rgba(1,30,65,0.25)' : '1px solid transparent' }}
+                style={{ padding: collapsed ? '10px 12px' : '10px 14px', background: active ? 'var(--accent-glow)' : 'transparent', color: active ? 'var(--accent)' : 'var(--text-muted)', border: active ? '1px solid rgba(3,33,69,0.25)' : '1px solid transparent' }}
                 onMouseEnter={e => { if (!active) { e.currentTarget.style.background='var(--bg-hover)'; e.currentTarget.style.color='var(--text-primary)'; } }}
                 onMouseLeave={e => { if (!active) { e.currentTarget.style.background='transparent'; e.currentTarget.style.color='var(--text-muted)'; } }}
               >

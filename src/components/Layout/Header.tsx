@@ -120,7 +120,7 @@ const AISearchBar = memo(function AISearchBar({
           )}
           {!searchLoading && searchResults && (
             <>
-              <div style={{ padding:'14px 16px', background: theme==='dark' ? 'linear-gradient(135deg, rgba(78,136,185,0.12) 0%, transparent 100%)' : 'linear-gradient(135deg, rgba(1,30,65,0.05) 0%, transparent 100%)', borderBottom:'1px solid var(--border)' }}>
+              <div style={{ padding:'14px 16px', background: theme==='dark' ? 'linear-gradient(135deg, rgba(87,150,201,0.14) 0%, transparent 100%)' : 'linear-gradient(135deg, rgba(3,33,69,0.05) 0%, transparent 100%)', borderBottom:'1px solid var(--border)' }}>
                 <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'7px' }}>
                   <div style={{ width:'24px', height:'24px', borderRadius:'7px', background:'var(--primary)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}><Sparkles size={13} color="white" /></div>
                   <span style={{ fontSize:'11px', fontWeight:700, color:'var(--primary)', textTransform:'uppercase', letterSpacing:'0.06em' }}>AI Insight</span>
@@ -640,7 +640,7 @@ export default function Header({ isAdmin = false }: HeaderProps) {
           {notifications.length===0 ? (
             <div style={{ padding:'40px', textAlign:'center', color:'var(--muted)' }}><Bell size={32} style={{ margin:'0 auto 8px', opacity:0.3 }} /><p style={{ fontSize:'13px' }}>No notifications</p></div>
           ) : notifications.map(n => (
-            <div key={n.id} onClick={() => handleNotifClick(n)} style={{ padding:'12px 16px', borderBottom:'1px solid var(--border)', cursor:'pointer', background:!n.read?'rgba(1,30,65,0.05)':'transparent', transition:'background 0.15s' }} onMouseEnter={e=>(e.currentTarget.style.background='var(--surface2)')} onMouseLeave={e=>(e.currentTarget.style.background=!n.read?'rgba(1,30,65,0.05)':'transparent')}>
+            <div key={n.id} onClick={() => handleNotifClick(n)} style={{ padding:'12px 16px', borderBottom:'1px solid var(--border)', cursor:'pointer', background:!n.read?'rgba(3,33,69,0.05)':'transparent', transition:'background 0.15s' }} onMouseEnter={e=>(e.currentTarget.style.background='var(--surface2)')} onMouseLeave={e=>(e.currentTarget.style.background=!n.read?'rgba(3,33,69,0.05)':'transparent')}>
               <div style={{ display:'flex', gap:'10px', alignItems:'flex-start' }}>
                 <div style={{ width:'7px', height:'7px', borderRadius:'50%', background:n.read?'transparent':'var(--primary)', flexShrink:0, marginTop:'5px' }} />
                 <div style={{ flex:1, minWidth:0 }}>

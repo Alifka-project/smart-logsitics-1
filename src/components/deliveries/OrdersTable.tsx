@@ -305,7 +305,7 @@ function ActionDropdown({
       <button
         type="button"
         onClick={() => onEditOrder(order.id)}
-        className="w-full flex items-center justify-center px-2.5 py-1.5 text-[11px] font-semibold rounded border border-[#002D5B]/30 bg-[#002D5B]/5 text-[#002D5B] hover:bg-[#002D5B] hover:text-white dark:border-blue-500/40 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-700 dark:hover:text-white transition-colors whitespace-nowrap"
+        className="w-full flex items-center justify-center px-2.5 py-1.5 text-[11px] font-semibold rounded border border-[#032145]/30 bg-[#032145]/5 text-[#032145] hover:bg-[#032145] hover:text-white dark:border-blue-500/40 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-700 dark:hover:text-white transition-colors whitespace-nowrap"
         title="Update status"
       >
         Update Status
@@ -522,7 +522,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
     if (order.status === 'out_for_delivery') {
       const ofdDate = order.confirmedDeliveryDate ?? order.scheduledDate ?? order.deliveryDate;
       return ofdDate ? (
-        <span className="font-medium text-[#002D5B] dark:text-blue-200">{fmtDate(ofdDate)}</span>
+        <span className="font-medium text-[#032145] dark:text-blue-200">{fmtDate(ofdDate)}</span>
       ) : <span className="text-gray-400 dark:text-gray-500">—</span>;
     }
     // For uploaded/sms_sent/unconfirmed — show date if available, else dash
@@ -571,7 +571,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
               <button
                 type="button"
                 onClick={onRefresh}
-                className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-400 hover:text-[#002D5B] dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+                className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-400 hover:text-[#032145] dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
                 title="Refresh"
                 aria-label="Refresh orders"
               >
@@ -603,7 +603,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
               placeholder="Search name, PO, phone, area…"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full pl-8 pr-7 py-[7px] bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-500 rounded-lg text-xs text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#002D5B] focus:border-transparent"
+              className="w-full pl-8 pr-7 py-[7px] bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-500 rounded-lg text-xs text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#032145] focus:border-transparent"
             />
             {searchQuery && (
               <button
@@ -623,7 +623,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
             <select
               value={tableTab}
               onChange={(e) => { onTableTabChange(e.target.value as OrdersTableTab); setStatusFilter('all'); }}
-              className="appearance-none pl-6 pr-6 py-[7px] bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-500 rounded-lg text-xs text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#002D5B] cursor-pointer"
+              className="appearance-none pl-6 pr-6 py-[7px] bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-500 rounded-lg text-xs text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#032145] cursor-pointer"
               style={{ maxWidth: 148 }}
             >
               {filterTabs.map((tab) => (
@@ -641,7 +641,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
               value={statusFilter}
               onChange={e => { setStatusFilter(e.target.value); setCurrentPage(1); }}
               style={{ maxWidth: 134 }}
-              className={`appearance-none pl-2.5 pr-6 py-[7px] rounded-lg border text-xs focus:outline-none focus:ring-2 focus:ring-[#002D5B] cursor-pointer transition-colors ${
+              className={`appearance-none pl-2.5 pr-6 py-[7px] rounded-lg border text-xs focus:outline-none focus:ring-2 focus:ring-[#032145] cursor-pointer transition-colors ${
                 statusFilter !== 'all'
                   ? 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-semibold'
                   : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-500 text-gray-700 dark:text-gray-200'
@@ -675,7 +675,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                 value={driverFilter}
                 onChange={e => { setDriverFilter(e.target.value); setCurrentPage(1); }}
                 style={{ maxWidth: 120 }}
-                className="appearance-none pl-2.5 pr-6 py-[7px] bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-500 rounded-lg text-xs text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#002D5B] cursor-pointer"
+                className="appearance-none pl-2.5 pr-6 py-[7px] bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-500 rounded-lg text-xs text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#032145] cursor-pointer"
               >
                 <option value="all">All Drivers</option>
                 {drivers.map(dr => (
@@ -692,7 +692,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
               value={sortBy}
               onChange={(e) => onSortChange(e.target.value)}
               style={{ maxWidth: 108 }}
-              className="appearance-none pl-2.5 pr-6 py-[7px] bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-500 rounded-lg text-xs text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#002D5B] cursor-pointer"
+              className="appearance-none pl-2.5 pr-6 py-[7px] bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-500 rounded-lg text-xs text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#032145] cursor-pointer"
             >
               <option value="newest">↓ Newest</option>
               <option value="oldest">↑ Oldest</option>
@@ -1007,7 +1007,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                                 setAssigningDriverId(null);
                               }
                             }}
-                            className="w-full max-w-full px-2 py-1 border border-gray-200 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-[11px] text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#002D5B] disabled:opacity-50 cursor-pointer"
+                            className="w-full max-w-full px-2 py-1 border border-gray-200 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-[11px] text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#032145] disabled:opacity-50 cursor-pointer"
                           >
                             <option value="">{order.driverId ? '— Reassign —' : '— Assign driver —'}</option>
                             {drivers.map((driver) => {

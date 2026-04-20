@@ -65,14 +65,14 @@ const STYLES = `
   .btn-call {
     display: flex; align-items: center; justify-content: center;
     width: 44px; height: 44px; border-radius: 50%;
-    background: linear-gradient(135deg, #003057 0%, #0056a3 100%);
+    background: linear-gradient(135deg, #032145 0%, #115a96 100%);
     color: #fff; border: none; cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
     animation: ripple 2s infinite;
     text-decoration: none;
     flex-shrink: 0;
   }
-  .btn-call:hover { transform: scale(1.08); box-shadow: 0 4px 16px rgba(0,48,87,0.4); }
+  .btn-call:hover { transform: scale(1.08); box-shadow: 0 4px 16px rgba(3,33,69,0.4); }
   .btn-call:active { transform: scale(0.97); }
 
   .btn-refresh {
@@ -82,7 +82,7 @@ const STYLES = `
     font-size: 12px; font-weight: 600; color: #475569;
     cursor: pointer; transition: all 0.2s ease;
   }
-  .btn-refresh:hover { border-color: #003057; color: #003057; background: #f0f7ff; }
+  .btn-refresh:hover { border-color: #032145; color: #032145; background: #f3f6fa; }
   .btn-refresh:active { transform: scale(0.97); }
   .btn-refresh.spinning svg { animation: spin 1s linear infinite; }
   @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -98,15 +98,15 @@ const STYLES = `
     box-sizing: border-box; min-width: 0;
     transition: background 0.15s ease, border-color 0.15s ease;
   }
-  .btn-driver-action:hover { background: #f0f7ff; border-color: #00305733; }
+  .btn-driver-action:hover { background: #f3f6fa; border-color: #03214533; }
   .btn-driver-action--primary {
-    background: linear-gradient(135deg, #003057 0%, #0056a3 100%);
+    background: linear-gradient(135deg, #032145 0%, #115a96 100%);
     color: #fff; border-color: transparent;
   }
   .btn-driver-action--primary:hover { filter: brightness(1.05); }
 
   .step-line-fill {
-    width: 2px; background: #003057;
+    width: 2px; background: #032145;
     animation: progressLine 0.7s ease both;
     animation-delay: 0.3s;
   }
@@ -115,7 +115,7 @@ const STYLES = `
     background: #e2e8f0; position: relative;
     cursor: pointer; transition: background 0.3s ease;
   }
-  .toggle-track.on { background: linear-gradient(135deg, #003057, #0056a3); }
+  .toggle-track.on { background: linear-gradient(135deg, #032145, #115a96); }
   .toggle-thumb {
     position: absolute; top: 3px; left: 3px;
     width: 18px; height: 18px; border-radius: 50%;
@@ -130,9 +130,9 @@ const STYLES = `
     font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
   }
   @keyframes beat {
-    0%   { transform: scale(1);   box-shadow: 0 0 0 0 rgba(0,48,87,0.25); }
-    40%  { transform: scale(1.08); box-shadow: 0 0 0 8px rgba(0,48,87,0); }
-    100% { transform: scale(1);   box-shadow: 0 0 0 0 rgba(0,48,87,0); }
+    0%   { transform: scale(1);   box-shadow: 0 0 0 0 rgba(3,33,69,0.25); }
+    40%  { transform: scale(1.08); box-shadow: 0 0 0 8px rgba(3,33,69,0); }
+    100% { transform: scale(1);   box-shadow: 0 0 0 0 rgba(3,33,69,0); }
   }
   .step-icon-current {
     animation: beat 1.4s ease-out infinite;
@@ -305,7 +305,7 @@ function Skeleton() {
   return (
     <div className="min-h-screen bg-gray-50">
       <style>{STYLES}</style>
-      <div style={{ background: 'linear-gradient(135deg, #003057 0%, #005082 100%)', padding: '20px 16px 24px' }}>
+      <div style={{ background: 'linear-gradient(135deg, #032145 0%, #115a96 100%)', padding: '20px 16px 24px' }}>
         <div style={{ maxWidth: 'min(680px, 100%)', margin: '0 auto' }}>
           <div className="shimmer-line" style={{ height: 28, width: 120, marginBottom: 12 }} />
           <div className="shimmer-line" style={{ height: 20, width: 180 }} />
@@ -414,7 +414,7 @@ export default function CustomerTrackingPage() {
         </div>
         <h2 style={{ fontWeight: 700, fontSize: 18, color: '#1e293b', marginBottom: 8 }}>Tracking Unavailable</h2>
         <p style={{ color: '#64748b', fontSize: 14, marginBottom: 24 }}>{error}</p>
-        <button onClick={() => window.location.reload()} style={{ padding: '10px 28px', borderRadius: 50, border: 'none', background: 'linear-gradient(135deg,#003057,#005082)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+        <button onClick={() => window.location.reload()} style={{ padding: '10px 28px', borderRadius: 50, border: 'none', background: 'linear-gradient(135deg,#032145,#115a96)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
           Try Again
         </button>
       </div>
@@ -459,7 +459,7 @@ export default function CustomerTrackingPage() {
       <style>{STYLES}</style>
 
       {/* ── Header ──────────────────────────────────────────────────── */}
-      <div style={{ background: 'linear-gradient(135deg, #003057 0%, #005082 100%)', padding: '14px 16px 24px' }}>
+      <div style={{ background: 'linear-gradient(135deg, #032145 0%, #115a96 100%)', padding: '14px 16px 24px' }}>
         <div style={{ maxWidth: 'min(680px, 100%)', margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <button
@@ -572,7 +572,7 @@ export default function CustomerTrackingPage() {
                 <div key={step.id} style={{ display: 'flex', gap: 14, position: 'relative' }}>
                   {/* Connector */}
                   {!isLast && (
-                    <div style={{ position: 'absolute', left: 19, top: 44, width: 2, background: isDone ? '#003057' : '#e2e8f0', bottom: 0, zIndex: 0 }}
+                    <div style={{ position: 'absolute', left: 19, top: 44, width: 2, background: isDone ? '#032145' : '#e2e8f0', bottom: 0, zIndex: 0 }}
                       className={isDone ? 'step-line-fill' : ''} />
                   )}
 
@@ -580,14 +580,14 @@ export default function CustomerTrackingPage() {
                   <div style={{
                     width: 40, height: 40, borderRadius: '50%', flexShrink: 0, zIndex: 1,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: isDone ? '#003057' : isActive ? '#fff' : '#f8fafc',
-                    border: isDone ? '2px solid #003057' : isActive ? '2.5px solid #003057' : '2px solid #e2e8f0',
-                    boxShadow: isActive ? '0 0 0 5px rgba(0,48,87,0.12)' : 'none',
+                    background: isDone ? '#032145' : isActive ? '#fff' : '#f8fafc',
+                    border: isDone ? '2px solid #032145' : isActive ? '2.5px solid #032145' : '2px solid #e2e8f0',
+                    boxShadow: isActive ? '0 0 0 5px rgba(3,33,69,0.12)' : 'none',
                     transition: 'all 0.3s ease',
                   }} className={isActive ? 'step-icon-current' : ''}>
                     {isDone
                       ? <CheckCircle style={{ width: 18, height: 18, color: '#fff' }} />
-                      : <Icon style={{ width: 17, height: 17, color: isActive ? '#003057' : '#cbd5e1' }} />
+                      : <Icon style={{ width: 17, height: 17, color: isActive ? '#032145' : '#cbd5e1' }} />
                     }
                   </div>
 
@@ -598,7 +598,7 @@ export default function CustomerTrackingPage() {
                         {step.label}
                       </span>
                       {isActive && (
-                        <span style={{ padding: '2px 10px', borderRadius: 50, fontSize: 11, fontWeight: 700, background: '#003057', color: '#fff' }}>
+                        <span style={{ padding: '2px 10px', borderRadius: 50, fontSize: 11, fontWeight: 700, background: '#032145', color: '#fff' }}>
                           Current
                         </span>
                       )}
@@ -649,8 +649,8 @@ export default function CustomerTrackingPage() {
           {delivery.confirmedDeliveryDate && (
             <div className="card anim-card anim-card-3" style={{ padding: '10px 12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 28, height: 28, borderRadius: 8, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Clock style={{ width: 14, height: 14, color: '#003057' }} />
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: '#f3f6fa', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Clock style={{ width: 14, height: 14, color: '#032145' }} />
                 </div>
                 <div style={{ minWidth: 0 }}>
                   <p style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Delivery date</p>
@@ -665,7 +665,7 @@ export default function CustomerTrackingPage() {
           {trackingInfo.driver ? (
             <div className="card anim-card anim-card-3" style={{ padding: '10px 12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg,#003057,#0056a3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>
+                <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg,#032145,#115a96)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>
                   {(trackingInfo.driver.name || 'D').charAt(0).toUpperCase()}
                 </div>
                 <div style={{ minWidth: 0, flex: 1 }}>
@@ -748,7 +748,7 @@ export default function CustomerTrackingPage() {
                   </Marker>
                 )}
                 {mapLinePositions.length >= 2 && (
-                  <Polyline positions={mapLinePositions} color="#003057" weight={4} opacity={0.78} />
+                  <Polyline positions={mapLinePositions} color="#032145" weight={4} opacity={0.78} />
                 )}
               </MapContainer>
             </div>
@@ -761,8 +761,8 @@ export default function CustomerTrackingPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {(delivery.poNumber || customerDeliveryNo) && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 34, height: 34, borderRadius: 10, background: '#F0F7FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Package style={{ width: 15, height: 15, color: '#003057' }} />
+                <div style={{ width: 34, height: 34, borderRadius: 10, background: '#f3f6fa', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Package style={{ width: 15, height: 15, color: '#032145' }} />
                 </div>
                 <div>
                   {delivery.poNumber && (
@@ -781,8 +781,8 @@ export default function CustomerTrackingPage() {
               </div>
             )}
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-              <div style={{ width: 34, height: 34, borderRadius: 10, background: '#F0F7FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <MapPin style={{ width: 15, height: 15, color: '#003057' }} />
+              <div style={{ width: 34, height: 34, borderRadius: 10, background: '#f3f6fa', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <MapPin style={{ width: 15, height: 15, color: '#032145' }} />
               </div>
               <div>
                 <p style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Delivery Address</p>
@@ -797,7 +797,7 @@ export default function CustomerTrackingPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {items.map((item, idx) => (
                   <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: '#F8FAFC', borderRadius: 10 }}>
-                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#003057', flexShrink: 0 }} />
+                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#032145', flexShrink: 0 }} />
                     <span style={{ fontSize: 13, color: '#374151', fontWeight: 500 }}>
                       {typeof item === 'string' ? item : ((item as Record<string, unknown>).name as string) || ((item as Record<string, unknown>).description as string) || ((item as Record<string, unknown>).sku as string) || 'Item'}
                     </span>
@@ -815,7 +815,7 @@ export default function CustomerTrackingPage() {
         <div style={{ textAlign: 'center', padding: '8px 0 16px' }}>
           <p style={{ fontSize: 13, color: '#64748b' }}>
             Need help?{' '}
-            <a href="tel:+971524408687" style={{ color: '#003057', fontWeight: 700, textDecoration: 'none' }}>+971 52 440 8687</a>
+            <a href="tel:+971524408687" style={{ color: '#032145', fontWeight: 700, textDecoration: 'none' }}>+971 52 440 8687</a>
             {' '}· Electrolux Delivery Team
           </p>
           <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>electrolux-smart-portal.vercel.app</p>

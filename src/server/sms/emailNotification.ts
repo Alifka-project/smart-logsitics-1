@@ -77,7 +77,7 @@ async function sendConfirmationEmail({
         <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
           <!-- Header -->
           <tr>
-            <td style="background:#1d4ed8;padding:32px 40px;text-align:center;">
+            <td style="background:#032145;padding:32px 40px;text-align:center;">
               <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">Electrolux Delivery Confirmation</h1>
             </td>
           </tr>
@@ -95,15 +95,15 @@ async function sendConfirmationEmail({
                 <tr>
                   <td align="center">
                     <a href="${confirmationLink}"
-                       style="display:inline-block;background:#1d4ed8;color:#ffffff;font-size:16px;font-weight:600;padding:16px 40px;border-radius:8px;text-decoration:none;">
+                       style="display:inline-block;background:#032145;color:#ffffff;font-size:16px;font-weight:600;padding:16px 40px;border-radius:8px;text-decoration:none;">
                       Confirm My Delivery Date →
                     </a>
                   </td>
                 </tr>
               </table>
               <p style="color:#888;font-size:13px;margin:0 0 8px;">Or copy this link into your browser:</p>
-              <p style="color:#1d4ed8;font-size:13px;word-break:break-all;margin:0 0 24px;">
-                <a href="${confirmationLink}" style="color:#1d4ed8;">${confirmationLink}</a>
+              <p style="color:#032145;font-size:13px;word-break:break-all;margin:0 0 24px;">
+                <a href="${confirmationLink}" style="color:#032145;">${confirmationLink}</a>
               </p>
               <p style="color:#aaa;font-size:12px;margin:0;border-top:1px solid #eee;padding-top:16px;">
                 This link expires in <strong>48 hours</strong>. If you have questions, contact your Electrolux representative.

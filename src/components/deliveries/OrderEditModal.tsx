@@ -275,7 +275,7 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+971 50 000 0000"
-                className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#002D5B] dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+                className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#032145] dark:border-gray-600 dark:bg-gray-900 dark:text-white"
               />
               {onResendSMS && (
                 <button
@@ -303,7 +303,7 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               placeholder="Full delivery address…"
-              className="w-full resize-y rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#002D5B] dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+              className="w-full resize-y rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#032145] dark:border-gray-600 dark:bg-gray-900 dark:text-white"
             />
           </div>
 
@@ -315,7 +315,7 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
               id="edit-status"
               value={apiStatus}
               onChange={(e) => setApiStatus(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#002D5B] dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#032145] dark:border-gray-600 dark:bg-gray-900 dark:text-white"
             >
               {!API_STATUS_OPTIONS.some((o) => o.value === apiStatus) && (
                 <option value={apiStatus}>{apiStatus} (current)</option>
@@ -337,7 +337,7 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
               type="date"
               value={dateStr}
               onChange={(e) => setDateStr(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#002D5B] dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#032145] dark:border-gray-600 dark:bg-gray-900 dark:text-white"
             />
             <p className="mt-1 text-[11px] text-gray-400">Saved to order metadata for scheduling views.</p>
           </div>
@@ -351,7 +351,7 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
               type="date"
               value={gmdStr}
               onChange={(e) => setGmdStr(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#002D5B] dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#032145] dark:border-gray-600 dark:bg-gray-900 dark:text-white"
             />
             <p className="mt-1 text-[11px] text-amber-600">Required before dispatching (out-for-delivery / in-transit)</p>
           </div>
@@ -422,7 +422,7 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Reschedule reason, cancellation note, special instructions…"
-              className="w-full resize-y rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#002D5B] dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+              className="w-full resize-y rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#032145] dark:border-gray-600 dark:bg-gray-900 dark:text-white"
             />
           </div>
         </div>
@@ -439,7 +439,7 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
             type="button"
             disabled={!canSave}
             onClick={() => void handleSave()}
-            className="flex-1 rounded-lg bg-[#002D5B] py-2 text-sm font-medium text-white hover:bg-[#001f3f] disabled:opacity-50"
+            className="flex-1 rounded-lg bg-[#032145] py-2 text-sm font-medium text-white hover:bg-[#021432] disabled:opacity-50"
           >
             {saving ? 'Saving…' : 'Save changes'}
           </button>

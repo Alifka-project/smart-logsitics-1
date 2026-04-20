@@ -341,20 +341,20 @@ function generateHTMLReportWithImages(
     <title>POD Report with Images - ${timestamp}</title>
     <style>
         body { font-family: 'Electrolux Sans', 'DM Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; margin: 20px; background: #f5f5f5; }
-        .header { background: #003d82; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .header { background: #032145; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
         .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
         .stat-card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .stat-value { font-size: 28px; font-weight: bold; color: #003d82; }
+        .stat-value { font-size: 28px; font-weight: bold; color: #032145; }
         .stat-label { font-size: 14px; color: #666; margin-top: 5px; }
         .delivery { background: white; margin-bottom: 20px; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); page-break-inside: avoid; }
-        .delivery-header { border-bottom: 2px solid #003d82; padding-bottom: 10px; margin-bottom: 15px; }
-        .delivery-id { font-size: 18px; font-weight: bold; color: #003d82; }
+        .delivery-header { border-bottom: 2px solid #032145; padding-bottom: 10px; margin-bottom: 15px; }
+        .delivery-id { font-size: 18px; font-weight: bold; color: #032145; }
         .delivery-info { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 15px; }
         .info-item { padding: 8px 0; }
         .info-label { font-weight: bold; color: #666; font-size: 12px; }
         .info-value { color: #333; font-size: 14px; margin-top: 3px; }
         .pod-section { margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0; }
-        .pod-title { font-size: 16px; font-weight: bold; margin-bottom: 15px; color: #003d82; }
+        .pod-title { font-size: 16px; font-weight: bold; margin-bottom: 15px; color: #032145; }
         .signatures { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 20px; }
         .signature-box { text-align: center; }
         .signature-label { font-weight: bold; margin-bottom: 10px; color: #666; }
@@ -399,7 +399,7 @@ function generateHTMLReportWithImages(
         </div>
     </div>
 
-    <h2 style="color: #003d82; margin: 30px 0 20px 0;">Delivery Details</h2>
+    <h2 style="color: #032145; margin: 30px 0 20px 0;">Delivery Details</h2>
 
     ${deliveries.map(d => `
         <div class="delivery">

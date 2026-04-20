@@ -49,24 +49,24 @@ const STYLES = `
     cursor: pointer; transition: all 0.2s ease;
     gap: 10px;
   }
-  .date-pill:hover { border-color: #0056a3; background: #F0F7FF; }
+  .date-pill:hover { border-color: #115a96; background: #f3f6fa; }
   .date-pill.selected {
-    border-color: #003057;
-    background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%);
+    border-color: #032145;
+    background: linear-gradient(135deg, #f3f6fa 0%, #e1eaf3 100%);
   }
 
   .btn-confirm {
     width: 100%; padding: 15px 24px; border-radius: 14px; border: none;
     font-size: 15px; font-weight: 700; color: #fff; cursor: pointer;
-    background: linear-gradient(135deg, #003057 0%, #0056a3 100%);
+    background: linear-gradient(135deg, #032145 0%, #115a96 100%);
     display: flex; align-items: center; justify-content: center; gap: 8px;
     transition: all 0.25s ease;
-    box-shadow: 0 4px 16px rgba(0,48,87,0.3);
+    box-shadow: 0 4px 16px rgba(3,33,69,0.3);
   }
   .btn-confirm:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(0,48,87,0.4);
-    background: linear-gradient(135deg, #00213d 0%, #003a6e 100%);
+    box-shadow: 0 8px 24px rgba(3,33,69,0.4);
+    background: linear-gradient(135deg, #021432 0%, #06325f 100%);
     animation: ripplePulse 1.2s ease;
   }
   .btn-confirm:active:not(:disabled) { transform: translateY(0); }
@@ -74,11 +74,11 @@ const STYLES = `
 
   .btn-track {
     display: inline-flex; align-items: center; gap: 6px;
-    padding: 10px 20px; border-radius: 50px; border: 2px solid #003057;
-    color: #003057; background: #fff; font-weight: 700; font-size: 13px;
+    padding: 10px 20px; border-radius: 50px; border: 2px solid #032145;
+    color: #032145; background: #fff; font-weight: 700; font-size: 13px;
     cursor: pointer; transition: all 0.2s ease; text-decoration: none;
   }
-  .btn-track:hover { background: #003057; color: #fff; }
+  .btn-track:hover { background: #032145; color: #fff; }
 
   .shimmer-line {
     background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
@@ -210,7 +210,7 @@ export default function CustomerConfirmationPage() {
   if (loading) return (
     <div style={{ minHeight: '100vh', background: '#F8FAFC' }}>
       <style>{STYLES}</style>
-      <div style={{ background: 'linear-gradient(135deg,#003057,#005082)', padding: '24px 16px 40px' }}>
+      <div style={{ background: 'linear-gradient(135deg,#032145,#115a96)', padding: '24px 16px 40px' }}>
         <div style={{ maxWidth: 'min(680px, 100%)', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <div className="shimmer-line" style={{ width: 120, height: 30, marginBottom: 12, opacity: 0.4 }} />
           <div className="shimmer-line" style={{ width: 200, height: 22, opacity: 0.3 }} />
@@ -240,7 +240,7 @@ export default function CustomerConfirmationPage() {
         <p style={{ fontSize: 14, color: '#64748b', marginBottom: 20 }}>{error}</p>
         <p style={{ fontSize: 13, color: '#64748b' }}>
           Call us:{' '}
-          <a href="tel:+971581046674" style={{ color: '#003057', fontWeight: 700 }}>+971 58 104 6674</a>
+          <a href="tel:+971581046674" style={{ color: '#032145', fontWeight: 700 }}>+971 58 104 6674</a>
         </p>
       </div>
     </div>
@@ -275,7 +275,7 @@ export default function CustomerConfirmationPage() {
       <style>{STYLES}</style>
 
       {/* ── Header ──────────────────────────────────────────────── */}
-      <div style={{ background: 'linear-gradient(135deg, #003057 0%, #005082 100%)', padding: '24px 16px 40px' }}>
+      <div style={{ background: 'linear-gradient(135deg, #032145 0%, #115a96 100%)', padding: '24px 16px 40px' }}>
         <div style={{ maxWidth: 'min(680px, 100%)', margin: '0 auto', textAlign: 'center' }}>
           <img src="/elect home.png" alt="Electrolux" style={{ height: 34, filter: 'brightness(0) invert(1)', marginBottom: 14 }} />
           <h1 style={{ color: '#fff', fontSize: 24, fontWeight: 800, marginBottom: 6 }}>Delivery Confirmation</h1>
@@ -305,8 +305,8 @@ export default function CustomerConfirmationPage() {
               <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {(delivery.poNumber || showDeliveryNo) && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 10, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <Package style={{ width: 16, height: 16, color: '#003057' }} />
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: '#f3f6fa', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Package style={{ width: 16, height: 16, color: '#032145' }} />
                     </div>
                     <div>
                       <p style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
@@ -328,8 +328,8 @@ export default function CustomerConfirmationPage() {
                   </div>
                 )}
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 10, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 }}>
-                    <MapPin style={{ width: 16, height: 16, color: '#003057' }} />
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: '#f3f6fa', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 }}>
+                    <MapPin style={{ width: 16, height: 16, color: '#032145' }} />
                   </div>
                   <div>
                     <p style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Delivery Address</p>
@@ -338,8 +338,8 @@ export default function CustomerConfirmationPage() {
                 </div>
                 {delivery.phone && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 10, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <Phone style={{ width: 16, height: 16, color: '#003057' }} />
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: '#f3f6fa', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Phone style={{ width: 16, height: 16, color: '#032145' }} />
                     </div>
                     <div>
                       <p style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Phone</p>
@@ -363,7 +363,7 @@ export default function CustomerConfirmationPage() {
                 <div style={{ padding: '8px 18px 12px' }}>
                   {items.map((item, idx) => (
                     <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: idx < items.length - 1 ? '1px solid #f8fafc' : 'none' }}>
-                      <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#003057', flexShrink: 0 }} />
+                      <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#032145', flexShrink: 0 }} />
                       <span style={{ fontSize: 13, color: '#374151', fontWeight: 500 }}>
                         {typeof item === 'string' ? item : ((item as Record<string, unknown>).name as string) || ((item as Record<string, unknown>).description as string) || ((item as Record<string, unknown>).sku as string) || 'Item'}
                       </span>
@@ -412,7 +412,7 @@ export default function CustomerConfirmationPage() {
                   <div style={{ padding: 18 }}>
                     <p style={{ fontSize: 14, color: '#b45309', lineHeight: 1.6, margin: 0 }}>
                       This order is too large to schedule online. Please call the Electrolux Delivery Team at{' '}
-                      <a href="tel:+971581046674" style={{ color: '#003057', fontWeight: 700 }}>+971 58 104 6674</a>
+                      <a href="tel:+971581046674" style={{ color: '#032145', fontWeight: 700 }}>+971 58 104 6674</a>
                       {' '}to schedule this shipment.
                     </p>
                   </div>
@@ -423,7 +423,7 @@ export default function CustomerConfirmationPage() {
                     </p>
                     <p style={{ fontSize: 13, color: '#64748b', lineHeight: 1.6, margin: 0 }}>
                       Please contact us at{' '}
-                      <a href="tel:+971581046674" style={{ color: '#003057', fontWeight: 700 }}>+971 58 104 6674</a>
+                      <a href="tel:+971581046674" style={{ color: '#032145', fontWeight: 700 }}>+971 58 104 6674</a>
                       {' '}to arrange delivery.
                     </p>
                   </div>
@@ -464,18 +464,18 @@ export default function CustomerConfirmationPage() {
                         <label key={day.iso} onClick={() => setSelectedDate(day.iso)} style={{
                           display: 'flex', flexDirection: 'column', gap: 4,
                           padding: '10px 12px', borderRadius: 14,
-                          border: `2px solid ${isSelected ? '#003057' : '#e2e8f0'}`,
-                          background: isSelected ? 'linear-gradient(135deg,#EFF6FF,#DBEAFE)' : '#fff',
+                          border: `2px solid ${isSelected ? '#032145' : '#e2e8f0'}`,
+                          background: isSelected ? 'linear-gradient(135deg,#f3f6fa,#e1eaf3)' : '#fff',
                           cursor: 'pointer', transition: 'all 0.2s ease'
                         }}>
                           <input type="radio" name="delivery-date" value={day.iso} checked={isSelected} onChange={() => setSelectedDate(day.iso)} style={{ display: 'none' }} />
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <p style={{ fontSize: 10, fontWeight: 700, color: isSelected ? '#003057' : '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', margin: 0 }}>{dayLabel}</p>
-                            <div style={{ width: 14, height: 14, borderRadius: '50%', border: `2px solid ${isSelected ? '#003057' : '#cbd5e1'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                              {isSelected && <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#003057' }} />}
+                            <p style={{ fontSize: 10, fontWeight: 700, color: isSelected ? '#032145' : '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', margin: 0 }}>{dayLabel}</p>
+                            <div style={{ width: 14, height: 14, borderRadius: '50%', border: `2px solid ${isSelected ? '#032145' : '#cbd5e1'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              {isSelected && <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#032145' }} />}
                             </div>
                           </div>
-                          <p style={{ fontSize: 13, fontWeight: 700, color: isSelected ? '#003057' : '#374151', margin: 0 }}>{dateLabel}</p>
+                          <p style={{ fontSize: 13, fontWeight: 700, color: isSelected ? '#032145' : '#374151', margin: 0 }}>{dateLabel}</p>
                         </label>
                       );
                     })}
@@ -483,9 +483,9 @@ export default function CustomerConfirmationPage() {
 
                   {/* Selected date display */}
                   {selectedDate && (
-                    <div style={{ padding: '10px 14px', background: '#EFF6FF', borderRadius: 12, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <Calendar style={{ width: 15, height: 15, color: '#003057', flexShrink: 0 }} />
-                      <span style={{ fontSize: 13, fontWeight: 600, color: '#003057' }}>
+                    <div style={{ padding: '10px 14px', background: '#f3f6fa', borderRadius: 12, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Calendar style={{ width: 15, height: 15, color: '#032145', flexShrink: 0 }} />
+                      <span style={{ fontSize: 13, fontWeight: 600, color: '#032145' }}>
                         {formatDateShort(selectedDate).full}
                       </span>
                     </div>
@@ -495,7 +495,7 @@ export default function CustomerConfirmationPage() {
                   <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 14px', background: '#F8FAFC', borderRadius: 12, marginBottom: 16, cursor: 'pointer' }}>
                     <div
                       onClick={() => setAgreed((v: boolean) => !v)}
-                      style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${agreed ? '#003057' : '#cbd5e1'}`, background: agreed ? '#003057' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1, transition: 'all 0.2s ease', cursor: 'pointer' }}
+                      style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${agreed ? '#032145' : '#cbd5e1'}`, background: agreed ? '#032145' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1, transition: 'all 0.2s ease', cursor: 'pointer' }}
                     >
                       {agreed && (
                         <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
@@ -531,7 +531,7 @@ export default function CustomerConfirmationPage() {
         <div style={{ textAlign: 'center', paddingTop: 16, paddingBottom: 8 }}>
           <p style={{ fontSize: 13, color: '#64748b' }}>
             Need help?{' '}
-            <a href="tel:+971581046674" style={{ color: '#003057', fontWeight: 700, textDecoration: 'none' }}>+971 58 104 6674</a>
+            <a href="tel:+971581046674" style={{ color: '#032145', fontWeight: 700, textDecoration: 'none' }}>+971 58 104 6674</a>
             {' '}· Electrolux Delivery Team
           </p>
           <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>electrolux-smart-portal.vercel.app</p>

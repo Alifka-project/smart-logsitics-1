@@ -69,7 +69,7 @@ export default function ForgotPasswordPage() {
               <Link
                 to="/login"
                 className="inline-block text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200"
-                style={{ backgroundColor: '#011E41' }}
+                style={{ backgroundColor: '#032145' }}
               >
                 Back to Login
               </Link>
@@ -112,8 +112,8 @@ export default function ForgotPasswordPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg transition-all outline-none bg-white"
                   onFocus={(e) => {
-                    e.target.style.borderColor = '#011E41';
-                    e.target.style.boxShadow = '0 0 0 2px rgba(1, 30, 65, 0.2)';
+                    e.target.style.borderColor = '#032145';
+                    e.target.style.boxShadow = '0 0 0 2px rgba(3, 33, 69, 0.2)';
                   }}
                   onBlur={(e) => {
                     e.target.style.borderColor = '#d1d5db';
@@ -130,7 +130,7 @@ export default function ForgotPasswordPage() {
                 type="submit"
                 disabled={loading || !email}
                 className="w-full text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
-                style={{ backgroundColor: '#011E41' }}
+                style={{ backgroundColor: '#032145' }}
               >
                 {loading ? (
                   <span className="flex items-center justify-center">
