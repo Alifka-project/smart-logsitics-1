@@ -429,7 +429,9 @@ export const ManageSidebar: React.FC<ManageSidebarProps> = ({
                   <div className="space-y-2">
                     {[
                       { icon: '🚨', text: 'Order Delay status — action required within the hour. Contact driver immediately.' },
-                      { icon: '⚠️', text: 'Unconfirmed orders — resend SMS if no reply within 4 hours.' },
+                      // HIDDEN — Resend SMS guidance disabled per business rule: SMS is only
+                      // sent automatically by the system when a new PO file is first ingested.
+                      // { icon: '⚠️', text: 'Unconfirmed orders — resend SMS if no reply within 4 hours.' },
                       { icon: '📍', text: 'Always verify delivery address before dispatch. Wrong address = failed delivery.' },
                       { icon: '🔄', text: 'Rescheduled orders must have a new confirmed date and driver re-assigned.' },
                       { icon: '📦', text: 'B2B orders (Ship-to Party): confirm with the company contact, not individual name.' },

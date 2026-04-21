@@ -125,18 +125,21 @@ interface StepConfig {
 
 /** Maps workflow status → next-step indicator(s) shown in the action column */
 const NEXT_STEP_CONFIG: Partial<Record<DeliveryStatus | 'terminal_delivered' | 'terminal_delivered_no_pod' | 'terminal_cancelled' | 'terminal_failed', StepConfig>> = {
-  uploaded:    {
-    label: 'Resend SMS',      icon: '📱',
-    cls: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800/40',
-  },
-  sms_sent:    {
-    label: 'Resend SMS',      icon: '📱',
-    cls: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800/40',
-  },
-  unconfirmed: {
-    label: 'Resend SMS',      icon: '⚠️',
-    cls: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800/40',
-  },
+  // HIDDEN — "Resend SMS" indicators disabled per business rule: SMS is only
+  // sent automatically by the system when a new PO file is first ingested.
+  // No manual resend is exposed in the UI. Keep the code for future re-enable.
+  // uploaded:    {
+  //   label: 'Resend SMS',      icon: '📱',
+  //   cls: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800/40',
+  // },
+  // sms_sent:    {
+  //   label: 'Resend SMS',      icon: '📱',
+  //   cls: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800/40',
+  // },
+  // unconfirmed: {
+  //   label: 'Resend SMS',      icon: '⚠️',
+  //   cls: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800/40',
+  // },
   confirmed: {
     label: 'Assign Driver',   icon: '✅',
     cls: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800/40',

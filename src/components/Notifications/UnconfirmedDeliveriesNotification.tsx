@@ -139,6 +139,9 @@ export default function UnconfirmedDeliveriesNotification() {
                             </p>
                           )}
                         </div>
+                        {/* HIDDEN — Resend SMS button disabled per business rule: SMS is only
+                            sent automatically by the system when a new PO file is first ingested.
+                            Keep the code for future re-enable.
                         <button
                           onClick={() => void handleResendSms(delivery.id)}
                           disabled={resendingId === delivery.id}
@@ -156,6 +159,7 @@ export default function UnconfirmedDeliveriesNotification() {
                             </>
                           )}
                         </button>
+                        */}
                       </div>
                     </div>
                   ))}

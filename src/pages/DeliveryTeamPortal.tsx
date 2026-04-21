@@ -1955,6 +1955,9 @@ export default function DeliveryTeamPortal() {
                             {/* Actions */}
                             <td className="px-3 py-2.5" style={{ minWidth: '140px' }}>
                               <div className="flex flex-col gap-1">
+                                {/* HIDDEN — Manual Send/Resend SMS button disabled per business rule:
+                                    SMS is only sent automatically by the system when a new PO file
+                                    is first ingested. Keep the code for future re-enable.
                                 {needsSMS && (
                                   <button
                                     type="button"
@@ -1976,6 +1979,7 @@ export default function DeliveryTeamPortal() {
                                     {sendingSms === delivery.id ? '…' : dExt.smsSentAt ? '📱 Resend SMS' : '📱 Send SMS'}
                                   </button>
                                 )}
+                                */}
                                 {isDispatchable && !hasGMD && !isOFDWorkflow && !isDelayWorkflow && (
                                   <span className="inline-flex items-center justify-center px-2 py-1 rounded text-[11px] font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 cursor-not-allowed whitespace-nowrap" title="Set Goods Movement Date to dispatch">
                                     GMD required

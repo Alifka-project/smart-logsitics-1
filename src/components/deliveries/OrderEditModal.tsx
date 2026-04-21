@@ -277,6 +277,9 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
                 placeholder="+971 50 000 0000"
                 className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#032145] dark:border-gray-600 dark:bg-gray-900 dark:text-white"
               />
+              {/* HIDDEN — Resend SMS button disabled per business rule: SMS is only
+                  sent automatically by the system when a new PO file is first ingested.
+                  Keep the code for future re-enable.
               {onResendSMS && (
                 <button
                   type="button"
@@ -290,6 +293,7 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
                   {sendingSms ? '…' : '📱 Resend SMS'}
                 </button>
               )}
+              */}
             </div>
           </div>
 
