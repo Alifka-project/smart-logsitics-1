@@ -83,7 +83,11 @@ function hasGMD(d: Delivery): boolean {
 function deriveWorkflowStatus(d: Delivery, smsSentAt: Date | undefined): DeliveryStatus {
   const s = (d.status || '').toLowerCase();
 
-  if (s === 'cancelled') return 'cancelled';
+  // 'rejected' is an alias of 'cancelled' (customer-refused delivery). Without
+  // this mapping the workflow falls through to 'uploaded' and the order keeps
+  // showing up in the Pending Orders tab with the "Resend SMS" action even
+  // though it is terminal.
+  if (s === 'cancelled' || s === 'rejected' || s === 'canceled') return 'cancelled';
   if (s === 'order-delay') return 'order_delay';
 
   // Rescheduled: classify by the new confirmed delivery date when one is set
