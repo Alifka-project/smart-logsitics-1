@@ -22,6 +22,7 @@ export type OrdersTableTab =
   | 'order_delay'
   | 'rescheduled'
   | 'delivered'        // completed / delivered orders
+  | 'cancelled'        // customer-rejected or admin-cancelled orders (terminal)
   | 'pending_pod'      // delivered orders that are still missing a Proof of Delivery
   | 'pending_gmd';     // active orders with no Goods Movement Date
 
@@ -103,6 +104,8 @@ function matchesTableTab(order: DeliveryOrder, tab: OrdersTableTab): boolean {
     case 'order_delay':       return order.status === 'order_delay';
     case 'rescheduled':       return order.status === 'rescheduled' || order.isRescheduled === true;
     case 'delivered':         return DELIVERED_STATUSES.has(order.status);
+    // Customer-rejected or admin-cancelled orders — terminal and separate from delivered
+    case 'cancelled':         return order.status === 'cancelled';
     // Delivered orders that are still missing a Proof of Delivery — must stay actionable
     case 'pending_pod':       return order.status === 'delivered' && !order.hasPod;
     // Active orders without a Goods Movement Date (pre-dispatch) — actionable by logistics
@@ -226,6 +229,7 @@ interface ActionDropdownProps {
   onEditOrder: (orderId: string) => void;
   onReschedule: (order: DeliveryOrder) => void;
   onUploadPod?: (orderId: string) => void;
+  onViewReason?: (order: DeliveryOrder) => void;
 }
 
 function ActionDropdown({
@@ -237,6 +241,7 @@ function ActionDropdown({
   onEditOrder,
   onReschedule,
   onUploadPod,
+  onViewReason,
 }: ActionDropdownProps) {
   const s = order.status;
   const isTerminal = s === 'delivered' || s === 'cancelled' || s === 'failed';
@@ -265,9 +270,34 @@ function ActionDropdown({
     );
   }
 
-  // Other terminal orders (cancelled, failed, or delivered WITH pod): static indicator
+  // Cancelled / rejected — show a clickable "View Reason" button when the
+  // driver recorded a rejection reason (mandatory for driver-initiated rejection).
+  if (s === 'cancelled') {
+    const cfg = NEXT_STEP_CONFIG['terminal_cancelled']!;
+    const reason = order.notes?.trim() || order.failureReason?.trim() || '';
+    const hasReason = !!reason && !!onViewReason;
+    return (
+      <button
+        type="button"
+        onClick={hasReason ? () => onViewReason!(order) : undefined}
+        disabled={!hasReason}
+        className={`inline-flex w-full items-center justify-center gap-1 px-1.5 py-1 rounded border text-[10px] font-semibold leading-none ${cfg.cls} ${
+          hasReason
+            ? 'cursor-pointer hover:brightness-95 active:scale-95 transition-all'
+            : 'cursor-default select-none opacity-80'
+        }`}
+        title={hasReason ? 'View rejection reason' : cfg.label}
+        aria-label={hasReason ? 'View rejection reason' : cfg.label}
+      >
+        <span aria-hidden>{cfg.icon}</span>
+        {hasReason ? 'View Reason' : cfg.label}
+      </button>
+    );
+  }
+
+  // Other terminal orders (delivered WITH pod, or failed): static indicator
   if (isTerminal) {
-    const termKey = `terminal_${s}` as 'terminal_delivered' | 'terminal_cancelled' | 'terminal_failed';
+    const termKey = `terminal_${s}` as 'terminal_delivered' | 'terminal_failed';
     const cfg = NEXT_STEP_CONFIG[termKey];
     if (!cfg) return null;
     return (
@@ -346,6 +376,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
   simpleDriverDisplay = false,
 }) => {
   const [rescheduleOrder, setRescheduleOrder] = useState<DeliveryOrder | null>(null);
+  const [reasonOrder, setReasonOrder] = useState<DeliveryOrder | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [assigningDriverId, setAssigningDriverId] = useState<string | null>(null);
   const [todayOnly, setTodayOnly] = useState(false);
@@ -537,6 +568,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
   const noPodCount = orders.filter((o) => o.status === 'delivered' && !o.hasPod).length;
 
   const pendingGmdCount = orders.filter((o) => !o.goodsMovementDate && !PENDING_TERMINAL.has(o.status)).length;
+  const cancelledCount = orders.filter((o) => o.status === 'cancelled').length;
 
   const filterTabs: { key: OrdersTableTab; label: string; count: number; urgent?: boolean }[] = [
     { key: 'all',              label: 'All',              count: orders.length },
@@ -549,6 +581,8 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
     { key: 'order_delay',      label: 'Order Delay',      count: orders.filter((o) => o.status === 'order_delay').length },
     { key: 'rescheduled',      label: 'Rescheduled',      count: orders.filter((o) => o.status === 'rescheduled' || o.isRescheduled === true).length },
     { key: 'delivered',        label: 'Delivered',        count: orders.filter((o) => DELIVERED_STATUSES.has(o.status)).length },
+    // Customer-rejected / admin-cancelled — terminal, driver notes carry the reason
+    { key: 'cancelled',        label: 'Cancelled',        count: cancelledCount },
     // Delivered orders missing POD — shown with an amber warning style when count > 0
     { key: 'pending_pod',      label: 'No POD',           count: noPodCount, urgent: noPodCount > 0 },
   ];
@@ -1032,6 +1066,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                         onEditOrder={onEditOrder}
                         onReschedule={(o) => setRescheduleOrder(o)}
                         onUploadPod={onUploadPod}
+                        onViewReason={(o) => setReasonOrder(o)}
                       />
                     </td>
                   </tr>
@@ -1064,6 +1099,52 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
             setRescheduleOrder(null);
           }}
         />
+      )}
+
+      {reasonOrder && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Rejection reason"
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setReasonOrder(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-xl bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Rejection reason</h3>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                  {reasonOrder.customerName} · {reasonOrder.orderNumber ?? '—'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReasonOrder(null)}
+                className="shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="px-4 py-4">
+              <p className="whitespace-pre-wrap text-sm text-gray-800 dark:text-gray-100">
+                {(reasonOrder.notes?.trim() || reasonOrder.failureReason?.trim() || '—')}
+              </p>
+            </div>
+            <div className="flex justify-end px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+              <button
+                type="button"
+                onClick={() => setReasonOrder(null)}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#032145] text-white hover:bg-[#021432] transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
