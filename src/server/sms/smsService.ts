@@ -502,6 +502,8 @@ interface CustomerTrackingResult {
     deliveryNumber: string | null;
     originalDeliveryNumber: string | null;
     arrivalNotifiedAt: string | null;
+    /** ISO timestamp the driver locked in when tapping "Start Delivery" */
+    plannedEta: string | null;
   };
   tracking: {
     assignment: unknown;
