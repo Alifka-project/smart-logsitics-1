@@ -24,6 +24,7 @@ const { autoAssignDelivery } = require('../autoAssignmentService');
 import { parseFileBuffer } from './parser';
 import { validateDeliveryData, ValidatedDelivery } from './validator';
 import { detectDataFormat } from './transformer';
+import { geocodeMissingCoords } from './geocoder';
 
 export interface IngestOutcome {
   ingestionId: string;
@@ -79,16 +80,28 @@ export async function ingestFile(opts: IngestOptions): Promise<IngestOutcome> {
   const { rows } = parseFileBuffer(opts.buffer, opts.filename);
 
   // 2. Detect format + transform ERP/SAP columns to the normalised schema.
-  //    This is the same step the frontend FileUpload.tsx does before posting
-  //    to /api/deliveries/upload, so auto-ingest accepts identical file formats
-  //    to the portal's manual upload.
+  //    Same step the frontend FileUpload.tsx runs before posting to
+  //    /api/deliveries/upload, so auto-ingest accepts identical file formats.
   const detected = detectDataFormat(rows);
   const rowsForValidation = detected.transform ? detected.transform(rows) : rows;
   console.log(
     `[Ingest] Detected format=${detected.format}, ${rows.length} rows → ${(rowsForValidation as unknown[]).length} transformed`,
   );
 
-  // 3. Validate — same rules as manual upload (requires customer/address/lat/lng/items).
+  // 3. Geocode rows that came out with default coords (address → lat/lng).
+  //    Mirrors the browser-side geocoding modal the portal shows for missing
+  //    coords. Requires GOOGLE_GEOCODING_KEY env var; without it rows keep
+  //    their default coords and a warning is logged.
+  const geocodeSummary = await geocodeMissingCoords(
+    rowsForValidation as Array<{ address?: string; lat?: number; lng?: number; _usedDefaultCoords?: boolean }>,
+  );
+  if (geocodeSummary.attempted > 0) {
+    console.log(
+      `[Ingest] Geocoder — attempted=${geocodeSummary.attempted}, succeeded=${geocodeSummary.succeeded}, failed=${geocodeSummary.failed}`,
+    );
+  }
+
+  // 4. Validate — same rules as manual upload (requires customer/address/lat/lng/items).
   const validation = validateDeliveryData(rowsForValidation as unknown[]);
   if (!validation.isValid) {
     return {

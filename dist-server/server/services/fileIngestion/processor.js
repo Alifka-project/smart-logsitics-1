@@ -28,6 +28,7 @@ const { autoAssignDelivery } = require('../autoAssignmentService');
 const parser_1 = require("./parser");
 const validator_1 = require("./validator");
 const transformer_1 = require("./transformer");
+const geocoder_1 = require("./geocoder");
 function buildBusinessKey(poNumber, deliveryNumber) {
     const normalize = (v) => {
         if (v === null || v === undefined)
@@ -53,13 +54,20 @@ async function ingestFile(opts) {
     // 1. Parse
     const { rows } = (0, parser_1.parseFileBuffer)(opts.buffer, opts.filename);
     // 2. Detect format + transform ERP/SAP columns to the normalised schema.
-    //    This is the same step the frontend FileUpload.tsx does before posting
-    //    to /api/deliveries/upload, so auto-ingest accepts identical file formats
-    //    to the portal's manual upload.
+    //    Same step the frontend FileUpload.tsx runs before posting to
+    //    /api/deliveries/upload, so auto-ingest accepts identical file formats.
     const detected = (0, transformer_1.detectDataFormat)(rows);
     const rowsForValidation = detected.transform ? detected.transform(rows) : rows;
     console.log(`[Ingest] Detected format=${detected.format}, ${rows.length} rows → ${rowsForValidation.length} transformed`);
-    // 3. Validate — same rules as manual upload (requires customer/address/lat/lng/items).
+    // 3. Geocode rows that came out with default coords (address → lat/lng).
+    //    Mirrors the browser-side geocoding modal the portal shows for missing
+    //    coords. Requires GOOGLE_GEOCODING_KEY env var; without it rows keep
+    //    their default coords and a warning is logged.
+    const geocodeSummary = await (0, geocoder_1.geocodeMissingCoords)(rowsForValidation);
+    if (geocodeSummary.attempted > 0) {
+        console.log(`[Ingest] Geocoder — attempted=${geocodeSummary.attempted}, succeeded=${geocodeSummary.succeeded}, failed=${geocodeSummary.failed}`);
+    }
+    // 4. Validate — same rules as manual upload (requires customer/address/lat/lng/items).
     const validation = (0, validator_1.validateDeliveryData)(rowsForValidation);
     if (!validation.isValid) {
         return {
