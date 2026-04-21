@@ -256,6 +256,14 @@ router.get('/tracking/:token', async (req: Request, res: Response): Promise<void
     // ETA when the driver hasn't started the route yet.
     const plannedEta = (tracking.delivery as { plannedEta?: string | null }).plannedEta ?? null;
     const etaToShow = plannedEta ?? liveEta ?? tracking.tracking.eta;
+    const etaSource = plannedEta ? 'planned' : (liveEta ? 'live' : 'assignment');
+    console.log(`[customer/tracking] token=${String(token).slice(0, 8)} status=${tracking.delivery.status} etaSource=${etaSource} eta=${String(etaToShow)}`);
+
+    // Defeat any edge / browser caching so the customer always sees the
+    // latest ETA (planned ETA becomes visible the instant the driver
+    // taps Start Delivery).
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
 
     return void res.json({
       ok: true,

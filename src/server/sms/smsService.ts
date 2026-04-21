@@ -575,6 +575,7 @@ async function getCustomerTracking(token: string): Promise<CustomerTrackingResul
       typeof meta.plannedEta === 'string' && meta.plannedEta.trim()
         ? meta.plannedEta
         : null;
+    console.log(`[getCustomerTracking] delivery=${delivery.id} plannedEtaInMeta=${String(meta.plannedEta)} → exposed=${String(plannedEtaFromMeta)}`);
 
     return {
       delivery: {

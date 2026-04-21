@@ -478,18 +478,22 @@ router.post('/driver/route/start', authenticate, requireRole('driver'), async (r
         continue;
       }
       const currentMeta = (existing.metadata as Record<string, unknown> | null) ?? {};
-      // Preserve a previously-locked plannedEta: once set, it's the baseline the
-      // customer has already seen and must not drift backwards on subsequent calls.
+      // Use the freshly-locked ETA from the driver's tap when it's truthy, so a
+      // re-click after a stale/bad write heals the value on the next Start.
+      // Only keep the existing value if the driver's new payload is empty.
+      const newPlanned = typeof stop.plannedEta === 'string' && stop.plannedEta.trim() ? stop.plannedEta : null;
+      const newStatic  = typeof stop.staticEta  === 'string' && stop.staticEta.trim()  ? stop.staticEta  : null;
       const nextMeta: Record<string, unknown> = {
         ...currentMeta,
-        routeStartedAt: currentMeta.routeStartedAt ?? startedAt,
-        plannedEta: currentMeta.plannedEta ?? stop.plannedEta ?? null,
-        staticEta: currentMeta.staticEta ?? stop.staticEta ?? null,
+        routeStartedAt: startedAt,
+        plannedEta: newPlanned ?? (currentMeta.plannedEta ?? null),
+        staticEta:  newStatic  ?? (currentMeta.staticEta  ?? null),
       };
       await prisma.delivery.update({
         where: { id: stop.deliveryId },
         data: { metadata: nextMeta },
       });
+      console.log(`[route/start] delivery=${stop.deliveryId} plannedEta=${nextMeta.plannedEta} staticEta=${nextMeta.staticEta} startedAt=${startedAt}`);
       results.push({ deliveryId: stop.deliveryId, ok: true });
     } catch (stopErr: unknown) {
       const e = stopErr as { message?: string };
