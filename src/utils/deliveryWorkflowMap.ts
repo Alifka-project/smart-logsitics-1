@@ -101,6 +101,11 @@ function deriveWorkflowStatus(d: Delivery, smsSentAt: Date | undefined): Deliver
       parseOptDate(d.customerConfirmedAt);
 
     if (confirmedDate && calDiffFromTodayDubai(confirmedDate) >= 0) {
+      // GMD was already attached (warehouse dispatched on the first attempt).
+      // Honour that state so logistics doesn't have to re-click dispatch after
+      // a reschedule: if the new date is today → on route; future → ready.
+      if (hasGMD(d) && calDiffFromTodayDubai(confirmedDate) === 0) return 'out_for_delivery';
+      if (hasGMD(d)) return 'ready_to_dispatch';
       const tier = classifyConfirmedDate(confirmedDate);
       if (tier === 'next') return 'next_shipment';
       return 'future_schedule';

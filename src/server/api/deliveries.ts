@@ -1442,6 +1442,11 @@ router.get('/', authenticate, async (req: Request, res: Response): Promise<void>
           smsSentAt: true,
           confirmationStatus: true,
           confirmedDeliveryDate: true,
+          // Driver comments (e.g. mandatory rejection reason) — surfaced in the
+          // Logistics / Delivery Team Delivery Orders table via the View Reason
+          // button on cancelled rows.
+          deliveryNotes: true,
+          conditionNotes: true,
           createdAt: true,
           updatedAt: true,
           assignments: {
@@ -1478,6 +1483,8 @@ router.get('/', authenticate, async (req: Request, res: Response): Promise<void>
         smsSentAt: d.smsSentAt ?? null,
         confirmationStatus: d.confirmationStatus,
         confirmedDeliveryDate: d.confirmedDeliveryDate,
+        deliveryNotes: d.deliveryNotes ?? null,
+        conditionNotes: d.conditionNotes ?? null,
         created_at: d.createdAt,
         createdAt: d.createdAt,
         created: d.createdAt,
