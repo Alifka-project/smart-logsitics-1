@@ -153,7 +153,7 @@ async function updateDeliveryStatusHandler(req, deliveryIdParam, body, options) 
         updateData.podCompletedAt = new Date();
     }
     const isTerminalStatus = ['delivered', 'completed', 'delivered-with-installation',
-        'delivered-without-installation', 'pod-completed', 'finished', 'cancelled', 'returned', 'failed'].includes(status.toLowerCase());
+        'delivered-without-installation', 'pod-completed', 'finished', 'cancelled', 'rejected', 'returned', 'failed'].includes(status.toLowerCase());
     // Run delivery update + assignment closure atomically so both succeed or both fail.
     // Driver status recalculation runs outside the transaction (read-then-write, low-risk).
     let updatedDelivery;
@@ -360,6 +360,14 @@ router.put('/driver/:id/status', authenticate, requireRole('driver'), async (req
                     if (completionStatuses.includes(lowerStatus) && !completionStatuses.includes(prevStatus)) {
                         await trySend((0, customerMessageTemplates_1.deliveryCompletedMessage)(customerName, poRef), 'status_order_finished');
                     }
+                    // Rejected or cancelled — treat as a terminal / "finished" order from the
+                    // customer's perspective and send the same thank-you message we use for
+                    // a successful delivery. (Business decision: thank the customer either way.)
+                    const cancelStatuses = ['cancelled', 'rejected'];
+                    if (cancelStatuses.includes(lowerStatus) && !cancelStatuses.includes(prevStatus)) {
+                        console.log(`[Driver SMS] Firing rejection/cancel SMS for delivery ${deliveryIdParam}, prev=${prevStatus}, new=${lowerStatus}, phone=${normalizedPhone}`);
+                        await trySend((0, customerMessageTemplates_1.deliveryCompletedMessage)(customerName, poRef), 'status_order_finished');
+                    }
                 }
                 catch (notifyErr) {
                     console.warn('[Deliveries] Driver status SMS notify failed:', notifyErr.message);
@@ -374,9 +382,10 @@ router.put('/driver/:id/status', authenticate, requireRole('driver'), async (req
         res.status(500).json({ error: 'db_error', detail: e.message });
     }
 });
-// PUT /api/admin/deliveries/:id/priority - Toggle manual priority (logistics + admin only)
+// PUT /api/admin/deliveries/:id/priority - Toggle manual priority (delivery team + admin only)
+// Priority is a business decision owned by the Delivery Team; Logistics cannot set it.
 // body: { isPriority: boolean }
-router.put('/admin/:id/priority', authenticate, requireAnyRole('admin', 'logistics_team'), async (req, res) => {
+router.put('/admin/:id/priority', authenticate, requireAnyRole('admin', 'delivery_team'), async (req, res) => {
     const { id } = req.params;
     const { isPriority } = req.body;
     try {
@@ -522,10 +531,11 @@ router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_
                     const body = (0, customerMessageTemplates_1.orderDelayMessage)(customerName, poRef, trackingLink);
                     statusWhatsappUrl = await silentSend(body, 'status_order_delay');
                 }
-                // Cancelled
-                if (lowerStatus === 'cancelled') {
-                    const body = (0, customerMessageTemplates_1.cancellationMessage)(customerName, poRef, trackingLink);
-                    statusWhatsappUrl = await silentSend(body, 'status_cancelled');
+                // Cancelled or rejected — send the same thank-you message used for delivered
+                // orders (business decision: the order is "closed" from the customer's POV).
+                if (lowerStatus === 'cancelled' || lowerStatus === 'rejected') {
+                    const body = (0, customerMessageTemplates_1.deliveryCompletedMessage)(customerName, poRef);
+                    statusWhatsappUrl = await silentSend(body, 'status_order_finished');
                 }
                 // Completed / delivered variants — all trigger the delivery-completed message
                 const prevStatus = (String(existingDelivery.status || '')).toLowerCase();
@@ -1301,6 +1311,11 @@ router.get('/', authenticate, async (req, res) => {
                     smsSentAt: true,
                     confirmationStatus: true,
                     confirmedDeliveryDate: true,
+                    // Driver comments (e.g. mandatory rejection reason) — surfaced in the
+                    // Logistics / Delivery Team Delivery Orders table via the View Reason
+                    // button on cancelled rows.
+                    deliveryNotes: true,
+                    conditionNotes: true,
                     createdAt: true,
                     updatedAt: true,
                     assignments: {
@@ -1336,6 +1351,8 @@ router.get('/', authenticate, async (req, res) => {
                 smsSentAt: d.smsSentAt ?? null,
                 confirmationStatus: d.confirmationStatus,
                 confirmedDeliveryDate: d.confirmedDeliveryDate,
+                deliveryNotes: d.deliveryNotes ?? null,
+                conditionNotes: d.conditionNotes ?? null,
                 created_at: d.createdAt,
                 createdAt: d.createdAt,
                 created: d.createdAt,

@@ -130,6 +130,10 @@ router.get('/deliveries', auth_js_1.authenticate, (0, auth_js_1.requireAnyRole)(
                         smsSentAt: true,
                         goodsMovementDate: true,
                         deliveryNumber: true,
+                        // Driver comments (e.g. mandatory rejection reason) — needed by the
+                        // View Reason button on cancelled/rejected rows.
+                        deliveryNotes: true,
+                        conditionNotes: true,
                         // POD indicator fields — returned to compute hasPod flag; raw values NOT forwarded to client
                         driverSignature: true,
                         customerSignature: true,
@@ -186,6 +190,8 @@ router.get('/deliveries', auth_js_1.authenticate, (0, auth_js_1.requireAnyRole)(
                     smsSentAt: d.smsSentAt,
                     goodsMovementDate: d.goodsMovementDate,
                     deliveryNumber: d.deliveryNumber,
+                    deliveryNotes: d.deliveryNotes,
+                    conditionNotes: d.conditionNotes,
                     hasPod,
                     assignedDriverId: d.assignments?.[0]?.driverId || null,
                     driverName: d.assignments?.[0]?.driver?.fullName || null,

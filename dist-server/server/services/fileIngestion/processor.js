@@ -27,6 +27,7 @@ const deliveryDedupService_1 = require("../deliveryDedupService");
 const { autoAssignDelivery } = require('../autoAssignmentService');
 const parser_1 = require("./parser");
 const validator_1 = require("./validator");
+const transformer_1 = require("./transformer");
 function buildBusinessKey(poNumber, deliveryNumber) {
     const normalize = (v) => {
         if (v === null || v === undefined)
@@ -51,11 +52,15 @@ async function ingestFile(opts) {
     console.log(`[Ingest] Starting ingestion ${ingestionId} from ${opts.source} file="${opts.filename || '<buffer>'}"`);
     // 1. Parse
     const { rows } = (0, parser_1.parseFileBuffer)(opts.buffer, opts.filename);
-    // 2. Validate — uses the same rules as manual upload (requires customer/address/lat/lng/items).
-    //    If the incoming file is a raw SAP/ERP export without these mapped columns, it will fail
-    //    validation here — that is intentional: auto-ingest expects a file already normalised to
-    //    the portal's column format, same as what the frontend transformer produces.
-    const validation = (0, validator_1.validateDeliveryData)(rows);
+    // 2. Detect format + transform ERP/SAP columns to the normalised schema.
+    //    This is the same step the frontend FileUpload.tsx does before posting
+    //    to /api/deliveries/upload, so auto-ingest accepts identical file formats
+    //    to the portal's manual upload.
+    const detected = (0, transformer_1.detectDataFormat)(rows);
+    const rowsForValidation = detected.transform ? detected.transform(rows) : rows;
+    console.log(`[Ingest] Detected format=${detected.format}, ${rows.length} rows → ${rowsForValidation.length} transformed`);
+    // 3. Validate — same rules as manual upload (requires customer/address/lat/lng/items).
+    const validation = (0, validator_1.validateDeliveryData)(rowsForValidation);
     if (!validation.isValid) {
         return {
             ingestionId,

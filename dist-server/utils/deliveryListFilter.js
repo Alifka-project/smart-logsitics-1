@@ -97,10 +97,12 @@ function excludeTeamPortalGarbageDeliveries(list) {
     const arr = list ?? [];
     return arr.filter((row) => !isTeamPortalGarbageDelivery(row));
 }
-// "Completed" = successfully delivered OR cancelled — excludes returned/failed
+// "Completed" = successfully delivered only. Rejected/cancelled orders are
+// terminal too but represent a failed outcome and must not be grouped with
+// successful deliveries in the driver's sequence.
 const COMPLETED_STATUSES = new Set([
     'delivered', 'delivered-with-installation', 'delivered-without-installation',
-    'completed', 'pod-completed', 'finished', 'cancelled',
+    'completed', 'pod-completed', 'finished',
 ]);
 const ACTIVE_STATUSES = new Set([
     // Pre-dispatch statuses
@@ -169,11 +171,11 @@ function applyDeliveryListFilter(deliveries, filter) {
                 return s === 'confirmed' || s === 'scheduled-confirmed';
             });
         case 'p1':
-            // Match numeric priority 1 OR the metadata.isPriority flag set by the
-            // logistics portal — both signals must be treated as "P1 Urgent".
+            // Priority is a business decision owned by Delivery Team / Admin, stored in
+            // metadata.isPriority. Distance-based numeric priority is routing data, not a P1 signal.
             return active.filter((d) => {
                 const meta = d.metadata;
-                return d.priority === 1 || meta?.isPriority === true;
+                return meta?.isPriority === true;
             });
         case 'out_for_delivery':
             return active.filter((d) => isOnRouteDeliveryListStatus((d.status || '').toLowerCase()));

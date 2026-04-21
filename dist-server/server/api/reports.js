@@ -473,25 +473,44 @@ function generateHTMLReportWithImages(deliveries, stats, dailyData, driverData) 
 </html>`;
     return html;
 }
-// GET /api/admin/reports/pod - Dedicated POD Report
-router.get('/pod', auth_js_1.authenticate, (0, auth_js_1.requireAnyRole)('admin', 'delivery_team'), async (req, res) => {
+// Shared handler for POD report — callable from both GET (query params) and
+// POST (body). POST is used when the client has a long list of filtered IDs
+// that would blow past practical URL length limits.
+async function handlePodReport(req, res) {
     try {
-        const { startDate, endDate, podStatus, format } = req.query;
-        console.log('[POD Report] Generating POD report...');
+        // Accept params from either query (GET) or body (POST).
+        const src = req.method === 'POST'
+            ? req.body ?? {}
+            : req.query;
+        const startDate = typeof src.startDate === 'string' ? src.startDate : undefined;
+        const endDate = typeof src.endDate === 'string' ? src.endDate : undefined;
+        const podStatus = typeof src.podStatus === 'string' ? src.podStatus : undefined;
+        const format = typeof src.format === 'string' ? src.format : undefined;
+        // ids may arrive as an array (POST body) or a comma-separated string (GET).
+        let ids = [];
+        if (Array.isArray(src.ids)) {
+            ids = src.ids.filter((v) => typeof v === 'string' && v.trim().length > 0);
+        }
+        else if (typeof src.ids === 'string' && src.ids.trim()) {
+            ids = src.ids.split(',').map(s => s.trim()).filter(Boolean);
+        }
+        console.log(`[POD Report] Generating POD report... ids=${ids.length}, dateRange=${startDate ?? '-'}..${endDate ?? '-'}, podStatus=${podStatus ?? '-'}`);
         let parsedStartDate;
         let parsedEndDate;
         if (startDate) {
             parsedStartDate = new Date(startDate);
             parsedStartDate.setHours(0, 0, 0, 0);
-            console.log('[POD Report] Start date:', parsedStartDate.toISOString());
         }
         if (endDate) {
             parsedEndDate = new Date(endDate);
             parsedEndDate.setHours(23, 59, 59, 999);
-            console.log('[POD Report] End date:', parsedEndDate.toISOString());
         }
         const deliveries = await prisma_js_1.default.delivery.findMany({
             where: {
+                // When ids are provided, narrow to those specific deliveries (client
+                // has already applied its visible filters). Otherwise, fall back to
+                // all delivered orders in the date window.
+                ...(ids.length > 0 ? { id: { in: ids } } : {}),
                 status: {
                     in: [
                         'delivered',
@@ -742,5 +761,11 @@ router.get('/pod', auth_js_1.authenticate, (0, auth_js_1.requireAnyRole)('admin'
             detail: e.message
         });
     }
-});
+}
+// GET /api/admin/reports/pod - Dedicated POD Report (query-param filters)
+router.get('/pod', auth_js_1.authenticate, (0, auth_js_1.requireAnyRole)('admin', 'delivery_team'), handlePodReport);
+// POST /api/admin/reports/pod - Filter-aware POD Report.
+// Use this when the client has many filtered delivery IDs that would exceed
+// practical URL length limits. Body: { ids?: string[], startDate?, endDate?, podStatus?, format? }.
+router.post('/pod', auth_js_1.authenticate, (0, auth_js_1.requireAnyRole)('admin', 'delivery_team'), handlePodReport);
 exports.default = router;
