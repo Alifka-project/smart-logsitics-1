@@ -7,102 +7,164 @@
  * affect manual upload — which continues to use the browser-side
  * src/services/geocodingService.ts with an interactive modal.
  *
- * Uses Google Maps Geocoding API (simple, reliable, generous free tier).
- * Requires env var GOOGLE_GEOCODING_KEY. Falls back to no-op if missing.
+ * Provider cascade (first available wins per row):
+ *   1. Mapbox        — env MAPBOX_TOKEN     (best; matches portal primary)
+ *   2. Google Maps   — env GOOGLE_GEOCODING_KEY
+ *   3. Nominatim     — free, no key, uses OpenStreetMap
  *
- * In-memory cache per-instance reduces duplicate API calls within a batch.
+ * If none of the keyed providers are configured, Nominatim is used
+ * automatically. No configuration required for the free fallback.
+ *
+ * Rate limits handled:
+ *   - Mapbox / Google: parallel-safe (no throttling needed for batch < 50)
+ *   - Nominatim: 1 req/sec per their usage policy (enforced via sleep)
+ *
+ * In-memory cache per-instance prevents duplicate lookups in a batch.
  */
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.isGeocoderConfigured = isGeocoderConfigured;
+exports.availableProviders = availableProviders;
 exports.geocodeOne = geocodeOne;
 exports.geocodeMissingCoords = geocodeMissingCoords;
+exports.isGeocoderConfigured = isGeocoderConfigured;
 const axios_1 = __importDefault(require("axios"));
-const GOOGLE_GEOCODE_URL = 'https://maps.googleapis.com/maps/api/geocode/json';
-const DUBAI_BOUNDS = '24.7,54.8|25.5,55.7';
+const MAPBOX_URL = 'https://api.mapbox.com/geocoding/v5/mapbox.places';
+const GOOGLE_URL = 'https://maps.googleapis.com/maps/api/geocode/json';
+const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
+const DUBAI_BOUNDS_GOOGLE = '24.7,54.8|25.5,55.7';
+const DUBAI_BBOX_MAPBOX = '54.8,24.7,55.7,25.5'; // minLng,minLat,maxLng,maxLat
+const DUBAI_BBOX_NOMINATIM = '54.8,25.5,55.7,24.7'; // left,top,right,bottom
 const cache = new Map();
 function normalizeKey(address) {
     return String(address).trim().replace(/\s+/g, ' ').toLowerCase();
 }
-function getKey() {
+function mapboxToken() {
+    return (process.env.MAPBOX_TOKEN || process.env.VITE_MAPBOX_TOKEN || '').trim();
+}
+function googleKey() {
     return (process.env.GOOGLE_GEOCODING_KEY ||
         process.env.GOOGLE_MAPS_API_KEY ||
-        process.env.VITE_GOOGLE_GEOCODING_KEY || // legacy fallback
+        process.env.VITE_GOOGLE_GEOCODING_KEY ||
         '').trim();
 }
-function isGeocoderConfigured() {
-    return !!getKey();
+/** Returns list of provider names currently available. */
+function availableProviders() {
+    const p = [];
+    if (mapboxToken())
+        p.push('mapbox');
+    if (googleKey())
+        p.push('google');
+    p.push('nominatim'); // always available
+    return p;
 }
-/**
- * Geocode a single address using Google Maps API.
- * Returns null if address is empty, geocoder is not configured, API fails,
- * or no plausible match is found.
- */
+// Simple sleep helper — Nominatim requires 1 req/sec
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function tryMapbox(address) {
+    const token = mapboxToken();
+    if (!token)
+        return null;
+    try {
+        const url = `${MAPBOX_URL}/${encodeURIComponent(address)}.json`;
+        const { data } = await axios_1.default.get(url, {
+            params: { access_token: token, bbox: DUBAI_BBOX_MAPBOX, country: 'ae', limit: 1 },
+            timeout: 10000,
+        });
+        const feat = data?.features?.[0];
+        if (!feat?.center || feat.center.length < 2)
+            return null;
+        return { lng: feat.center[0], lat: feat.center[1], provider: 'mapbox' };
+    }
+    catch (e) {
+        console.warn(`[Geocoder/Mapbox] "${address}": ${e.message}`);
+        return null;
+    }
+}
+async function tryGoogle(address) {
+    const key = googleKey();
+    if (!key)
+        return null;
+    try {
+        const { data } = await axios_1.default.get(GOOGLE_URL, {
+            params: { address, key, components: 'country:AE', bounds: DUBAI_BOUNDS_GOOGLE },
+            timeout: 10000,
+        });
+        if (data?.status !== 'OK')
+            return null;
+        const loc = data.results?.[0]?.geometry?.location;
+        if (!loc)
+            return null;
+        return { lat: loc.lat, lng: loc.lng, provider: 'google' };
+    }
+    catch (e) {
+        console.warn(`[Geocoder/Google] "${address}": ${e.message}`);
+        return null;
+    }
+}
+// Throttle Nominatim — they require 1 req/sec max. Module-scope timestamp.
+let lastNominatimAt = 0;
+async function tryNominatim(address) {
+    const elapsed = Date.now() - lastNominatimAt;
+    if (elapsed < 1100)
+        await sleep(1100 - elapsed);
+    lastNominatimAt = Date.now();
+    try {
+        const { data } = await axios_1.default.get(NOMINATIM_URL, {
+            params: {
+                q: address,
+                format: 'json',
+                countrycodes: 'ae',
+                viewbox: DUBAI_BBOX_NOMINATIM,
+                bounded: 1,
+                limit: 1,
+            },
+            headers: {
+                // Nominatim requires a valid User-Agent identifying the app
+                'User-Agent': 'Electrolux-Smart-Logistics/1.0 (auto-ingest)',
+            },
+            timeout: 15000,
+        });
+        if (!Array.isArray(data) || data.length === 0)
+            return null;
+        const r = data[0];
+        const lat = parseFloat(r.lat);
+        const lng = parseFloat(r.lon);
+        if (isNaN(lat) || isNaN(lng))
+            return null;
+        return { lat, lng, provider: 'nominatim' };
+    }
+    catch (e) {
+        console.warn(`[Geocoder/Nominatim] "${address}": ${e.message}`);
+        return null;
+    }
+}
+/** Geocode a single address using the provider cascade. */
 async function geocodeOne(addressRaw) {
     if (!addressRaw)
         return null;
     const key = normalizeKey(addressRaw);
     if (cache.has(key))
         return cache.get(key) ?? null;
-    const apiKey = getKey();
-    if (!apiKey) {
-        cache.set(key, null);
-        return null;
+    // Try in order of best → cheapest
+    const hit = (await tryMapbox(addressRaw)) ||
+        (await tryGoogle(addressRaw)) ||
+        (await tryNominatim(addressRaw));
+    cache.set(key, hit);
+    if (hit) {
+        console.log(`[Geocoder] "${addressRaw}" → ${hit.lat},${hit.lng} via ${hit.provider}`);
     }
-    try {
-        const { data } = await axios_1.default.get(GOOGLE_GEOCODE_URL, {
-            params: {
-                address: addressRaw,
-                key: apiKey,
-                components: 'country:AE',
-                bounds: DUBAI_BOUNDS,
-            },
-            timeout: 10000,
-        });
-        if (data?.status !== 'OK' || !Array.isArray(data.results) || data.results.length === 0) {
-            console.warn(`[Geocoder] No result for "${addressRaw}" — status=${data?.status}`);
-            cache.set(key, null);
-            return null;
-        }
-        const r = data.results[0];
-        const loc = r?.geometry?.location;
-        if (!loc || typeof loc.lat !== 'number' || typeof loc.lng !== 'number') {
-            cache.set(key, null);
-            return null;
-        }
-        const hit = {
-            lat: loc.lat,
-            lng: loc.lng,
-            accuracy: r?.geometry?.location_type || 'UNKNOWN',
-            formattedAddress: r.formatted_address || addressRaw,
-        };
-        cache.set(key, hit);
-        return hit;
+    else {
+        console.warn(`[Geocoder] No match for "${addressRaw}" across any provider`);
     }
-    catch (err) {
-        const e = err;
-        console.warn(`[Geocoder] Request failed for "${addressRaw}": ${e.message}`);
-        cache.set(key, null);
-        return null;
-    }
+    return hit;
 }
 /**
  * Geocode a batch of rows that have _usedDefaultCoords: true.
- * Mutates the rows in-place: sets lat/lng and clears _usedDefaultCoords on
- * successful lookups. Rows that fail geocoding keep their default coords.
- *
- * Returns summary counts for logging.
+ * Mutates rows in-place; rows that fail keep default coords.
  */
 async function geocodeMissingCoords(rows) {
-    if (!isGeocoderConfigured()) {
-        const attempted = rows.filter((r) => r._usedDefaultCoords).length;
-        if (attempted > 0) {
-            console.warn(`[Geocoder] GOOGLE_GEOCODING_KEY not set — ${attempted} rows will keep default coords. Set the env var to enable auto-geocoding.`);
-        }
-        return { attempted, succeeded: 0, failed: attempted };
-    }
+    const providers = availableProviders();
     let succeeded = 0;
     let failed = 0;
     let attempted = 0;
@@ -126,6 +188,13 @@ async function geocodeMissingCoords(rows) {
             failed += 1;
         }
     }
-    console.log(`[Geocoder] Batch complete — attempted=${attempted}, succeeded=${succeeded}, failed=${failed}`);
-    return { attempted, succeeded, failed };
+    if (attempted > 0) {
+        console.log(`[Geocoder] Batch done — attempted=${attempted}, succeeded=${succeeded}, failed=${failed}, providers=[${providers.join(',')}]`);
+    }
+    return { attempted, succeeded, failed, providers };
+}
+// Legacy alias kept for backwards compat with any caller that may use it.
+function isGeocoderConfigured() {
+    // Always true now — Nominatim is always available as last resort.
+    return true;
 }
