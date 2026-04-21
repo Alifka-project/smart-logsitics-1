@@ -1315,6 +1315,27 @@ export default function DriverPortal() {
       }
       persistedEtasRef.current = snapshot;
       saveRouteState(driverStorageIdRef.current, { startedAt: now, etas: snapshot });
+
+      // Fire-and-forget: persist the locked plan ETAs onto each delivery's
+      // metadata so the customer tracking portal can render the same 14:05
+      // baseline (plus the 4 h window) that the driver just locked.
+      const stopsForServer = locked
+        .filter(d => d.id && (d.plannedEta || d.staticEta))
+        .map(d => ({
+          deliveryId: String(d.id),
+          plannedEta: d.plannedEta ?? null,
+          staticEta: d.staticEta ?? null,
+        }));
+      if (stopsForServer.length > 0) {
+        api.post('/deliveries/driver/route/start', {
+          startedAt: new Date(now).toISOString(),
+          stops: stopsForServer,
+        }).catch((err: unknown) => {
+          // Non-blocking — the driver's local lock still holds even if the
+          // persist call fails (e.g. offline). Next successful call will sync.
+          console.warn('[DriverPortal] route/start persist failed:', (err as Error).message);
+        });
+      }
       return locked;
     });
   }, []);

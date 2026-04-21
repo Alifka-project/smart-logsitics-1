@@ -432,6 +432,79 @@ router.put('/driver/:id/status', authenticate, requireRole('driver'), async (req
   }
 });
 
+// POST /api/deliveries/driver/route/start — persist the driver's Start Delivery
+// snapshot (plannedEta + staticEta + routeStartedAt) onto each assigned
+// delivery's metadata so the customer-tracking portal can display the locked
+// plan ETA (not the live GPS ETA, which shifts every GPS tick).
+// Body: { startedAt: string (ISO), stops: [{ deliveryId, plannedEta, staticEta }] }
+router.post('/driver/route/start', authenticate, requireRole('driver'), async (req: Request, res: Response): Promise<void> => {
+  const driverId = (req.user as { sub?: string })?.sub;
+  if (!driverId) {
+    res.status(401).json({ error: 'unauthorized' });
+    return;
+  }
+  const body = req.body as {
+    startedAt?: string;
+    stops?: Array<{ deliveryId?: string; plannedEta?: string | null; staticEta?: string | null }>;
+  };
+  const stops = Array.isArray(body.stops) ? body.stops : [];
+  if (stops.length === 0) {
+    res.status(400).json({ error: 'no_stops' });
+    return;
+  }
+  const startedAt = body.startedAt && !Number.isNaN(Date.parse(body.startedAt))
+    ? new Date(body.startedAt).toISOString()
+    : new Date().toISOString();
+
+  const results: Array<{ deliveryId: string; ok: boolean; error?: string }> = [];
+
+  for (const stop of stops) {
+    if (!stop.deliveryId || typeof stop.deliveryId !== 'string') continue;
+    try {
+      // Only allow a driver to stamp deliveries they are actually assigned to.
+      const assignment = await prisma.deliveryAssignment.findFirst({
+        where: { deliveryId: stop.deliveryId, driverId },
+      });
+      if (!assignment) {
+        results.push({ deliveryId: stop.deliveryId, ok: false, error: 'not_assigned' });
+        continue;
+      }
+      const existing = await prisma.delivery.findUnique({
+        where: { id: stop.deliveryId },
+        select: { metadata: true },
+      });
+      if (!existing) {
+        results.push({ deliveryId: stop.deliveryId, ok: false, error: 'not_found' });
+        continue;
+      }
+      const currentMeta = (existing.metadata as Record<string, unknown> | null) ?? {};
+      // Preserve a previously-locked plannedEta: once set, it's the baseline the
+      // customer has already seen and must not drift backwards on subsequent calls.
+      const nextMeta: Record<string, unknown> = {
+        ...currentMeta,
+        routeStartedAt: currentMeta.routeStartedAt ?? startedAt,
+        plannedEta: currentMeta.plannedEta ?? stop.plannedEta ?? null,
+        staticEta: currentMeta.staticEta ?? stop.staticEta ?? null,
+      };
+      await prisma.delivery.update({
+        where: { id: stop.deliveryId },
+        data: { metadata: nextMeta },
+      });
+      results.push({ deliveryId: stop.deliveryId, ok: true });
+    } catch (stopErr: unknown) {
+      const e = stopErr as { message?: string };
+      console.warn(`[Deliveries] route/start failed for ${stop.deliveryId}:`, e.message);
+      results.push({ deliveryId: stop.deliveryId, ok: false, error: 'db_error' });
+    }
+  }
+
+  // Bust tracking caches so the new planned ETA surfaces on the customer
+  // tracking page and the admin/logistics tracking views immediately.
+  cache.invalidatePrefix('tracking:');
+
+  res.json({ ok: true, results });
+});
+
 // PUT /api/admin/deliveries/:id/priority - Toggle manual priority (delivery team + admin only)
 // Priority is a business decision owned by the Delivery Team; Logistics cannot set it.
 // body: { isPriority: boolean }

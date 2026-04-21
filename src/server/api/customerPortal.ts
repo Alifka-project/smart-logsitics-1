@@ -249,6 +249,14 @@ router.get('/tracking/:token', async (req: Request, res: Response): Promise<void
       }
     }
 
+    // Prefer the plan ETA the driver locked in when they tapped "Start Delivery"
+    // (exposed as delivery.plannedEta by getCustomerTracking). That represents
+    // the 14:05-style baseline the customer should see (plus the 4 h window
+    // rendered client-side). Only fall back to the live GPS ETA or assignment
+    // ETA when the driver hasn't started the route yet.
+    const plannedEta = (tracking.delivery as { plannedEta?: string | null }).plannedEta ?? null;
+    const etaToShow = plannedEta ?? liveEta ?? tracking.tracking.eta;
+
     return void res.json({
       ok: true,
       delivery: {
@@ -257,7 +265,7 @@ router.get('/tracking/:token', async (req: Request, res: Response): Promise<void
       },
       tracking: {
         status: tracking.delivery.status,
-        eta: liveEta ?? tracking.tracking.eta,
+        eta: etaToShow,
         driver: tracking.tracking.assignment?.driver ? {
           name: (tracking.tracking.assignment.driver as { fullName?: string }).fullName,
           phone: (tracking.tracking.assignment.driver as { phone?: string }).phone

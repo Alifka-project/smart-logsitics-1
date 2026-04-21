@@ -567,6 +567,15 @@ async function getCustomerTracking(token: string): Promise<CustomerTrackingResul
         ? String((delivery as Record<string, unknown>).deliveryNumber).trim()
         : null;
 
+    // Planned ETA is locked by the driver tapping "Start Delivery"
+    // (persisted via POST /api/deliveries/driver/route/start). The customer
+    // tracking portal uses this as the baseline instead of the constantly-
+    // shifting live GPS ETA, so the customer sees a stable delivery window.
+    const plannedEtaFromMeta =
+      typeof meta.plannedEta === 'string' && meta.plannedEta.trim()
+        ? meta.plannedEta
+        : null;
+
     return {
       delivery: {
         id: delivery.id,
@@ -581,6 +590,7 @@ async function getCustomerTracking(token: string): Promise<CustomerTrackingResul
         // Expose arrival flag so customer tracking page can also check it
         // without depending solely on the DeliveryEvent row.
         arrivalNotifiedAt: (meta.arrivalNotifiedAt as string | null) ?? null,
+        plannedEta: plannedEtaFromMeta,
         lat: delivery.lat,
         lng: delivery.lng,
         deliveryNumber: deliveryNumberCol,
