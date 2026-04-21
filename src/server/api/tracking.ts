@@ -93,6 +93,10 @@ router.get('/deliveries', authenticate, requireAnyRole('admin', 'delivery_team',
             smsSentAt: true,
             goodsMovementDate: true,
             deliveryNumber: true,
+            // Driver comments (e.g. mandatory rejection reason) — needed by the
+            // View Reason button on cancelled/rejected rows.
+            deliveryNotes: true,
+            conditionNotes: true,
             // POD indicator fields — returned to compute hasPod flag; raw values NOT forwarded to client
             driverSignature: true,
             customerSignature: true,
@@ -126,6 +130,7 @@ router.get('/deliveries', authenticate, requireAnyRole('admin', 'delivery_team',
         confirmationStatus: string | null; confirmationToken: string | null;
         customerConfirmedAt: Date | null; confirmedDeliveryDate: Date | null;
         smsSentAt: Date | null; goodsMovementDate: Date | null; deliveryNumber: string | null;
+        deliveryNotes: string | null; conditionNotes: string | null;
         driverSignature: string | null; customerSignature: string | null; photos: unknown;
         assignments: { driverId: string | null; status: string; assignedAt: Date | null; driver?: { fullName?: string } | null }[];
       }[]).map(d => {
@@ -161,6 +166,8 @@ router.get('/deliveries', authenticate, requireAnyRole('admin', 'delivery_team',
           smsSentAt: d.smsSentAt,
           goodsMovementDate: d.goodsMovementDate,
           deliveryNumber: d.deliveryNumber,
+          deliveryNotes: d.deliveryNotes,
+          conditionNotes: d.conditionNotes,
           hasPod,
           assignedDriverId: d.assignments?.[0]?.driverId || null,
           driverName: d.assignments?.[0]?.driver?.fullName || null,

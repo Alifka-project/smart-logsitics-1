@@ -307,11 +307,19 @@ const useDeliveryStore = create<DeliveryStore>((set, get) => ({
                 ...(updateData.metadata as Record<string, unknown>),
               }
             : delivery.metadata;
-        const { metadata: _drop, ...restUpdate } = updateData || {};
+        const { metadata: _drop, notes, ...restUpdate } = (updateData || {}) as
+          Partial<Delivery> & { notes?: string };
+        // Mirror the driver's comment (passed as `notes` by CustomerModal) into
+        // the persisted DB columns so the local view surfaces the rejection
+        // reason immediately — without waiting for the next tracking refetch.
+        const notesFields = notes !== undefined
+          ? { notes, deliveryNotes: notes, conditionNotes: notes }
+          : {};
         return {
           ...delivery,
           status,
           ...restUpdate,
+          ...notesFields,
           metadata: mergedMeta as Delivery['metadata'],
           updatedAt: new Date().toISOString(),
         };
