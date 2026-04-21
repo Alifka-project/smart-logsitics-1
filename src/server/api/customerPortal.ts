@@ -249,15 +249,33 @@ router.get('/tracking/:token', async (req: Request, res: Response): Promise<void
       }
     }
 
-    // Prefer the plan ETA the driver locked in when they tapped "Start Delivery"
-    // (exposed as delivery.plannedEta by getCustomerTracking). That represents
-    // the 14:05-style baseline the customer should see (plus the 4 h window
-    // rendered client-side). Only fall back to the live GPS ETA or assignment
-    // ETA when the driver hasn't started the route yet.
-    const plannedEta = (tracking.delivery as { plannedEta?: string | null }).plannedEta ?? null;
+    // Prefer the plan ETA the driver locked in when they tapped "Start Delivery".
+    // Query Prisma directly for the raw metadata — this is belt-and-suspenders
+    // so we're not dependent on the smsService.getCustomerTracking return shape
+    // (which has a specific whitelist) to pass plannedEta through correctly.
+    let plannedEta: string | null = null;
+    try {
+      const deliveryId = (tracking.delivery as unknown as { id?: string }).id;
+      const metaRow = deliveryId
+        ? await prisma.delivery.findUnique({
+            where: { id: deliveryId },
+            select: { metadata: true },
+          })
+        : null;
+      const metaObj = (metaRow?.metadata && typeof metaRow.metadata === 'object' && !Array.isArray(metaRow.metadata))
+        ? metaRow.metadata as Record<string, unknown>
+        : null;
+      const candidate = metaObj?.plannedEta;
+      if (typeof candidate === 'string' && candidate.trim()) {
+        plannedEta = candidate;
+      }
+    } catch (metaErr: unknown) {
+      const e = metaErr as Error;
+      console.warn('[customer/tracking] metadata lookup failed:', e.message);
+    }
     const etaToShow = plannedEta ?? liveEta ?? tracking.tracking.eta;
     const etaSource = plannedEta ? 'planned' : (liveEta ? 'live' : 'assignment');
-    console.log(`[customer/tracking] token=${String(token).slice(0, 8)} status=${tracking.delivery.status} etaSource=${etaSource} eta=${String(etaToShow)}`);
+    console.log(`[customer/tracking] token=${String(token).slice(0, 8)} deliveryId=${(tracking.delivery as unknown as { id?: string }).id} status=${tracking.delivery.status} etaSource=${etaSource} plannedEta=${String(plannedEta)} eta=${String(etaToShow)}`);
 
     // Defeat any edge / browser caching so the customer always sees the
     // latest ETA (planned ETA becomes visible the instant the driver
