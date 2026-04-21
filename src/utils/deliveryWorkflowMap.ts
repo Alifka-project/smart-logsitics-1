@@ -83,6 +83,9 @@ function hasGMD(d: Delivery): boolean {
 function deriveWorkflowStatus(d: Delivery, smsSentAt: Date | undefined): DeliveryStatus {
   const s = (d.status || '').toLowerCase();
 
+  // Helper: is the date's Dubai calendar day strictly before today? (overdue)
+  const isOverdue = (date: Date): boolean => calDiffFromTodayDubai(date) < 0;
+
   // 'rejected' is an alias of 'cancelled' (customer-refused delivery). Without
   // this mapping the workflow falls through to 'uploaded' and the order keeps
   // showing up in the Pending Orders tab with the "Resend SMS" action even
@@ -90,17 +93,21 @@ function deriveWorkflowStatus(d: Delivery, smsSentAt: Date | undefined): Deliver
   if (s === 'cancelled' || s === 'rejected' || s === 'canceled') return 'cancelled';
   if (s === 'order-delay') return 'order_delay';
 
-  // Rescheduled: classify by the new confirmed delivery date when one is set
-  // and the date is in the future (tomorrow / next slot / later).
-  // If the date is overdue or not set yet, keep as 'rescheduled' — it counts
-  // as a pending order but does NOT appear in order_delay (order_delay is
-  // reserved only for non-rescheduled confirmed orders whose date has passed).
+  // Rescheduled: classify by the new confirmed delivery date.
+  //   - Future date → tier classification (next_shipment / future_schedule),
+  //     or out_for_delivery / ready_to_dispatch when GMD is already attached.
+  //   - Today     → out_for_delivery if GMD, else next_shipment.
+  //   - Past date → order_delay (overdue reschedule — needs attention). The
+  //     Rescheduled tag still surfaces in the action column because isRescheduled
+  //     is driven off the DB status.
+  //   - No date   → stays 'rescheduled' (waiting for a new date to be set).
   if (s === 'rescheduled') {
     const confirmedDate =
       parseOptDate(d.confirmedDeliveryDate) ??
       parseOptDate(d.customerConfirmedAt);
 
-    if (confirmedDate && calDiffFromTodayDubai(confirmedDate) >= 0) {
+    if (confirmedDate) {
+      if (isOverdue(confirmedDate)) return 'order_delay';
       // GMD was already attached (warehouse dispatched on the first attempt).
       // Honour that state so logistics doesn't have to re-click dispatch after
       // a reschedule: if the new date is today → on route; future → ready.
@@ -110,7 +117,7 @@ function deriveWorkflowStatus(d: Delivery, smsSentAt: Date | undefined): Deliver
       if (tier === 'next') return 'next_shipment';
       return 'future_schedule';
     }
-    // No date set, or date is in the past → stays 'rescheduled' (pending, no card)
+    // No date set → still waiting for a new date to be picked.
     return 'rescheduled';
   }
   if (s === 'returned' || s === 'failed' || (s && s.includes('fail'))) return 'failed';
@@ -127,9 +134,6 @@ function deriveWorkflowStatus(d: Delivery, smsSentAt: Date | undefined): Deliver
   ) {
     return 'delivered';
   }
-
-  // Helper: is the date's Dubai calendar day strictly before today? (overdue)
-  const isOverdue = (date: Date): boolean => calDiffFromTodayDubai(date) < 0;
 
   // Out-for-delivery: on-route unless the planned delivery date has already passed.
   // If the driver was dispatched but today is after the scheduled/confirmed date,
