@@ -2049,12 +2049,17 @@ export default function DeliveryTeamPortal() {
 
       {/* Deliveries Tab — Live Maps sub-tab uses the identical Logistics-style map UI */}
       {activeTab === 'deliveries' && (() => {
-        // Compute active deliveries for the Live Maps sub-tab (same logic as Logistics portal Live Maps)
-        const LIVE_TERMINAL_D = new Set(['delivered', 'cancelled', 'failed', 'returned', 'pod-completed',
-          'delivered-with-installation', 'delivered-without-installation', 'finished', 'completed']);
+        // Compute active deliveries for the Live Maps sub-tab (same logic as Logistics portal Live Maps).
+        // INCLUDE only on-route / order-delay / confirmed rows — everything else
+        // (delivered, cancelled, rejected, pending, etc.) is not worth routing to.
+        const LIVE_MAP_VISIBLE_D = new Set([
+          'out-for-delivery', 'in-transit', 'in-progress',
+          'order-delay',
+          'confirmed', 'scheduled-confirmed', 'rescheduled',
+        ]);
         const tdDeliveries = deliveries
           .filter(d => {
-            if (LIVE_TERMINAL_D.has((d.status || '').toLowerCase())) return false;
+            if (!LIVE_MAP_VISIBLE_D.has((d.status || '').toLowerCase())) return false;
             if (trackingDriverFilter === 'all') return true;
             const ext = d as unknown as { tracking?: { driverId?: string } };
             const liveDriverId = ext.tracking?.driverId;

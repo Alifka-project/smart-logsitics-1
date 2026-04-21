@@ -1332,18 +1332,23 @@ export default function LogisticsTeamPortal() {
               content: (() => {
             // Filter deliveries for the live-maps panel.
             // Rules:
-            //   1. Always exclude terminal statuses (delivered, cancelled, etc.)
+            //   1. INCLUDE only on-route, order-delay, and confirmed variants — the
+            //      driver is genuinely in motion / actively expected to move. Delivered,
+            //      cancelled, rejected, failed, returned, and pre-confirmation rows are
+            //      all excluded so the map shows only addresses worth routing to.
             //   2. Only include orders that have a driver assigned (live tracking OR assignedDriverId)
-            //      — unassigned pending/confirmed orders should not appear on the live map
             //   3. When a specific driver is selected, show only that driver's orders
             //   4. Apply the status-based quick filter (liveStatusFilter)
-            const LIVE_TERMINAL = new Set(['delivered', 'cancelled', 'failed', 'returned', 'pod-completed',
-              'delivered-with-installation', 'delivered-without-installation', 'finished', 'completed']);
+            const LIVE_MAP_VISIBLE = new Set([
+              'out-for-delivery', 'in-transit', 'in-progress',    // On Route
+              'order-delay',                                       // Order Delay
+              'confirmed', 'scheduled-confirmed', 'rescheduled',   // Confirmed / Rescheduled
+            ]);
             const nowForFilter = new Date();
             const trackingDeliveries = deliveries
               .filter(d => {
-                // 1. Exclude terminal orders
-                if (LIVE_TERMINAL.has((d.status || '').toLowerCase())) return false;
+                // 1. Include only on-route / delayed / confirmed rows
+                if (!LIVE_MAP_VISIBLE.has((d.status || '').toLowerCase())) return false;
 
                 const ext = d as unknown as { tracking?: { driverId?: string }; confirmedDeliveryDate?: string; metadata?: Record<string, unknown> };
                 const liveDriverId = ext.tracking?.driverId;
@@ -1472,7 +1477,7 @@ export default function LogisticsTeamPortal() {
                         const driverOrders = deliveries.filter(d => {
                           const ext = d as unknown as { tracking?: { driverId?: string } };
                           return (ext.tracking?.driverId === dr.id || d.assignedDriverId === dr.id)
-                            && !LIVE_TERMINAL.has((d.status || '').toLowerCase());
+                            && LIVE_MAP_VISIBLE.has((d.status || '').toLowerCase());
                         });
                         const onRoute = driverOrders.filter(d => (d.status || '').toLowerCase() === 'out-for-delivery').length;
                         return (
