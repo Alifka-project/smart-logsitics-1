@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import api, { setAuthToken } from '../frontend/apiClient';
+import { getCurrentUser } from '../frontend/auth';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { calculateRouteWithOSRM } from '../services/osrmRoutingService';
@@ -93,6 +94,64 @@ function ensureAuth(): void {
 
 const WAREHOUSE_LOCATION: LatLng = { lat: 25.0053, lng: 55.0760 };
 
+// ── Driver route-state persistence (survives logout / app restart) ──────────
+// The planned/static ETA and the "Start Delivery" timestamp were held only in
+// React state, so a re-login reset them and the lock effectively disappeared.
+// Persist them to localStorage keyed by driver ID so the driver resumes
+// exactly where they left off on the same device. Auto-expires after 12 h
+// so a stale state from yesterday doesn't carry into a new route.
+const ROUTE_STATE_KEY_PREFIX = 'driver_route_state_';
+const ROUTE_STATE_MAX_AGE_MS = 12 * 60 * 60 * 1000; // 12 hours
+
+interface PersistedEta {
+  plannedEta: string | null;
+  staticEta: string | null;
+}
+interface PersistedRouteState {
+  startedAt: number | null;
+  etas: Record<string, PersistedEta>;
+}
+
+function getDriverStorageId(): string | null {
+  try {
+    const u = getCurrentUser();
+    return u?.id ?? u?.sub ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function loadRouteState(driverId: string | null): PersistedRouteState {
+  if (!driverId) return { startedAt: null, etas: {} };
+  try {
+    const raw = localStorage.getItem(`${ROUTE_STATE_KEY_PREFIX}${driverId}`);
+    if (!raw) return { startedAt: null, etas: {} };
+    const parsed = JSON.parse(raw) as Partial<PersistedRouteState> | null;
+    if (!parsed || typeof parsed !== 'object') return { startedAt: null, etas: {} };
+    const startedAt = typeof parsed.startedAt === 'number' ? parsed.startedAt : null;
+    // Expire stale state so yesterday's route doesn't bleed into today's.
+    if (startedAt != null && Date.now() - startedAt > ROUTE_STATE_MAX_AGE_MS) {
+      localStorage.removeItem(`${ROUTE_STATE_KEY_PREFIX}${driverId}`);
+      return { startedAt: null, etas: {} };
+    }
+    return {
+      startedAt,
+      etas: parsed.etas && typeof parsed.etas === 'object' ? parsed.etas as Record<string, PersistedEta> : {},
+    };
+  } catch {
+    return { startedAt: null, etas: {} };
+  }
+}
+
+function saveRouteState(driverId: string | null, state: PersistedRouteState): void {
+  if (!driverId) return;
+  try {
+    localStorage.setItem(`${ROUTE_STATE_KEY_PREFIX}${driverId}`, JSON.stringify(state));
+  } catch {
+    // Ignore quota / disabled storage errors — persistence is best-effort.
+  }
+}
+
 export default function DriverPortal() {
   const routeLocation = useLocation();
   const [location, setLocation] = useState<LocationData | null>(null);
@@ -124,7 +183,23 @@ export default function DriverPortal() {
 
   // D4: "Start Delivery" — wall-clock time driver departed the warehouse
   // Once set, staticEta for each stop is locked and used for 1-hr delay detection (D3)
-  const [deliveryStartedAt, setDeliveryStartedAt] = useState<number | null>(null);
+  // Lazy initialiser reads from localStorage so a re-login restores the lock
+  // on the first render — no flicker of the "Start Delivery" button.
+  const [deliveryStartedAt, setDeliveryStartedAt] = useState<number | null>(
+    () => loadRouteState(getDriverStorageId()).startedAt,
+  );
+
+  // Driver ID is the localStorage key for route-state persistence. Captured
+  // once on mount so we keep writing to the same bucket even if the auth
+  // client is mid-refresh.
+  const driverStorageIdRef = useRef<string | null>(getDriverStorageId());
+
+  // Per-delivery ETA cache loaded from localStorage. Lives in a ref (not
+  // state) because we only need it inside the routing effect closure and
+  // don't want it to trigger re-renders when we hydrate new values.
+  const persistedEtasRef = useRef<Record<string, PersistedEta>>(
+    loadRouteState(getDriverStorageId()).etas,
+  );
 
   // Messaging state
   const [messages, setMessages] = useState<DriverMessage[]>([]);
@@ -163,7 +238,9 @@ export default function DriverPortal() {
   const userOrderRef = useRef<Delivery[]>([]);
 
   // Ref mirror of deliveryStartedAt so the routing effect can read it without being a dep.
-  const deliveryStartedAtRef = useRef<number | null>(null);
+  // Initialised from the lazy state so the first routing pass after a re-login
+  // sees the persisted timestamp and keeps the static ETA locked.
+  const deliveryStartedAtRef = useRef<number | null>(deliveryStartedAt);
 
   // Lock stop order after first OSRM calc so distances decrease monotonically on GPS movement.
   // Only reset when deliveries actually change (new/completed orders).
@@ -719,10 +796,20 @@ export default function DriverPortal() {
           ).toISOString();
 
           const inStore = storeById.get(String(delivery.id));
+          // After a re-login, the Zustand store is repopulated from the API
+          // (which doesn't carry plannedEta/staticEta) so we also fall back to
+          // the localStorage cache populated on previous runs.
+          const persisted = persistedEtasRef.current[String(delivery.id)];
           // plannedEta is the first-ever computed ETA — never overwritten after set.
-          const existingPlannedEta = (inStore?.['plannedEta'] as string | null | undefined) ?? null;
+          const existingPlannedEta =
+            (inStore?.['plannedEta'] as string | null | undefined)
+            ?? persisted?.plannedEta
+            ?? null;
           // staticEta is locked when "Start Delivery" is clicked; once set, never change.
-          const existingStaticEta = (inStore?.['staticEta'] as string | null | undefined) ?? null;
+          const existingStaticEta =
+            (inStore?.['staticEta'] as string | null | undefined)
+            ?? persisted?.staticEta
+            ?? null;
           const newStaticEta = deliveryStartedAtRef.current
             ? (existingStaticEta ?? staticComputedEta) // lock on Start Delivery click
             : null; // not started yet — don't lock
@@ -754,6 +841,24 @@ export default function DriverPortal() {
         }
         lastRouteOriginRef.current = origin;
         lastRouteDeliveriesRef.current = deliverySignature;
+
+        // Persist the now-locked planned/static ETAs + startedAt so a re-login
+        // restores the exact same schedule without recomputing from scratch.
+        const nextPersisted: Record<string, PersistedEta> = {};
+        for (const d of final) {
+          if (!d.id) continue;
+          if (d.plannedEta || d.staticEta) {
+            nextPersisted[String(d.id)] = {
+              plannedEta: d.plannedEta ?? null,
+              staticEta: d.staticEta ?? null,
+            };
+          }
+        }
+        persistedEtasRef.current = nextPersisted;
+        saveRouteState(driverStorageIdRef.current, {
+          startedAt: deliveryStartedAtRef.current,
+          etas: nextPersisted,
+        });
       })
       .catch((routeErr: unknown) => {
         console.error('Failed to calculate driver route:', routeErr);
@@ -1180,12 +1285,15 @@ export default function DriverPortal() {
   const handleStartDelivery = useCallback(() => {
     const now = Date.now();
     setDeliveryStartedAt(now);
+    // Keep the ref in sync immediately so the persistence write below uses
+    // the just-set value without waiting for the sync effect.
+    deliveryStartedAtRef.current = now;
     // Lock static ETAs immediately from existing orderedDeliveries — no OSRM re-run needed.
     // Avoids a network call that could fail and make the ETA panel show N/A.
     const SERVICE_TIME_SEC = 3600; // 60-min service per stop (same as routing effect)
     setOrderedDeliveries(prev => {
       if (!prev.length) return prev;
-      return prev.map((d, index) => {
+      const locked = prev.map((d, index) => {
         if (d.staticEta) return d; // already locked from a previous Start
         const existingEta = d.estimatedEta ? new Date(d.estimatedEta).getTime() : null;
         if (!existingEta || isNaN(existingEta)) return d;
@@ -1193,6 +1301,21 @@ export default function DriverPortal() {
         const staticEta = new Date(existingEta + index * SERVICE_TIME_SEC * 1000).toISOString();
         return { ...d, staticEta };
       });
+      // Snapshot the just-locked ETAs to localStorage so a re-login restores
+      // exactly these values (not a recomputed approximation).
+      const snapshot: Record<string, PersistedEta> = {};
+      for (const d of locked) {
+        if (!d.id) continue;
+        if (d.plannedEta || d.staticEta) {
+          snapshot[String(d.id)] = {
+            plannedEta: d.plannedEta ?? null,
+            staticEta: d.staticEta ?? null,
+          };
+        }
+      }
+      persistedEtasRef.current = snapshot;
+      saveRouteState(driverStorageIdRef.current, { startedAt: now, etas: snapshot });
+      return locked;
     });
   }, []);
 
