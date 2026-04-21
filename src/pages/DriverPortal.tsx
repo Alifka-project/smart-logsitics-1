@@ -201,6 +201,10 @@ export default function DriverPortal() {
     loadRouteState(getDriverStorageId()).etas,
   );
 
+  // Dedupe key for the "sync locked plan ETAs to backend" catch-up call —
+  // avoids POSTing on every GPS tick when the plan ETAs haven't changed.
+  const lastBackendEtaSyncRef = useRef<string>('');
+
   // Messaging state
   const [messages, setMessages] = useState<DriverMessage[]>([]);
   const [newMessage, setNewMessage] = useState<string>('');
@@ -859,6 +863,32 @@ export default function DriverPortal() {
           startedAt: deliveryStartedAtRef.current,
           etas: nextPersisted,
         });
+
+        // Catch-up sync to the backend so the customer tracking portal sees
+        // the locked plannedEta. Fires whenever the driver has tapped Start
+        // AND the plan ETAs have changed since the last sync. Covers drivers
+        // who started BEFORE this feature was deployed — those drivers never
+        // click Start again (button is hidden after restore), so without this
+        // block metadata.plannedEta would never get written.
+        if (deliveryStartedAtRef.current && Object.keys(nextPersisted).length > 0) {
+          const syncKey = JSON.stringify(
+            Object.entries(nextPersisted).sort().map(([id, e]) => `${id}:${e.plannedEta || ''}:${e.staticEta || ''}`),
+          );
+          if (syncKey !== lastBackendEtaSyncRef.current) {
+            lastBackendEtaSyncRef.current = syncKey;
+            const stopsForServer = Object.entries(nextPersisted).map(([deliveryId, e]) => ({
+              deliveryId,
+              plannedEta: e.plannedEta,
+              staticEta: e.staticEta,
+            }));
+            api.post('/deliveries/driver/route/start', {
+              startedAt: new Date(deliveryStartedAtRef.current).toISOString(),
+              stops: stopsForServer,
+            }).catch((err: unknown) => {
+              console.warn('[DriverPortal] route/start sync (catch-up) failed:', (err as Error).message);
+            });
+          }
+        }
       })
       .catch((routeErr: unknown) => {
         console.error('Failed to calculate driver route:', routeErr);
@@ -1327,6 +1357,11 @@ export default function DriverPortal() {
           staticEta: d.staticEta ?? null,
         }));
       if (stopsForServer.length > 0) {
+        // Mark this snapshot as synced so the routing-effect catch-up
+        // doesn't re-POST the identical payload immediately after.
+        lastBackendEtaSyncRef.current = JSON.stringify(
+          Object.entries(snapshot).sort().map(([id, e]) => `${id}:${e.plannedEta || ''}:${e.staticEta || ''}`),
+        );
         api.post('/deliveries/driver/route/start', {
           startedAt: new Date(now).toISOString(),
           stops: stopsForServer,
