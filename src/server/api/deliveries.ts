@@ -437,6 +437,52 @@ router.put('/driver/:id/status', authenticate, requireRole('driver'), async (req
 // delivery's metadata so the customer-tracking portal can display the locked
 // plan ETA (not the live GPS ETA, which shifts every GPS tick).
 // Body: { startedAt: string (ISO), stops: [{ deliveryId, plannedEta, staticEta }] }
+// GET /api/deliveries/admin/debug/metadata/:id — admin-only read-only dump
+// of a delivery's current metadata JSON. Used to verify end-to-end whether
+// the driver's Start-Delivery POST has successfully persisted plannedEta /
+// staticEta. Safe to keep: read-only, admin-role, single row.
+router.get('/admin/debug/metadata/:id', authenticate, requireAnyRole('admin', 'delivery_team'), async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params as { id: string };
+  try {
+    const row = await prisma.delivery.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        poNumber: true,
+        deliveryNumber: true,
+        status: true,
+        confirmedDeliveryDate: true,
+        goodsMovementDate: true,
+        updatedAt: true,
+        metadata: true,
+      },
+    });
+    if (!row) {
+      res.status(404).json({ error: 'not_found' });
+      return;
+    }
+    const meta = (row.metadata as Record<string, unknown> | null) ?? {};
+    res.json({
+      ok: true,
+      id: row.id,
+      poNumber: row.poNumber,
+      deliveryNumber: row.deliveryNumber,
+      status: row.status,
+      confirmedDeliveryDate: row.confirmedDeliveryDate,
+      goodsMovementDate: row.goodsMovementDate,
+      updatedAt: row.updatedAt,
+      metadataKeys: Object.keys(meta),
+      routeStartedAt: meta.routeStartedAt ?? null,
+      plannedEta: meta.plannedEta ?? null,
+      staticEta: meta.staticEta ?? null,
+      metadata: meta,
+    });
+  } catch (err: unknown) {
+    const e = err as { message?: string };
+    res.status(500).json({ error: 'db_error', detail: e.message });
+  }
+});
+
 router.post('/driver/route/start', authenticate, requireRole('driver'), async (req: Request, res: Response): Promise<void> => {
   const driverId = (req.user as { sub?: string })?.sub;
   if (!driverId) {
