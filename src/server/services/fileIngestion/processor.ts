@@ -128,10 +128,15 @@ export async function ingestFile(opts: IngestOptions): Promise<IngestOutcome> {
 
   for (let i = 0; i < validation.validData.length; i++) {
     const row = validation.validData[i] as ValidatedDelivery & {
+      name?: string;
       poNumber?: string;
       _originalPONumber?: string;
       _deliveryNumber?: string;
       _originalDeliveryNumber?: string;
+      _originalQuantity?: string | number;
+      _originalCity?: string;
+      _originalRoute?: string;
+      _originalRow?: Record<string, unknown>;
       _goodsMovementDate?: string;
       goodsMovementDate?: string;
       id?: string;
@@ -152,9 +157,16 @@ export async function ingestFile(opts: IngestOptions): Promise<IngestOutcome> {
         })()
       : null;
 
+    // Match the metadata shape the portal upload writes (see api/deliveries.ts
+    // baseMeta + deliveryMetadata merge). Missing these fields made some data
+    // not appear in the portal columns.
     const metadata: Record<string, unknown> = {
-      originalPONumber: row._originalPONumber,
-      originalDeliveryNumber: row._originalDeliveryNumber,
+      originalPONumber: row._originalPONumber ?? poNumberToSave,
+      originalDeliveryNumber: row._originalDeliveryNumber ?? deliveryNumberToSave,
+      originalQuantity: row._originalQuantity ?? null,
+      originalCity: row._originalCity ?? null,
+      originalRoute: row._originalRoute ?? null,
+      originalRow: row._originalRow ?? null,
       ingestedFrom: opts.source,
       ingestionId,
       filename: opts.filename || null,
@@ -169,14 +181,14 @@ export async function ingestFile(opts: IngestOptions): Promise<IngestOutcome> {
           id: deliveryId,
           deliveryNumber: deliveryNumberToSave,
           goodsMovementDate: goodsMovementDateToSave,
-          customer: row.customer,
+          customer: (row.customer || row.name || null) as string | null,
           address: row.address,
           phone: row.phone || null,
           poNumber: poNumberToSave,
           lat: row.lat,
           lng: row.lng,
           status: (row.status as string) || 'pending',
-          items: typeof row.items === 'string' ? row.items : JSON.stringify(row.items),
+          items: typeof row.items === 'string' ? row.items : row.items ? JSON.stringify(row.items) : null,
           metadata,
           businessKey: buildBusinessKey(poNumberToSave, deliveryNumberToSave),
         },
@@ -225,7 +237,55 @@ export async function ingestFile(opts: IngestOptions): Promise<IngestOutcome> {
     }
   }
 
-  // 5. Admin notification — triggers the bell in all portals within 15s.
+  // 5. Send confirmation SMS — identical behaviour to the portal upload flow.
+  //    Delegates to smsService.sendConfirmationSms() which:
+  //      - generates a confirmation token,
+  //      - updates delivery.status = 'scheduled' (so the portal shows
+  //        "Awaiting customer response" instead of "Pending Order"),
+  //      - sets confirmationStatus = 'pending',
+  //      - sends the confirmation SMS (or WhatsApp/link fallback) to the customer.
+  //    Non-dispatched + has-phone + not-confirmed rows get a confirmation;
+  //    dispatched rows already went out-for-delivery in step 4 and are skipped here.
+  const TERMINAL_STATUSES_NO_CONFIRM = new Set([
+    'out-for-delivery', 'delivered', 'delivered-with-installation',
+    'delivered-without-installation', 'cancelled', 'canceled', 'returned',
+    'in-transit', 'in-progress', 'finished', 'completed', 'pod-completed',
+  ]);
+  let confirmationsSent = 0;
+  let confirmationsFailed = 0;
+  if (savedIds.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { sendConfirmationSms } = require('../../sms/smsService');
+
+    const CONFIRMATION_CONCURRENCY = 5;
+    const sendOneConfirmation = async (id: string): Promise<void> => {
+      try {
+        const d = await prisma!.delivery.findUnique({
+          where: { id },
+          select: { id: true, phone: true, status: true, confirmationStatus: true },
+        });
+        if (!d || !d.phone) return;
+        if (d.confirmationStatus === 'confirmed') return;
+        if (TERMINAL_STATUSES_NO_CONFIRM.has(String(d.status || '').toLowerCase())) return;
+
+        await sendConfirmationSms(d.id, d.phone);
+        confirmationsSent += 1;
+      } catch (smsErr: unknown) {
+        confirmationsFailed += 1;
+        console.warn(`[Ingest] Confirmation SMS failed for ${id}:`, (smsErr as Error).message);
+      }
+    };
+
+    for (let i = 0; i < savedIds.length; i += CONFIRMATION_CONCURRENCY) {
+      const slice = savedIds.slice(i, i + CONFIRMATION_CONCURRENCY);
+      await Promise.all(slice.map(sendOneConfirmation));
+    }
+    console.log(
+      `[Ingest] Confirmations — sent=${confirmationsSent}, failed=${confirmationsFailed}, skipped=${savedIds.length - confirmationsSent - confirmationsFailed}`,
+    );
+  }
+
+  // 6. Admin notification — triggers the bell in all portals within 15s.
   //    Shape matches the existing 'status_changed' / 'gmd_upload' notifications
   //    so the frontend renders it the same way.
   const savedTotal = outcomeCounts.new + outcomeCounts.dispatched + outcomeCounts.updated;
