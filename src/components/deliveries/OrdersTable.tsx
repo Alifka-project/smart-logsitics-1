@@ -604,7 +604,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
       <div ref={tableTopRef} />
       <div className="border-b border-gray-100 px-3 py-3 dark:border-gray-700 sm:px-4 space-y-2.5">
 
-        {/* ── Row 1: Title + refresh + export ── */}
+        {/* ── Row 1: Title + refresh (Export moved down next to Date range) ── */}
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-xl font-bold tracking-tight text-gray-900 dark:text-white whitespace-nowrap">
             Delivery Orders
@@ -619,17 +619,6 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                 aria-label="Refresh orders"
               >
                 <RefreshCw className="h-3.5 w-3.5" />
-              </button>
-            )}
-            {onExport && (
-              <button
-                type="button"
-                onClick={onExport}
-                className="inline-flex items-center gap-1.5 px-3 py-[7px] rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors whitespace-nowrap"
-                title="Export to Excel"
-              >
-                <FileSpreadsheet className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                Export
               </button>
             )}
           </div>
@@ -712,19 +701,9 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
             <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-gray-400 dark:text-gray-500" aria-hidden />
           </div>
 
-          {/* ── Dispatch-only: Today · Priority · Date range ── */}
+          {/* ── Dispatch-only: Priority · Date range · Export ── */}
           {enableDispatchFilters && (
             <>
-              <button
-                type="button"
-                onClick={() => { setTodayOnly(v => !v); setCurrentPage(1); }}
-                className={`shrink-0 px-2.5 py-[7px] rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
-                  todayOnly ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'
-                }`}
-                title="Show only orders for today's delivery date"
-              >
-                Today
-              </button>
               <button
                 type="button"
                 onClick={() => { setPriorityOnly(v => !v); setCurrentPage(1); }}
@@ -740,7 +719,29 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                 to={filterDateTo}
                 onChange={(f, t) => { setFilterDateFrom(f); setFilterDateTo(t); setCurrentPage(1); }}
               />
+              {onExport && (
+                <button
+                  type="button"
+                  onClick={onExport}
+                  className="shrink-0 inline-flex items-center gap-1.5 px-3 py-[7px] rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors whitespace-nowrap"
+                  title="Export to Excel"
+                >
+                  <FileSpreadsheet className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  Export
+                </button>
+              )}
             </>
+          )}
+          {!enableDispatchFilters && onExport && (
+            <button
+              type="button"
+              onClick={onExport}
+              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-[7px] rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors whitespace-nowrap"
+              title="Export to Excel"
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              Export
+            </button>
           )}
 
           {/* ── Clear all ── */}
