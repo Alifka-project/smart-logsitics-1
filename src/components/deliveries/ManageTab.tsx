@@ -119,10 +119,25 @@ export default function ManageTab({
   const [podDeliveryId, setPodDeliveryId] = useState<string | null>(null);
   const ordersTableRef = useRef<HTMLDivElement | null>(null);
 
-  const manageOrders = useMemo(
-    () => visibleDeliveries.map((d) => deliveryToManageOrder(d)),
-    [visibleDeliveries],
-  );
+  const manageOrders = useMemo(() => {
+    const all = visibleDeliveries.map((d) => deliveryToManageOrder(d));
+    const now = Date.now();
+    const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+    const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
+    return all.filter((o) => {
+      // Cancelled orders: keep for 3 days after status change, then hide
+      if (o.status === 'cancelled') {
+        if (!o.statusChangedAt) return true;
+        return now - o.statusChangedAt.getTime() <= THREE_DAYS_MS;
+      }
+      // Delivered orders WITH POD: keep for 2 days, then hide
+      if (o.status === 'delivered' && o.hasPod) {
+        if (!o.statusChangedAt) return true;
+        return now - o.statusChangedAt.getTime() <= TWO_DAYS_MS;
+      }
+      return true;
+    });
+  }, [visibleDeliveries]);
 
   const editingDelivery = useMemo(
     (): Delivery | null =>
@@ -293,6 +308,17 @@ export default function ManageTab({
     window.location.href = `tel:${p}`;
   }, []);
 
+  const handleReorder = useCallback(async (orderId: string) => {
+    try {
+      await api.post(`/deliveries/${orderId}/reorder`);
+      onNotifySuccess('Re-ordered', 'Order moved back to PGI Done.');
+      window.dispatchEvent(new CustomEvent('deliveriesUpdated'));
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { error?: string } } };
+      onToastError(e?.response?.data?.error ?? 'Failed to re-order');
+    }
+  }, [onNotifySuccess, onToastError]);
+
   const handleTableTabChange = useCallback((tab: OrdersTableTab) => {
     setTableTab(tab);
     setActiveCardKey(undefined);
@@ -409,6 +435,7 @@ export default function ManageTab({
             showMaterialColumn={showMaterialColumn}
             showQtyColumn={showQtyColumn}
             simpleDriverDisplay={simpleDriverDisplay}
+            onReorder={(id) => void handleReorder(id)}
           />
         </div>
         <div className="min-w-0 w-full lg:sticky lg:top-4 lg:self-start">

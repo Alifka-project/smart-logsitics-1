@@ -62,6 +62,8 @@ export interface DeliveryOrder {
    * until the POD is uploaded.
    */
   hasPod?: boolean;
+  /** Timestamp of the last status change — used for time-based retention (e.g. cancelled 3 days, delivered+POD 2 days). */
+  statusChangedAt?: Date;
 }
 
 /** Optional UI / reporting shape; persisted uploads use `UploadRecord` in the store. */

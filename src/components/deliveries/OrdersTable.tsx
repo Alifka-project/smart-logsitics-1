@@ -78,6 +78,8 @@ interface OrdersTableProps {
   showQtyColumn?: boolean;
   /** Delivery Team Portal: show only plain driver name text — no icon, no assignment dropdown */
   simpleDriverDisplay?: boolean;
+  /** Called when the user clicks "Re-order" on a cancelled order to move it back to PGI Done */
+  onReorder?: (orderId: string) => void;
 }
 
 const CONFIRMED_STATUSES = new Set<DeliveryStatus>(['confirmed', 'next_shipment', 'future_schedule', 'ready_to_dispatch']);
@@ -245,6 +247,7 @@ interface ActionDropdownProps {
   onReschedule: (order: DeliveryOrder) => void;
   onUploadPod?: (orderId: string) => void;
   onViewReason?: (order: DeliveryOrder) => void;
+  onReorder?: (orderId: string) => void;
 }
 
 function ActionDropdown({
@@ -257,6 +260,7 @@ function ActionDropdown({
   onReschedule,
   onUploadPod,
   onViewReason,
+  onReorder,
 }: ActionDropdownProps) {
   const s = order.status;
   const isTerminal = s === 'delivered' || s === 'cancelled' || s === 'failed';
@@ -285,28 +289,39 @@ function ActionDropdown({
     );
   }
 
-  // Cancelled / rejected — show a clickable "View Reason" button when the
-  // driver recorded a rejection reason (mandatory for driver-initiated rejection).
+  // Cancelled / rejected — show "View Reason" + "Re-order" buttons
   if (s === 'cancelled') {
     const cfg = NEXT_STEP_CONFIG['terminal_cancelled']!;
     const reason = order.notes?.trim() || order.failureReason?.trim() || '';
     const hasReason = !!reason && !!onViewReason;
     return (
-      <button
-        type="button"
-        onClick={hasReason ? () => onViewReason!(order) : undefined}
-        disabled={!hasReason}
-        className={`inline-flex w-full items-center justify-center gap-1 px-1.5 py-1 rounded border text-[10px] font-semibold leading-none ${cfg.cls} ${
-          hasReason
-            ? 'cursor-pointer hover:brightness-95 active:scale-95 transition-all'
-            : 'cursor-default select-none opacity-80'
-        }`}
-        title={hasReason ? 'View rejection reason' : cfg.label}
-        aria-label={hasReason ? 'View rejection reason' : cfg.label}
-      >
-        <span aria-hidden>{cfg.icon}</span>
-        {hasReason ? 'View Reason' : cfg.label}
-      </button>
+      <div className="flex flex-col items-stretch gap-1.5">
+        <button
+          type="button"
+          onClick={hasReason ? () => onViewReason!(order) : undefined}
+          disabled={!hasReason}
+          className={`inline-flex w-full items-center justify-center gap-1 px-1.5 py-1 rounded border text-[10px] font-semibold leading-none ${cfg.cls} ${
+            hasReason
+              ? 'cursor-pointer hover:brightness-95 active:scale-95 transition-all'
+              : 'cursor-default select-none opacity-80'
+          }`}
+          title={hasReason ? 'View rejection reason' : cfg.label}
+          aria-label={hasReason ? 'View rejection reason' : cfg.label}
+        >
+          <span aria-hidden>{cfg.icon}</span>
+          {hasReason ? 'View Reason' : cfg.label}
+        </button>
+        {onReorder && (
+          <button
+            type="button"
+            onClick={() => onReorder(order.id)}
+            className="w-full flex items-center justify-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold rounded border border-blue-400 bg-blue-50 text-blue-700 hover:bg-blue-500 hover:text-white dark:border-blue-500/60 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-600 dark:hover:text-white transition-colors whitespace-nowrap"
+            title="Re-order: move back to PGI Done"
+          >
+            🔄 Re-order
+          </button>
+        )}
+      </div>
     );
   }
 
@@ -388,6 +403,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
   showMaterialColumn = false,
   showQtyColumn = false,
   simpleDriverDisplay = false,
+  onReorder,
 }) => {
   const [rescheduleOrder, setRescheduleOrder] = useState<DeliveryOrder | null>(null);
   const [reasonOrder, setReasonOrder] = useState<DeliveryOrder | null>(null);
@@ -1076,6 +1092,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                         onReschedule={(o) => setRescheduleOrder(o)}
                         onUploadPod={onUploadPod}
                         onViewReason={(o) => setReasonOrder(o)}
+                        onReorder={onReorder}
                       />
                     </td>
                   </tr>

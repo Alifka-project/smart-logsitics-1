@@ -2668,4 +2668,78 @@ router.put('/admin/:id/reschedule', authenticate, requireAnyRole('admin', 'deliv
   }
 });
 
+// POST /api/deliveries/:id/reorder — move a cancelled order back to pgi-done
+// Preserves existing notes/comments. Only works on cancelled/rejected orders.
+router.post('/:id/reorder', authenticate, requireAnyRole('admin', 'logistics', 'delivery_team'), async (req: Request, res: Response): Promise<void> => {
+  const { id: deliveryId } = req.params as { id: string };
+  try {
+    const existing = await prisma.delivery.findUnique({ where: { id: deliveryId } });
+    if (!existing) {
+      res.status(404).json({ error: 'delivery_not_found' });
+      return;
+    }
+    const currentStatus = String(existing.status || '').toLowerCase();
+    if (currentStatus !== 'cancelled' && currentStatus !== 'rejected' && currentStatus !== 'canceled') {
+      res.status(400).json({ error: 'only_cancelled_orders_can_be_reordered' });
+      return;
+    }
+    // Must have a Goods Movement Date to go back to pgi-done
+    if (!existing.goodsMovementDate) {
+      res.status(400).json({ error: 'goods_movement_date_required' });
+      return;
+    }
+
+    const prevMeta = existing.metadata && typeof existing.metadata === 'object'
+      ? (existing.metadata as Record<string, unknown>) : {};
+    const nextMeta: Record<string, unknown> = {
+      ...prevMeta,
+      reorderedAt: new Date().toISOString(),
+      reorderedBy: (req.user as Record<string, unknown>)?.sub || 'admin',
+      reorderedFromStatus: currentStatus,
+      // Clear picking confirmation so driver must re-confirm
+      picking: undefined,
+    };
+
+    const updated = await prisma.delivery.update({
+      where: { id: deliveryId },
+      data: {
+        status: 'pgi-done',
+        metadata: nextMeta,
+        updatedAt: new Date(),
+      },
+    });
+
+    // Re-open any closed assignments so the driver sees the order again
+    await prisma.deliveryAssignment.updateMany({
+      where: { deliveryId, status: 'completed' },
+      data: { status: 'assigned' },
+    }).catch(() => {});
+
+    // Log the event
+    await prisma.deliveryEvent.create({
+      data: {
+        deliveryId,
+        eventType: 'reorder',
+        payload: {
+          previousStatus: currentStatus,
+          newStatus: 'pgi-done',
+          reorderedAt: new Date().toISOString(),
+        },
+        actorType: (req.user as Record<string, unknown>)?.role as string || 'admin',
+        actorId: (req.user as Record<string, unknown>)?.sub as string || null,
+      },
+    }).catch(() => {});
+
+    cache.invalidatePrefix('tracking:');
+    cache.invalidatePrefix('dashboard:');
+    cache.invalidatePrefix('deliveries:list:v2');
+
+    res.json({ ok: true, delivery: updated });
+  } catch (err: unknown) {
+    const e = err as { message?: string };
+    console.error('[Deliveries] Reorder error:', e.message);
+    res.status(500).json({ error: 'reorder_failed', detail: e.message });
+  }
+});
+
 export default router;

@@ -278,6 +278,12 @@ export function deliveryToManageOrder(delivery: Delivery): DeliveryOrder {
 
   const isRescheduled = (delivery.status || '').toLowerCase() === 'rescheduled';
 
+  // statusChangedAt — used for time-based retention of terminal orders
+  const statusChangedAt =
+    parseOptDate(rec.updatedAt as string | Date | undefined) ??
+    parseOptDate(rec.updated_at as string | Date | undefined) ??
+    uploadedAt;
+
   // hasPod — prefer the server-computed boolean returned by the tracking API (most accurate).
   // Fall back to local field checks when the server field is absent (e.g. non-tracking fetch).
   // Note: podCompletedAt is intentionally excluded — it is stamped automatically on ANY
@@ -323,6 +329,7 @@ export function deliveryToManageOrder(delivery: Delivery): DeliveryOrder {
     isRescheduled,
     orderType: getOrderType(delivery),
     hasPod,
+    statusChangedAt,
   };
 }
 
