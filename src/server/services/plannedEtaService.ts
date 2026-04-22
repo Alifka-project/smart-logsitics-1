@@ -105,8 +105,9 @@ async function buildRouteMatrix(driverId: string, anchorDateIso: string, targetD
   const dayEnd = new Date(Date.UTC(y, m, d + 1, 0 - DUBAI_OFFSET_H, 0, 0, 0));
 
   // All assigned deliveries for this driver, on this Dubai calendar day, that
-  // aren't terminal yet. Priority first, then assignment createdAt, then
-  // delivery createdAt — deterministic, approximates the app-side ordering.
+  // aren't terminal yet. Priority first, then assignment assignedAt (stable
+  // creation order), then delivery createdAt — deterministic, approximates
+  // the app-side ordering.
   const assignments = await prisma.deliveryAssignment.findMany({
     where: {
       driverId,
@@ -117,14 +118,12 @@ async function buildRouteMatrix(driverId: string, anchorDateIso: string, targetD
       },
     },
     select: {
-      createdAt: true,
       delivery: {
         select: { id: true, lat: true, lng: true, metadata: true, createdAt: true },
       },
     },
-    orderBy: [{ createdAt: 'asc' }],
+    orderBy: [{ assignedAt: 'asc' }],
   }) as Array<{
-    createdAt: Date;
     delivery: {
       id: string;
       lat: number | null;
