@@ -12,6 +12,7 @@ import {
   isActiveDeliveryListStatus,
   isOnRouteDeliveryListStatus,
 } from '../../utils/deliveryListFilter';
+import { isPickingListEligible } from '../../utils/pickingListFilter';
 
 interface DeliveryTableProps {
   onSelectDelivery: () => void;
@@ -146,13 +147,22 @@ export default function DeliveryTable({
   onRouteSequenceOnly = false,
   isDriverPortal = false,
 }: DeliveryTableProps) {
-  const deliveries = useDeliveryStore((state) => state.deliveries ?? []);
+  const allDeliveries = useDeliveryStore((state) => state.deliveries ?? []);
   const deliveryListFilter = useDeliveryStore((state) => state.deliveryListFilter ?? 'all');
   const setDeliveryListFilter = useDeliveryStore((state) => state.setDeliveryListFilter);
   const updateDeliveryOrder = useDeliveryStore((state) => state.updateDeliveryOrder);
   const selectDelivery = useDeliveryStore((state) => state.selectDelivery);
 
   const [selectedDriver, setSelectedDriver] = useState<string>('all');
+
+  // Driver portal: orders still awaiting picking live exclusively in the Picking
+  // List tab. My Orders / Delivery Sequence only surfaces orders whose pickup has
+  // already been confirmed (pickup-confirmed, on-route, delivered, etc.) or other
+  // non-picking flows — never rows that are currently sitting on the picking list.
+  const deliveries = useMemo(() => {
+    if (!isDriverPortal) return allDeliveries;
+    return allDeliveries.filter((d) => !isPickingListEligible(d));
+  }, [allDeliveries, isDriverPortal]);
 
   // Portal embed: clear filters that don't apply to the on-route sequence view
   // (isDriverPortal has its own chip set that includes confirmed/out_for_delivery)
@@ -254,9 +264,9 @@ export default function DeliveryTable({
 
   const chips: { id: DeliveryListFilter; label: string; activeClass: string }[] = isDriverPortal
     ? [
-        // Unified driver portal chip set — all order types in one table
+        // Unified driver portal chip set — picking-eligible orders live in the
+        // separate Picking List tab, so no "PGI Done" chip here.
         { id: 'all',               label: 'All Orders',        activeClass: 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900' },
-        { id: 'pgi_done',          label: '📦 PGI Done',       activeClass: 'bg-amber-500 text-white' },
         { id: 'pickup_confirmed',  label: '🚛 Ready to Depart', activeClass: 'bg-teal-600 text-white' },
         { id: 'out_for_delivery',  label: '🚚 On Route',       activeClass: 'bg-orange-500 text-white' },
         { id: 'confirmed',         label: '✅ Confirmed',      activeClass: 'bg-blue-600 text-white' },
@@ -285,6 +295,11 @@ export default function DeliveryTable({
         ];
 
   const isDeliveredFilter = deliveryListFilter === 'delivered'; // used for "Completed" empty state
+  // Driver portal: when My Orders is empty but orders are waiting in the Picking
+  // List tab, surface that so the driver knows where to look.
+  const pendingPickingCount = isDriverPortal
+    ? allDeliveries.filter((d) => isPickingListEligible(d)).length
+    : 0;
 
   return (
     <div className="pp-dash-card p-4 sm:p-6 transition-colors">
@@ -406,7 +421,9 @@ export default function DeliveryTable({
         <div className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm">
           {isDeliveredFilter
             ? 'No completed deliveries in the last 3 days. Delivered and cancelled orders from the past 3 days appear here.'
-            : 'No deliveries match this filter.'}
+            : isDriverPortal && pendingPickingCount > 0
+              ? `No orders ready to dispatch yet. ${pendingPickingCount} order${pendingPickingCount === 1 ? '' : 's'} waiting in the Picking List tab — confirm pickup items there first.`
+              : 'No deliveries match this filter.'}
         </div>
       )}
     </div>
