@@ -90,10 +90,18 @@ export default function ManageTab({
   const manageTabFilter = useDeliveryStore((s) => s.manageTabFilter);
   const setManageTabFilter = useDeliveryStore((s) => s.setManageTabFilter);
 
-  const [tableTab, setTableTab] = useState<OrdersTableTab>('all');
+  // Initialize tableTab from store filter if present (consumed immediately to survive remounts)
+  const [tableTab, setTableTab] = useState<OrdersTableTab>(() => {
+    const pending = useDeliveryStore.getState().manageTabFilter;
+    if (pending) {
+      useDeliveryStore.getState().setManageTabFilter(null);
+      return pending as OrdersTableTab;
+    }
+    return 'all';
+  });
   const [activeCardKey, setActiveCardKey] = useState<string | undefined>(undefined);
 
-  // Apply incoming filter from Needs Attention cards then clear it
+  // Also handle filter changes that arrive after mount (e.g. clicking a card while already on this tab)
   useEffect(() => {
     if (manageTabFilter) {
       setTableTab(manageTabFilter as OrdersTableTab);
