@@ -87,11 +87,9 @@ export default function DeliveryCard({
     if (onCloseDetailModal) onCloseDetailModal();
     if (!delivery.phone || !delivery.id) return;
     try {
-      const response = await api.post(
+      await api.post(
         `/deliveries/${encodeURIComponent(String(delivery.id))}/send-sms`, {}
       );
-      const waUrl = (response.data as { whatsappUrl?: string })?.whatsappUrl;
-      if (waUrl) window.open(waUrl, '_blank');
     } catch {
       // silent — no popup or message shown
     }
@@ -321,7 +319,7 @@ export default function DeliveryCard({
                   type="button"
                   onClick={(e) => { void handleSMSClick(e); }}
                   className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-700 hover:bg-blue-800 text-white"
-                  title="Send WhatsApp confirmation"
+                  title="Send SMS confirmation"
                 >
                   <MessageCircle className="w-3.5 h-3.5" />
                   SMS

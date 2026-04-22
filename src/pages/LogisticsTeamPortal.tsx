@@ -38,7 +38,6 @@ import { excludeTeamPortalGarbageDeliveries } from '../utils/deliveryListFilter'
 import { getTodayIsoDubai, addCalendarDaysDubai, formatInstantToDubaiIsoDate } from '../utils/dubaiCalendarIso';
 
 import type { Delivery, AuthUser } from '../types';
-// WhatsAppSendModal is mounted globally in App.tsx — no local import needed
 
 interface ContactUser {
   id: string;
@@ -710,7 +709,6 @@ export default function LogisticsTeamPortal() {
 
   return (
     <div className="space-y-2 md:space-y-4 w-full min-w-0">
-      {/* WhatsApp modal is handled globally in App.tsx */}
       {/* Header - responsive and touch-friendly */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="min-w-0">

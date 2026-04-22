@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   AlertCircle, Loader, MapPin, Truck, Clock, Package,
   Phone, CheckCircle, Navigation, Star, RefreshCw, ChevronRight, ArrowLeft,
-  MessageSquare, Calendar
+  Calendar
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
@@ -260,13 +260,6 @@ function displayDeliveryNumberForCustomer(d: TrackingDelivery): string | null {
   if (fromFile) return fromFile;
   if (col) return col;
   return null;
-}
-
-function whatsAppLinkForPhone(phone: string | undefined): string | null {
-  if (!phone?.trim()) return null;
-  const digits = phone.replace(/\D/g, '');
-  if (!digits) return null;
-  return `https://wa.me/${digits}`;
 }
 
 // ── Status hero config (top card) ────────────────────────────────────────────
@@ -724,17 +717,6 @@ export default function CustomerTrackingPage() {
                   <Phone style={{ width: 13, height: 13 }} />
                   Call Driver
                 </a>
-                {whatsAppLinkForPhone(trackingInfo.driver.phone || '+971524408687') && (
-                  <a
-                    href={whatsAppLinkForPhone(trackingInfo.driver.phone || '+971524408687')!}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn-driver-action"
-                  >
-                    <MessageSquare style={{ width: 13, height: 13, color: '#25D366' }} />
-                    WhatsApp
-                  </a>
-                )}
               </div>
             </div>
           ) : (
@@ -752,15 +734,6 @@ export default function CustomerTrackingPage() {
                 <a href="tel:+971524408687" className="btn-driver-action btn-driver-action--primary">
                   <Phone style={{ width: 13, height: 13 }} />
                   Call Us
-                </a>
-                <a
-                  href="https://wa.me/971524408687"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn-driver-action"
-                >
-                  <MessageSquare style={{ width: 13, height: 13, color: '#25D366' }} />
-                  WhatsApp
                 </a>
               </div>
             </div>

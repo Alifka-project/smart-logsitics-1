@@ -2721,10 +2721,8 @@ export default function AdminDashboardPage(): React.ReactElement {
                             <option value="confirmed">Confirmed (tomorrow)</option>
                             <option value="scheduled-confirmed">Confirmed (future date)</option>
                             <option value="pgi-done">PGI Done (goods issued)</option>
-                            <option value="pickup-confirmed">Ready to Depart</option>
-                            <option value="out-for-delivery">Out for Delivery</option>
-                            <option value="in-transit">In Transit</option>
-                            <option value="in-progress">In Progress</option>
+                            {/* pickup-confirmed / out-for-delivery / in-transit / in-progress
+                                are driver-only transitions (picking confirm + Start Delivery) */}
                             <option value="delivered">Delivered</option>
                             <option value="delivered-with-installation">Delivered + Install</option>
                             <option value="delivered-without-installation">Delivered (no install)</option>

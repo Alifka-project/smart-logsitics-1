@@ -8,8 +8,6 @@ import crypto from 'crypto';
 import prisma from '../db/prisma';
 import { normalizeUAEPhone } from '../utils/phoneUtils';
 import { SmsSendOptions, SmsSendResult } from './adapter';
-import { sendWhatsApp, isWhatsAppConfigured } from './whatsappApiAdapter';
-import { buildWhatsAppLink } from './waLink';
 import {
   confirmationRequestMessage,
   thankYouAfterConfirmationMessage,
@@ -63,7 +61,6 @@ interface SendConfirmationSmsResult {
   messageId: string;
   phoneNumber: string;
   expiresAt: string;
-  whatsappUrl?: string; // present during SMS compliance-pending period
 }
 
 /**
@@ -115,23 +112,6 @@ async function sendConfirmationSms(
       to: finalPhone, body: smsMessage,
       metadata: { deliveryId, type: 'confirmation_request' }
     });
-    const whatsappUrl: string | undefined = undefined; // wa.me fallback not needed while SMS is active
-    // ── WhatsApp path (kept for reference — temporarily disabled) ─────────────
-    // let smsResult: SmsSendResult;
-    // let whatsappUrl: string | undefined;
-    // if (isWhatsAppConfigured()) {
-    //   const waResult = await sendWhatsAppDeliveryConfirmation(finalPhone, {
-    //     fullTextBody: smsMessage, customerName, poRef, confirmationLink
-    //   });
-    //   if (!waResult.ok) {
-    //     throw new Error(`WhatsApp confirmation failed: ${waResult.error || 'unknown_error'}`);
-    //   }
-    //   smsResult = { messageId: waResult.messageId || `wa-${Date.now()}`, status: 'sent' };
-    // } else {
-    //   whatsappUrl = buildWhatsAppLink(finalPhone, smsMessage);
-    //   smsResult = { messageId: `wa-link-${Date.now()}`, status: 'whatsapp_link_generated' };
-    // }
-    // ──────────────────────────────────────────────────────────────────────────
 
     // Update delivery with token + mark as scheduled
     await prisma!.delivery.update({
@@ -175,7 +155,6 @@ async function sendConfirmationSms(
       messageId: smsResult.messageId,
       phoneNumber: finalPhone,
       expiresAt: expiresAt.toISOString(),
-      whatsappUrl  // temporary: caller should open this URL to send via WhatsApp
     };
   } catch (error: unknown) {
     console.error('[SMS] Failed to send confirmation SMS:', error);
@@ -238,7 +217,6 @@ async function validateConfirmationToken(token: string): Promise<ValidationResul
 interface ConfirmDeliveryResult {
   ok: boolean;
   delivery: unknown;
-  thankYouWhatsappUrl?: string;  // wa.me link for staff to send post-confirmation thank-you
 }
 
 /**
@@ -324,13 +302,11 @@ async function confirmDelivery(token: string, deliveryDateInput: Date | string):
     cache.invalidatePrefix('dashboard:');
     cache.invalidatePrefix('deliveries:list:v2');
 
-    let thankYouWhatsappUrl: string | undefined;
     if (delivery.phone) {
       try {
         const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
         const confirmToken = delivery.confirmationToken as string | undefined;
         const trackingLink = confirmToken ? `${frontendUrl}/customer-tracking/${confirmToken}` : null;
-        // Same text as legacy SMS thank-you; optional tracking URL on next line (SMS would include when sent)
         const confirmationMessage = thankYouAfterConfirmationMessage(iso, trackingLink);
 
         // ── SMS thank-you via D7 ─────────────────────────────────────────────
@@ -341,11 +317,6 @@ async function confirmDelivery(token: string, deliveryDateInput: Date | string):
           metadata: { deliveryId, type: 'confirmation_received' }
         });
         console.log(`[SMS] Thank-you SMS sent to ${normalizedPhone}, id: ${thankYouSmsResult.messageId}`);
-        // ── WhatsApp thank-you path (kept for reference — temporarily disabled) ──
-        // thankYouWhatsappUrl = buildWhatsAppLink(normalizedPhone, confirmationMessage);
-        // const thankYouStatus = 'whatsapp_link_generated';
-        // const thankYouProvider = 'whatsapp-link';
-        // ────────────────────────────────────────────────────────────────────────
 
         await (prisma as any).smsLog.create({
           data: {
@@ -367,7 +338,6 @@ async function confirmDelivery(token: string, deliveryDateInput: Date | string):
     return {
       ok: true,
       delivery: updatedDelivery,
-      thankYouWhatsappUrl
     };
   } catch (error: unknown) {
     console.error('[SMS] Failed to confirm delivery:', error);
@@ -379,7 +349,6 @@ interface SendRescheduleSmsResult {
   ok: boolean;
   messageId?: string;
   error?: string;
-  whatsappUrl?: string;
 }
 
 /**
@@ -431,38 +400,13 @@ async function sendRescheduleSms(
       trackingLink
     );
 
-    // ── Reschedule: D7 SMS → WhatsApp API → deep-link ───────────────────────
-    let whatsappUrl: string | undefined;
-    let smsResult: SmsSendResult = { messageId: `wa-link-${Date.now()}`, status: 'whatsapp_link_generated' };
-    let rescheduleProvider = process.env.SMS_PROVIDER || 'd7';
-    try {
-      smsResult = await smsAdapter!.sendSms({
-        to: normalizedPhone, body: smsMessage,
-        metadata: { deliveryId, type: 'admin_reschedule_notification' }
-      });
-      console.log(`[SMS] Reschedule SMS sent to ${normalizedPhone}, id: ${smsResult.messageId}`);
-    } catch (d7Err: unknown) {
-      console.warn(`[SMS] D7 reschedule SMS failed, trying WhatsApp API:`, (d7Err as Error).message);
-      let waSent = false;
-      if (isWhatsAppConfigured()) {
-        try {
-          const waRes = await sendWhatsApp(normalizedPhone, smsMessage);
-          if (waRes.ok) {
-            rescheduleProvider = 'whatsapp-api';
-            smsResult = { messageId: waRes.messageId || `wa-${Date.now()}`, status: 'sent' };
-            waSent = true;
-            console.log(`[SMS] Reschedule WhatsApp sent to ${normalizedPhone}`);
-          }
-        } catch (waErr: unknown) {
-          console.warn(`[SMS] WhatsApp API also failed:`, (waErr as Error).message);
-        }
-      }
-      if (!waSent) {
-        rescheduleProvider = 'whatsapp-link';
-        whatsappUrl = buildWhatsAppLink(normalizedPhone, smsMessage);
-        smsResult = { messageId: `wa-link-${Date.now()}`, status: 'whatsapp_link_generated' };
-      }
-    }
+    // ── Reschedule: D7 SMS only (WhatsApp is deprecated) ────────────────────
+    const rescheduleProvider = process.env.SMS_PROVIDER || 'd7';
+    const smsResult = await smsAdapter!.sendSms({
+      to: normalizedPhone, body: smsMessage,
+      metadata: { deliveryId, type: 'admin_reschedule_notification' }
+    });
+    console.log(`[SMS] Reschedule SMS sent to ${normalizedPhone}, id: ${smsResult.messageId}`);
     // ─────────────────────────────────────────────────────────────────────────
 
     await (prisma as any).smsLog.create({
@@ -478,7 +422,7 @@ async function sendRescheduleSms(
       }
     });
 
-    return { ok: true, messageId: smsResult.messageId, whatsappUrl };
+    return { ok: true, messageId: smsResult.messageId };
   } catch (error: unknown) {
     const e = error as Error;
     console.error('[SMS] Failed to send reschedule SMS:', e.message);

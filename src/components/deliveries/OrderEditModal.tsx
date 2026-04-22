@@ -5,16 +5,15 @@ import type { Delivery } from '../../types';
 import type { DeliveryOrder } from '../../types/delivery';
 import { deliveryToManageOrder } from '../../utils/deliveryWorkflowMap';
 
+// pickup-confirmed / out-for-delivery / in-transit are driver-only transitions
+// (picking-list confirm + Start Delivery) and are intentionally omitted here.
 const API_STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: 'pending', label: 'Pending Order' },
   { value: 'uploaded', label: 'Pending Order (uploaded)' },
   { value: 'scheduled', label: 'Awaiting Customer (SMS sent)' },
   { value: 'confirmed', label: 'Confirmed (tomorrow / soon)' },
   { value: 'scheduled-confirmed', label: 'Confirmed — future date set' },
-  { value: 'pgi-done', label: 'PGI Done (GMD uploaded, awaiting picking)' },
-  { value: 'pickup-confirmed', label: 'Ready to Depart (picking confirmed)' },
-  { value: 'out-for-delivery', label: 'Out for delivery' },
-  { value: 'in-transit', label: 'In transit' },
+  { value: 'pgi-done', label: 'PGI Done (GMD posted — on driver picking list)' },
   { value: 'delivered', label: 'Delivered' },
   { value: 'delivered-with-installation', label: 'Delivered (with installation)' },
   { value: 'delivered-without-installation', label: 'Delivered (no installation)' },
@@ -129,7 +128,7 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
         const goodsMovementDate =
           gmdStr.trim() ? new Date(gmdStr + 'T12:00:00').toISOString() : undefined;
 
-        // WhatsApp notification sent silently by backend (no popup needed)
+        // SMS notification sent silently by backend (no popup needed)
         onSaved({
           status: apiStatus,
           notes: notes.trim() || undefined,

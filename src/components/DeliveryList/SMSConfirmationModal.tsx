@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
-import { X, Send, Loader, CheckCircle, AlertCircle, MessageCircle, Link2 } from 'lucide-react';
+import { X, Send, Loader, CheckCircle, AlertCircle, Link2, MessageCircle } from 'lucide-react';
 import api from '../../frontend/apiClient';
 import type { Delivery } from '../../types';
 
@@ -9,7 +9,6 @@ interface SMSResult {
   message?: string;
   token?: string;
   confirmationLink?: string;
-  whatsappUrl?: string;
   d7Status?: string;
   d7Detail?: string;
   error?: string;
@@ -60,10 +59,6 @@ export default function SMSConfirmationModal({
 
       const response = await api.post(`/deliveries/${encodeURIComponent(deliveryId)}/send-sms`, {});
       setResult({ ok: true, ...(response.data as object) });
-
-      // Open WhatsApp deep-link when SMS provider is pending (compliance period)
-      const waUrl = (response.data as { whatsappUrl?: string })?.whatsappUrl;
-      if (waUrl) window.open(waUrl, '_blank');
 
       if (onSuccess) onSuccess(response.data);
     } catch (err: unknown) {
@@ -198,20 +193,17 @@ export default function SMSConfirmationModal({
                   </div>
                 </div>
                 <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-1">
-                  {result.whatsappUrl ? 'WhatsApp Link Ready' : 'SMS Sent Successfully'}
+                  SMS Sent Successfully
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                  {result.whatsappUrl
-                    ? <>WhatsApp opened for <span className="font-semibold text-gray-800 dark:text-gray-100">{delivery.phone}</span> — forward the message to the customer</>
-                    : <>Sent to <span className="font-semibold text-gray-800 dark:text-gray-100">{delivery.phone}</span></>
-                  }
-                  {result.d7Status && !result.whatsappUrl && (
+                  Sent to <span className="font-semibold text-gray-800 dark:text-gray-100">{delivery.phone}</span>
+                  {result.d7Status && (
                     <> · D7 status: <span className="font-semibold">{result.d7Status}</span></>
                   )}
                 </p>
 
                 {/* Show confirmation link whenever we have it — regardless of token presence */}
-                {(result.confirmationLink || result.token || result.whatsappUrl) && (
+                {(result.confirmationLink || result.token) && (
                   <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 p-4 rounded-lg text-left space-y-3">
                     <div>
                       <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
@@ -239,20 +231,6 @@ export default function SMSConfirmationModal({
                           className="w-full text-xs px-2 py-1.5 border border-green-300 dark:border-green-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded font-mono cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
                           title="Click to select and copy"
                         />
-                      </div>
-                    )}
-                    {result.whatsappUrl && (
-                      <div className="border-t border-green-200 dark:border-green-800 pt-3">
-                        <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2 flex items-center gap-1">
-                          <MessageCircle className="w-3 h-3 text-green-600" /> Send via WhatsApp:
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => window.open(result.whatsappUrl!, '_blank')}
-                          className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg transition-colors"
-                        >
-                          <MessageCircle className="w-3.5 h-3.5" /> Open WhatsApp Again
-                        </button>
                       </div>
                     )}
                   </div>
@@ -286,35 +264,22 @@ export default function SMSConfirmationModal({
                   </p>
                 )}
 
-                {(result.confirmationLink || result.token || result.whatsappUrl) && (
+                {(result.confirmationLink || result.token) && (
                   <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-3 rounded-lg text-left space-y-2">
-                    {(result.confirmationLink || result.token) && (
-                      <>
-                        <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1 flex items-center gap-1">
-                          <Link2 className="w-3 h-3" /> Confirmation Link (copy and share manually):
-                        </p>
-                        <input
-                          type="text"
-                          value={
-                            result.confirmationLink ??
-                            `${window.location.origin}/confirm-delivery/${result.token}`
-                          }
-                          readOnly
-                          onClick={(e) => (e.target as HTMLInputElement).select()}
-                          className="w-full text-xs px-2 py-1.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded font-mono cursor-pointer"
-                          title="Click to select and copy"
-                        />
-                      </>
-                    )}
-                    {result.whatsappUrl && (
-                      <button
-                        type="button"
-                        onClick={() => window.open(result.whatsappUrl!, '_blank')}
-                        className="w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg transition-colors"
-                      >
-                        <MessageCircle className="w-3.5 h-3.5" /> Send via WhatsApp Instead
-                      </button>
-                    )}
+                    <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1 flex items-center gap-1">
+                      <Link2 className="w-3 h-3" /> Confirmation Link (copy and share manually):
+                    </p>
+                    <input
+                      type="text"
+                      value={
+                        result.confirmationLink ??
+                        `${window.location.origin}/confirm-delivery/${result.token}`
+                      }
+                      readOnly
+                      onClick={(e) => (e.target as HTMLInputElement).select()}
+                      className="w-full text-xs px-2 py-1.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded font-mono cursor-pointer"
+                      title="Click to select and copy"
+                    />
                   </div>
                 )}
               </div>

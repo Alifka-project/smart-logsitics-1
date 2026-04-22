@@ -48,7 +48,6 @@ interface OrdersTableProps {
   onAdminReschedule?: (orderId: string, newDate: Date, reason: string) => void;
   onResendSMS: (orderId: string) => void;
   onCallCustomer: (phone: string) => void;
-  onWhatsApp: (phone: string) => void;
   onTrackDelivery?: (orderId: string) => void;
   onEditOrder: (orderId: string) => void;
   onMarkOutForDelivery?: (orderId: string) => Promise<void>;
@@ -371,7 +370,6 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
   onAdminReschedule,
   onResendSMS,
   onCallCustomer,
-  onWhatsApp,
   onTrackDelivery,
   onEditOrder,
   onMarkOutForDelivery,
@@ -895,14 +893,6 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                             title="Call customer"
                           >
                             <span className="text-xs" aria-hidden>📞</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onWhatsApp(order.customerPhone)}
-                            className="flex h-7 w-7 items-center justify-center rounded bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-200 dark:hover:bg-green-900/70"
-                            title="WhatsApp"
-                          >
-                            <span className="text-xs" aria-hidden>💬</span>
                           </button>
                         </div>
                       </div>

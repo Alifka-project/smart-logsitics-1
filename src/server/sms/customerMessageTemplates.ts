@@ -1,6 +1,6 @@
 /**
  * Canonical Electrolux customer notification copy.
- * SMS (D7) and WhatsApp (D7) must use identical text — single source of truth.
+ * Single source of truth for all D7 SMS templates.
  */
 
 /** poRef: e.g. "#PO123" or "" */

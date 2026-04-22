@@ -42,7 +42,6 @@ router.post('/confirm-delivery/:token', async (req: Request, res: Response): Pro
       ok: true,
       message: 'Delivery confirmed successfully',
       delivery: result.delivery,
-      thankYouWhatsappUrl: result.thankYouWhatsappUrl  // frontend auto-opens this after confirmation
     });
   } catch (error: unknown) {
     const e = error as { message?: string };
@@ -414,13 +413,12 @@ router.post('/resend-confirmation/:deliveryId', authenticate, requireAnyRole('ad
       return void res.status(400).json({ error: 'no_phone_number' });
     }
 
-    const smsResult = await smsService.sendConfirmationSms(deliveryId, delivery.phone) as { whatsappUrl?: string };
+    await smsService.sendConfirmationSms(deliveryId, delivery.phone);
 
     // Never return the raw token to the caller
     return void res.json({
       ok: true,
-      message: 'Confirmation link ready',
-      whatsappUrl: smsResult?.whatsappUrl  // present during SMS compliance-pending period
+      message: 'Confirmation SMS sent',
     });
   } catch (error: unknown) {
     const e = error as { message?: string };

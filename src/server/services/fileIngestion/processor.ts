@@ -243,7 +243,7 @@ export async function ingestFile(opts: IngestOptions): Promise<IngestOutcome> {
   //      - updates delivery.status = 'scheduled' (so the portal shows
   //        "Awaiting customer response" instead of "Pending Order"),
   //      - sets confirmationStatus = 'pending',
-  //      - sends the confirmation SMS (or WhatsApp/link fallback) to the customer.
+  //      - sends the confirmation SMS to the customer.
   //    Non-dispatched + has-phone + not-confirmed rows get a confirmation;
   //    dispatched rows already went out-for-delivery in step 4 and are skipped here.
   const TERMINAL_STATUSES_NO_CONFIRM = new Set([

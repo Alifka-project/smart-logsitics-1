@@ -176,7 +176,7 @@ export default function CustomerConfirmationPage() {
       setSuccess(true);
       setDelivery(data.delivery as ConfirmationDelivery);
 
-      // Thank-you WhatsApp sent silently by backend — no popup needed
+      // Thank-you SMS sent silently by backend — no popup needed
       setTimeout(() => navigate(`/customer-tracking/${token}`), 3500);
     } catch (err: unknown) {
       const e = err as { message?: string };

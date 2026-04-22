@@ -37,11 +37,11 @@ const STATUS_COLORS: Record<string, string> = {
   default: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 border-gray-300 dark:border-gray-600',
 };
 
+// Note: out-for-delivery and pickup-confirmed are NOT offered here — they are
+// driver-only transitions (picking-list confirmation and Start Delivery).
 const STATUS_OPTIONS = [
   'pending',
   'pgi-done',
-  'pickup-confirmed',
-  'out-for-delivery',
   'delivered',
   'delivered-without-installation',
   'cancelled',
@@ -202,8 +202,7 @@ export default function DeliveryDetailModal({
         );
         if (onStatusUpdate) onStatusUpdate(deliveryId as any, statusValue);
 
-        // WhatsApp notification sent silently by backend (no popup needed)
-        // If API not configured, whatsappUrl is returned but not auto-opened here
+        // SMS notification sent silently by backend (no popup needed)
       } else {
         setError(
           (response.data as Record<string, unknown>)?.['message'] as string ||

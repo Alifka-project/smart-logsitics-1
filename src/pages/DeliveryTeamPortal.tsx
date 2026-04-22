@@ -50,7 +50,6 @@ import {
   getOrderType,
 } from '../utils/deliveryDisplayFields';
 import type { Delivery, AuthUser } from '../types';
-// WhatsAppSendModal is mounted globally in App.tsx — no local import needed
 
 interface ContactUser {
   id: string;
@@ -998,7 +997,6 @@ export default function DeliveryTeamPortal() {
 
   return (
     <div className="space-y-2 md:space-y-4 w-full min-w-0">
-      {/* WhatsApp modal is handled globally in App.tsx */}
       {/* Header - responsive and touch-friendly */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="min-w-0">
@@ -1882,7 +1880,7 @@ export default function DeliveryTeamPortal() {
                           (meta as Record<string, unknown>).isPriority === true;
                         const isDispatchable = ['pending', 'scheduled', 'uploaded', 'confirmed', 'scheduled-confirmed'].includes(rawStatus);
                         const hasGMD = !!dExt.goodsMovementDate;
-                        // Show "Send SMS" (WhatsApp) until the customer confirms — regardless of
+                        // Show "Send SMS" until the customer confirms — regardless of
                         // whether a link was already sent. After customer confirms, button is not needed.
                         const confirmationDone = (dExt.confirmationStatus as string) === 'confirmed';
                         const terminalStatus = ['out-for-delivery', 'delivered', 'cancelled', 'returned', 'in-transit', 'in-progress', 'finished', 'completed', 'pod-completed'].includes(rawStatus);
@@ -1998,10 +1996,7 @@ export default function DeliveryTeamPortal() {
                                     onClick={async () => {
                                       setSendingSms(delivery.id);
                                       try {
-                                        const res = await api.post(`/deliveries/${delivery.id}/send-sms`);
-                                        // Open WhatsApp deep-link if returned (SMS provider compliance pending)
-                                        const waUrl = (res.data as { whatsappUrl?: string })?.whatsappUrl;
-                                        if (waUrl) window.open(waUrl, '_blank');
+                                        await api.post(`/deliveries/${delivery.id}/send-sms`);
                                         setAssignmentMessage({ type: 'success', text: `✓ SMS sent to ${delivery.customer || 'customer'}` });
                                         setTimeout(() => { void loadData(); setAssignmentMessage(null); }, 2000);
                                       } catch { setAssignmentMessage({ type: 'error', text: 'Failed to send SMS' }); }
@@ -2026,24 +2021,27 @@ export default function DeliveryTeamPortal() {
                                       setMarkingOFD(delivery.id);
                                       try {
                                         await api.put(`/deliveries/admin/${delivery.id}/status`, {
-                                          status: 'out-for-delivery',
+                                          status: 'pgi-done',
                                           customer: delivery.customer,
                                           address: delivery.address,
                                           goodsMovementDate: dExt.goodsMovementDate,
                                         });
-                                        setAssignmentMessage({ type: 'success', text: `✓ ${delivery.customer || 'Delivery'} dispatched` });
+                                        setAssignmentMessage({ type: 'success', text: `✓ ${delivery.customer || 'Delivery'} — PGI done, on driver's picking list` });
                                         setTimeout(() => { void loadData(); setAssignmentMessage(null); }, 2000);
                                       } catch (err: unknown) {
                                         const e = err as { response?: { data?: { error?: string } }; message?: string };
-                                        setAssignmentMessage({ type: 'error', text: e?.response?.data?.error ?? e?.message ?? 'Failed to dispatch' });
+                                        setAssignmentMessage({ type: 'error', text: e?.response?.data?.error ?? e?.message ?? 'Failed to mark PGI done' });
                                       } finally { setMarkingOFD(null); }
                                     }}
-                                    className="inline-flex items-center justify-center gap-1 px-2 py-1 rounded text-[11px] font-semibold bg-green-600 hover:bg-green-700 text-white disabled:opacity-60 whitespace-nowrap"
+                                    className="inline-flex items-center justify-center gap-1 px-2 py-1 rounded text-[11px] font-semibold bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-60 whitespace-nowrap"
+                                    title="Post goods issue — moves to driver's Picking List"
                                   >
-                                    {markingOFD === delivery.id ? '…' : '🚚 Dispatch'}
+                                    {markingOFD === delivery.id ? '…' : '📦 Mark PGI Done'}
                                   </button>
                                 )}
-                                {/* Status Update dropdown */}
+                                {/* Status Update dropdown — out-for-delivery is NOT offered here:
+                                    it's reached only by the driver pressing Start Delivery after
+                                    confirming the picking list. */}
                                 <select
                                   value=""
                                   disabled={statusUpdating === delivery.id}
@@ -2062,7 +2060,7 @@ export default function DeliveryTeamPortal() {
                                 >
                                   <option value="">✏ Update status…</option>
                                   <option value="order-delay">⚠ Mark Delayed</option>
-                                  <option value="out-for-delivery">🚚 Out for Delivery</option>
+                                  <option value="pgi-done">📦 Mark PGI Done</option>
                                   <option value="rescheduled">📅 Rescheduled</option>
                                   <option value="delivered">✅ Delivered</option>
                                   <option value="cancelled">❌ Cancelled</option>

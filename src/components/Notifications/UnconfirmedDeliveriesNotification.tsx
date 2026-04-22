@@ -39,11 +39,8 @@ export default function UnconfirmedDeliveriesNotification() {
   const handleResendSms = async (deliveryId: string): Promise<void> => {
     try {
       setResendingId(deliveryId);
-      const res = await api.post(`/admin/notifications/resend-sms/${deliveryId}`);
-      // Open WhatsApp deep-link when SMS provider is pending (compliance period)
-      const waUrl = (res.data as { whatsappUrl?: string })?.whatsappUrl;
-      if (waUrl) window.open(waUrl, '_blank');
-      alert(waUrl ? 'WhatsApp confirmation link opened!' : 'SMS resent successfully!');
+      await api.post(`/admin/notifications/resend-sms/${deliveryId}`);
+      alert('SMS resent successfully!');
       void fetchUnconfirmed();
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } }; message?: string };

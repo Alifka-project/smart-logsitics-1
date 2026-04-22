@@ -10,14 +10,6 @@ import { hasValidCoordinates } from '../../utils/addressHandler';
 import api from '../../frontend/apiClient';
 import type { Delivery, ValidationResult } from '../../types';
 
-interface ConfirmationReady {
-  deliveryId: string;
-  customerName: string;
-  phone: string;
-  confirmationLink: string;
-  whatsappUrl: string;
-}
-
 interface FileUploadSuccessPayload {
   count: number;
   warnings: string[];
@@ -28,8 +20,6 @@ interface FileUploadSuccessPayload {
   fileHash?: string;
   /** Backend processing summary — new/dispatched/skipped/conflict counts. */
   summary?: UploadSummary;
-  /** WhatsApp links auto-generated for new pending deliveries after upload. */
-  confirmationsReady?: ConfirmationReady[];
 }
 
 interface FileUploadErrorPayload {
@@ -75,7 +65,6 @@ interface SaveResult {
   assigned?: number;
   deliveries?: Delivery[];
   summary?: UploadSummary;
-  confirmationsReady?: ConfirmationReady[];
   error?: string;
 }
 
@@ -185,16 +174,6 @@ const FileUpload = forwardRef<FileUploadHandle, FileUploadProps>(function FileUp
           console.log(`[FileUpload] Summary: ${summary.new} new, ${summary.dispatched} out-for-delivery, ${summary.updated} updated, ${summary.duplicate} duplicate (skipped), ${summary.rejected} rejected`);
         }
 
-        // WhatsApp confirmation links auto-generated for new pending deliveries
-        const confirmationsReady = (response.data.confirmationsReady ?? []) as ConfirmationReady[];
-        if (confirmationsReady.length > 0) {
-          console.log(`[FileUpload] ${confirmationsReady.length} WhatsApp confirmation links ready`);
-          // Fire a global event so any open portal can show the WhatsApp notification banner
-          window.dispatchEvent(new CustomEvent('whatsappConfirmationsReady', {
-            detail: { confirmations: confirmationsReady }
-          }));
-        }
-
         // Merge saved + skipped deliveries so the store has the latest state for all rows
         const allReturned: Delivery[] = [
           ...(response.data.deliveries ?? []),
@@ -207,7 +186,6 @@ const FileUpload = forwardRef<FileUploadHandle, FileUploadProps>(function FileUp
           assigned: response.data.assigned,
           deliveries: allReturned,
           summary,
-          confirmationsReady,
         };
       } else {
         console.error('[FileUpload] Upload response indicates failure:', response.data);
@@ -351,7 +329,6 @@ const FileUpload = forwardRef<FileUploadHandle, FileUploadProps>(function FileUp
                       geocodedCount: 0,
                       fileHash: hashSnap || undefined,
                       summary: saveSummary,
-                      confirmationsReady: saveResultRef?.confirmationsReady,
                     });
                   }
                 })();

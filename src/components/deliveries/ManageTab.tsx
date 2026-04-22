@@ -240,12 +240,12 @@ export default function ManageTab({
   );
 
   const sendSmsForDelivery = useCallback(
-    async (deliveryId: string): Promise<{ whatsappUrl?: string } | null> => {
+    async (deliveryId: string): Promise<boolean> => {
       try {
-        const res = await api.post(`/deliveries/${encodeURIComponent(deliveryId)}/send-sms`, {});
-        return res.data as { whatsappUrl?: string };
+        await api.post(`/deliveries/${encodeURIComponent(deliveryId)}/send-sms`, {});
+        return true;
       } catch {
-        return null;
+        return false;
       }
     },
     [],
@@ -253,8 +253,7 @@ export default function ManageTab({
 
   const handleResendSMS = useCallback(
     async (orderId: string) => {
-      const data = await sendSmsForDelivery(orderId);
-      if (data?.whatsappUrl) window.open(data.whatsappUrl, '_blank');
+      await sendSmsForDelivery(orderId);
     },
     [sendSmsForDelivery],
   );
@@ -271,16 +270,12 @@ export default function ManageTab({
           month: '2-digit',
           day: '2-digit',
         }).format(newDate);
-        const response = await api.put(`/deliveries/admin/${orderId}/reschedule`, {
+        await api.put(`/deliveries/admin/${orderId}/reschedule`, {
           newDeliveryDate: dubaiIsoDate,
           reason,
         });
         updateDeliveryStatus(orderId, 'rescheduled');
-        const rescheduleData = response.data as { whatsappUrl?: string };
-        if (rescheduleData?.whatsappUrl) {
-          window.open(rescheduleData.whatsappUrl, '_blank', 'noopener,noreferrer');
-        }
-        onNotifySuccess('Delivery rescheduled', 'Customer has been notified via SMS/WhatsApp.');
+        onNotifySuccess('Delivery rescheduled', 'Customer has been notified via SMS.');
         window.dispatchEvent(new CustomEvent('deliveryStatusUpdated', {
           detail: { deliveryId: orderId, status: 'rescheduled', updatedAt: new Date() },
         }));
@@ -296,12 +291,6 @@ export default function ManageTab({
     const p = phone.replace(/\s/g, '');
     if (!p || p === '—') return;
     window.location.href = `tel:${p}`;
-  }, []);
-
-  const handleWhatsApp = useCallback((phone: string) => {
-    const clean = phone.replace(/\D/g, '');
-    if (!clean) return;
-    window.open(`https://wa.me/${clean}`, '_blank', 'noopener,noreferrer');
   }, []);
 
   const handleTableTabChange = useCallback((tab: OrdersTableTab) => {
@@ -402,7 +391,6 @@ export default function ManageTab({
             onAdminReschedule={(id, d, r) => void handleAdminReschedule(id, d, r)}
             onResendSMS={(id) => void handleResendSMS(id)}
             onCallCustomer={handleCallCustomer}
-            onWhatsApp={handleWhatsApp}
             onTrackDelivery={() => handleTrackDelivery()}
             onEditOrder={(id) => setEditDeliveryId(id)}
             onUploadPod={(id) => setPodDeliveryId(id)}

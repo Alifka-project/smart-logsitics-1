@@ -4,7 +4,6 @@ import Header from './components/Layout/Header';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 import useDeliveryStore from './store/useDeliveryStore';
 import { useTokenRefresh } from './hooks/useTokenRefresh';
-import WhatsAppSendModal from './components/Upload/WhatsAppSendModal';
 
 import LoginPage from './pages/LoginPage';
 
@@ -133,8 +132,6 @@ function ProtectedLayout() {
       >
         <Header isAdmin={isAdmin} />
         <AnimatedRoutes isAdmin={isAdmin} clientRole={clientUser?.role} />
-        {/* WhatsApp auto-send modal — always mounted so it catches upload events from any page */}
-        <WhatsAppSendModal />
       </div>
     </ProtectedRoute>
   );
