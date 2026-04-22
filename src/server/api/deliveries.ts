@@ -199,6 +199,13 @@ async function updateDeliveryStatusHandler(
     updateData.deliveryNotes = notes;
     updateData.conditionNotes = notes;
   }
+  // When driver/admin sets status to rescheduled via general update, persist
+  // the notes as rescheduleReason in metadata so customer tracking can show it.
+  if (status.toLowerCase() === 'rescheduled') {
+    nextMeta.rescheduleReason = notes || prevMeta.rescheduleReason || 'Operational requirements';
+    nextMeta.rescheduledAt = new Date().toISOString();
+    nextMeta.rescheduledBy = req.user?.username || req.user?.email || req.user?.sub || 'driver';
+  }
   if (['delivered', 'completed', 'delivered-with-installation', 'delivered-without-installation',
        'pod-completed', 'finished'].includes(status.toLowerCase())) {
     updateData.deliveredAt = new Date();
@@ -318,11 +325,14 @@ async function updateDeliveryStatusHandler(
   await prisma.deliveryEvent.create({
     data: {
       deliveryId: existingDelivery.id,
-      eventType: 'status_updated',
+      eventType: status.toLowerCase() === 'rescheduled' ? 'admin_rescheduled' : 'status_updated',
       payload: {
         previousStatus: existingDelivery.status,
         newStatus: status,
         notes,
+        reason: status.toLowerCase() === 'rescheduled' ? (notes || 'Operational requirements') : undefined,
+        rescheduledBy: status.toLowerCase() === 'rescheduled' ? (req.user?.username || req.user?.email || req.user?.sub || 'driver') : undefined,
+        rescheduledAt: status.toLowerCase() === 'rescheduled' ? new Date().toISOString() : undefined,
         actualTime,
         hasPOD: !!(driverSignature || customerSignature || (photos && photos.length > 0)),
         photoCount: photos ? photos.length : 0,
