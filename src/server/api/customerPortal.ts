@@ -200,7 +200,7 @@ router.get('/tracking/:token', async (req: Request, res: Response): Promise<void
     const timeline = tracking.tracking.events.map(event => ({
       type: event.eventType,
       timestamp: event.createdAt,
-      details: event.payload
+      payload: event.payload as Record<string, unknown> | undefined,
     }));
 
     // ── ETA mode by status (status-driven switch) ───────────────────────────

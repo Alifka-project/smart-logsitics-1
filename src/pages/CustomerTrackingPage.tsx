@@ -544,7 +544,15 @@ export default function CustomerTrackingPage() {
         </div>
 
         {/* ── Rescheduled Banner ───────────────────────────────────── */}
-        {(delivery.status === 'rescheduled' || delivery.rescheduledAt) && (
+        {(delivery.status === 'rescheduled' || delivery.rescheduledAt) && (() => {
+          // Resolve reason: prefer delivery metadata, fall back to timeline event payload
+          const reasonFromDelivery = delivery.rescheduleReason;
+          const reasonFromEvent = timeline
+            ?.filter(ev => ev.type === 'admin_rescheduled')
+            .sort((a, b) => new Date(b.timestamp as string).getTime() - new Date(a.timestamp as string).getTime())
+            [0]?.payload?.reason as string | undefined;
+          const rescheduleReason = reasonFromDelivery || reasonFromEvent || null;
+          return (
           <div className="anim-card anim-card-2" style={{
             background: '#FFFBEB',
             border: '1px solid #FCD34D',
@@ -566,9 +574,9 @@ export default function CustomerTrackingPage() {
                   {new Date(delivery.confirmedDeliveryDate).toLocaleDateString('en-AE', { timeZone: 'Asia/Dubai', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                 </p>
               )}
-              {delivery.rescheduleReason && (
+              {rescheduleReason && (
                 <p style={{ fontSize: 13, color: '#78350F', marginBottom: 4 }}>
-                  <strong>Reason: </strong>{delivery.rescheduleReason}
+                  <strong>Reason: </strong>{rescheduleReason}
                 </p>
               )}
               <p style={{ fontSize: 12, color: '#92400E' }}>
@@ -576,7 +584,8 @@ export default function CustomerTrackingPage() {
               </p>
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {/* ── 5-Step Progress Timeline ─────────────────────────────── */}
         <div className="card anim-card anim-card-2" style={{ padding: '20px', marginBottom: 12 }}>
