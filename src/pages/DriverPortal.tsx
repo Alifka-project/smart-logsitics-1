@@ -774,7 +774,9 @@ export default function DriverPortal() {
       setRoute(null);
       const fallback = [...orderedWithCoords, ...withoutCoords] as EnrichedDelivery[];
       setOrderedDeliveries(fallback);
-      updateDeliveryOrder([...fallback, ...pickingStageDeliveriesRef.current, ...confirmedDeliveriesRef.current, ...finishedDeliveriesRef.current]);
+      const fbIds = new Set(fallback.map(d => d.id));
+      const pickingNoDupes = pickingStageDeliveriesRef.current.filter(d => !fbIds.has(d.id));
+      updateDeliveryOrder([...fallback, ...pickingNoDupes, ...confirmedDeliveriesRef.current, ...finishedDeliveriesRef.current]);
       return;
     }
 
@@ -797,6 +799,16 @@ export default function DriverPortal() {
         // D3: 60-min service time per stop (30min install + 30min delivery)
         const SERVICE_TIME_SEC = 60 * 60; // 3600 s
 
+        // Planned ETA base: 8 AM Dubai time (today or next delivery date).
+        // This gives the driver a predictable schedule based on standard dispatch.
+        const dubaiNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Dubai' }));
+        const planned8am = new Date(dubaiNow);
+        planned8am.setHours(8, 0, 0, 0);
+        // If it's already past 8 AM, use the actual current time for today's plan
+        const plannedBaseTime = dubaiNow.getTime() > planned8am.getTime()
+          ? planned8am.getTime()
+          : planned8am.getTime();
+
         // D4: If "Start Delivery" was clicked, staticEta base is deliveryStartedAtRef.current;
         // otherwise fall back to the current baseTime (route first calculated = now).
         const staticBaseTime = deliveryStartedAtRef.current ?? baseTime;
@@ -811,17 +823,18 @@ export default function DriverPortal() {
           // Dynamic ETA: pure driving time from current GPS position
           const computedEta = new Date(baseTime + cumulativeSeconds * 1000).toISOString();
           // Static ETA (D3): driving time + 60-min service × stops completed before this one
-          // The service time for THIS stop is counted in the NEXT stop's cumulative offset.
           const staticComputedEta = new Date(
             staticBaseTime + cumulativeSeconds * 1000 + index * SERVICE_TIME_SEC * 1000
           ).toISOString();
+          // Planned ETA: 8 AM dispatch + cumulative drive time + service time per stop
+          const planned8amEta = new Date(
+            plannedBaseTime + cumulativeSeconds * 1000 + index * SERVICE_TIME_SEC * 1000
+          ).toISOString();
 
           const inStore = storeById.get(String(delivery.id));
-          // After a re-login, the Zustand store is repopulated from the API
-          // (which doesn't carry plannedEta/staticEta) so we also fall back to
-          // the localStorage cache populated on previous runs.
           const persisted = persistedEtasRef.current[String(delivery.id)];
-          // plannedEta is the first-ever computed ETA — never overwritten after set.
+          // plannedEta: 8 AM-based schedule — recalculated each route update
+          // so it always reflects the current stop order and distances.
           const existingPlannedEta =
             (inStore?.['plannedEta'] as string | null | undefined)
             ?? persisted?.plannedEta
@@ -832,14 +845,14 @@ export default function DriverPortal() {
             ?? persisted?.staticEta
             ?? null;
           const newStaticEta = deliveryStartedAtRef.current
-            ? (existingStaticEta ?? staticComputedEta) // lock on Start Delivery click
-            : null; // not started yet — don't lock
+            ? (existingStaticEta ?? staticComputedEta)
+            : null;
           return {
-            ...(inStore ?? {}),   // spread store version first → brings in priority, plannedEta, staticEta
-            ...delivery,          // overlay fresh API data
+            ...(inStore ?? {}),
+            ...delivery,
             routeIndex: index + 1,
             estimatedEta: computedEta,
-            plannedEta: existingPlannedEta ?? computedEta, // set once, never change
+            plannedEta: existingPlannedEta ?? planned8amEta,
             staticEta: newStaticEta,
             distanceFromDriverKm: cumulativeMeters > 0 ? cumulativeMeters / 1000 : (fallbackDistanceKm ?? undefined)
           };
@@ -854,8 +867,11 @@ export default function DriverPortal() {
 
         const final = [...enriched, ...trailing];
         setOrderedDeliveries(final);
-        // Merge enriched on-route items with picking-stage+confirmed+finished so the store has all delivery types
-        updateDeliveryOrder([...final, ...pickingStageDeliveriesRef.current, ...confirmedDeliveriesRef.current, ...finishedDeliveriesRef.current]);
+        // Merge enriched on-route items with picking-stage+confirmed+finished so the store has all delivery types.
+        // Exclude pickup-confirmed from pickingStage since they're already enriched in `final`.
+        const finalIds = new Set(final.map(d => d.id));
+        const pickingWithoutDupes = pickingStageDeliveriesRef.current.filter(d => !finalIds.has(d.id));
+        updateDeliveryOrder([...final, ...pickingWithoutDupes, ...confirmedDeliveriesRef.current, ...finishedDeliveriesRef.current]);
         // Commit the order if this was a fresh optimisation (not just a GPS position update reusing existing order)
         if (committedOrderRef.current.length === 0 || deliveriesChanged) {
           committedOrderRef.current = orderedWithCoords;
@@ -913,7 +929,9 @@ export default function DriverPortal() {
         setRouteError('Routing unavailable');
         const fallback = [...orderedWithCoords, ...withoutCoords] as EnrichedDelivery[];
         setOrderedDeliveries(fallback);
-        updateDeliveryOrder([...fallback, ...pickingStageDeliveriesRef.current, ...confirmedDeliveriesRef.current, ...finishedDeliveriesRef.current]);
+        const fbIds2 = new Set(fallback.map(d => d.id));
+        const pickingNoDupes2 = pickingStageDeliveriesRef.current.filter(d => !fbIds2.has(d.id));
+        updateDeliveryOrder([...fallback, ...pickingNoDupes2, ...confirmedDeliveriesRef.current, ...finishedDeliveriesRef.current]);
       })
       .finally(() => {
         setIsRouteLoading(false);
@@ -974,10 +992,15 @@ export default function DriverPortal() {
       setFinishedDeliveries(fetchedFinished);
       setPickingStageDeliveries(pickingStage);
 
-      // Map / routing always use on-route deliveries
+      // Map / routing: include both on-route AND pickup-confirmed deliveries
+      // so that planned ETAs are computed for pickup-confirmed orders too.
+      const pickupConfirmed = activeDeliveries.filter((d) => {
+        const s = (d.status || '').toLowerCase();
+        return s === 'pickup-confirmed' || s === 'pickup_confirmed';
+      });
       manuallyOrderedRef.current = false;
       userOrderRef.current = [];
-      setDeliveries(onRoute);
+      setDeliveries([...onRoute, ...pickupConfirmed]);
 
       // Load EVERY active delivery into the store (not just on-route + confirmed)
       // so the Picking List tab can see pgi-done / pickup-confirmed / rescheduled

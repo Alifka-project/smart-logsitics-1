@@ -65,14 +65,16 @@ export default function DeliveryCard({
   };
   const etaText = fmtTime(etaRaw);
 
-  // D3: Static ETA (locked at Start Delivery — drive time + 60min service per stop)
+  // Planned ETA: 8 AM dispatch baseline; Static ETA: locked at Start Delivery
+  const plannedEtaRaw = (delivery as Delivery & { plannedEta?: string | null }).plannedEta ?? null;
   const staticEtaRaw = (delivery as Delivery & { staticEta?: string | null }).staticEta ?? null;
-  const staticEtaText = fmtTime(staticEtaRaw);
+  const planEtaRaw = staticEtaRaw ?? plannedEtaRaw;
+  const planEtaText = fmtTime(planEtaRaw);
 
-  // D3: Delay detection — use staticEta if available, else fall back to getEtaStatus (plannedEta)
+  // D3: Delay detection — use plan ETA if available, else fall back to getEtaStatus
   const etaStatus: 'on_time' | 'delayed' | 'unknown' = (() => {
-    if (staticEtaRaw && etaRaw) {
-      const diff = new Date(etaRaw).getTime() - new Date(staticEtaRaw).getTime();
+    if (planEtaRaw && etaRaw) {
+      const diff = new Date(etaRaw).getTime() - new Date(planEtaRaw).getTime();
       if (diff > 60 * 60 * 1000) return 'delayed'; // >1hr over static ETA
       if (diff >= 0) return 'on_time';
       return 'unknown';
@@ -284,10 +286,10 @@ export default function DeliveryCard({
                 {(dynamicDistanceKm ?? 0).toFixed(1)} km
               </span>
             </div>
-            {/* D3: Static ETA (planned) — shown only when Start Delivery has been clicked */}
-            {staticEtaRaw && (
+            {/* Planned ETA — based on 8 AM dispatch or locked at Start Delivery */}
+            {planEtaRaw && (
               <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
-                📅 Plan {staticEtaText}
+                📅 Plan {planEtaText}
               </div>
             )}
             {/* Dynamic ETA — live GPS estimate */}
