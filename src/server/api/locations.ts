@@ -334,6 +334,7 @@ router.get('/deliveries', authenticate, async (req: Request, res: Response): Pro
       priority: (d as unknown as { priority?: number }).priority ?? null,
       items: d.items,
       metadata: d.metadata,
+      goodsMovementDate: d.goodsMovementDate,
       createdAt: d.createdAt,
       updatedAt: d.updatedAt,
       assignedDriverId: driverId,
