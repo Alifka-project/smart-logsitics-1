@@ -45,10 +45,14 @@ const PHASE3_OPTIONS: StatusOption[] = [
 function getAvailableOptions(phase: 1 | 2 | 3 | 0, currentStatus: string): StatusOption[] {
   const currentLabel = currentStatus.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   const currentOpt: StatusOption = { value: currentStatus, label: `${currentLabel} (current)` };
+  const s = currentStatus.toLowerCase();
+  // If already rescheduled, remove "Rescheduled" from dropdown — the reschedule box handles it
+  const filterRescheduled = (opts: StatusOption[]) =>
+    s === 'rescheduled' ? opts.filter((o) => o.value !== 'rescheduled') : opts;
   switch (phase) {
     case 1: return [currentOpt, ...PHASE1_OPTIONS];
-    case 2: return [currentOpt, ...PHASE2_OPTIONS];
-    case 3: return [currentOpt, ...PHASE3_OPTIONS];
+    case 2: return [currentOpt, ...filterRescheduled(PHASE2_OPTIONS)];
+    case 3: return [currentOpt, ...filterRescheduled(PHASE3_OPTIONS)];
     default: return [currentOpt];
   }
 }
