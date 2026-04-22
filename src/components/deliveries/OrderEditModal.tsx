@@ -5,15 +5,11 @@ import type { Delivery } from '../../types';
 import type { DeliveryOrder } from '../../types/delivery';
 import { deliveryToManageOrder } from '../../utils/deliveryWorkflowMap';
 
-// ── Status phase helpers ─────────────────────────────────────────────────────
+// ── Phase-aware dropdown options ─────────────────────────────────────────────
 // Phase 1: Before customer confirms (file uploaded, pending, scheduled)
-const PHASE_PRE_CONFIRM = new Set([
-  'pending', 'uploaded', 'scheduled',
-]);
+const PHASE_PRE_CONFIRM = new Set(['pending', 'uploaded', 'scheduled']);
 // Phase 2: After customer confirms / admin set confirmation date
-const PHASE_CONFIRMED = new Set([
-  'confirmed', 'scheduled-confirmed',
-]);
+const PHASE_CONFIRMED = new Set(['confirmed', 'scheduled-confirmed', 'rescheduled']);
 // Phase 3: After PGI Done
 const PHASE_POST_PGI = new Set([
   'pgi-done', 'pgi_done', 'pickup-confirmed', 'pickup_confirmed',
@@ -25,9 +21,7 @@ function getStatusPhase(status: string): 1 | 2 | 3 | 0 {
   if (PHASE_PRE_CONFIRM.has(s)) return 1;
   if (PHASE_CONFIRMED.has(s)) return 2;
   if (PHASE_POST_PGI.has(s)) return 3;
-  // Rescheduled could be from any phase — treat as confirmed (needs to go through PGI again)
-  if (s === 'rescheduled') return 2;
-  return 0; // terminal or unknown — no dropdown changes allowed
+  return 0; // terminal or unknown
 }
 
 type StatusOption = { value: string; label: string };
@@ -63,12 +57,6 @@ function toDateInputValue(d: Date): string {
   const x = new Date(d);
   x.setMinutes(x.getMinutes() - x.getTimezoneOffset());
   return x.toISOString().slice(0, 10);
-}
-
-function getTomorrowIso(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  return toDateInputValue(d);
 }
 
 interface OrderEditModalProps {
@@ -120,40 +108,15 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
     return isNaN(d.getTime()) ? '' : toDateInputValue(d);
   });
 
-  // Auto-set tomorrow for "Confirmed Tomorrow / Soon"
-  useEffect(() => {
-    if (apiStatus === 'confirmed' && initialStatus !== 'confirmed') {
-      setDateStr(getTomorrowIso());
-    }
-  }, [apiStatus, initialStatus]);
-
-  // ── Derived validation flags ──────────────────────────────────────────────
-  const isNewStatus = apiStatus !== initialStatus;
-  const needsNotes = isNewStatus && apiStatus === 'cancelled';
-  const needsDate = isNewStatus && apiStatus === 'scheduled-confirmed';
-  const needsGMD = isNewStatus && (apiStatus === 'pgi-done' || apiStatus === 'pgi_done');
-  const needsPOD = isNewStatus && apiStatus === 'delivered' && phase === 3;
-  const needsRescheduleFields = isNewStatus && apiStatus === 'rescheduled';
-
-  // Check if POD exists
-  const pod = delivery as unknown as {
-    photos?: Array<{ url?: string } | string>;
-    driverSignature?: string;
-    podCompletedAt?: string | Date;
-  };
-  const hasPOD = (pod.photos && pod.photos.length > 0) || !!pod.driverSignature;
-
-  // Compute canSave
-  const canSave = (() => {
-    if (saving) return false;
-    if (!isNewStatus) return true; // no change — allow save for other field edits
-    if (needsNotes && !notes.trim()) return false;
-    if (needsDate && !dateStr.trim()) return false;
-    if (needsGMD && !gmdStr.trim()) return false;
-    if (needsPOD && !hasPOD) return false;
-    if (needsRescheduleFields && (!rescheduleDate || !rescheduleReason.trim())) return false;
-    return true;
-  })();
+  const hasGMD = !!(gmdStr.trim() || existingGMD);
+  // All post-PGI statuses require GMD — pgi-done is by definition "GMD posted",
+  // pickup-confirmed / out-for-delivery / in-transit all live downstream of it.
+  const DISPATCH_STATUSES = new Set([
+    'pgi-done', 'pgi_done',
+    'pickup-confirmed', 'pickup_confirmed',
+    'out-for-delivery', 'in-transit', 'in-progress',
+  ]);
+  const canSave = !saving && !(DISPATCH_STATUSES.has(apiStatus) && !hasGMD);
 
   useEffect(() => {
     const html = document.documentElement;
@@ -168,45 +131,10 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
   }, []);
 
   const handleSave = async (): Promise<void> => {
-    // Validation messages
-    if (needsNotes && !notes.trim()) {
-      onToastError(`Please add a note/reason for ${apiStatus === 'cancelled' ? 'cancellation' : 'rescheduling'}.`);
+    if (!apiStatus.trim()) {
+      onToastError('Please select a status.');
       return;
     }
-    if (needsDate && !dateStr.trim()) {
-      onToastError('Please select a future delivery date.');
-      return;
-    }
-    if (needsGMD && !gmdStr.trim()) {
-      onToastError('Please set the Goods Movement Date for PGI Done.');
-      return;
-    }
-    if (needsPOD && !hasPOD) {
-      onToastError('Delivered status requires Proof of Delivery (POD) to be attached.');
-      return;
-    }
-
-    // Reschedule validation
-    if (needsRescheduleFields && (!rescheduleDate || !rescheduleReason.trim())) {
-      onToastError('Reschedule requires both a new date and a reason.');
-      return;
-    }
-
-    // Phase 3 reschedule uses the dedicated reschedule endpoint
-    if (needsRescheduleFields && phase === 3 && onReschedule) {
-      setSaving(true);
-      try {
-        await onReschedule(new Date(rescheduleDate + 'T12:00:00'), rescheduleReason.trim());
-        onClose();
-      } catch (e: unknown) {
-        const err = e as { message?: string };
-        onToastError(err.message || 'Reschedule failed');
-      } finally {
-        setSaving(false);
-      }
-      return;
-    }
-
     setSaving(true);
     try {
       const payload: Record<string, unknown> = {
@@ -223,11 +151,6 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
       if (gmdStr.trim()) {
         payload.goodsMovementDate = new Date(gmdStr + 'T12:00:00').toISOString();
       }
-      // Phase 2 rescheduled — send date & reason via general endpoint
-      if (needsRescheduleFields && rescheduleDate) {
-        payload.scheduledDate = new Date(rescheduleDate + 'T12:00:00').toISOString();
-        payload.notes = rescheduleReason.trim();
-      }
 
       const response = await api.put(`/deliveries/admin/${delivery.id}/status`, payload);
 
@@ -237,6 +160,7 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
         const goodsMovementDate =
           gmdStr.trim() ? new Date(gmdStr + 'T12:00:00').toISOString() : undefined;
 
+        // WhatsApp notification sent silently by backend (no popup needed)
         onSaved({
           status: apiStatus,
           notes: notes.trim() || undefined,
@@ -294,6 +218,11 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4">
           {/* POD Photos — shown when driver has uploaded proof of delivery */}
           {(() => {
+            const pod = delivery as unknown as {
+              photos?: Array<{ url?: string } | string>;
+              driverSignature?: string;
+              podCompletedAt?: string | Date;
+            };
             const photos = pod.photos ?? [];
             const sig = pod.driverSignature;
             const completedAt = pod.podCompletedAt;
@@ -379,13 +308,32 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
             <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
               Phone Number
             </label>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+971 50 000 0000"
-              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#032145] dark:border-gray-600 dark:bg-gray-900 dark:text-white"
-            />
+            <div className="flex gap-2">
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+971 50 000 0000"
+                className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#032145] dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+              />
+              {/* HIDDEN — Resend SMS button disabled per business rule: SMS is only
+                  sent automatically by the system when a new PO file is first ingested.
+                  Keep the code for future re-enable.
+              {onResendSMS && (
+                <button
+                  type="button"
+                  disabled={sendingSms}
+                  onClick={async () => {
+                    setSendingSms(true);
+                    try { await onResendSMS(); } finally { setSendingSms(false); }
+                  }}
+                  className="shrink-0 px-3 py-2 rounded-lg bg-purple-600 text-white text-xs font-semibold hover:bg-purple-700 disabled:opacity-50 whitespace-nowrap"
+                >
+                  {sendingSms ? '…' : 'Resend SMS'}
+                </button>
+              )}
+              */}
+            </div>
           </div>
 
           {/* Delivery Address — editable */}
@@ -421,126 +369,68 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
             </select>
           </div>
 
-          {/* ── Conditional fields based on selected status ──────── */}
+          <div>
+            <label htmlFor="edit-date" className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
+              Delivery date (customer / planned)
+            </label>
+            <input
+              id="edit-date"
+              type="date"
+              value={dateStr}
+              onChange={(e) => setDateStr(e.target.value)}
+              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#032145] dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+            />
+            <p className="mt-1 text-[11px] text-gray-400">Saved to order metadata for scheduling views.</p>
+          </div>
 
-          {/* Future date picker — for "Confirmed Future Date" */}
-          {isNewStatus && apiStatus === 'scheduled-confirmed' && (
-            <div>
-              <label htmlFor="edit-date" className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
-                Delivery Date <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="edit-date"
-                type="date"
-                value={dateStr}
-                onChange={(e) => setDateStr(e.target.value)}
-                min={getTomorrowIso()}
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#032145] dark:border-gray-600 dark:bg-gray-900 dark:text-white"
-              />
-              {!dateStr.trim() && (
-                <p className="mt-1 text-[11px] text-red-500">Please select a delivery date.</p>
-              )}
-            </div>
-          )}
+          <div>
+            <label htmlFor="edit-gmd" className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
+              Goods Movement Date
+            </label>
+            <input
+              id="edit-gmd"
+              type="date"
+              value={gmdStr}
+              onChange={(e) => setGmdStr(e.target.value)}
+              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#032145] dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+            />
+            <p className="mt-1 text-[11px] text-amber-600">Required for PGI Done / Ready to Depart / Out for delivery / In transit</p>
+          </div>
 
-          {/* Confirmed Tomorrow — show auto-set date (read-only info) */}
-          {isNewStatus && apiStatus === 'confirmed' && (
-            <div className="rounded-lg bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-700 p-3">
-              <p className="text-xs text-blue-700 dark:text-blue-300">
-                Delivery date will be auto-set to <strong>tomorrow ({getTomorrowIso()})</strong>.
-              </p>
-            </div>
-          )}
-
-          {/* GMD date — for PGI Done */}
-          {isNewStatus && (apiStatus === 'pgi-done' || apiStatus === 'pgi_done') && (
-            <div>
-              <label htmlFor="edit-gmd" className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
-                Goods Movement Date <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="edit-gmd"
-                type="date"
-                value={gmdStr}
-                onChange={(e) => setGmdStr(e.target.value)}
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#032145] dark:border-gray-600 dark:bg-gray-900 dark:text-white"
-              />
-              {!gmdStr.trim() && (
-                <p className="mt-1 text-[11px] text-red-500">Goods Movement Date is required for PGI Done.</p>
-              )}
-            </div>
-          )}
-
-          {/* Reschedule fields — date + reason (mandatory for all reschedule) */}
-          {needsRescheduleFields && (
+          {/* Reschedule */}
+          {onReschedule && (
             <div className="rounded-lg border border-orange-200 dark:border-orange-800/40 bg-orange-50 dark:bg-orange-900/10 p-3 space-y-2">
               <p className="text-xs font-semibold text-orange-700 dark:text-orange-300">Reschedule Delivery</p>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-orange-600 dark:text-orange-400">
-                  New Delivery Date <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  value={rescheduleDate}
-                  onChange={(e) => setRescheduleDate(e.target.value)}
-                  min={getTomorrowIso()}
-                  className="w-full rounded-lg border border-orange-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-400 dark:border-orange-700 dark:bg-gray-900 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-orange-600 dark:text-orange-400">
-                  Reason <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={rescheduleReason}
-                  onChange={(e) => setRescheduleReason(e.target.value)}
-                  placeholder="Reason for reschedule…"
-                  className="w-full rounded-lg border border-orange-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-400 dark:border-orange-700 dark:bg-gray-900 dark:text-white"
-                />
-              </div>
-              {(!rescheduleDate || !rescheduleReason.trim()) && (
-                <p className="text-[11px] text-red-500">Both date and reason are required.</p>
-              )}
-            </div>
-          )}
-
-          {/* Notes — mandatory for cancelled; optional otherwise */}
-          {/* Rescheduled uses dedicated reschedule fields above (date + reason) */}
-          {!(needsRescheduleFields) && (
-            <div>
-              <label htmlFor="edit-notes" className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
-                Notes {needsNotes && <span className="text-red-500">* (required)</span>}
-              </label>
-              <textarea
-                id="edit-notes"
-                rows={3}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder={needsNotes ? (apiStatus === 'cancelled' ? 'Reason for cancellation…' : 'Reason for rescheduling…') : 'Internal notes or special instructions…'}
-                className={`w-full resize-y rounded-lg border px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 dark:bg-gray-900 dark:text-white ${
-                  needsNotes && !notes.trim()
-                    ? 'border-red-300 focus:ring-red-400'
-                    : 'border-gray-200 focus:ring-[#032145] dark:border-gray-600'
-                }`}
+              <input
+                type="date"
+                value={rescheduleDate}
+                onChange={(e) => setRescheduleDate(e.target.value)}
+                className="w-full rounded-lg border border-orange-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-400 dark:border-orange-700 dark:bg-gray-900 dark:text-white"
               />
-              {needsNotes && !notes.trim() && (
-                <p className="mt-1 text-[11px] text-red-500">
-                  {apiStatus === 'cancelled' ? 'Cancellation reason is required.' : 'Reschedule reason is required.'}
-                </p>
-              )}
+              <input
+                type="text"
+                value={rescheduleReason}
+                onChange={(e) => setRescheduleReason(e.target.value)}
+                placeholder="Reason for reschedule…"
+                className="w-full rounded-lg border border-orange-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-400 dark:border-orange-700 dark:bg-gray-900 dark:text-white"
+              />
+              <button
+                type="button"
+                disabled={!rescheduleDate || !rescheduleReason.trim()}
+                onClick={async () => {
+                  if (!rescheduleDate || !rescheduleReason.trim()) return;
+                  await onReschedule(new Date(rescheduleDate + 'T12:00:00'), rescheduleReason.trim());
+                  onClose();
+                }}
+                className="w-full py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold disabled:opacity-50 transition-colors"
+              >
+                Confirm Reschedule
+              </button>
             </div>
           )}
 
-          {/* POD warning — for delivered without POD */}
-          {needsPOD && !hasPOD && (
-            <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-xs text-red-700">
-              Delivered status requires Proof of Delivery (POD). The driver must upload POD photos before this order can be marked as delivered.
-            </div>
-          )}
-
-          {/* ── Dispatch button (HIDDEN per business request — kept for future use) ── */}
-          {/* {onDispatch && (
+          {/* HIDDEN — Dispatch button hidden per business request. Kept for future use.
+          {onDispatch && (
             <div className="rounded-lg border border-green-200 dark:border-green-800/40 bg-green-50 dark:bg-green-900/10 p-3">
               <p className="text-xs font-semibold text-green-700 dark:text-green-300 mb-2">Dispatch</p>
               <button
@@ -556,7 +446,28 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
                 {dispatching ? 'Dispatching…' : hasGMD ? 'Mark Out for Delivery' : 'Set GMD date first'}
               </button>
             </div>
-          )} */}
+          )}
+          */}
+
+          {DISPATCH_STATUSES.has(apiStatus) && !hasGMD && (
+            <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-xs text-red-700">
+              Cannot dispatch: Goods Movement Date is required. Please fill in the date the warehouse issued this order.
+            </div>
+          )}
+
+          <div>
+            <label htmlFor="edit-notes" className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
+              Notes (internal / customer-visible context)
+            </label>
+            <textarea
+              id="edit-notes"
+              rows={3}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Reschedule reason, cancellation note, special instructions…"
+              className="w-full resize-y rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#032145] dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+            />
+          </div>
         </div>
 
         <div className="flex shrink-0 gap-2 border-t border-gray-100 px-4 py-3 dark:border-gray-700">
