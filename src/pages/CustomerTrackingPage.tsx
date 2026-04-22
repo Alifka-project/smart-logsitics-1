@@ -226,14 +226,27 @@ function resolveCurrentStep(
   arrivalNotifiedAt?: string | null,
 ): number {
   const s = (status || '').toLowerCase();
+
+  // 1. Current delivery status is the source of truth — always wins.
+  //    This ensures that a rescheduled order (status='rescheduled') goes back
+  //    to "Order Scheduled" even if historical events like driver_arrived exist
+  //    from a previous delivery attempt.
   for (let i = TIMELINE_STEPS.length - 1; i >= 0; i--) {
-    const step = TIMELINE_STEPS[i];
-    if (step.matchStatuses.includes(s)) return i;
-    if (timeline?.some(e => step.matchEvents.includes(e.type as string))) return i;
-    // Fallback: if this is the 'items_arrived' step and the metadata flag is set,
-    // treat it as active even if the DeliveryEvent row hasn't loaded yet.
-    if (step.id === 'items_arrived' && arrivalNotifiedAt) return i;
+    if (TIMELINE_STEPS[i].matchStatuses.includes(s)) return i;
   }
+
+  // 2. Fallback: arrival metadata flag (set by notify-arrival endpoint).
+  for (let i = TIMELINE_STEPS.length - 1; i >= 0; i--) {
+    if (TIMELINE_STEPS[i].id === 'items_arrived' && arrivalNotifiedAt) return i;
+  }
+
+  // 3. Last resort: infer from timeline events (only when status is missing/unknown).
+  if (timeline) {
+    for (let i = TIMELINE_STEPS.length - 1; i >= 0; i--) {
+      if (timeline.some(e => TIMELINE_STEPS[i].matchEvents.includes(e.type as string))) return i;
+    }
+  }
+
   return 0;
 }
 
