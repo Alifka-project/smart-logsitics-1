@@ -26,7 +26,8 @@ export type OrdersTableTab =
   | 'delivered'        // completed / delivered orders
   | 'cancelled'        // customer-rejected or admin-cancelled orders (terminal)
   | 'pending_pod'      // delivered orders that are still missing a Proof of Delivery
-  | 'pending_gmd';     // active orders with no Goods Movement Date
+  | 'pending_gmd'      // active orders with no Goods Movement Date
+  | 'unassigned';      // active non-dispatched orders with no driver assigned
 
 function OrderStatusPill({ status }: { status: DeliveryStatus }): React.ReactElement {
   const c = STATUS_CONFIG[status];
@@ -115,6 +116,11 @@ function matchesTableTab(order: DeliveryOrder, tab: OrdersTableTab): boolean {
     case 'pending_pod':       return order.status === 'delivered' && !order.hasPod;
     // Active orders without a Goods Movement Date (pre-dispatch) — actionable by logistics
     case 'pending_gmd':       return !order.goodsMovementDate && !PENDING_TERMINAL.has(order.status);
+    // Active non-dispatched orders with no driver assigned
+    case 'unassigned': {
+      const DISPATCH_DONE = new Set<DeliveryStatus>(['out_for_delivery', 'order_delay', 'delivered', 'cancelled', 'failed', 'rescheduled']);
+      return !DISPATCH_DONE.has(order.status) && !order.driverId;
+    }
     default:                  return true;
   }
 }
