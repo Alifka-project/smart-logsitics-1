@@ -653,6 +653,8 @@ export default function LogisticsTeamPortal() {
       : null;
     switch (order.status) {
       case 'order_delay':       return { label: 'Order Delay',                                                              color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' };
+      case 'pgi_done':          return { label: 'PGI Done',                                                                  color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300' };
+      case 'pickup_confirmed':  return { label: 'Ready to Depart',                                                           color: 'bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300' };
       case 'out_for_delivery':  return { label: 'On Route',                                                                  color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' };
       case 'next_shipment': {
         // Dual-badge when this is a rescheduled order whose new date falls tomorrow

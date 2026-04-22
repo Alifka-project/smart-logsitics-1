@@ -157,9 +157,11 @@ router.get('/', auth_js_1.authenticate, (0, auth_js_1.requireRole)('admin'), asy
             scheduled: deliveriesTyped.filter(d => (d.status || '').toLowerCase() === 'scheduled').length,
             'scheduled-confirmed': deliveriesTyped.filter(d => (d.status || '').toLowerCase() === 'scheduled-confirmed').length,
             'out-for-delivery': deliveriesTyped.filter(d => (d.status || '').toLowerCase() === 'out-for-delivery').length,
+            'pgi-done': deliveriesTyped.filter(d => (d.status || '').toLowerCase() === 'pgi-done').length,
+            'pickup-confirmed': deliveriesTyped.filter(d => (d.status || '').toLowerCase() === 'pickup-confirmed').length,
             pending: deliveriesTyped.filter(d => {
                 const s = (d.status || '').toLowerCase();
-                return !['delivered', 'done', 'completed', 'delivered-with-installation', 'delivered-without-installation', 'cancelled', 'canceled', 'rejected', 'rescheduled', 'scheduled', 'scheduled-confirmed', 'out-for-delivery', 'in-progress'].includes(s);
+                return !['delivered', 'done', 'completed', 'delivered-with-installation', 'delivered-without-installation', 'cancelled', 'canceled', 'rejected', 'rescheduled', 'scheduled', 'scheduled-confirmed', 'out-for-delivery', 'in-progress', 'pgi-done', 'pickup-confirmed'].includes(s);
             }).length,
             customerAccepted: deliveriesTyped.filter(d => (d.status || '').toLowerCase() === 'scheduled-confirmed').length,
             customerCancelled: deliveriesTyped.filter(d => {
@@ -217,6 +219,8 @@ router.get('/', auth_js_1.authenticate, (0, auth_js_1.requireRole)('admin'), asy
         const statusDistribution = [
             { status: 'Delivered', count: stats.delivered, percentage: total > 0 ? ((stats.delivered / total) * 100).toFixed(1) : 0 },
             { status: 'Out for Delivery', count: stats['out-for-delivery'], percentage: total > 0 ? ((stats['out-for-delivery'] / total) * 100).toFixed(1) : 0 },
+            { status: 'PGI Done', count: stats['pgi-done'], percentage: total > 0 ? ((stats['pgi-done'] / total) * 100).toFixed(1) : 0 },
+            { status: 'Ready to Depart', count: stats['pickup-confirmed'], percentage: total > 0 ? ((stats['pickup-confirmed'] / total) * 100).toFixed(1) : 0 },
             { status: 'Scheduled', count: stats.scheduled, percentage: total > 0 ? ((stats.scheduled / total) * 100).toFixed(1) : 0 },
             { status: 'Scheduled Confirmed', count: stats['scheduled-confirmed'], percentage: total > 0 ? ((stats['scheduled-confirmed'] / total) * 100).toFixed(1) : 0 },
             { status: 'Cancelled/Rejected', count: stats.cancelled + stats.rejected, percentage: total > 0 ? (((stats.cancelled + stats.rejected) / total) * 100).toFixed(1) : 0 },

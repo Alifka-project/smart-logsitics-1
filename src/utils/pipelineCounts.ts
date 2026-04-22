@@ -48,7 +48,7 @@ export function computePipelineCounts(deliveries: Delivery[] | undefined | null)
 
     if (
       assignedDriver ||
-      ['out-for-delivery', 'in-transit', 'in-progress'].includes(s)
+      ['out-for-delivery', 'in-transit', 'in-progress', 'pgi-done', 'pickup-confirmed'].includes(s)
     ) {
       counts.assigned += 1;
       continue;

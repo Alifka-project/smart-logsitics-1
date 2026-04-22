@@ -1711,7 +1711,9 @@ export default function AdminDashboardPage(): React.ReactElement {
   const STATUS_LABELS: Record<string, string> = {
     'pending': 'Pending Order', 'uploaded': 'Pending Order',
     'scheduled': 'Awaiting Customer', 'confirmed': 'Confirmed',
-    'scheduled-confirmed': 'Confirmed', 'out-for-delivery': 'Out for Delivery',
+    'scheduled-confirmed': 'Confirmed',
+    'pgi-done': 'PGI Done', 'pickup-confirmed': 'Ready to Depart',
+    'out-for-delivery': 'Out for Delivery',
     'in-transit': 'In Transit', 'in-progress': 'In Progress', 'assigned': 'Assigned',
     'delivered': 'Delivered', 'delivered-with-installation': 'Delivered + Install',
     'delivered-without-installation': 'Delivered (no install)',
@@ -2704,6 +2706,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                           >
                             {/* Dynamic fallback — shows current status if it's not in the list below */}
                             {!['pending','uploaded','scheduled','scheduled-confirmed','confirmed',
+                               'pgi-done','pickup-confirmed',
                                'out-for-delivery','in-transit','in-progress','delivered',
                                'delivered-with-installation','delivered-without-installation',
                                'completed','pod-completed','cancelled','rescheduled','returned',
@@ -2717,6 +2720,8 @@ export default function AdminDashboardPage(): React.ReactElement {
                             <option value="scheduled">Awaiting Customer</option>
                             <option value="confirmed">Confirmed (tomorrow)</option>
                             <option value="scheduled-confirmed">Confirmed (future date)</option>
+                            <option value="pgi-done">PGI Done (goods issued)</option>
+                            <option value="pickup-confirmed">Ready to Depart</option>
                             <option value="out-for-delivery">Out for Delivery</option>
                             <option value="in-transit">In Transit</option>
                             <option value="in-progress">In Progress</option>

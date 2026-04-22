@@ -387,6 +387,10 @@ export default function AdminReportsPage(): React.ReactElement {
       return { cls: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300', dot: 'bg-amber-500' };
     if (['scheduled', 'scheduled-confirmed'].includes(s))
       return { cls: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300', dot: 'bg-blue-500' };
+    if (s === 'pgi-done')
+      return { cls: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300', dot: 'bg-amber-500' };
+    if (s === 'pickup-confirmed')
+      return { cls: 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300', dot: 'bg-teal-500' };
     if (['out-for-delivery', 'in-progress'].includes(s))
       return { cls: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300', dot: 'bg-purple-500' };
     return { cls: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300', dot: 'bg-gray-400' };
@@ -409,6 +413,8 @@ export default function AdminReportsPage(): React.ReactElement {
     'uploaded':                       'Pending Order',
     'scheduled':                      'Awaiting Customer',
     'scheduled-confirmed':            'Confirmed',
+    'pgi-done':                       'PGI Done',
+    'pickup-confirmed':               'Ready to Depart',
     'out-for-delivery':               'On Route',
     'in-transit':                     'In Transit',
     'in-progress':                    'In Progress',

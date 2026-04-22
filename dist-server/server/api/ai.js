@@ -281,7 +281,7 @@ router.get('/navbar-stats', async (req, res) => {
             const [total, pending, inTransit, deliveredToday, activeDrivers] = await Promise.all([
                 prisma.delivery.count(),
                 prisma.delivery.count({ where: { status: 'pending' } }),
-                prisma.delivery.count({ where: { status: 'out-for-delivery' } }),
+                prisma.delivery.count({ where: { status: { in: ['out-for-delivery', 'pgi-done', 'pickup-confirmed'] } } }),
                 prisma.delivery.count({ where: { status: 'delivered', deliveredAt: { gte: today } } }),
                 prisma.driver.count({ where: { active: true } }),
             ]);

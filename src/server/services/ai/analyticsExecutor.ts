@@ -89,7 +89,7 @@ async function countDeliveries(filters?: AnalyticsFilters): Promise<DeliveryCoun
   const [total, pending, inTransit, delivered, cancelled] = await Promise.all([
     prisma.delivery.count({ where }),
     prisma.delivery.count({ where: { ...where, status: CANONICAL.pending } }),
-    prisma.delivery.count({ where: { ...where, status: CANONICAL.inTransit } }),
+    prisma.delivery.count({ where: { ...where, status: { in: ['out-for-delivery', 'pgi-done', 'pickup-confirmed'] } } }),
     prisma.delivery.count({ where: { ...where, status: CANONICAL.delivered } }),
     prisma.delivery.count({ where: { ...where, status: CANONICAL.cancelled } }),
   ]);

@@ -39,6 +39,8 @@ const STATUS_COLORS: Record<string, string> = {
 
 const STATUS_OPTIONS = [
   'pending',
+  'pgi-done',
+  'pickup-confirmed',
   'out-for-delivery',
   'delivered',
   'delivered-without-installation',

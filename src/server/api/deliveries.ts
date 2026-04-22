@@ -107,13 +107,16 @@ async function updateDeliveryStatusHandler(
 
   if (!existingDelivery) return { ok: false, error: 'delivery_not_found' };
 
-  // Guard: dispatch statuses require Goods Movement Date to be set on the delivery.
+  // Guard: post-PGI statuses require Goods Movement Date to be set on the delivery.
   // Normalise underscore ↔ hyphen variants so both UI formats are covered:
   //   types/delivery.ts uses out_for_delivery (underscore)
   //   API / DB stores   out-for-delivery (hyphen)
-  // Rule: without a GMD the warehouse has NOT dispatched the item, so the system
-  // must refuse any attempt to move it into a dispatch status.
+  // Rule: without a GMD the warehouse has NOT posted goods issue, so the system
+  // must refuse any attempt to move the order into PGI Done, Ready to Depart, or
+  // any dispatch/in-transit status.
   const DISPATCH_STATUSES_GUARD = new Set([
+    'pgi-done', 'pgi_done',
+    'pickup-confirmed', 'pickup_confirmed',
     'out-for-delivery', 'out_for_delivery',
     'dispatched',
     'on-route', 'on_route',

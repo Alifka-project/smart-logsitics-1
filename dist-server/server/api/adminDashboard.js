@@ -43,7 +43,7 @@ function computeAnalytics(deliveries) {
         if (status === 'delivered') {
             custData.delivered++;
         }
-        else if (status === 'pending' || status === 'out-for-delivery') {
+        else if (status === 'pending' || status === 'out-for-delivery' || status === 'pgi-done' || status === 'pickup-confirmed') {
             custData.pending++;
         }
         else if (status === 'cancelled') {

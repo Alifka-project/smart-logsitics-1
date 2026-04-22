@@ -93,6 +93,15 @@ function deriveWorkflowStatus(d: Delivery, smsSentAt: Date | undefined): Deliver
   if (s === 'cancelled' || s === 'rejected' || s === 'canceled') return 'cancelled';
   if (s === 'order-delay') return 'order_delay';
 
+  // Warehouse has posted goods issue (GMD uploaded) but the driver hasn't yet
+  // verified the picking list. Order is NOT on-route — it sits in a
+  // "preparing at warehouse" state until the driver confirms picking.
+  if (s === 'pgi-done' || s === 'pgi_done') return 'pgi_done';
+
+  // Driver verified the picking list; truck is loaded and awaiting the
+  // Start Delivery click. Still NOT on-route.
+  if (s === 'pickup-confirmed' || s === 'pickup_confirmed') return 'pickup_confirmed';
+
   // Rescheduled: classify by the new confirmed delivery date.
   //   - Future date → tier classification (next_shipment / future_schedule),
   //     or out_for_delivery / ready_to_dispatch when GMD is already attached.
@@ -108,11 +117,11 @@ function deriveWorkflowStatus(d: Delivery, smsSentAt: Date | undefined): Deliver
 
     if (confirmedDate) {
       if (isOverdue(confirmedDate)) return 'order_delay';
-      // GMD was already attached (warehouse dispatched on the first attempt).
-      // Honour that state so logistics doesn't have to re-click dispatch after
-      // a reschedule: if the new date is today → on route; future → ready.
-      if (hasGMD(d) && calDiffFromTodayDubai(confirmedDate) === 0) return 'out_for_delivery';
-      if (hasGMD(d)) return 'ready_to_dispatch';
+      // GMD attached → warehouse has posted goods issue. Driver still needs to
+      // verify picking + click Start Delivery before it's truly on-route, so
+      // we always surface as pgi_done until the driver progresses the status
+      // column itself (pgi-done → pickup-confirmed → out-for-delivery).
+      if (hasGMD(d)) return 'pgi_done';
       const tier = classifyConfirmedDate(confirmedDate);
       if (tier === 'next') return 'next_shipment';
       return 'future_schedule';
@@ -161,10 +170,10 @@ function deriveWorkflowStatus(d: Delivery, smsSentAt: Date | undefined): Deliver
     if (confirmedDate) {
       // Auto-delay: confirmed date has passed without delivery
       if (isOverdue(confirmedDate)) return 'order_delay';
-      // If GMD is set and delivery date is today → treat as on route
-      if (hasGMD(d) && calDiffFromTodayDubai(confirmedDate) === 0) return 'out_for_delivery';
-      // If GMD is set and delivery date is future → ready to dispatch
-      if (hasGMD(d)) return 'ready_to_dispatch';
+      // Any GMD-attached row surfaces as pgi_done until the driver confirms
+      // picking and clicks Start Delivery. We no longer auto-dispatch on
+      // date=today — that was the old collapsed flow.
+      if (hasGMD(d)) return 'pgi_done';
       const tier = classifyConfirmedDate(confirmedDate);
       if (tier === 'next') return 'next_shipment';
       return 'future_schedule';
@@ -178,10 +187,9 @@ function deriveWorkflowStatus(d: Delivery, smsSentAt: Date | undefined): Deliver
 
     if (target) {
       if (isOverdue(target)) return 'order_delay';
-      // If GMD is set and target date is today → treat as on route
-      if (hasGMD(d) && calDiffFromTodayDubai(target) === 0) return 'out_for_delivery';
-      // If GMD is set → ready to dispatch
-      if (hasGMD(d)) return 'ready_to_dispatch';
+      // GMD attached → pgi_done regardless of date. Driver must complete the
+      // picking list and click Start Delivery for the order to move on-route.
+      if (hasGMD(d)) return 'pgi_done';
       const tier = classifyConfirmedDate(target);
       if (tier === 'next') return 'next_shipment';
       if (tier === 'future') return 'future_schedule';
@@ -343,6 +351,10 @@ export function workflowToApiPatch(
       return { apiStatus: 'scheduled-confirmed', updateData: { metadata: meta as Delivery['metadata'] } };
     case 'order_delay':
       return { apiStatus: 'order-delay', updateData: { metadata: meta as Delivery['metadata'] } };
+    case 'pgi_done':
+      return { apiStatus: 'pgi-done', updateData: { metadata: meta as Delivery['metadata'] } };
+    case 'pickup_confirmed':
+      return { apiStatus: 'pickup-confirmed', updateData: { metadata: meta as Delivery['metadata'] } };
     case 'out_for_delivery':
       return { apiStatus: 'out-for-delivery', updateData: { metadata: meta as Delivery['metadata'] } };
     case 'delivered':

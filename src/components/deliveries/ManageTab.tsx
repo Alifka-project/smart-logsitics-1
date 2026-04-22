@@ -217,20 +217,23 @@ export default function ManageTab({
       const raw = deliveries.find((d) => d.id === orderId);
       if (!raw) { onToastError('Order not found.'); return; }
       try {
+        // New flow: admin quick-action posts goods issue (pgi-done). Driver
+        // picks + starts the delivery; only the Start Delivery click flips
+        // the order into out-for-delivery and fires the customer OFD SMS.
         await api.put(`/deliveries/admin/${orderId}/status`, {
-          status: 'out-for-delivery',
+          status: 'pgi-done',
           customer: raw.customer ?? undefined,
           address: raw.address ?? undefined,
           goodsMovementDate: (raw as unknown as { goodsMovementDate?: string }).goodsMovementDate || new Date().toISOString(),
         });
-        updateDeliveryStatus(orderId, 'out-for-delivery');
+        updateDeliveryStatus(orderId, 'pgi-done');
         window.dispatchEvent(new CustomEvent('deliveryStatusUpdated', {
-          detail: { deliveryId: orderId, status: 'out-for-delivery', updatedAt: new Date() },
+          detail: { deliveryId: orderId, status: 'pgi-done', updatedAt: new Date() },
         }));
-        onNotifySuccess('Dispatched', 'Delivery marked as out for delivery.');
+        onNotifySuccess('PGI Done', 'Goods issued — order is now on the driver’s Picking List.');
       } catch (e: unknown) {
         const err = e as { response?: { data?: { error?: string } }; message?: string };
-        onToastError(err?.response?.data?.error ?? err?.message ?? 'Failed to dispatch delivery');
+        onToastError(err?.response?.data?.error ?? err?.message ?? 'Failed to mark PGI done');
       }
     },
     [deliveries, updateDeliveryStatus, onNotifySuccess, onToastError],
@@ -314,6 +317,11 @@ export default function ManageTab({
       unconfirmed:      'awaiting_customer',
       next_shipment:    'next_shipment',
       future_schedule:  'future_schedule',
+      // pgi_done and pickup_confirmed don't have dedicated tabs yet — route
+      // them to the non-terminal "pending" tab so the user still lands on
+      // their row instead of falling through to 'all'.
+      pgi_done:         'pending',
+      pickup_confirmed: 'pending',
       out_for_delivery: 'out_for_delivery',
       order_delay:      'order_delay',
       rescheduled:      'rescheduled',

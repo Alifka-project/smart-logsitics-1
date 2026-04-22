@@ -92,6 +92,8 @@ const AISearchBar = memo(function AISearchBar({
     const st = s.toLowerCase();
     if (st === 'delivered')        return { bg: 'rgba(34,197,94,0.12)',  color: '#22c55e' };
     if (st === 'out-for-delivery') return { bg: 'rgba(59,130,246,0.12)', color: '#3b82f6' };
+    if (st === 'pgi-done')         return { bg: 'rgba(245,158,11,0.12)', color: '#f59e0b' };
+    if (st === 'pickup-confirmed') return { bg: 'rgba(20,184,166,0.12)', color: '#14b8a6' };
     if (st === 'pending')          return { bg: 'rgba(249,115,22,0.12)', color: '#f97316' };
     if (st === 'cancelled')        return { bg: 'rgba(239,68,68,0.10)',  color: '#ef4444' };
     return { bg: 'rgba(156,163,196,0.12)', color: MUTED };

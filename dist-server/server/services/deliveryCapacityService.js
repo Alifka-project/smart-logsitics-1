@@ -211,6 +211,10 @@ const ROUTE_STATUSES_FOR_TODAY_CAPACITY = new Set([
     'in_transit',
     'in-progress',
     'in_progress',
+    'pgi-done',
+    'pgi_done',
+    'pickup-confirmed',
+    'pickup_confirmed',
 ]);
 /**
  * Sum piece counts for deliveries actively assigned to this driver.

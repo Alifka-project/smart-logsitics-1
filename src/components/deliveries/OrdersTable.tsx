@@ -163,6 +163,16 @@ const NEXT_STEP_CONFIG: Partial<Record<DeliveryStatus | 'terminal_delivered' | '
     label: 'Action Needed',   icon: '🚨',
     cls: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800/40',
   },
+  pgi_done: {
+    label: 'PGI Done',        icon: '📦',
+    cls: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800/40',
+    gmd: { label: 'Awaiting Picking', cls: 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800/40 dark:text-slate-400 dark:border-slate-700' },
+  },
+  pickup_confirmed: {
+    label: 'Ready to Depart', icon: '🚛',
+    cls: 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-900/20 dark:text-teal-300 dark:border-teal-800/40',
+    gmd: { label: 'Awaiting Start', cls: 'bg-teal-100 text-teal-800 border-teal-300 dark:bg-teal-900/30 dark:text-teal-200 dark:border-teal-700' },
+  },
   out_for_delivery: {
     label: 'Out for Delivery',icon: '🚚',
     cls: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800/40',
@@ -441,6 +451,8 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
             case 'unconfirmed':      return s === 'unconfirmed';
             case 'confirmed':        return s === 'confirmed' || s === 'next_shipment' || s === 'future_schedule' || s === 'ready_to_dispatch';
             case 'scheduled':        return s === 'scheduled';
+            case 'pgi_done':         return s === 'pgi_done';
+            case 'pickup_confirmed': return s === 'pickup_confirmed';
             case 'out_for_delivery': return s === 'out_for_delivery';
             case 'order_delay':      return s === 'order_delay';
             case 'rescheduled':      return s === 'rescheduled' || order.isRescheduled === true;

@@ -111,6 +111,11 @@ const ACTIVE_STATUSES = new Set([
     'scheduled',
     'confirmed',
     'scheduled-confirmed',
+    // Warehouse-side post-confirmation
+    'pgi-done',
+    'pgi_done',
+    'pickup-confirmed',
+    'pickup_confirmed',
     // Dispatch / in-transit statuses
     'out-for-delivery',
     'in-transit',
@@ -169,6 +174,18 @@ function applyDeliveryListFilter(deliveries, filter) {
             return active.filter((d) => {
                 const s = (d.status || '').toLowerCase();
                 return s === 'confirmed' || s === 'scheduled-confirmed';
+            });
+        case 'pgi_done':
+            // PGI Done = GMD uploaded, warehouse has issued goods; driver will pick next.
+            return active.filter((d) => {
+                const s = (d.status || '').toLowerCase();
+                return s === 'pgi-done' || s === 'pgi_done';
+            });
+        case 'pickup_confirmed':
+            // Picking list confirmed by driver; awaiting Start Delivery.
+            return active.filter((d) => {
+                const s = (d.status || '').toLowerCase();
+                return s === 'pickup-confirmed' || s === 'pickup_confirmed';
             });
         case 'p1':
             // Priority is a business decision owned by Delivery Team / Admin, stored in

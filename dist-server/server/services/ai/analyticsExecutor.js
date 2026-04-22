@@ -37,7 +37,7 @@ async function countDeliveries(filters) {
     const [total, pending, inTransit, delivered, cancelled] = await Promise.all([
         prisma_1.default.delivery.count({ where }),
         prisma_1.default.delivery.count({ where: { ...where, status: statusMap_1.CANONICAL.pending } }),
-        prisma_1.default.delivery.count({ where: { ...where, status: statusMap_1.CANONICAL.inTransit } }),
+        prisma_1.default.delivery.count({ where: { ...where, status: { in: ['out-for-delivery', 'pgi-done', 'pickup-confirmed'] } } }),
         prisma_1.default.delivery.count({ where: { ...where, status: statusMap_1.CANONICAL.delivered } }),
         prisma_1.default.delivery.count({ where: { ...where, status: statusMap_1.CANONICAL.cancelled } }),
     ]);

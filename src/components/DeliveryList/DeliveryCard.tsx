@@ -102,19 +102,28 @@ export default function DeliveryCard({
     if (markingOutForDelivery) return;
     setMarkingOutForDelivery(true);
     try {
+      // New flow: admin can no longer jump straight to out-for-delivery. This
+      // quick-action now posts goods issue (pgi-done) by setting a GMD if one
+      // is missing; the driver then picks + starts the delivery themselves.
+      const existingGmd = (delivery as unknown as { goodsMovementDate?: string | Date | null })
+        .goodsMovementDate;
+      const gmdIso = existingGmd
+        ? new Date(existingGmd as string).toISOString()
+        : new Date().toISOString();
       const response = await api.put(`/deliveries/admin/${delivery.id}/status`, {
-        status: 'out-for-delivery',
+        status: 'pgi-done',
+        goodsMovementDate: gmdIso,
         customer: delivery.customer,
         address: delivery.address,
       });
       if (response.data?.ok) {
-        updateDeliveryStatus(delivery.id as string, 'out-for-delivery');
+        updateDeliveryStatus(delivery.id as string, 'pgi-done');
         window.dispatchEvent(new CustomEvent('deliveryStatusUpdated', {
-          detail: { deliveryId: delivery.id, status: 'out-for-delivery', updatedAt: new Date() },
+          detail: { deliveryId: delivery.id, status: 'pgi-done', updatedAt: new Date() },
         }));
       }
     } catch (err) {
-      console.error('[DeliveryCard] Failed to mark out for delivery:', err);
+      console.error('[DeliveryCard] Failed to mark PGI done:', err);
     } finally {
       setMarkingOutForDelivery(false);
     }
@@ -325,10 +334,10 @@ export default function DeliveryCard({
                 onClick={(e) => { void handleMarkOutForDelivery(e); }}
                 disabled={markingOutForDelivery}
                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-600 hover:bg-green-700 text-white disabled:opacity-60 disabled:cursor-not-allowed"
-                title="Manually mark as out for delivery"
+                title="Post goods issue — moves order into the driver's Picking List"
               >
                 <Truck className="w-3.5 h-3.5" />
-                {markingOutForDelivery ? 'Updating…' : 'Out for Delivery'}
+                {markingOutForDelivery ? 'Updating…' : 'Mark PGI Done'}
               </button>
             )}
             {canNotifyArrival && (

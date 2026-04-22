@@ -39,7 +39,7 @@ export default function StatsCards() {
       }).length,
       inProgress: deliveries.filter((d) => {
         const s = d.status?.toLowerCase();
-        return s === 'in-progress' || s === 'out-for-delivery';
+        return s === 'in-progress' || s === 'out-for-delivery' || s === 'pgi-done' || s === 'pickup-confirmed';
       }).length,
       scheduled: deliveries.filter((d) => d.status?.toLowerCase() === 'scheduled').length,
       scheduledConfirmed: deliveries.filter(

@@ -10,7 +10,7 @@ const DELIVERED_ALIASES: string[] = [
   'delivered', 'done', 'completed', 'delivered-with-installation', 'delivered-without-installation',
 ];
 const CANCELLED_ALIASES: string[] = ['cancelled', 'canceled', 'rejected'];
-const IN_TRANSIT_ALIASES: string[] = ['out-for-delivery', 'in-progress', 'in transit', 'on the way'];
+const IN_TRANSIT_ALIASES: string[] = ['out-for-delivery', 'in-progress', 'in transit', 'on the way', 'pgi-done', 'pickup-confirmed'];
 const SCHEDULED_ALIASES: string[] = ['scheduled', 'scheduled-confirmed'];
 const RESCHEDULED_ALIASES: string[] = ['rescheduled'];
 const PENDING_ALIASES: string[] = ['pending', 'waiting', 'not delivered yet'];

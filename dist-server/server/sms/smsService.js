@@ -425,14 +425,10 @@ async function getCustomerTracking(token) {
             },
             orderBy: { assignedAt: 'desc' }
         });
-        // Get latest location if driver is assigned
-        let driverLocation = null;
-        if (assignment) {
-            driverLocation = await prisma_1.default.liveLocation.findFirst({
-                where: { driverId: assignment.driverId },
-                orderBy: { recordedAt: 'desc' }
-            });
-        }
+        // Live GPS location is intentionally NOT loaded here anymore — the
+        // customer-facing tracking endpoint shows planned/static ETA only and
+        // must not expose raw driver coordinates. The driver's own map uses a
+        // separate internal endpoint.
         // Get delivery events (timeline)
         const events = await prisma_1.default.deliveryEvent.findMany({
             where: { deliveryId: delivery.id },
@@ -448,6 +444,14 @@ async function getCustomerTracking(token) {
             String(delivery.deliveryNumber).trim()
             ? String(delivery.deliveryNumber).trim()
             : null;
+        // Planned ETA is locked by the driver tapping "Start Delivery"
+        // (persisted via POST /api/deliveries/driver/route/start). The customer
+        // tracking portal uses this as the baseline instead of the constantly-
+        // shifting live GPS ETA, so the customer sees a stable delivery window.
+        const plannedEtaFromMeta = typeof meta.plannedEta === 'string' && meta.plannedEta.trim()
+            ? meta.plannedEta
+            : null;
+        console.log(`[getCustomerTracking] delivery=${delivery.id} plannedEtaInMeta=${String(meta.plannedEta)} → exposed=${String(plannedEtaFromMeta)}`);
         return {
             delivery: {
                 id: delivery.id,
@@ -462,6 +466,7 @@ async function getCustomerTracking(token) {
                 // Expose arrival flag so customer tracking page can also check it
                 // without depending solely on the DeliveryEvent row.
                 arrivalNotifiedAt: meta.arrivalNotifiedAt ?? null,
+                plannedEta: plannedEtaFromMeta,
                 lat: delivery.lat,
                 lng: delivery.lng,
                 deliveryNumber: deliveryNumberCol,
@@ -469,7 +474,6 @@ async function getCustomerTracking(token) {
             },
             tracking: {
                 assignment,
-                driverLocation,
                 events,
                 eta: assignment?.eta
             }

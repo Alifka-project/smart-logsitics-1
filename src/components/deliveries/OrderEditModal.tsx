@@ -11,6 +11,8 @@ const API_STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: 'scheduled', label: 'Awaiting Customer (SMS sent)' },
   { value: 'confirmed', label: 'Confirmed (tomorrow / soon)' },
   { value: 'scheduled-confirmed', label: 'Confirmed — future date set' },
+  { value: 'pgi-done', label: 'PGI Done (GMD uploaded, awaiting picking)' },
+  { value: 'pickup-confirmed', label: 'Ready to Depart (picking confirmed)' },
   { value: 'out-for-delivery', label: 'Out for delivery' },
   { value: 'in-transit', label: 'In transit' },
   { value: 'delivered', label: 'Delivered' },
@@ -76,7 +78,13 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
   });
 
   const hasGMD = !!(gmdStr.trim() || existingGMD);
-  const DISPATCH_STATUSES = new Set(['out-for-delivery', 'in-transit', 'in-progress']);
+  // All post-PGI statuses require GMD — pgi-done is by definition "GMD posted",
+  // pickup-confirmed / out-for-delivery / in-transit all live downstream of it.
+  const DISPATCH_STATUSES = new Set([
+    'pgi-done', 'pgi_done',
+    'pickup-confirmed', 'pickup_confirmed',
+    'out-for-delivery', 'in-transit', 'in-progress',
+  ]);
   const canSave = !saving && !(DISPATCH_STATUSES.has(apiStatus) && !hasGMD);
 
   useEffect(() => {
@@ -357,7 +365,7 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
               onChange={(e) => setGmdStr(e.target.value)}
               className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#032145] dark:border-gray-600 dark:bg-gray-900 dark:text-white"
             />
-            <p className="mt-1 text-[11px] text-amber-600">Required before dispatching (out-for-delivery / in-transit)</p>
+            <p className="mt-1 text-[11px] text-amber-600">Required for PGI Done / Ready to Depart / Out for delivery / In transit</p>
           </div>
 
           {/* Reschedule */}
