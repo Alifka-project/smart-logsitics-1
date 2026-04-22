@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { PackageCheck, AlertTriangle, CheckCircle2, Zap } from 'lucide-react';
+import { PackageCheck, CheckCircle2, Zap, X } from 'lucide-react';
 import type { Delivery } from '../../types';
 import api from '../../frontend/apiClient';
 import useDeliveryStore from '../../store/useDeliveryStore';
@@ -10,17 +10,9 @@ import { isPickingListEligible } from '../../utils/pickingListFilter';
  * Driver-side Picking List tab.
  *
  * Renders deliveries that are awaiting picking for the current driver.
- * Eligibility (shared with server guards): GMD set, picking not yet
- * confirmed, and status in {pgi-done, pgi_done, rescheduled}. A reschedule
- * after PGI keeps the GMD, so those orders still need to be re-picked.
- *
- * Each card parses the free-text `items` string into line items (one per line
- * or JSON array), shows a checkbox + mispick-note field per line, and a
- * final "Confirm Picking List" button that flips the order to
- * `pickup-confirmed`.
- *
- * Urgent orders (`metadata.isPriority === true`) are pinned to the top with a
- * red URGENT chip so the driver handles them first.
+ * Each card shows the order info and items list. The driver taps
+ * "Confirm Pickup" → a confirmation dialog appears → on confirm the
+ * order transitions to `pickup-confirmed` and moves to the My Orders tab.
  */
 
 interface ParsedItem {
@@ -32,8 +24,6 @@ function parseItems(raw: string | null | undefined): ParsedItem[] {
   if (!raw) return [];
   const trimmed = String(raw).trim();
   if (!trimmed) return [];
-  // Try JSON array first (e.g. the upload pipeline sometimes stores
-  // `[{description:"..."}, ...]`).
   if (trimmed.startsWith('[')) {
     try {
       const arr = JSON.parse(trimmed) as unknown[];
@@ -57,7 +47,6 @@ function parseItems(raw: string | null | undefined): ParsedItem[] {
       // fall through to line-based parsing
     }
   }
-  // Fallback: split on newlines, then on semicolons/commas if a single line.
   const lines = trimmed
     .split(/\r?\n/)
     .map((l) => l.trim())
@@ -66,23 +55,6 @@ function parseItems(raw: string | null | undefined): ParsedItem[] {
     ? lines
     : trimmed.split(/\s*[;,]\s*/).map((l) => l.trim()).filter(Boolean);
   return parts.map((label, i) => ({ index: i, label }));
-}
-
-interface PickingMeta {
-  itemsChecked?: number[];
-  mispickReported?: Array<{ itemIndex: number; note: string }>;
-  confirmedAt?: string;
-  confirmedBy?: string;
-}
-
-function readPicking(d: Delivery): PickingMeta {
-  const meta = (d.metadata && typeof d.metadata === 'object')
-    ? (d.metadata as unknown as Record<string, unknown>)
-    : {};
-  const picking = (meta.picking && typeof meta.picking === 'object')
-    ? (meta.picking as PickingMeta)
-    : {};
-  return picking;
 }
 
 function isPriority(d: Delivery): boolean {
@@ -100,14 +72,11 @@ interface Props {
 }
 
 export default function PickingListPanel({ deliveries, onConfirmed }: Props) {
-  const togglePickingItem = useDeliveryStore((s) => s.togglePickingItem);
-  const reportMispick = useDeliveryStore((s) => s.reportMispick);
   const confirmPickingList = useDeliveryStore((s) => s.confirmPickingList);
   const { success, error: toastError } = useToast();
 
   const pickingOrders = useMemo(() => {
     const list = deliveries.filter((d) => isPickingListEligible(d));
-    // Urgent first, then by createdAt ascending.
     list.sort((a, b) => {
       const pa = isPriority(a) ? 1 : 0;
       const pb = isPriority(b) ? 1 : 0;
@@ -137,8 +106,6 @@ export default function PickingListPanel({ deliveries, onConfirmed }: Props) {
         <PickingCard
           key={d.id}
           delivery={d}
-          onToggle={togglePickingItem}
-          onReportMispick={reportMispick}
           onConfirm={confirmPickingList}
           onSuccess={onConfirmed}
           onToastSuccess={success}
@@ -151,8 +118,6 @@ export default function PickingListPanel({ deliveries, onConfirmed }: Props) {
 
 interface PickingCardProps {
   delivery: Delivery;
-  onToggle: (id: string, idx: number, checked: boolean) => void;
-  onReportMispick: (id: string, idx: number, note: string | null) => void;
   onConfirm: (id: string, confirmedBy?: string) => void;
   onSuccess?: (deliveryId: string) => void;
   onToastSuccess: (msg: string) => void;
@@ -161,75 +126,25 @@ interface PickingCardProps {
 
 function PickingCard({
   delivery,
-  onToggle,
-  onReportMispick,
   onConfirm,
   onSuccess,
   onToastSuccess,
   onToastError,
 }: PickingCardProps) {
   const items = useMemo(() => parseItems(delivery.items), [delivery.items]);
-  const picking = readPicking(delivery);
-  const checked = new Set<number>(picking.itemsChecked || []);
-  const mispickByIdx = new Map<number, string>(
-    (picking.mispickReported || []).map((m) => [m.itemIndex, m.note]),
-  );
-  const [openMispickIdx, setOpenMispickIdx] = useState<number | null>(null);
-  const [mispickDraft, setMispickDraft] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
-
-  const totalItems = items.length;
-  const coveredCount = new Set<number>([...checked, ...mispickByIdx.keys()]).size;
-  const allCovered = totalItems > 0 && coveredCount === totalItems;
-
-  async function handleToggle(item: ParsedItem, nextChecked: boolean): Promise<void> {
-    onToggle(delivery.id, item.index, nextChecked);
-    try {
-      await api.post(`/deliveries/driver/${delivery.id}/picking/item`, {
-        itemIndex: item.index,
-        checked: nextChecked,
-        itemLabel: item.label,
-      });
-    } catch (err: unknown) {
-      // Roll back
-      onToggle(delivery.id, item.index, !nextChecked);
-      onToastError(`Could not update item — ${(err as Error).message}`);
-    }
-  }
-
-  function openMispick(idx: number): void {
-    setOpenMispickIdx(idx);
-    setMispickDraft(mispickByIdx.get(idx) || '');
-  }
-
-  function submitMispick(idx: number): void {
-    const note = mispickDraft.trim();
-    if (!note) {
-      onReportMispick(delivery.id, idx, null);
-      setOpenMispickIdx(null);
-      return;
-    }
-    onReportMispick(delivery.id, idx, note);
-    setOpenMispickIdx(null);
-  }
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
   async function handleConfirm(): Promise<void> {
-    if (!allCovered) {
-      onToastError('Please check every line or report a mispick first.');
-      return;
-    }
+    setShowConfirmDialog(false);
     setSubmitting(true);
     try {
-      const mispicks = Array.from(mispickByIdx.entries()).map(([itemIndex, note]) => ({
-        itemIndex,
-        note,
-      }));
       await api.post(`/deliveries/driver/${delivery.id}/picking/confirm`, {
-        mispickReported: mispicks,
-        totalItems,
+        mispickReported: [],
+        totalItems: items.length,
       });
       onConfirm(delivery.id);
-      onToastSuccess(`Picking confirmed — ${delivery.customer || 'order'}`);
+      onToastSuccess(`Pickup confirmed — ${delivery.customer || 'order'}`);
       if (onSuccess) onSuccess(delivery.id);
     } catch (err: unknown) {
       onToastError(`Confirm failed — ${(err as Error).message}`);
@@ -241,146 +156,127 @@ function PickingCard({
   const priority = isPriority(delivery);
 
   return (
-    <div
-      className={`pp-card overflow-hidden ${
-        priority ? 'ring-2 ring-red-400 dark:ring-red-500/70' : ''
-      }`}
-    >
-      <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-amber-50 to-white dark:from-amber-900/20 dark:to-gray-900">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 mb-1 flex-wrap">
-              {priority && (
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300">
-                  <Zap className="w-3 h-3" />
-                  URGENT
-                </span>
-              )}
-              {String(delivery.status || '').toLowerCase() === 'rescheduled' ? (
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200">
-                  Rescheduled · PGI Done
-                </span>
-              ) : (
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
-                  PGI Done
-                </span>
-              )}
+    <>
+      <div
+        className={`pp-card overflow-hidden ${
+          priority ? 'ring-2 ring-red-400 dark:ring-red-500/70' : ''
+        }`}
+      >
+        <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-amber-50 to-white dark:from-amber-900/20 dark:to-gray-900">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                {priority && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300">
+                    <Zap className="w-3 h-3" />
+                    URGENT
+                  </span>
+                )}
+                {String(delivery.status || '').toLowerCase() === 'rescheduled' ? (
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200">
+                    Rescheduled · PGI Done
+                  </span>
+                ) : (
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                    PGI Done
+                  </span>
+                )}
+              </div>
+              <div className="font-semibold text-gray-900 dark:text-gray-100 truncate">
+                {delivery.customer || 'Unnamed customer'}
+              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                {delivery.poNumber ? `PO ${delivery.poNumber}` : delivery.deliveryNumber || delivery.id}
+                {delivery.address ? ` — ${delivery.address}` : ''}
+              </div>
             </div>
-            <div className="font-semibold text-gray-900 dark:text-gray-100 truncate">
-              {delivery.customer || 'Unnamed customer'}
-            </div>
-            <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-              {delivery.poNumber ? `PO ${delivery.poNumber}` : delivery.deliveryNumber || delivery.id}
-              {delivery.address ? ` — ${delivery.address}` : ''}
-            </div>
+            {items.length > 0 && (
+              <div className="text-right text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                {items.length} item{items.length !== 1 ? 's' : ''}
+              </div>
+            )}
           </div>
-          <div className="text-right text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
-            {coveredCount}/{totalItems} items
+        </div>
+
+        {items.length > 0 && (
+          <div className="p-4 space-y-1.5">
+            {items.map((item) => (
+              <div
+                key={item.index}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800/40 text-sm text-gray-800 dark:text-gray-100"
+              >
+                <span className="text-gray-400 dark:text-gray-500 text-xs font-mono w-5 text-right flex-shrink-0">
+                  {item.index + 1}.
+                </span>
+                <span className="min-w-0 truncate">{item.label}</span>
+              </div>
+            ))}
           </div>
+        )}
+
+        <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex items-center justify-end">
+          <button
+            type="button"
+            onClick={() => setShowConfirmDialog(true)}
+            disabled={submitting}
+            className={`px-5 py-2.5 text-sm rounded-lg font-semibold transition-colors touch-manipulation ${
+              !submitting
+                ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
+                : 'bg-gray-200 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400'
+            }`}
+          >
+            {submitting ? 'Confirming...' : 'Confirm Pickup'}
+          </button>
         </div>
       </div>
 
-      <div className="p-4 space-y-2">
-        {items.length === 0 && (
-          <div className="text-sm text-gray-500 dark:text-gray-400 italic">
-            No line items parsed from this order. Verify with the warehouse paperwork before confirming.
-          </div>
-        )}
-        {items.map((item) => {
-          const isChecked = checked.has(item.index);
-          const mispickNote = mispickByIdx.get(item.index);
-          return (
-            <div
-              key={item.index}
-              className="flex items-start gap-3 p-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/40"
-            >
-              <input
-                id={`pick-${delivery.id}-${item.index}`}
-                type="checkbox"
-                checked={isChecked}
-                onChange={(e) => void handleToggle(item, e.target.checked)}
-                disabled={submitting}
-                className="mt-1 w-5 h-5 accent-emerald-600 touch-manipulation"
-              />
-              <label
-                htmlFor={`pick-${delivery.id}-${item.index}`}
-                className="flex-1 min-w-0 text-sm text-gray-800 dark:text-gray-100 leading-snug cursor-pointer"
-              >
-                {item.label}
-                {mispickNote && (
-                  <div className="mt-1 flex items-start gap-1 text-[12px] text-red-700 dark:text-red-300">
-                    <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-                    <span>Mispick: {mispickNote}</span>
-                  </div>
-                )}
-              </label>
+      {/* Confirmation Dialog */}
+      {showConfirmDialog && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-sm w-full overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Confirm Pickup</h3>
               <button
                 type="button"
-                onClick={() => openMispick(item.index)}
-                className="text-xs font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 underline whitespace-nowrap"
+                onClick={() => setShowConfirmDialog(false)}
+                className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400"
               >
-                {mispickNote ? 'Edit mispick' : 'Report mispick'}
+                <X className="w-5 h-5" />
               </button>
             </div>
-          );
-        })}
-
-        {openMispickIdx !== null && (
-          <div className="mt-2 p-3 rounded-lg border border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20">
-            <div className="text-xs font-semibold text-red-700 dark:text-red-300 mb-1">
-              Mispick note for item #{openMispickIdx + 1}
+            <div className="px-5 py-4">
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                Are you sure you have picked up the order for{' '}
+                <span className="font-semibold text-gray-900 dark:text-gray-100">
+                  {delivery.customer || 'this customer'}
+                </span>
+                {delivery.poNumber ? ` (PO ${delivery.poNumber})` : ''}?
+              </p>
+              {items.length > 0 && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  {items.length} item{items.length !== 1 ? 's' : ''} will be marked as picked up.
+                </p>
+              )}
             </div>
-            <textarea
-              value={mispickDraft}
-              onChange={(e) => setMispickDraft(e.target.value)}
-              placeholder="What's wrong? (wrong qty, damaged, missing, etc.)"
-              className="w-full text-sm rounded border border-red-300 dark:border-red-700 bg-white dark:bg-gray-900 p-2"
-              rows={2}
-            />
-            <div className="flex gap-2 mt-2 justify-end">
+            <div className="flex gap-3 px-5 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
               <button
                 type="button"
-                onClick={() => setOpenMispickIdx(null)}
-                className="px-3 py-1.5 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200"
+                onClick={() => setShowConfirmDialog(false)}
+                className="flex-1 px-4 py-2.5 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                onClick={() => submitMispick(openMispickIdx)}
-                className="px-3 py-1.5 text-xs rounded bg-red-600 hover:bg-red-700 text-white font-semibold"
+                onClick={() => void handleConfirm()}
+                className="flex-1 px-4 py-2.5 text-sm font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors"
               >
-                Save note
+                Yes, Confirm
               </button>
             </div>
           </div>
-        )}
-      </div>
-
-      <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex items-center justify-between gap-2">
-        <div className="text-xs text-gray-600 dark:text-gray-300">
-          {allCovered ? (
-            <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-medium">
-              <CheckCircle2 className="w-4 h-4" />
-              Ready to confirm
-            </span>
-          ) : (
-            <span>Check every item or mark a mispick to enable confirm.</span>
-          )}
         </div>
-        <button
-          type="button"
-          onClick={() => void handleConfirm()}
-          disabled={!allCovered || submitting}
-          className={`px-4 py-2 text-sm rounded-lg font-semibold transition-colors touch-manipulation ${
-            allCovered && !submitting
-              ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
-              : 'bg-gray-200 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400'
-          }`}
-        >
-          {submitting ? 'Confirming…' : 'Confirm Picking List'}
-        </button>
-      </div>
-    </div>
+      )}
+    </>
   );
 }

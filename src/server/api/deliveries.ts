@@ -846,22 +846,11 @@ router.post('/driver/:id/picking/confirm', authenticate, requireRole('driver'), 
       ? (picking.itemsChecked as number[]).filter((n) => Number.isInteger(n))
       : [];
 
-    // Coverage check: every item index (0 … totalItems-1) must be either checked or mispick-reported.
+    // totalItems is informational only — no per-item coverage check required.
+    // The driver confirms the whole picking list at once via a confirmation dialog.
     const totalItems = typeof body.totalItems === 'number' && body.totalItems > 0
       ? body.totalItems
       : itemsChecked.length + mispicks.length;
-    const mispickIndices = new Set<number>(
-      mispicks.map((m) => (typeof m?.itemIndex === 'number' ? m.itemIndex : -1)).filter((n) => Number.isInteger(n) && n >= 0),
-    );
-    const covered = new Set<number>([...itemsChecked, ...mispickIndices]);
-    const missing: number[] = [];
-    for (let i = 0; i < totalItems; i++) {
-      if (!covered.has(i)) missing.push(i);
-    }
-    if (missing.length > 0) {
-      res.status(400).json({ error: 'items_not_fully_picked', missingIndices: missing });
-      return;
-    }
 
     const confirmedAt = new Date().toISOString();
     const nextPicking: Record<string, unknown> = {
