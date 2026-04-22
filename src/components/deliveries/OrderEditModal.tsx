@@ -129,11 +129,11 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
 
   // ── Derived validation flags ──────────────────────────────────────────────
   const isNewStatus = apiStatus !== initialStatus;
-  const needsNotes = isNewStatus && (apiStatus === 'cancelled' || apiStatus === 'rescheduled');
+  const needsNotes = isNewStatus && apiStatus === 'cancelled';
   const needsDate = isNewStatus && apiStatus === 'scheduled-confirmed';
   const needsGMD = isNewStatus && (apiStatus === 'pgi-done' || apiStatus === 'pgi_done');
   const needsPOD = isNewStatus && apiStatus === 'delivered' && phase === 3;
-  const needsRescheduleFields = isNewStatus && apiStatus === 'rescheduled' && phase === 3;
+  const needsRescheduleFields = isNewStatus && apiStatus === 'rescheduled';
 
   // Check if POD exists
   const pod = delivery as unknown as {
@@ -186,12 +186,14 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
       return;
     }
 
+    // Reschedule validation
+    if (needsRescheduleFields && (!rescheduleDate || !rescheduleReason.trim())) {
+      onToastError('Reschedule requires both a new date and a reason.');
+      return;
+    }
+
     // Phase 3 reschedule uses the dedicated reschedule endpoint
-    if (needsRescheduleFields && onReschedule) {
-      if (!rescheduleDate || !rescheduleReason.trim()) {
-        onToastError('Reschedule requires both a new date and a reason.');
-        return;
-      }
+    if (needsRescheduleFields && phase === 3 && onReschedule) {
       setSaving(true);
       try {
         await onReschedule(new Date(rescheduleDate + 'T12:00:00'), rescheduleReason.trim());
@@ -220,6 +222,11 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
       }
       if (gmdStr.trim()) {
         payload.goodsMovementDate = new Date(gmdStr + 'T12:00:00').toISOString();
+      }
+      // Phase 2 rescheduled — send date & reason via general endpoint
+      if (needsRescheduleFields && rescheduleDate) {
+        payload.scheduledDate = new Date(rescheduleDate + 'T12:00:00').toISOString();
+        payload.notes = rescheduleReason.trim();
       }
 
       const response = await api.put(`/deliveries/admin/${delivery.id}/status`, payload);
@@ -464,7 +471,7 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
             </div>
           )}
 
-          {/* Reschedule fields — Phase 3 (post-PGI) uses dedicated reschedule with date + reason */}
+          {/* Reschedule fields — date + reason (mandatory for all reschedule) */}
           {needsRescheduleFields && (
             <div className="rounded-lg border border-orange-200 dark:border-orange-800/40 bg-orange-50 dark:bg-orange-900/10 p-3 space-y-2">
               <p className="text-xs font-semibold text-orange-700 dark:text-orange-300">Reschedule Delivery</p>
@@ -498,8 +505,8 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
             </div>
           )}
 
-          {/* Notes — mandatory for cancelled and rescheduled (Phase 2); optional otherwise */}
-          {/* Phase 2 rescheduled uses notes field; Phase 3 uses dedicated reschedule fields above */}
+          {/* Notes — mandatory for cancelled; optional otherwise */}
+          {/* Rescheduled uses dedicated reschedule fields above (date + reason) */}
           {!(needsRescheduleFields) && (
             <div>
               <label htmlFor="edit-notes" className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
