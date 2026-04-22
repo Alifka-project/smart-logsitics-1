@@ -612,9 +612,13 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
   const pendingGmdCount = orders.filter((o) => !o.goodsMovementDate && !PENDING_TERMINAL.has(o.status)).length;
   const cancelledCount = orders.filter((o) => o.status === 'cancelled').length;
 
+  const UNASSIGNED_DISPATCH_DONE = new Set<DeliveryStatus>(['out_for_delivery', 'order_delay', 'delivered', 'cancelled', 'failed', 'rescheduled']);
+  const unassignedCount = orders.filter((o) => !UNASSIGNED_DISPATCH_DONE.has(o.status) && !o.driverId).length;
+
   const filterTabs: { key: OrdersTableTab; label: string; count: number; urgent?: boolean }[] = [
     { key: 'all',              label: 'All',              count: orders.length },
     { key: 'pending',          label: 'Pending Orders',   count: orders.filter((o) => !PENDING_TERMINAL.has(o.status)).length },
+    { key: 'unassigned',       label: 'Unassigned',       count: unassignedCount, urgent: unassignedCount > 0 },
     { key: 'awaiting_customer',label: 'Awaiting Customer',count: orders.filter((o) => o.status === 'sms_sent' || o.status === 'unconfirmed').length },
     { key: 'pending_gmd',      label: 'Pending GMD',      count: pendingGmdCount, urgent: pendingGmdCount > 0 },
     { key: 'next_shipment',    label: 'Next Shipment',    count: orders.filter((o) => o.status === 'next_shipment' || o.status === 'ready_to_dispatch').length },
