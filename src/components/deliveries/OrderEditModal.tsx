@@ -397,37 +397,37 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
             <p className="mt-1 text-[11px] text-amber-600">Required for PGI Done / Ready to Depart / Out for delivery / In transit</p>
           </div>
 
-          {/* Reschedule */}
-          {onReschedule && (
-            <div className="rounded-lg border border-orange-200 dark:border-orange-800/40 bg-orange-50 dark:bg-orange-900/10 p-3 space-y-2">
-              <p className="text-xs font-semibold text-orange-700 dark:text-orange-300">Reschedule Delivery</p>
-              <input
-                type="date"
-                value={rescheduleDate}
-                onChange={(e) => setRescheduleDate(e.target.value)}
-                className="w-full rounded-lg border border-orange-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-400 dark:border-orange-700 dark:bg-gray-900 dark:text-white"
-              />
-              <input
-                type="text"
-                value={rescheduleReason}
-                onChange={(e) => setRescheduleReason(e.target.value)}
-                placeholder="Reason for reschedule…"
-                className="w-full rounded-lg border border-orange-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-400 dark:border-orange-700 dark:bg-gray-900 dark:text-white"
-              />
-              <button
-                type="button"
-                disabled={!rescheduleDate || !rescheduleReason.trim()}
-                onClick={async () => {
-                  if (!rescheduleDate || !rescheduleReason.trim()) return;
+          {/* Reschedule — always visible so date can be updated (customer may reschedule many times) */}
+          <div className="rounded-lg border border-orange-200 dark:border-orange-800/40 bg-orange-50 dark:bg-orange-900/10 p-3 space-y-2">
+            <p className="text-xs font-semibold text-orange-700 dark:text-orange-300">Reschedule Delivery</p>
+            <input
+              type="date"
+              value={rescheduleDate}
+              onChange={(e) => setRescheduleDate(e.target.value)}
+              className="w-full rounded-lg border border-orange-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-400 dark:border-orange-700 dark:bg-gray-900 dark:text-white"
+            />
+            <input
+              type="text"
+              value={rescheduleReason}
+              onChange={(e) => setRescheduleReason(e.target.value)}
+              placeholder="Reason for reschedule…"
+              className="w-full rounded-lg border border-orange-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-400 dark:border-orange-700 dark:bg-gray-900 dark:text-white"
+            />
+            <button
+              type="button"
+              disabled={!rescheduleDate || !rescheduleReason.trim()}
+              onClick={async () => {
+                if (!rescheduleDate || !rescheduleReason.trim()) return;
+                if (onReschedule) {
                   await onReschedule(new Date(rescheduleDate + 'T12:00:00'), rescheduleReason.trim());
                   onClose();
-                }}
-                className="w-full py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold disabled:opacity-50 transition-colors"
-              >
-                Confirm Reschedule
-              </button>
-            </div>
-          )}
+                }
+              }}
+              className="w-full py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold disabled:opacity-50 transition-colors"
+            >
+              Confirm Reschedule
+            </button>
+          </div>
 
           {/* HIDDEN — Dispatch button hidden per business request. Kept for future use.
           {onDispatch && (
