@@ -11,6 +11,8 @@ export type DeliveryStatus =
   | 'future_schedule'    // confirmed, delivery date = 2+ days out
   | 'scheduled'          // legacy fallback
   | 'ready_to_dispatch'  // confirmed + GMD updated, delivery date is future (not today)
+  | 'pgi_done'           // GMD uploaded; goods issued by warehouse; awaiting driver pick
+  | 'pickup_confirmed'   // driver verified picking list; awaiting Start Delivery
   | 'order_delay'        // logistics cannot dispatch
   | 'out_for_delivery'
   | 'delivered'

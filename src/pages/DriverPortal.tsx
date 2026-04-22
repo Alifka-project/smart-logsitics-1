@@ -13,10 +13,11 @@ import { useToast } from '../hooks/useToast';
 import { ToastContainer } from '../components/common/Toast';
 import {
   MapPin, Navigation, RefreshCw, AlertCircle, CheckCircle2,
-  MessageSquare, Truck, Bell, Paperclip, Send, Search, ClipboardList, ChevronLeft
+  MessageSquare, Truck, Bell, Paperclip, Send, Search, ClipboardList, ChevronLeft, PackageCheck
 } from 'lucide-react';
 import type { Delivery } from '../types';
 import { getOnRouteDeliveriesForList, isOnRouteDeliveryListStatus, getEtaStatus } from '../utils/deliveryListFilter';
+import PickingListPanel from '../components/deliveries/PickingListPanel';
 
 // Fix Leaflet default marker icons
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
@@ -1408,6 +1409,7 @@ export default function DriverPortal() {
         <nav className="flex flex-nowrap gap-2 min-w-max md:min-w-0">
           {[
             { id: 'orders', label: 'My Orders', icon: ClipboardList },
+            { id: 'picking', label: 'Picking List', icon: PackageCheck },
             { id: 'messages', label: 'Messages', icon: MessageSquare },
           ].map(tab => {
             const Icon = tab.icon;
@@ -1424,6 +1426,17 @@ export default function DriverPortal() {
                   return onRouteCount > 0 ? (
                     <span className="ml-2 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-semibold px-2 py-0.5 rounded-full">
                       {onRouteCount}
+                    </span>
+                  ) : null;
+                })()}
+                {tab.id === 'picking' && (() => {
+                  const pgiDoneCount = deliveries.filter(d => {
+                    const s = (d.status || '').toLowerCase();
+                    return s === 'pgi-done' || s === 'pgi_done';
+                  }).length;
+                  return pgiDoneCount > 0 ? (
+                    <span className="ml-2 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-xs font-semibold px-2 py-0.5 rounded-full">
+                      {pgiDoneCount}
                     </span>
                   ) : null;
                 })()}
@@ -1506,24 +1519,59 @@ export default function DriverPortal() {
             <div className="pp-card p-3 sm:p-6 min-h-[520px]">
               <div className="flex items-center justify-between gap-2 mb-2">
                 <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">Order list</h2>
-                {/* D4: Start Delivery button — shown when there are on-route orders, locks static ETAs */}
-                {onRouteDeliveries.length > 0 && (
-                  deliveryStartedAt ? (
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-700">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      Started {new Date(deliveryStartedAt).toLocaleTimeString('en-AE', { timeZone: 'Asia/Dubai', hour: '2-digit', minute: '2-digit' })}
+                {/* D4: Start Delivery button — shown when there are on-route orders, locks static ETAs.
+                    Blocked until every candidate order is in pickup-confirmed (picking list signed off). */}
+                {(() => {
+                  // "Candidate" = anything on the driver's plate that should ride today.
+                  // We include orders still stuck in pgi-done (picking not confirmed) AND
+                  // orders already pickup-confirmed — those are the ones that need to all
+                  // be green before dispatch. On-route / in-transit are already started.
+                  const candidates = storeDeliveries.filter(d => {
+                    const s = (d.status || '').toLowerCase();
+                    return s === 'pgi-done' || s === 'pgi_done'
+                      || s === 'pickup-confirmed' || s === 'pickup_confirmed';
+                  });
+                  const unreadyCount = candidates.filter(d => {
+                    const s = (d.status || '').toLowerCase();
+                    return s === 'pgi-done' || s === 'pgi_done';
+                  }).length;
+                  const hasRouteWork = onRouteDeliveries.length > 0 || candidates.length > 0;
+                  if (!hasRouteWork) return null;
+                  if (deliveryStartedAt) {
+                    return (
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-700">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Started {new Date(deliveryStartedAt).toLocaleTimeString('en-AE', { timeZone: 'Asia/Dubai', hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    );
+                  }
+                  const canStart = unreadyCount === 0;
+                  return (
+                    <div className="flex flex-col items-end gap-1">
+                      <button
+                        type="button"
+                        onClick={handleStartDelivery}
+                        disabled={!canStart}
+                        title={canStart
+                          ? 'Lock ETAs and send Out-for-Delivery SMS to all customers'
+                          : `Confirm picking list for ${unreadyCount} order${unreadyCount === 1 ? '' : 's'} first`}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm transition-colors touch-manipulation ${
+                          canStart
+                            ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                            : 'bg-gray-200 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400'
+                        }`}
+                      >
+                        <Truck className="w-3.5 h-3.5" />
+                        Start Delivery
+                      </button>
+                      {!canStart && (
+                        <span className="text-[11px] text-amber-700 dark:text-amber-400">
+                          Confirm picking list for {unreadyCount} order{unreadyCount === 1 ? '' : 's'} first
+                        </span>
+                      )}
                     </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleStartDelivery}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-colors touch-manipulation"
-                    >
-                      <Truck className="w-3.5 h-3.5" />
-                      Start Delivery
-                    </button>
-                  )
-                )}
+                  );
+                })()}
               </div>
               <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-2">Tap one order to update POD, call customer, or check details</p>
 
@@ -1664,6 +1712,24 @@ export default function DriverPortal() {
         useDriverEndpoint
       />
         </div>
+
+      {/* Picking List Tab — per-item checklist for pgi-done orders */}
+      <div className={`space-y-4${activeTab !== 'picking' ? ' hidden' : ''}`}>
+        <div className="pp-card p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <PackageCheck className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Picking List</h2>
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Check every line item against what's on the pallet. Report any mispick before confirming.
+            Once confirmed, the order moves to "Ready to Depart" and can be dispatched.
+          </p>
+        </div>
+        <PickingListPanel
+          deliveries={storeDeliveries}
+          onConfirmed={() => { void loadDeliveries(); }}
+        />
+      </div>
 
       {/* Messages Tab — mobile style: list then open chat card */}
       <div className={`rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm bg-white dark:bg-gray-800${activeTab !== 'messages' ? ' hidden' : ''}`} style={{height: 'max(520px, calc(100dvh - 220px))' }}>

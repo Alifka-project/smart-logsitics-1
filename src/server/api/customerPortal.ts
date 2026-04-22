@@ -7,6 +7,7 @@ import { Router, Request, Response } from 'express';
 import { getDateCapacityDetails, TRUCK_MAX_ITEMS_PER_DAY } from '../services/deliveryCapacityService';
 import { authenticate, requireAnyRole } from '../auth.js';
 import { fetchDrivingRouteBetweenPoints } from '../services/drivingRouteService.js';
+import { computePlannedSlotWindow } from '../services/plannedEtaService';
 
 const router = Router();
 const smsService = require('../sms/smsService');
@@ -181,13 +182,6 @@ router.get('/tracking/:token', async (req: Request, res: Response): Promise<void
         assignment?: {
           driver: { fullName: string; phone: string };
         };
-        driverLocation?: {
-          latitude: number;
-          longitude: number;
-          heading: number;
-          speed: number;
-          recordedAt: string;
-        };
       };
     };
 
@@ -210,76 +204,99 @@ router.get('/tracking/:token', async (req: Request, res: Response): Promise<void
       details: event.payload
     }));
 
-    // Compute live ETA from driver's current GPS location to delivery address
+    // ── ETA mode by status (status-driven switch) ───────────────────────────
+    // • scheduled / confirmed / pgi-done / pickup-confirmed → PLANNED window
+    //   (08:00 Dubai + cumulative OSRM travel + service time, ±60 min)
+    // • out-for-delivery                                     → STATIC ETA
+    //   (locked at Start Delivery; does NOT refresh from live GPS)
+    // • delivered / pod-completed / finished                 → actual deliveredAt
+    //
+    // Live GPS-derived ETA is NO LONGER exposed to customers — the driver's
+    // self-view uses a separate internal endpoint. Customer tracking stops
+    // jittering the instant the truck leaves the depot.
     const deliveryRaw = tracking.delivery as Record<string, unknown>;
-    let liveEta: string | null = null;
-    // Show ETA for any active on-route or confirmed+assigned status
-    const isOnRoute = ['out-for-delivery', 'out_for_delivery', 'in-transit'].includes(tracking.delivery.status);
-    if (
-      isOnRoute &&
-      tracking.tracking.driverLocation &&
-      typeof deliveryRaw.lat === 'number' &&
-      typeof deliveryRaw.lng === 'number'
-    ) {
-      const dLoc = tracking.tracking.driverLocation;
-      const toLat = deliveryRaw.lat as number;
-      const toLng = deliveryRaw.lng as number;
-      try {
-        const route = await fetchDrivingRouteBetweenPoints(
-          { lat: dLoc.latitude, lng: dLoc.longitude },
-          { lat: toLat, lng: toLng },
-        );
-        if (route?.durationS) {
-          liveEta = new Date(Date.now() + route.durationS * 1000).toISOString();
-        }
-      } catch {
-        // OSRM unavailable — fall through to straight-line estimate
-      }
-      // If OSRM failed or returned nothing, estimate via straight-line distance at 40 km/h
-      if (!liveEta) {
-        const R = 6371;
-        const dLatR = (toLat - dLoc.latitude) * Math.PI / 180;
-        const dLonR = (toLng - dLoc.longitude) * Math.PI / 180;
-        const a = Math.sin(dLatR / 2) ** 2
-          + Math.cos(dLoc.latitude * Math.PI / 180) * Math.cos(toLat * Math.PI / 180) * Math.sin(dLonR / 2) ** 2;
-        const distKm = 2 * R * Math.asin(Math.sqrt(a));
-        // 40 km/h city average, 1.3 road-factor multiplier, minimum 5 minutes
-        const drivingSec = Math.max(300, (distKm * 1.3 / 40) * 3600);
-        liveEta = new Date(Date.now() + drivingSec * 1000).toISOString();
-      }
-    }
+    const deliveryIdForEta = (deliveryRaw.id || '') as string;
+    const statusLower = String(tracking.delivery.status || '').toLowerCase();
 
-    // Prefer the plan ETA the driver locked in when they tapped "Start Delivery".
-    // Query Prisma directly for the raw metadata — this is belt-and-suspenders
-    // so we're not dependent on the smsService.getCustomerTracking return shape
-    // (which has a specific whitelist) to pass plannedEta through correctly.
-    let plannedEta: string | null = null;
+    // Reload the delivery row for authoritative metadata + date fields (the
+    // smsService return shape whitelists fields, so planned/static ETA may be
+    // absent even when persisted).
+    let fullDelivery: Record<string, unknown> | null = null;
+    let assignedDriverId: string | null = null;
     try {
-      const deliveryId = (tracking.delivery as unknown as { id?: string }).id;
-      const metaRow = deliveryId
-        ? await prisma.delivery.findUnique({
-            where: { id: deliveryId },
-            select: { metadata: true },
-          })
-        : null;
-      const metaObj = (metaRow?.metadata && typeof metaRow.metadata === 'object' && !Array.isArray(metaRow.metadata))
-        ? metaRow.metadata as Record<string, unknown>
-        : null;
-      const candidate = metaObj?.plannedEta;
-      if (typeof candidate === 'string' && candidate.trim()) {
-        plannedEta = candidate;
+      if (deliveryIdForEta) {
+        const row = await prisma.delivery.findUnique({
+          where: { id: deliveryIdForEta },
+          select: {
+            id: true,
+            status: true,
+            metadata: true,
+            goodsMovementDate: true,
+            confirmedDeliveryDate: true,
+            deliveredAt: true,
+          },
+        });
+        fullDelivery = row as Record<string, unknown> | null;
+      }
+      if (deliveryIdForEta) {
+        const assignment = await prisma.deliveryAssignment.findFirst({
+          where: { deliveryId: deliveryIdForEta, status: { in: ['assigned', 'in_progress'] } },
+          select: { driverId: true },
+        });
+        assignedDriverId = assignment?.driverId ?? null;
       }
     } catch (metaErr: unknown) {
-      const e = metaErr as Error;
-      console.warn('[customer/tracking] metadata lookup failed:', e.message);
+      console.warn('[customer/tracking] metadata lookup failed:', (metaErr as Error).message);
     }
-    const etaToShow = plannedEta ?? liveEta ?? tracking.tracking.eta;
-    const etaSource = plannedEta ? 'planned' : (liveEta ? 'live' : 'assignment');
-    console.log(`[customer/tracking] token=${String(token).slice(0, 8)} deliveryId=${(tracking.delivery as unknown as { id?: string }).id} status=${tracking.delivery.status} etaSource=${etaSource} plannedEta=${String(plannedEta)} eta=${String(etaToShow)}`);
 
-    // Defeat any edge / browser caching so the customer always sees the
-    // latest ETA (planned ETA becomes visible the instant the driver
-    // taps Start Delivery).
+    const metaObj = (fullDelivery?.metadata && typeof fullDelivery.metadata === 'object' && !Array.isArray(fullDelivery.metadata))
+      ? (fullDelivery.metadata as Record<string, unknown>)
+      : {};
+
+    type EtaPayload =
+      | { mode: 'planned'; earliest: string; latest: string; center: string; degraded: boolean }
+      | { mode: 'static'; eta: string }
+      | { mode: 'delivered'; at: string }
+      | { mode: 'pending' };
+
+    let etaPayload: EtaPayload = { mode: 'pending' };
+
+    if (['scheduled', 'confirmed', 'scheduled-confirmed', 'pgi-done', 'pgi_done', 'pickup-confirmed', 'pickup_confirmed'].includes(statusLower)) {
+      const window = await computePlannedSlotWindow({
+        delivery: fullDelivery ?? deliveryRaw,
+        driverId: assignedDriverId,
+      });
+      etaPayload = window;
+    } else if (statusLower === 'out-for-delivery' || statusLower === 'out_for_delivery' || statusLower === 'in-transit') {
+      const staticEta = typeof metaObj.staticEta === 'string' && metaObj.staticEta.trim()
+        ? (metaObj.staticEta as string)
+        : (typeof metaObj.plannedEta === 'string' && metaObj.plannedEta.trim() ? (metaObj.plannedEta as string) : null);
+      if (staticEta) {
+        etaPayload = { mode: 'static', eta: staticEta };
+      } else if (typeof tracking.tracking.eta === 'string' && (tracking.tracking.eta as string).trim()) {
+        // Fallback to the assignment's own eta only if the driver never hit Start Delivery.
+        etaPayload = { mode: 'static', eta: tracking.tracking.eta as string };
+      }
+    } else if (['delivered', 'delivered-with-installation', 'delivered-without-installation', 'pod-completed', 'finished', 'completed'].includes(statusLower)) {
+      const deliveredAt = fullDelivery?.deliveredAt;
+      if (deliveredAt instanceof Date) {
+        etaPayload = { mode: 'delivered', at: deliveredAt.toISOString() };
+      } else if (typeof deliveredAt === 'string' && deliveredAt) {
+        etaPayload = { mode: 'delivered', at: deliveredAt };
+      }
+    }
+
+    const legacyEta: string | null = etaPayload.mode === 'static'
+      ? etaPayload.eta
+      : etaPayload.mode === 'planned'
+        ? etaPayload.center
+        : etaPayload.mode === 'delivered'
+          ? etaPayload.at
+          : null;
+
+    console.log(`[customer/tracking] token=${String(token).slice(0, 8)} deliveryId=${deliveryIdForEta} status=${tracking.delivery.status} etaMode=${etaPayload.mode}`);
+
+    // Defeat any edge / browser caching so the customer always sees the latest ETA.
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     res.setHeader('Pragma', 'no-cache');
 
@@ -291,18 +308,21 @@ router.get('/tracking/:token', async (req: Request, res: Response): Promise<void
       },
       tracking: {
         status: tracking.delivery.status,
-        eta: etaToShow,
+        eta: legacyEta,
+        etaPayload,
         driver: tracking.tracking.assignment?.driver ? {
           name: (tracking.tracking.assignment.driver as { fullName?: string }).fullName,
           phone: (tracking.tracking.assignment.driver as { phone?: string }).phone
         } : null,
-        driverLocation: tracking.tracking.driverLocation ? {
-          latitude: tracking.tracking.driverLocation.latitude,
-          longitude: tracking.tracking.driverLocation.longitude,
-          heading: tracking.tracking.driverLocation.heading,
-          speed: tracking.tracking.driverLocation.speed,
-          recordedAt: tracking.tracking.driverLocation.recordedAt
-        } : null
+        // Note: driverLocation intentionally NOT forwarded to the customer payload.
+        // Customer view now shows status + planned/static ETA only — no live GPS.
+        driverLocation: null as null | {
+          latitude: number;
+          longitude: number;
+          heading: number;
+          speed: number;
+          recordedAt: string;
+        }
       },
       timeline
     });

@@ -173,10 +173,21 @@ interface DriverLocationInfo {
   longitude: number;
 }
 
+type EtaPayload =
+  | { mode: 'planned'; earliest: string; latest: string; center: string; degraded?: boolean }
+  | { mode: 'static'; eta: string }
+  | { mode: 'delivered'; at: string }
+  | { mode: 'pending' };
+
 interface TrackingInfoResponse {
+  /** Live GPS is intentionally NO LONGER sent to customers; server always null. */
   driverLocation?: DriverLocationInfo | null;
   driver?: DriverInfo | null;
+  /** Legacy flat ETA string — kept for backwards compatibility. Use `etaPayload`. */
   eta?: string | null;
+  /** Status-driven ETA: planned slot window, locked static ETA, or final deliveredAt. */
+  etaPayload?: EtaPayload;
+  status?: string | null;
 }
 
 interface TrackingDelivery extends Delivery {
@@ -201,8 +212,10 @@ const TIMELINE_STEPS: TimelineStep[] = [
     matchStatuses: ['pending', 'uploaded'], matchEvents: ['delivery_uploaded', 'order_created'] },
   { id: 'order_scheduled', label: 'Order Scheduled', desc: 'Delivery date confirmed', icon: Calendar,
     matchStatuses: ['scheduled', 'confirmed', 'scheduled-confirmed', 'rescheduled'], matchEvents: ['customer_confirmed', 'delivery_scheduled', 'admin_rescheduled'] },
+  { id: 'order_preparing', label: 'Being Prepared', desc: 'Your order is being prepared at the warehouse', icon: Package,
+    matchStatuses: ['pgi-done', 'pgi_done', 'pickup-confirmed', 'pickup_confirmed'], matchEvents: ['pgi_done', 'picking_confirmed'] },
   { id: 'out_for_delivery', label: 'Out for Delivery', desc: 'On its way to you', icon: Truck,
-    matchStatuses: ['out-for-delivery', 'in-transit'], matchEvents: ['out_for_delivery', 'status_updated_out_for_delivery'] },
+    matchStatuses: ['out-for-delivery', 'in-transit'], matchEvents: ['out_for_delivery', 'status_updated_out_for_delivery', 'delivery_started'] },
   { id: 'items_arrived', label: 'Items Arrived', desc: 'Driver is at your door', icon: MapPin,
     matchStatuses: [], matchEvents: ['driver_arrived', 'delivery_completed', 'status_updated_delivered'] },
   { id: 'order_finished', label: 'Order Finished', desc: 'All done — thank you!', icon: Star,
@@ -276,13 +289,21 @@ const STATUS_HERO: Record<number, StatusHero> = {
   },
   2: {
     bg: '#FFFFFF',
+    color: '#B45309',
+    label: 'Preparing',
+    icon: Package,
+    title: 'Your order is being prepared',
+    subtitle: 'Warehouse has issued the goods and the driver is picking your items.',
+  },
+  3: {
+    bg: '#FFFFFF',
     color: '#C2410C',
     label: 'On route',
     icon: Truck,
     title: 'Out for delivery',
     subtitle: 'Your driver is heading to your address.',
   },
-  3: {
+  4: {
     bg: '#FFFFFF',
     color: '#15803D',
     label: 'Arrived',
@@ -290,7 +311,7 @@ const STATUS_HERO: Record<number, StatusHero> = {
     title: 'Your driver is here!',
     subtitle: 'Your delivery team has arrived at your address — please be ready to receive your items.',
   },
-  4: {
+  5: {
     bg: '#FFFFFF',
     color: '#7E22CE',
     label: 'Completed',
@@ -625,27 +646,52 @@ export default function CustomerTrackingPage() {
 
         {/* ── Delivery Date + Driver (compact) ─────────────────────── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 12 }}>
-          {trackingInfo.eta && (delivery.status === 'out_for_delivery' || delivery.status === 'out-for-delivery') && (
-            <div className="card anim-card anim-card-3" style={{ padding: '10px 12px', border: '1.5px solid #BBF7D0', background: 'linear-gradient(135deg,#F0FDF4,#DCFCE7)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 28, height: 28, borderRadius: 8, background: '#DCFCE7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Navigation style={{ width: 14, height: 14, color: '#16A34A' }} />
-                </div>
-                <div style={{ minWidth: 0 }}>
-                  <p style={{ fontSize: 9, fontWeight: 700, color: '#15803D', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Estimated Arrival</p>
-                  <p style={{ fontWeight: 700, fontSize: 12, color: '#14532D', lineHeight: 1.25 }}>
-                    {(() => {
-                      const etaDate = new Date(trackingInfo.eta as string);
-                      const etaEnd = new Date(etaDate.getTime() + 4 * 60 * 60 * 1000);
-                      const fmtTime = (d: Date) => d.toLocaleTimeString('en-AE', { timeZone: 'Asia/Dubai', hour: '2-digit', minute: '2-digit' });
-                      return `${fmtTime(etaDate)} – ${fmtTime(etaEnd)}`;
-                    })()}
-                  </p>
-                  <p style={{ fontSize: 10, color: '#15803D', marginTop: 1 }}>Driver is on the way</p>
+          {(() => {
+            // Status-driven ETA card (planned window, locked static, or delivered).
+            // Live GPS ETA is no longer shown to customers — the card renders once
+            // from `etaPayload` and does NOT jitter on the 30s refresh.
+            const payload = trackingInfo.etaPayload;
+            if (!payload || payload.mode === 'pending') return null;
+            const fmtTime = (d: Date): string => d.toLocaleTimeString('en-AE', { timeZone: 'Asia/Dubai', hour: '2-digit', minute: '2-digit' });
+            const fmtDT = (d: Date): string => d.toLocaleString('en-AE', { timeZone: 'Asia/Dubai', weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+            let heading = 'Estimated Arrival';
+            let body = '';
+            let sub = '';
+            if (payload.mode === 'planned') {
+              const e = new Date(payload.earliest);
+              const l = new Date(payload.latest);
+              heading = 'Estimated Arrival Slot';
+              body = `${fmtTime(e)} – ${fmtTime(l)}`;
+              sub = payload.degraded
+                ? 'Full-day window — will narrow once your driver is assigned'
+                : 'Based on the route plan';
+            } else if (payload.mode === 'static') {
+              const d = new Date(payload.eta);
+              heading = 'Estimated Arrival';
+              body = fmtTime(d);
+              sub = 'Following the planned schedule — not live';
+            } else if (payload.mode === 'delivered') {
+              const d = new Date(payload.at);
+              heading = 'Delivered';
+              body = fmtDT(d);
+              sub = 'Thank you for choosing Electrolux';
+            }
+            if (!body) return null;
+            return (
+              <div className="card anim-card anim-card-3" style={{ padding: '10px 12px', border: '1.5px solid #BBF7D0', background: 'linear-gradient(135deg,#F0FDF4,#DCFCE7)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 8, background: '#DCFCE7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Navigation style={{ width: 14, height: 14, color: '#16A34A' }} />
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ fontSize: 9, fontWeight: 700, color: '#15803D', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>{heading}</p>
+                    <p style={{ fontWeight: 700, fontSize: 12, color: '#14532D', lineHeight: 1.25 }}>{body}</p>
+                    <p style={{ fontSize: 10, color: '#15803D', marginTop: 1 }}>{sub}</p>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
           {delivery.confirmedDeliveryDate && (
             <div className="card anim-card anim-card-3" style={{ padding: '10px 12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

@@ -219,10 +219,12 @@ export async function upsertDeliveryByBusinessKey({
     const prevStatus = (existing.status as string) || 'pending';
 
     // Determine new status: if GMD just arrived and order is not terminal,
-    // automatically move to out-for-delivery (warehouse dispatched it)
+    // automatically move to pgi-done (warehouse has issued goods; awaiting driver pick).
+    // The driver flips through pickup-confirmed → out-for-delivery after verifying the
+    // picking list and clicking Start Delivery.
     let newStatus = prevStatus;
     if (gmdUpdated && !isTerminal) {
-      newStatus = 'out-for-delivery';
+      newStatus = 'pgi-done';
     }
 
     const updateData: Record<string, unknown> = {
@@ -264,8 +266,9 @@ export async function upsertDeliveryByBusinessKey({
   }
 
   // ─── NEW RECORD ───────────────────────────────────────────────────────────
-  // Determine initial status: if GMD provided, auto-dispatch; else pending
-  const initialStatus = validIncomingGMD ? 'out-for-delivery' : (incoming.status || 'pending');
+  // Determine initial status: if GMD provided, auto-set to pgi-done (warehouse issued
+  // goods, awaiting driver pick/confirm/start). Else pending.
+  const initialStatus = validIncomingGMD ? 'pgi-done' : (incoming.status || 'pending');
 
   const createData: Record<string, unknown> = {
     customer: incoming.customer || null,

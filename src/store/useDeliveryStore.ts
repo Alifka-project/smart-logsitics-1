@@ -71,6 +71,14 @@ interface DeliveryStore {
   selectDelivery: (id: string) => void;
   updateDeliveryOrder: (reorderedDeliveries: Delivery[]) => void;
   clearDeliveries: () => void;
+
+  /** Optimistic: toggle a per-item picking checkbox (metadata.picking.itemsChecked). */
+  togglePickingItem: (deliveryId: string, itemIndex: number, checked: boolean) => void;
+  /** Optimistic: record/clear a mispick note locally (metadata.picking.mispickReported). */
+  reportMispick: (deliveryId: string, itemIndex: number, note: string | null) => void;
+  /** Optimistic: flip a delivery to pickup-confirmed and stamp metadata.picking.confirmedAt. */
+  confirmPickingList: (deliveryId: string, confirmedBy?: string) => void;
+
   calculateRoute: () => Promise<void>;
   setRoute: (route: RouteResult) => void;
   setDeliveryListFilter: (filter: DeliveryListFilter) => void;
@@ -412,6 +420,89 @@ const useDeliveryStore = create<DeliveryStore>((set, get) => ({
   clearDeliveries: (): void => {
     set({ deliveries: [], selectedDelivery: null });
     localStorage.removeItem(scopedKey(STORAGE_KEY_BASE));
+  },
+
+  // ── Picking state (optimistic) ──────────────────────────────────────────
+  // These mutate metadata.picking locally so the driver's Picking List tab
+  // reacts instantly to checkbox taps, mispick notes, and the final confirm.
+  // The server is the authority — the next loadDeliveries() / refetch will
+  // reconcile and overwrite these optimistic values.
+
+  togglePickingItem: (deliveryId: string, itemIndex: number, checked: boolean): void => {
+    if (!Number.isInteger(itemIndex) || itemIndex < 0) return;
+    const deliveries = get().deliveries;
+    const updated = deliveries.map((d) => {
+      if (d.id !== deliveryId) return d;
+      const meta = (d.metadata && typeof d.metadata === 'object')
+        ? { ...(d.metadata as Record<string, unknown>) }
+        : {} as Record<string, unknown>;
+      const picking = (meta.picking && typeof meta.picking === 'object')
+        ? { ...(meta.picking as Record<string, unknown>) }
+        : {} as Record<string, unknown>;
+      const prev = Array.isArray(picking.itemsChecked)
+        ? (picking.itemsChecked as number[]).filter((n) => Number.isInteger(n))
+        : [];
+      const setNext = new Set<number>(prev);
+      if (checked) setNext.add(itemIndex);
+      else setNext.delete(itemIndex);
+      picking.itemsChecked = Array.from(setNext).sort((a, b) => a - b);
+      meta.picking = picking;
+      return { ...d, metadata: meta as Delivery['metadata'], updatedAt: new Date().toISOString() };
+    });
+    set({ deliveries: updated });
+    get().saveToStorage(updated);
+  },
+
+  reportMispick: (deliveryId: string, itemIndex: number, note: string | null): void => {
+    if (!Number.isInteger(itemIndex) || itemIndex < 0) return;
+    const deliveries = get().deliveries;
+    const updated = deliveries.map((d) => {
+      if (d.id !== deliveryId) return d;
+      const meta = (d.metadata && typeof d.metadata === 'object')
+        ? { ...(d.metadata as Record<string, unknown>) }
+        : {} as Record<string, unknown>;
+      const picking = (meta.picking && typeof meta.picking === 'object')
+        ? { ...(meta.picking as Record<string, unknown>) }
+        : {} as Record<string, unknown>;
+      const prev = Array.isArray(picking.mispickReported)
+        ? (picking.mispickReported as Array<{ itemIndex?: number; note?: string | null }>).filter(
+            (m) => m && Number.isInteger(m.itemIndex),
+          )
+        : [];
+      const withoutIdx = prev.filter((m) => m.itemIndex !== itemIndex);
+      const next = note && note.trim()
+        ? [...withoutIdx, { itemIndex, note: note.trim() }]
+        : withoutIdx;
+      picking.mispickReported = next;
+      meta.picking = picking;
+      return { ...d, metadata: meta as Delivery['metadata'], updatedAt: new Date().toISOString() };
+    });
+    set({ deliveries: updated });
+    get().saveToStorage(updated);
+  },
+
+  confirmPickingList: (deliveryId: string, confirmedBy?: string): void => {
+    const deliveries = get().deliveries;
+    const updated = deliveries.map((d) => {
+      if (d.id !== deliveryId) return d;
+      const meta = (d.metadata && typeof d.metadata === 'object')
+        ? { ...(d.metadata as Record<string, unknown>) }
+        : {} as Record<string, unknown>;
+      const picking = (meta.picking && typeof meta.picking === 'object')
+        ? { ...(meta.picking as Record<string, unknown>) }
+        : {} as Record<string, unknown>;
+      picking.confirmedAt = new Date().toISOString();
+      if (confirmedBy) picking.confirmedBy = confirmedBy;
+      meta.picking = picking;
+      return {
+        ...d,
+        status: 'pickup-confirmed',
+        metadata: meta as Delivery['metadata'],
+        updatedAt: new Date().toISOString(),
+      };
+    });
+    set({ deliveries: updated });
+    get().saveToStorage(updated);
   },
 
   calculateRoute: async (): Promise<void> => {

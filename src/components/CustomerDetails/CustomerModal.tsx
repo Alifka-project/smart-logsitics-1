@@ -423,7 +423,7 @@ export default function CustomerModal({
             disabled={
               !status ||
               (status !== 'rescheduled' && status !== 'rejected' && (!driverSignature || !customerSignature)) ||
-              (status === 'rescheduled' && !rescheduleDate) ||
+              (status === 'rescheduled' && (!rescheduleDate || !notes.trim())) ||
               (status === 'rejected' && !notes.trim()) ||
               isSubmitting
             }

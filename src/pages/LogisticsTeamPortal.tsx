@@ -825,6 +825,16 @@ export default function LogisticsTeamPortal() {
               const s = (d.status || '').toLowerCase();
               return s === 'cancelled' || s === 'returned';
             }).length;
+            // Advanced workflow counters — PGI Done (warehouse issued, awaiting driver pick)
+            // and Ready to Depart (picking list confirmed, waiting on driver's Start Delivery).
+            const pgiDoneCount = deliveries.filter(d => {
+              const s = (d.status || '').toLowerCase();
+              return s === 'pgi-done' || s === 'pgi_done';
+            }).length;
+            const readyToDepartCount = deliveries.filter(d => {
+              const s = (d.status || '').toLowerCase();
+              return s === 'pickup-confirmed' || s === 'pickup_confirmed';
+            }).length;
 
             return (
               <div className="flex flex-col lg:flex-row gap-4 items-stretch">
@@ -926,6 +936,34 @@ export default function LogisticsTeamPortal() {
                     <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Cancelled</div>
                     <div className={`text-3xl font-bold ${recentCancelled > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-gray-400 dark:text-gray-500'}`}>{recentCancelled}</div>
                     <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">cancelled / returned</div>
+                  </div>
+
+                  {/* ── Row 2b: Advanced workflow (PGI Done + Ready to Depart) ── */}
+                  <div
+                    onClick={() => {
+                      useDeliveryStore.getState().setDeliveryListFilter('pgi_done');
+                      setActiveTab('deliveries');
+                      setDeliveriesSubTab('manage');
+                    }}
+                    className="pp-card p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:ring-2 hover:ring-amber-400 transition-all"
+                    title="Warehouse has issued goods — awaiting driver pick"
+                  >
+                    <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">PGI Done</div>
+                    <div className={`text-3xl font-bold ${pgiDoneCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400 dark:text-gray-500'}`}>{pgiDoneCount}</div>
+                    <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">awaiting driver pick</div>
+                  </div>
+                  <div
+                    onClick={() => {
+                      useDeliveryStore.getState().setDeliveryListFilter('pickup_confirmed');
+                      setActiveTab('deliveries');
+                      setDeliveriesSubTab('manage');
+                    }}
+                    className="pp-card p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:ring-2 hover:ring-teal-400 transition-all"
+                    title="Picking list confirmed — driver can Start Delivery"
+                  >
+                    <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Ready to Depart</div>
+                    <div className={`text-3xl font-bold ${readyToDepartCount > 0 ? 'text-teal-600 dark:text-teal-400' : 'text-gray-400 dark:text-gray-500'}`}>{readyToDepartCount}</div>
+                    <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">picking confirmed</div>
                   </div>
 
                   {/* ── Row 3: Action buttons ── */}

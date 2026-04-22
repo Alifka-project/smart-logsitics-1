@@ -507,7 +507,6 @@ interface CustomerTrackingResult {
   };
   tracking: {
     assignment: unknown;
-    driverLocation: unknown;
     events: unknown[];
     eta: unknown;
   };
@@ -540,14 +539,10 @@ async function getCustomerTracking(token: string): Promise<CustomerTrackingResul
       orderBy: { assignedAt: 'desc' }
     }) as Record<string, unknown> | null;
 
-    // Get latest location if driver is assigned
-    let driverLocation = null;
-    if (assignment) {
-      driverLocation = await (prisma as any).liveLocation.findFirst({
-        where: { driverId: assignment.driverId as string },
-        orderBy: { recordedAt: 'desc' }
-      });
-    }
+    // Live GPS location is intentionally NOT loaded here anymore — the
+    // customer-facing tracking endpoint shows planned/static ETA only and
+    // must not expose raw driver coordinates. The driver's own map uses a
+    // separate internal endpoint.
 
     // Get delivery events (timeline)
     const events = await (prisma as any).deliveryEvent.findMany({
@@ -601,7 +596,6 @@ async function getCustomerTracking(token: string): Promise<CustomerTrackingResul
       },
       tracking: {
         assignment,
-        driverLocation,
         events,
         eta: (assignment as Record<string, unknown> | null)?.eta
       }

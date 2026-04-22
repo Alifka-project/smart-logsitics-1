@@ -1051,39 +1051,70 @@ export default function DeliveryTeamPortal() {
               return !dt.tracking?.driverId && !d.assignedDriverId;
             });
             const ofd = activeAll.filter(d => (d.status || '').toLowerCase() === 'out-for-delivery');
-            const onlineDrivers = drivers.filter(d => isContactOnline(d)).length;
-            const completedCount = deliveries.filter(d => TERMINAL_STATUSES.has((d.status || '').toLowerCase())).length;
+            const pendingCount = deliveries.filter(d => {
+              const s = (d.status || '').toLowerCase();
+              return ['pending', 'uploaded', 'sms_sent', 'unconfirmed'].includes(s);
+            }).length;
+            const confirmedCount = deliveries.filter(d => {
+              const s = (d.status || '').toLowerCase();
+              return s === 'confirmed' || s === 'scheduled' || s === 'scheduled-confirmed';
+            }).length;
+            const pgiDoneTeamCount = deliveries.filter(d => {
+              const s = (d.status || '').toLowerCase();
+              return s === 'pgi-done' || s === 'pgi_done';
+            }).length;
+            const readyToDepartTeamCount = deliveries.filter(d => {
+              const s = (d.status || '').toLowerCase();
+              return s === 'pickup-confirmed' || s === 'pickup_confirmed';
+            }).length;
+            const todayStartMs = (() => {
+              const d = new Date();
+              d.setHours(0, 0, 0, 0);
+              return d.getTime();
+            })();
+            const tomorrowStartMs = todayStartMs + 24 * 60 * 60 * 1000;
+            const deliveredToday = deliveries.filter(d => {
+              const s = (d.status || '').toLowerCase();
+              if (!TERMINAL_STATUSES.has(s)) return false;
+              const ext = d as unknown as { deliveredAt?: string | Date | null; podCompletedAt?: string | Date | null };
+              const ts = ext.deliveredAt || ext.podCompletedAt;
+              if (!ts) return false;
+              const t = typeof ts === 'string' ? Date.parse(ts) : ts instanceof Date ? ts.getTime() : NaN;
+              return Number.isFinite(t) && t >= todayStartMs && t < tomorrowStartMs;
+            }).length;
+            // Silence lint for unused helpers now that the card set changed.
+            void assignedActive; void unassignedActive;
             return (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                <div className="pp-card p-4 text-center">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Active Orders</div>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{activeAll.length}</div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">need delivery</div>
+                <div className="pp-card p-4 text-center bg-yellow-50 dark:bg-yellow-900/20">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Pending</div>
+                  <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{pendingCount}</div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">awaiting customer</div>
                 </div>
                 <div className="pp-card p-4 text-center bg-green-50 dark:bg-green-900/20">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Assigned</div>
-                  <div className="text-2xl font-bold text-green-600 dark:text-green-400">{assignedActive.length}</div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">with driver</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Confirmed</div>
+                  <div className="text-2xl font-bold text-green-600 dark:text-green-400">{confirmedCount}</div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">ready for GMD</div>
                 </div>
-                <div className="pp-card p-4 text-center bg-yellow-50 dark:bg-yellow-900/20">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Unassigned</div>
-                  <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{unassignedActive.length}</div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">needs assignment</div>
+                <div className="pp-card p-4 text-center bg-amber-50 dark:bg-amber-900/20">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">PGI Done</div>
+                  <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{pgiDoneTeamCount}</div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">awaiting driver pick</div>
+                </div>
+                <div className="pp-card p-4 text-center bg-teal-50 dark:bg-teal-900/20">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Ready to Depart</div>
+                  <div className="text-2xl font-bold text-teal-600 dark:text-teal-400">{readyToDepartTeamCount}</div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">picking confirmed</div>
                 </div>
                 <div className="pp-card p-4 text-center bg-blue-50 dark:bg-blue-900/20">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Out for Delivery</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">On Route</div>
                   <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{ofd.length}</div>
                   <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">in transit</div>
                 </div>
                 <div className="pp-card p-4 text-center bg-emerald-50 dark:bg-emerald-900/20">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Completed</div>
-                  <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{completedCount}</div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">all time</div>
-                </div>
-                <div className="pp-card p-4 text-center bg-indigo-50 dark:bg-indigo-900/20">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Online Drivers</div>
-                  <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{onlineDrivers}</div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">of {drivers.length} total</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Delivered Today</div>
+                  <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{deliveredToday}</div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">completed today</div>
                 </div>
               </div>
             );

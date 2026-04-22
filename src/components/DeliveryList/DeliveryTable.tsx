@@ -255,13 +255,15 @@ export default function DeliveryTable({
   const chips: { id: DeliveryListFilter; label: string; activeClass: string }[] = isDriverPortal
     ? [
         // Unified driver portal chip set — all order types in one table
-        { id: 'all',              label: 'All Orders',    activeClass: 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900' },
-        { id: 'out_for_delivery', label: '🚛 On Route',   activeClass: 'bg-orange-500 text-white' },
-        { id: 'confirmed',        label: '✅ Confirmed',  activeClass: 'bg-blue-600 text-white' },
-        { id: 'p1',               label: '🚨 P1 Urgent', activeClass: 'bg-red-600 text-white' },
-        { id: 'on_time',          label: '✓ On Time',    activeClass: 'bg-green-600 text-white' },
-        { id: 'delayed',          label: '⚠ Delayed',    activeClass: 'bg-amber-500 text-white' },
-        { id: 'delivered',        label: '✅ Completed',  activeClass: 'bg-green-700 text-white' },
+        { id: 'all',               label: 'All Orders',        activeClass: 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900' },
+        { id: 'pgi_done',          label: '📦 PGI Done',       activeClass: 'bg-amber-500 text-white' },
+        { id: 'pickup_confirmed',  label: '🚛 Ready to Depart', activeClass: 'bg-teal-600 text-white' },
+        { id: 'out_for_delivery',  label: '🚚 On Route',       activeClass: 'bg-orange-500 text-white' },
+        { id: 'confirmed',         label: '✅ Confirmed',      activeClass: 'bg-blue-600 text-white' },
+        { id: 'p1',                label: '🚨 P1 Urgent',      activeClass: 'bg-red-600 text-white' },
+        { id: 'on_time',           label: '✓ On Time',         activeClass: 'bg-green-600 text-white' },
+        { id: 'delayed',           label: '⚠ Delayed',         activeClass: 'bg-amber-500 text-white' },
+        { id: 'delivered',         label: '✅ Completed',      activeClass: 'bg-green-700 text-white' },
       ]
     : onRouteSequenceOnly
       ? [
@@ -272,12 +274,14 @@ export default function DeliveryTable({
           { id: 'delivered', label: 'Delivered',  activeClass: 'bg-green-700 text-white' },
         ]
       : [
-          { id: 'all',             label: 'All Active',   activeClass: 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900' },
-          { id: 'pending',         label: 'Pending',      activeClass: 'bg-yellow-500 text-white' },
-          { id: 'confirmed',       label: 'Confirmed',    activeClass: 'bg-blue-600 text-white' },
-          { id: 'out_for_delivery',label: 'On Route',     activeClass: 'bg-orange-500 text-white' },
-          { id: 'p1',              label: 'P1 Urgent',    activeClass: 'bg-red-600 text-white' },
-          { id: 'delivered',       label: 'Delivered',    activeClass: 'bg-green-600 text-white' },
+          { id: 'all',              label: 'All Active',      activeClass: 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900' },
+          { id: 'pending',          label: 'Pending',         activeClass: 'bg-yellow-500 text-white' },
+          { id: 'confirmed',        label: 'Confirmed',       activeClass: 'bg-blue-600 text-white' },
+          { id: 'pgi_done',         label: 'PGI Done',        activeClass: 'bg-amber-500 text-white' },
+          { id: 'pickup_confirmed', label: 'Ready to Depart', activeClass: 'bg-teal-600 text-white' },
+          { id: 'out_for_delivery', label: 'On Route',        activeClass: 'bg-orange-500 text-white' },
+          { id: 'p1',               label: 'P1 Urgent',       activeClass: 'bg-red-600 text-white' },
+          { id: 'delivered',        label: 'Delivered',       activeClass: 'bg-green-600 text-white' },
         ];
 
   const isDeliveredFilter = deliveryListFilter === 'delivered'; // used for "Completed" empty state

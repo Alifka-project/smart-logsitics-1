@@ -74,9 +74,11 @@ function makePrisma(deliveryData: Record<string, unknown> = makeDelivery()) {
   };
 }
 
-// ─── I01: Logistics team uploads NEW delivery WITH GMD → status = out-for-delivery ──
+// ─── I01: Logistics team uploads NEW delivery WITH GMD → status = pgi-done ──
+// Under the new flow, GMD upload lands the order at PGI Done; the driver must
+// confirm the picking list → pickup-confirmed → Start Delivery → out-for-delivery.
 describe('I01 – Logistics upload: new delivery with GMD', () => {
-  it('creates a new delivery with out-for-delivery status when GMD is present', async () => {
+  it('creates a new delivery with pgi-done status when GMD is present', async () => {
     const prisma = makePrisma();
     prisma.delivery.findUnique.mockResolvedValue(null);
     prisma.delivery.findFirst.mockResolvedValue(null);
@@ -98,13 +100,13 @@ describe('I01 – Logistics upload: new delivery with GMD', () => {
     expect(result.existed).toBe(false);
     expect(result.outcome).toBe('new');
     expect(result.gmdUpdated).toBe(true);
-    expect((result.delivery as Record<string, unknown>).status).toBe('out-for-delivery');
+    expect((result.delivery as Record<string, unknown>).status).toBe('pgi-done');
   });
 });
 
-// ─── I02: Logistics uploads EXISTING delivery WITH GMD for first time → dispatched ──
+// ─── I02: Logistics uploads EXISTING delivery WITH GMD for first time → pgi-done ──
 describe('I02 – Logistics upload: existing delivery receives GMD for first time', () => {
-  it('transitions existing scheduled-confirmed delivery to out-for-delivery', async () => {
+  it('transitions existing scheduled-confirmed delivery to pgi-done', async () => {
     const existing = makeDelivery({ status: 'scheduled-confirmed', goodsMovementDate: null });
     const prisma = makePrisma(existing);
     prisma.delivery.findFirst.mockResolvedValue(existing);
@@ -126,7 +128,7 @@ describe('I02 – Logistics upload: existing delivery receives GMD for first tim
     expect(result.existed).toBe(true);
     expect(result.outcome).toBe('dispatched');
     expect(result.gmdUpdated).toBe(true);
-    expect((result.delivery as Record<string, unknown>).status).toBe('out-for-delivery');
+    expect((result.delivery as Record<string, unknown>).status).toBe('pgi-done');
   });
 });
 
@@ -292,7 +294,7 @@ describe('I08 – Upload with invalid GMD string: treated as missing GMD', () =>
 
 // ─── I09: Delivery team upload with GMD: same dispatch rules as logistics team ───
 describe('I09 – Delivery team upload with GMD: same behaviour as logistics team', () => {
-  it('dispatches existing scheduled-confirmed delivery to out-for-delivery', async () => {
+  it('dispatches existing scheduled-confirmed delivery to pgi-done', async () => {
     const existing = makeDelivery({
       poNumber: 'PO-DT-001',
       deliveryNumber: 'DN-DT-001',
@@ -316,7 +318,7 @@ describe('I09 – Delivery team upload with GMD: same behaviour as logistics tea
 
     expect(result.outcome).toBe('dispatched');
     expect(result.gmdUpdated).toBe(true);
-    expect((result.delivery as Record<string, unknown>).status).toBe('out-for-delivery');
+    expect((result.delivery as Record<string, unknown>).status).toBe('pgi-done');
   });
 });
 
@@ -363,7 +365,7 @@ describe('I10 – Batch upload with mixed GMD rows', () => {
 
     expect(resultWithGMD.outcome).toBe('dispatched');
     expect(resultWithGMD.gmdUpdated).toBe(true);
-    expect((resultWithGMD.delivery as Record<string, unknown>).status).toBe('out-for-delivery');
+    expect((resultWithGMD.delivery as Record<string, unknown>).status).toBe('pgi-done');
 
     // No GMD on either side → service treats as duplicate (nothing to update)
     expect(resultWithoutGMD.outcome).toBe('duplicate');
@@ -449,7 +451,7 @@ describe('I13 – Upload handler dispatch set: new rows with GMD must be in disp
 
     expect(qualifiesForDispatch).toBe(true);
     expect(result.gmdUpdated).toBe(true);
-    expect((result.delivery as Record<string, unknown>).status).toBe('out-for-delivery');
+    expect((result.delivery as Record<string, unknown>).status).toBe('pgi-done');
   });
 
   it('new delivery WITHOUT GMD does NOT qualify for dispatch auto-assign', async () => {

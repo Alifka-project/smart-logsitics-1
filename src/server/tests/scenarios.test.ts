@@ -252,7 +252,7 @@ describe('S04 – File upload with GMD auto-dispatches order', () => {
     prisma = makePrisma(makeDelivery(), { existingAssignments: [] });
   });
 
-  it('new record uploaded WITH GMD → status = out-for-delivery (outcome = "new")', async () => {
+  it('new record uploaded WITH GMD → status = pgi-done (outcome = "new")', async () => {
     // No existing record (findFirst returns null for brand-new delivery)
     // Note: a new record with GMD returns outcome='new' (not 'dispatched').
     // 'dispatched' is reserved for an existing record receiving its first GMD.
@@ -271,11 +271,12 @@ describe('S04 – File upload with GMD auto-dispatches order', () => {
       },
     });
 
-    // New record → outcome is 'new', but gmdUpdated = true and status = out-for-delivery
+    // New record → outcome is 'new', gmdUpdated = true and status = pgi-done
+    // (Start Delivery moves it to out-for-delivery; GMD no longer dispatches.)
     expect(result.outcome).toBe('new');
     expect(result.gmdUpdated).toBe(true);
     const created = result.delivery as Record<string, unknown>;
-    expect(created.status).toBe('out-for-delivery');
+    expect(created.status).toBe('pgi-done');
   });
 
   it('existing record uploaded again WITH GMD for the first time → dispatched', async () => {
@@ -299,7 +300,7 @@ describe('S04 – File upload with GMD auto-dispatches order', () => {
     expect(result.outcome).toBe('dispatched');
     expect(result.gmdUpdated).toBe(true);
     const updated = result.delivery as Record<string, unknown>;
-    expect(updated.status).toBe('out-for-delivery');
+    expect(updated.status).toBe('pgi-done');
   });
 
   it('terminal delivery uploaded with GMD → status stays terminal (not re-dispatched)', async () => {

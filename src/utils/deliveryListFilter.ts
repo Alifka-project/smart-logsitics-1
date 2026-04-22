@@ -1,6 +1,6 @@
 import type { Delivery } from '../types';
 
-export type DeliveryListFilter = 'all' | 'pending' | 'confirmed' | 'p1' | 'out_for_delivery' | 'delivered' | 'on_time' | 'delayed';
+export type DeliveryListFilter = 'all' | 'pending' | 'confirmed' | 'pgi_done' | 'pickup_confirmed' | 'p1' | 'out_for_delivery' | 'delivered' | 'on_time' | 'delayed';
 
 /** Delay threshold: if estimatedEta is more than this many ms after plannedEta → Delayed (D3: 1-hour rule) */
 const DELAY_THRESHOLD_MS = 60 * 60 * 1000; // 60 minutes (1 hour)
@@ -103,6 +103,11 @@ const ACTIVE_STATUSES = new Set([
   'scheduled',
   'confirmed',
   'scheduled-confirmed',
+  // Warehouse-side post-confirmation
+  'pgi-done',
+  'pgi_done',
+  'pickup-confirmed',
+  'pickup_confirmed',
   // Dispatch / in-transit statuses
   'out-for-delivery',
   'in-transit',
@@ -168,6 +173,18 @@ export function applyDeliveryListFilter(
       return active.filter((d) => {
         const s = (d.status || '').toLowerCase();
         return s === 'confirmed' || s === 'scheduled-confirmed';
+      });
+    case 'pgi_done':
+      // PGI Done = GMD uploaded, warehouse has issued goods; driver will pick next.
+      return active.filter((d) => {
+        const s = (d.status || '').toLowerCase();
+        return s === 'pgi-done' || s === 'pgi_done';
+      });
+    case 'pickup_confirmed':
+      // Picking list confirmed by driver; awaiting Start Delivery.
+      return active.filter((d) => {
+        const s = (d.status || '').toLowerCase();
+        return s === 'pickup-confirmed' || s === 'pickup_confirmed';
       });
     case 'p1':
       // Priority is a business decision owned by Delivery Team / Admin, stored in

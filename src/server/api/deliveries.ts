@@ -128,6 +128,24 @@ async function updateDeliveryStatusHandler(
         error: 'goods_movement_date_required',
       };
     }
+    // Additionally: 'out-for-delivery' now requires the driver to have confirmed
+    // the picking list (metadata.picking.confirmedAt). Allow the transition when
+    // already out-for-delivery (idempotent re-writes) or when the caller is
+    // transitioning from a terminal side-state — check only the forward move.
+    const lower = status.toLowerCase();
+    const isOutForDelivery = lower === 'out-for-delivery' || lower === 'out_for_delivery';
+    if (isOutForDelivery) {
+      const meta = (existingDelivery as Record<string, unknown>).metadata;
+      const picking = (meta && typeof meta === 'object')
+        ? ((meta as Record<string, unknown>).picking as Record<string, unknown> | undefined)
+        : undefined;
+      const confirmedAt = picking && typeof picking === 'object' ? (picking as Record<string, unknown>).confirmedAt : undefined;
+      const prevStatus = String((existingDelivery as Record<string, unknown>).status || '').toLowerCase();
+      const alreadyDispatched = prevStatus === 'out-for-delivery' || prevStatus === 'out_for_delivery';
+      if (!confirmedAt && !alreadyDispatched) {
+        return { ok: false, error: 'picking_list_not_confirmed' };
+      }
+    }
   }
 
   if (options.requireAssignment && options.driverId) {
@@ -503,6 +521,14 @@ router.post('/driver/route/start', authenticate, requireRole('driver'), async (r
     : new Date().toISOString();
 
   const results: Array<{ deliveryId: string; ok: boolean; error?: string }> = [];
+  /** Deliveries that just transitioned into out-for-delivery — drive the async SMS fan-out. */
+  const dispatchedForSms: Array<{
+    id: string;
+    phone: string | null;
+    customer: string | null;
+    poNumber: string | null;
+    confirmationToken: string | null;
+  }> = [];
 
   for (const stop of stops) {
     if (!stop.deliveryId || typeof stop.deliveryId !== 'string') continue;
@@ -517,12 +543,23 @@ router.post('/driver/route/start', authenticate, requireRole('driver'), async (r
       }
       const existing = await prisma.delivery.findUnique({
         where: { id: stop.deliveryId },
-        select: { metadata: true },
+        select: { id: true, status: true, metadata: true, phone: true, customer: true, poNumber: true, confirmationToken: true },
       });
       if (!existing) {
         results.push({ deliveryId: stop.deliveryId, ok: false, error: 'not_found' });
         continue;
       }
+
+      const prevStatus = String(existing.status || '').toLowerCase();
+      // Start Delivery is only valid when the driver has finished verifying the
+      // picking list. Allow idempotent re-clicks when already out-for-delivery.
+      const isPickupConfirmed = prevStatus === 'pickup-confirmed' || prevStatus === 'pickup_confirmed';
+      const isAlreadyDispatched = prevStatus === 'out-for-delivery' || prevStatus === 'out_for_delivery';
+      if (!isPickupConfirmed && !isAlreadyDispatched) {
+        results.push({ deliveryId: stop.deliveryId, ok: false, error: 'picking_list_not_confirmed' });
+        continue;
+      }
+
       const currentMeta = (existing.metadata as Record<string, unknown> | null) ?? {};
       // Use the freshly-locked ETA from the driver's tap when it's truthy, so a
       // re-click after a stale/bad write heals the value on the next Start.
@@ -535,11 +572,52 @@ router.post('/driver/route/start', authenticate, requireRole('driver'), async (r
         plannedEta: newPlanned ?? (currentMeta.plannedEta ?? null),
         staticEta:  newStatic  ?? (currentMeta.staticEta  ?? null),
       };
-      await prisma.delivery.update({
-        where: { id: stop.deliveryId },
-        data: { metadata: nextMeta },
+
+      // Atomic: metadata lock + status flip to out-for-delivery + assignment promotion.
+      await prisma.$transaction(async (tx: typeof prisma) => {
+        await tx.delivery.update({
+          where: { id: stop.deliveryId },
+          data: {
+            metadata: nextMeta,
+            // Only flip status on the forward transition; idempotent re-click leaves it.
+            ...(isPickupConfirmed ? { status: 'out-for-delivery', updatedAt: new Date() } : {}),
+          },
+        });
+        if (isPickupConfirmed) {
+          await tx.deliveryAssignment.updateMany({
+            where: { deliveryId: stop.deliveryId, status: 'assigned' },
+            data: { status: 'in_progress' },
+          });
+          await tx.deliveryEvent.create({
+            data: {
+              deliveryId: stop.deliveryId,
+              eventType: 'delivery_started',
+              payload: {
+                previousStatus: prevStatus,
+                newStatus: 'out-for-delivery',
+                startedAt,
+                plannedEta: nextMeta.plannedEta,
+                staticEta: nextMeta.staticEta,
+              },
+              actorType: 'driver',
+              actorId: driverId,
+            },
+          });
+        }
       });
-      console.log(`[route/start] delivery=${stop.deliveryId} plannedEta=${nextMeta.plannedEta} staticEta=${nextMeta.staticEta} startedAt=${startedAt}`);
+
+      // Queue customer SMS for newly-dispatched stops (skip idempotent re-clicks).
+      if (isPickupConfirmed) {
+        dispatchedForSms.push({
+          id: existing.id as string,
+          phone: (existing.phone as string | null) ?? null,
+          customer: (existing.customer as string | null) ?? null,
+          poNumber: (existing.poNumber as string | null) ?? null,
+          confirmationToken: (existing.confirmationToken as string | null) ?? null,
+        });
+      }
+
+      console.log(`[route/start] delivery=${stop.deliveryId} plannedEta=${nextMeta.plannedEta} staticEta=${nextMeta.staticEta} startedAt=${startedAt} flipped=${isPickupConfirmed}`);
       results.push({ deliveryId: stop.deliveryId, ok: true });
     } catch (stopErr: unknown) {
       const e = stopErr as { message?: string };
@@ -551,8 +629,292 @@ router.post('/driver/route/start', authenticate, requireRole('driver'), async (r
   // Bust tracking caches so the new planned ETA surfaces on the customer
   // tracking page and the admin/logistics tracking views immediately.
   cache.invalidatePrefix('tracking:');
+  cache.invalidatePrefix('deliveries:list:');
+  cache.invalidatePrefix('dashboard:');
 
+  // Respond to the driver app immediately; SMS fan-out runs asynchronously so
+  // the Start Delivery click is snappy even if D7/WhatsApp is slow.
   res.json({ ok: true, results });
+
+  if (dispatchedForSms.length > 0) {
+    (async () => {
+      const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
+      for (const d of dispatchedForSms) {
+        if (!d.phone) continue;
+        try {
+          const normalizedPhone = normalizeUAEPhone(d.phone) || d.phone;
+          const trackingLink = d.confirmationToken ? `${frontendUrl}/customer-tracking/${d.confirmationToken}` : null;
+          const customerName = d.customer || 'Valued Customer';
+          const poRef = d.poNumber ? `#${d.poNumber}` : '';
+          const smsBody = outForDeliveryMessage(customerName, poRef, trackingLink);
+          let provider = 'd7';
+          let sendStatus = 'failed';
+          try {
+            if (smsAdapter) {
+              const smsResult = await smsAdapter.sendSms({
+                to: normalizedPhone,
+                body: smsBody,
+                metadata: { deliveryId: d.id, type: 'status_out_for_delivery', triggeredBy: 'driver_start_delivery' },
+              });
+              sendStatus = smsResult?.messageId || smsResult?.status === 'accepted' || smsResult?.status === 'queued' ? 'sent' : 'failed';
+            } else {
+              throw new Error('no smsAdapter');
+            }
+          } catch {
+            if (isWhatsAppConfigured()) {
+              provider = 'whatsapp-api';
+              const waRes = await sendWhatsApp(normalizedPhone, smsBody);
+              sendStatus = waRes.ok ? 'sent' : 'failed';
+            } else {
+              provider = 'whatsapp-link';
+              sendStatus = 'whatsapp_link_generated';
+              buildWhatsAppLink(normalizedPhone, smsBody);
+            }
+          }
+          await prisma.smsLog.create({
+            data: {
+              deliveryId: d.id,
+              phoneNumber: normalizedPhone,
+              messageContent: smsBody,
+              smsProvider: provider,
+              status: sendStatus,
+              sentAt: new Date(),
+              metadata: { type: 'status_out_for_delivery', triggeredBy: 'driver_start_delivery' },
+            },
+          });
+        } catch (smsErr: unknown) {
+          console.warn(`[route/start] OFD SMS failed for ${d.id}:`, (smsErr as Error).message);
+        }
+      }
+    })();
+  }
+});
+
+// POST /api/deliveries/driver/:id/picking/item — driver toggles a per-item checkbox
+// on the Picking List tab. Idempotent: set union/diff on metadata.picking.itemsChecked.
+// Body: { itemIndex: number, checked: boolean }
+router.post('/driver/:id/picking/item', authenticate, requireRole('driver'), async (req: Request, res: Response): Promise<void> => {
+  const { id: deliveryId } = req.params as { id: string };
+  const driverId = (req.user as { sub?: string })?.sub;
+  if (!driverId) {
+    res.status(401).json({ error: 'unauthorized' });
+    return;
+  }
+  const body = req.body as { itemIndex?: number; checked?: boolean; itemLabel?: string };
+  const itemIndex = typeof body.itemIndex === 'number' ? body.itemIndex : -1;
+  if (itemIndex < 0 || !Number.isInteger(itemIndex)) {
+    res.status(400).json({ error: 'item_index_required' });
+    return;
+  }
+  const checked = body.checked === true;
+
+  try {
+    const assignment = await prisma.deliveryAssignment.findFirst({
+      where: { deliveryId, driverId },
+    });
+    if (!assignment) {
+      res.status(403).json({ error: 'delivery_not_assigned_to_driver' });
+      return;
+    }
+    const existing = await prisma.delivery.findUnique({
+      where: { id: deliveryId },
+      select: { id: true, status: true, metadata: true },
+    });
+    if (!existing) {
+      res.status(404).json({ error: 'delivery_not_found' });
+      return;
+    }
+    const prevStatus = String(existing.status || '').toLowerCase();
+    if (prevStatus !== 'pgi-done' && prevStatus !== 'pgi_done') {
+      res.status(409).json({ error: 'not_in_picking_stage', currentStatus: prevStatus });
+      return;
+    }
+    const currentMeta = (existing.metadata as Record<string, unknown> | null) ?? {};
+    const picking = (currentMeta.picking && typeof currentMeta.picking === 'object')
+      ? (currentMeta.picking as Record<string, unknown>)
+      : {};
+    const prevChecked = Array.isArray(picking.itemsChecked)
+      ? (picking.itemsChecked as number[]).filter((n) => Number.isInteger(n))
+      : [];
+    const nextCheckedSet = new Set<number>(prevChecked);
+    if (checked) nextCheckedSet.add(itemIndex);
+    else nextCheckedSet.delete(itemIndex);
+    const nextChecked = Array.from(nextCheckedSet).sort((a, b) => a - b);
+
+    const nextPicking: Record<string, unknown> = {
+      ...picking,
+      itemsChecked: nextChecked,
+    };
+    const nextMeta: Record<string, unknown> = {
+      ...currentMeta,
+      picking: nextPicking,
+    };
+
+    await prisma.delivery.update({
+      where: { id: deliveryId },
+      data: { metadata: nextMeta, updatedAt: new Date() },
+    });
+
+    await prisma.deliveryEvent.create({
+      data: {
+        deliveryId,
+        eventType: 'picking_item_checked',
+        payload: {
+          itemIndex,
+          itemLabel: body.itemLabel ?? null,
+          checked,
+          at: new Date().toISOString(),
+        },
+        actorType: 'driver',
+        actorId: driverId,
+      },
+    }).catch((err: unknown) => {
+      console.warn('[picking/item] event log failed:', (err as Error).message);
+    });
+
+    res.json({ ok: true, itemsChecked: nextChecked });
+  } catch (err: unknown) {
+    const e = err as { message?: string };
+    console.error('[picking/item] error:', err);
+    res.status(500).json({ error: 'db_error', detail: e.message });
+  }
+});
+
+// POST /api/deliveries/driver/:id/picking/confirm — driver confirms the picking list.
+// Transitions pgi-done → pickup-confirmed. Optionally accepts mispick reports that
+// create an AdminNotification for the logistics team.
+// Body: { mispickReported?: Array<{ itemIndex: number, note?: string }>, totalItems?: number }
+router.post('/driver/:id/picking/confirm', authenticate, requireRole('driver'), async (req: Request, res: Response): Promise<void> => {
+  const { id: deliveryId } = req.params as { id: string };
+  const driverId = (req.user as { sub?: string })?.sub;
+  if (!driverId) {
+    res.status(401).json({ error: 'unauthorized' });
+    return;
+  }
+  const body = req.body as {
+    mispickReported?: Array<{ itemIndex?: number; note?: string }>;
+    totalItems?: number;
+  };
+  const mispicks = Array.isArray(body.mispickReported) ? body.mispickReported : [];
+
+  try {
+    const assignment = await prisma.deliveryAssignment.findFirst({
+      where: { deliveryId, driverId },
+    });
+    if (!assignment) {
+      res.status(403).json({ error: 'delivery_not_assigned_to_driver' });
+      return;
+    }
+    const existing = await prisma.delivery.findUnique({
+      where: { id: deliveryId },
+      select: { id: true, status: true, metadata: true, customer: true, poNumber: true, items: true },
+    });
+    if (!existing) {
+      res.status(404).json({ error: 'delivery_not_found' });
+      return;
+    }
+    const prevStatus = String(existing.status || '').toLowerCase();
+    if (prevStatus !== 'pgi-done' && prevStatus !== 'pgi_done') {
+      // Allow idempotent re-confirmation when already pickup-confirmed.
+      if (prevStatus === 'pickup-confirmed' || prevStatus === 'pickup_confirmed') {
+        res.json({ ok: true, alreadyConfirmed: true });
+        return;
+      }
+      res.status(409).json({ error: 'not_in_picking_stage', currentStatus: prevStatus });
+      return;
+    }
+
+    const currentMeta = (existing.metadata as Record<string, unknown> | null) ?? {};
+    const picking = (currentMeta.picking && typeof currentMeta.picking === 'object')
+      ? (currentMeta.picking as Record<string, unknown>)
+      : {};
+    const itemsChecked = Array.isArray(picking.itemsChecked)
+      ? (picking.itemsChecked as number[]).filter((n) => Number.isInteger(n))
+      : [];
+
+    // Coverage check: every item index (0 … totalItems-1) must be either checked or mispick-reported.
+    const totalItems = typeof body.totalItems === 'number' && body.totalItems > 0
+      ? body.totalItems
+      : itemsChecked.length + mispicks.length;
+    const mispickIndices = new Set<number>(
+      mispicks.map((m) => (typeof m?.itemIndex === 'number' ? m.itemIndex : -1)).filter((n) => Number.isInteger(n) && n >= 0),
+    );
+    const covered = new Set<number>([...itemsChecked, ...mispickIndices]);
+    const missing: number[] = [];
+    for (let i = 0; i < totalItems; i++) {
+      if (!covered.has(i)) missing.push(i);
+    }
+    if (missing.length > 0) {
+      res.status(400).json({ error: 'items_not_fully_picked', missingIndices: missing });
+      return;
+    }
+
+    const confirmedAt = new Date().toISOString();
+    const nextPicking: Record<string, unknown> = {
+      ...picking,
+      itemsChecked,
+      confirmedAt,
+      confirmedBy: driverId,
+      mispickReported: mispicks.length > 0 ? mispicks : (picking.mispickReported ?? []),
+    };
+    const nextMeta: Record<string, unknown> = {
+      ...currentMeta,
+      picking: nextPicking,
+    };
+
+    await prisma.$transaction(async (tx: typeof prisma) => {
+      await tx.delivery.update({
+        where: { id: deliveryId },
+        data: { status: 'pickup-confirmed', metadata: nextMeta, updatedAt: new Date() },
+      });
+      await tx.deliveryEvent.create({
+        data: {
+          deliveryId,
+          eventType: 'picking_confirmed',
+          payload: {
+            previousStatus: prevStatus,
+            newStatus: 'pickup-confirmed',
+            itemsChecked,
+            mispickReported: mispicks,
+            totalItems,
+            confirmedAt,
+          },
+          actorType: 'driver',
+          actorId: driverId,
+        },
+      });
+    });
+
+    // Mispick → alert logistics team via AdminNotification bell.
+    if (mispicks.length > 0) {
+      prisma.adminNotification.create({
+        data: {
+          type: 'mispick_reported',
+          title: 'Mispick reported during picking',
+          message: `${existing.customer || 'Order'} (${existing.poNumber ? '#' + existing.poNumber : deliveryId}) — ${mispicks.length} mispick note(s) from driver`,
+          payload: {
+            deliveryId,
+            customer: existing.customer,
+            poNumber: existing.poNumber,
+            mispickReported: mispicks,
+            driverId,
+          },
+        },
+      }).catch((err: unknown) => {
+        console.warn('[picking/confirm] mispick notification failed:', (err as Error).message);
+      });
+    }
+
+    cache.invalidatePrefix('tracking:');
+    cache.invalidatePrefix('deliveries:list:');
+    cache.invalidatePrefix('dashboard:');
+
+    res.json({ ok: true, status: 'pickup-confirmed', confirmedAt });
+  } catch (err: unknown) {
+    const e = err as { message?: string };
+    console.error('[picking/confirm] error:', err);
+    res.status(500).json({ error: 'db_error', detail: e.message });
+  }
 });
 
 // PUT /api/admin/deliveries/:id/priority - Toggle manual priority (delivery team + admin only)
@@ -1094,23 +1456,27 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team'), a
       }
     }
 
-    // ── Post-processing for deliveries that became Out for Delivery via GMD ──────
+    // ── Post-processing for deliveries that reached PGI Done via GMD ─────────────
     // Covers both 'dispatched' (existing record receives GMD for first time) and
-    // 'new' records uploaded WITH a GMD already set — both result in out-for-delivery.
-    //   1. Auto-assign a driver (or promote existing assignment to in_progress)
-    //   2. Send the customer an "Out for Delivery" SMS notification
-    //   3. Create an adminNotification so all portal users see the bell alert
+    // 'new' records uploaded WITH a GMD already set — both result in pgi-done.
+    //   1. Auto-assign a driver (or promote existing assignment to in_progress) so
+    //      the order appears in the driver's Picking List tab.
+    //   2. Log a pgi_done DeliveryEvent for audit and customer-tracking timeline.
+    //   3. Create an adminNotification so all portal users see the bell alert.
+    //
+    // Customer-facing "Out for Delivery" SMS is NOT sent here anymore — it moves to
+    // the Start Delivery click (see POST /driver/route/start below).
     const dispatchedIds = results.filter(r => r.saved && (r.outcome === 'dispatched' || (r.outcome === 'new' && r.gmdUpdated))).map(r => r.deliveryId);
 
     if (dispatchedIds.length > 0) {
-      // Fetch just the fields needed for assignment + SMS
       const dispatchedRows = await prisma.delivery.findMany({
         where: { id: { in: dispatchedIds } },
         select: { id: true, phone: true, customer: true, poNumber: true, confirmationToken: true }
       }) as Array<{ id: string; phone?: string | null; customer?: string | null; poNumber?: string | null; confirmationToken?: string | null }>;
 
       for (const d of dispatchedRows) {
-        // 1. Auto-assign / promote driver assignment
+        // 1. Auto-assign / promote driver assignment so the order lands in a driver's
+        //    Picking List tab.
         try {
           const activeAssignment = await prisma.deliveryAssignment.findFirst({
             where: { deliveryId: d.id, status: { in: ['assigned', 'in_progress'] } }
@@ -1127,86 +1493,47 @@ router.post('/upload', authenticate, requireAnyRole('admin', 'delivery_team'), a
           console.warn(`[Deliveries/Upload] Auto-assign failed for ${d.id}:`, (assignErr as Error).message);
         }
 
-        // 2. Notify customer that their order is out for delivery (D7 SMS → WhatsApp fallback)
-        if (d.phone) {
-          try {
-            const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
-            const trackingLink = d.confirmationToken
-              ? `${frontendUrl}/customer-tracking/${d.confirmationToken}`
-              : null;
-            const customerName = d.customer || 'Valued Customer';
-            const poRef = d.poNumber ? `#${d.poNumber}` : '';
-            const smsBody = outForDeliveryMessage(customerName, poRef, trackingLink);
-
-            let sendStatus = 'failed';
-            let smsProvider = 'd7';
-
-            // Primary: D7 SMS
-            if (smsAdapter) {
-              try {
-                const smsResult = await smsAdapter.sendSms({
-                  to: d.phone,
-                  body: smsBody,
-                  metadata: { deliveryId: d.id, type: 'status_out_for_delivery', triggeredBy: 'gmd_upload' }
-                });
-                sendStatus = smsResult.status === 'accepted' || smsResult.status === 'queued' ? 'sent' : 'failed';
-                console.log(`[D7] GMD dispatch SMS for ${d.id}:`, sendStatus, smsResult.messageId || '');
-              } catch (d7Err: unknown) {
-                console.warn(`[D7] GMD dispatch SMS failed for ${d.id}:`, (d7Err as Error).message, '— trying WhatsApp');
-                sendStatus = 'failed';
-              }
-            }
-
-            // Fallback: WhatsApp if D7 failed or not configured
-            if (sendStatus !== 'sent') {
-              if (isWhatsAppConfigured()) {
-                smsProvider = 'whatsapp-api';
-                const waRes = await sendWhatsApp(d.phone, smsBody);
-                sendStatus = waRes.ok ? 'sent' : 'failed';
-                console.log(`[WhatsApp] GMD dispatch fallback for ${d.id}:`, waRes.ok ? 'ok' : waRes.error);
-              } else {
-                smsProvider = 'whatsapp-link';
-                sendStatus = 'whatsapp_link_generated';
-                const fallbackUrl = buildWhatsAppLink(d.phone, smsBody);
-                console.log(`[WhatsApp] No API creds — GMD fallback link for ${d.id}:`, fallbackUrl);
-              }
-            }
-
-            await prisma.smsLog.create({
-              data: {
-                deliveryId: d.id,
-                phoneNumber: d.phone,
-                messageContent: smsBody,
-                smsProvider,
-                status: sendStatus,
-                sentAt: new Date(),
-                metadata: { type: 'status_out_for_delivery', triggeredBy: 'gmd_upload' }
-              }
-            });
-          } catch (smsErr: unknown) {
-            console.warn(`[Deliveries/Upload] Notification failed for ${d.id}:`, (smsErr as Error).message);
+        // 2. Write a pgi_done DeliveryEvent so customer tracking + audit trails can
+        //    see exactly when the warehouse issued goods (distinct from the earlier
+        //    'uploaded' event for brand-new rows).
+        await prisma.deliveryEvent.create({
+          data: {
+            deliveryId: d.id,
+            eventType: 'pgi_done',
+            payload: {
+              customer: d.customer,
+              poNumber: d.poNumber,
+              triggeredBy: 'gmd_upload',
+              uploadedBy: req.user?.sub || req.user?.username || 'system',
+              at: new Date().toISOString(),
+            },
+            actorType: req.user?.role || 'admin',
+            actorId: req.user?.sub || null,
           }
-        }
+        }).catch((err: unknown) => {
+          const e = err as { message?: string };
+          console.warn(`[Deliveries/Upload] Failed to log pgi_done event for ${d.id}:`, e.message);
+        });
 
         // 3. Create an AdminNotification so the bell rings for admin, delivery_team and logistics_team
         prisma.adminNotification.create({
           data: {
             type: 'status_changed',
-            title: 'Out for Delivery — GMD Received',
-            message: `${d.customer || 'Order'} (${d.poNumber ? '#' + d.poNumber : d.id}) dispatched — Goods Movement Date received via upload`,
+            title: 'PGI Done — Awaiting Driver Pick',
+            message: `${d.customer || 'Order'} (${d.poNumber ? '#' + d.poNumber : d.id}) — Goods Movement Date received; now on driver Picking List`,
             payload: {
               deliveryId: d.id,
               customer: d.customer,
               poNumber: d.poNumber,
               previousStatus: 'pending',
-              newStatus: 'out-for-delivery',
+              newStatus: 'pgi-done',
               triggeredBy: 'gmd_upload',
               uploadedBy: req.user?.sub || req.user?.username || 'system'
             }
           }
         }).catch((err: unknown) => {
           const e = err as { message?: string };
-          console.warn(`[Deliveries/Upload] Failed to create dispatch notification for ${d.id}:`, e.message);
+          console.warn(`[Deliveries/Upload] Failed to create PGI done notification for ${d.id}:`, e.message);
         });
       }
     }

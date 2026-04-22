@@ -12,6 +12,10 @@ const STATUS_CONFIG: Record<string, StatusConfig> = {
   /* Raw DB statuses */
   'scheduled':                      { dot: 'bg-orange-500',  bg: 'bg-orange-50 dark:bg-orange-900/20',   text: 'text-orange-700 dark:text-orange-300',  label: 'Awaiting Customer'    },
   'scheduled-confirmed':            { dot: 'bg-indigo-500',  bg: 'bg-indigo-50 dark:bg-indigo-900/20',   text: 'text-indigo-700 dark:text-indigo-300',  label: 'Confirmed'            },
+  'pgi-done':                       { dot: 'bg-amber-500',   bg: 'bg-amber-50 dark:bg-amber-900/20',     text: 'text-amber-700 dark:text-amber-300',    label: 'PGI Done'             },
+  'pgi_done':                       { dot: 'bg-amber-500',   bg: 'bg-amber-50 dark:bg-amber-900/20',     text: 'text-amber-700 dark:text-amber-300',    label: 'PGI Done'             },
+  'pickup-confirmed':               { dot: 'bg-teal-500',    bg: 'bg-teal-50 dark:bg-teal-900/20',       text: 'text-teal-700 dark:text-teal-300',      label: 'Ready to Depart'      },
+  'pickup_confirmed':               { dot: 'bg-teal-500',    bg: 'bg-teal-50 dark:bg-teal-900/20',       text: 'text-teal-700 dark:text-teal-300',      label: 'Ready to Depart'      },
   'out-for-delivery':               { dot: 'bg-blue-500',    bg: 'bg-blue-50 dark:bg-blue-900/20',       text: 'text-blue-700 dark:text-blue-300',      label: 'On Route'             },
   'in-transit':                     { dot: 'bg-blue-500',    bg: 'bg-blue-50 dark:bg-blue-900/20',       text: 'text-blue-700 dark:text-blue-300',      label: 'In Transit'           },
   'in-progress':                    { dot: 'bg-blue-500',    bg: 'bg-blue-50 dark:bg-blue-900/20',       text: 'text-blue-700 dark:text-blue-300',      label: 'In Progress'          },
