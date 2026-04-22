@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import useDeliveryStore from '../../store/useDeliveryStore';
 import { useDragAndDrop } from '../../hooks/useDragAndDrop';
@@ -154,6 +154,8 @@ export default function DeliveryTable({
   const selectDelivery = useDeliveryStore((state) => state.selectDelivery);
 
   const [selectedDriver, setSelectedDriver] = useState<string>('all');
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
 
   // Driver portal: My Orders / Delivery Sequence only shows orders whose pickup
   // has already been confirmed — pickup-confirmed (Ready to Depart), out-for-
@@ -221,12 +223,42 @@ export default function DeliveryTable({
     return Array.from(names).sort();
   }, [deliveries]);
 
+  // Date range filter: extract the reference date from a delivery for date comparison
+  const applyDateRange = useCallback((list: Delivery[]): Delivery[] => {
+    if (!dateFrom && !dateTo) return list;
+    return list.filter((d) => {
+      const rec = d as unknown as Record<string, unknown>;
+      const raw = d.confirmedDeliveryDate ?? (rec.goodsMovementDate as string | Date | undefined) ?? d.updatedAt ?? d.createdAt;
+      if (!raw) return true;
+      const dt = raw instanceof Date ? raw : new Date(String(raw));
+      if (isNaN(dt.getTime())) return true;
+      if (dateFrom) {
+        const from = new Date(dateFrom + 'T00:00:00');
+        if (dt < from) return false;
+      }
+      if (dateTo) {
+        const to = new Date(dateTo + 'T23:59:59');
+        if (dt > to) return false;
+      }
+      return true;
+    });
+  }, [dateFrom, dateTo]);
+
   const rows = useMemo(() => {
-    if (deliveryListFilter === 'all') {
+    if (deliveryListFilter === 'all' || deliveryListFilter === 'today_delivery') {
       // In driver portal, always show priority orders at the top
-      const base = isDriverPortal
-        ? [...activeFromItems].sort((a, b) => driverPriorityScore(a) - driverPriorityScore(b))
-        : activeFromItems;
+      let base: Delivery[];
+      if (deliveryListFilter === 'today_delivery') {
+        base = applyDeliveryListFilter(deliveries, 'today_delivery');
+      } else {
+        base = isDriverPortal
+          ? [...activeFromItems].sort((a, b) => driverPriorityScore(a) - driverPriorityScore(b))
+          : activeFromItems;
+      }
+      base = applyDateRange(base);
+      if (isDriverPortal && deliveryListFilter !== 'today_delivery') {
+        base = [...base].sort((a, b) => driverPriorityScore(a) - driverPriorityScore(b));
+      }
       return base.map((delivery, displayIndex) => ({
         delivery,
         displayIndex,
@@ -235,13 +267,14 @@ export default function DeliveryTable({
     }
     const bypassOnRoute = deliveryListFilter === 'delivered' || deliveryListFilter === 'p1'
       || deliveryListFilter === 'on_time' || deliveryListFilter === 'delayed'
-      || deliveryListFilter === 'completed_24h' || deliveryListFilter === 'today_delivery'
+      || deliveryListFilter === 'completed_24h'
       || deliveryListFilter === 'not_confirmed';
     const filterSource =
       onRouteSequenceOnly && !isDriverPortal && !bypassOnRoute
         ? getOnRouteDeliveriesForList(deliveries)
         : deliveries;
     let list = applyDeliveryListFilter(filterSource, deliveryListFilter);
+    list = applyDateRange(list);
     // Apply driver filter for on-route view
     if (deliveryListFilter === 'out_for_delivery' && selectedDriver !== 'all') {
       list = list.filter((d) => (d.driverName || '').trim() === selectedDriver);
@@ -381,6 +414,34 @@ export default function DeliveryTable({
             );
           })}
         </div>
+        {/* Date range filter — driver portal only */}
+        {isDriverPortal && (
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <label className="text-xs text-gray-500 dark:text-gray-400 font-medium">Date range:</label>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="text-xs rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <span className="text-xs text-gray-400">to</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="text-xs rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            {(dateFrom || dateTo) && (
+              <button
+                type="button"
+                onClick={() => { setDateFrom(''); setDateTo(''); }}
+                className="text-xs text-red-500 hover:text-red-700 font-medium"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        )}
         {/* Driver dropdown — only shown when On Route filter is active */}
         {deliveryListFilter === 'out_for_delivery' && driverOptions.length > 0 && (
           <div className="mt-2 flex items-center gap-2">

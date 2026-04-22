@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   AlertCircle, Loader, MapPin, Truck, Clock, Package,
   Phone, CheckCircle, Navigation, Star, RefreshCw, ChevronRight, ArrowLeft,
-  Calendar
+  Calendar, MessageCircle
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
@@ -208,12 +208,10 @@ interface TrackingData {
 
 // ── Timeline steps ───────────────────────────────────────────────────────────
 const TIMELINE_STEPS: TimelineStep[] = [
-  { id: 'order_processed', label: 'Order Processed', desc: 'Received & being prepared', icon: Package,
+  { id: 'order_processed', label: 'Order Processed', desc: 'Your order has been received', icon: Package,
     matchStatuses: ['pending', 'uploaded'], matchEvents: ['delivery_uploaded', 'order_created'] },
-  { id: 'order_scheduled', label: 'Order Scheduled', desc: 'Delivery date confirmed', icon: Calendar,
-    matchStatuses: ['scheduled', 'confirmed', 'scheduled-confirmed', 'rescheduled'], matchEvents: ['customer_confirmed', 'delivery_scheduled', 'admin_rescheduled'] },
-  { id: 'order_preparing', label: 'Being Prepared', desc: 'Your order is being prepared at the warehouse', icon: Package,
-    matchStatuses: ['pgi-done', 'pgi_done', 'pickup-confirmed', 'pickup_confirmed'], matchEvents: ['pgi_done', 'picking_confirmed'] },
+  { id: 'order_scheduled', label: 'Order Scheduled', desc: 'Delivery date confirmed & order is being prepared', icon: Calendar,
+    matchStatuses: ['scheduled', 'confirmed', 'scheduled-confirmed', 'rescheduled', 'pgi-done', 'pgi_done', 'pickup-confirmed', 'pickup_confirmed'], matchEvents: ['customer_confirmed', 'delivery_scheduled', 'admin_rescheduled', 'pgi_done', 'picking_confirmed'] },
   { id: 'out_for_delivery', label: 'Out for Delivery', desc: 'On its way to you', icon: Truck,
     matchStatuses: ['out-for-delivery', 'in-transit'], matchEvents: ['out_for_delivery', 'status_updated_out_for_delivery', 'delivery_started'] },
   { id: 'items_arrived', label: 'Items Arrived', desc: 'Driver is at your door', icon: MapPin,
@@ -278,17 +276,9 @@ const STATUS_HERO: Record<number, StatusHero> = {
     label: 'Scheduled',
     icon: Calendar,
     title: 'Delivery date booked',
-    subtitle: 'Your delivery date has been confirmed.',
+    subtitle: 'Your delivery date has been confirmed and your order is being prepared.',
   },
   2: {
-    bg: '#FFFFFF',
-    color: '#B45309',
-    label: 'Preparing',
-    icon: Package,
-    title: 'Your order is being prepared',
-    subtitle: 'Warehouse has issued the goods and the driver is picking your items.',
-  },
-  3: {
     bg: '#FFFFFF',
     color: '#C2410C',
     label: 'On route',
@@ -296,7 +286,7 @@ const STATUS_HERO: Record<number, StatusHero> = {
     title: 'Out for delivery',
     subtitle: 'Your driver is heading to your address.',
   },
-  4: {
+  3: {
     bg: '#FFFFFF',
     color: '#15803D',
     label: 'Arrived',
@@ -304,7 +294,7 @@ const STATUS_HERO: Record<number, StatusHero> = {
     title: 'Your driver is here!',
     subtitle: 'Your delivery team has arrived at your address — please be ready to receive your items.',
   },
-  5: {
+  4: {
     bg: '#FFFFFF',
     color: '#7E22CE',
     label: 'Completed',
@@ -657,12 +647,13 @@ export default function CustomerTrackingPage() {
               body = `${fmtTime(e)} – ${fmtTime(l)}`;
               sub = payload.degraded
                 ? 'Full-day window — will narrow once your driver is assigned'
-                : 'Based on the route plan';
+                : '';
             } else if (payload.mode === 'static') {
               const d = new Date(payload.eta);
+              const dEnd = new Date(d.getTime() + 4 * 60 * 60 * 1000); // +4 hours
               heading = 'Estimated Arrival';
-              body = fmtTime(d);
-              sub = 'Following the planned schedule — not live';
+              body = `${fmtTime(d)} – ${fmtTime(dEnd)}`;
+              sub = 'Real-time estimate based on driver route';
             } else if (payload.mode === 'delivered') {
               const d = new Date(payload.at);
               heading = 'Delivered';
@@ -679,7 +670,7 @@ export default function CustomerTrackingPage() {
                   <div style={{ minWidth: 0 }}>
                     <p style={{ fontSize: 9, fontWeight: 700, color: '#15803D', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>{heading}</p>
                     <p style={{ fontWeight: 700, fontSize: 12, color: '#14532D', lineHeight: 1.25 }}>{body}</p>
-                    <p style={{ fontSize: 10, color: '#15803D', marginTop: 1 }}>{sub}</p>
+                    {sub && <p style={{ fontSize: 10, color: '#15803D', marginTop: 1 }}>{sub}</p>}
                   </div>
                 </div>
               </div>
@@ -701,43 +692,61 @@ export default function CustomerTrackingPage() {
             </div>
           )}
 
-          {trackingInfo.driver ? (
-            <div className="card anim-card anim-card-3" style={{ padding: '10px 12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg,#032145,#115a96)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>
-                  {(trackingInfo.driver.name || 'D').charAt(0).toUpperCase()}
+          {(() => {
+            const statusLc = (delivery.status || '').toLowerCase();
+            const isOnRoute = statusLc === 'out-for-delivery' || statusLc === 'out_for_delivery' || statusLc === 'in-transit';
+            if (isOnRoute && trackingInfo.driver) {
+              const driverPhone = trackingInfo.driver.phone || '+971524408687';
+              const waPhone = driverPhone.replace(/[^0-9]/g, '');
+              return (
+                <div className="card anim-card anim-card-3" style={{ padding: '10px 12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg,#032145,#115a96)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>
+                      {(trackingInfo.driver.name || 'D').charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <p style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Driver</p>
+                      <p style={{ fontWeight: 700, fontSize: 12, color: '#1e293b', lineHeight: 1.25 }}>{trackingInfo.driver.name}</p>
+                    </div>
+                  </div>
+                  <div className="driver-actions">
+                    <a href={`tel:${driverPhone}`} className="btn-driver-action btn-driver-action--primary">
+                      <Phone style={{ width: 13, height: 13 }} />
+                      Call Driver
+                    </a>
+                    <a href={`https://wa.me/${waPhone}`} target="_blank" rel="noopener noreferrer" className="btn-driver-action" style={{ background: '#25D366', color: '#fff', borderColor: '#25D366' }}>
+                      <MessageCircle style={{ width: 13, height: 13 }} />
+                      WhatsApp
+                    </a>
+                  </div>
                 </div>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <p style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Driver</p>
-                  <p style={{ fontWeight: 700, fontSize: 12, color: '#1e293b', lineHeight: 1.25 }}>{trackingInfo.driver.name}</p>
+              );
+            }
+            // Pre-route or no driver assigned → show Delivery Team contact
+            return (
+              <div className="card anim-card anim-card-3" style={{ padding: '10px 12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg,#032145,#115a96)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Truck style={{ width: 13, height: 13, color: '#fff' }} />
+                  </div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <p style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Delivery Team</p>
+                    <p style={{ fontWeight: 700, fontSize: 12, color: '#1e293b', lineHeight: 1.25 }}>Electrolux Delivery</p>
+                  </div>
+                </div>
+                <div className="driver-actions">
+                  <a href="tel:+971524408687" className="btn-driver-action btn-driver-action--primary">
+                    <Phone style={{ width: 13, height: 13 }} />
+                    Call Us
+                  </a>
+                  <a href="https://wa.me/971524408687" target="_blank" rel="noopener noreferrer" className="btn-driver-action" style={{ background: '#25D366', color: '#fff', borderColor: '#25D366' }}>
+                    <MessageCircle style={{ width: 13, height: 13 }} />
+                    WhatsApp
+                  </a>
                 </div>
               </div>
-              <div className="driver-actions">
-                <a href={`tel:${trackingInfo.driver.phone || '+971524408687'}`} className="btn-driver-action btn-driver-action--primary">
-                  <Phone style={{ width: 13, height: 13 }} />
-                  Call Driver
-                </a>
-              </div>
-            </div>
-          ) : (
-            <div className="card anim-card anim-card-3" style={{ padding: '10px 12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Phone style={{ width: 13, height: 13, color: '#64748b' }} />
-                </div>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <p style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Support</p>
-                  <p style={{ fontWeight: 700, fontSize: 12, color: '#1e293b', lineHeight: 1.25 }}>Electrolux Delivery</p>
-                </div>
-              </div>
-              <div className="driver-actions">
-                <a href="tel:+971524408687" className="btn-driver-action btn-driver-action--primary">
-                  <Phone style={{ width: 13, height: 13 }} />
-                  Call Us
-                </a>
-              </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
 
         {/* ── Map ─────────────────────────────────────────────────── */}

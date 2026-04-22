@@ -1510,6 +1510,10 @@ export default function DriverPortal() {
           <div className="grid grid-cols-1 lg:grid-cols-[65%_35%] gap-3 md:gap-6 items-start">
             {/* Left column: order list */}
             <div className="pp-card p-3 sm:p-6 min-h-[520px]">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">Order List</h2>
+              </div>
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-2">Tap an order to update POD, call customer, or check details</p>
               <div className="max-h-[68vh] md:max-h-[560px] overflow-y-auto pr-1">
                 <DeliveryTable
                   onSelectDelivery={() => setShowModal(true)}
