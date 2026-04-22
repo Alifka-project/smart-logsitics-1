@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import type { Delivery } from '../types';
 import { getOnRouteDeliveriesForList, isOnRouteDeliveryListStatus, getEtaStatus } from '../utils/deliveryListFilter';
+import { isPickingListEligible } from '../utils/pickingListFilter';
 import PickingListPanel from '../components/deliveries/PickingListPanel';
 
 // Fix Leaflet default marker icons
@@ -1430,13 +1431,10 @@ export default function DriverPortal() {
                   ) : null;
                 })()}
                 {tab.id === 'picking' && (() => {
-                  const pgiDoneCount = deliveries.filter(d => {
-                    const s = (d.status || '').toLowerCase();
-                    return s === 'pgi-done' || s === 'pgi_done';
-                  }).length;
-                  return pgiDoneCount > 0 ? (
+                  const pickingCount = deliveries.filter(d => isPickingListEligible(d)).length;
+                  return pickingCount > 0 ? (
                     <span className="ml-2 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-xs font-semibold px-2 py-0.5 rounded-full">
-                      {pgiDoneCount}
+                      {pickingCount}
                     </span>
                   ) : null;
                 })()}
@@ -1523,18 +1521,16 @@ export default function DriverPortal() {
                     Blocked until every candidate order is in pickup-confirmed (picking list signed off). */}
                 {(() => {
                   // "Candidate" = anything on the driver's plate that should ride today.
-                  // We include orders still stuck in pgi-done (picking not confirmed) AND
-                  // orders already pickup-confirmed — those are the ones that need to all
-                  // be green before dispatch. On-route / in-transit are already started.
+                  // We include orders still awaiting picking (pgi-done / rescheduled with GMD,
+                  // picking not confirmed) AND orders already pickup-confirmed — those are the
+                  // ones that need to all be green before dispatch. On-route / in-transit are
+                  // already started.
                   const candidates = storeDeliveries.filter(d => {
+                    if (isPickingListEligible(d)) return true;
                     const s = (d.status || '').toLowerCase();
-                    return s === 'pgi-done' || s === 'pgi_done'
-                      || s === 'pickup-confirmed' || s === 'pickup_confirmed';
+                    return s === 'pickup-confirmed' || s === 'pickup_confirmed';
                   });
-                  const unreadyCount = candidates.filter(d => {
-                    const s = (d.status || '').toLowerCase();
-                    return s === 'pgi-done' || s === 'pgi_done';
-                  }).length;
+                  const unreadyCount = candidates.filter(d => isPickingListEligible(d)).length;
                   const hasRouteWork = onRouteDeliveries.length > 0 || candidates.length > 0;
                   if (!hasRouteWork) return null;
                   if (deliveryStartedAt) {

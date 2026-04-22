@@ -672,6 +672,39 @@ router.post('/driver/route/start', authenticate, requireRole('driver'), async (r
   }
 });
 
+/**
+ * Picking stage eligibility — shared by the per-item checkbox and final-confirm guards.
+ *
+ * An order is in the picking stage when:
+ *   • Warehouse has issued goods  →  goodsMovementDate is set, AND
+ *   • Picking hasn't been signed off yet  →  metadata.picking.confirmedAt is absent, AND
+ *   • Status is pre-dispatch  →  pgi-done / pgi_done / rescheduled.
+ *     (A reschedule after PGI keeps the GMD; those orders still need to be re-picked.)
+ *
+ * Mirror of src/utils/pickingListFilter.ts so client + server stay aligned.
+ */
+function isPickingStageEligible(existing: {
+  status?: string | null;
+  goodsMovementDate?: unknown;
+  metadata?: unknown;
+}): boolean {
+  const status = String(existing.status || '').toLowerCase();
+  if (status !== 'pgi-done' && status !== 'pgi_done' && status !== 'rescheduled') {
+    return false;
+  }
+  if (!existing.goodsMovementDate) return false;
+  const meta = (existing.metadata && typeof existing.metadata === 'object')
+    ? (existing.metadata as Record<string, unknown>)
+    : null;
+  const picking = meta && meta.picking && typeof meta.picking === 'object'
+    ? (meta.picking as Record<string, unknown>)
+    : null;
+  if (picking && typeof picking.confirmedAt === 'string' && picking.confirmedAt.length > 0) {
+    return false;
+  }
+  return true;
+}
+
 // POST /api/deliveries/driver/:id/picking/item — driver toggles a per-item checkbox
 // on the Picking List tab. Idempotent: set union/diff on metadata.picking.itemsChecked.
 // Body: { itemIndex: number, checked: boolean }
@@ -700,15 +733,14 @@ router.post('/driver/:id/picking/item', authenticate, requireRole('driver'), asy
     }
     const existing = await prisma.delivery.findUnique({
       where: { id: deliveryId },
-      select: { id: true, status: true, metadata: true },
+      select: { id: true, status: true, metadata: true, goodsMovementDate: true },
     });
     if (!existing) {
       res.status(404).json({ error: 'delivery_not_found' });
       return;
     }
-    const prevStatus = String(existing.status || '').toLowerCase();
-    if (prevStatus !== 'pgi-done' && prevStatus !== 'pgi_done') {
-      res.status(409).json({ error: 'not_in_picking_stage', currentStatus: prevStatus });
+    if (!isPickingStageEligible(existing)) {
+      res.status(409).json({ error: 'not_in_picking_stage', currentStatus: String(existing.status || '').toLowerCase() });
       return;
     }
     const currentMeta = (existing.metadata as Record<string, unknown> | null) ?? {};
@@ -789,14 +821,14 @@ router.post('/driver/:id/picking/confirm', authenticate, requireRole('driver'), 
     }
     const existing = await prisma.delivery.findUnique({
       where: { id: deliveryId },
-      select: { id: true, status: true, metadata: true, customer: true, poNumber: true, items: true },
+      select: { id: true, status: true, metadata: true, customer: true, poNumber: true, items: true, goodsMovementDate: true },
     });
     if (!existing) {
       res.status(404).json({ error: 'delivery_not_found' });
       return;
     }
     const prevStatus = String(existing.status || '').toLowerCase();
-    if (prevStatus !== 'pgi-done' && prevStatus !== 'pgi_done') {
+    if (!isPickingStageEligible(existing)) {
       // Allow idempotent re-confirmation when already pickup-confirmed.
       if (prevStatus === 'pickup-confirmed' || prevStatus === 'pickup_confirmed') {
         res.json({ ok: true, alreadyConfirmed: true });

@@ -4,11 +4,16 @@ import type { Delivery } from '../../types';
 import api from '../../frontend/apiClient';
 import useDeliveryStore from '../../store/useDeliveryStore';
 import { useToast } from '../../hooks/useToast';
+import { isPickingListEligible } from '../../utils/pickingListFilter';
 
 /**
  * Driver-side Picking List tab.
  *
- * Renders deliveries in `pgi-done` state assigned to the current driver.
+ * Renders deliveries that are awaiting picking for the current driver.
+ * Eligibility (shared with server guards): GMD set, picking not yet
+ * confirmed, and status in {pgi-done, pgi_done, rescheduled}. A reschedule
+ * after PGI keeps the GMD, so those orders still need to be re-picked.
+ *
  * Each card parses the free-text `items` string into line items (one per line
  * or JSON array), shows a checkbox + mispick-note field per line, and a
  * final "Confirm Picking List" button that flips the order to
@@ -101,10 +106,7 @@ export default function PickingListPanel({ deliveries, onConfirmed }: Props) {
   const { success, error: toastError } = useToast();
 
   const pickingOrders = useMemo(() => {
-    const list = deliveries.filter((d) => {
-      const s = String(d.status || '').toLowerCase();
-      return s === 'pgi-done' || s === 'pgi_done';
-    });
+    const list = deliveries.filter((d) => isPickingListEligible(d));
     // Urgent first, then by createdAt ascending.
     list.sort((a, b) => {
       const pa = isPriority(a) ? 1 : 0;
@@ -254,9 +256,15 @@ function PickingCard({
                   URGENT
                 </span>
               )}
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
-                PGI Done
-              </span>
+              {String(delivery.status || '').toLowerCase() === 'rescheduled' ? (
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200">
+                  Rescheduled · PGI Done
+                </span>
+              ) : (
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                  PGI Done
+                </span>
+              )}
             </div>
             <div className="font-semibold text-gray-900 dark:text-gray-100 truncate">
               {delivery.customer || 'Unnamed customer'}
