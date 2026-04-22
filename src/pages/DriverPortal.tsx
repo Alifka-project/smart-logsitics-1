@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import type { Delivery } from '../types';
 import { getOnRouteDeliveriesForList, isOnRouteDeliveryListStatus, getEtaStatus } from '../utils/deliveryListFilter';
-import { isPickingListEligible } from '../utils/pickingListFilter';
+import { isPickingListEligible, isDriverMyOrdersStatus } from '../utils/pickingListFilter';
 import PickingListPanel from '../components/deliveries/PickingListPanel';
 
 // Fix Leaflet default marker icons
@@ -167,6 +167,8 @@ export default function DriverPortal() {
   const markerRef = useRef<L.Marker | null>(null);
   const markerAnimationRef = useRef<number | null>(null);
   const lastAutoPanAtRef = useRef<number>(0);
+  /** True once the initial fitBounds has been performed on the route. Subsequent route updates only redraw the polyline without changing the view. */
+  const hasInitialFitRef = useRef<boolean>(false);
   const watchIdRef = useRef<number | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isTrackingRef = useRef<boolean>(false);
@@ -585,17 +587,21 @@ export default function DriverPortal() {
       markerAnimationRef.current = requestAnimationFrame(animateMarker);
     }
 
-    // Smooth auto-pan with throttle to prevent jumpy map movement.
-    const routeData = route as DriverRouteData | null;
-    if (!routeData?.coordinates?.length) {
-      const now = Date.now();
-      const center = map.getCenter();
-      const centerDistanceMeters = map.distance(center, targetLatLng);
-      if (centerDistanceMeters > 60 && now - lastAutoPanAtRef.current > 1800) {
-        map.panTo(targetLatLng, { animate: true, duration: 1.2 });
-        if (map.getZoom() < 15) map.setZoom(15, { animate: true });
-        lastAutoPanAtRef.current = now;
+    // Smooth auto-pan: keep the driver icon on screen.
+    // Throttled to avoid jumpy movement on rapid GPS updates.
+    const now = Date.now();
+    if (now - lastAutoPanAtRef.current > 2000) {
+      const mapBounds = map.getBounds();
+      const isVisible = mapBounds.contains(targetLatLng);
+      if (!isVisible) {
+        // Driver has moved off-screen — pan to re-center
+        map.panTo(targetLatLng, { animate: true, duration: 1.0 });
       }
+      // On first GPS fix (before route), zoom in if too far out
+      if (!hasInitialFitRef.current && map.getZoom() < 15) {
+        map.setView(targetLatLng, 15, { animate: true });
+      }
+      lastAutoPanAtRef.current = now;
     }
 
     // Add location to history
@@ -673,13 +679,19 @@ export default function DriverPortal() {
 
     routeLayersRef.current.push(routeLine);
 
-    try {
-      const bounds = routeLine.getBounds();
-      if (bounds.isValid()) {
-        mapInstance.current!.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+    // Only fitBounds on the very first route draw so the driver gets an initial
+    // overview. On subsequent route recalculations (GPS movement, refresh) the
+    // map stays at the driver's current zoom/pan to avoid disruptive zoom-outs.
+    if (!hasInitialFitRef.current) {
+      try {
+        const bounds = routeLine.getBounds();
+        if (bounds.isValid()) {
+          mapInstance.current!.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+          hasInitialFitRef.current = true;
+        }
+      } catch (e) {
+        console.warn('Unable to fit route bounds:', e);
       }
-    } catch (e) {
-      console.warn('Unable to fit route bounds:', e);
     }
   }, [route, mapReady]);
   
@@ -1504,6 +1516,8 @@ export default function DriverPortal() {
                     <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Priority</div>
                     <div className="text-sm font-semibold text-red-600 dark:text-red-400">
                       {storeDeliveries.filter(d => {
+                        if (!isDriverMyOrdersStatus(d.status)) return false;
+                        if (isPickingListEligible(d)) return false;
                         const meta = (d as unknown as { metadata?: { isPriority?: boolean } }).metadata;
                         return meta?.isPriority === true;
                       }).length || 0}
@@ -1520,6 +1534,8 @@ export default function DriverPortal() {
                 // Priority is owned by Delivery Team / Admin and stored in metadata.isPriority.
                 // Distance-based priority (1/2/3) is routing-only and must NOT surface as "Priority" in the UI.
                 const priorityCount = storeDeliveries.filter(d => {
+                  if (!isDriverMyOrdersStatus(d.status)) return false;
+                  if (isPickingListEligible(d)) return false;
                   const meta = (d as unknown as { metadata?: { isPriority?: boolean } }).metadata;
                   return meta?.isPriority === true;
                 }).length;
