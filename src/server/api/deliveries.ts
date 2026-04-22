@@ -201,10 +201,16 @@ async function updateDeliveryStatusHandler(
   }
   // When driver/admin sets status to rescheduled via general update, persist
   // the notes as rescheduleReason in metadata so customer tracking can show it.
+  // Also clear picking confirmation so the order re-enters the driver's picking
+  // list fresh — no need to manually change status to pgi-done first.
   if (status.toLowerCase() === 'rescheduled') {
     nextMeta.rescheduleReason = notes || prevMeta.rescheduleReason || 'Operational requirements';
     nextMeta.rescheduledAt = new Date().toISOString();
     nextMeta.rescheduledBy = req.user?.username || req.user?.email || req.user?.sub || 'driver';
+    // Reset picking confirmation so the driver sees it in picking list again
+    if (nextMeta.picking && typeof nextMeta.picking === 'object') {
+      (nextMeta.picking as Record<string, unknown>).confirmedAt = null;
+    }
   }
   if (['delivered', 'completed', 'delivered-with-installation', 'delivered-without-installation',
        'pod-completed', 'finished'].includes(status.toLowerCase())) {
@@ -271,12 +277,12 @@ async function updateDeliveryStatusHandler(
   cache.invalidatePrefix('tracking:');
   cache.invalidatePrefix('deliveries:list:');
 
-  // When an order moves to pgi-done or pickup-confirmed (e.g. after reschedule):
+  // When an order moves to pgi-done, pickup-confirmed, or rescheduled:
   // Auto-assign a driver if none exists, so the order appears in the driver's
-  // picking list. This is critical for the rescheduled → pgi-done flow where
-  // the old assignment was deleted during reschedule.
+  // picking list. This covers the rescheduled flow where the old assignment
+  // may have been deleted, and ensures the order is always visible to a driver.
   const statusLc = status.toLowerCase();
-  if (statusLc === 'pgi-done' || statusLc === 'pgi_done' || statusLc === 'pickup-confirmed' || statusLc === 'pickup_confirmed') {
+  if (statusLc === 'pgi-done' || statusLc === 'pgi_done' || statusLc === 'pickup-confirmed' || statusLc === 'pickup_confirmed' || statusLc === 'rescheduled') {
     try {
       const existingAssignment = await prisma.deliveryAssignment.findFirst({
         where: {
@@ -2633,6 +2639,8 @@ router.put('/admin/:id/reschedule', authenticate, requireAnyRole('admin', 'deliv
           rescheduledBy: req.user?.username || req.user?.email || req.user?.sub || 'admin',
           previousStatus: existingDelivery.status,
           previousDeliveryDate: (existingDelivery.confirmedDeliveryDate as Date | null)?.toISOString() ?? null,
+          // Reset picking confirmation so order re-enters driver picking list
+          picking: { ...((prevMeta.picking as Record<string, unknown>) || {}), confirmedAt: null },
         }
       }
     }) as Record<string, unknown>;
