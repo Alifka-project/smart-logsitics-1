@@ -795,8 +795,8 @@ router.post('/driver/:id/picking/item', authenticate, requireRole('driver'), asy
 });
 
 // POST /api/deliveries/driver/:id/picking/confirm — driver confirms the picking list.
-// Transitions pgi-done → pickup-confirmed. Optionally accepts mispick reports that
-// create an AdminNotification for the logistics team.
+// Transitions pgi-done → pickup-confirmed (if delivery date is future) or
+// pgi-done → out-for-delivery (if delivery date is today, auto-dispatches + sends SMS).
 // Body: { mispickReported?: Array<{ itemIndex: number, note?: string }>, totalItems?: number }
 router.post('/driver/:id/picking/confirm', authenticate, requireRole('driver'), async (req: Request, res: Response): Promise<void> => {
   const { id: deliveryId } = req.params as { id: string };
@@ -821,7 +821,11 @@ router.post('/driver/:id/picking/confirm', authenticate, requireRole('driver'), 
     }
     const existing = await prisma.delivery.findUnique({
       where: { id: deliveryId },
-      select: { id: true, status: true, metadata: true, customer: true, poNumber: true, items: true, goodsMovementDate: true },
+      select: {
+        id: true, status: true, metadata: true, customer: true, poNumber: true,
+        items: true, goodsMovementDate: true, confirmedDeliveryDate: true,
+        phone: true, confirmationToken: true,
+      },
     });
     if (!existing) {
       res.status(404).json({ error: 'delivery_not_found' });
@@ -829,8 +833,9 @@ router.post('/driver/:id/picking/confirm', authenticate, requireRole('driver'), 
     }
     const prevStatus = String(existing.status || '').toLowerCase();
     if (!isPickingStageEligible(existing)) {
-      // Allow idempotent re-confirmation when already pickup-confirmed.
-      if (prevStatus === 'pickup-confirmed' || prevStatus === 'pickup_confirmed') {
+      // Allow idempotent re-confirmation when already pickup-confirmed or out-for-delivery.
+      if (prevStatus === 'pickup-confirmed' || prevStatus === 'pickup_confirmed'
+        || prevStatus === 'out-for-delivery' || prevStatus === 'out_for_delivery') {
         res.json({ ok: true, alreadyConfirmed: true });
         return;
       }
@@ -846,8 +851,6 @@ router.post('/driver/:id/picking/confirm', authenticate, requireRole('driver'), 
       ? (picking.itemsChecked as number[]).filter((n) => Number.isInteger(n))
       : [];
 
-    // totalItems is informational only — no per-item coverage check required.
-    // The driver confirms the whole picking list at once via a confirmation dialog.
     const totalItems = typeof body.totalItems === 'number' && body.totalItems > 0
       ? body.totalItems
       : itemsChecked.length + mispicks.length;
@@ -860,27 +863,53 @@ router.post('/driver/:id/picking/confirm', authenticate, requireRole('driver'), 
       confirmedBy: driverId,
       mispickReported: mispicks.length > 0 ? mispicks : (picking.mispickReported ?? []),
     };
+
+    // Auto on-route: if the delivery date (confirmedDeliveryDate or goodsMovementDate)
+    // is today (Dubai time), automatically dispatch to out-for-delivery and send SMS.
+    // If the delivery date is in the future, stay as pickup-confirmed.
+    const dubaiNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Dubai' }));
+    const todayStr = `${dubaiNow.getFullYear()}-${String(dubaiNow.getMonth() + 1).padStart(2, '0')}-${String(dubaiNow.getDate()).padStart(2, '0')}`;
+    const deliveryDateRaw = existing.confirmedDeliveryDate ?? existing.goodsMovementDate;
+    let isDeliveryToday = false;
+    if (deliveryDateRaw) {
+      const dd = new Date(deliveryDateRaw as string | Date);
+      if (!isNaN(dd.getTime())) {
+        const dubaiDelivery = new Date(dd.toLocaleString('en-US', { timeZone: 'Asia/Dubai' }));
+        const deliveryStr = `${dubaiDelivery.getFullYear()}-${String(dubaiDelivery.getMonth() + 1).padStart(2, '0')}-${String(dubaiDelivery.getDate()).padStart(2, '0')}`;
+        isDeliveryToday = deliveryStr === todayStr;
+      }
+    }
+
+    const newStatus = isDeliveryToday ? 'out-for-delivery' : 'pickup-confirmed';
     const nextMeta: Record<string, unknown> = {
       ...currentMeta,
       picking: nextPicking,
+      ...(isDeliveryToday ? { routeStartedAt: confirmedAt } : {}),
     };
 
     await prisma.$transaction(async (tx: typeof prisma) => {
       await tx.delivery.update({
         where: { id: deliveryId },
-        data: { status: 'pickup-confirmed', metadata: nextMeta, updatedAt: new Date() },
+        data: { status: newStatus, metadata: nextMeta, updatedAt: new Date() },
       });
+      if (isDeliveryToday) {
+        await tx.deliveryAssignment.updateMany({
+          where: { deliveryId, status: 'assigned' },
+          data: { status: 'in_progress' },
+        });
+      }
       await tx.deliveryEvent.create({
         data: {
           deliveryId,
-          eventType: 'picking_confirmed',
+          eventType: isDeliveryToday ? 'delivery_started' : 'picking_confirmed',
           payload: {
             previousStatus: prevStatus,
-            newStatus: 'pickup-confirmed',
+            newStatus,
             itemsChecked,
             mispickReported: mispicks,
             totalItems,
             confirmedAt,
+            autoDispatched: isDeliveryToday,
           },
           actorType: 'driver',
           actorId: driverId,
@@ -912,7 +941,49 @@ router.post('/driver/:id/picking/confirm', authenticate, requireRole('driver'), 
     cache.invalidatePrefix('deliveries:list:');
     cache.invalidatePrefix('dashboard:');
 
-    res.json({ ok: true, status: 'pickup-confirmed', confirmedAt });
+    res.json({ ok: true, status: newStatus, confirmedAt, autoDispatched: isDeliveryToday });
+
+    // Auto-dispatch SMS: send "on the way" message when auto-dispatching to out-for-delivery
+    if (isDeliveryToday && existing.phone) {
+      (async () => {
+        try {
+          const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
+          const normalizedPhone = normalizeUAEPhone(existing.phone as string) || (existing.phone as string);
+          const trackingLink = existing.confirmationToken
+            ? `${frontendUrl}/customer-tracking/${existing.confirmationToken}`
+            : null;
+          const customerName = (existing.customer as string) || 'Valued Customer';
+          const poRef = existing.poNumber ? `#${existing.poNumber}` : '';
+          const smsBody = outForDeliveryMessage(customerName, poRef, trackingLink);
+          let sendStatus = 'failed';
+          try {
+            if (smsAdapter) {
+              const smsResult = await smsAdapter.sendSms({
+                to: normalizedPhone,
+                body: smsBody,
+                metadata: { deliveryId, type: 'status_out_for_delivery', triggeredBy: 'auto_dispatch_on_confirm' },
+              });
+              sendStatus = smsResult?.messageId || smsResult?.status === 'accepted' || smsResult?.status === 'queued' ? 'sent' : 'failed';
+            }
+          } catch (err: unknown) {
+            console.warn(`[picking/confirm] OFD SMS failed for ${deliveryId}:`, (err as Error).message);
+          }
+          await prisma.smsLog.create({
+            data: {
+              deliveryId,
+              phoneNumber: normalizedPhone,
+              messageContent: smsBody,
+              smsProvider: 'd7',
+              status: sendStatus,
+              sentAt: new Date(),
+              metadata: { type: 'status_out_for_delivery', triggeredBy: 'auto_dispatch_on_confirm' },
+            },
+          });
+        } catch (smsErr: unknown) {
+          console.warn(`[picking/confirm] OFD SMS failed for ${deliveryId}:`, (smsErr as Error).message);
+        }
+      })();
+    }
   } catch (err: unknown) {
     const e = err as { message?: string };
     console.error('[picking/confirm] error:', err);

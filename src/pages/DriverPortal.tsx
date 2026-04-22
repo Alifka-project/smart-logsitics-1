@@ -1328,69 +1328,8 @@ export default function DriverPortal() {
     });
   }, [location, deliveries, updateDeliveryStatus, success]);
 
-  // D4: Start Delivery — lock static ETAs directly from existing orderedDeliveries (no OSRM re-run)
-  const handleStartDelivery = useCallback(() => {
-    const now = Date.now();
-    setDeliveryStartedAt(now);
-    // Keep the ref in sync immediately so the persistence write below uses
-    // the just-set value without waiting for the sync effect.
-    deliveryStartedAtRef.current = now;
-    // Lock static ETAs immediately from existing orderedDeliveries — no OSRM re-run needed.
-    // Avoids a network call that could fail and make the ETA panel show N/A.
-    const SERVICE_TIME_SEC = 3600; // 60-min service per stop (same as routing effect)
-    setOrderedDeliveries(prev => {
-      if (!prev.length) return prev;
-      const locked = prev.map((d, index) => {
-        if (d.staticEta) return d; // already locked from a previous Start
-        const existingEta = d.estimatedEta ? new Date(d.estimatedEta).getTime() : null;
-        if (!existingEta || isNaN(existingEta)) return d;
-        // staticEta = existing ETA (drive time) + accumulated service time for previous stops
-        const staticEta = new Date(existingEta + index * SERVICE_TIME_SEC * 1000).toISOString();
-        return { ...d, staticEta };
-      });
-      // Snapshot the just-locked ETAs to localStorage so a re-login restores
-      // exactly these values (not a recomputed approximation).
-      const snapshot: Record<string, PersistedEta> = {};
-      for (const d of locked) {
-        if (!d.id) continue;
-        if (d.plannedEta || d.staticEta) {
-          snapshot[String(d.id)] = {
-            plannedEta: d.plannedEta ?? null,
-            staticEta: d.staticEta ?? null,
-          };
-        }
-      }
-      persistedEtasRef.current = snapshot;
-      saveRouteState(driverStorageIdRef.current, { startedAt: now, etas: snapshot });
-
-      // Fire-and-forget: persist the locked plan ETAs onto each delivery's
-      // metadata so the customer tracking portal can render the same 14:05
-      // baseline (plus the 4 h window) that the driver just locked.
-      const stopsForServer = locked
-        .filter(d => d.id && (d.plannedEta || d.staticEta))
-        .map(d => ({
-          deliveryId: String(d.id),
-          plannedEta: d.plannedEta ?? null,
-          staticEta: d.staticEta ?? null,
-        }));
-      if (stopsForServer.length > 0) {
-        // Mark this snapshot as synced so the routing-effect catch-up
-        // doesn't re-POST the identical payload immediately after.
-        lastBackendEtaSyncRef.current = JSON.stringify(
-          Object.entries(snapshot).sort().map(([id, e]) => `${id}:${e.plannedEta || ''}:${e.staticEta || ''}`),
-        );
-        api.post('/deliveries/driver/route/start', {
-          startedAt: new Date(now).toISOString(),
-          stops: stopsForServer,
-        }).catch((err: unknown) => {
-          // Non-blocking — the driver's local lock still holds even if the
-          // persist call fails (e.g. offline). Next successful call will sync.
-          console.warn('[DriverPortal] route/start persist failed:', (err as Error).message);
-        });
-      }
-      return locked;
-    });
-  }, []);
+  // Start Delivery button removed — dispatch is now automatic on picking confirm
+  // when the delivery date matches today (server-side in picking/confirm endpoint).
 
   const hasRoute = !!(route as DriverRouteData | null)?.coordinates?.length;
   const routeStats = route as DriverRouteData | null;
@@ -1538,57 +1477,6 @@ export default function DriverPortal() {
             <div className="pp-card p-3 sm:p-6 min-h-[520px]">
               <div className="flex items-center justify-between gap-2 mb-2">
                 <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">Order list</h2>
-                {/* D4: Start Delivery button — shown when there are on-route orders, locks static ETAs.
-                    Blocked until every candidate order is in pickup-confirmed (picking list signed off). */}
-                {(() => {
-                  // "Candidate" = anything on the driver's plate that should ride today.
-                  // We include orders still awaiting picking (pgi-done / rescheduled with GMD,
-                  // picking not confirmed) AND orders already pickup-confirmed — those are the
-                  // ones that need to all be green before dispatch. On-route / in-transit are
-                  // already started.
-                  const candidates = storeDeliveries.filter(d => {
-                    if (isPickingListEligible(d)) return true;
-                    const s = (d.status || '').toLowerCase();
-                    return s === 'pickup-confirmed' || s === 'pickup_confirmed';
-                  });
-                  const unreadyCount = candidates.filter(d => isPickingListEligible(d)).length;
-                  const hasRouteWork = onRouteDeliveries.length > 0 || candidates.length > 0;
-                  if (!hasRouteWork) return null;
-                  if (deliveryStartedAt) {
-                    return (
-                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-700">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        Started {new Date(deliveryStartedAt).toLocaleTimeString('en-AE', { timeZone: 'Asia/Dubai', hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                    );
-                  }
-                  const canStart = unreadyCount === 0;
-                  return (
-                    <div className="flex flex-col items-end gap-1">
-                      <button
-                        type="button"
-                        onClick={handleStartDelivery}
-                        disabled={!canStart}
-                        title={canStart
-                          ? 'Lock ETAs and send Out-for-Delivery SMS to all customers'
-                          : `Confirm picking list for ${unreadyCount} order${unreadyCount === 1 ? '' : 's'} first`}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm transition-colors touch-manipulation ${
-                          canStart
-                            ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                            : 'bg-gray-200 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400'
-                        }`}
-                      >
-                        <Truck className="w-3.5 h-3.5" />
-                        Start Delivery
-                      </button>
-                      {!canStart && (
-                        <span className="text-[11px] text-amber-700 dark:text-amber-400">
-                          Confirm picking list for {unreadyCount} order{unreadyCount === 1 ? '' : 's'} first
-                        </span>
-                      )}
-                    </div>
-                  );
-                })()}
               </div>
               <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-2">Tap one order to update POD, call customer, or check details</p>
 
