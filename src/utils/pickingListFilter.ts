@@ -49,3 +49,41 @@ export function isPickingListEligible(d: MinimalDeliveryForPicking): boolean {
 export function isPickingUnready(d: MinimalDeliveryForPicking): boolean {
   return isPickingListEligible(d);
 }
+
+/**
+ * Statuses that belong on the driver's My Orders / Delivery Sequence table.
+ * Per product spec the driver only sees orders whose pickup has already been
+ * confirmed — pre-PGI rows (pending / scheduled / confirmed) and picking-stage
+ * rows (pgi-done / pgi_done / rescheduled-awaiting-pick) are filtered out and
+ * either live on the Picking List tab or are invisible to the driver entirely.
+ *
+ * Terminal rows (delivered, cancelled, returned, rejected) stay visible so the
+ * driver can review recent history.
+ */
+const DRIVER_MY_ORDERS_STATUSES = new Set([
+  // Ready to depart (picking signed off)
+  'pickup-confirmed',
+  'pickup_confirmed',
+  // On the road
+  'out-for-delivery',
+  'out_for_delivery',
+  'in-transit',
+  'in_progress',
+  'in-progress',
+  'order-delay',
+  'order_delay',
+  // Terminal (history tail)
+  'delivered',
+  'delivered-with-installation',
+  'delivered-without-installation',
+  'completed',
+  'pod-completed',
+  'finished',
+  'cancelled',
+  'rejected',
+  'returned',
+]);
+
+export function isDriverMyOrdersStatus(status: string | null | undefined): boolean {
+  return DRIVER_MY_ORDERS_STATUSES.has(String(status || '').toLowerCase());
+}

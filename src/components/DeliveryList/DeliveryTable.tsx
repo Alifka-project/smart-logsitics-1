@@ -12,7 +12,7 @@ import {
   isActiveDeliveryListStatus,
   isOnRouteDeliveryListStatus,
 } from '../../utils/deliveryListFilter';
-import { isPickingListEligible } from '../../utils/pickingListFilter';
+import { isPickingListEligible, isDriverMyOrdersStatus } from '../../utils/pickingListFilter';
 
 interface DeliveryTableProps {
   onSelectDelivery: () => void;
@@ -155,13 +155,19 @@ export default function DeliveryTable({
 
   const [selectedDriver, setSelectedDriver] = useState<string>('all');
 
-  // Driver portal: orders still awaiting picking live exclusively in the Picking
-  // List tab. My Orders / Delivery Sequence only surfaces orders whose pickup has
-  // already been confirmed (pickup-confirmed, on-route, delivered, etc.) or other
-  // non-picking flows — never rows that are currently sitting on the picking list.
+  // Driver portal: My Orders / Delivery Sequence only shows orders whose pickup
+  // has already been confirmed — pickup-confirmed (Ready to Depart), out-for-
+  // delivery / in-transit (On Route), and terminal rows (delivered, cancelled,
+  // returned) for history. Everything pre-pickup-confirmation — pending,
+  // scheduled, confirmed, pgi-done, pickup-awaiting-pick — is filtered out.
+  // Picking-stage rows (pgi-done / rescheduled-with-GMD) live on the Picking
+  // List tab instead.
   const deliveries = useMemo(() => {
     if (!isDriverPortal) return allDeliveries;
-    return allDeliveries.filter((d) => !isPickingListEligible(d));
+    return allDeliveries.filter((d) => {
+      if (isPickingListEligible(d)) return false;
+      return isDriverMyOrdersStatus(d.status);
+    });
   }, [allDeliveries, isDriverPortal]);
 
   // Portal embed: clear filters that don't apply to the on-route sequence view
@@ -264,12 +270,13 @@ export default function DeliveryTable({
 
   const chips: { id: DeliveryListFilter; label: string; activeClass: string }[] = isDriverPortal
     ? [
-        // Unified driver portal chip set — picking-eligible orders live in the
-        // separate Picking List tab, so no "PGI Done" chip here.
+        // Unified driver portal chip set — picking-eligible rows live on the
+        // Picking List tab (no "PGI Done" chip here), and pre-pickup rows
+        // (pending / scheduled / confirmed) are hidden entirely so no
+        // "Confirmed" chip either. All remaining chips are post-pickup.
         { id: 'all',               label: 'All Orders',        activeClass: 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900' },
         { id: 'pickup_confirmed',  label: '🚛 Ready to Depart', activeClass: 'bg-teal-600 text-white' },
         { id: 'out_for_delivery',  label: '🚚 On Route',       activeClass: 'bg-orange-500 text-white' },
-        { id: 'confirmed',         label: '✅ Confirmed',      activeClass: 'bg-blue-600 text-white' },
         { id: 'p1',                label: '🚨 P1 Urgent',      activeClass: 'bg-red-600 text-white' },
         { id: 'on_time',           label: '✓ On Time',         activeClass: 'bg-green-600 text-white' },
         { id: 'delayed',           label: '⚠ Delayed',         activeClass: 'bg-amber-500 text-white' },
