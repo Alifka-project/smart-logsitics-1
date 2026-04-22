@@ -958,10 +958,16 @@ export default function DriverPortal() {
       userOrderRef.current = [];
       setDeliveries(onRoute);
 
-      // Load ALL deliveries into the store so the unified filter table can show any type
-      useDeliveryStore.getState().loadDeliveries([...onRoute, ...confirmed, ...fetchedFinished]);
+      // Load EVERY active delivery into the store (not just on-route + confirmed)
+      // so the Picking List tab can see pgi-done / pickup-confirmed / rescheduled
+      // rows, and the unified My Orders table can filter across any status chip.
+      useDeliveryStore.getState().loadDeliveries([...activeDeliveries, ...fetchedFinished]);
 
-      console.log(`✓ Loaded ${activeDeliveries.length} active (${onRoute.length} on-route, ${confirmed.length} confirmed) + ${fetchedFinished.length} finished`);
+      const pickingStageCount = activeDeliveries.filter((d) => {
+        const s = (d.status || '').toLowerCase();
+        return s === 'pgi-done' || s === 'pgi_done' || s === 'rescheduled' || s === 'pickup-confirmed' || s === 'pickup_confirmed';
+      }).length;
+      console.log(`✓ Loaded ${activeDeliveries.length} active (${onRoute.length} on-route, ${confirmed.length} confirmed, ${pickingStageCount} picking-stage) + ${fetchedFinished.length} finished`);
     } catch (deliveryErr: unknown) {
       console.error('Failed to load deliveries:', deliveryErr);
       setDeliveries([]);
@@ -1423,7 +1429,10 @@ export default function DriverPortal() {
                 <Icon className="w-5 h-5" />
                 {tab.label}
                 {tab.id === 'orders' && (() => {
-                  const onRouteCount = deliveries.filter(d => isOnRouteDeliveryListStatus((d.status || '').toLowerCase())).length;
+                  // Count from the store (contains every active status) — the local
+                  // `deliveries` state is narrowed to on-route for the map, so it
+                  // would under-count anything already in motion.
+                  const onRouteCount = storeDeliveries.filter(d => isOnRouteDeliveryListStatus((d.status || '').toLowerCase())).length;
                   return onRouteCount > 0 ? (
                     <span className="ml-2 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-semibold px-2 py-0.5 rounded-full">
                       {onRouteCount}
@@ -1431,7 +1440,10 @@ export default function DriverPortal() {
                   ) : null;
                 })()}
                 {tab.id === 'picking' && (() => {
-                  const pickingCount = deliveries.filter(d => isPickingListEligible(d)).length;
+                  // Must read from storeDeliveries: the local `deliveries` state is
+                  // on-route-only, so it will never contain pgi-done / rescheduled
+                  // rows that belong on the picking list.
+                  const pickingCount = storeDeliveries.filter(d => isPickingListEligible(d)).length;
                   return pickingCount > 0 ? (
                     <span className="ml-2 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-xs font-semibold px-2 py-0.5 rounded-full">
                       {pickingCount}
