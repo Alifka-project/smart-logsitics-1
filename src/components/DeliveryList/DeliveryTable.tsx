@@ -170,6 +170,14 @@ export default function DeliveryTable({
     });
   }, [allDeliveries, isDriverPortal]);
 
+  // Driver portal: default to "Today Delivery" filter on mount
+  useEffect(() => {
+    if (isDriverPortal && deliveryListFilter === 'all') {
+      setDeliveryListFilter('today_delivery');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDriverPortal]);
+
   // Portal embed: clear filters that don't apply to the on-route sequence view
   // (isDriverPortal has its own chip set that includes confirmed/out_for_delivery)
   useEffect(() => {
@@ -226,7 +234,9 @@ export default function DeliveryTable({
       }));
     }
     const bypassOnRoute = deliveryListFilter === 'delivered' || deliveryListFilter === 'p1'
-      || deliveryListFilter === 'on_time' || deliveryListFilter === 'delayed';
+      || deliveryListFilter === 'on_time' || deliveryListFilter === 'delayed'
+      || deliveryListFilter === 'completed_24h' || deliveryListFilter === 'today_delivery'
+      || deliveryListFilter === 'not_confirmed';
     const filterSource =
       onRouteSequenceOnly && !isDriverPortal && !bypassOnRoute
         ? getOnRouteDeliveriesForList(deliveries)
@@ -270,17 +280,13 @@ export default function DeliveryTable({
 
   const chips: { id: DeliveryListFilter; label: string; activeClass: string }[] = isDriverPortal
     ? [
-        // Unified driver portal chip set — picking-eligible rows live on the
-        // Picking List tab (no "PGI Done" chip here), and pre-pickup rows
-        // (pending / scheduled / confirmed) are hidden entirely so no
-        // "Confirmed" chip either. All remaining chips are post-pickup.
-        { id: 'all',               label: 'All Orders',        activeClass: 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900' },
-        { id: 'pickup_confirmed',  label: '🚛 Pickup Confirmed', activeClass: 'bg-teal-600 text-white' },
-        { id: 'out_for_delivery',  label: '🚚 On Route',       activeClass: 'bg-orange-500 text-white' },
-        { id: 'p1',                label: '🚨 P1 Urgent',      activeClass: 'bg-red-600 text-white' },
-        { id: 'on_time',           label: '✓ On Time',         activeClass: 'bg-green-600 text-white' },
-        { id: 'delayed',           label: '⚠ Delayed',         activeClass: 'bg-amber-500 text-white' },
-        { id: 'delivered',         label: '✅ Completed',      activeClass: 'bg-green-700 text-white' },
+        { id: 'today_delivery',    label: '📦 Today Delivery',    activeClass: 'bg-blue-600 text-white' },
+        { id: 'pickup_confirmed',  label: '🚛 Pickup Confirmed',  activeClass: 'bg-teal-600 text-white' },
+        { id: 'not_confirmed',     label: '⏳ Not Confirmed',     activeClass: 'bg-gray-600 text-white' },
+        { id: 'p1',                label: '🚨 P1 Urgent',         activeClass: 'bg-red-600 text-white' },
+        { id: 'on_time',           label: '✓ On Time',            activeClass: 'bg-green-600 text-white' },
+        { id: 'delayed',           label: '⚠ Delayed',            activeClass: 'bg-amber-500 text-white' },
+        { id: 'completed_24h',     label: '✅ Completed',         activeClass: 'bg-green-700 text-white' },
       ]
     : onRouteSequenceOnly
       ? [
@@ -301,7 +307,7 @@ export default function DeliveryTable({
           { id: 'delivered',        label: 'Delivered',       activeClass: 'bg-green-600 text-white' },
         ];
 
-  const isDeliveredFilter = deliveryListFilter === 'delivered'; // used for "Completed" empty state
+  const isDeliveredFilter = deliveryListFilter === 'delivered' || deliveryListFilter === 'completed_24h';
   // Driver portal: when My Orders is empty but orders are waiting in the Picking
   // List tab, surface that so the driver knows where to look.
   const pendingPickingCount = isDriverPortal
@@ -311,46 +317,46 @@ export default function DeliveryTable({
   return (
     <div className="pp-dash-card p-4 sm:p-6 transition-colors">
       <div className="mb-4">
-        <div className="flex items-start justify-between gap-3 mb-2">
-          <div>
-            <h2 className="text-lg sm:text-2xl font-bold text-gray-800 dark:text-gray-100">
-              🚚 Delivery Sequence
-            </h2>
-            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-0.5">
-              {isDriverPortal
-                ? (dragEnabled ? 'Drag to reorder · ' : 'Filter by type below · ')
-                : onRouteSequenceOnly
+        {!isDriverPortal && (
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <div>
+              <h2 className="text-lg sm:text-2xl font-bold text-gray-800 dark:text-gray-100">
+                🚚 Delivery Sequence
+              </h2>
+              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-0.5">
+                {onRouteSequenceOnly
                   ? 'On-route orders only · '
                   : dragEnabled
                     ? 'Drag to reorder · '
                     : isDeliveredFilter
                       ? 'Completed orders · '
                       : 'Clear filters to reorder · '}
-              Tap to view
-            </p>
+                Tap to view
+              </p>
+            </div>
+            {/* Export buttons — always visible, export current filtered rows */}
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => exportToExcel(rows.map(r => r.delivery))}
+                disabled={rows.length === 0}
+                title="Export to Excel"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
+              >
+                📊 Excel
+              </button>
+              <button
+                type="button"
+                onClick={() => exportToHTML(rows.map(r => r.delivery))}
+                disabled={rows.length === 0}
+                title="Export to HTML report (includes POD images)"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
+              >
+                📄 Report
+              </button>
+            </div>
           </div>
-          {/* Export buttons — always visible, export current filtered rows */}
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => exportToExcel(rows.map(r => r.delivery))}
-              disabled={rows.length === 0}
-              title="Export to Excel"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
-            >
-              📊 Excel
-            </button>
-            <button
-              type="button"
-              onClick={() => exportToHTML(rows.map(r => r.delivery))}
-              disabled={rows.length === 0}
-              title="Export to HTML report (includes POD images)"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
-            >
-              📄 Report
-            </button>
-          </div>
-        </div>
+        )}
 
         <div className="flex flex-wrap gap-2">
           {chips.map((c) => {
@@ -427,10 +433,16 @@ export default function DeliveryTable({
       {rows.length === 0 && (
         <div className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm">
           {isDeliveredFilter
-            ? 'No completed deliveries in the last 3 days. Delivered and cancelled orders from the past 3 days appear here.'
-            : isDriverPortal && pendingPickingCount > 0
-              ? `No orders ready to dispatch yet. ${pendingPickingCount} order${pendingPickingCount === 1 ? '' : 's'} waiting in the Picking List tab — confirm pickup items there first.`
-              : 'No deliveries match this filter.'}
+            ? (deliveryListFilter === 'completed_24h'
+              ? 'No completed orders in the last 24 hours.'
+              : 'No completed deliveries in the last 3 days. Delivered and cancelled orders from the past 3 days appear here.')
+            : isDriverPortal && deliveryListFilter === 'today_delivery'
+              ? (pendingPickingCount > 0
+                ? `No deliveries scheduled for today. ${pendingPickingCount} order${pendingPickingCount === 1 ? '' : 's'} waiting in the Picking List tab.`
+                : 'No deliveries scheduled for today.')
+              : isDriverPortal && pendingPickingCount > 0
+                ? `No orders ready to dispatch yet. ${pendingPickingCount} order${pendingPickingCount === 1 ? '' : 's'} waiting in the Picking List tab — confirm pickup items there first.`
+                : 'No deliveries match this filter.'}
         </div>
       )}
     </div>

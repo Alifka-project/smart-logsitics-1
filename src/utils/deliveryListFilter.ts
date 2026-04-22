@@ -1,6 +1,6 @@
 import type { Delivery } from '../types';
 
-export type DeliveryListFilter = 'all' | 'pending' | 'confirmed' | 'pgi_done' | 'pickup_confirmed' | 'p1' | 'out_for_delivery' | 'delivered' | 'on_time' | 'delayed';
+export type DeliveryListFilter = 'all' | 'pending' | 'confirmed' | 'pgi_done' | 'pickup_confirmed' | 'p1' | 'out_for_delivery' | 'delivered' | 'on_time' | 'delayed' | 'today_delivery' | 'not_confirmed' | 'completed_24h';
 
 /** Delay threshold: if estimatedEta is more than this many ms after plannedEta → Delayed (D3: 1-hour rule) */
 const DELAY_THRESHOLD_MS = 60 * 60 * 1000; // 60 minutes (1 hour)
@@ -220,6 +220,69 @@ export function applyDeliveryListFilter(
       return active.filter((d) => getEtaStatus(d) === 'on_time');
     case 'delayed':
       return active.filter((d) => getEtaStatus(d) === 'delayed');
+    case 'today_delivery': {
+      // Orders scheduled for today: out-for-delivery, pickup-confirmed with today's date,
+      // or order-delay. Matches Dubai timezone.
+      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Dubai' }));
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      return list.filter((d) => {
+        const s = (d.status || '').toLowerCase();
+        // On-route and delay orders are always "today"
+        if (ON_ROUTE_STATUSES.has(s) || s === 'order-delay' || s === 'order_delay') return true;
+        // Pickup-confirmed with today's delivery date
+        if (s === 'pickup-confirmed' || s === 'pickup_confirmed') {
+          const rec = d as unknown as Record<string, unknown>;
+          const dateRaw = d.confirmedDeliveryDate ?? (rec.goodsMovementDate as string | Date | undefined);
+          if (!dateRaw) return false;
+          const dt = dateRaw instanceof Date ? dateRaw : new Date(String(dateRaw));
+          if (isNaN(dt.getTime())) return false;
+          const dubaiDate = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Dubai' }));
+          const dStr = `${dubaiDate.getFullYear()}-${String(dubaiDate.getMonth() + 1).padStart(2, '0')}-${String(dubaiDate.getDate()).padStart(2, '0')}`;
+          return dStr === todayStr;
+        }
+        return false;
+      });
+    }
+    case 'not_confirmed': {
+      // Pickup-confirmed orders whose delivery date is NOT today (future dates)
+      const now2 = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Dubai' }));
+      const todayStr2 = `${now2.getFullYear()}-${String(now2.getMonth() + 1).padStart(2, '0')}-${String(now2.getDate()).padStart(2, '0')}`;
+      return list.filter((d) => {
+        const s = (d.status || '').toLowerCase();
+        if (s !== 'pickup-confirmed' && s !== 'pickup_confirmed') return false;
+        const rec = d as unknown as Record<string, unknown>;
+        const dateRaw = d.confirmedDeliveryDate ?? (rec.goodsMovementDate as string | Date | undefined);
+        if (!dateRaw) return true; // no date → not confirmed for today
+        const dt = dateRaw instanceof Date ? dateRaw : new Date(String(dateRaw));
+        if (isNaN(dt.getTime())) return true;
+        const dubaiDate = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Dubai' }));
+        const dStr = `${dubaiDate.getFullYear()}-${String(dubaiDate.getMonth() + 1).padStart(2, '0')}-${String(dubaiDate.getDate()).padStart(2, '0')}`;
+        return dStr !== todayStr2;
+      });
+    }
+    case 'completed_24h': {
+      // Completed within last 24 hours: delivered, cancelled/rejected, rescheduled
+      const COMPLETED_24H_STATUSES = new Set([
+        ...COMPLETED_STATUSES,
+        'cancelled', 'rejected', 'canceled',
+        'rescheduled',
+      ]);
+      const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+      const cutoff24 = Date.now() - ONE_DAY_MS;
+      return list.filter((d) => {
+        if (!COMPLETED_24H_STATUSES.has((d.status || '').toLowerCase())) return false;
+        const rec = d as unknown as Record<string, unknown>;
+        const dateStr =
+          (d.deliveredAt as string | null | undefined) ??
+          (d.podCompletedAt as string | null | undefined) ??
+          (d.updatedAt as string | null | undefined) ??
+          (rec.updated_at as string | null | undefined) ??
+          (d.createdAt as string | null | undefined);
+        if (!dateStr) return false;
+        const ts = new Date(String(dateStr)).getTime();
+        return !isNaN(ts) && ts >= cutoff24;
+      });
+    }
     default:
       return active;
   }
