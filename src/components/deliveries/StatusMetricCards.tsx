@@ -13,7 +13,6 @@ interface StatusMetricCardsProps {
 
 const CARD_DEFS = [
   { key: 'uploaded',         sublabel: 'Awaiting action', darkIconBg: 'dark:bg-blue-500/30' },
-  { key: 'unassigned',       sublabel: 'Needs driver',    darkIconBg: 'dark:bg-orange-500/30' },
   { key: 'sms_sent',         sublabel: 'Awaiting + no reply', darkIconBg: 'dark:bg-emerald-500/30' },
   { key: 'unconfirmed',      sublabel: 'No reply',        darkIconBg: 'dark:bg-red-500/35' },
   { key: 'next_shipment',    sublabel: 'Tomorrow',          darkIconBg: 'dark:bg-amber-500/30' },
@@ -25,24 +24,11 @@ const CARD_DEFS = [
 
 // Terminal workflow statuses — excluded from "Pending Orders" total
 const TERMINAL_WF = new Set(['delivered', 'cancelled', 'failed']);
-// Dispatched / terminal — excluded from "Unassigned" count
-const DISPATCH_DONE_WF = new Set(['out_for_delivery', 'order_delay', 'delivered', 'cancelled', 'failed', 'rescheduled']);
-
-// Visual config for the special "Unassigned" card (not a workflow status)
-const UNASSIGNED_CONFIG = {
-  label: 'Unassigned',
-  textColor: 'text-orange-600',
-  iconBg: 'bg-orange-100',
-  icon: '👤',
-  highlight: false as const,
-  highlightRing: '',
-};
 
 export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({ orders, onCardClick, activeKey }) => {
   const statusCounts = {
     // "Pending Orders" = everything not yet delivered/cancelled/failed — same logic as Needs Attention
     uploaded:         orders.filter((o) => !TERMINAL_WF.has(o.status)).length,
-    unassigned:       orders.filter((o) => !DISPATCH_DONE_WF.has(o.status) && !o.driverId).length,
     sms_sent:         orders.filter((o) => o.status === 'sms_sent' || o.status === 'unconfirmed').length,
     unconfirmed:      orders.filter((o) => o.status === 'unconfirmed').length,
     next_shipment:    orders.filter((o) => o.status === 'next_shipment' || o.status === 'ready_to_dispatch').length,
@@ -56,7 +42,7 @@ export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({ orders, on
     <div className="status-cards-mobile overflow-x-auto py-1 px-0.5 -mx-0.5">
       <div className="grid grid-cols-2 min-[480px]:grid-cols-4 md:grid-cols-4 lg:grid-cols-8 gap-3 w-full min-w-0">
         {CARD_DEFS.map(({ key, sublabel, darkIconBg }) => {
-          const config = key === 'unassigned' ? UNASSIGNED_CONFIG : STATUS_CONFIG[key as keyof typeof STATUS_CONFIG];
+          const config = STATUS_CONFIG[key as keyof typeof statusCounts];
           const count = statusCounts[key as keyof typeof statusCounts];
           const isHighlight = Boolean(config.highlight);
           // A card is "active" when the parent's active filter matches this card's key
