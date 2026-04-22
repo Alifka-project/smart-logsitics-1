@@ -182,6 +182,7 @@ export default function DriverPortal() {
   const [onRouteDeliveries, setOnRouteDeliveries] = useState<Delivery[]>([]);
   const [confirmedDeliveries, setConfirmedDeliveries] = useState<Delivery[]>([]);
   const [finishedDeliveries, setFinishedDeliveries] = useState<Delivery[]>([]);
+  const [pickingStageDeliveries, setPickingStageDeliveries] = useState<Delivery[]>([]);
 
   // D4: "Start Delivery" — wall-clock time driver departed the warehouse
   // Once set, staticEta for each stop is locked and used for 1-hr delay detection (D3)
@@ -254,6 +255,7 @@ export default function DriverPortal() {
 
   const confirmedDeliveriesRef = useRef<Delivery[]>([]);
   const finishedDeliveriesRef = useRef<Delivery[]>([]);
+  const pickingStageDeliveriesRef = useRef<Delivery[]>([]);
 
   // Callback passed to <DeliveryTable onReorder> so drag-reorder triggers map update
   const handleManualReorder = useCallback((newOrder: Delivery[]) => {
@@ -445,6 +447,7 @@ export default function DriverPortal() {
   // Keep refs in sync for use inside routing effect closure without adding to deps
   useEffect(() => { confirmedDeliveriesRef.current = confirmedDeliveries; }, [confirmedDeliveries]);
   useEffect(() => { finishedDeliveriesRef.current = finishedDeliveries; }, [finishedDeliveries]);
+  useEffect(() => { pickingStageDeliveriesRef.current = pickingStageDeliveries; }, [pickingStageDeliveries]);
 
   // Initialize map once
   useEffect(() => {
@@ -759,7 +762,7 @@ export default function DriverPortal() {
       setRoute(null);
       const fallback = [...orderedWithCoords, ...withoutCoords] as EnrichedDelivery[];
       setOrderedDeliveries(fallback);
-      updateDeliveryOrder(fallback);
+      updateDeliveryOrder([...fallback, ...pickingStageDeliveriesRef.current, ...confirmedDeliveriesRef.current, ...finishedDeliveriesRef.current]);
       return;
     }
 
@@ -839,8 +842,8 @@ export default function DriverPortal() {
 
         const final = [...enriched, ...trailing];
         setOrderedDeliveries(final);
-        // Merge enriched on-route items with confirmed+finished so the store has all delivery types
-        updateDeliveryOrder([...final, ...confirmedDeliveriesRef.current, ...finishedDeliveriesRef.current]);
+        // Merge enriched on-route items with picking-stage+confirmed+finished so the store has all delivery types
+        updateDeliveryOrder([...final, ...pickingStageDeliveriesRef.current, ...confirmedDeliveriesRef.current, ...finishedDeliveriesRef.current]);
         // Commit the order if this was a fresh optimisation (not just a GPS position update reusing existing order)
         if (committedOrderRef.current.length === 0 || deliveriesChanged) {
           committedOrderRef.current = orderedWithCoords;
@@ -898,7 +901,7 @@ export default function DriverPortal() {
         setRouteError('Routing unavailable');
         const fallback = [...orderedWithCoords, ...withoutCoords] as EnrichedDelivery[];
         setOrderedDeliveries(fallback);
-        updateDeliveryOrder(fallback);
+        updateDeliveryOrder([...fallback, ...pickingStageDeliveriesRef.current, ...confirmedDeliveriesRef.current, ...finishedDeliveriesRef.current]);
       })
       .finally(() => {
         setIsRouteLoading(false);
@@ -941,17 +944,23 @@ export default function DriverPortal() {
       const activeDeliveries = (activeRes.data?.deliveries as Delivery[]) || [];
       const fetchedFinished = (finishedRes.data?.deliveries as Delivery[]) || [];
 
-      // Categorise active deliveries into on-route vs confirmed-pending
+      // Categorise active deliveries into on-route vs confirmed-pending vs picking-stage
       const onRoute = getOnRouteDeliveriesForList(activeDeliveries);
       const confirmed = activeDeliveries.filter((d) => {
         const s = (d.status || '').toLowerCase();
         return s === 'confirmed' || s === 'scheduled-confirmed';
+      });
+      const pickingStage = activeDeliveries.filter((d) => {
+        const s = (d.status || '').toLowerCase();
+        return s === 'pgi-done' || s === 'pgi_done' || s === 'rescheduled'
+          || s === 'pickup-confirmed' || s === 'pickup_confirmed';
       });
 
       // Persist lists so tab-switching can reload store without an extra API call
       setOnRouteDeliveries(onRoute);
       setConfirmedDeliveries(confirmed);
       setFinishedDeliveries(fetchedFinished);
+      setPickingStageDeliveries(pickingStage);
 
       // Map / routing always use on-route deliveries
       manuallyOrderedRef.current = false;
