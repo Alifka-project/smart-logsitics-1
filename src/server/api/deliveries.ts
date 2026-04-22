@@ -271,10 +271,31 @@ async function updateDeliveryStatusHandler(
   cache.invalidatePrefix('tracking:');
   cache.invalidatePrefix('deliveries:list:');
 
+  // When an order moves to pgi-done or pickup-confirmed (e.g. after reschedule):
+  // Auto-assign a driver if none exists, so the order appears in the driver's
+  // picking list. This is critical for the rescheduled → pgi-done flow where
+  // the old assignment was deleted during reschedule.
+  const statusLc = status.toLowerCase();
+  if (statusLc === 'pgi-done' || statusLc === 'pgi_done' || statusLc === 'pickup-confirmed' || statusLc === 'pickup_confirmed') {
+    try {
+      const existingAssignment = await prisma.deliveryAssignment.findFirst({
+        where: {
+          deliveryId: existingDelivery.id as string,
+          status: { in: ['assigned', 'in_progress'] }
+        }
+      });
+      if (!existingAssignment) {
+        await autoAssignDelivery(existingDelivery.id as string);
+      }
+    } catch (assignErr: unknown) {
+      console.warn(`[Deliveries] ${statusLc} auto-assign failed:`, (assignErr as Error).message);
+    }
+  }
+
   // When an order is confirmed for delivery (scheduled-confirmed):
   // Auto-assign a driver if none yet, so the driver can see upcoming work
   // before the admin formally dispatches.
-  if (status.toLowerCase() === 'scheduled-confirmed') {
+  if (statusLc === 'scheduled-confirmed') {
     try {
       const existingAssignment = await prisma.deliveryAssignment.findFirst({
         where: {
@@ -295,7 +316,7 @@ async function updateDeliveryStatusHandler(
   // 1. Auto-assign a driver if none is assigned yet (so the driver sees the order).
   // 2. Promote any existing assignment to in_progress so the driver's portal shows
   //    the delivery as actively in transit.
-  if (status.toLowerCase() === 'out-for-delivery') {
+  if (statusLc === 'out-for-delivery') {
     try {
       const activeAssignment = await prisma.deliveryAssignment.findFirst({
         where: {
