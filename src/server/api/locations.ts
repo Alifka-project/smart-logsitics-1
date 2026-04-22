@@ -335,6 +335,8 @@ router.get('/deliveries', authenticate, async (req: Request, res: Response): Pro
       items: d.items,
       metadata: d.metadata,
       goodsMovementDate: d.goodsMovementDate,
+      deliveryNumber: d.deliveryNumber,
+      confirmedDeliveryDate: d.confirmedDeliveryDate,
       createdAt: d.createdAt,
       updatedAt: d.updatedAt,
       assignedDriverId: driverId,

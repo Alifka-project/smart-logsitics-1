@@ -1,67 +1,60 @@
 import { useMemo, useState } from 'react';
-import { PackageCheck, CheckCircle2, Zap, X } from 'lucide-react';
+import { PackageCheck, Zap, X } from 'lucide-react';
 import type { Delivery } from '../../types';
 import api from '../../frontend/apiClient';
 import useDeliveryStore from '../../store/useDeliveryStore';
 import { useToast } from '../../hooks/useToast';
 import { isPickingListEligible } from '../../utils/pickingListFilter';
+import {
+  displayModelForOps,
+  displayMaterialForOps,
+  displayPoNumber,
+  displayDeliveryNumber,
+  getDeliveryOriginalRow,
+} from '../../utils/deliveryDisplayFields';
 
 /**
  * Driver-side Picking List tab.
  *
  * Renders deliveries that are awaiting picking for the current driver.
- * Each card shows the order info and items list. The driver taps
- * "Confirm Pickup" → a confirmation dialog appears → on confirm the
- * order transitions to `pickup-confirmed` and moves to the My Orders tab.
+ * Each card shows Model, Quantity, Material, PO, Delivery Number,
+ * Delivery Date, and Delivery Address. The driver taps "Confirm Pickup"
+ * → a confirmation dialog appears → on confirm the order transitions
+ * to `pickup-confirmed` and moves to the My Orders tab.
  */
-
-interface ParsedItem {
-  index: number;
-  label: string;
-}
-
-function parseItems(raw: string | null | undefined): ParsedItem[] {
-  if (!raw) return [];
-  const trimmed = String(raw).trim();
-  if (!trimmed) return [];
-  if (trimmed.startsWith('[')) {
-    try {
-      const arr = JSON.parse(trimmed) as unknown[];
-      if (Array.isArray(arr) && arr.length > 0) {
-        return arr.map((entry, i) => {
-          if (typeof entry === 'string') return { index: i, label: entry };
-          if (entry && typeof entry === 'object') {
-            const obj = entry as Record<string, unknown>;
-            const label =
-              (obj.description as string) ||
-              (obj.name as string) ||
-              (obj.item as string) ||
-              (obj.label as string) ||
-              JSON.stringify(obj);
-            return { index: i, label };
-          }
-          return { index: i, label: String(entry) };
-        });
-      }
-    } catch {
-      // fall through to line-based parsing
-    }
-  }
-  const lines = trimmed
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean);
-  const parts = lines.length > 1
-    ? lines
-    : trimmed.split(/\s*[;,]\s*/).map((l) => l.trim()).filter(Boolean);
-  return parts.map((label, i) => ({ index: i, label }));
-}
 
 function isPriority(d: Delivery): boolean {
   const meta = (d.metadata && typeof d.metadata === 'object')
     ? (d.metadata as unknown as Record<string, unknown>)
     : {};
   return meta.isPriority === true;
+}
+
+function displayQty(delivery: Delivery): string {
+  const orig = getDeliveryOriginalRow(delivery);
+  const v =
+    orig['Order Quantity'] ??
+    orig['Confirmed quantity'] ??
+    orig['Total Line Deliv. Qt'] ??
+    orig['Order Qty'] ??
+    orig['Quantity'] ??
+    orig['qty'] ??
+    null;
+  if (v == null) return '—';
+  const s = String(v).trim();
+  return s || '—';
+}
+
+function formatDate(value: unknown): string {
+  if (!value) return '—';
+  const d = new Date(String(value));
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'Asia/Dubai',
+  });
 }
 
 interface Props {
@@ -131,9 +124,17 @@ function PickingCard({
   onToastSuccess,
   onToastError,
 }: PickingCardProps) {
-  const items = useMemo(() => parseItems(delivery.items), [delivery.items]);
   const [submitting, setSubmitting] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+
+  const model = displayModelForOps(delivery);
+  const material = displayMaterialForOps(delivery);
+  const po = displayPoNumber(delivery);
+  const deliveryNum = displayDeliveryNumber(delivery);
+  const qty = displayQty(delivery);
+  const deliveryDate = formatDate(
+    delivery.confirmedDeliveryDate ?? delivery.goodsMovementDate,
+  );
 
   async function handleConfirm(): Promise<void> {
     setShowConfirmDialog(false);
@@ -141,7 +142,7 @@ function PickingCard({
     try {
       await api.post(`/deliveries/driver/${delivery.id}/picking/confirm`, {
         mispickReported: [],
-        totalItems: items.length,
+        totalItems: 0,
       });
       onConfirm(delivery.id);
       onToastSuccess(`Pickup confirmed — ${delivery.customer || 'order'}`);
@@ -162,6 +163,7 @@ function PickingCard({
           priority ? 'ring-2 ring-red-400 dark:ring-red-500/70' : ''
         }`}
       >
+        {/* Header */}
         <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-amber-50 to-white dark:from-amber-900/20 dark:to-gray-900">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
@@ -174,7 +176,7 @@ function PickingCard({
                 )}
                 {String(delivery.status || '').toLowerCase() === 'rescheduled' ? (
                   <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200">
-                    Rescheduled · PGI Done
+                    Rescheduled
                   </span>
                 ) : (
                   <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
@@ -185,35 +187,26 @@ function PickingCard({
               <div className="font-semibold text-gray-900 dark:text-gray-100 truncate">
                 {delivery.customer || 'Unnamed customer'}
               </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                {delivery.poNumber ? `PO ${delivery.poNumber}` : delivery.deliveryNumber || delivery.id}
-                {delivery.address ? ` — ${delivery.address}` : ''}
-              </div>
             </div>
-            {items.length > 0 && (
-              <div className="text-right text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                {items.length} item{items.length !== 1 ? 's' : ''}
-              </div>
-            )}
           </div>
         </div>
 
-        {items.length > 0 && (
-          <div className="p-4 space-y-1.5">
-            {items.map((item) => (
-              <div
-                key={item.index}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800/40 text-sm text-gray-800 dark:text-gray-100"
-              >
-                <span className="text-gray-400 dark:text-gray-500 text-xs font-mono w-5 text-right flex-shrink-0">
-                  {item.index + 1}.
-                </span>
-                <span className="min-w-0 truncate">{item.label}</span>
-              </div>
-            ))}
+        {/* Order details grid */}
+        <div className="p-4">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
+            <DetailRow label="Model" value={model} />
+            <DetailRow label="Qty" value={qty} />
+            <DetailRow label="Material" value={material} />
+            <DetailRow label="PO" value={po} />
+            <DetailRow label="Delivery No." value={deliveryNum} />
+            <DetailRow label="Delivery Date" value={deliveryDate} />
           </div>
-        )}
+          <div className="mt-3 pt-2.5 border-t border-gray-100 dark:border-gray-700">
+            <DetailRow label="Delivery Address" value={delivery.address || '—'} full />
+          </div>
+        </div>
 
+        {/* Confirm button */}
         <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex items-center justify-end">
           <button
             type="button"
@@ -250,13 +243,13 @@ function PickingCard({
                 <span className="font-semibold text-gray-900 dark:text-gray-100">
                   {delivery.customer || 'this customer'}
                 </span>
-                {delivery.poNumber ? ` (PO ${delivery.poNumber})` : ''}?
+                ?
               </p>
-              {items.length > 0 && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                  {items.length} item{items.length !== 1 ? 's' : ''} will be marked as picked up.
-                </p>
-              )}
+              <div className="mt-3 text-xs text-gray-500 dark:text-gray-400 space-y-1">
+                {po !== '—' && <div>PO: {po}</div>}
+                {deliveryNum !== '—' && <div>Delivery No: {deliveryNum}</div>}
+                {model !== '—' && <div>Model: {model}</div>}
+              </div>
             </div>
             <div className="flex gap-3 px-5 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
               <button
@@ -278,5 +271,18 @@ function PickingCard({
         </div>
       )}
     </>
+  );
+}
+
+function DetailRow({ label, value, full }: { label: string; value: string; full?: boolean }) {
+  return (
+    <div className={full ? 'col-span-2' : ''}>
+      <div className="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-0.5">
+        {label}
+      </div>
+      <div className="text-gray-900 dark:text-gray-100 font-medium truncate" title={value}>
+        {value}
+      </div>
+    </div>
   );
 }
