@@ -432,6 +432,24 @@ export default function CustomerTrackingPage() {
   const hero = STATUS_HERO[currentStep] || STATUS_HERO[0];
   const customerDeliveryNo = displayDeliveryNumberForCustomer(delivery);
 
+  // ── Compute ETA range text once — used in both timeline step and ETA card ──
+  const fmtEtaTime = (d: Date): string => d.toLocaleTimeString('en-AE', { timeZone: 'Asia/Dubai', hour: '2-digit', minute: '2-digit' });
+  const etaRangeText: string | null = (() => {
+    const payload = trackingInfo.etaPayload;
+    if (!payload || payload.mode === 'pending') return null;
+    if (payload.mode === 'planned') {
+      const base = new Date(payload.center);
+      const end = new Date(base.getTime() + 4 * 60 * 60 * 1000);
+      return `${fmtEtaTime(base)} – ${fmtEtaTime(end)}`;
+    }
+    if (payload.mode === 'static') {
+      const base = new Date(payload.eta);
+      const end = new Date(base.getTime() + 4 * 60 * 60 * 1000);
+      return `${fmtEtaTime(base)} – ${fmtEtaTime(end)}`;
+    }
+    return null;
+  })();
+
   const mapCenter: [number, number] = delivery.lat && delivery.lng
     ? [delivery.lat, delivery.lng]
     : (trackingInfo.driverLocation
@@ -620,6 +638,11 @@ export default function CustomerTrackingPage() {
                         {new Date(ts as string).toLocaleString('en-AE', { timeZone: 'Asia/Dubai', dateStyle: 'medium', timeStyle: 'short' })}
                       </p>
                     )}
+                    {isActive && etaRangeText && (step.id === 'order_scheduled' || step.id === 'out_for_delivery') && (
+                      <p style={{ fontSize: 12, fontWeight: 700, color: '#16A34A', marginTop: 4 }}>
+                        ETA: {etaRangeText}
+                      </p>
+                    )}
                   </div>
                 </div>
               );
@@ -630,37 +653,30 @@ export default function CustomerTrackingPage() {
         {/* ── Delivery Date + Driver (compact) ─────────────────────── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 12 }}>
           {(() => {
-            // Status-driven ETA card (planned window, locked static, or delivered).
-            // Live GPS ETA is no longer shown to customers — the card renders once
-            // from `etaPayload` and does NOT jitter on the 30s refresh.
             const payload = trackingInfo.etaPayload;
             if (!payload || payload.mode === 'pending') return null;
-            const fmtTime = (d: Date): string => d.toLocaleTimeString('en-AE', { timeZone: 'Asia/Dubai', hour: '2-digit', minute: '2-digit' });
-            const fmtDT = (d: Date): string => d.toLocaleString('en-AE', { timeZone: 'Asia/Dubai', weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-            let heading = 'Estimated Arrival';
-            let body = '';
-            let sub = '';
-            if (payload.mode === 'planned') {
-              const e = new Date(payload.earliest);
-              const l = new Date(payload.latest);
-              heading = 'Estimated Arrival Slot';
-              body = `${fmtTime(e)} – ${fmtTime(l)}`;
-              sub = payload.degraded
-                ? 'Full-day window — will narrow once your driver is assigned'
-                : '';
-            } else if (payload.mode === 'static') {
-              const d = new Date(payload.eta);
-              const dEnd = new Date(d.getTime() + 4 * 60 * 60 * 1000); // +4 hours
-              heading = 'Estimated Arrival';
-              body = `${fmtTime(d)} – ${fmtTime(dEnd)}`;
-              sub = 'Real-time estimate based on driver route';
-            } else if (payload.mode === 'delivered') {
+            // Delivered state — show actual delivery time
+            if (payload.mode === 'delivered') {
               const d = new Date(payload.at);
-              heading = 'Delivered';
-              body = fmtDT(d);
-              sub = 'Thank you for choosing Electrolux';
+              const fmtDT = (dt: Date): string => dt.toLocaleString('en-AE', { timeZone: 'Asia/Dubai', weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+              return (
+                <div className="card anim-card anim-card-3" style={{ padding: '10px 12px', border: '1.5px solid #BBF7D0', background: 'linear-gradient(135deg,#F0FDF4,#DCFCE7)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 8, background: '#DCFCE7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Navigation style={{ width: 14, height: 14, color: '#16A34A' }} />
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ fontSize: 9, fontWeight: 700, color: '#15803D', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Delivered</p>
+                      <p style={{ fontWeight: 700, fontSize: 12, color: '#14532D', lineHeight: 1.25 }}>{fmtDT(d)}</p>
+                      <p style={{ fontSize: 10, color: '#15803D', marginTop: 1 }}>Thank you for choosing Electrolux</p>
+                    </div>
+                  </div>
+                </div>
+              );
             }
-            if (!body) return null;
+            // Planned / static — reuse the same 4-hour range text as timeline
+            if (!etaRangeText) return null;
+            const isDegraded = payload.mode === 'planned' && payload.degraded;
             return (
               <div className="card anim-card anim-card-3" style={{ padding: '10px 12px', border: '1.5px solid #BBF7D0', background: 'linear-gradient(135deg,#F0FDF4,#DCFCE7)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -668,9 +684,9 @@ export default function CustomerTrackingPage() {
                     <Navigation style={{ width: 14, height: 14, color: '#16A34A' }} />
                   </div>
                   <div style={{ minWidth: 0 }}>
-                    <p style={{ fontSize: 9, fontWeight: 700, color: '#15803D', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>{heading}</p>
-                    <p style={{ fontWeight: 700, fontSize: 12, color: '#14532D', lineHeight: 1.25 }}>{body}</p>
-                    {sub && <p style={{ fontSize: 10, color: '#15803D', marginTop: 1 }}>{sub}</p>}
+                    <p style={{ fontSize: 9, fontWeight: 700, color: '#15803D', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Estimated Arrival</p>
+                    <p style={{ fontWeight: 700, fontSize: 12, color: '#14532D', lineHeight: 1.25 }}>{etaRangeText}</p>
+                    {isDegraded && <p style={{ fontSize: 10, color: '#15803D', marginTop: 1 }}>Will narrow once your driver is assigned</p>}
                   </div>
                 </div>
               </div>
