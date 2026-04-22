@@ -328,6 +328,7 @@ export default function ManageTab({
   const handleCardClick = useCallback((statusKey: string) => {
     const tabMap: Record<string, OrdersTableTab> = {
       uploaded:         'pending',
+      unassigned:       'unassigned',
       sms_sent:         'awaiting_customer',
       unconfirmed:      'awaiting_customer',
       next_shipment:    'next_shipment',
