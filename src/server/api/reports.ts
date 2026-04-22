@@ -237,7 +237,7 @@ router.get('/', authenticate, requireRole('admin'), async (req: Request, res: Re
       { status: 'Delivered', count: stats.delivered as number, percentage: total > 0 ? (((stats.delivered as number) / total) * 100).toFixed(1) : 0 },
       { status: 'Out for Delivery', count: stats['out-for-delivery'] as number, percentage: total > 0 ? (((stats['out-for-delivery'] as number) / total) * 100).toFixed(1) : 0 },
       { status: 'PGI Done', count: stats['pgi-done'] as number, percentage: total > 0 ? (((stats['pgi-done'] as number) / total) * 100).toFixed(1) : 0 },
-      { status: 'Ready to Depart', count: stats['pickup-confirmed'] as number, percentage: total > 0 ? (((stats['pickup-confirmed'] as number) / total) * 100).toFixed(1) : 0 },
+      { status: 'Pickup Confirmed', count: stats['pickup-confirmed'] as number, percentage: total > 0 ? (((stats['pickup-confirmed'] as number) / total) * 100).toFixed(1) : 0 },
       { status: 'Scheduled', count: stats.scheduled as number, percentage: total > 0 ? (((stats.scheduled as number) / total) * 100).toFixed(1) : 0 },
       { status: 'Scheduled Confirmed', count: stats['scheduled-confirmed'] as number, percentage: total > 0 ? (((stats['scheduled-confirmed'] as number) / total) * 100).toFixed(1) : 0 },
       { status: 'Cancelled/Rejected', count: (stats.cancelled as number) + (stats.rejected as number), percentage: total > 0 ? ((((stats.cancelled as number) + (stats.rejected as number)) / total) * 100).toFixed(1) : 0 },

@@ -710,7 +710,7 @@ export default function DeliveryTeamPortal() {
     switch (order.status) {
       case 'order_delay':       return { label: 'Order Delay',                                                              color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' };
       case 'pgi_done':          return { label: 'PGI Done',                                                                  color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300' };
-      case 'pickup_confirmed':  return { label: 'Ready to Depart',                                                           color: 'bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300' };
+      case 'pickup_confirmed':  return { label: 'Pickup Confirmed',                                                          color: 'bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300' };
       case 'out_for_delivery':  return { label: 'On Route',                                                                  color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' };
       case 'next_shipment': {
         if (order.isRescheduled) {
@@ -1102,9 +1102,9 @@ export default function DeliveryTeamPortal() {
                   <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">awaiting driver pick</div>
                 </div>
                 <div className="pp-card p-4 text-center bg-teal-50 dark:bg-teal-900/20">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Ready to Depart</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Pickup Confirmed</div>
                   <div className="text-2xl font-bold text-teal-600 dark:text-teal-400">{readyToDepartTeamCount}</div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">picking confirmed</div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">item collected</div>
                 </div>
                 <div className="pp-card p-4 text-center bg-blue-50 dark:bg-blue-900/20">
                   <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">On Route</div>

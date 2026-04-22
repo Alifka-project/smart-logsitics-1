@@ -115,8 +115,8 @@ export const STATUS_CONFIG: Record<DeliveryStatus, StatusVisualConfig> = {
     highlightRing: 'outline outline-1 outline-amber-400 bg-amber-50 dark:bg-amber-900/20',
   },
   pickup_confirmed: {
-    label: 'Ready to Depart',
-    pillLabel: 'Ready to Depart',
+    label: 'Pickup Confirmed',
+    pillLabel: 'Pickup Confirmed',
     bgColor: 'bg-teal-50',
     textColor: 'text-teal-700',
     borderColor: 'border-teal-400',

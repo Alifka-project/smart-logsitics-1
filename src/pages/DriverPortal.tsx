@@ -1627,7 +1627,7 @@ export default function DriverPortal() {
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400">
             Check every line item against what's on the pallet. Report any mispick before confirming.
-            Once confirmed, the order moves to "Ready to Depart" and can be dispatched.
+            Once confirmed, the order moves to your delivery list and will be dispatched automatically on the delivery date.
           </p>
         </div>
         <PickingListPanel

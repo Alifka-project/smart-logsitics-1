@@ -414,7 +414,7 @@ export default function AdminReportsPage(): React.ReactElement {
     'scheduled':                      'Awaiting Customer',
     'scheduled-confirmed':            'Confirmed',
     'pgi-done':                       'PGI Done',
-    'pickup-confirmed':               'Ready to Depart',
+    'pickup-confirmed':               'Pickup Confirmed',
     'out-for-delivery':               'On Route',
     'in-transit':                     'In Transit',
     'in-progress':                    'In Progress',

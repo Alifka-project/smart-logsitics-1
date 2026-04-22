@@ -1712,7 +1712,7 @@ export default function AdminDashboardPage(): React.ReactElement {
     'pending': 'Pending Order', 'uploaded': 'Pending Order',
     'scheduled': 'Awaiting Customer', 'confirmed': 'Confirmed',
     'scheduled-confirmed': 'Confirmed',
-    'pgi-done': 'PGI Done', 'pickup-confirmed': 'Ready to Depart',
+    'pgi-done': 'PGI Done', 'pickup-confirmed': 'Pickup Confirmed',
     'out-for-delivery': 'Out for Delivery',
     'in-transit': 'In Transit', 'in-progress': 'In Progress', 'assigned': 'Assigned',
     'delivered': 'Delivered', 'delivered-with-installation': 'Delivered + Install',

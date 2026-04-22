@@ -275,7 +275,7 @@ export default function DeliveryTable({
         // (pending / scheduled / confirmed) are hidden entirely so no
         // "Confirmed" chip either. All remaining chips are post-pickup.
         { id: 'all',               label: 'All Orders',        activeClass: 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900' },
-        { id: 'pickup_confirmed',  label: '🚛 Ready to Depart', activeClass: 'bg-teal-600 text-white' },
+        { id: 'pickup_confirmed',  label: '🚛 Pickup Confirmed', activeClass: 'bg-teal-600 text-white' },
         { id: 'out_for_delivery',  label: '🚚 On Route',       activeClass: 'bg-orange-500 text-white' },
         { id: 'p1',                label: '🚨 P1 Urgent',      activeClass: 'bg-red-600 text-white' },
         { id: 'on_time',           label: '✓ On Time',         activeClass: 'bg-green-600 text-white' },
@@ -295,7 +295,7 @@ export default function DeliveryTable({
           { id: 'pending',          label: 'Pending',         activeClass: 'bg-yellow-500 text-white' },
           { id: 'confirmed',        label: 'Confirmed',       activeClass: 'bg-blue-600 text-white' },
           { id: 'pgi_done',         label: 'PGI Done',        activeClass: 'bg-amber-500 text-white' },
-          { id: 'pickup_confirmed', label: 'Ready to Depart', activeClass: 'bg-teal-600 text-white' },
+          { id: 'pickup_confirmed', label: 'Pickup Confirmed', activeClass: 'bg-teal-600 text-white' },
           { id: 'out_for_delivery', label: 'On Route',        activeClass: 'bg-orange-500 text-white' },
           { id: 'p1',               label: 'P1 Urgent',       activeClass: 'bg-red-600 text-white' },
           { id: 'delivered',        label: 'Delivered',       activeClass: 'bg-green-600 text-white' },

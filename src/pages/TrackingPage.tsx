@@ -14,7 +14,7 @@ const STATUS_MAP: Record<string, StatusInfo> = {
   scheduled: { icon: Clock, text: 'Scheduled', color: 'text-purple-600' },
   'scheduled-confirmed': { icon: CheckCircle, text: 'Confirmed', color: 'text-blue-600' },
   'pgi-done': { icon: Package, text: 'Preparing at Warehouse', color: 'text-amber-600' },
-  'pickup-confirmed': { icon: Package, text: 'Ready to Depart', color: 'text-teal-600' },
+  'pickup-confirmed': { icon: Package, text: 'Pickup Confirmed', color: 'text-teal-600' },
   'out-for-delivery': { icon: Package, text: 'Out for Delivery', color: 'text-indigo-600' },
   'delivered-with-installation': {
     icon: CheckCircle,

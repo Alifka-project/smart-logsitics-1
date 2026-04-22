@@ -168,9 +168,9 @@ const NEXT_STEP_CONFIG: Partial<Record<DeliveryStatus | 'terminal_delivered' | '
     gmd: { label: 'Awaiting Picking', cls: 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800/40 dark:text-slate-400 dark:border-slate-700' },
   },
   pickup_confirmed: {
-    label: 'Ready to Depart', icon: '🚛',
+    label: 'Item Collected', icon: '🚛',
     cls: 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-900/20 dark:text-teal-300 dark:border-teal-800/40',
-    gmd: { label: 'Awaiting Start', cls: 'bg-teal-100 text-teal-800 border-teal-300 dark:bg-teal-900/30 dark:text-teal-200 dark:border-teal-700' },
+    gmd: { label: 'Ready to Dispatch', cls: 'bg-teal-100 text-teal-800 border-teal-300 dark:bg-teal-900/30 dark:text-teal-200 dark:border-teal-700' },
   },
   out_for_delivery: {
     label: 'Out for Delivery',icon: '🚚',

@@ -653,7 +653,7 @@ export default function LogisticsTeamPortal() {
     switch (order.status) {
       case 'order_delay':       return { label: 'Order Delay',                                                              color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' };
       case 'pgi_done':          return { label: 'PGI Done',                                                                  color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300' };
-      case 'pickup_confirmed':  return { label: 'Ready to Depart',                                                           color: 'bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300' };
+      case 'pickup_confirmed':  return { label: 'Pickup Confirmed',                                                          color: 'bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300' };
       case 'out_for_delivery':  return { label: 'On Route',                                                                  color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' };
       case 'next_shipment': {
         // Dual-badge when this is a rescheduled order whose new date falls tomorrow
@@ -959,11 +959,11 @@ export default function LogisticsTeamPortal() {
                       setDeliveriesSubTab('manage');
                     }}
                     className="pp-card p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:ring-2 hover:ring-teal-400 transition-all"
-                    title="Picking list confirmed — driver can Start Delivery"
+                    title="Driver confirmed pickup — item collected"
                   >
-                    <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Ready to Depart</div>
+                    <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Pickup Confirmed</div>
                     <div className={`text-3xl font-bold ${readyToDepartCount > 0 ? 'text-teal-600 dark:text-teal-400' : 'text-gray-400 dark:text-gray-500'}`}>{readyToDepartCount}</div>
-                    <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">picking confirmed</div>
+                    <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">item collected</div>
                   </div>
 
                   {/* ── Row 3: Action buttons ── */}
