@@ -98,9 +98,16 @@ function deriveWorkflowStatus(d: Delivery, smsSentAt: Date | undefined): Deliver
   // "preparing at warehouse" state until the driver confirms picking.
   if (s === 'pgi-done' || s === 'pgi_done') return 'pgi_done';
 
-  // Driver verified the picking list; truck is loaded and awaiting the
-  // Start Delivery click. Still NOT on-route.
-  if (s === 'pickup-confirmed' || s === 'pickup_confirmed') return 'pickup_confirmed';
+  // Driver verified the picking list; truck is loaded.
+  // If the delivery date is today or past → auto on-route (driver already picked up).
+  // If the delivery date is future → stay pickup_confirmed (awaiting delivery day).
+  if (s === 'pickup-confirmed' || s === 'pickup_confirmed') {
+    const delivDate =
+      parseOptDate(d.confirmedDeliveryDate) ??
+      parseOptDate((d as Record<string, unknown>).goodsMovementDate);
+    if (delivDate && calDiffFromTodayDubai(delivDate) <= 0) return 'out_for_delivery';
+    return 'pickup_confirmed';
+  }
 
   // Rescheduled: classify by the new confirmed delivery date.
   //   - Future date → tier classification (next_shipment / future_schedule),
