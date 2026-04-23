@@ -837,7 +837,7 @@ export default function LogisticsTeamPortal() {
             }).length;
 
             return (
-              <div className="grid grid-cols-1 lg:grid-cols-[1fr_30%_30%] gap-4 items-start">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
 
                 {/* ── LEFT COLUMN: Today's Summary + KPI stat cards ── */}
                 <div className="flex flex-col gap-3">
@@ -996,90 +996,93 @@ export default function LogisticsTeamPortal() {
                   </div>)}
                 </div>
 
-                {/* ── RIGHT COLUMN 1: Status Breakdown (donut chart) ── */}
-                {(() => {
-                  const statusGroups = [
-                    { name: 'Delivered',  value: deliveries.filter(d => TERMINAL_STATUSES.has((d.status||'').toLowerCase())).length,                                                            color: '#22c55e' },
-                    { name: 'On Route',   value: deliveries.filter(d => (d.status||'').toLowerCase() === 'out-for-delivery').length,                                                            color: '#3b82f6' },
-                    { name: 'Awaiting',   value: deliveries.filter(d => ['sms_sent','sms-sent','unconfirmed','awaiting_customer'].includes((d.status||'').toLowerCase())).length,               color: '#a855f7' },
-                    { name: 'Pending',    value: deliveries.filter(d => ['pending','uploaded','scheduled','confirmed','scheduled-confirmed'].includes((d.status||'').toLowerCase())).length,    color: '#f59e0b' },
-                    { name: 'Delayed',    value: deliveries.filter(d => ['order-delay','order_delay'].includes((d.status||'').toLowerCase())).length,                                           color: '#ef4444' },
-                  ].filter(g => g.value > 0);
-                  const total = statusGroups.reduce((s, g) => s + g.value, 0);
-                  return (
-                    <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5">
-                      <div className="mb-2 flex flex-shrink-0 items-center gap-2">
-                        <Activity className="h-5 w-5 flex-shrink-0 text-blue-500" />
-                        <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Status Breakdown</h2>
-                        <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500">{total} total</span>
-                      </div>
-                      {total === 0 ? (
-                        <div className="flex-1 flex items-center justify-center text-sm text-gray-400 dark:text-gray-500">No data</div>
-                      ) : (
-                        <div className="flex-1 flex flex-col items-center justify-center min-h-0">
-                          <ResponsiveContainer width="100%" height={180}>
-                            <PieChart>
-                              <Pie data={statusGroups} cx="50%" cy="50%" innerRadius={52} outerRadius={78} paddingAngle={2} dataKey="value">
-                                {statusGroups.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                              </Pie>
-                              <Tooltip formatter={(v: number, name: string) => [`${v} (${Math.round(v/total*100)}%)`, name]} contentStyle={{ fontSize: 11 }} />
-                            </PieChart>
-                          </ResponsiveContainer>
-                          <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 mt-1">
-                            {statusGroups.map(g => (
-                              <div key={g.name} className="flex items-center gap-1 text-[10px] text-gray-600 dark:text-gray-400">
-                                <span className="w-2 h-2 rounded-full inline-block" style={{ background: g.color }} />
-                                {g.name} <span className="font-semibold text-gray-800 dark:text-gray-200">{g.value}</span>
-                              </div>
-                            ))}
+                {/* ── RIGHT COLUMN: Charts stacked ── */}
+                <div className="flex flex-col gap-3">
+                  {/* Status Breakdown (donut chart) */}
+                  {(() => {
+                    const statusGroups = [
+                      { name: 'Delivered',  value: deliveries.filter(d => TERMINAL_STATUSES.has((d.status||'').toLowerCase())).length,                                                            color: '#22c55e' },
+                      { name: 'On Route',   value: deliveries.filter(d => (d.status||'').toLowerCase() === 'out-for-delivery').length,                                                            color: '#3b82f6' },
+                      { name: 'Awaiting',   value: deliveries.filter(d => ['sms_sent','sms-sent','unconfirmed','awaiting_customer'].includes((d.status||'').toLowerCase())).length,               color: '#a855f7' },
+                      { name: 'Pending',    value: deliveries.filter(d => ['pending','uploaded','scheduled','confirmed','scheduled-confirmed'].includes((d.status||'').toLowerCase())).length,    color: '#f59e0b' },
+                      { name: 'Delayed',    value: deliveries.filter(d => ['order-delay','order_delay'].includes((d.status||'').toLowerCase())).length,                                           color: '#ef4444' },
+                    ].filter(g => g.value > 0);
+                    const total = statusGroups.reduce((s, g) => s + g.value, 0);
+                    return (
+                      <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5">
+                        <div className="mb-2 flex flex-shrink-0 items-center gap-2">
+                          <Activity className="h-5 w-5 flex-shrink-0 text-blue-500" />
+                          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Status Breakdown</h2>
+                          <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500">{total} total</span>
+                        </div>
+                        {total === 0 ? (
+                          <div className="flex-1 flex items-center justify-center text-sm text-gray-400 dark:text-gray-500">No data</div>
+                        ) : (
+                          <div className="flex-1 flex flex-col items-center justify-center min-h-0">
+                            <ResponsiveContainer width="100%" height={180}>
+                              <PieChart>
+                                <Pie data={statusGroups} cx="50%" cy="50%" innerRadius={52} outerRadius={78} paddingAngle={2} dataKey="value">
+                                  {statusGroups.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                                </Pie>
+                                <Tooltip formatter={(v: number, name: string) => [`${v} (${Math.round(v/total*100)}%)`, name]} contentStyle={{ fontSize: 11 }} />
+                              </PieChart>
+                            </ResponsiveContainer>
+                            <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 mt-1">
+                              {statusGroups.map(g => (
+                                <div key={g.name} className="flex items-center gap-1 text-[10px] text-gray-600 dark:text-gray-400">
+                                  <span className="w-2 h-2 rounded-full inline-block" style={{ background: g.color }} />
+                                  {g.name} <span className="font-semibold text-gray-800 dark:text-gray-200">{g.value}</span>
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                {/* ── RIGHT COLUMN 2: Driver Workload (bar chart) ── */}
-                {(() => {
-                  const driverData = drivers.map(dr => {
-                    const drOrders = deliveries.filter(d => {
-                      const ext = d as unknown as { tracking?: { driverId?: string } };
-                      return ext.tracking?.driverId === dr.id || d.assignedDriverId === dr.id;
-                    });
-                    return {
-                      name: (dr.fullName || dr.username || '').split(' ')[0],
-                      'On Route': drOrders.filter(d => (d.status||'').toLowerCase() === 'out-for-delivery').length,
-                      Delivered:  drOrders.filter(d => TERMINAL_STATUSES.has((d.status||'').toLowerCase())).length,
-                      Pending:    drOrders.filter(d => !['out-for-delivery','out_for_delivery'].includes((d.status||'').toLowerCase()) && !TERMINAL_STATUSES.has((d.status||'').toLowerCase())).length,
-                    };
-                  });
-                  return (
-                    <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5">
-                      <div className="mb-2 flex flex-shrink-0 items-center gap-2">
-                        <Truck className="h-5 w-5 flex-shrink-0 text-teal-500" />
-                        <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Driver Workload</h2>
-                        <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500">orders assigned</span>
+                        )}
                       </div>
-                      {drivers.length === 0 ? (
-                        <div className="flex-1 flex items-center justify-center text-sm text-gray-400 dark:text-gray-500">No drivers</div>
-                      ) : (
-                        <div className="flex-1 min-h-0" style={{ minHeight: 200 }}>
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={driverData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }} barSize={14}>
-                              <XAxis dataKey="name" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                              <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                              <Tooltip contentStyle={{ fontSize: 11 }} />
-                              <Legend wrapperStyle={{ fontSize: 10, paddingTop: 4 }} />
-                              <Bar dataKey="On Route" stackId="a" fill="#3b82f6" radius={[0,0,0,0]} />
-                              <Bar dataKey="Pending"  stackId="a" fill="#f59e0b" radius={[0,0,0,0]} />
-                              <Bar dataKey="Delivered" stackId="a" fill="#22c55e" radius={[3,3,0,0]} />
-                            </BarChart>
-                          </ResponsiveContainer>
+                    );
+                  })()}
+
+                  {/* Driver Workload (bar chart) */}
+                  {(() => {
+                    const driverData = drivers.map(dr => {
+                      const drOrders = deliveries.filter(d => {
+                        const ext = d as unknown as { tracking?: { driverId?: string } };
+                        return ext.tracking?.driverId === dr.id || d.assignedDriverId === dr.id;
+                      });
+                      return {
+                        name: (dr.fullName || dr.username || '').split(' ')[0],
+                        'On Route': drOrders.filter(d => (d.status||'').toLowerCase() === 'out-for-delivery').length,
+                        Delivered:  drOrders.filter(d => TERMINAL_STATUSES.has((d.status||'').toLowerCase())).length,
+                        Pending:    drOrders.filter(d => !['out-for-delivery','out_for_delivery'].includes((d.status||'').toLowerCase()) && !TERMINAL_STATUSES.has((d.status||'').toLowerCase())).length,
+                      };
+                    });
+                    return (
+                      <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5">
+                        <div className="mb-2 flex flex-shrink-0 items-center gap-2">
+                          <Truck className="h-5 w-5 flex-shrink-0 text-teal-500" />
+                          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Driver Workload</h2>
+                          <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500">orders assigned</span>
                         </div>
-                      )}
-                    </div>
-                  );
-                })()}
+                        {drivers.length === 0 ? (
+                          <div className="flex-1 flex items-center justify-center py-8 text-sm text-gray-400 dark:text-gray-500">No drivers</div>
+                        ) : (
+                          <div style={{ height: 200 }}>
+                            <ResponsiveContainer width="100%" height={200}>
+                              <BarChart data={driverData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }} barSize={14}>
+                                <XAxis dataKey="name" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                                <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                                <Tooltip contentStyle={{ fontSize: 11 }} />
+                                <Legend wrapperStyle={{ fontSize: 10, paddingTop: 4 }} />
+                                <Bar dataKey="On Route" stackId="a" fill="#3b82f6" radius={[0,0,0,0]} />
+                                <Bar dataKey="Pending"  stackId="a" fill="#f59e0b" radius={[0,0,0,0]} />
+                                <Bar dataKey="Delivered" stackId="a" fill="#22c55e" radius={[3,3,0,0]} />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
 
               </div>
             );
