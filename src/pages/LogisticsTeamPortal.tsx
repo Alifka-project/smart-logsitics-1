@@ -29,7 +29,7 @@ import DeliveryDetailModal from '../components/DeliveryDetailModal';
 import DeliveryMap from '../components/MapView/DeliveryMap';
 import DeliveryManagementPage from './DeliveryManagementPage';
 
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from 'recharts';
 import { calculateRoute, generateFallbackRoute, computePerDriverRoutes } from '../services/advancedRoutingService';
 import type { DriverRoute } from '../services/advancedRoutingService';
 import useDeliveryStore from '../store/useDeliveryStore';
@@ -1020,58 +1020,62 @@ export default function LogisticsTeamPortal() {
                     );
                   })()}
 
-                  {/* Chart 2 — KPI Delivery Performance (on-time vs delayed) */}
+                  {/* Chart 2 — KPI Delivery Performance (line chart: on-time vs delayed over last 7 days) */}
                   {(() => {
-                    const kpiData = [
-                      { name: 'On Time',     value: onTimeCount,    color: '#22c55e' },
-                      { name: 'Delayed',     value: delayedCount,   color: '#ef4444' },
-                      { name: 'In Progress', value: inProgressCount, color: '#3b82f6' },
-                    ].filter(g => g.value > 0);
-                    const kpiTotal = onTimeCount + delayedCount + inProgressCount;
+                    // Build daily counts for the last 7 days based on delivery dates
+                    const now = new Date();
+                    const dubaiOffset = 4 * 60; // UTC+4
+                    const dubaiNow = new Date(now.getTime() + (dubaiOffset + now.getTimezoneOffset()) * 60000);
+                    const kpiLineData: { date: string; onTime: number; delayed: number }[] = [];
+                    for (let i = 6; i >= 0; i--) {
+                      const d = new Date(dubaiNow);
+                      d.setDate(d.getDate() - i);
+                      const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                      const label = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+                      const dayDelivered = deliveries.filter(o => {
+                        const dd = o.confirmedDeliveryDate || o.deliveryDate || o.scheduledDate;
+                        if (!dd) return false;
+                        const dt = new Date(dd as string | number | Date);
+                        const ds = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+                        return ds === dateStr && (o.status||'').toLowerCase() === 'delivered';
+                      }).length;
+                      const dayDelayed = deliveries.filter(o => {
+                        const dd = o.confirmedDeliveryDate || o.deliveryDate || o.scheduledDate;
+                        if (!dd) return false;
+                        const dt = new Date(dd as string | number | Date);
+                        const ds = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+                        return ds === dateStr && DELAY_STATUSES.has((o.status||'').toLowerCase());
+                      }).length;
+                      kpiLineData.push({ date: label, onTime: dayDelivered, delayed: dayDelayed });
+                    }
+                    const hasData = kpiLineData.some(d => d.onTime > 0 || d.delayed > 0);
                     return (
                       <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[300px]">
                         <div className="mb-2 flex flex-shrink-0 items-center gap-2">
                           <TrendingUp className="h-5 w-5 flex-shrink-0 text-green-500" />
                           <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Delivery KPI</h2>
-                          <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500">on-time rate</span>
+                          <span className="ml-auto text-xs font-semibold">
+                            <span className={`${onTimePct !== null && onTimePct >= 80 ? 'text-green-600 dark:text-green-400' : onTimePct !== null && onTimePct >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
+                              {onTimePct !== null ? `${onTimePct}%` : '—'}
+                            </span>
+                            <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-1">on-time</span>
+                          </span>
                         </div>
-                        {kpiTotal === 0 ? (
+                        {!hasData ? (
                           <div className="flex-1 flex items-center justify-center text-sm text-gray-400 dark:text-gray-500">No data</div>
                         ) : (
-                          <div className="flex-1 flex flex-col items-center justify-center min-h-0">
-                            {/* On-time percentage headline */}
-                            <div className="text-center mb-3">
-                              <div className={`text-4xl font-bold ${onTimePct !== null && onTimePct >= 80 ? 'text-green-600 dark:text-green-400' : onTimePct !== null && onTimePct >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
-                                {onTimePct !== null ? `${onTimePct}%` : '—'}
-                              </div>
-                              <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">delivered without delay</div>
-                            </div>
-                            {/* Horizontal stacked bar */}
-                            <div className="w-full px-2">
-                              <div className="w-full h-5 rounded-full overflow-hidden flex bg-gray-100 dark:bg-gray-700">
-                                {kpiData.map(g => {
-                                  const pct = kpiTotal > 0 ? (g.value / kpiTotal) * 100 : 0;
-                                  if (pct === 0) return null;
-                                  return (
-                                    <div
-                                      key={g.name}
-                                      style={{ width: `${pct}%`, backgroundColor: g.color }}
-                                      className="h-full transition-all"
-                                      title={`${g.name}: ${g.value} (${Math.round(pct)}%)`}
-                                    />
-                                  );
-                                })}
-                              </div>
-                            </div>
-                            {/* Legend */}
-                            <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-3">
-                              {kpiData.map(g => (
-                                <div key={g.name} className="flex items-center gap-1.5 text-[10px] text-gray-600 dark:text-gray-400">
-                                  <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: g.color }} />
-                                  {g.name} <span className="font-bold text-gray-800 dark:text-gray-200">{g.value}</span>
-                                </div>
-                              ))}
-                            </div>
+                          <div className="flex-1 min-h-0">
+                            <ResponsiveContainer width="100%" height={200}>
+                              <LineChart data={kpiLineData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="#9ca3af" />
+                                <YAxis allowDecimals={false} tick={{ fontSize: 10 }} stroke="#9ca3af" />
+                                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+                                <Line type="monotone" dataKey="onTime" name="On Time" stroke="#22c55e" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                                <Line type="monotone" dataKey="delayed" name="Delayed" stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                                <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
+                              </LineChart>
+                            </ResponsiveContainer>
                           </div>
                         )}
                       </div>
