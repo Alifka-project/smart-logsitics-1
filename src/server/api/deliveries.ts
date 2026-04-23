@@ -211,6 +211,23 @@ async function updateDeliveryStatusHandler(
     if (nextMeta.picking && typeof nextMeta.picking === 'object') {
       (nextMeta.picking as Record<string, unknown>).confirmedAt = null;
     }
+    // Mirror the new delivery date (sent as scheduledDate) into
+    // confirmedDeliveryDate so downstream consumers stay consistent — the
+    // picking-confirm auto-promote, customer tracking, capacity service, and
+    // admin reports all read confirmedDeliveryDate as the authoritative
+    // delivery date. Without this mirror, an order rescheduled from a future
+    // date to today via this endpoint would keep the future date and the
+    // driver would never see the order flip to out-for-delivery on pickup.
+    //
+    // Guard on presence + validity: if the caller did not supply a date
+    // (e.g. "mark rescheduled, admin picks new date later"), leave
+    // confirmedDeliveryDate untouched — matches existing behaviour.
+    if (scheduledDate != null && String(scheduledDate).trim() !== '') {
+      const d = new Date(scheduledDate);
+      if (!isNaN(d.getTime())) {
+        updateData.confirmedDeliveryDate = d;
+      }
+    }
   }
   if (['delivered', 'completed', 'delivered-with-installation', 'delivered-without-installation',
        'pod-completed', 'finished'].includes(status.toLowerCase())) {

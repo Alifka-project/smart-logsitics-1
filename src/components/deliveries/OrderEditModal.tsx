@@ -45,10 +45,12 @@ const PHASE3_OPTIONS: StatusOption[] = [
 function getAvailableOptions(phase: 1 | 2 | 3 | 0, currentStatus: string): StatusOption[] {
   const currentLabel = currentStatus.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   const currentOpt: StatusOption = { value: currentStatus, label: `${currentLabel} (current)` };
-  const s = currentStatus.toLowerCase();
-  // If already rescheduled, remove "Rescheduled" from dropdown — the reschedule box handles it
+  // Reschedule is always handled by the dedicated "Reschedule Delivery" box
+  // below — the status-dropdown path only updates status/metadata and leaves
+  // confirmedDeliveryDate stale, which breaks the picking-confirm auto-promote
+  // and every downstream consumer (customer tracking, reports, capacity).
   const filterRescheduled = (opts: StatusOption[]) =>
-    s === 'rescheduled' ? opts.filter((o) => o.value !== 'rescheduled') : opts;
+    opts.filter((o) => o.value !== 'rescheduled');
   switch (phase) {
     case 1: return [currentOpt, ...PHASE1_OPTIONS];
     case 2: return [currentOpt, ...filterRescheduled(PHASE2_OPTIONS)];
