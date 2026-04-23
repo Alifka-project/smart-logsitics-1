@@ -837,140 +837,137 @@ export default function LogisticsTeamPortal() {
             }).length;
 
             return (
-              <div className="flex flex-col lg:flex-row gap-4 items-stretch">
+              <div className="grid grid-cols-1 lg:grid-cols-[1fr_30%_30%] gap-4 items-start">
 
-                {/* ── Today's Summary — 30% ── */}
-                <div className="bg-[#032145] rounded-xl p-4 sm:p-5 text-white flex flex-col lg:w-[30%] lg:shrink-0">
-                  <div className="flex items-center justify-between mb-4 flex-shrink-0">
-                    <h3 className="font-semibold text-sm tracking-wide">Today&apos;s Summary</h3>
-                    <span className="text-white/40 text-xs">↗</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2.5 flex-1">
-                    {[
-                      { value: uploadsToday,         label: 'Uploaded Today', sub: 'orders today', color: 'text-sky-300'   },
-                      { value: totalOrders,          label: 'Total Orders',   sub: 'in system',    color: 'text-white'     },
-                      { value: activeDriverIds.size, label: 'Active Drivers', sub: 'on the road',  color: 'text-amber-300' },
-                      { value: deliveredSummary,     label: 'Delivered',      sub: 'completed',    color: 'text-green-300' },
-                    ].map(({ value, label, sub, color }) => (
-                      <div key={label} className="bg-white/10 hover:bg-white/15 transition-colors rounded-lg p-3 flex flex-col justify-between gap-1">
-                        <p className="text-white/50 text-[10px] uppercase tracking-widest font-medium leading-tight">{label}</p>
-                        <p className={`text-3xl font-bold leading-none tabular-nums ${color}`}>{value}</p>
-                        <p className="text-white/30 text-[9px] uppercase tracking-wider leading-tight">{sub}</p>
-                      </div>
-                    ))}
-                  </div>
-                  {unconfirmedCount > 0 && (
-                    <div className="mt-3 flex-shrink-0 p-2.5 bg-amber-400/20 border border-amber-400/30 rounded-lg">
-                      <p className="text-xs text-amber-200">⚠️ {unconfirmedCount} orders awaiting customer response</p>
+                {/* ── LEFT COLUMN: Today's Summary + KPI stat cards ── */}
+                <div className="flex flex-col gap-3">
+                  {/* Today's Summary */}
+                  <div className="bg-[#032145] rounded-xl p-4 sm:p-5 text-white flex flex-col">
+                    <div className="flex items-center justify-between mb-4 flex-shrink-0">
+                      <h3 className="font-semibold text-sm tracking-wide">Today&apos;s Summary</h3>
+                      <span className="text-white/40 text-xs">↗</span>
                     </div>
-                  )}
-                </div>
-
-                {/* ── KPI Stats + Actions — 70% · 4-col grid ── */}
-                <div className="flex-1 grid grid-cols-2 lg:grid-cols-4 gap-3">
-
-                  {/* ── Row 1: 4 primary KPI stats ── */}
-                  <div
-                    onClick={() => {
-                      useDeliveryStore.getState().setManageTabFilter('pending_gmd');
-                      setActiveTab('deliveries');
-                      setDeliveriesSubTab('manage');
-                    }}
-                    className="pp-card p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:ring-2 hover:ring-amber-400 transition-all"
-                    title="Deliveries with no Goods Movement Date"
-                  >
-                    <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Pending GMD</div>
-                    <div className="text-3xl font-bold text-amber-600 dark:text-amber-400">{pendingGMD}</div>
-                    <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">no movement date</div>
-                  </div>
-                  <div className="pp-card p-4 flex flex-col items-center justify-center text-center">
-                    <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Today Processed</div>
-                    <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">{todayProcessed}</div>
-                    <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">new POs today</div>
-                  </div>
-                  <div className="pp-card p-4 flex flex-col items-center justify-center text-center">
-                    <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Today Delivery</div>
-                    <div className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">{todayDelivery}</div>
-                    <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">scheduled today</div>
-                  </div>
-                  <div
-                    onClick={() => {
-                      useDeliveryStore.getState().setManageTabFilter('pending_pod');
-                      setActiveTab('deliveries');
-                      setDeliveriesSubTab('manage');
-                    }}
-                    className="pp-card p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:ring-2 hover:ring-red-400 transition-all"
-                    title="Delivered orders missing proof of delivery"
-                  >
-                    <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Pending POD</div>
-                    <div className={`text-3xl font-bold ${pendingPOD > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400 dark:text-gray-500'}`}>{pendingPOD}</div>
-                    <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">no proof attached</div>
-                  </div>
-
-                  {/* ── Row 2: 4 secondary stats ── */}
-                  <div className="pp-card p-4 flex flex-col items-center justify-center text-center">
-                    <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Delivery KPI</div>
-                    {kpiPct !== null ? (
-                      <>
-                        <div className={`text-3xl font-bold ${kpiPct >= 80 ? 'text-green-600 dark:text-green-400' : kpiPct >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>{kpiPct}%</div>
-                        <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">≤1h target · avg {avgMin}m</div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="text-3xl font-bold text-gray-300 dark:text-gray-600">—</div>
-                        <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">target ≤1h/delivery</div>
-                      </>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                      {[
+                        { value: uploadsToday,         label: 'Uploaded Today', sub: 'orders today', color: 'text-sky-300'   },
+                        { value: totalOrders,          label: 'Total Orders',   sub: 'in system',    color: 'text-white'     },
+                        { value: activeDriverIds.size, label: 'Active Drivers', sub: 'on the road',  color: 'text-amber-300' },
+                        { value: deliveredSummary,     label: 'Delivered',      sub: 'completed',    color: 'text-green-300' },
+                      ].map(({ value, label, sub, color }) => (
+                        <div key={label} className="bg-white/10 hover:bg-white/15 transition-colors rounded-lg p-3 flex flex-col justify-between gap-1">
+                          <p className="text-white/50 text-[10px] uppercase tracking-widest font-medium leading-tight">{label}</p>
+                          <p className={`text-3xl font-bold leading-none tabular-nums ${color}`}>{value}</p>
+                          <p className="text-white/30 text-[9px] uppercase tracking-wider leading-tight">{sub}</p>
+                        </div>
+                      ))}
+                    </div>
+                    {unconfirmedCount > 0 && (
+                      <div className="mt-3 flex-shrink-0 p-2.5 bg-amber-400/20 border border-amber-400/30 rounded-lg">
+                        <p className="text-xs text-amber-200">⚠️ {unconfirmedCount} orders awaiting customer response</p>
+                      </div>
                     )}
                   </div>
-                  <div className="pp-card p-4 flex flex-col items-center justify-center text-center">
-                    <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Total Delivered</div>
-                    <div className="text-3xl font-bold text-green-600 dark:text-green-400">{deliveredKPI}</div>
-                    <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">completed</div>
-                  </div>
-                  <div className="pp-card p-4 flex flex-col items-center justify-center text-center">
-                    <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Recent Delivered</div>
-                    <div className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{recentDelivered}</div>
-                    <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">incl. with POD</div>
-                  </div>
-                  <div className="pp-card p-4 flex flex-col items-center justify-center text-center">
-                    <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Cancelled</div>
-                    <div className={`text-3xl font-bold ${recentCancelled > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-gray-400 dark:text-gray-500'}`}>{recentCancelled}</div>
-                    <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">cancelled / returned</div>
+
+                  {/* KPI stat cards — 5-col grid to fit all 10 cards in 2 rows */}
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                    <div
+                      onClick={() => {
+                        useDeliveryStore.getState().setManageTabFilter('pending_gmd');
+                        setActiveTab('deliveries');
+                        setDeliveriesSubTab('manage');
+                      }}
+                      className="pp-card p-3 flex flex-col items-center justify-center text-center cursor-pointer hover:ring-2 hover:ring-amber-400 transition-all"
+                      title="Deliveries with no Goods Movement Date"
+                    >
+                      <div className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Pending GMD</div>
+                      <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{pendingGMD}</div>
+                      <div className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5">no movement date</div>
+                    </div>
+                    <div className="pp-card p-3 flex flex-col items-center justify-center text-center">
+                      <div className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Today Processed</div>
+                      <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{todayProcessed}</div>
+                      <div className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5">new POs today</div>
+                    </div>
+                    <div className="pp-card p-3 flex flex-col items-center justify-center text-center">
+                      <div className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Today Delivery</div>
+                      <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{todayDelivery}</div>
+                      <div className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5">scheduled today</div>
+                    </div>
+                    <div
+                      onClick={() => {
+                        useDeliveryStore.getState().setManageTabFilter('pending_pod');
+                        setActiveTab('deliveries');
+                        setDeliveriesSubTab('manage');
+                      }}
+                      className="pp-card p-3 flex flex-col items-center justify-center text-center cursor-pointer hover:ring-2 hover:ring-red-400 transition-all"
+                      title="Delivered orders missing proof of delivery"
+                    >
+                      <div className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Pending POD</div>
+                      <div className={`text-2xl font-bold ${pendingPOD > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400 dark:text-gray-500'}`}>{pendingPOD}</div>
+                      <div className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5">no proof attached</div>
+                    </div>
+                    <div className="pp-card p-3 flex flex-col items-center justify-center text-center">
+                      <div className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Delivery KPI</div>
+                      {kpiPct !== null ? (
+                        <>
+                          <div className={`text-2xl font-bold ${kpiPct >= 80 ? 'text-green-600 dark:text-green-400' : kpiPct >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>{kpiPct}%</div>
+                          <div className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5">≤1h · avg {avgMin}m</div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="text-2xl font-bold text-gray-300 dark:text-gray-600">—</div>
+                          <div className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5">target ≤1h</div>
+                        </>
+                      )}
+                    </div>
+                    <div className="pp-card p-3 flex flex-col items-center justify-center text-center">
+                      <div className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Total Delivered</div>
+                      <div className="text-2xl font-bold text-green-600 dark:text-green-400">{deliveredKPI}</div>
+                      <div className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5">completed</div>
+                    </div>
+                    <div className="pp-card p-3 flex flex-col items-center justify-center text-center">
+                      <div className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Recent Delivered</div>
+                      <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{recentDelivered}</div>
+                      <div className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5">incl. with POD</div>
+                    </div>
+                    <div className="pp-card p-3 flex flex-col items-center justify-center text-center">
+                      <div className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Cancelled</div>
+                      <div className={`text-2xl font-bold ${recentCancelled > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-gray-400 dark:text-gray-500'}`}>{recentCancelled}</div>
+                      <div className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5">cancelled / returned</div>
+                    </div>
+                    <div
+                      onClick={() => {
+                        useDeliveryStore.getState().setDeliveryListFilter('pgi_done');
+                        setActiveTab('deliveries');
+                        setDeliveriesSubTab('manage');
+                      }}
+                      className="pp-card p-3 flex flex-col items-center justify-center text-center cursor-pointer hover:ring-2 hover:ring-amber-400 transition-all"
+                      title="Warehouse has issued goods — awaiting driver pick"
+                    >
+                      <div className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">PGI Done</div>
+                      <div className={`text-2xl font-bold ${pgiDoneCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400 dark:text-gray-500'}`}>{pgiDoneCount}</div>
+                      <div className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5">awaiting driver pick</div>
+                    </div>
+                    <div
+                      onClick={() => {
+                        useDeliveryStore.getState().setDeliveryListFilter('pickup_confirmed');
+                        setActiveTab('deliveries');
+                        setDeliveriesSubTab('manage');
+                      }}
+                      className="pp-card p-3 flex flex-col items-center justify-center text-center cursor-pointer hover:ring-2 hover:ring-teal-400 transition-all"
+                      title="Driver confirmed pickup — item collected"
+                    >
+                      <div className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Pickup Confirmed</div>
+                      <div className={`text-2xl font-bold ${readyToDepartCount > 0 ? 'text-teal-600 dark:text-teal-400' : 'text-gray-400 dark:text-gray-500'}`}>{readyToDepartCount}</div>
+                      <div className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5">item collected</div>
+                    </div>
                   </div>
 
-                  {/* ── Row 2b: Advanced workflow (PGI Done + Ready to Depart) ── */}
-                  <div
-                    onClick={() => {
-                      useDeliveryStore.getState().setDeliveryListFilter('pgi_done');
-                      setActiveTab('deliveries');
-                      setDeliveriesSubTab('manage');
-                    }}
-                    className="pp-card p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:ring-2 hover:ring-amber-400 transition-all"
-                    title="Warehouse has issued goods — awaiting driver pick"
-                  >
-                    <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">PGI Done</div>
-                    <div className={`text-3xl font-bold ${pgiDoneCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400 dark:text-gray-500'}`}>{pgiDoneCount}</div>
-                    <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">awaiting driver pick</div>
-                  </div>
-                  <div
-                    onClick={() => {
-                      useDeliveryStore.getState().setDeliveryListFilter('pickup_confirmed');
-                      setActiveTab('deliveries');
-                      setDeliveriesSubTab('manage');
-                    }}
-                    className="pp-card p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:ring-2 hover:ring-teal-400 transition-all"
-                    title="Driver confirmed pickup — item collected"
-                  >
-                    <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Pickup Confirmed</div>
-                    <div className={`text-3xl font-bold ${readyToDepartCount > 0 ? 'text-teal-600 dark:text-teal-400' : 'text-gray-400 dark:text-gray-500'}`}>{readyToDepartCount}</div>
-                    <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">item collected</div>
-                  </div>
-
-                  {/* ── Row 3: Action buttons (hidden — preserved for future use) ── */}
-                  {false && (<>
+                  {/* ── Action buttons (hidden — preserved for future use) ── */}
+                  {false && (<div className="grid grid-cols-2 gap-3">
                   <div
                     onClick={() => { setActiveTab('deliveries'); setDeliveriesSubTab('manage'); }}
-                    className="col-span-2 lg:col-span-2 rounded-xl p-4 flex items-center gap-3 cursor-pointer bg-[#032145] hover:bg-[#06325f] transition-all group shadow-sm"
+                    className="rounded-xl p-4 flex items-center gap-3 cursor-pointer bg-[#032145] hover:bg-[#06325f] transition-all group shadow-sm"
                     title="Open Delivery Orders & Dispatch"
                   >
                     <div className="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center flex-shrink-0">
@@ -984,7 +981,7 @@ export default function LogisticsTeamPortal() {
                   </div>
                   <div
                     onClick={() => { setActiveTab('deliveries'); setDeliveriesSubTab('live-maps'); }}
-                    className="col-span-2 lg:col-span-2 rounded-xl p-4 flex items-center gap-3 cursor-pointer bg-emerald-700 hover:bg-emerald-600 transition-all group shadow-sm"
+                    className="rounded-xl p-4 flex items-center gap-3 cursor-pointer bg-emerald-700 hover:bg-emerald-600 transition-all group shadow-sm"
                     title="Open Live Driver Tracking"
                   >
                     <div className="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center flex-shrink-0">
@@ -996,9 +993,93 @@ export default function LogisticsTeamPortal() {
                     </div>
                     <span className="text-white/50 group-hover:text-white/80 text-lg leading-none transition-colors">→</span>
                   </div>
-                  </>)}
-
+                  </div>)}
                 </div>
+
+                {/* ── RIGHT COLUMN 1: Status Breakdown (donut chart) ── */}
+                {(() => {
+                  const statusGroups = [
+                    { name: 'Delivered',  value: deliveries.filter(d => TERMINAL_STATUSES.has((d.status||'').toLowerCase())).length,                                                            color: '#22c55e' },
+                    { name: 'On Route',   value: deliveries.filter(d => (d.status||'').toLowerCase() === 'out-for-delivery').length,                                                            color: '#3b82f6' },
+                    { name: 'Awaiting',   value: deliveries.filter(d => ['sms_sent','sms-sent','unconfirmed','awaiting_customer'].includes((d.status||'').toLowerCase())).length,               color: '#a855f7' },
+                    { name: 'Pending',    value: deliveries.filter(d => ['pending','uploaded','scheduled','confirmed','scheduled-confirmed'].includes((d.status||'').toLowerCase())).length,    color: '#f59e0b' },
+                    { name: 'Delayed',    value: deliveries.filter(d => ['order-delay','order_delay'].includes((d.status||'').toLowerCase())).length,                                           color: '#ef4444' },
+                  ].filter(g => g.value > 0);
+                  const total = statusGroups.reduce((s, g) => s + g.value, 0);
+                  return (
+                    <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5">
+                      <div className="mb-2 flex flex-shrink-0 items-center gap-2">
+                        <Activity className="h-5 w-5 flex-shrink-0 text-blue-500" />
+                        <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Status Breakdown</h2>
+                        <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500">{total} total</span>
+                      </div>
+                      {total === 0 ? (
+                        <div className="flex-1 flex items-center justify-center text-sm text-gray-400 dark:text-gray-500">No data</div>
+                      ) : (
+                        <div className="flex-1 flex flex-col items-center justify-center min-h-0">
+                          <ResponsiveContainer width="100%" height={180}>
+                            <PieChart>
+                              <Pie data={statusGroups} cx="50%" cy="50%" innerRadius={52} outerRadius={78} paddingAngle={2} dataKey="value">
+                                {statusGroups.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                              </Pie>
+                              <Tooltip formatter={(v: number, name: string) => [`${v} (${Math.round(v/total*100)}%)`, name]} contentStyle={{ fontSize: 11 }} />
+                            </PieChart>
+                          </ResponsiveContainer>
+                          <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 mt-1">
+                            {statusGroups.map(g => (
+                              <div key={g.name} className="flex items-center gap-1 text-[10px] text-gray-600 dark:text-gray-400">
+                                <span className="w-2 h-2 rounded-full inline-block" style={{ background: g.color }} />
+                                {g.name} <span className="font-semibold text-gray-800 dark:text-gray-200">{g.value}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* ── RIGHT COLUMN 2: Driver Workload (bar chart) ── */}
+                {(() => {
+                  const driverData = drivers.map(dr => {
+                    const drOrders = deliveries.filter(d => {
+                      const ext = d as unknown as { tracking?: { driverId?: string } };
+                      return ext.tracking?.driverId === dr.id || d.assignedDriverId === dr.id;
+                    });
+                    return {
+                      name: (dr.fullName || dr.username || '').split(' ')[0],
+                      'On Route': drOrders.filter(d => (d.status||'').toLowerCase() === 'out-for-delivery').length,
+                      Delivered:  drOrders.filter(d => TERMINAL_STATUSES.has((d.status||'').toLowerCase())).length,
+                      Pending:    drOrders.filter(d => !['out-for-delivery','out_for_delivery'].includes((d.status||'').toLowerCase()) && !TERMINAL_STATUSES.has((d.status||'').toLowerCase())).length,
+                    };
+                  });
+                  return (
+                    <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5">
+                      <div className="mb-2 flex flex-shrink-0 items-center gap-2">
+                        <Truck className="h-5 w-5 flex-shrink-0 text-teal-500" />
+                        <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Driver Workload</h2>
+                        <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500">orders assigned</span>
+                      </div>
+                      {drivers.length === 0 ? (
+                        <div className="flex-1 flex items-center justify-center text-sm text-gray-400 dark:text-gray-500">No drivers</div>
+                      ) : (
+                        <div className="flex-1 min-h-0" style={{ minHeight: 200 }}>
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={driverData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }} barSize={14}>
+                              <XAxis dataKey="name" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                              <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                              <Tooltip contentStyle={{ fontSize: 11 }} />
+                              <Legend wrapperStyle={{ fontSize: 10, paddingTop: 4 }} />
+                              <Bar dataKey="On Route" stackId="a" fill="#3b82f6" radius={[0,0,0,0]} />
+                              <Bar dataKey="Pending"  stackId="a" fill="#f59e0b" radius={[0,0,0,0]} />
+                              <Bar dataKey="Delivered" stackId="a" fill="#22c55e" radius={[3,3,0,0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
               </div>
             );
@@ -1197,11 +1278,11 @@ export default function LogisticsTeamPortal() {
             })()}
           </div>)}
 
-          {/* ── Driver Status + 2 Charts (charts only — Driver Status hidden, preserved for future use) ── */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch">
+          {/* ── Driver Status + old Charts grid (hidden — preserved for future use) ── */}
+          {false && (<div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch">
 
             {/* Driver Status — hidden, preserved for future use */}
-            {false && (<div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[340px]">
+            <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[340px]">
               <div className="mb-3 flex flex-shrink-0 items-center gap-2">
                 <Users className="h-5 w-5 flex-shrink-0 text-indigo-500" />
                 <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Driver Status</h2>
@@ -1253,94 +1334,9 @@ export default function LogisticsTeamPortal() {
                   </div>
                 )}
               </div>
-            </div>)}
+            </div>
 
-            {/* Chart 1 — Delivery Status Breakdown (donut) */}
-            {(() => {
-              const statusGroups = [
-                { name: 'Delivered',  value: deliveries.filter(d => TERMINAL_STATUSES.has((d.status||'').toLowerCase())).length,                                                            color: '#22c55e' },
-                { name: 'On Route',   value: deliveries.filter(d => (d.status||'').toLowerCase() === 'out-for-delivery').length,                                                            color: '#3b82f6' },
-                { name: 'Awaiting',   value: deliveries.filter(d => ['sms_sent','sms-sent','unconfirmed','awaiting_customer'].includes((d.status||'').toLowerCase())).length,               color: '#a855f7' },
-                { name: 'Pending',    value: deliveries.filter(d => ['pending','uploaded','scheduled','confirmed','scheduled-confirmed'].includes((d.status||'').toLowerCase())).length,    color: '#f59e0b' },
-                { name: 'Delayed',    value: deliveries.filter(d => ['order-delay','order_delay'].includes((d.status||'').toLowerCase())).length,                                           color: '#ef4444' },
-              ].filter(g => g.value > 0);
-              const total = statusGroups.reduce((s, g) => s + g.value, 0);
-              return (
-                <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[340px]">
-                  <div className="mb-2 flex flex-shrink-0 items-center gap-2">
-                    <Activity className="h-5 w-5 flex-shrink-0 text-blue-500" />
-                    <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Status Breakdown</h2>
-                    <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500">{total} total</span>
-                  </div>
-                  {total === 0 ? (
-                    <div className="flex-1 flex items-center justify-center text-sm text-gray-400 dark:text-gray-500">No data</div>
-                  ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center min-h-0">
-                      <ResponsiveContainer width="100%" height={180}>
-                        <PieChart>
-                          <Pie data={statusGroups} cx="50%" cy="50%" innerRadius={52} outerRadius={78} paddingAngle={2} dataKey="value">
-                            {statusGroups.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                          </Pie>
-                          <Tooltip formatter={(v: number, name: string) => [`${v} (${Math.round(v/total*100)}%)`, name]} contentStyle={{ fontSize: 11 }} />
-                        </PieChart>
-                      </ResponsiveContainer>
-                      <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 mt-1">
-                        {statusGroups.map(g => (
-                          <div key={g.name} className="flex items-center gap-1 text-[10px] text-gray-600 dark:text-gray-400">
-                            <span className="w-2 h-2 rounded-full inline-block" style={{ background: g.color }} />
-                            {g.name} <span className="font-semibold text-gray-800 dark:text-gray-200">{g.value}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* Chart 2 — Driver Workload (bar chart per driver) */}
-            {(() => {
-              const driverData = drivers.map(dr => {
-                const drOrders = deliveries.filter(d => {
-                  const ext = d as unknown as { tracking?: { driverId?: string } };
-                  return ext.tracking?.driverId === dr.id || d.assignedDriverId === dr.id;
-                });
-                return {
-                  name: (dr.fullName || dr.username || '').split(' ')[0],
-                  'On Route': drOrders.filter(d => (d.status||'').toLowerCase() === 'out-for-delivery').length,
-                  Delivered:  drOrders.filter(d => TERMINAL_STATUSES.has((d.status||'').toLowerCase())).length,
-                  Pending:    drOrders.filter(d => !['out-for-delivery','out_for_delivery'].includes((d.status||'').toLowerCase()) && !TERMINAL_STATUSES.has((d.status||'').toLowerCase())).length,
-                };
-              });
-              return (
-                <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[340px]">
-                  <div className="mb-2 flex flex-shrink-0 items-center gap-2">
-                    <Truck className="h-5 w-5 flex-shrink-0 text-teal-500" />
-                    <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Driver Workload</h2>
-                    <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500">orders assigned</span>
-                  </div>
-                  {drivers.length === 0 ? (
-                    <div className="flex-1 flex items-center justify-center text-sm text-gray-400 dark:text-gray-500">No drivers</div>
-                  ) : (
-                    <div className="flex-1 min-h-0">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={driverData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }} barSize={14}>
-                          <XAxis dataKey="name" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                          <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                          <Tooltip contentStyle={{ fontSize: 11 }} />
-                          <Legend wrapperStyle={{ fontSize: 10, paddingTop: 4 }} />
-                          <Bar dataKey="On Route" stackId="a" fill="#3b82f6" radius={[0,0,0,0]} />
-                          <Bar dataKey="Pending"  stackId="a" fill="#f59e0b" radius={[0,0,0,0]} />
-                          <Bar dataKey="Delivered" stackId="a" fill="#22c55e" radius={[3,3,0,0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-          </div>
+          </div>)}
 
         </div>
       )}
