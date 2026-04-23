@@ -966,7 +966,8 @@ export default function LogisticsTeamPortal() {
                     <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">item collected</div>
                   </div>
 
-                  {/* ── Row 3: Action buttons ── */}
+                  {/* ── Row 3: Action buttons (hidden — preserved for future use) ── */}
+                  {false && (<>
                   <div
                     onClick={() => { setActiveTab('deliveries'); setDeliveriesSubTab('manage'); }}
                     className="col-span-2 lg:col-span-2 rounded-xl p-4 flex items-center gap-3 cursor-pointer bg-[#032145] hover:bg-[#06325f] transition-all group shadow-sm"
@@ -995,6 +996,7 @@ export default function LogisticsTeamPortal() {
                     </div>
                     <span className="text-white/50 group-hover:text-white/80 text-lg leading-none transition-colors">→</span>
                   </div>
+                  </>)}
 
                 </div>
 
@@ -1002,8 +1004,8 @@ export default function LogisticsTeamPortal() {
             );
           })()}
 
-          {/* ── Needs Attention · Awaiting Customer · Truck capacity (equal thirds on large screens) ── */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-stretch">
+          {/* ── Needs Attention · Awaiting Customer · Truck capacity (hidden — preserved for future use) ── */}
+          {false && (<div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-stretch">
             {/* Needs Attention */}
             <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[340px]">
               <div className="mb-3 flex flex-shrink-0 items-center gap-2">
@@ -1193,13 +1195,13 @@ export default function LogisticsTeamPortal() {
                 </div>
               );
             })()}
-          </div>
+          </div>)}
 
-          {/* ── Driver Status + 2 Charts (3-column, same height as Needs Attention) ── */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-stretch">
+          {/* ── Driver Status + 2 Charts (charts only — Driver Status hidden, preserved for future use) ── */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch">
 
-            {/* Driver Status — compact, same style as Needs Attention */}
-            <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[340px]">
+            {/* Driver Status — hidden, preserved for future use */}
+            {false && (<div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[340px]">
               <div className="mb-3 flex flex-shrink-0 items-center gap-2">
                 <Users className="h-5 w-5 flex-shrink-0 text-indigo-500" />
                 <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Driver Status</h2>
@@ -1251,7 +1253,7 @@ export default function LogisticsTeamPortal() {
                   </div>
                 )}
               </div>
-            </div>
+            </div>)}
 
             {/* Chart 1 — Delivery Status Breakdown (donut) */}
             {(() => {
