@@ -370,6 +370,37 @@ export default function DriverPortal() {
     return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   };
 
+  /**
+   * Relative Dubai-day label for an ETA ISO: "Today" / "Tomorrow" /
+   * "Wed, 25 Apr" (further out). Returned separately from the time so
+   * the big HH:MM stays glance-readable while the day is explicit.
+   * Returns empty string when the ETA is missing or malformed.
+   */
+  const formatEtaDateLabel = (eta: string | null | undefined): string => {
+    if (!eta) return '';
+    const d = new Date(eta);
+    if (Number.isNaN(d.getTime())) return '';
+    const dubaiDayStr = (v: Date): string => {
+      const z = new Date(v.toLocaleString('en-US', { timeZone: 'Asia/Dubai' }));
+      return `${z.getFullYear()}-${String(z.getMonth() + 1).padStart(2, '0')}-${String(z.getDate()).padStart(2, '0')}`;
+    };
+    const today = dubaiDayStr(new Date());
+    const tomorrow = (() => {
+      const t = new Date();
+      t.setDate(t.getDate() + 1);
+      return dubaiDayStr(t);
+    })();
+    const target = dubaiDayStr(d);
+    if (target === today) return 'Today';
+    if (target === tomorrow) return 'Tomorrow';
+    return d.toLocaleDateString('en-GB', {
+      timeZone: 'Asia/Dubai',
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+    });
+  };
+
   const isContactOnline = (contact: ContactUser): boolean => {
     if (!contact?.account?.lastLogin) {
       return false;
@@ -662,12 +693,18 @@ export default function DriverPortal() {
       })
         .addTo(mapInstance.current!)
         .bindPopup(
-          `<div style="font-family: var(--font-sans); font-size: 12px;">
-            <strong>Stop ${index + 1}</strong><br />
-            <strong>Customer:</strong> ${delivery.customer || 'N/A'}<br />
-            <strong>Address:</strong> ${delivery.address || 'N/A'}<br />
-            <strong>ETA:</strong> ${formatEta(delivery.eta ?? delivery.estimatedEta)}
-          </div>`,
+          (() => {
+            const etaIso = delivery.eta ?? delivery.estimatedEta;
+            const etaTime = formatEta(etaIso);
+            const etaDate = formatEtaDateLabel(etaIso);
+            const etaDisplay = etaDate ? `${etaDate}, ${etaTime}` : etaTime;
+            return `<div style="font-family: var(--font-sans); font-size: 12px;">
+              <strong>Stop ${index + 1}</strong><br />
+              <strong>Customer:</strong> ${delivery.customer || 'N/A'}<br />
+              <strong>Address:</strong> ${delivery.address || 'N/A'}<br />
+              <strong>ETA:</strong> ${etaDisplay}
+            </div>`;
+          })(),
           { maxWidth: 260 }
         );
 
@@ -1388,11 +1425,19 @@ export default function DriverPortal() {
   const hasRoute = !!(route as DriverRouteData | null)?.coordinates?.length;
   const routeStats = route as DriverRouteData | null;
   const nextStop = (orderedDeliveries[0] || deliveries[0]) as EnrichedDelivery | undefined;
-  const nextEta = nextStop ? formatEta(nextStop.eta ?? nextStop.estimatedEta) : 'N/A';
+  const nextEtaIso = nextStop?.eta ?? nextStop?.estimatedEta ?? null;
+  const nextPlannedEtaIso = nextStop?.plannedEta ?? nextStop?.staticEta ?? nextStop?.estimatedEta ?? null;
+  const nextLiveEtaIso = nextStop?.estimatedEta ?? nextStop?.eta ?? null;
+  const nextEta = nextStop ? formatEta(nextEtaIso) : 'N/A';
   // Planned ETA: first route calculation (never changes) — shows baseline before/after Start Delivery
-  const nextPlannedEta = nextStop ? formatEta(nextStop.plannedEta ?? nextStop.staticEta ?? nextStop.estimatedEta) : 'N/A';
+  const nextPlannedEta = nextStop ? formatEta(nextPlannedEtaIso) : 'N/A';
   // Live ETA: current GPS-based estimate (updates as driver moves)
-  const nextLiveEta = nextStop ? formatEta(nextStop.estimatedEta ?? nextStop.eta) : 'N/A';
+  const nextLiveEta = nextStop ? formatEta(nextLiveEtaIso) : 'N/A';
+  // Date labels for the same ETAs so driver knows "today / tomorrow / Wed 25 Apr"
+  // and doesn't confuse an evening route with a next-morning departure.
+  const nextEtaDate = nextStop ? formatEtaDateLabel(nextEtaIso) : '';
+  const nextPlannedEtaDate = nextStop ? formatEtaDateLabel(nextPlannedEtaIso) : '';
+  const nextLiveEtaDate = nextStop ? formatEtaDateLabel(nextLiveEtaIso) : '';
   const speedKmh = location?.speed != null ? (location.speed * 3.6).toFixed(1) : 'N/A';
 
   return (
@@ -1557,6 +1602,9 @@ export default function DriverPortal() {
                   <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-2">
                     <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">ETA</div>
                     <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">{nextEta}</div>
+                    {nextEtaDate && (
+                      <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">{nextEtaDate}</div>
+                    )}
                   </div>
                   <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-2">
                     <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Priority</div>
@@ -1609,6 +1657,9 @@ export default function DriverPortal() {
                       <div className="pp-card p-3">
                         <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Planned ETA</div>
                         <div className="font-semibold text-gray-900 dark:text-gray-100">{nextPlannedEta}</div>
+                        {nextPlannedEtaDate && (
+                          <div className="text-[11px] font-medium text-gray-600 dark:text-gray-300 mt-0.5">{nextPlannedEtaDate}</div>
+                        )}
                         <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
                           {deliveryStartedAt ? '🔒 Locked at start' : 'First route calc'}
                         </div>
@@ -1616,6 +1667,9 @@ export default function DriverPortal() {
                       <div className="pp-card p-3">
                         <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Live ETA</div>
                         <div className="font-semibold text-blue-600 dark:text-blue-400">{nextLiveEta}</div>
+                        {nextLiveEtaDate && (
+                          <div className="text-[11px] font-medium text-gray-600 dark:text-gray-300 mt-0.5">{nextLiveEtaDate}</div>
+                        )}
                         <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">Real-time GPS</div>
                       </div>
                       <div className="pp-card p-3">

@@ -447,18 +447,43 @@ export default function CustomerTrackingPage() {
 
   // ── Compute ETA range text once — used in both timeline step and ETA card ──
   const fmtEtaTime = (d: Date): string => d.toLocaleTimeString('en-AE', { timeZone: 'Asia/Dubai', hour: '2-digit', minute: '2-digit' });
+  /**
+   * Relative Dubai-day label ("Today" / "Tomorrow" / "Wed, 25 Apr") so the
+   * customer can't mistake the evening arrival for the next morning, and so
+   * tomorrow's delivery doesn't look like today's once the time-of-day is
+   * close to now.
+   */
+  const fmtEtaDateLabel = (d: Date): string => {
+    const dubaiDayStr = (v: Date): string => {
+      const z = new Date(v.toLocaleString('en-US', { timeZone: 'Asia/Dubai' }));
+      return `${z.getFullYear()}-${String(z.getMonth() + 1).padStart(2, '0')}-${String(z.getDate()).padStart(2, '0')}`;
+    };
+    const today = dubaiDayStr(new Date());
+    const tomorrowDt = new Date();
+    tomorrowDt.setDate(tomorrowDt.getDate() + 1);
+    const tomorrow = dubaiDayStr(tomorrowDt);
+    const target = dubaiDayStr(d);
+    if (target === today) return 'Today';
+    if (target === tomorrow) return 'Tomorrow';
+    return d.toLocaleDateString('en-AE', {
+      timeZone: 'Asia/Dubai',
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+    });
+  };
   const etaRangeText: string | null = (() => {
     const payload = trackingInfo.etaPayload;
     if (!payload || payload.mode === 'pending') return null;
     if (payload.mode === 'planned') {
       const base = new Date(payload.center);
       const end = new Date(base.getTime() + 4 * 60 * 60 * 1000);
-      return `${fmtEtaTime(base)} – ${fmtEtaTime(end)}`;
+      return `${fmtEtaDateLabel(base)}, ${fmtEtaTime(base)} – ${fmtEtaTime(end)}`;
     }
     if (payload.mode === 'static') {
       const base = new Date(payload.eta);
       const end = new Date(base.getTime() + 4 * 60 * 60 * 1000);
-      return `${fmtEtaTime(base)} – ${fmtEtaTime(end)}`;
+      return `${fmtEtaDateLabel(base)}, ${fmtEtaTime(base)} – ${fmtEtaTime(end)}`;
     }
     return null;
   })();
