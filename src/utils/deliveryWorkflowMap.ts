@@ -154,17 +154,25 @@ function deriveWorkflowStatus(d: Delivery, smsSentAt: Date | undefined): Deliver
   // Out-for-delivery: on-route unless the planned delivery date has already passed.
   // If the driver was dispatched but today is after the scheduled/confirmed date,
   // the order is overdue — classify as order_delay so admin can take action.
+  //
+  // Exception: if metadata.routeStartedAt is today (Dubai), the driver is actively
+  // catching up an order whose original date was past — treat as on-route, not a
+  // delay. The `out_for_delivery` row was just auto-promoted by the server
+  // (picking-confirm / driver-fetch write-on-read) for an overdue pickup, so the
+  // driver is dispatching right now, not sitting on a stale assignment.
   if (['out-for-delivery', 'in-transit', 'in-progress'].includes(s)) {
+    const routeStartedAt = parseOptDate((d.metadata as Record<string, unknown> | null)?.routeStartedAt as string);
+    const dispatchedToday = routeStartedAt != null && calDiffFromTodayDubai(routeStartedAt) === 0;
     const targetDate =
       parseOptDate(d.confirmedDeliveryDate) ??
       parseOptDate(d.customerConfirmedAt) ??
       parseOptDate((d.metadata as Record<string, unknown> | null)?.scheduledDate as string) ??
       parseOptDate((d.metadata as Record<string, unknown> | null)?.scheduled_date as string);
-    if (targetDate && isOverdue(targetDate)) return 'order_delay';
+    if (targetDate && isOverdue(targetDate) && !dispatchedToday) return 'order_delay';
     // Also flag as order_delay when the Goods Movement Date (GMD) is in the past
     // but the order hasn't been delivered yet — goods were dispatched on a past date.
     const gmdDate = parseOptDate((d as Record<string, unknown>).goodsMovementDate);
-    if (gmdDate && isOverdue(gmdDate)) return 'order_delay';
+    if (gmdDate && isOverdue(gmdDate) && !dispatchedToday) return 'order_delay';
     return 'out_for_delivery';
   }
 

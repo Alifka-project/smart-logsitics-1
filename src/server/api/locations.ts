@@ -1,5 +1,6 @@
 // Express router for driver location ingestion
 import { Router, Request, Response } from 'express';
+import type { Prisma } from '@prisma/client';
 import * as db from '../db/index.js';
 import prisma from '../db/prisma.js';
 import cache from '../cache.js';
@@ -321,6 +322,94 @@ router.get('/deliveries', authenticate, async (req: Request, res: Response): Pro
       },
       orderBy: { createdAt: 'desc' }
     });
+
+    // Write-on-read promotion: any pickup-confirmed row whose delivery date
+    // has reached Dubai-today (or is already past) must flip to out-for-delivery
+    // so this portal, admin/logistics/delivery portals, and customer tracking
+    // all show the same label. Catches two cases:
+    //   (a) driver picking-confirmed for a future date yesterday, never tapped
+    //       Start Delivery, and the date has since arrived.
+    //   (b) legacy rows promoted before the picking-confirm endpoint was fixed.
+    // Idempotent — guarded by status in the UPDATE WHERE clause, so concurrent
+    // fetches cannot double-promote or double-log the event.
+    const dubaiNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Dubai' }));
+    const dubaiTodayStr = `${dubaiNow.getFullYear()}-${String(dubaiNow.getMonth() + 1).padStart(2, '0')}-${String(dubaiNow.getDate()).padStart(2, '0')}`;
+    const dubaiDayString = (d: Date | string | null | undefined): string | null => {
+      if (!d) return null;
+      const dt = d instanceof Date ? d : new Date(d);
+      if (isNaN(dt.getTime())) return null;
+      const z = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Dubai' }));
+      return `${z.getFullYear()}-${String(z.getMonth() + 1).padStart(2, '0')}-${String(z.getDate()).padStart(2, '0')}`;
+    };
+    const toPromote = deliveries.filter((d) => {
+      const s = (d.status || '').toLowerCase();
+      if (s !== 'pickup-confirmed' && s !== 'pickup_confirmed') return false;
+      const deliveryDateStr = dubaiDayString(d.confirmedDeliveryDate ?? d.goodsMovementDate);
+      return deliveryDateStr != null && deliveryDateStr <= dubaiTodayStr;
+    });
+    if (toPromote.length > 0) {
+      const promotedAt = new Date();
+      const promotedAtIso = promotedAt.toISOString();
+      for (const d of toPromote) {
+        const prevStatus = (d.status || '').toLowerCase();
+        const currentMeta = (d.metadata as Record<string, unknown> | null) ?? {};
+        // Preserve any existing routeStartedAt (ISO string) — only stamp now if
+        // absent. Cast to string | null because Prisma's InputJsonValue rejects
+        // unknown. If metadata was malformed, default to the promotion time.
+        const existingRouteStartedAt = typeof currentMeta.routeStartedAt === 'string'
+          ? currentMeta.routeStartedAt
+          : null;
+        const nextMeta: Record<string, unknown> = {
+          ...currentMeta,
+          routeStartedAt: existingRouteStartedAt ?? promotedAtIso,
+        };
+        // Conditional UPDATE: only flips rows that are still pickup-confirmed.
+        // Two concurrent requests cannot both claim to have promoted the row.
+        // Cast to Prisma.InputJsonValue because updateMany's stricter type
+        // rejects Record<string, unknown>; values are all JSON-safe primitives
+        // and nested objects already stored in metadata.
+        const updateResult = await prisma.delivery.updateMany({
+          where: { id: d.id, status: { in: ['pickup-confirmed', 'pickup_confirmed'] } },
+          data: {
+            status: 'out-for-delivery',
+            metadata: nextMeta as Prisma.InputJsonValue,
+            updatedAt: promotedAt,
+          },
+        });
+        if (updateResult.count === 0) {
+          // Another request beat us to the promotion; don't log a duplicate event.
+          continue;
+        }
+        await prisma.deliveryAssignment.updateMany({
+          where: { deliveryId: d.id, status: 'assigned' },
+          data: { status: 'in_progress' },
+        });
+        await prisma.deliveryEvent.create({
+          data: {
+            deliveryId: d.id,
+            eventType: 'auto_promoted_overdue_pickup',
+            payload: {
+              previousStatus: prevStatus,
+              newStatus: 'out-for-delivery',
+              reason: 'delivery_date_reached',
+              promotedAt: promotedAtIso,
+              triggeredBy: 'driver_deliveries_fetch',
+            },
+            actorType: 'system',
+            actorId: null,
+          },
+        }).catch((e: unknown) => {
+          console.warn('[driver/deliveries] auto-promote event log failed:', (e as Error).message);
+        });
+        // Patch the in-memory row so the response reflects the new DB state.
+        d.status = 'out-for-delivery';
+        d.metadata = nextMeta as typeof d.metadata;
+        d.updatedAt = promotedAt;
+      }
+      cache.invalidatePrefix('tracking:');
+      cache.invalidatePrefix('deliveries:list:');
+      cache.invalidatePrefix('dashboard:');
+    }
 
     const mapped = deliveries.map(d => ({
       id: d.id,
