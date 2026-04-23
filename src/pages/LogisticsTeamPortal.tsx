@@ -23,6 +23,7 @@ import {
   Search,
   ChevronLeft,
   Camera,
+  TrendingUp,
 } from 'lucide-react';
 import DeliveryDetailModal from '../components/DeliveryDetailModal';
 import DeliveryMap from '../components/MapView/DeliveryMap';
@@ -836,18 +837,28 @@ export default function LogisticsTeamPortal() {
               return s === 'pickup-confirmed' || s === 'pickup_confirmed';
             }).length;
 
-            return (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+            // KPI Delivery Performance data
+            const DELAY_STATUSES = new Set(['order-delay', 'order_delay']);
+            const delayedCount = deliveries.filter(d => DELAY_STATUSES.has((d.status||'').toLowerCase())).length;
+            const onTimeCount = deliveredKPI; // delivered = completed on time
+            const inProgressCount = deliveries.filter(d => {
+              const s = (d.status||'').toLowerCase();
+              return !TERMINAL_STATUSES.has(s) && !DELAY_STATUSES.has(s);
+            }).length;
+            const onTimePct = (onTimeCount + delayedCount) > 0
+              ? Math.round((onTimeCount / (onTimeCount + delayedCount)) * 100) : null;
 
-                {/* ── LEFT COLUMN: Today's Summary + KPI stat cards ── */}
-                <div className="flex flex-col gap-3">
-                  {/* Today's Summary */}
-                  <div className="bg-[#032145] rounded-xl p-4 sm:p-5 text-white flex flex-col">
+            return (
+              <div className="space-y-4">
+                {/* ── ROW 1: Today Summary (30%) + KPI Stat Cards (70%) ── */}
+                <div className="flex flex-col lg:flex-row gap-4 items-stretch">
+                  {/* Today's Summary — 30% */}
+                  <div className="bg-[#032145] rounded-xl p-4 sm:p-5 text-white flex flex-col lg:w-[30%] lg:shrink-0">
                     <div className="flex items-center justify-between mb-4 flex-shrink-0">
                       <h3 className="font-semibold text-sm tracking-wide">Today&apos;s Summary</h3>
                       <span className="text-white/40 text-xs">↗</span>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    <div className="grid grid-cols-2 gap-2.5 flex-1">
                       {[
                         { value: uploadsToday,         label: 'Uploaded Today', sub: 'orders today', color: 'text-sky-300'   },
                         { value: totalOrders,          label: 'Total Orders',   sub: 'in system',    color: 'text-white'     },
@@ -868,30 +879,30 @@ export default function LogisticsTeamPortal() {
                     )}
                   </div>
 
-                  {/* KPI stat cards — 5-col grid to fit all 10 cards in 2 rows */}
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                  {/* KPI Stat Cards — 70% · 5-col grid */}
+                  <div className="flex-1 grid grid-cols-2 sm:grid-cols-5 gap-3">
                     <div
                       onClick={() => {
                         useDeliveryStore.getState().setManageTabFilter('pending_gmd');
                         setActiveTab('deliveries');
                         setDeliveriesSubTab('manage');
                       }}
-                      className="pp-card p-3 flex flex-col items-center justify-center text-center cursor-pointer hover:ring-2 hover:ring-amber-400 transition-all"
+                      className="pp-card p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:ring-2 hover:ring-amber-400 transition-all"
                       title="Deliveries with no Goods Movement Date"
                     >
-                      <div className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Pending GMD</div>
-                      <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{pendingGMD}</div>
-                      <div className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5">no movement date</div>
+                      <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Pending GMD</div>
+                      <div className="text-3xl font-bold text-amber-600 dark:text-amber-400">{pendingGMD}</div>
+                      <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">no movement date</div>
                     </div>
-                    <div className="pp-card p-3 flex flex-col items-center justify-center text-center">
-                      <div className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Today Processed</div>
-                      <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{todayProcessed}</div>
-                      <div className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5">new POs today</div>
+                    <div className="pp-card p-4 flex flex-col items-center justify-center text-center">
+                      <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Today Processed</div>
+                      <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">{todayProcessed}</div>
+                      <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">new POs today</div>
                     </div>
-                    <div className="pp-card p-3 flex flex-col items-center justify-center text-center">
-                      <div className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Today Delivery</div>
-                      <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{todayDelivery}</div>
-                      <div className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5">scheduled today</div>
+                    <div className="pp-card p-4 flex flex-col items-center justify-center text-center">
+                      <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Today Delivery</div>
+                      <div className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">{todayDelivery}</div>
+                      <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">scheduled today</div>
                     </div>
                     <div
                       onClick={() => {
@@ -899,41 +910,41 @@ export default function LogisticsTeamPortal() {
                         setActiveTab('deliveries');
                         setDeliveriesSubTab('manage');
                       }}
-                      className="pp-card p-3 flex flex-col items-center justify-center text-center cursor-pointer hover:ring-2 hover:ring-red-400 transition-all"
+                      className="pp-card p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:ring-2 hover:ring-red-400 transition-all"
                       title="Delivered orders missing proof of delivery"
                     >
-                      <div className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Pending POD</div>
-                      <div className={`text-2xl font-bold ${pendingPOD > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400 dark:text-gray-500'}`}>{pendingPOD}</div>
-                      <div className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5">no proof attached</div>
+                      <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Pending POD</div>
+                      <div className={`text-3xl font-bold ${pendingPOD > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400 dark:text-gray-500'}`}>{pendingPOD}</div>
+                      <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">no proof attached</div>
                     </div>
-                    <div className="pp-card p-3 flex flex-col items-center justify-center text-center">
-                      <div className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Delivery KPI</div>
+                    <div className="pp-card p-4 flex flex-col items-center justify-center text-center">
+                      <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Delivery KPI</div>
                       {kpiPct !== null ? (
                         <>
-                          <div className={`text-2xl font-bold ${kpiPct >= 80 ? 'text-green-600 dark:text-green-400' : kpiPct >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>{kpiPct}%</div>
-                          <div className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5">≤1h · avg {avgMin}m</div>
+                          <div className={`text-3xl font-bold ${kpiPct >= 80 ? 'text-green-600 dark:text-green-400' : kpiPct >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>{kpiPct}%</div>
+                          <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">≤1h target · avg {avgMin}m</div>
                         </>
                       ) : (
                         <>
-                          <div className="text-2xl font-bold text-gray-300 dark:text-gray-600">—</div>
-                          <div className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5">target ≤1h</div>
+                          <div className="text-3xl font-bold text-gray-300 dark:text-gray-600">—</div>
+                          <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">target ≤1h/delivery</div>
                         </>
                       )}
                     </div>
-                    <div className="pp-card p-3 flex flex-col items-center justify-center text-center">
-                      <div className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Total Delivered</div>
-                      <div className="text-2xl font-bold text-green-600 dark:text-green-400">{deliveredKPI}</div>
-                      <div className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5">completed</div>
+                    <div className="pp-card p-4 flex flex-col items-center justify-center text-center">
+                      <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Total Delivered</div>
+                      <div className="text-3xl font-bold text-green-600 dark:text-green-400">{deliveredKPI}</div>
+                      <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">completed</div>
                     </div>
-                    <div className="pp-card p-3 flex flex-col items-center justify-center text-center">
-                      <div className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Recent Delivered</div>
-                      <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{recentDelivered}</div>
-                      <div className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5">incl. with POD</div>
+                    <div className="pp-card p-4 flex flex-col items-center justify-center text-center">
+                      <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Recent Delivered</div>
+                      <div className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{recentDelivered}</div>
+                      <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">incl. with POD</div>
                     </div>
-                    <div className="pp-card p-3 flex flex-col items-center justify-center text-center">
-                      <div className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Cancelled</div>
-                      <div className={`text-2xl font-bold ${recentCancelled > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-gray-400 dark:text-gray-500'}`}>{recentCancelled}</div>
-                      <div className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5">cancelled / returned</div>
+                    <div className="pp-card p-4 flex flex-col items-center justify-center text-center">
+                      <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Cancelled</div>
+                      <div className={`text-3xl font-bold ${recentCancelled > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-gray-400 dark:text-gray-500'}`}>{recentCancelled}</div>
+                      <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">cancelled / returned</div>
                     </div>
                     <div
                       onClick={() => {
@@ -941,12 +952,12 @@ export default function LogisticsTeamPortal() {
                         setActiveTab('deliveries');
                         setDeliveriesSubTab('manage');
                       }}
-                      className="pp-card p-3 flex flex-col items-center justify-center text-center cursor-pointer hover:ring-2 hover:ring-amber-400 transition-all"
+                      className="pp-card p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:ring-2 hover:ring-amber-400 transition-all"
                       title="Warehouse has issued goods — awaiting driver pick"
                     >
-                      <div className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">PGI Done</div>
-                      <div className={`text-2xl font-bold ${pgiDoneCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400 dark:text-gray-500'}`}>{pgiDoneCount}</div>
-                      <div className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5">awaiting driver pick</div>
+                      <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">PGI Done</div>
+                      <div className={`text-3xl font-bold ${pgiDoneCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400 dark:text-gray-500'}`}>{pgiDoneCount}</div>
+                      <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">awaiting driver pick</div>
                     </div>
                     <div
                       onClick={() => {
@@ -954,62 +965,30 @@ export default function LogisticsTeamPortal() {
                         setActiveTab('deliveries');
                         setDeliveriesSubTab('manage');
                       }}
-                      className="pp-card p-3 flex flex-col items-center justify-center text-center cursor-pointer hover:ring-2 hover:ring-teal-400 transition-all"
+                      className="pp-card p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:ring-2 hover:ring-teal-400 transition-all"
                       title="Driver confirmed pickup — item collected"
                     >
-                      <div className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Pickup Confirmed</div>
-                      <div className={`text-2xl font-bold ${readyToDepartCount > 0 ? 'text-teal-600 dark:text-teal-400' : 'text-gray-400 dark:text-gray-500'}`}>{readyToDepartCount}</div>
-                      <div className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5">item collected</div>
+                      <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Pickup Confirmed</div>
+                      <div className={`text-3xl font-bold ${readyToDepartCount > 0 ? 'text-teal-600 dark:text-teal-400' : 'text-gray-400 dark:text-gray-500'}`}>{readyToDepartCount}</div>
+                      <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">item collected</div>
                     </div>
                   </div>
-
-                  {/* ── Action buttons (hidden — preserved for future use) ── */}
-                  {false && (<div className="grid grid-cols-2 gap-3">
-                  <div
-                    onClick={() => { setActiveTab('deliveries'); setDeliveriesSubTab('manage'); }}
-                    className="rounded-xl p-4 flex items-center gap-3 cursor-pointer bg-[#032145] hover:bg-[#06325f] transition-all group shadow-sm"
-                    title="Open Delivery Orders & Dispatch"
-                  >
-                    <div className="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center flex-shrink-0">
-                      <Package className="w-4 h-4 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white font-semibold text-sm leading-tight">Manage Delivery Orders</p>
-                      <p className="text-white/60 text-[10px] mt-0.5">View, assign &amp; dispatch</p>
-                    </div>
-                    <span className="text-white/50 group-hover:text-white/80 text-lg leading-none transition-colors">→</span>
-                  </div>
-                  <div
-                    onClick={() => { setActiveTab('deliveries'); setDeliveriesSubTab('live-maps'); }}
-                    className="rounded-xl p-4 flex items-center gap-3 cursor-pointer bg-emerald-700 hover:bg-emerald-600 transition-all group shadow-sm"
-                    title="Open Live Driver Tracking"
-                  >
-                    <div className="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center flex-shrink-0">
-                      <NavigationIcon className="w-4 h-4 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white font-semibold text-sm leading-tight">Live Tracking</p>
-                      <p className="text-white/60 text-[10px] mt-0.5">Real-time driver map</p>
-                    </div>
-                    <span className="text-white/50 group-hover:text-white/80 text-lg leading-none transition-colors">→</span>
-                  </div>
-                  </div>)}
                 </div>
 
-                {/* ── RIGHT COLUMN: Charts stacked ── */}
-                <div className="flex flex-col gap-3">
-                  {/* Status Breakdown (donut chart) */}
+                {/* ── ROW 2: 3 Charts (equal columns) ── */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  {/* Chart 1 — Status Breakdown (donut) */}
                   {(() => {
                     const statusGroups = [
-                      { name: 'Delivered',  value: deliveries.filter(d => TERMINAL_STATUSES.has((d.status||'').toLowerCase())).length,                                                            color: '#22c55e' },
-                      { name: 'On Route',   value: deliveries.filter(d => (d.status||'').toLowerCase() === 'out-for-delivery').length,                                                            color: '#3b82f6' },
-                      { name: 'Awaiting',   value: deliveries.filter(d => ['sms_sent','sms-sent','unconfirmed','awaiting_customer'].includes((d.status||'').toLowerCase())).length,               color: '#a855f7' },
-                      { name: 'Pending',    value: deliveries.filter(d => ['pending','uploaded','scheduled','confirmed','scheduled-confirmed'].includes((d.status||'').toLowerCase())).length,    color: '#f59e0b' },
-                      { name: 'Delayed',    value: deliveries.filter(d => ['order-delay','order_delay'].includes((d.status||'').toLowerCase())).length,                                           color: '#ef4444' },
+                      { name: 'Delivered',  value: deliveries.filter(d => TERMINAL_STATUSES.has((d.status||'').toLowerCase())).length,  color: '#22c55e' },
+                      { name: 'On Route',   value: deliveries.filter(d => (d.status||'').toLowerCase() === 'out-for-delivery').length,  color: '#3b82f6' },
+                      { name: 'Awaiting',   value: deliveries.filter(d => ['sms_sent','sms-sent','unconfirmed','awaiting_customer'].includes((d.status||'').toLowerCase())).length, color: '#a855f7' },
+                      { name: 'Pending',    value: deliveries.filter(d => ['pending','uploaded','scheduled','confirmed','scheduled-confirmed'].includes((d.status||'').toLowerCase())).length, color: '#f59e0b' },
+                      { name: 'Delayed',    value: deliveries.filter(d => DELAY_STATUSES.has((d.status||'').toLowerCase())).length, color: '#ef4444' },
                     ].filter(g => g.value > 0);
                     const total = statusGroups.reduce((s, g) => s + g.value, 0);
                     return (
-                      <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5">
+                      <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[300px]">
                         <div className="mb-2 flex flex-shrink-0 items-center gap-2">
                           <Activity className="h-5 w-5 flex-shrink-0 text-blue-500" />
                           <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Status Breakdown</h2>
@@ -1019,9 +998,9 @@ export default function LogisticsTeamPortal() {
                           <div className="flex-1 flex items-center justify-center text-sm text-gray-400 dark:text-gray-500">No data</div>
                         ) : (
                           <div className="flex-1 flex flex-col items-center justify-center min-h-0">
-                            <ResponsiveContainer width="100%" height={180}>
+                            <ResponsiveContainer width="100%" height={170}>
                               <PieChart>
-                                <Pie data={statusGroups} cx="50%" cy="50%" innerRadius={52} outerRadius={78} paddingAngle={2} dataKey="value">
+                                <Pie data={statusGroups} cx="50%" cy="50%" innerRadius={48} outerRadius={72} paddingAngle={2} dataKey="value">
                                   {statusGroups.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                                 </Pie>
                                 <Tooltip formatter={(v: number, name: string) => [`${v} (${Math.round(v/total*100)}%)`, name]} contentStyle={{ fontSize: 11 }} />
@@ -1041,7 +1020,65 @@ export default function LogisticsTeamPortal() {
                     );
                   })()}
 
-                  {/* Driver Workload (bar chart) */}
+                  {/* Chart 2 — KPI Delivery Performance (on-time vs delayed) */}
+                  {(() => {
+                    const kpiData = [
+                      { name: 'On Time',     value: onTimeCount,    color: '#22c55e' },
+                      { name: 'Delayed',     value: delayedCount,   color: '#ef4444' },
+                      { name: 'In Progress', value: inProgressCount, color: '#3b82f6' },
+                    ].filter(g => g.value > 0);
+                    const kpiTotal = onTimeCount + delayedCount + inProgressCount;
+                    return (
+                      <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[300px]">
+                        <div className="mb-2 flex flex-shrink-0 items-center gap-2">
+                          <TrendingUp className="h-5 w-5 flex-shrink-0 text-green-500" />
+                          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Delivery KPI</h2>
+                          <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500">on-time rate</span>
+                        </div>
+                        {kpiTotal === 0 ? (
+                          <div className="flex-1 flex items-center justify-center text-sm text-gray-400 dark:text-gray-500">No data</div>
+                        ) : (
+                          <div className="flex-1 flex flex-col items-center justify-center min-h-0">
+                            {/* On-time percentage headline */}
+                            <div className="text-center mb-3">
+                              <div className={`text-4xl font-bold ${onTimePct !== null && onTimePct >= 80 ? 'text-green-600 dark:text-green-400' : onTimePct !== null && onTimePct >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
+                                {onTimePct !== null ? `${onTimePct}%` : '—'}
+                              </div>
+                              <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">delivered without delay</div>
+                            </div>
+                            {/* Horizontal stacked bar */}
+                            <div className="w-full px-2">
+                              <div className="w-full h-5 rounded-full overflow-hidden flex bg-gray-100 dark:bg-gray-700">
+                                {kpiData.map(g => {
+                                  const pct = kpiTotal > 0 ? (g.value / kpiTotal) * 100 : 0;
+                                  if (pct === 0) return null;
+                                  return (
+                                    <div
+                                      key={g.name}
+                                      style={{ width: `${pct}%`, backgroundColor: g.color }}
+                                      className="h-full transition-all"
+                                      title={`${g.name}: ${g.value} (${Math.round(pct)}%)`}
+                                    />
+                                  );
+                                })}
+                              </div>
+                            </div>
+                            {/* Legend */}
+                            <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-3">
+                              {kpiData.map(g => (
+                                <div key={g.name} className="flex items-center gap-1.5 text-[10px] text-gray-600 dark:text-gray-400">
+                                  <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: g.color }} />
+                                  {g.name} <span className="font-bold text-gray-800 dark:text-gray-200">{g.value}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Chart 3 — Driver Workload (bar chart) */}
                   {(() => {
                     const driverData = drivers.map(dr => {
                       const drOrders = deliveries.filter(d => {
@@ -1056,17 +1093,17 @@ export default function LogisticsTeamPortal() {
                       };
                     });
                     return (
-                      <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5">
+                      <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[300px]">
                         <div className="mb-2 flex flex-shrink-0 items-center gap-2">
                           <Truck className="h-5 w-5 flex-shrink-0 text-teal-500" />
                           <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Driver Workload</h2>
                           <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500">orders assigned</span>
                         </div>
                         {drivers.length === 0 ? (
-                          <div className="flex-1 flex items-center justify-center py-8 text-sm text-gray-400 dark:text-gray-500">No drivers</div>
+                          <div className="flex-1 flex items-center justify-center text-sm text-gray-400 dark:text-gray-500">No drivers</div>
                         ) : (
-                          <div style={{ height: 200 }}>
-                            <ResponsiveContainer width="100%" height={200}>
+                          <div className="flex-1 min-h-0">
+                            <ResponsiveContainer width="100%" height={220}>
                               <BarChart data={driverData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }} barSize={14}>
                                 <XAxis dataKey="name" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
                                 <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
@@ -1083,6 +1120,38 @@ export default function LogisticsTeamPortal() {
                     );
                   })()}
                 </div>
+
+                {/* ── Action buttons (hidden — preserved for future use) ── */}
+                {false && (<div className="grid grid-cols-2 gap-3">
+                <div
+                  onClick={() => { setActiveTab('deliveries'); setDeliveriesSubTab('manage'); }}
+                  className="rounded-xl p-4 flex items-center gap-3 cursor-pointer bg-[#032145] hover:bg-[#06325f] transition-all group shadow-sm"
+                  title="Open Delivery Orders & Dispatch"
+                >
+                  <div className="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center flex-shrink-0">
+                    <Package className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-semibold text-sm leading-tight">Manage Delivery Orders</p>
+                    <p className="text-white/60 text-[10px] mt-0.5">View, assign &amp; dispatch</p>
+                  </div>
+                  <span className="text-white/50 group-hover:text-white/80 text-lg leading-none transition-colors">→</span>
+                </div>
+                <div
+                  onClick={() => { setActiveTab('deliveries'); setDeliveriesSubTab('live-maps'); }}
+                  className="rounded-xl p-4 flex items-center gap-3 cursor-pointer bg-emerald-700 hover:bg-emerald-600 transition-all group shadow-sm"
+                  title="Open Live Driver Tracking"
+                >
+                  <div className="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center flex-shrink-0">
+                    <NavigationIcon className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-semibold text-sm leading-tight">Live Tracking</p>
+                    <p className="text-white/60 text-[10px] mt-0.5">Real-time driver map</p>
+                  </div>
+                  <span className="text-white/50 group-hover:text-white/80 text-lg leading-none transition-colors">→</span>
+                </div>
+                </div>)}
 
               </div>
             );
