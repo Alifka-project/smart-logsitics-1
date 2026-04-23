@@ -1,4 +1,5 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, Calendar, Package, X } from 'lucide-react';
 import type { Delivery } from '../../types';
 
@@ -75,8 +76,30 @@ export default function PickingReminderModal({
     return [...pendingOrders].sort((a, b) => getOrderDateMs(a) - getOrderDateMs(b))[0];
   }, [pendingOrders]);
 
+  // Lock body scroll while the modal is open so the viewport stays put and the
+  // backdrop covers the full page. Restores the previous value on close.
+  useEffect(() => {
+    if (!isOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [isOpen]);
+
+  // ESC closes the modal while it's open.
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') onDismiss();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, onDismiss]);
+
   if (!isOpen) return null;
   if (pendingOrders.length === 0) return null;
+  if (typeof document === 'undefined') return null;
 
   const isUrgent = today > 0;
   const count = pendingOrders.length;
@@ -90,16 +113,21 @@ export default function PickingReminderModal({
     return tail ? tail.trim() : '';
   })();
 
-  return (
+  // Render via a portal into document.body so parent transforms (page-enter
+  // animation, tab-enter, pp-* wrappers) can't trap `position: fixed`.
+  // Without the portal the modal ends up positioned relative to the
+  // transformed ancestor and pushes off-screen on mobile.
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 px-4 py-6 overflow-y-auto"
       onClick={onDismiss}
       role="dialog"
       aria-modal="true"
       aria-label="Picking list reminder"
+      style={{ WebkitOverflowScrolling: 'touch' }}
     >
       <div
-        className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-md w-full p-6 relative"
+        className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md p-5 sm:p-6 relative my-auto max-h-[calc(100dvh-3rem)] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -184,6 +212,7 @@ export default function PickingReminderModal({
           Next reminder in 2 hours
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
