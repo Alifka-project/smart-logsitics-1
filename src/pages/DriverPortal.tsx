@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import api, { setAuthToken } from '../frontend/apiClient';
 import { getCurrentUser } from '../frontend/auth';
@@ -19,6 +19,8 @@ import type { Delivery } from '../types';
 import { getOnRouteDeliveriesForList, isOnRouteDeliveryListStatus, getEtaStatus } from '../utils/deliveryListFilter';
 import { isPickingListEligible, isDriverMyOrdersStatus } from '../utils/pickingListFilter';
 import PickingListPanel from '../components/deliveries/PickingListPanel';
+import PickingReminderModal from '../components/deliveries/PickingReminderModal';
+import { usePickingReminder } from '../hooks/usePickingReminder';
 
 // Fix Leaflet default marker icons
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
@@ -240,6 +242,23 @@ export default function DriverPortal() {
   const updateDeliveryStatus = useDeliveryStore((s) => s.updateDeliveryStatus);
   // Store deliveries carry priority (assigned by loadDeliveries) — used for priority breakdown display
   const storeDeliveries = useDeliveryStore((s) => s.deliveries);
+
+  // ── Picking-list reminder ────────────────────────────────────────────────
+  // Orders on the driver's picking list (pgi-done / rescheduled with GMD and
+  // no picking.confirmedAt). Reuse isPickingListEligible so the reminder
+  // count stays in sync with the tab badge.
+  const pickingPendingOrders = useMemo<Delivery[]>(
+    () => storeDeliveries.filter((d) => isPickingListEligible(d)),
+    [storeDeliveries],
+  );
+  const { isVisible: reminderVisible, dismiss: dismissReminder } = usePickingReminder({
+    pendingCount: pickingPendingOrders.length,
+    isOnPickingTab: activeTab === 'picking',
+  });
+  const handleOpenPickingFromReminder = useCallback(() => {
+    setActiveTab('picking');
+    dismissReminder();
+  }, [dismissReminder]);
 
   // Manual reorder tracking: when the driver drags the list, honour that order
   // instead of recalculating via nearest-neighbour.
@@ -1963,6 +1982,13 @@ export default function DriverPortal() {
         </div>
 
       </div>{/* end tab wrapper */}
+
+      <PickingReminderModal
+        isOpen={reminderVisible}
+        onDismiss={dismissReminder}
+        onOpenPickingList={handleOpenPickingFromReminder}
+        pendingOrders={pickingPendingOrders}
+      />
     </div>
   );
 }
