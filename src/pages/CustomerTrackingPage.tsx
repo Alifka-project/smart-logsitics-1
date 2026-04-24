@@ -175,6 +175,7 @@ interface DriverLocationInfo {
 
 type EtaPayload =
   | { mode: 'planned'; earliest: string; latest: string; center: string; degraded?: boolean }
+  | { mode: 'live'; eta: string; driverUpdatedAt: string; distanceKm: number; freshness: 'fresh' | 'stale' }
   | { mode: 'static'; eta: string }
   | { mode: 'delivered'; at: string }
   | { mode: 'pending' };
@@ -480,6 +481,15 @@ export default function CustomerTrackingPage() {
       const end = new Date(base.getTime() + 4 * 60 * 60 * 1000);
       return `${fmtEtaDateLabel(base)}, ${fmtEtaTime(base)} – ${fmtEtaTime(end)}`;
     }
+    if (payload.mode === 'live') {
+      // Real-time ETA while out-for-delivery: driver's latest GPS drives the
+      // centre point, so the window shrinks to ±30 min and the date is today
+      // by construction (never a stale locked-at-Start-Delivery timestamp).
+      const base = new Date(payload.eta);
+      const start = new Date(base.getTime() - 30 * 60 * 1000);
+      const end = new Date(base.getTime() + 30 * 60 * 1000);
+      return `${fmtEtaDateLabel(base)}, ${fmtEtaTime(start)} – ${fmtEtaTime(end)}`;
+    }
     if (payload.mode === 'static') {
       const base = new Date(payload.eta);
       const end = new Date(base.getTime() + 4 * 60 * 60 * 1000);
@@ -687,7 +697,7 @@ export default function CustomerTrackingPage() {
                     )}
                     {isActive && etaRangeText && (step.id === 'order_scheduled' || step.id === 'out_for_delivery') && (
                       <p style={{ fontSize: 12, fontWeight: 700, color: '#16A34A', marginTop: 4 }}>
-                        ETA: {etaRangeText}
+                        {trackingInfo.etaPayload?.mode === 'live' ? 'Real-time ETA' : 'ETA'}: {etaRangeText}
                       </p>
                     )}
                   </div>
@@ -721,9 +731,17 @@ export default function CustomerTrackingPage() {
                 </div>
               );
             }
-            // Planned / static — reuse the same 4-hour range text as timeline
+            // Planned / live / static — reuse the same range text as timeline.
+            // Header wording differs so the customer sees which mode they're in:
+            //   planned / static → "Estimated Arrival" (pre-dispatch window)
+            //   live              → "Real-time ETA" (tighter, driver-on-the-road)
             if (!etaRangeText) return null;
             const isDegraded = payload.mode === 'planned' && payload.degraded;
+            const isLive = payload.mode === 'live';
+            const headerText = isLive ? 'Real-time ETA' : 'Estimated Arrival';
+            const liveSubText = isLive
+              ? `${payload.distanceKm < 1 ? '< 1' : payload.distanceKm} km away${payload.freshness === 'stale' ? ' · driver last seen a few min ago' : ''}`
+              : null;
             return (
               <div className="card anim-card anim-card-3" style={{ padding: '10px 12px', border: '1.5px solid #BBF7D0', background: 'linear-gradient(135deg,#F0FDF4,#DCFCE7)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -731,9 +749,18 @@ export default function CustomerTrackingPage() {
                     <Navigation style={{ width: 14, height: 14, color: '#16A34A' }} />
                   </div>
                   <div style={{ minWidth: 0 }}>
-                    <p style={{ fontSize: 9, fontWeight: 700, color: '#15803D', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Estimated Arrival</p>
+                    <p style={{ fontSize: 9, fontWeight: 700, color: '#15803D', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span>{headerText}</span>
+                      {isLive && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: '#16A34A', color: '#fff', borderRadius: 999, padding: '1px 6px', fontSize: 8, fontWeight: 700, letterSpacing: '0.3px' }}>
+                          <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#fff', display: 'inline-block' }} />
+                          LIVE
+                        </span>
+                      )}
+                    </p>
                     <p style={{ fontWeight: 700, fontSize: 12, color: '#14532D', lineHeight: 1.25 }}>{etaRangeText}</p>
                     {isDegraded && <p style={{ fontSize: 10, color: '#15803D', marginTop: 1 }}>Will narrow once your driver is assigned</p>}
+                    {liveSubText && <p style={{ fontSize: 10, color: '#15803D', marginTop: 1 }}>{liveSubText}</p>}
                   </div>
                 </div>
               </div>

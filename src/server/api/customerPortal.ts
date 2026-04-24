@@ -8,6 +8,7 @@ import { getDateCapacityDetails, TRUCK_MAX_ITEMS_PER_DAY } from '../services/del
 import { authenticate, requireAnyRole } from '../auth.js';
 import { fetchDrivingRouteBetweenPoints } from '../services/drivingRouteService.js';
 import { computePlannedSlotWindow } from '../services/plannedEtaService';
+import { computeLiveEta } from '../services/liveEtaService.js';
 
 const router = Router();
 const smsService = require('../sms/smsService');
@@ -254,6 +255,7 @@ router.get('/tracking/:token', async (req: Request, res: Response): Promise<void
 
     type EtaPayload =
       | { mode: 'planned'; earliest: string; latest: string; center: string; degraded: boolean }
+      | { mode: 'live'; eta: string; driverUpdatedAt: string; distanceKm: number; freshness: 'fresh' | 'stale' }
       | { mode: 'static'; eta: string }
       | { mode: 'delivered'; at: string }
       | { mode: 'pending' };
@@ -267,14 +269,51 @@ router.get('/tracking/:token', async (req: Request, res: Response): Promise<void
       });
       etaPayload = window;
     } else if (statusLower === 'out-for-delivery' || statusLower === 'out_for_delivery' || statusLower === 'in-transit') {
-      const staticEta = typeof metaObj.staticEta === 'string' && metaObj.staticEta.trim()
-        ? (metaObj.staticEta as string)
-        : (typeof metaObj.plannedEta === 'string' && metaObj.plannedEta.trim() ? (metaObj.plannedEta as string) : null);
-      if (staticEta) {
-        etaPayload = { mode: 'static', eta: staticEta };
-      } else if (typeof tracking.tracking.eta === 'string' && (tracking.tracking.eta as string).trim()) {
-        // Fallback to the assignment's own eta only if the driver never hit Start Delivery.
-        etaPayload = { mode: 'static', eta: tracking.tracking.eta as string };
+      // Real-time ETA: compute from driver's latest GPS + destination so the
+      // customer's arrival window always carries today's date (not the date
+      // staticEta was locked at Start Delivery). Falls back to staticEta when
+      // live data is unavailable so the card is never empty.
+      const deliveryLat = typeof (fullDelivery as Record<string, unknown> | null)?.lat === 'number'
+        ? (fullDelivery as Record<string, number>).lat
+        : (typeof (deliveryRaw as Record<string, unknown>).lat === 'number'
+          ? (deliveryRaw as Record<string, number>).lat
+          : null);
+      const deliveryLng = typeof (fullDelivery as Record<string, unknown> | null)?.lng === 'number'
+        ? (fullDelivery as Record<string, number>).lng
+        : (typeof (deliveryRaw as Record<string, unknown>).lng === 'number'
+          ? (deliveryRaw as Record<string, number>).lng
+          : null);
+      let liveEtaAssigned = false;
+      try {
+        const live = await computeLiveEta({
+          deliveryId: deliveryIdForEta,
+          deliveryLat,
+          deliveryLng,
+          driverId: assignedDriverId,
+        });
+        if (live) {
+          etaPayload = {
+            mode: 'live',
+            eta: live.eta,
+            driverUpdatedAt: live.driverUpdatedAt,
+            distanceKm: live.distanceKm,
+            freshness: live.freshness,
+          };
+          liveEtaAssigned = true;
+        }
+      } catch (liveErr: unknown) {
+        console.warn('[customer/tracking] liveEta failed:', (liveErr as Error).message);
+      }
+      if (!liveEtaAssigned) {
+        const staticEta = typeof metaObj.staticEta === 'string' && metaObj.staticEta.trim()
+          ? (metaObj.staticEta as string)
+          : (typeof metaObj.plannedEta === 'string' && metaObj.plannedEta.trim() ? (metaObj.plannedEta as string) : null);
+        if (staticEta) {
+          etaPayload = { mode: 'static', eta: staticEta };
+        } else if (typeof tracking.tracking.eta === 'string' && (tracking.tracking.eta as string).trim()) {
+          // Fallback to the assignment's own eta only if the driver never hit Start Delivery.
+          etaPayload = { mode: 'static', eta: tracking.tracking.eta as string };
+        }
       }
     } else if (['delivered', 'delivered-with-installation', 'delivered-without-installation', 'pod-completed', 'finished', 'completed'].includes(statusLower)) {
       const deliveredAt = fullDelivery?.deliveredAt;
@@ -287,11 +326,13 @@ router.get('/tracking/:token', async (req: Request, res: Response): Promise<void
 
     const legacyEta: string | null = etaPayload.mode === 'static'
       ? etaPayload.eta
-      : etaPayload.mode === 'planned'
-        ? etaPayload.center
-        : etaPayload.mode === 'delivered'
-          ? etaPayload.at
-          : null;
+      : etaPayload.mode === 'live'
+        ? etaPayload.eta
+        : etaPayload.mode === 'planned'
+          ? etaPayload.center
+          : etaPayload.mode === 'delivered'
+            ? etaPayload.at
+            : null;
 
     console.log(`[customer/tracking] token=${String(token).slice(0, 8)} deliveryId=${deliveryIdForEta} status=${tracking.delivery.status} etaMode=${etaPayload.mode}`);
 
