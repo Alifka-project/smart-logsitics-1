@@ -17,23 +17,27 @@ export type StatusVisualConfig = {
 
 export const STATUS_CONFIG: Record<DeliveryStatus, StatusVisualConfig> = {
   uploaded: {
+    // Electrolux palette — neutral slate for non-urgent "pending" state.
+    // Previously bright blue; reduced to match the muted Electrolux tone.
     label: 'Pending Order',
-    bgColor: 'bg-blue-50',
-    textColor: 'text-blue-600',
-    borderColor: 'border-blue-200',
-    iconBg: 'bg-blue-100',
+    bgColor: 'bg-slate-50',
+    textColor: 'text-slate-700',
+    borderColor: 'border-slate-200',
+    iconBg: 'bg-slate-100',
     icon: '📤',
-    badgeStyle: 'bg-blue-100 text-blue-700',
+    badgeStyle: 'bg-slate-100 text-slate-700',
   },
   sms_sent: {
+    // Neutral slate — customer was messaged but we're just waiting. Not
+    // urgent (No Response / Order Delay cover the escalation tiers).
     label: 'Awaiting Customer',
     pillLabel: 'Awaiting',
-    bgColor: 'bg-emerald-50',
-    textColor: 'text-emerald-600',
-    borderColor: 'border-emerald-200',
-    iconBg: 'bg-emerald-100',
+    bgColor: 'bg-slate-50',
+    textColor: 'text-slate-700',
+    borderColor: 'border-slate-200',
+    iconBg: 'bg-slate-100',
     icon: '💬',
-    badgeStyle: 'bg-emerald-100 text-emerald-700',
+    badgeStyle: 'bg-slate-100 text-slate-700',
   },
   unconfirmed: {
     label: 'No Response',
@@ -58,28 +62,28 @@ export const STATUS_CONFIG: Record<DeliveryStatus, StatusVisualConfig> = {
     highlightRing: 'outline outline-1 outline-amber-400 bg-amber-50 dark:bg-amber-900/20',
   },
   next_shipment: {
+    // Neutral slate — scheduled for tomorrow but not an escalation yet.
+    // Highlight ring removed so the card doesn't compete visually with
+    // the genuinely urgent ones (No Response, Order Delay).
     label: 'Next Shipment',
     pillLabel: 'Next Shipment',
-    bgColor: 'bg-amber-50',
-    textColor: 'text-amber-600',
-    borderColor: 'border-amber-400',
-    iconBg: 'bg-amber-100',
+    bgColor: 'bg-slate-50',
+    textColor: 'text-slate-700',
+    borderColor: 'border-slate-200',
+    iconBg: 'bg-slate-100',
     icon: '📦',
-    badgeStyle: 'bg-amber-100 text-amber-700',
-    highlight: true,
-    highlightRing: 'outline outline-1 outline-amber-400 bg-amber-50 dark:bg-amber-900/20',
+    badgeStyle: 'bg-slate-100 text-slate-700',
   },
   future_schedule: {
+    // Neutral slate — 2+ days out, lowest priority in the attention queue.
     label: 'Future Schedule',
     pillLabel: 'Future Schedule',
-    bgColor: 'bg-indigo-50',
-    textColor: 'text-indigo-600',
-    borderColor: 'border-indigo-400',
-    iconBg: 'bg-indigo-100',
+    bgColor: 'bg-slate-50',
+    textColor: 'text-slate-700',
+    borderColor: 'border-slate-200',
+    iconBg: 'bg-slate-100',
     icon: '📅',
-    badgeStyle: 'bg-indigo-100 text-indigo-700',
-    highlight: true,
-    highlightRing: 'outline outline-1 outline-indigo-400 bg-indigo-50 dark:bg-indigo-900/20',
+    badgeStyle: 'bg-slate-100 text-slate-700',
   },
   scheduled: {
     label: 'Scheduled',

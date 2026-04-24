@@ -337,7 +337,11 @@ export default function ManageTab({
     const tabMap: Record<string, OrdersTableTab> = {
       uploaded:         'pending',
       sms_sent:         'awaiting_customer',
-      unconfirmed:      'awaiting_customer',
+      // No Response card counts `status === 'unconfirmed'` only — route to
+      // the dedicated 'unconfirmed' tab so the table's filtered rows match
+      // the card's number. Previously routed to 'awaiting_customer' (broader
+      // set), which caused a card-vs-table count mismatch.
+      unconfirmed:      'unconfirmed',
       next_shipment:    'next_shipment',
       future_schedule:  'future_schedule',
       // pgi_done and pickup_confirmed don't have dedicated tabs yet — route

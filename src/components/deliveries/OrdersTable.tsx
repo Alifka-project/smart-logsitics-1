@@ -14,6 +14,7 @@ export type OrdersTableTab =
   | 'all'
   | 'pending'
   | 'awaiting_customer'
+  | 'unconfirmed'      // customer was messaged but never replied (status = unconfirmed only)
   | 'confirmed'        // all confirmed orders (next + future + generic)
   | 'next_shipment'    // specific: today / tomorrow / day+2
   | 'future_schedule'  // specific: 3+ days out
@@ -111,6 +112,7 @@ function matchesTableTab(order: DeliveryOrder, tab: OrdersTableTab): boolean {
     case 'all':               return true;
     case 'pending':           return !PENDING_TERMINAL.has(order.status);
     case 'awaiting_customer': return order.status === 'sms_sent' || order.status === 'unconfirmed';
+    case 'unconfirmed':       return order.status === 'unconfirmed';
     case 'confirmed':         return CONFIRMED_STATUSES.has(order.status);
     // Date-first tier — include orders whose confirmedDeliveryDate falls
     // tomorrow (next) or 2+ days out (future) regardless of warehouse stage.
@@ -635,6 +637,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
     { key: 'pending',          label: 'Pending Orders',   count: orders.filter((o) => !PENDING_TERMINAL.has(o.status)).length },
     { key: 'unassigned',       label: 'Unassigned',       count: unassignedCount, urgent: unassignedCount > 0 },
     { key: 'awaiting_customer',label: 'Awaiting Customer',count: orders.filter((o) => o.status === 'sms_sent' || o.status === 'unconfirmed').length },
+    { key: 'unconfirmed',      label: 'No Response',      count: orders.filter((o) => o.status === 'unconfirmed').length },
     { key: 'pending_gmd',      label: 'Pending PGI',      count: pendingGmdCount, urgent: pendingGmdCount > 0 },
     { key: 'next_shipment',    label: 'Next Shipment',    count: orders.filter((o) => matchesShipmentTier(o, 'next')).length },
     { key: 'future_schedule',  label: 'Future Schedule',  count: orders.filter((o) => matchesShipmentTier(o, 'future')).length },

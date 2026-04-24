@@ -1451,8 +1451,12 @@ export default function DeliveryTeamPortal() {
                     {reportTomorrowDeliveries.rows.map((d, i) => {
                       const meta = (d as unknown as { metadata?: { originalDeliveryNumber?: string } }).metadata;
                       const delNo = meta?.originalDeliveryNumber != null ? String(meta.originalDeliveryNumber) : '—';
-                      const phoneRaw = (d as Record<string, unknown>).phone;
-                      const phone = phoneRaw != null && String(phoneRaw).trim() ? String(phoneRaw).trim() : '—';
+                      // Use the shared displayPhone() helper so this table picks
+                      // up every known phone-field shape (delivery.phone, meta.
+                      // phone / customerPhone, original ERP row columns). The
+                      // previous direct `.phone` read missed rows where the
+                      // dashboard payload exposes the number via a fallback key.
+                      const phone = displayPhone(d as unknown as Delivery);
                       const confRaw = d.confirmedDeliveryDate as string | undefined;
                       const confFmt = confRaw
                         ? new Date(confRaw).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
