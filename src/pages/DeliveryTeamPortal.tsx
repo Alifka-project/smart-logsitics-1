@@ -1149,7 +1149,10 @@ export default function DeliveryTeamPortal() {
             );
           })()}
 
-          {/* ── Combined: Needs Attention + Awaiting Customer (60%) | Driver Assignments (40%) ── */}
+          {/* ── Combined: Needs Attention + Awaiting Customer (60%) | Driver Assignments (40%) ──
+               Hidden per product direction. JSX is preserved — flip the
+               `false` below to `true` to restore the card. */}
+          {false && (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-5 lg:items-stretch">
 
             {/* LEFT 60%: Needs Attention + Awaiting Customer stacked in one card */}
@@ -1410,6 +1413,7 @@ export default function DeliveryTeamPortal() {
               );
             })()}
           </div>
+          )}
 
           {/* ── Analytics: Tomorrow's Deliveries ────────────────────────── */}
           <div className="pp-card p-5">
@@ -1565,7 +1569,10 @@ export default function DeliveryTeamPortal() {
             </div>
           </div>
 
-          {/* ── Analytics: Driver Performance + Top B2B Customers ───────── */}
+          {/* ── Analytics: Driver Performance + Top B2B Customers ──
+               Hidden per product direction. JSX is preserved — flip the
+               `false` below to `true` to restore the card. */}
+          {false && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             {/* Driver Performance */}
             <div className="pp-card p-5">
@@ -1639,6 +1646,7 @@ export default function DeliveryTeamPortal() {
               )}
             </div>
           </div>
+          )}
 
           {/* ── Full-Width Order Detail Table — hidden; set showOrderTable=true below to restore ── */}
           {(() => {
