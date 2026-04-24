@@ -3014,10 +3014,9 @@ export default function AdminDashboardPage(): React.ReactElement {
                     <p className="pp-page-subtitle">Circle size = delivery volume · Hover for share %, pending, success</p>
                   </div>
                   <div className="h-[min(70vh,560px)] min-h-[380px] sm:min-h-[440px] rounded-xl overflow-hidden">
-                    <MapContainer center={[25.2, 55.27]} zoom={11} style={{ height: '100%', width: '100%' }} scrollWheelZoom={false}>
+                    <MapContainer center={[25.2, 55.27]} zoom={11} style={{ height: '100%', width: '100%' }} scrollWheelZoom={false} attributionControl={false}>
                       <TileLayer
                         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                       />
                       {mapPoints.map((r, i) => {
                         const radius = 8 + (r.count / maxCount) * 32;

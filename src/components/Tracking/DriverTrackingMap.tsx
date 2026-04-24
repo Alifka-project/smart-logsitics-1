@@ -26,10 +26,11 @@ export default function DriverTrackingMap({ drivers }: DriverTrackingMapProps) {
       mapInstance.current.remove();
     }
 
-    mapInstance.current = L.map(mapRef.current).setView([25.0053, 55.076], 12);
+    mapInstance.current = L.map(mapRef.current, {
+      attributionControl: false,
+    }).setView([25.0053, 55.076], 12);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
       maxZoom: 19,
       minZoom: 10,
     }).addTo(mapInstance.current);

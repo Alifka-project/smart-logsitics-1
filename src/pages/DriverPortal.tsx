@@ -22,6 +22,7 @@ import { isPickingListEligible, isDriverMyOrdersStatus } from '../utils/pickingL
 import PickingListPanel from '../components/deliveries/PickingListPanel';
 import PickingReminderModal from '../components/deliveries/PickingReminderModal';
 import { usePickingReminder } from '../hooks/usePickingReminder';
+import { createDriverMarkerIcon, createDeliveryIconForDelivery } from '../utils/mapIcons';
 
 // Fix Leaflet default marker icons
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
@@ -556,13 +557,12 @@ export default function DriverPortal() {
 
     mapInstance.current = L.map(mapRef.current, {
       zoomControl: true,
-      attributionControl: true
+      attributionControl: false,
     }).setView(defaultCenter, 13);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
       maxZoom: 19,
-      minZoom: 10
+      minZoom: 10,
     }).addTo(mapInstance.current);
 
     // Invalidate map size to ensure it fills container properly
@@ -613,31 +613,9 @@ export default function DriverPortal() {
     const map = mapInstance.current;
     const targetLatLng = L.latLng(latitude, longitude);
 
-    // Create custom icon with better styling
-    const truckTrackingIcon = L.divIcon({
-      className: 'custom-marker',
-      html: `<div style="
-        width: 38px;
-        height: 38px;
-        border-radius: 999px;
-        border: 2px solid white;
-        background: radial-gradient(circle at center, rgba(37,99,235,0.35) 0%, rgba(37,99,235,0.15) 55%, rgba(37,99,235,0) 85%);
-        box-shadow: 0 0 0 6px rgba(37,99,235,0.16), 0 4px 12px rgba(0,0,0,0.3);
-        position: relative;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      ">
-        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M14 18H3V6h11v12z"></path>
-          <path d="M14 10h4l3 3v5h-7"></path>
-          <circle cx="7.5" cy="18.5" r="1.5"></circle>
-          <circle cx="17.5" cy="18.5" r="1.5"></circle>
-        </svg>
-      </div>`,
-      iconSize: [38, 38],
-      iconAnchor: [19, 19],
-    });
+    // Driver truck icon — shared factory so this view and the customer
+    // tracking map render the same pin shape.
+    const truckTrackingIcon = createDriverMarkerIcon();
 
     const popupHtml = `
         <div style="font-family: var(--font-sans); font-size: 13px; min-width: 200px;">
@@ -735,8 +713,13 @@ export default function DriverPortal() {
       const coords = normalizeDeliveryCoords(delivery);
       if (!coords) return;
 
+      // Teal pin for regular stops, red P1 pin for priority — shared factory
+      // so admin/logistics see the same visual language when they open the
+      // customer tracking map for this stop.
+      const stopIcon = createDeliveryIconForDelivery(delivery, { index: index + 1 });
       const marker = L.marker([coords.lat, coords.lng], {
-        title: `Stop ${index + 1}: ${delivery.customer || 'Delivery'}`
+        title: `Stop ${index + 1}: ${delivery.customer || 'Delivery'}`,
+        icon: stopIcon,
       })
         .addTo(mapInstance.current!)
         .bindPopup(

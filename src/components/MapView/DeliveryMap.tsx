@@ -78,10 +78,10 @@ export default function DeliveryMap({
       // Disable CSS zoom animation entirely so there is no in-flight transition
       // that can be interrupted when markers are updated during live polling.
       zoomAnimation: false,
+      attributionControl: false,
     }).setView([25.0053, 55.076], 13);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
       maxZoom: 19,
       minZoom: 10,
     }).addTo(map);

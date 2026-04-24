@@ -8,6 +8,7 @@ import {
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import type { Delivery, TrackingEvent } from '../types';
+import { createDriverMarkerIcon, createDeliveryIconForDelivery } from '../utils/mapIcons';
 
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -843,12 +844,18 @@ export default function CustomerTrackingPage() {
               <MapContainer center={mapCenter} zoom={13} style={{ width: '100%', height: '100%' }} attributionControl={false}>
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 {delivery.lat && delivery.lng && (
-                  <Marker position={[delivery.lat, delivery.lng]}>
+                  <Marker
+                    position={[delivery.lat, delivery.lng]}
+                    icon={createDeliveryIconForDelivery(delivery)}
+                  >
                     <Popup><strong>Delivery Location</strong><br />{delivery.address}</Popup>
                   </Marker>
                 )}
                 {trackingInfo.driverLocation && (
-                  <Marker position={[trackingInfo.driverLocation.latitude, trackingInfo.driverLocation.longitude]}>
+                  <Marker
+                    position={[trackingInfo.driverLocation.latitude, trackingInfo.driverLocation.longitude]}
+                    icon={createDriverMarkerIcon()}
+                  >
                     <Popup><strong>Driver Location</strong><br />{trackingInfo.driver?.name}</Popup>
                   </Marker>
                 )}
