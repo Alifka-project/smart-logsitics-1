@@ -1094,7 +1094,7 @@ export default function DeliveryTeamPortal() {
                 <div className="pp-card p-4 text-center bg-green-50 dark:bg-green-900/20">
                   <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Confirmed</div>
                   <div className="text-2xl font-bold text-green-600 dark:text-green-400">{confirmedCount}</div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">ready for GMD</div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">ready for PGI</div>
                 </div>
                 <div className="pp-card p-4 text-center bg-amber-50 dark:bg-amber-900/20">
                   <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">PGI Done</div>
@@ -1812,7 +1812,7 @@ export default function DeliveryTeamPortal() {
                           { h: 'Address',          col: null },
                           { h: 'City',             col: null },
                           { h: 'Status',           col: 'status' },
-                          { h: 'GMD',              col: 'gmd' },
+                          { h: 'PGI',              col: 'gmd' },
                           { h: 'Del Date',         col: 'deldate' },
                           { h: 'Model',            col: null },
                           { h: 'Description',      col: null },
@@ -2009,8 +2009,8 @@ export default function DeliveryTeamPortal() {
                                 )}
                                 */}
                                 {isDispatchable && !hasGMD && !isOFDWorkflow && !isDelayWorkflow && (
-                                  <span className="inline-flex items-center justify-center px-2 py-1 rounded text-[11px] font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 cursor-not-allowed whitespace-nowrap" title="Set Goods Movement Date to dispatch">
-                                    GMD required
+                                  <span className="inline-flex items-center justify-center px-2 py-1 rounded text-[11px] font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 cursor-not-allowed whitespace-nowrap" title="Set Post Goods Issue date to dispatch">
+                                    PGI required
                                   </span>
                                 )}
                                 {isDispatchable && hasGMD && (

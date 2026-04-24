@@ -888,11 +888,11 @@ export default function LogisticsTeamPortal() {
                         setDeliveriesSubTab('manage');
                       }}
                       className="pp-card p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:ring-2 hover:ring-amber-400 transition-all"
-                      title="Deliveries with no Goods Movement Date"
+                      title="Deliveries with no Post Goods Issue date"
                     >
-                      <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Pending GMD</div>
+                      <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Pending PGI</div>
                       <div className="text-3xl font-bold text-amber-600 dark:text-amber-400">{pendingGMD}</div>
-                      <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">no movement date</div>
+                      <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">no PGI date</div>
                     </div>
                     <div className="pp-card p-4 flex flex-col items-center justify-center text-center">
                       <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Today Processed</div>
