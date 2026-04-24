@@ -5,7 +5,7 @@ import type { DeliveryOrder, DeliveryStatus } from '../../types/delivery';
 import { STATUS_CONFIG } from '../../config/statusColors';
 import { RescheduleModal } from './RescheduleModal';
 import PaginationBar from '../common/PaginationBar';
-import { rescheduleDateToWorkflow } from '../../utils/deliveryWorkflowMap';
+import { rescheduleDateToWorkflow, classifyConfirmedDate } from '../../utils/deliveryWorkflowMap';
 import useDeliveryStore from '../../store/useDeliveryStore';
 
 // ── DateRangePicker is imported from components/common/DateRangePicker ──────────
@@ -94,6 +94,17 @@ const DELIVERED_STATUSES = new Set<DeliveryStatus>(['delivered']);
 // Statuses that should display as "Confirmed" in the Status column pill
 // (the Action column already shows the specific sub-status via NextStepBadge)
 const DISPLAY_AS_CONFIRMED = new Set<DeliveryStatus>(['next_shipment', 'future_schedule', 'ready_to_dispatch']);
+// Excluded from the date-first shipment tiers (Next Shipment / Future Schedule).
+// out_for_delivery lives under On Route; order_delay lives under Order Delay;
+// terminal rows don't belong on any scheduling tier.
+const SHIPMENT_TIER_EXCLUDED = new Set<DeliveryStatus>(['delivered', 'cancelled', 'failed', 'out_for_delivery', 'order_delay']);
+
+/** Does this order count under a Next Shipment (tier='next') or Future Schedule (tier='future') tier? */
+function matchesShipmentTier(order: DeliveryOrder, tier: 'next' | 'future'): boolean {
+  if (SHIPMENT_TIER_EXCLUDED.has(order.status)) return false;
+  if (!order.confirmedDeliveryDate) return false;
+  return classifyConfirmedDate(order.confirmedDeliveryDate) === tier;
+}
 
 function matchesTableTab(order: DeliveryOrder, tab: OrdersTableTab): boolean {
   switch (tab) {
@@ -101,8 +112,12 @@ function matchesTableTab(order: DeliveryOrder, tab: OrdersTableTab): boolean {
     case 'pending':           return !PENDING_TERMINAL.has(order.status);
     case 'awaiting_customer': return order.status === 'sms_sent' || order.status === 'unconfirmed';
     case 'confirmed':         return CONFIRMED_STATUSES.has(order.status);
-    case 'next_shipment':     return order.status === 'next_shipment' || order.status === 'ready_to_dispatch';
-    case 'future_schedule':   return order.status === 'future_schedule';
+    // Date-first tier — include orders whose confirmedDeliveryDate falls
+    // tomorrow (next) or 2+ days out (future) regardless of warehouse stage.
+    // Catches pgi-done / pickup-confirmed / rescheduled-with-GMD rows whose
+    // workflow status short-circuits before reaching the tier branches.
+    case 'next_shipment':     return matchesShipmentTier(order, 'next');
+    case 'future_schedule':   return matchesShipmentTier(order, 'future');
     case 'scheduled':         return SCHEDULED_STATUSES.has(order.status);
     case 'pgi_done':          return order.status === 'pgi_done';
     case 'pickup_confirmed':  return order.status === 'pickup_confirmed';
@@ -621,8 +636,8 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
     { key: 'unassigned',       label: 'Unassigned',       count: unassignedCount, urgent: unassignedCount > 0 },
     { key: 'awaiting_customer',label: 'Awaiting Customer',count: orders.filter((o) => o.status === 'sms_sent' || o.status === 'unconfirmed').length },
     { key: 'pending_gmd',      label: 'Pending PGI',      count: pendingGmdCount, urgent: pendingGmdCount > 0 },
-    { key: 'next_shipment',    label: 'Next Shipment',    count: orders.filter((o) => o.status === 'next_shipment' || o.status === 'ready_to_dispatch').length },
-    { key: 'future_schedule',  label: 'Future Schedule',  count: orders.filter((o) => o.status === 'future_schedule').length },
+    { key: 'next_shipment',    label: 'Next Shipment',    count: orders.filter((o) => matchesShipmentTier(o, 'next')).length },
+    { key: 'future_schedule',  label: 'Future Schedule',  count: orders.filter((o) => matchesShipmentTier(o, 'future')).length },
     { key: 'pgi_done',         label: 'PGI Done',         count: orders.filter((o) => o.status === 'pgi_done').length },
     { key: 'pickup_confirmed', label: 'Pickup Confirmed', count: orders.filter((o) => o.status === 'pickup_confirmed').length },
     { key: 'out_for_delivery', label: 'On Route',         count: orders.filter((o) => o.status === 'out_for_delivery').length },

@@ -2,6 +2,7 @@ import React from 'react';
 import { ArrowUpRight } from 'lucide-react';
 import { STATUS_CONFIG } from '../../config/statusColors';
 import type { DeliveryOrder } from '../../types/delivery';
+import { classifyConfirmedDate } from '../../utils/deliveryWorkflowMap';
 
 interface StatusMetricCardsProps {
   orders: DeliveryOrder[];
@@ -25,14 +26,34 @@ const CARD_DEFS = [
 // Terminal workflow statuses — excluded from "Pending Orders" total
 const TERMINAL_WF = new Set(['delivered', 'cancelled', 'failed']);
 
+// Excluded from the date-tier shipment cards (Next Shipment / Future Schedule)
+// so an order already dispatched or explicitly delayed doesn't double-count
+// on cards that mean "scheduled-to-go-out". out_for_delivery lives under the
+// On Route card; order_delay lives under Order Delay.
+const SHIPMENT_CARD_EXCLUDED = new Set(['delivered', 'cancelled', 'failed', 'out_for_delivery', 'order_delay']);
+
 export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({ orders, onCardClick, activeKey }) => {
   const statusCounts = {
     // "Pending Orders" = everything not yet delivered/cancelled/failed — same logic as Needs Attention
     uploaded:         orders.filter((o) => !TERMINAL_WF.has(o.status)).length,
     sms_sent:         orders.filter((o) => o.status === 'sms_sent' || o.status === 'unconfirmed').length,
     unconfirmed:      orders.filter((o) => o.status === 'unconfirmed').length,
-    next_shipment:    orders.filter((o) => o.status === 'next_shipment' || o.status === 'ready_to_dispatch').length,
-    future_schedule:  orders.filter((o) => o.status === 'future_schedule').length,
+    // Date-first tier counts. Any non-terminal, non-active-route order whose
+    // confirmedDeliveryDate falls tomorrow (Dubai) counts as Next Shipment;
+    // 2+ days out counts as Future Schedule. This catches rescheduled / pgi-
+    // done / pickup-confirmed orders whose workflow status short-circuits
+    // before the tier branches — those would otherwise silently disappear
+    // from these cards even though the promised date falls within the tier.
+    next_shipment: orders.filter((o) => {
+      if (SHIPMENT_CARD_EXCLUDED.has(o.status)) return false;
+      if (!o.confirmedDeliveryDate) return false;
+      return classifyConfirmedDate(o.confirmedDeliveryDate) === 'next';
+    }).length,
+    future_schedule: orders.filter((o) => {
+      if (SHIPMENT_CARD_EXCLUDED.has(o.status)) return false;
+      if (!o.confirmedDeliveryDate) return false;
+      return classifyConfirmedDate(o.confirmedDeliveryDate) === 'future';
+    }).length,
     out_for_delivery: orders.filter((o) => o.status === 'out_for_delivery').length,
     order_delay:      orders.filter((o) => o.status === 'order_delay').length,
     delivered:        orders.filter((o) => o.status === 'delivered').length,
