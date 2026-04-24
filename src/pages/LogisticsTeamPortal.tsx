@@ -1593,7 +1593,10 @@ export default function LogisticsTeamPortal() {
                 // 4. Status quick filter
                 const status = (d.status || '').toLowerCase();
                 if (liveStatusFilter === 'out_for_delivery') {
-                  return status === 'out-for-delivery';
+                  // Match every actively-in-motion status — out-for-delivery plus
+                  // the legacy in-transit / in-progress aliases — so the pill
+                  // count matches the pins drawn by the route polyline.
+                  return ['out-for-delivery', 'in-transit', 'in-progress'].includes(status);
                 }
                 if (liveStatusFilter === 'confirmed') {
                   return ['confirmed', 'scheduled-confirmed', 'rescheduled'].includes(status);
@@ -1772,6 +1775,7 @@ export default function LogisticsTeamPortal() {
                         deliveryNumber?: string;
                         etaMinutes?: number;
                         metadata?: Record<string, unknown>;
+                        _usedDefaultCoords?: boolean;
                       };
                       const meta = dExt.metadata ?? {};
                       const isPriority = meta.isPriority === true;
@@ -1779,6 +1783,18 @@ export default function LogisticsTeamPortal() {
                         dr.id === dExt.tracking?.driverId || dr.id === delivery.assignedDriverId
                       );
                       const isSelected = delivery.id === trackingSelectedId;
+                      // Pre-dispatch rows (confirmed / scheduled-confirmed / rescheduled)
+                      // show a pin on the map but the driver hasn't started — the
+                      // route polyline intentionally skips them. Surface this so the
+                      // user isn't confused why the line seems to jump over the pin.
+                      const statusLcForBadge = (delivery.status || '').toLowerCase();
+                      const isPreDispatch = ['confirmed', 'scheduled-confirmed', 'rescheduled'].includes(statusLcForBadge);
+                      // Missing / fallback coords — pin either doesn't render or sits
+                      // on the default Dubai point; route skips these to avoid
+                      // corrupting the polyline. Expose it so ops can fix the address.
+                      const latNum = Number(delivery.lat);
+                      const lngNum = Number(delivery.lng);
+                      const hasMissingCoords = !Number.isFinite(latNum) || !Number.isFinite(lngNum) || dExt._usedDefaultCoords === true;
 
                       // ── ETA: planned delivery date vs live routing ETA ────────
                       const etaMinutes = dExt.etaMinutes ?? null;
@@ -1916,6 +1932,33 @@ export default function LogisticsTeamPortal() {
                                       : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
                                   }`}>
                                     {liveStatus === 'on_time' ? '✓ On Time' : liveStatus === 'overdue' ? '⚠ Overdue' : '⚠ Delayed'}
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Pre-dispatch explanation — tells the user why the map
+                                  pin has no route line connected to it. */}
+                              {isPreDispatch && (
+                                <div>
+                                  <span
+                                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300"
+                                    title="Driver hasn't started the route yet — no live polyline connects to this pin"
+                                  >
+                                    ⏳ Not yet dispatched
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Coord-missing explanation — pin may be at the Dubai
+                                  default fallback and the route intentionally skips
+                                  it to keep geometry clean. */}
+                              {hasMissingCoords && (
+                                <div>
+                                  <span
+                                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400"
+                                    title="Coordinates are missing or fell back to a default — the route skips this stop. Fix the address to draw it."
+                                  >
+                                    📍 Location needs geocoding
                                   </span>
                                 </div>
                               )}

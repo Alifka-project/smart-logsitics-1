@@ -429,10 +429,19 @@ export async function computePerDriverRoutes(
       const color = DRIVER_ROUTE_COLORS[idx % DRIVER_ROUTE_COLORS.length];
 
       // Collect this driver's active stops with valid, real coordinates.
-      // Includes out-for-delivery AND in-transit (both mean the driver is en route).
+      // Includes out-for-delivery AND in-transit AND order-delay — all three
+      // mean the driver is actively en route (order-delay is just out-for-
+      // delivery past its promised date, still a valid route segment to draw
+      // so dispatch staff see where the delayed stop actually is).
       // Skips stops that use the default fallback coords (_usedDefaultCoords=true)
       // since those all cluster at one Dubai point and corrupt the route geometry.
-      const ACTIVE_ROUTE_STATUSES = new Set(['out-for-delivery', 'in-transit', 'in-progress']);
+      const ACTIVE_ROUTE_STATUSES = new Set([
+        'out-for-delivery',
+        'in-transit',
+        'in-progress',
+        'order-delay',
+        'order_delay',
+      ]);
       const stops = deliveries
         .filter((d) => {
           const dExt = d as { tracking?: { driverId?: string }; assignedDriverId?: string | null; _usedDefaultCoords?: boolean };

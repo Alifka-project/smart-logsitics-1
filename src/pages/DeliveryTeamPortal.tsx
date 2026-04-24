@@ -2260,6 +2260,7 @@ export default function DeliveryTeamPortal() {
                     confirmedDeliveryDate?: string;
                     etaMinutes?: number;
                     metadata?: Record<string, unknown>;
+                    _usedDefaultCoords?: boolean;
                   };
                   const meta2 = dExt.metadata ?? {};
                   const isPrio = meta2.isPriority === true || (delivery as unknown as { isPriority?: boolean }).isPriority === true;
@@ -2267,6 +2268,14 @@ export default function DeliveryTeamPortal() {
                     dr.id === dExt.tracking?.driverId || dr.id === delivery.assignedDriverId
                   );
                   const isSelected = delivery.id === trackingSelectedId;
+                  // Tell the user why some pins lack a connected route line:
+                  // · pre-dispatch statuses (confirmed/rescheduled) — driver hasn't started
+                  // · missing or fallback coords — route intentionally skips to keep geometry clean
+                  const statusLcForBadge = (delivery.status || '').toLowerCase();
+                  const isPreDispatch = ['confirmed', 'scheduled-confirmed', 'rescheduled'].includes(statusLcForBadge);
+                  const latNum = Number(delivery.lat);
+                  const lngNum = Number(delivery.lng);
+                  const hasMissingCoords = !Number.isFinite(latNum) || !Number.isFinite(lngNum) || dExt._usedDefaultCoords === true;
                   const etaMinutes = dExt.etaMinutes ?? null;
                   const nowTs = Date.now();
                   const realtimeEtaText = etaMinutes != null && etaMinutes > 0
@@ -2343,6 +2352,26 @@ export default function DeliveryTeamPortal() {
                             }`}>
                               {liveStatus === 'on_time' ? '✓ On Time' : liveStatus === 'overdue' ? '⚠ Overdue' : '⚠ Delayed'}
                             </span>
+                          )}
+                          {isPreDispatch && (
+                            <div>
+                              <span
+                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300"
+                                title="Driver hasn't started the route yet — no live polyline connects to this pin"
+                              >
+                                ⏳ Not yet dispatched
+                              </span>
+                            </div>
+                          )}
+                          {hasMissingCoords && (
+                            <div>
+                              <span
+                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400"
+                                title="Coordinates are missing or fell back to a default — the route skips this stop. Fix the address to draw it."
+                              >
+                                📍 Location needs geocoding
+                              </span>
+                            </div>
                           )}
                         </div>
                       </div>
