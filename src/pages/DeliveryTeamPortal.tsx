@@ -32,7 +32,6 @@ import {
 import DeliveryManagementPage from './DeliveryManagementPage';
 import { DateRangePicker } from '../components/common/DateRangePicker';
 import DeliveryMap from '../components/MapView/DeliveryMap';
-import LiveMapsDriverLegend from '../components/Tracking/LiveMapsDriverLegend';
 import { classifyForLiveMap, BUCKET_ORDER, BUCKET_META, type LiveMapBucket } from '../utils/liveMapsStatusBuckets';
 import { computePerDriverRoutes } from '../services/advancedRoutingService';
 import type { DriverRoute } from '../services/advancedRoutingService';
@@ -2252,27 +2251,7 @@ export default function DeliveryTeamPortal() {
             style={{ height: 'max(560px, calc(100dvh - 240px))', gridTemplateColumns: '1fr 290px', overflow: 'hidden' }}
           >
             {/* Map panel */}
-            <div className="flex flex-col min-w-0 min-h-0 gap-2">
-              {/* Driver colour legend — swatches match polylines on map.
-                  Click to filter list + map by driver. */}
-              <LiveMapsDriverLegend
-                driverRoutes={driverRoutes}
-                activeDriverId={trackingDriverFilter}
-                onSelectDriver={(id) => { setTrackingDriverFilter(id); setTrackingSelectedId(null); }}
-                enrich={(driverId) => {
-                  const drv = drivers.find((x) => x.id === driverId);
-                  const stopCount = deliveries.filter((d) => {
-                    const s = (d.status || '').toLowerCase();
-                    const dExt = d as unknown as { tracking?: { driverId?: string } };
-                    const assigned = dExt.tracking?.driverId === driverId || d.assignedDriverId === driverId;
-                    return assigned && LIVE_MAP_VISIBLE_D.has(s);
-                  }).length;
-                  return {
-                    online: drv ? isContactOnline(drv) : false,
-                    stopCount,
-                  };
-                }}
-              />
+            <div className="flex flex-col min-w-0 min-h-0">
               <div className="pp-card overflow-hidden flex-1 relative" style={{ minHeight: 0 }}>
                 {routeLoading && (
                   <div className="absolute inset-0 flex items-center justify-center bg-white/60 dark:bg-gray-900/60 z-10">
