@@ -840,8 +840,8 @@ export default function CustomerTrackingPage() {
               </button>
             </div>
             <div style={{ height: 240 }}>
-              <MapContainer center={mapCenter} zoom={13} style={{ width: '100%', height: '100%' }}>
-                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap' />
+              <MapContainer center={mapCenter} zoom={13} style={{ width: '100%', height: '100%' }} attributionControl={false}>
+                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 {delivery.lat && delivery.lng && (
                   <Marker position={[delivery.lat, delivery.lng]}>
                     <Popup><strong>Delivery Location</strong><br />{delivery.address}</Popup>

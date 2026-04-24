@@ -354,15 +354,45 @@ router.get('/tracking/:token', async (req: Request, res: Response): Promise<void
           name: (tracking.tracking.assignment.driver as { fullName?: string }).fullName,
           phone: (tracking.tracking.assignment.driver as { phone?: string }).phone
         } : null,
-        // Note: driverLocation intentionally NOT forwarded to the customer payload.
-        // Customer view now shows status + planned/static ETA only — no live GPS.
-        driverLocation: null as null | {
+        // Driver GPS for the customer's live map. Surfaced ONLY while the
+        // delivery is actively out-for-delivery and the driver's most recent
+        // ping is within 20 minutes — the same freshness rule liveEtaService
+        // uses, so the map pin and the ETA window stay consistent. When any
+        // of those conditions fails we return null and the client gracefully
+        // hides the driver pin and polyline.
+        driverLocation: await (async (): Promise<null | {
           latitude: number;
           longitude: number;
           heading: number;
           speed: number;
           recordedAt: string;
-        }
+        }> => {
+          const isOutForDelivery =
+            statusLower === 'out-for-delivery' ||
+            statusLower === 'out_for_delivery' ||
+            statusLower === 'in-transit';
+          if (!isOutForDelivery || !assignedDriverId) return null;
+          try {
+            const row = await prisma.liveLocation.findFirst({
+              where: { driverId: assignedDriverId },
+              orderBy: { recordedAt: 'desc' },
+              select: { latitude: true, longitude: true, heading: true, speed: true, recordedAt: true },
+            });
+            if (!row) return null;
+            const ageMs = Date.now() - new Date(row.recordedAt).getTime();
+            if (ageMs > 20 * 60 * 1000) return null;
+            return {
+              latitude: row.latitude,
+              longitude: row.longitude,
+              heading: row.heading ?? 0,
+              speed: row.speed ?? 0,
+              recordedAt: new Date(row.recordedAt).toISOString(),
+            };
+          } catch (gpsErr: unknown) {
+            console.warn('[customer/tracking] driverLocation lookup failed:', (gpsErr as Error).message);
+            return null;
+          }
+        })()
       },
       timeline
     });
