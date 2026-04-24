@@ -707,16 +707,39 @@ export default function DeliveryTeamPortal() {
     return { pendingOrders, unassigned, awaitingConfirmation, orderDelay };
   }, [deliveries]);
 
-  // Badge derived from the same workflow status as ManageTab — single source of truth
+  // Badge derived from the same workflow status as ManageTab — single source of truth.
+  // For warehouse-stage statuses (pgi-done, pickup-confirmed) we ALSO emit a
+  // tier pill (Order Delay / Next Shipment / Future Schedule · date) when
+  // the promised date isn't today, so ops can monitor "what do we owe
+  // customers tomorrow?" without having to inspect each card's ETA grid.
   const getDeliveryStatusBadge = (delivery: Delivery): { label: string; color: string; tierLabel?: string; tierColor?: string } => {
     const order = deliveryToManageOrder(delivery);
     const shortDate = order.confirmedDeliveryDate
       ? order.confirmedDeliveryDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
       : null;
+    // Compute Dubai-day tier for pgi-done / pickup-confirmed date pills.
+    const dateTier: 'past' | 'today' | 'tomorrow' | 'future' | 'none' = (() => {
+      if (!order.confirmedDeliveryDate) return 'none';
+      const toDubaiMidnight = (d: Date): number => {
+        const z = new Date(d.toLocaleString('en-US', { timeZone: 'Asia/Dubai' }));
+        return Date.UTC(z.getFullYear(), z.getMonth(), z.getDate());
+      };
+      const diffDays = Math.round((toDubaiMidnight(order.confirmedDeliveryDate) - toDubaiMidnight(new Date())) / 86_400_000);
+      if (diffDays < 0) return 'past';
+      if (diffDays === 0) return 'today';
+      if (diffDays === 1) return 'tomorrow';
+      return 'future';
+    })();
+    const tierPillFor = (tier: typeof dateTier): { tierLabel?: string; tierColor?: string } => {
+      if (tier === 'past' && shortDate)     return { tierLabel: `Order Delay · ${shortDate}`,     tierColor: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' };
+      if (tier === 'tomorrow' && shortDate) return { tierLabel: `Next Shipment · ${shortDate}`,   tierColor: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300' };
+      if (tier === 'future' && shortDate)   return { tierLabel: `Future Schedule · ${shortDate}`, tierColor: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300' };
+      return {};
+    };
     switch (order.status) {
-      case 'order_delay':       return { label: 'Order Delay',                                                              color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' };
-      case 'pgi_done':          return { label: 'PGI Done',                                                                  color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300' };
-      case 'pickup_confirmed':  return { label: 'Pickup Confirmed',                                                          color: 'bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300' };
+      case 'order_delay':       return { label: shortDate ? `Order Delay · ${shortDate}` : 'Order Delay', color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' };
+      case 'pgi_done':          return { label: 'PGI Done',        color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300', ...tierPillFor(dateTier) };
+      case 'pickup_confirmed':  return { label: 'Pickup Confirmed', color: 'bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300',     ...tierPillFor(dateTier) };
       case 'out_for_delivery':  return { label: 'On Route',                                                                  color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' };
       case 'next_shipment': {
         if (order.isRescheduled) {
@@ -2498,6 +2521,29 @@ export default function DeliveryTeamPortal() {
                               </span>
                             </div>
                           )}
+                          {/* Status + tier pills — workflow status (PGI Done /
+                              Pickup Confirmed / Rescheduled / etc.) plus a
+                              date-tier chip (Next Shipment · 27 Apr /
+                              Future Schedule · 29 Apr / Order Delay · 25 Apr)
+                              so ops immediately see when the order is due. */}
+                          {(() => {
+                            const b = getDeliveryStatusBadge(delivery);
+                            if (!b.label && !b.tierLabel) return null;
+                            return (
+                              <div className="flex flex-wrap items-center gap-1">
+                                {b.label && (
+                                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${b.color}`}>
+                                    {b.label}
+                                  </span>
+                                )}
+                                {b.tierLabel && (
+                                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${b.tierColor}`}>
+                                    {b.tierLabel}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
                           <div className="grid grid-cols-2 gap-1 pt-0.5">
                             <div className="flex flex-col">
                               <span className="text-[9px] text-gray-400 dark:text-gray-500 uppercase tracking-wide leading-none mb-0.5">Planned</span>

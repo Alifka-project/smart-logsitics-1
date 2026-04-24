@@ -2,30 +2,48 @@
  * Shared status-bucket classifier for the Live Maps sub-tab in the
  * Logistics + Delivery team portals.
  *
- * Goal: one canonical rulebook for "which bucket does this delivery
- * belong to on the live map" so the list grouping, the counts, and the
- * map pin colouring can never drift. Pure functions only — no side
- * effects, no I/O.
+ * Rule (date-first for non-terminal orders):
+ *   Any delivery that isn't delivered / cancelled / returned / failed is
+ *   classified primarily by its Dubai calendar date, regardless of the
+ *   warehouse stage (pgi-done, pickup-confirmed, confirmed, rescheduled,
+ *   out-for-delivery). This lets ops monitor "what do we owe customers
+ *   tomorrow?" in a single sweep across the list.
+ *
+ * Priority:
+ *   1. Terminal / cancelled / returned / failed → 'other' (filtered out
+ *      of Live Maps anyway; kept as fallback).
+ *   2. Actively on-route (out-for-delivery / in-transit / in-progress /
+ *      explicit order-delay) → split by live ETA vs end-of-day:
+ *        · past date → overdue
+ *        · live ETA > end-of-day → on_route_delayed
+ *        · otherwise → on_route
+ *   3. Everything else (non-terminal, not on-route) classified by date:
+ *        · past date → overdue
+ *        · today + pickup-confirmed → awaiting_pickup
+ *        · today + anything else non-terminal → confirmed_today
+ *        · tomorrow → next_shipment
+ *        · 2+ days → future_schedule
+ *        · no date → other
  */
 
 export type LiveMapBucket =
-  | 'overdue'          // not delivered, promised date has passed
-  | 'on_route_delayed' // out-for-delivery / in-transit, ETA > end-of-day
-  | 'on_route'         // out-for-delivery / in-transit, on time
-  | 'awaiting_pickup'  // pickup-confirmed, today's date
-  | 'confirmed_today'  // confirmed / scheduled-confirmed / rescheduled, today
-  | 'confirmed_future' // same as above, future date
-  | 'other';           // doesn't belong in any explicit bucket (fallback)
+  | 'overdue'           // promised date past, not delivered
+  | 'on_route_delayed'  // out-for-delivery, ETA > end-of-day
+  | 'on_route'          // out-for-delivery, on time
+  | 'awaiting_pickup'   // pickup-confirmed, today
+  | 'confirmed_today'   // any non-terminal, today (non pickup-confirmed)
+  | 'next_shipment'     // any non-terminal, tomorrow (Dubai)
+  | 'future_schedule'   // any non-terminal, 2+ days out
+  | 'other';            // fallback / terminal / no date
 
 export interface BucketMeta {
   label: string;
-  color: string;              // hex — used for bucket-header accent
-  bgClass: string;            // tailwind bg class for bucket header chip
-  textClass: string;          // tailwind text class
-  borderClass: string;        // tailwind border class for card-left accent
-  shortLabel?: string;        // terse form for space-constrained chips
-  /** Lower = higher priority in sort ordering. */
-  sortOrder: number;
+  color: string;               // hex — used for header left-border accent
+  bgClass: string;             // tailwind bg class for header chip
+  textClass: string;           // tailwind text class
+  borderClass: string;         // left-border class for card accent
+  shortLabel?: string;
+  sortOrder: number;           // lower = higher priority in sort
 }
 
 export const BUCKET_META: Record<LiveMapBucket, BucketMeta> = {
@@ -71,14 +89,21 @@ export const BUCKET_META: Record<LiveMapBucket, BucketMeta> = {
     borderClass: 'border-l-4 border-indigo-500',
     sortOrder: 5,
   },
-  confirmed_future: {
-    label: 'Confirmed — Future',
-    shortLabel: 'Future',
-    color: '#64748b',
-    bgClass: 'bg-slate-100 dark:bg-slate-700',
-    textClass: 'text-slate-700 dark:text-slate-300',
-    borderClass: 'border-l-4 border-slate-400',
+  next_shipment: {
+    label: 'Next Shipment',
+    color: '#f59e0b',
+    bgClass: 'bg-amber-100 dark:bg-amber-900/40',
+    textClass: 'text-amber-700 dark:text-amber-300',
+    borderClass: 'border-l-4 border-amber-500',
     sortOrder: 6,
+  },
+  future_schedule: {
+    label: 'Future Schedule',
+    color: '#6366f1',
+    bgClass: 'bg-indigo-100 dark:bg-indigo-900/40',
+    textClass: 'text-indigo-700 dark:text-indigo-300',
+    borderClass: 'border-l-4 border-indigo-500',
+    sortOrder: 7,
   },
   other: {
     label: 'Other',
@@ -86,7 +111,7 @@ export const BUCKET_META: Record<LiveMapBucket, BucketMeta> = {
     bgClass: 'bg-gray-100 dark:bg-gray-700',
     textClass: 'text-gray-600 dark:text-gray-300',
     borderClass: 'border-l-4 border-gray-300',
-    sortOrder: 7,
+    sortOrder: 8,
   },
 };
 
@@ -97,7 +122,8 @@ export const BUCKET_ORDER: LiveMapBucket[] = [
   'on_route',
   'awaiting_pickup',
   'confirmed_today',
-  'confirmed_future',
+  'next_shipment',
+  'future_schedule',
   'other',
 ];
 
@@ -105,10 +131,11 @@ interface ClassifyInput {
   status?: string | null;
   confirmedDeliveryDate?: string | Date | null;
   goodsMovementDate?: string | Date | null;
-  /** Minutes from "now" to estimated arrival, if driver has live GPS. */
+  /** Minutes from now to estimated arrival, if driver has live GPS. */
   etaMinutes?: number | null;
 }
 
+/** Return the Dubai calendar-day string (YYYY-MM-DD) for a Date/ISO, or null. */
 function dubaiDayStr(v: Date | string | null | undefined): string | null {
   if (!v) return null;
   const dt = v instanceof Date ? v : new Date(v);
@@ -117,48 +144,79 @@ function dubaiDayStr(v: Date | string | null | undefined): string | null {
   return `${z.getFullYear()}-${String(z.getMonth() + 1).padStart(2, '0')}-${String(z.getDate()).padStart(2, '0')}`;
 }
 
+/** Day offset of `target` relative to `today` in Dubai. Negative = past, 0 = today, positive = future. */
+function dubaiDayOffset(target: string, today: string): number {
+  const [ty, tm, td] = target.split('-').map(Number);
+  const [cy, cm, cd] = today.split('-').map(Number);
+  const tMs = Date.UTC(ty, tm - 1, td);
+  const cMs = Date.UTC(cy, cm - 1, cd);
+  return Math.round((tMs - cMs) / 86_400_000);
+}
+
+const TERMINAL_STATUSES = new Set([
+  'delivered',
+  'delivered-with-installation',
+  'delivered-without-installation',
+  'pod-completed',
+  'finished',
+  'completed',
+  'cancelled',
+  'rejected',
+  'returned',
+  'failed',
+]);
+
+const ACTIVE_ROUTE_STATUSES = new Set([
+  'out-for-delivery',
+  'out_for_delivery',
+  'in-transit',
+  'in-progress',
+]);
+
 /**
  * Classifies a delivery into one of the LiveMapBucket values above.
- * The exact rulebook is documented inline so the list UI, the map pin
- * styling, and any future bucket-count widgets read the same source.
  */
 export function classifyForLiveMap(input: ClassifyInput): LiveMapBucket {
   const status = (input.status || '').toLowerCase();
+
+  // 1. Terminal → filtered out of Live Maps anyway. Bucket 'other' as a
+  //    safe fallback.
+  if (TERMINAL_STATUSES.has(status)) return 'other';
+
   const bucketDateStr = dubaiDayStr(input.confirmedDeliveryDate ?? input.goodsMovementDate ?? null);
-  const today = dubaiDayStr(new Date());
+  const today = dubaiDayStr(new Date())!;
+  const dayOffset = bucketDateStr ? dubaiDayOffset(bucketDateStr, today) : null;
+  const isPast = dayOffset != null && dayOffset < 0;
+  const isToday = dayOffset === 0;
+  const isTomorrow = dayOffset === 1;
 
-  const isActiveOnRoute = ['out-for-delivery', 'out_for_delivery', 'in-transit', 'in-progress'].includes(status);
+  // 2. Actively on-route — split by live ETA vs end-of-day.
+  const isActiveOnRoute = ACTIVE_ROUTE_STATUSES.has(status);
   const isOrderDelay = status === 'order-delay' || status === 'order_delay';
-  const isPickupConfirmed = status === 'pickup-confirmed' || status === 'pickup_confirmed';
-  const isConfirmedPreDispatch = ['confirmed', 'scheduled-confirmed', 'rescheduled'].includes(status);
-  const isPast = !!(bucketDateStr && today && bucketDateStr < today);
-  const isToday = !!(bucketDateStr && today && bucketDateStr === today);
-
-  // 1. Overdue trumps everything — promised date is past and delivery
-  //    hasn't flipped to a terminal status yet.
-  if (isPast && !['delivered', 'delivered-with-installation', 'delivered-without-installation', 'pod-completed', 'finished', 'completed', 'cancelled', 'rejected', 'returned'].includes(status)) {
-    return 'overdue';
-  }
-
-  // 2. On-route (active driver): split on live ETA vs promised end-of-day.
   if (isActiveOnRoute || isOrderDelay) {
+    if (isPast) return 'overdue';
     if (typeof input.etaMinutes === 'number' && input.etaMinutes >= 0 && bucketDateStr) {
-      const eod = new Date(`${bucketDateStr}T16:00:00Z`); // 20:00 Dubai = 16:00 UTC
+      // End-of-day Dubai 20:00 UTC
+      const [by, bm, bd] = bucketDateStr.split('-').map(Number);
+      const eodUtcMs = Date.UTC(by, bm - 1, bd, 20, 0, 0, 0);
       const etaMs = Date.now() + input.etaMinutes * 60_000;
-      return etaMs > eod.getTime() ? 'on_route_delayed' : 'on_route';
+      return etaMs > eodUtcMs ? 'on_route_delayed' : 'on_route';
     }
     return isOrderDelay ? 'on_route_delayed' : 'on_route';
   }
 
-  // 3. Pickup-confirmed and the driver hasn't tapped Start Delivery yet.
-  if (isPickupConfirmed) {
-    return isToday ? 'awaiting_pickup' : 'confirmed_future';
-  }
+  // 3. Non-terminal, not on-route → classify by DATE TIER.
+  //    Works uniformly for pgi-done, pickup-confirmed, confirmed,
+  //    scheduled-confirmed, rescheduled, etc.
+  if (isPast) return 'overdue';
 
-  // 4. Admin-confirmed, awaiting dispatch.
-  if (isConfirmedPreDispatch) {
-    return isToday ? 'confirmed_today' : 'confirmed_future';
+  const isPickupConfirmed = status === 'pickup-confirmed' || status === 'pickup_confirmed';
+  if (isToday) {
+    return isPickupConfirmed ? 'awaiting_pickup' : 'confirmed_today';
   }
+  if (isTomorrow) return 'next_shipment';
+  if (dayOffset != null && dayOffset >= 2) return 'future_schedule';
 
+  // No date at all → fallback.
   return 'other';
 }
