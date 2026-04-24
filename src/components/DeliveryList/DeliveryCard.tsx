@@ -63,13 +63,48 @@ export default function DeliveryCard({
     const d = new Date(iso);
     return isNaN(d.getTime()) ? 'N/A' : d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   };
-  const etaText = fmtTime(etaRaw);
+  /**
+   * Relative Dubai-day label ("Today" / "Tomorrow" / "Wed 25 Apr"). Prefixed
+   * to every ETA chip so a driver can't mistake an evening route time for
+   * the next morning, or a tomorrow-scheduled order for a today one.
+   * Returns empty string if ISO missing/invalid so the chip falls back to
+   * time-only rather than rendering "N/A, 10:20".
+   */
+  const fmtDateLabel = (iso: string | null | undefined): string => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    const dubaiDayStr = (v: Date): string => {
+      const z = new Date(v.toLocaleString('en-US', { timeZone: 'Asia/Dubai' }));
+      return `${z.getFullYear()}-${String(z.getMonth() + 1).padStart(2, '0')}-${String(z.getDate()).padStart(2, '0')}`;
+    };
+    const today = dubaiDayStr(new Date());
+    const tomorrowDt = new Date();
+    tomorrowDt.setDate(tomorrowDt.getDate() + 1);
+    const tomorrow = dubaiDayStr(tomorrowDt);
+    const target = dubaiDayStr(d);
+    if (target === today) return 'Today';
+    if (target === tomorrow) return 'Tomorrow';
+    return d.toLocaleDateString('en-GB', {
+      timeZone: 'Asia/Dubai',
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+    });
+  };
+  const fmtDateTime = (iso: string | null | undefined): string => {
+    const time = fmtTime(iso);
+    if (time === 'N/A') return 'N/A';
+    const date = fmtDateLabel(iso);
+    return date ? `${date}, ${time}` : time;
+  };
+  const etaText = fmtDateTime(etaRaw);
 
   // Planned ETA: 8 AM dispatch baseline; Static ETA: locked at Start Delivery
   const plannedEtaRaw = (delivery as Delivery & { plannedEta?: string | null }).plannedEta ?? null;
   const staticEtaRaw = (delivery as Delivery & { staticEta?: string | null }).staticEta ?? null;
   const planEtaRaw = staticEtaRaw ?? plannedEtaRaw;
-  const planEtaText = fmtTime(planEtaRaw);
+  const planEtaText = fmtDateTime(planEtaRaw);
 
   // D3: Delay detection — use plan ETA if available, else fall back to getEtaStatus
   const etaStatus: 'on_time' | 'delayed' | 'unknown' = (() => {
