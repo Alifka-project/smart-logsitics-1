@@ -799,18 +799,6 @@ export default function LogisticsTeamPortal() {
               const isDelivered = ['delivered', 'pod-completed', 'delivered-with-installation', 'delivered-without-installation'].includes(s);
               return isDelivered && !ext.podCompletedAt && !ext.driverSignature && (!ext.photos || (ext.photos as unknown[]).length === 0);
             }).length;
-            const timed = deliveries.filter(d => {
-              const ext = d as unknown as { customerConfirmedAt?: string; deliveredAt?: string; podCompletedAt?: string };
-              return !!ext.customerConfirmedAt && !!(ext.deliveredAt || ext.podCompletedAt);
-            });
-            const durations = timed.map(d => {
-              const ext = d as unknown as { customerConfirmedAt?: string; deliveredAt?: string; podCompletedAt?: string };
-              return new Date((ext.deliveredAt || ext.podCompletedAt)!).getTime() - new Date(ext.customerConfirmedAt!).getTime();
-            });
-            const kpiMet = durations.filter(ms => ms >= 0 && ms <= 3600000).length;
-            const kpiPct = durations.length > 0 ? Math.round((kpiMet / durations.length) * 100) : null;
-            const avgMin = durations.length > 0 ? Math.round(durations.filter(ms => ms >= 0).reduce((a, b) => a + b, 0) / durations.length / 60000) : null;
-
             // New stat cards
             const todayDelivery = deliveries.filter(d => {
               const raw = (d as unknown as { confirmedDeliveryDate?: string | null }).confirmedDeliveryDate;
@@ -837,16 +825,100 @@ export default function LogisticsTeamPortal() {
               return s === 'pickup-confirmed' || s === 'pickup_confirmed';
             }).length;
 
-            // KPI Delivery Performance data
+            // ── Delivery KPI (last 7 Dubai-days): on-time vs delayed ─────────────
+            // Bucket each order by its confirmedDeliveryDate Dubai calendar day
+            // (fallback to goodsMovementDate only if the promised date is absent).
+            // • On-time  = status is one of the terminal delivered aliases AND
+            //              deliveredAt (or podCompletedAt) is on/before end of
+            //              the bucket day (Dubai 24:00).
+            // • Late     = any of:
+            //                · delivered late (completedAt after end-of-day)
+            //                · status is explicitly order-delay
+            //                · bucket day in the past AND still in transit / pgi-done
+            //                  / pickup-confirmed (missed the promised day, no
+            //                  completion yet)
+            // Today's bucket only counts as late on the explicit order-delay
+            // signal — orders still in motion today are not yet late.
+            // Future bucket days, cancelled/returned rows, and rows with no
+            // date at all are skipped (not counted either way).
             const DELAY_STATUSES = new Set(['order-delay', 'order_delay']);
-            const delayedCount = deliveries.filter(d => DELAY_STATUSES.has((d.status||'').toLowerCase())).length;
-            const onTimeCount = deliveredKPI; // delivered = completed on time
-            const inProgressCount = deliveries.filter(d => {
-              const s = (d.status||'').toLowerCase();
-              return !TERMINAL_STATUSES.has(s) && !DELAY_STATUSES.has(s);
-            }).length;
-            const onTimePct = (onTimeCount + delayedCount) > 0
-              ? Math.round((onTimeCount / (onTimeCount + delayedCount)) * 100) : null;
+            const DELIVERED_TERMINAL = new Set([
+              'delivered', 'delivered-with-installation', 'delivered-without-installation',
+              'pod-completed', 'finished', 'completed',
+            ]);
+            const IN_TRANSIT_SET = new Set([
+              'pgi-done', 'pgi_done',
+              'pickup-confirmed', 'pickup_confirmed',
+              'out-for-delivery', 'out_for_delivery',
+              'in-transit', 'in-progress',
+            ]);
+            const dubaiDayStr = (v: Date | string | null | undefined): string | null => {
+              if (!v) return null;
+              const dt = v instanceof Date ? v : new Date(v);
+              if (isNaN(dt.getTime())) return null;
+              const z = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Dubai' }));
+              return `${z.getFullYear()}-${String(z.getMonth() + 1).padStart(2, '0')}-${String(z.getDate()).padStart(2, '0')}`;
+            };
+            const todayDayStr = dubaiDayStr(new Date())!;
+            // Build the 7-day window [today-6 … today], oldest first.
+            const windowDayStrs: string[] = [];
+            const windowLabels: string[] = [];
+            {
+              const [ny, nm, nd] = todayDayStr.split('-').map(Number);
+              for (let i = 6; i >= 0; i--) {
+                const t = new Date(Date.UTC(ny, nm - 1, nd - i));
+                const ds = `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, '0')}-${String(t.getUTCDate()).padStart(2, '0')}`;
+                windowDayStrs.push(ds);
+                windowLabels.push(`${String(t.getUTCDate()).padStart(2, '0')}/${String(t.getUTCMonth() + 1).padStart(2, '0')}`);
+              }
+            }
+            const kpiLineData: { date: string; onTime: number; delayed: number }[] =
+              windowDayStrs.map((_, i) => ({ date: windowLabels[i], onTime: 0, delayed: 0 }));
+
+            for (const d of deliveries) {
+              const ext = d as unknown as {
+                confirmedDeliveryDate?: string | Date | null;
+                goodsMovementDate?: string | Date | null;
+                deliveredAt?: string | Date | null;
+                podCompletedAt?: string | Date | null;
+                status?: string | null;
+              };
+              const bucketDayStr = dubaiDayStr(ext.confirmedDeliveryDate ?? ext.goodsMovementDate ?? null);
+              if (!bucketDayStr) continue;
+              const idx = windowDayStrs.indexOf(bucketDayStr);
+              if (idx === -1) continue;
+
+              const status = (ext.status || '').toLowerCase();
+              const completedRaw = ext.deliveredAt ?? ext.podCompletedAt ?? null;
+              const completedTs = completedRaw ? new Date(completedRaw as string | Date).getTime() : null;
+              const [by, bm, bd] = bucketDayStr.split('-').map(Number);
+              // End-of-day Dubai = next-day 00:00 Dubai = 20:00 UTC of the bucket day
+              const bucketEndUtcMs = Date.UTC(by, bm - 1, bd, 20, 0, 0, 0);
+
+              if (DELIVERED_TERMINAL.has(status)) {
+                if (completedTs != null && completedTs <= bucketEndUtcMs) {
+                  kpiLineData[idx].onTime += 1;
+                } else {
+                  // Delivered but after end-of-day of the promised date → late.
+                  kpiLineData[idx].delayed += 1;
+                }
+                continue;
+              }
+              if (DELAY_STATUSES.has(status)) {
+                kpiLineData[idx].delayed += 1;
+                continue;
+              }
+              if (bucketDayStr < todayDayStr && IN_TRANSIT_SET.has(status)) {
+                // Promised day has passed, still in transit → missed the window.
+                kpiLineData[idx].delayed += 1;
+              }
+              // Today / future in-transit, cancelled, returned → not counted.
+            }
+
+            const onTimeTotal = kpiLineData.reduce((sum, x) => sum + x.onTime, 0);
+            const delayedTotal = kpiLineData.reduce((sum, x) => sum + x.delayed, 0);
+            const kpiDenominator = onTimeTotal + delayedTotal;
+            const onTimePct = kpiDenominator > 0 ? Math.round((onTimeTotal / kpiDenominator) * 100) : null;
 
             return (
               <div className="space-y-4">
@@ -919,15 +991,15 @@ export default function LogisticsTeamPortal() {
                     </div>
                     <div className="pp-card p-4 flex flex-col items-center justify-center text-center">
                       <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">Delivery KPI</div>
-                      {kpiPct !== null ? (
+                      {onTimePct !== null ? (
                         <>
-                          <div className={`text-3xl font-bold ${kpiPct >= 80 ? 'text-green-600 dark:text-green-400' : kpiPct >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>{kpiPct}%</div>
-                          <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">≤1h target · avg {avgMin}m</div>
+                          <div className={`text-3xl font-bold ${onTimePct >= 80 ? 'text-green-600 dark:text-green-400' : onTimePct >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>{onTimePct}%</div>
+                          <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">{onTimeTotal} on time · {delayedTotal} late · 7d</div>
                         </>
                       ) : (
                         <>
                           <div className="text-3xl font-bold text-gray-300 dark:text-gray-600">—</div>
-                          <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">target ≤1h/delivery</div>
+                          <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">on-time rate · last 7 days</div>
                         </>
                       )}
                     </div>
@@ -1020,67 +1092,42 @@ export default function LogisticsTeamPortal() {
                     );
                   })()}
 
-                  {/* Chart 2 — KPI Delivery Performance (line chart: on-time vs delayed over last 7 days) */}
-                  {(() => {
-                    // Build daily counts for the last 7 days based on delivery dates
-                    const now = new Date();
-                    const dubaiOffset = 4 * 60; // UTC+4
-                    const dubaiNow = new Date(now.getTime() + (dubaiOffset + now.getTimezoneOffset()) * 60000);
-                    const kpiLineData: { date: string; onTime: number; delayed: number }[] = [];
-                    for (let i = 6; i >= 0; i--) {
-                      const d = new Date(dubaiNow);
-                      d.setDate(d.getDate() - i);
-                      const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-                      const label = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
-                      const dayDelivered = deliveries.filter(o => {
-                        const dd = o.confirmedDeliveryDate || o.deliveryDate || o.scheduledDate;
-                        if (!dd) return false;
-                        const dt = new Date(dd as string | number | Date);
-                        const ds = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
-                        return ds === dateStr && (o.status||'').toLowerCase() === 'delivered';
-                      }).length;
-                      const dayDelayed = deliveries.filter(o => {
-                        const dd = o.confirmedDeliveryDate || o.deliveryDate || o.scheduledDate;
-                        if (!dd) return false;
-                        const dt = new Date(dd as string | number | Date);
-                        const ds = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
-                        return ds === dateStr && DELAY_STATUSES.has((o.status||'').toLowerCase());
-                      }).length;
-                      kpiLineData.push({ date: label, onTime: dayDelivered, delayed: dayDelayed });
-                    }
-                    const hasData = kpiLineData.some(d => d.onTime > 0 || d.delayed > 0);
-                    return (
-                      <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[300px]">
-                        <div className="mb-2 flex flex-shrink-0 items-center gap-2">
-                          <TrendingUp className="h-5 w-5 flex-shrink-0 text-green-500" />
-                          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Delivery KPI</h2>
-                          <span className="ml-auto text-xs font-semibold">
-                            <span className={`${onTimePct !== null && onTimePct >= 80 ? 'text-green-600 dark:text-green-400' : onTimePct !== null && onTimePct >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
-                              {onTimePct !== null ? `${onTimePct}%` : '—'}
-                            </span>
-                            <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-1">on-time</span>
-                          </span>
-                        </div>
-                        {!hasData ? (
-                          <div className="flex-1 flex items-center justify-center text-sm text-gray-400 dark:text-gray-500">No data</div>
-                        ) : (
-                          <div className="flex-1 min-h-0">
-                            <ResponsiveContainer width="100%" height={200}>
-                              <LineChart data={kpiLineData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                                <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="#9ca3af" />
-                                <YAxis allowDecimals={false} tick={{ fontSize: 10 }} stroke="#9ca3af" />
-                                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-                                <Line type="monotone" dataKey="onTime" name="On Time" stroke="#22c55e" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
-                                <Line type="monotone" dataKey="delayed" name="Delayed" stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
-                                <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
-                              </LineChart>
-                            </ResponsiveContainer>
-                          </div>
-                        )}
+                  {/* Chart 2 — Delivery KPI (last 7 days: on-time vs late).
+                      Uses the kpiLineData + onTimePct computed once above so the
+                      card, the on-time badge, and this chart all tell the same
+                      story. Scaffolding (axis + grid) always renders; a small
+                      caption signals a truly empty window instead of a
+                      full-height "No data" panel. */}
+                  <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[300px]">
+                    <div className="mb-2 flex flex-shrink-0 items-center gap-2">
+                      <TrendingUp className="h-5 w-5 flex-shrink-0 text-green-500" />
+                      <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Delivery KPI</h2>
+                      <span className="ml-auto text-xs font-semibold">
+                        <span className={`${onTimePct !== null && onTimePct >= 80 ? 'text-green-600 dark:text-green-400' : onTimePct !== null && onTimePct >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
+                          {onTimePct !== null ? `${onTimePct}%` : '—'}
+                        </span>
+                        <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-1">on-time</span>
+                      </span>
+                    </div>
+                    <div className="flex-1 min-h-0">
+                      <ResponsiveContainer width="100%" height={200}>
+                        <LineChart data={kpiLineData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                          <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="#9ca3af" />
+                          <YAxis allowDecimals={false} tick={{ fontSize: 10 }} stroke="#9ca3af" />
+                          <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+                          <Line type="monotone" dataKey="onTime" name="On Time" stroke="#22c55e" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                          <Line type="monotone" dataKey="delayed" name="Late" stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                          <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                    {kpiDenominator === 0 && (
+                      <div className="text-[10px] text-center text-gray-400 dark:text-gray-500 mt-1">
+                        No completed or delayed deliveries in the last 7 days
                       </div>
-                    );
-                  })()}
+                    )}
+                  </div>
 
                   {/* Chart 3 — Driver Workload (bar chart) */}
                   {(() => {
