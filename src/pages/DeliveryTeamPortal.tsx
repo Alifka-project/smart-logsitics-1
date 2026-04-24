@@ -33,6 +33,7 @@ import DeliveryManagementPage from './DeliveryManagementPage';
 import { DateRangePicker } from '../components/common/DateRangePicker';
 import DeliveryMap from '../components/MapView/DeliveryMap';
 import LiveMapsDriverLegend from '../components/Tracking/LiveMapsDriverLegend';
+import { classifyForLiveMap, BUCKET_ORDER, BUCKET_META, type LiveMapBucket } from '../utils/liveMapsStatusBuckets';
 import { computePerDriverRoutes } from '../services/advancedRoutingService';
 import type { DriverRoute } from '../services/advancedRoutingService';
 import useDeliveryStore from '../store/useDeliveryStore';
@@ -125,6 +126,10 @@ export default function DeliveryTeamPortal() {
   // Live Maps tab state
   const [trackingDriverFilter, setTrackingDriverFilter] = useState<string>('all');
   const [trackingSearchQuery, setTrackingSearchQuery] = useState<string>('');
+  // Live-maps list grouping. 'driver' groups orders under each driver so
+  // ops see at-a-glance who carries what; 'status' groups by bucket
+  // (overdue / on-route / awaiting / confirmed); 'flat' is the legacy list.
+  const [liveMapsViewMode, setLiveMapsViewMode] = useState<'driver' | 'status' | 'flat'>('driver');
   const [trackingSelectedId, setTrackingSelectedId] = useState<string | null>(null);
   const [liveMapFilter, setLiveMapFilter] = useState<'all' | 'priority' | 'confirmed' | 'delayed'>('all');
   const [monitoringRoute] = useState<{ coordinates: [number, number][] } | null>(null);
@@ -2165,6 +2170,81 @@ export default function DeliveryTeamPortal() {
           ? tdFilteredDeliveries.findIndex(d => d.id === trackingSelectedId)
           : null;
 
+        // Build an interleaved list of "header" + "card" entries so the
+        // single .map pass can render grouped-by-driver or grouped-by-status
+        // views without duplicating the existing card JSX.
+        type DisplayItem =
+          | { type: 'header'; key: string; label: string; color?: string }
+          | { type: 'card'; delivery: typeof tdFilteredDeliveries[number]; idx: number };
+        const tdDisplayItems: DisplayItem[] = (() => {
+          const items: DisplayItem[] = [];
+          if (liveMapsViewMode === 'flat') {
+            tdFilteredDeliveries.forEach((d, i) => items.push({ type: 'card', delivery: d, idx: i }));
+            return items;
+          }
+          if (liveMapsViewMode === 'driver') {
+            const byId = new Map<string, typeof tdFilteredDeliveries>();
+            const unassigned: typeof tdFilteredDeliveries = [];
+            for (const d of tdFilteredDeliveries) {
+              const ext = d as unknown as { tracking?: { driverId?: string } };
+              const did = ext.tracking?.driverId || d.assignedDriverId || null;
+              if (!did) { unassigned.push(d); continue; }
+              if (!byId.has(did)) byId.set(did, []);
+              byId.get(did)!.push(d);
+            }
+            const driverColorFromRoutes = new Map(driverRoutes.map((r) => [r.driverId, r.color] as const));
+            let runningIdx = 0;
+            for (const [driverId, group] of byId.entries()) {
+              const drv = drivers.find((x) => x.id === driverId);
+              const name = drv?.fullName || drv?.username || 'Driver';
+              const online = drv ? isContactOnline(drv) : false;
+              items.push({
+                type: 'header',
+                key: `h-drv-${driverId}`,
+                label: `${name} · ${group.length} stop${group.length === 1 ? '' : 's'}${online ? ' · online' : ' · offline'}`,
+                color: driverColorFromRoutes.get(driverId),
+              });
+              group.forEach((d) => items.push({ type: 'card', delivery: d, idx: runningIdx++ }));
+            }
+            if (unassigned.length > 0) {
+              items.push({
+                type: 'header',
+                key: 'h-unassigned',
+                label: `Unassigned · ${unassigned.length}`,
+                color: '#9ca3af',
+              });
+              unassigned.forEach((d) => items.push({ type: 'card', delivery: d, idx: runningIdx++ }));
+            }
+            return items;
+          }
+          // status mode
+          const byBucket = new Map<LiveMapBucket, typeof tdFilteredDeliveries>();
+          for (const d of tdFilteredDeliveries) {
+            const dExt = d as unknown as { etaMinutes?: number; confirmedDeliveryDate?: string; goodsMovementDate?: string };
+            const bucket = classifyForLiveMap({
+              status: d.status,
+              confirmedDeliveryDate: dExt.confirmedDeliveryDate,
+              goodsMovementDate: dExt.goodsMovementDate,
+              etaMinutes: dExt.etaMinutes,
+            });
+            if (!byBucket.has(bucket)) byBucket.set(bucket, []);
+            byBucket.get(bucket)!.push(d);
+          }
+          let runningIdx = 0;
+          for (const bucket of BUCKET_ORDER) {
+            const group = byBucket.get(bucket);
+            if (!group || group.length === 0) continue;
+            items.push({
+              type: 'header',
+              key: `h-bucket-${bucket}`,
+              label: `${BUCKET_META[bucket].label} · ${group.length}`,
+              color: BUCKET_META[bucket].color,
+            });
+            group.forEach((d) => items.push({ type: 'card', delivery: d, idx: runningIdx++ }));
+          }
+          return items;
+        })();
+
         // Live Maps content — pixel-for-pixel match with Logistics portal Live Maps tab
         const liveMapsContent = (
           <div
@@ -2312,6 +2392,28 @@ export default function DeliveryTeamPortal() {
                     ✕ Clear selection
                   </button>
                 )}
+
+                {/* View-mode toggle — By Driver (default) / By Status / Flat */}
+                <div className="mt-1.5 flex gap-1 rounded-lg bg-gray-100 dark:bg-gray-800 p-0.5">
+                  {([
+                    { key: 'driver', label: 'By Driver' },
+                    { key: 'status', label: 'By Status' },
+                    { key: 'flat', label: 'Flat' },
+                  ] as { key: typeof liveMapsViewMode; label: string }[]).map((m) => (
+                    <button
+                      key={m.key}
+                      type="button"
+                      onClick={() => setLiveMapsViewMode(m.key)}
+                      className={`flex-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-colors ${
+                        liveMapsViewMode === m.key
+                          ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm'
+                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="flex-1 overflow-y-auto space-y-1.5" style={{ minHeight: 0 }}>
@@ -2326,7 +2428,20 @@ export default function DeliveryTeamPortal() {
                        'Orders out for delivery will appear here'}
                     </p>
                   </div>
-                ) : tdFilteredDeliveries.map((delivery, idx) => {
+                ) : tdDisplayItems.map((item) => {
+                  // Section header (driver / status modes)
+                  if (item.type === 'header') {
+                    return (
+                      <div
+                        key={item.key}
+                        className="sticky top-0 z-[5] flex items-center gap-2 px-2 py-1.5 bg-gray-50 dark:bg-gray-900/90 backdrop-blur border border-gray-200 dark:border-gray-700 rounded-md text-[11px] font-semibold text-gray-700 dark:text-gray-200"
+                        style={item.color ? { borderLeft: `3px solid ${item.color}` } : undefined}
+                      >
+                        <span className="truncate">{item.label}</span>
+                      </div>
+                    );
+                  }
+                  const { delivery, idx } = item;
                   const dExt = delivery as unknown as {
                     tracking?: { driverId?: string };
                     confirmedDeliveryDate?: string;

@@ -29,6 +29,7 @@ import DeliveryDetailModal from '../components/DeliveryDetailModal';
 import DeliveryMap from '../components/MapView/DeliveryMap';
 import DeliveryManagementPage from './DeliveryManagementPage';
 import LiveMapsDriverLegend from '../components/Tracking/LiveMapsDriverLegend';
+import { classifyForLiveMap, BUCKET_ORDER, BUCKET_META, type LiveMapBucket } from '../utils/liveMapsStatusBuckets';
 
 import { PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, LabelList } from 'recharts';
 import { calculateRoute, generateFallbackRoute, computePerDriverRoutes } from '../services/advancedRoutingService';
@@ -97,6 +98,11 @@ export default function LogisticsTeamPortal() {
   // what the list and the map show simultaneously so finding an order for
   // a phone-call enquiry is one keystroke away.
   const [trackingSearchQuery, setTrackingSearchQuery] = useState<string>('');
+  // Live-maps list grouping. 'driver' groups orders under each driver so
+  // ops see at-a-glance who carries what; 'status' groups by bucket
+  // (overdue / on-route / awaiting / confirmed); 'flat' is the legacy
+  // single-list view for backward-compatibility.
+  const [liveMapsViewMode, setLiveMapsViewMode] = useState<'driver' | 'status' | 'flat'>('driver');
   const [podModalDelivery, setPodModalDelivery] = useState<Delivery | null>(null);
   const [drivers, setDrivers] = useState<ContactUser[]>([]);
   const [contacts, setContacts] = useState<ContactUser[]>([]); // All contacts (drivers + team members)
@@ -1665,6 +1671,82 @@ export default function LogisticsTeamPortal() {
               ? trackingDeliveries.findIndex(d => d.id === trackingSelectedId)
               : null;
 
+            // Build an interleaved list of "header" + "card" entries based on
+            // the selected view mode. A single render pass iterates this and
+            // branches on entry.type — the existing card JSX below is reused
+            // verbatim for every card entry.
+            type DisplayItem =
+              | { type: 'header'; key: string; label: string; color?: string }
+              | { type: 'card'; delivery: typeof trackingDeliveries[number]; idx: number };
+            const displayItems: DisplayItem[] = (() => {
+              const items: DisplayItem[] = [];
+              if (liveMapsViewMode === 'flat') {
+                trackingDeliveries.forEach((d, i) => items.push({ type: 'card', delivery: d, idx: i }));
+                return items;
+              }
+              if (liveMapsViewMode === 'driver') {
+                const byId = new Map<string, typeof trackingDeliveries>();
+                const unassigned: typeof trackingDeliveries = [];
+                for (const d of trackingDeliveries) {
+                  const ext = d as unknown as { tracking?: { driverId?: string } };
+                  const did = ext.tracking?.driverId || d.assignedDriverId || null;
+                  if (!did) { unassigned.push(d); continue; }
+                  if (!byId.has(did)) byId.set(did, []);
+                  byId.get(did)!.push(d);
+                }
+                const driverColorFromRoutes = new Map(driverRoutes.map((r) => [r.driverId, r.color] as const));
+                let runningIdx = 0;
+                for (const [driverId, group] of byId.entries()) {
+                  const drv = drivers.find((x) => x.id === driverId);
+                  const name = drv?.fullName || drv?.username || 'Driver';
+                  const online = drv ? isContactOnline(drv) : false;
+                  items.push({
+                    type: 'header',
+                    key: `h-drv-${driverId}`,
+                    label: `${name} · ${group.length} stop${group.length === 1 ? '' : 's'}${online ? ' · online' : ' · offline'}`,
+                    color: driverColorFromRoutes.get(driverId),
+                  });
+                  group.forEach((d) => items.push({ type: 'card', delivery: d, idx: runningIdx++ }));
+                }
+                if (unassigned.length > 0) {
+                  items.push({
+                    type: 'header',
+                    key: 'h-unassigned',
+                    label: `Unassigned · ${unassigned.length}`,
+                    color: '#9ca3af',
+                  });
+                  unassigned.forEach((d) => items.push({ type: 'card', delivery: d, idx: runningIdx++ }));
+                }
+                return items;
+              }
+              // status mode
+              const byBucket = new Map<LiveMapBucket, typeof trackingDeliveries>();
+              for (const d of trackingDeliveries) {
+                const dExt = d as unknown as { etaMinutes?: number; confirmedDeliveryDate?: string; goodsMovementDate?: string };
+                const bucket = classifyForLiveMap({
+                  status: d.status,
+                  confirmedDeliveryDate: dExt.confirmedDeliveryDate,
+                  goodsMovementDate: dExt.goodsMovementDate,
+                  etaMinutes: dExt.etaMinutes,
+                });
+                if (!byBucket.has(bucket)) byBucket.set(bucket, []);
+                byBucket.get(bucket)!.push(d);
+              }
+              let runningIdx = 0;
+              for (const bucket of BUCKET_ORDER) {
+                const group = byBucket.get(bucket);
+                if (!group || group.length === 0) continue;
+                items.push({
+                  type: 'header',
+                  key: `h-bucket-${bucket}`,
+                  label: `${BUCKET_META[bucket].label} · ${group.length}`,
+                  color: BUCKET_META[bucket].color,
+                });
+                group.forEach((d) => items.push({ type: 'card', delivery: d, idx: runningIdx++ }));
+              }
+              return items;
+            })();
+
             return (
               /* Grid layout: map 1fr + fixed 290px sidebar on sm+; single column on mobile. */
               <div
@@ -1832,6 +1914,30 @@ export default function LogisticsTeamPortal() {
                         ✕ Clear map selection
                       </button>
                     )}
+
+                    {/* View-mode toggle — Driver / Status / Flat.
+                        Groups the list so ops can answer "whose order is
+                        this?" and "which are overdue?" at a glance. */}
+                    <div className="flex gap-1 rounded-lg bg-gray-100 dark:bg-gray-800 p-0.5">
+                      {([
+                        { key: 'driver', label: 'By Driver' },
+                        { key: 'status', label: 'By Status' },
+                        { key: 'flat', label: 'Flat' },
+                      ] as { key: typeof liveMapsViewMode; label: string }[]).map((m) => (
+                        <button
+                          key={m.key}
+                          type="button"
+                          onClick={() => setLiveMapsViewMode(m.key)}
+                          className={`flex-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-colors ${
+                            liveMapsViewMode === m.key
+                              ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm'
+                              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                          }`}
+                        >
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Scrollable order cards */}
@@ -1842,7 +1948,20 @@ export default function LogisticsTeamPortal() {
                         <p className="font-medium">No active deliveries</p>
                         <p className="text-xs text-center">Orders out for delivery will appear here</p>
                       </div>
-                    ) : trackingDeliveries.map((delivery, idx) => {
+                    ) : displayItems.map((item) => {
+                      // Branch: a section header row in driver/status modes.
+                      if (item.type === 'header') {
+                        return (
+                          <div
+                            key={item.key}
+                            className="sticky top-0 z-[5] flex items-center gap-2 px-2 py-1.5 bg-gray-50 dark:bg-gray-900/90 backdrop-blur border border-gray-200 dark:border-gray-700 rounded-md text-[11px] font-semibold text-gray-700 dark:text-gray-200"
+                            style={item.color ? { borderLeft: `3px solid ${item.color}` } : undefined}
+                          >
+                            <span className="truncate">{item.label}</span>
+                          </div>
+                        );
+                      }
+                      const { delivery, idx } = item;
                       const dExt = delivery as unknown as {
                         tracking?: { driverId?: string };
                         goodsMovementDate?: string;
