@@ -336,6 +336,14 @@ export default function DriverPortal() {
   const deliveryMarkersRef = useRef<L.Marker[]>([]);
   const lastRouteOriginRef = useRef<LatLng | null>(null);
   const lastRouteDeliveriesRef = useRef<string>('');
+  /**
+   * Wall-clock time (ms) of the last successful OSRM recompute. Used to
+   * throttle route redraws to at most once every 15 seconds so the polyline
+   * and stop order don't jitter on every GPS tick. The driver's position
+   * dot still moves in real time — only the polyline/markers respect the
+   * throttle. Set to 0 initially so the first route calc fires immediately.
+   */
+  const lastRouteAtRef = useRef<number>(0);
 
   const scrollMessagesToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
     if (!messagesEndRef.current) return;
@@ -838,7 +846,19 @@ export default function DriverPortal() {
     // When deliveries actually change, reset committed order so we re-optimise
     if (deliveriesChanged) committedOrderRef.current = [];
 
-    // Recalculate when: deliveries changed, driver moved ≥ 20 m (real-time like Google Maps), or no route yet
+    // Throttle: cap OSRM recomputes to at most once every 15 s so the
+    // polyline + stop markers don't jitter on every GPS tick. The driver's
+    // position dot is not part of this effect and continues to move in
+    // real time. Delivery-set changes (new order, chip switch, drag-reorder,
+    // POD completion) bypass the throttle so the map reacts immediately.
+    const MIN_RECALC_INTERVAL_MS = 15000;
+    const sinceLastRecalcMs = Date.now() - lastRouteAtRef.current;
+    if (!deliveriesChanged && route && sinceLastRecalcMs < MIN_RECALC_INTERVAL_MS) {
+      return;
+    }
+
+    // Secondary gate — still require ≥ 20 m of movement so a stationary
+    // driver doesn't burn OSRM calls every 15 s while parked.
     if (!deliveriesChanged && originMovedKm < 0.02 && route) {
       return;
     }
@@ -973,6 +993,9 @@ export default function DriverPortal() {
         }
         lastRouteOriginRef.current = origin;
         lastRouteDeliveriesRef.current = deliverySignature;
+        // Stamp the throttle timer only on a successful OSRM recompute — a
+        // failed route (caught below) should not block the next retry for 15 s.
+        lastRouteAtRef.current = Date.now();
 
         // Persist the now-locked planned/static ETAs + startedAt so a re-login
         // restores the exact same schedule without recomputing from scratch.
