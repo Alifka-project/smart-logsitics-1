@@ -29,7 +29,7 @@ import DeliveryDetailModal from '../components/DeliveryDetailModal';
 import DeliveryMap from '../components/MapView/DeliveryMap';
 import DeliveryManagementPage from './DeliveryManagementPage';
 
-import { PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from 'recharts';
+import { PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, LabelList } from 'recharts';
 import { calculateRoute, generateFallbackRoute, computePerDriverRoutes } from '../services/advancedRoutingService';
 import type { DriverRoute } from '../services/advancedRoutingService';
 import useDeliveryStore from '../store/useDeliveryStore';
@@ -1020,7 +1020,11 @@ export default function LogisticsTeamPortal() {
                     </div>
                     <div
                       onClick={() => {
-                        useDeliveryStore.getState().setDeliveryListFilter('pgi_done');
+                        // ManageTab reads `manageTabFilter` and forwards it to
+                        // OrdersTable as tableTab; setDeliveryListFilter writes
+                        // into a different store used by the driver-facing
+                        // DeliveryTable, so the admin OrdersTable never sees it.
+                        useDeliveryStore.getState().setManageTabFilter('pgi_done');
                         setActiveTab('deliveries');
                         setDeliveriesSubTab('manage');
                       }}
@@ -1033,7 +1037,7 @@ export default function LogisticsTeamPortal() {
                     </div>
                     <div
                       onClick={() => {
-                        useDeliveryStore.getState().setDeliveryListFilter('pickup_confirmed');
+                        useDeliveryStore.getState().setManageTabFilter('pickup_confirmed');
                         setActiveTab('deliveries');
                         setDeliveriesSubTab('manage');
                       }}
@@ -1070,19 +1074,45 @@ export default function LogisticsTeamPortal() {
                           <div className="flex-1 flex items-center justify-center text-sm text-gray-400 dark:text-gray-500">No data</div>
                         ) : (
                           <div className="flex-1 flex flex-col items-center justify-center min-h-0">
-                            <ResponsiveContainer width="100%" height={170}>
-                              <PieChart>
-                                <Pie data={statusGroups} cx="50%" cy="50%" innerRadius={48} outerRadius={72} paddingAngle={2} dataKey="value">
-                                  {statusGroups.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                                </Pie>
-                                <Tooltip formatter={(v: number, name: string) => [`${v} (${Math.round(v/total*100)}%)`, name]} contentStyle={{ fontSize: 11 }} />
-                              </PieChart>
-                            </ResponsiveContainer>
+                            {/* Donut with slice-value labels and a centred total.
+                                Hover still shows the Tooltip with exact % for
+                                power users; at-a-glance readers get the number
+                                without interacting. */}
+                            <div className="relative w-full" style={{ height: 170 }}>
+                              <ResponsiveContainer width="100%" height={170}>
+                                <PieChart>
+                                  <Pie
+                                    data={statusGroups}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={48}
+                                    outerRadius={72}
+                                    paddingAngle={2}
+                                    dataKey="value"
+                                    label={(props: Record<string, unknown>) => {
+                                      const v = typeof props.value === 'number' ? props.value : 0;
+                                      return v > 0 ? String(v) : '';
+                                    }}
+                                    labelLine={false}
+                                    fontSize={11}
+                                  >
+                                    {statusGroups.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                                  </Pie>
+                                  <Tooltip formatter={(v: number, name: string) => [`${v} (${Math.round(v/total*100)}%)`, name]} contentStyle={{ fontSize: 11 }} />
+                                </PieChart>
+                              </ResponsiveContainer>
+                              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                <div className="text-xl font-bold text-gray-900 dark:text-gray-100 leading-none">{total}</div>
+                                <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400 mt-0.5">total</div>
+                              </div>
+                            </div>
                             <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 mt-1">
                               {statusGroups.map(g => (
-                                <div key={g.name} className="flex items-center gap-1 text-[10px] text-gray-600 dark:text-gray-400">
+                                <div key={g.name} className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
                                   <span className="w-2 h-2 rounded-full inline-block" style={{ background: g.color }} />
-                                  {g.name} <span className="font-semibold text-gray-800 dark:text-gray-200">{g.value}</span>
+                                  <span>{g.name}</span>
+                                  <span className="font-semibold text-gray-800 dark:text-gray-200">{g.value}</span>
+                                  <span className="text-[10px] text-gray-400 dark:text-gray-500">({Math.round(g.value/total*100)}%)</span>
                                 </div>
                               ))}
                             </div>
@@ -1129,20 +1159,32 @@ export default function LogisticsTeamPortal() {
                     )}
                   </div>
 
-                  {/* Chart 3 — Driver Workload (bar chart) */}
+                  {/* Chart 3 — Driver Workload (bar chart).
+                      Inline LabelList shows the count inside each segment when
+                      it's wide enough, and a total number sits above every bar
+                      so the per-driver workload is readable without hovering.
+                      A small totals strip below the chart surfaces fleet-wide
+                      counts per status. */}
                   {(() => {
                     const driverData = drivers.map(dr => {
                       const drOrders = deliveries.filter(d => {
                         const ext = d as unknown as { tracking?: { driverId?: string } };
                         return ext.tracking?.driverId === dr.id || d.assignedDriverId === dr.id;
                       });
+                      const onRoute = drOrders.filter(d => (d.status||'').toLowerCase() === 'out-for-delivery').length;
+                      const delivered = drOrders.filter(d => TERMINAL_STATUSES.has((d.status||'').toLowerCase())).length;
+                      const pending = drOrders.filter(d => !['out-for-delivery','out_for_delivery'].includes((d.status||'').toLowerCase()) && !TERMINAL_STATUSES.has((d.status||'').toLowerCase())).length;
                       return {
                         name: (dr.fullName || dr.username || '').split(' ')[0],
-                        'On Route': drOrders.filter(d => (d.status||'').toLowerCase() === 'out-for-delivery').length,
-                        Delivered:  drOrders.filter(d => TERMINAL_STATUSES.has((d.status||'').toLowerCase())).length,
-                        Pending:    drOrders.filter(d => !['out-for-delivery','out_for_delivery'].includes((d.status||'').toLowerCase()) && !TERMINAL_STATUSES.has((d.status||'').toLowerCase())).length,
+                        'On Route': onRoute,
+                        Delivered: delivered,
+                        Pending: pending,
+                        total: onRoute + delivered + pending,
                       };
                     });
+                    const fleetOnRoute = driverData.reduce((s, d) => s + d['On Route'], 0);
+                    const fleetPending = driverData.reduce((s, d) => s + d.Pending, 0);
+                    const fleetDelivered = driverData.reduce((s, d) => s + d.Delivered, 0);
                     return (
                       <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[300px]">
                         <div className="mb-2 flex flex-shrink-0 items-center gap-2">
@@ -1153,19 +1195,45 @@ export default function LogisticsTeamPortal() {
                         {drivers.length === 0 ? (
                           <div className="flex-1 flex items-center justify-center text-sm text-gray-400 dark:text-gray-500">No drivers</div>
                         ) : (
-                          <div className="flex-1 min-h-0">
-                            <ResponsiveContainer width="100%" height={220}>
-                              <BarChart data={driverData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }} barSize={14}>
-                                <XAxis dataKey="name" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                                <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                                <Tooltip contentStyle={{ fontSize: 11 }} />
-                                <Legend wrapperStyle={{ fontSize: 10, paddingTop: 4 }} />
-                                <Bar dataKey="On Route" stackId="a" fill="#3b82f6" radius={[0,0,0,0]} />
-                                <Bar dataKey="Pending"  stackId="a" fill="#f59e0b" radius={[0,0,0,0]} />
-                                <Bar dataKey="Delivered" stackId="a" fill="#22c55e" radius={[3,3,0,0]} />
-                              </BarChart>
-                            </ResponsiveContainer>
-                          </div>
+                          <>
+                            <div className="flex-1 min-h-0">
+                              <ResponsiveContainer width="100%" height={200}>
+                                <BarChart data={driverData} margin={{ top: 16, right: 4, left: -20, bottom: 0 }} barSize={18}>
+                                  <XAxis dataKey="name" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                                  <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                                  <Tooltip contentStyle={{ fontSize: 11 }} />
+                                  <Legend wrapperStyle={{ fontSize: 10, paddingTop: 4 }} />
+                                  <Bar dataKey="On Route" stackId="a" fill="#3b82f6" radius={[0,0,0,0]}>
+                                    <LabelList dataKey="On Route" position="center" style={{ fontSize: 10, fill: '#fff', fontWeight: 600 }} formatter={(v: unknown) => (typeof v === 'number' && v > 0 ? String(v) : '')} />
+                                  </Bar>
+                                  <Bar dataKey="Pending"  stackId="a" fill="#f59e0b" radius={[0,0,0,0]}>
+                                    <LabelList dataKey="Pending" position="center" style={{ fontSize: 10, fill: '#fff', fontWeight: 600 }} formatter={(v: unknown) => (typeof v === 'number' && v > 0 ? String(v) : '')} />
+                                  </Bar>
+                                  <Bar dataKey="Delivered" stackId="a" fill="#22c55e" radius={[3,3,0,0]}>
+                                    <LabelList dataKey="Delivered" position="center" style={{ fontSize: 10, fill: '#fff', fontWeight: 600 }} formatter={(v: unknown) => (typeof v === 'number' && v > 0 ? String(v) : '')} />
+                                    <LabelList dataKey="total" position="top" style={{ fontSize: 11, fill: '#111827', fontWeight: 700 }} formatter={(v: unknown) => (typeof v === 'number' && v > 0 ? String(v) : '')} />
+                                  </Bar>
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+                            <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-[11px] border-t border-gray-100 dark:border-gray-700 pt-2 mt-1">
+                              <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
+                                <span className="w-2 h-2 rounded-full inline-block bg-blue-500" />
+                                <span>On Route</span>
+                                <span className="font-semibold text-gray-800 dark:text-gray-200">{fleetOnRoute}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
+                                <span className="w-2 h-2 rounded-full inline-block bg-amber-500" />
+                                <span>Pending</span>
+                                <span className="font-semibold text-gray-800 dark:text-gray-200">{fleetPending}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
+                                <span className="w-2 h-2 rounded-full inline-block bg-green-500" />
+                                <span>Delivered</span>
+                                <span className="font-semibold text-gray-800 dark:text-gray-200">{fleetDelivered}</span>
+                              </div>
+                            </div>
+                          </>
                         )}
                       </div>
                     );
