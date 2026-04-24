@@ -158,15 +158,15 @@ const NEXT_STEP_CONFIG: Partial<Record<DeliveryStatus | 'terminal_delivered' | '
   next_shipment: {
     label: 'Next Shipment',   icon: '📦',
     cls: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800/40',
-    gmd: { label: 'Waiting GMD', cls: 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800/40 dark:text-slate-400 dark:border-slate-700' },
+    gmd: { label: 'Waiting PGI', cls: 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800/40 dark:text-slate-400 dark:border-slate-700' },
   },
   future_schedule: {
     label: 'Future Schedule', icon: '📅',
     cls: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-300 dark:border-indigo-800/40',
-    gmd: { label: 'Waiting GMD', cls: 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800/40 dark:text-slate-400 dark:border-slate-700' },
+    gmd: { label: 'Waiting PGI', cls: 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800/40 dark:text-slate-400 dark:border-slate-700' },
   },
   ready_to_dispatch: {
-    label: 'GMD Updated',     icon: '✅',
+    label: 'PGI Updated',     icon: '✅',
     cls: 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-900/20 dark:text-teal-300 dark:border-teal-800/40',
     gmd: { label: 'Ready to Dispatch', cls: 'bg-teal-100 text-teal-800 border-teal-300 dark:bg-teal-900/30 dark:text-teal-200 dark:border-teal-700' },
   },
@@ -620,7 +620,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
     { key: 'pending',          label: 'Pending Orders',   count: orders.filter((o) => !PENDING_TERMINAL.has(o.status)).length },
     { key: 'unassigned',       label: 'Unassigned',       count: unassignedCount, urgent: unassignedCount > 0 },
     { key: 'awaiting_customer',label: 'Awaiting Customer',count: orders.filter((o) => o.status === 'sms_sent' || o.status === 'unconfirmed').length },
-    { key: 'pending_gmd',      label: 'Pending GMD',      count: pendingGmdCount, urgent: pendingGmdCount > 0 },
+    { key: 'pending_gmd',      label: 'Pending PGI',      count: pendingGmdCount, urgent: pendingGmdCount > 0 },
     { key: 'next_shipment',    label: 'Next Shipment',    count: orders.filter((o) => o.status === 'next_shipment' || o.status === 'ready_to_dispatch').length },
     { key: 'future_schedule',  label: 'Future Schedule',  count: orders.filter((o) => o.status === 'future_schedule').length },
     { key: 'pgi_done',         label: 'PGI Done',         count: orders.filter((o) => o.status === 'pgi_done').length },
@@ -851,7 +851,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                 Del. Date
               </th>
               <th className="min-w-[95px] w-[100px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                GMD Date
+                PGI Date
               </th>
               <th className="min-w-[80px] w-[85px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Area
@@ -953,7 +953,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                     <td className="min-w-[95px] w-[100px] overflow-hidden px-3 py-2.5 align-middle text-[13px]" data-label="Del. Date">
                       {getDeliveryDateDisplay(order)}
                     </td>
-                    <td className="min-w-[95px] w-[100px] overflow-hidden px-3 py-2.5 align-middle text-[13px]" data-label="GMD Date">
+                    <td className="min-w-[95px] w-[100px] overflow-hidden px-3 py-2.5 align-middle text-[13px]" data-label="PGI Date">
                       {order.goodsMovementDate ? (
                         <span className="font-medium text-teal-700 dark:text-teal-300">
                           {fmtDate(order.goodsMovementDate)}
