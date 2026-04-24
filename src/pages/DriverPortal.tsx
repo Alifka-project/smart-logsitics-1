@@ -16,7 +16,8 @@ import {
   MessageSquare, Truck, Bell, Paperclip, Send, Search, ClipboardList, ChevronLeft, PackageCheck
 } from 'lucide-react';
 import type { Delivery } from '../types';
-import { getOnRouteDeliveriesForList, isOnRouteDeliveryListStatus, getEtaStatus } from '../utils/deliveryListFilter';
+import { getOnRouteDeliveriesForList, isOnRouteDeliveryListStatus, getEtaStatus, applyDeliveryListFilter } from '../utils/deliveryListFilter';
+import type { DeliveryListFilter } from '../utils/deliveryListFilter';
 import { isPickingListEligible, isDriverMyOrdersStatus } from '../utils/pickingListFilter';
 import PickingListPanel from '../components/deliveries/PickingListPanel';
 import PickingReminderModal from '../components/deliveries/PickingReminderModal';
@@ -242,6 +243,9 @@ export default function DriverPortal() {
   const updateDeliveryStatus = useDeliveryStore((s) => s.updateDeliveryStatus);
   // Store deliveries carry priority (assigned by loadDeliveries) — used for priority breakdown display
   const storeDeliveries = useDeliveryStore((s) => s.deliveries);
+  // Current chip filter on the delivery list — drives which deliveries end
+  // up on the map so list and map always show the same set.
+  const deliveryListFilter = useDeliveryStore((s) => s.deliveryListFilter);
 
   // ── Picking-list reminder ────────────────────────────────────────────────
   // Orders on the driver's picking list (pgi-done / rescheduled with GMD and
@@ -277,6 +281,41 @@ export default function DriverPortal() {
   const confirmedDeliveriesRef = useRef<Delivery[]>([]);
   const finishedDeliveriesRef = useRef<Delivery[]>([]);
   const pickingStageDeliveriesRef = useRef<Delivery[]>([]);
+
+  // Tracks the chip filter from the previous effect run so we can tell a
+  // chip change (reset manual-reorder, re-apply filter) apart from a store
+  // refresh (respect manual order if the driver dragged).
+  const prevDeliveryListFilterRef = useRef<DeliveryListFilter>(deliveryListFilter);
+
+  // Map <-> list sync. The driver portal's map should always render the same
+  // set of deliveries as whichever chip is active on the list:
+  //   · Today Delivery (default) → OFD + today pickup-confirmed + order-delay
+  //   · Pickup Confirmed         → all pickup-confirmed orders
+  //   · Not Confirmed            → pickup-confirmed NOT today
+  //   · P1 Urgent                → priority-flagged active orders
+  //   · On Time / Delayed        → active orders with ETA in that bucket
+  //   · Completed                → recently delivered / cancelled
+  // Previously the map hardcoded [onRoute + all-pickup-confirmed] which pinned
+  // future-dated orders onto today's map and confused drivers. Driving the
+  // map from the chip filter keeps list and map consistent by construction.
+  useEffect(() => {
+    const filtered = applyDeliveryListFilter(storeDeliveries, deliveryListFilter);
+    const chipChanged = prevDeliveryListFilterRef.current !== deliveryListFilter;
+    if (chipChanged) {
+      // A new chip means a new set of stops — any manual drag-order from the
+      // previous chip is no longer meaningful. Reset so the new filter can
+      // render cleanly, then re-arm for dragging under the new chip.
+      manuallyOrderedRef.current = false;
+      userOrderRef.current = [];
+      prevDeliveryListFilterRef.current = deliveryListFilter;
+    }
+    if (!manuallyOrderedRef.current) {
+      setDeliveries(filtered);
+      // Force the routing effect to re-fetch OSRM — otherwise it may short
+      // circuit when the signature by customer IDs happens to match.
+      lastRouteDeliveriesRef.current = '';
+    }
+  }, [storeDeliveries, deliveryListFilter]);
 
   // Callback passed to <DeliveryTable onReorder> so drag-reorder triggers map update
   const handleManualReorder = useCallback((newOrder: Delivery[]) => {
@@ -1048,15 +1087,13 @@ export default function DriverPortal() {
       setFinishedDeliveries(fetchedFinished);
       setPickingStageDeliveries(pickingStage);
 
-      // Map / routing: include both on-route AND pickup-confirmed deliveries
-      // so that planned ETAs are computed for pickup-confirmed orders too.
-      const pickupConfirmed = activeDeliveries.filter((d) => {
-        const s = (d.status || '').toLowerCase();
-        return s === 'pickup-confirmed' || s === 'pickup_confirmed';
-      });
+      // Reset manual drag state on a full refresh — a dedicated useEffect
+      // below keeps the map's `deliveries` state in sync with whichever chip
+      // the driver has selected on the list (Today Delivery, Pickup Confirmed,
+      // On Time, Delayed, etc). That effect reads from the store, so we only
+      // need to hydrate the store here.
       manuallyOrderedRef.current = false;
       userOrderRef.current = [];
-      setDeliveries([...onRoute, ...pickupConfirmed]);
 
       // Load EVERY active delivery into the store (not just on-route + confirmed)
       // so the Picking List tab can see pgi-done / pickup-confirmed / rescheduled
