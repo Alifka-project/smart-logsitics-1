@@ -28,6 +28,7 @@ import {
 import DeliveryDetailModal from '../components/DeliveryDetailModal';
 import DeliveryMap from '../components/MapView/DeliveryMap';
 import DeliveryManagementPage from './DeliveryManagementPage';
+import LiveMapsDriverLegend from '../components/Tracking/LiveMapsDriverLegend';
 
 import { PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, LabelList } from 'recharts';
 import { calculateRoute, generateFallbackRoute, computePerDriverRoutes } from '../services/advancedRoutingService';
@@ -92,6 +93,10 @@ export default function LogisticsTeamPortal() {
   const [trackingDriverFilter, setTrackingDriverFilter] = useState<string>('all');
   const [trackingSelectedId, setTrackingSelectedId] = useState<string | null>(null);
   const [liveStatusFilter, setLiveStatusFilter] = useState<'all' | 'out_for_delivery' | 'confirmed' | 'priority' | 'delayed'>('all');
+  // Free-text search across customer / PO / delivery no / phone — drives
+  // what the list and the map show simultaneously so finding an order for
+  // a phone-call enquiry is one keystroke away.
+  const [trackingSearchQuery, setTrackingSearchQuery] = useState<string>('');
   const [podModalDelivery, setPodModalDelivery] = useState<Delivery | null>(null);
   const [drivers, setDrivers] = useState<ContactUser[]>([]);
   const [contacts, setContacts] = useState<ContactUser[]>([]); // All contacts (drivers + team members)
@@ -1614,6 +1619,30 @@ export default function LogisticsTeamPortal() {
                 }
                 return true; // 'all'
               })
+              // 5. Free-text search — matches customer / PO / delivery no / phone.
+              // Applied last so status + driver filters still bound the space.
+              .filter((d) => {
+                const q = trackingSearchQuery.trim().toLowerCase();
+                if (!q) return true;
+                const rec = d as unknown as {
+                  customer?: string | null;
+                  poNumber?: string | null;
+                  deliveryNumber?: string | null;
+                  phone?: string | null;
+                  address?: string | null;
+                };
+                const haystack = [
+                  rec.customer,
+                  rec.poNumber,
+                  rec.deliveryNumber,
+                  rec.phone,
+                  rec.address,
+                ]
+                  .filter((v): v is string => typeof v === 'string' && v.length > 0)
+                  .join(' ')
+                  .toLowerCase();
+                return haystack.includes(q);
+              })
               // Sort: priority first → out-for-delivery before confirmed → by confirmed date → by name
               .sort((a, b) => {
                 const am = (a as unknown as { metadata?: Record<string, unknown> }).metadata ?? {};
@@ -1646,7 +1675,27 @@ export default function LogisticsTeamPortal() {
                 }}
               >
                 {/* ── Map panel ── */}
-                <div className="flex flex-col min-w-0 min-h-0">
+                <div className="flex flex-col min-w-0 min-h-0 gap-2">
+                  {/* Driver colour legend — swatches match the polylines drawn on
+                      the map below. Click a driver to filter both views. */}
+                  <LiveMapsDriverLegend
+                    driverRoutes={driverRoutes}
+                    activeDriverId={trackingDriverFilter}
+                    onSelectDriver={(id) => { setTrackingDriverFilter(id); setTrackingSelectedId(null); }}
+                    enrich={(driverId) => {
+                      const drv = drivers.find((x) => x.id === driverId);
+                      const stopCount = deliveries.filter((d) => {
+                        const s = (d.status || '').toLowerCase();
+                        const dExt = d as unknown as { tracking?: { driverId?: string } };
+                        const assigned = dExt.tracking?.driverId === driverId || d.assignedDriverId === driverId;
+                        return assigned && LIVE_MAP_VISIBLE.has(s);
+                      }).length;
+                      return {
+                        online: drv ? isContactOnline(drv) : false,
+                        stopCount,
+                      };
+                    }}
+                  />
                   <div className="pp-card overflow-hidden flex-1 relative" style={{ minHeight: 0 }}>
                     {routeLoading && (
                       <div className="absolute inset-0 flex items-center justify-center bg-white/60 dark:bg-gray-900/60 z-10">
@@ -1677,7 +1726,7 @@ export default function LogisticsTeamPortal() {
 
                 {/* ── Order list panel (full-width on mobile, 290px on sm+) ── */}
                 <div className="flex flex-col gap-2 min-w-0 min-h-0 w-full sm:w-[290px]">
-                  {/* Header + driver filter + status pills */}
+                  {/* Header + search + driver filter + status pills */}
                   <div className="pp-card p-3 flex-shrink-0 space-y-2">
                     {/* Title row */}
                     <div className="flex items-center gap-2">
@@ -1694,6 +1743,32 @@ export default function LogisticsTeamPortal() {
                       >
                         <RefreshCw className="w-3.5 h-3.5" />
                       </button>
+                    </div>
+
+                    {/* Search box — matches customer / PO / delivery no / phone /
+                        address. Lets the user answer a customer phone-call query
+                        ("where's my PO 12345?") in one keystroke instead of
+                        scanning dozens of cards. */}
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={trackingSearchQuery}
+                        onChange={(e) => setTrackingSearchQuery(e.target.value)}
+                        placeholder="Search customer, PO, phone…"
+                        className="w-full pl-7 pr-7 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                      {trackingSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setTrackingSearchQuery('')}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
+                          title="Clear search"
+                          aria-label="Clear search"
+                        >
+                          ✕
+                        </button>
+                      )}
                     </div>
 
                     {/* Driver dropdown */}

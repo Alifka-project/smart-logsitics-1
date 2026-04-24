@@ -32,6 +32,7 @@ import {
 import DeliveryManagementPage from './DeliveryManagementPage';
 import { DateRangePicker } from '../components/common/DateRangePicker';
 import DeliveryMap from '../components/MapView/DeliveryMap';
+import LiveMapsDriverLegend from '../components/Tracking/LiveMapsDriverLegend';
 import { computePerDriverRoutes } from '../services/advancedRoutingService';
 import type { DriverRoute } from '../services/advancedRoutingService';
 import useDeliveryStore from '../store/useDeliveryStore';
@@ -123,6 +124,7 @@ export default function DeliveryTeamPortal() {
 
   // Live Maps tab state
   const [trackingDriverFilter, setTrackingDriverFilter] = useState<string>('all');
+  const [trackingSearchQuery, setTrackingSearchQuery] = useState<string>('');
   const [trackingSelectedId, setTrackingSelectedId] = useState<string | null>(null);
   const [liveMapFilter, setLiveMapFilter] = useState<'all' | 'priority' | 'confirmed' | 'delayed'>('all');
   const [monitoringRoute] = useState<{ coordinates: [number, number][] } | null>(null);
@@ -2115,7 +2117,7 @@ export default function DeliveryTeamPortal() {
           });
         // Apply order-type filter (priority / confirmed / delayed) on top of driver+terminal filter
         const nowTs = Date.now();
-        const tdFilteredDeliveries = liveMapFilter === 'all' ? tdDeliveries : tdDeliveries.filter(d => {
+        const tdAfterStatusFilter = liveMapFilter === 'all' ? tdDeliveries : tdDeliveries.filter(d => {
           const dExt2 = d as unknown as { metadata?: Record<string, unknown>; confirmedDeliveryDate?: string };
           if (liveMapFilter === 'priority') {
             return dExt2.metadata?.isPriority === true || (d as unknown as { isPriority?: boolean }).isPriority === true;
@@ -2133,6 +2135,32 @@ export default function DeliveryTeamPortal() {
           return true;
         });
 
+        // Free-text search — matches customer / PO / delivery no / phone /
+        // address so a call-taking user can locate an order in one keystroke.
+        const searchQ = trackingSearchQuery.trim().toLowerCase();
+        const tdFilteredDeliveries = searchQ
+          ? tdAfterStatusFilter.filter((d) => {
+              const rec = d as unknown as {
+                customer?: string | null;
+                poNumber?: string | null;
+                deliveryNumber?: string | null;
+                phone?: string | null;
+                address?: string | null;
+              };
+              const haystack = [
+                rec.customer,
+                rec.poNumber,
+                rec.deliveryNumber,
+                rec.phone,
+                rec.address,
+              ]
+                .filter((v): v is string => typeof v === 'string' && v.length > 0)
+                .join(' ')
+                .toLowerCase();
+              return haystack.includes(searchQ);
+            })
+          : tdAfterStatusFilter;
+
         const tdHighlightIdx = trackingSelectedId
           ? tdFilteredDeliveries.findIndex(d => d.id === trackingSelectedId)
           : null;
@@ -2144,7 +2172,27 @@ export default function DeliveryTeamPortal() {
             style={{ height: 'max(560px, calc(100dvh - 240px))', gridTemplateColumns: '1fr 290px', overflow: 'hidden' }}
           >
             {/* Map panel */}
-            <div className="flex flex-col min-w-0 min-h-0">
+            <div className="flex flex-col min-w-0 min-h-0 gap-2">
+              {/* Driver colour legend — swatches match polylines on map.
+                  Click to filter list + map by driver. */}
+              <LiveMapsDriverLegend
+                driverRoutes={driverRoutes}
+                activeDriverId={trackingDriverFilter}
+                onSelectDriver={(id) => { setTrackingDriverFilter(id); setTrackingSelectedId(null); }}
+                enrich={(driverId) => {
+                  const drv = drivers.find((x) => x.id === driverId);
+                  const stopCount = deliveries.filter((d) => {
+                    const s = (d.status || '').toLowerCase();
+                    const dExt = d as unknown as { tracking?: { driverId?: string } };
+                    const assigned = dExt.tracking?.driverId === driverId || d.assignedDriverId === driverId;
+                    return assigned && LIVE_MAP_VISIBLE_D.has(s);
+                  }).length;
+                  return {
+                    online: drv ? isContactOnline(drv) : false,
+                    stopCount,
+                  };
+                }}
+              />
               <div className="pp-card overflow-hidden flex-1 relative" style={{ minHeight: 0 }}>
                 {routeLoading && (
                   <div className="absolute inset-0 flex items-center justify-center bg-white/60 dark:bg-gray-900/60 z-10">
@@ -2175,8 +2223,8 @@ export default function DeliveryTeamPortal() {
 
             {/* Order list panel (fixed 290px — same as Logistics portal) */}
             <div className="flex flex-col gap-2 min-w-0 min-h-0" style={{ width: 290 }}>
-              <div className="pp-card p-3 flex-shrink-0">
-                <div className="flex items-center gap-2 mb-2">
+              <div className="pp-card p-3 flex-shrink-0 space-y-2">
+                <div className="flex items-center gap-2">
                   <NavigationIcon className="w-4 h-4 text-blue-500 flex-shrink-0" />
                   <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">Live Orders</h2>
                   <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500 flex-shrink-0">
@@ -2186,6 +2234,30 @@ export default function DeliveryTeamPortal() {
                     className="text-xs text-gray-400 hover:text-blue-600 transition-colors flex-shrink-0" title="Refresh">
                     <RefreshCw className="w-3.5 h-3.5" />
                   </button>
+                </div>
+
+                {/* Search box — matches customer / PO / delivery no / phone /
+                    address so a call-taker can jump to an order in one keystroke. */}
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={trackingSearchQuery}
+                    onChange={(e) => setTrackingSearchQuery(e.target.value)}
+                    placeholder="Search customer, PO, phone…"
+                    className="w-full pl-7 pr-7 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                  {trackingSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setTrackingSearchQuery('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
+                      title="Clear search"
+                      aria-label="Clear search"
+                    >
+                      ✕
+                    </button>
+                  )}
                 </div>
 
                 {/* Driver filter */}
