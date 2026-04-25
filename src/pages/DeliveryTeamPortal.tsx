@@ -2284,8 +2284,10 @@ export default function DeliveryTeamPortal() {
         // Live Maps content — pixel-for-pixel match with Logistics portal Live Maps tab
         const liveMapsContent = (
           <div
-            className="grid gap-3"
-            style={{ height: 'max(560px, calc(100dvh - 240px))', gridTemplateColumns: '1fr 290px', overflow: 'hidden' }}
+            // Mobile: stacked rows — map fixed at 280px, list fills the rest.
+            // sm+ (≥640px): two-column desktop layout — map flex, list 290px.
+            className="grid gap-3 grid-rows-[280px_1fr] sm:grid-rows-none sm:grid-cols-[1fr_290px]"
+            style={{ height: 'max(560px, calc(100dvh - 240px))', overflow: 'hidden' }}
           >
             {/* Map panel */}
             <div className="flex flex-col min-w-0 min-h-0">
@@ -2317,8 +2319,8 @@ export default function DeliveryTeamPortal() {
               </div>
             </div>
 
-            {/* Order list panel (fixed 290px — same as Logistics portal) */}
-            <div className="flex flex-col gap-2 min-w-0 min-h-0" style={{ width: 290 }}>
+            {/* Order list panel — full-width on mobile, 290px on sm+. */}
+            <div className="flex flex-col gap-2 min-w-0 min-h-0 w-full sm:w-[290px]">
               <div className="pp-card p-3 flex-shrink-0 space-y-2">
                 <div className="flex items-center gap-2">
                   <NavigationIcon className="w-4 h-4 text-blue-500 flex-shrink-0" />
