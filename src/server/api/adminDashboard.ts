@@ -486,6 +486,13 @@ async function buildAdminDashboardPayload(): Promise<AdminDashboardPayload> {
       delivered_at: d.delivered_at,
       deliveredAt: d.deliveredAt,
       address: d.address,
+      // Phone is selected from DB (line ~256) and forwarded into the
+      // internal `deliveries` array (line ~322), but was previously
+      // stripped here on the way out. Tomorrow's Deliveries table on the
+      // dashboard renders displayPhone(d) and was always showing "—".
+      // Restoring this field makes the dashboard payload include the
+      // phone column the database already has.
+      phone: d.phone,
       metadata: d.metadata,
       assignedDriverId: d.assignedDriverId,
       driverName: d.driverName,
