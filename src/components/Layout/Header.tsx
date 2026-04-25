@@ -682,7 +682,14 @@ export default function Header({ isAdmin = false }: HeaderProps) {
     </div>
   );
 
-  function MobileDrawer({ children }: { children: React.ReactNode }) {
+  // Render helper (NOT a component). Originally `function MobileDrawer(...)`
+  // declared inside Header — every parent re-render produced a new function
+  // reference, so React saw a "different component type" and unmounted +
+  // remounted the entire drawer. The remount destroyed the search <input>
+  // after every keystroke, closing the mobile keyboard. As a plain function
+  // call, the JSX is substituted directly into the parent's tree, the input
+  // keeps a stable identity across renders, and focus is preserved.
+  const renderMobileDrawer = (children: React.ReactNode): React.ReactNode => {
     if (!mobileNavOpen) return null;
     return (
       <>
@@ -714,7 +721,7 @@ export default function Header({ isAdmin = false }: HeaderProps) {
         </div>
       </>
     );
-  }
+  };
 
   const pillStyle = (active: boolean): React.CSSProperties => ({
     display:'inline-flex', alignItems:'center', gap:'5px', padding:'7px 14px', borderRadius:'999px', fontSize:'13px',
@@ -826,11 +833,11 @@ export default function Header({ isAdmin = false }: HeaderProps) {
           </div>
         </header>
         <div className="h-[72px] md:h-[88px] shrink-0" aria-hidden />
-        <MobileDrawer>
-          {ADMIN_NAV.map(item => (
+        {renderMobileDrawer(
+          ADMIN_NAV.map(item => (
             <NavLink key={item.path} to={item.path} end={item.exact} onClick={() => setMobileNavOpen(false)} style={({ isActive }) => ({ display:'flex', alignItems:'center', padding:'11px 14px', borderRadius:'10px', fontSize:'14px', fontWeight:isActive?600:400, color:isActive?'var(--primary)':'var(--text2)', background:isActive?'var(--primary-glow)':'transparent', textDecoration:'none', marginBottom:'2px' })}>{item.label}</NavLink>
-          ))}
-        </MobileDrawer>
+          ))
+        )}
         <ToastContainer toasts={toasts} onRemove={removeToast} />
         <ProfileModal />
       </>
@@ -873,9 +880,9 @@ export default function Header({ isAdmin = false }: HeaderProps) {
         </div>
       </header>
       <div className="h-[72px] md:h-[88px] shrink-0" aria-hidden />
-      <MobileDrawer>
+      {renderMobileDrawer(
         <div style={{ padding:'4px 14px 12px', fontSize:'12px', color:'var(--muted)' }}>Use the tabs inside your portal to navigate.</div>
-      </MobileDrawer>
+      )}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
       <ProfileModal />
     </>
