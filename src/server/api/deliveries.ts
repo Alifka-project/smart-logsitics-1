@@ -211,6 +211,13 @@ async function updateDeliveryStatusHandler(
     if (nextMeta.picking && typeof nextMeta.picking === 'object') {
       (nextMeta.picking as Record<string, unknown>).confirmedAt = null;
     }
+    // Clear arrival flags so the next attempt's "Driver is arriving" SMS
+    // can fire. The notify-arrival endpoint is idempotent on
+    // metadata.arrivalNotifiedAt — without this reset, any delivery that
+    // was rescheduled after the driver had already tapped "Arrived" would
+    // be locked out of sending a fresh arrival SMS on the new attempt.
+    nextMeta.arrivalNotifiedAt = null;
+    nextMeta.arrivalNotifiedTrigger = null;
     // Mirror the new delivery date (sent as scheduledDate) into
     // confirmedDeliveryDate so downstream consumers stay consistent — the
     // picking-confirm auto-promote, customer tracking, capacity service, and
@@ -1193,6 +1200,35 @@ router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_
         if (lowerStatus === 'order-delay') {
           const body = orderDelayMessage(customerName, poRef, trackingLink);
           await silentSend(body, 'status_order_delay');
+        }
+
+        // Rescheduled — same flow as the dedicated /admin/:id/reschedule
+        // endpoint. The OrdersTable surface only exposes the dedicated
+        // "📅 Reschedule" button on order_delay rows; for every other row
+        // (out-for-delivery, pickup-confirmed, etc.) the operator has to go
+        // through "Update Status" -> OrderEditModal -> this endpoint, which
+        // previously had no rescheduled branch — so the customer's tracking
+        // page updated correctly but the SMS never fired. Reuse
+        // sendRescheduleSms so the wording, formatting and smsLog row are
+        // identical to the dedicated path. The new date was just mirrored
+        // into confirmedDeliveryDate by updateDeliveryStatusHandler so we
+        // read it from the freshly-updated row.
+        if (lowerStatus === 'rescheduled') {
+          const newDateRaw = (updatedDelivery.confirmedDeliveryDate as Date | string | null);
+          if (newDateRaw) {
+            try {
+              const smsService = require('../sms/smsService');
+              await smsService.sendRescheduleSms(
+                updatedDelivery.id as string,
+                new Date(newDateRaw as string | Date),
+                ((req.body as { notes?: string })?.notes || 'Operational requirements'),
+              );
+            } catch (rescheduleErr: unknown) {
+              console.warn('[Deliveries] Reschedule SMS via status endpoint failed:', (rescheduleErr as Error).message);
+            }
+          } else {
+            console.warn(`[Deliveries] Rescheduled status without confirmedDeliveryDate for ${updatedDelivery.id} — SMS skipped`);
+          }
         }
 
         // Cancelled or rejected — send the same thank-you message used for delivered
@@ -2663,6 +2699,14 @@ router.put('/admin/:id/reschedule', authenticate, requireAnyRole('admin', 'deliv
           previousDeliveryDate: (existingDelivery.confirmedDeliveryDate as Date | null)?.toISOString() ?? null,
           // Reset picking confirmation so order re-enters driver picking list
           picking: { ...((prevMeta.picking as Record<string, unknown>) || {}), confirmedAt: null },
+          // Clear arrival flags so the next attempt can fire a fresh
+          // "Driver is arriving" SMS. The notify-arrival endpoint is
+          // idempotent on metadata.arrivalNotifiedAt — without this reset,
+          // any delivery that was rescheduled after the driver had
+          // already tapped "Arrived" would be locked out of sending the
+          // arrival SMS on the new attempt.
+          arrivalNotifiedAt: null,
+          arrivalNotifiedTrigger: null,
         }
       }
     }) as Record<string, unknown>;
