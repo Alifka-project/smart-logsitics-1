@@ -396,23 +396,44 @@ const useDeliveryStore = create<DeliveryStore>((set, get) => ({
   },
 
   updateDeliveryOrder: (reorderedDeliveries: Delivery[]): void => {
-    // Merge with existing store deliveries to preserve computed fields (priority,
-    // plannedEta) that are not returned by the API and would otherwise be lost
-    // when the OSRM route callback replaces the store with enriched local state.
-    const existingMap = new Map(get().deliveries.map(d => [String(d.id), d as Record<string, unknown>]));
-    const merged = reorderedDeliveries.map(d => {
-      const existing = existingMap.get(String(d.id));
-      if (!existing) return d;
+    // The function's job is to ORDER (and merge field updates for) the items
+    // in the input list. Items that exist in the store but are NOT in the
+    // input list must be PRESERVED — otherwise callers that legitimately
+    // pass a partial list (e.g. the Driver Portal routing effect, which
+    // only enriches the chip-filtered + on-route subset) would silently
+    // wipe the rest of the store. Polling masks the symptom for ~30 s
+    // until the next refresh, but during that window the chip counts and
+    // the visible list shrink, producing a flicker on every routing
+    // recompute.
+    //
+    // Behaviour:
+    //   1. Items in `reorderedDeliveries` are merged with their existing
+    //      store entry (existing fields preserved, input fields layered on
+    //      top, priority / plannedEta / priorityLabel explicitly kept when
+    //      the input doesn't supply them) — same merge semantics as before.
+    //   2. The merged input list is placed first, in its input order, so
+    //      drag-reorder and routing-driven ordering still wins.
+    //   3. Items present in the store but NOT in the input are appended
+    //      after the merged input items, preserving their relative order.
+    //      This is what fixes the flicker — they stop falling out of the
+    //      store on every partial update.
+    const existing = get().deliveries;
+    const inputIds = new Set(reorderedDeliveries.map(d => String(d.id)));
+    const existingMap = new Map(existing.map(d => [String(d.id), d as Record<string, unknown>]));
+    const mergedInputItems = reorderedDeliveries.map(d => {
+      const ex = existingMap.get(String(d.id));
+      if (!ex) return d;
       const nd = d as Record<string, unknown>;
       return {
-        ...existing,
+        ...ex,
         ...nd,
-        // Explicitly preserve fields that OSRM / route enrichment does not supply
-        priority: nd['priority'] ?? existing['priority'],
-        plannedEta: nd['plannedEta'] ?? existing['plannedEta'],
-        priorityLabel: nd['priorityLabel'] ?? existing['priorityLabel'],
+        priority: nd['priority'] ?? ex['priority'],
+        plannedEta: nd['plannedEta'] ?? ex['plannedEta'],
+        priorityLabel: nd['priorityLabel'] ?? ex['priorityLabel'],
       };
     }) as Delivery[];
+    const preservedTail = existing.filter(d => !inputIds.has(String(d.id)));
+    const merged = [...mergedInputItems, ...preservedTail];
     set({ deliveries: merged });
     get().saveToStorage(merged);
   },
