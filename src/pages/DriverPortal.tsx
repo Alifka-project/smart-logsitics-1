@@ -314,6 +314,17 @@ export default function DriverPortal() {
   // refresh (respect manual order if the driver dragged).
   const prevDeliveryListFilterRef = useRef<DeliveryListFilter>(deliveryListFilter);
 
+  // Signature of the last applied chip-filtered deliveries (id + status,
+  // in order). Used to bail the chip-filter effect when a store mutation
+  // doesn't actually change the visible set — without this, every store
+  // write (including the one the routing effect itself emits via
+  // updateDeliveryOrder) re-runs setDeliveries + resets
+  // lastRouteDeliveriesRef.current = '', which forces the routing effect
+  // to treat the next pass as deliveriesChanged=true and kick off another
+  // OSRM call. The result was a feedback loop that left "Routing…"
+  // permanently on and the polyline never settled.
+  const prevFilteredSigRef = useRef<string>('');
+
   // Map <-> list sync. The driver portal's map should always render the same
   // set of deliveries as whichever chip is active on the list:
   //   · Today Delivery (default) → OFD + today pickup-confirmed + order-delay
@@ -327,6 +338,7 @@ export default function DriverPortal() {
   // map from the chip filter keeps list and map consistent by construction.
   useEffect(() => {
     const filtered = applyDeliveryListFilter(storeDeliveries, deliveryListFilter);
+    const filteredSig = filtered.map(d => `${d.id}:${(d.status || '').toLowerCase()}`).join('|');
     const chipChanged = prevDeliveryListFilterRef.current !== deliveryListFilter;
     if (chipChanged) {
       // A new chip means a new set of stops — any manual drag-order from the
@@ -336,12 +348,29 @@ export default function DriverPortal() {
       userOrderRef.current = [];
       prevDeliveryListFilterRef.current = deliveryListFilter;
     }
-    if (!manuallyOrderedRef.current) {
-      setDeliveries(filtered);
-      // Force the routing effect to re-fetch OSRM — otherwise it may short
-      // circuit when the signature by customer IDs happens to match.
-      lastRouteDeliveriesRef.current = '';
+    if (manuallyOrderedRef.current) {
+      // Manual reorder takes precedence; don't override the user's order.
+      // Keep prevFilteredSigRef tracking the latest store-derived signature
+      // so a subsequent non-manual run can bail correctly.
+      prevFilteredSigRef.current = filteredSig;
+      return;
     }
+    // Bail when the chip-filtered set is unchanged in shape (same IDs +
+    // statuses in same order). Without this short-circuit, every store
+    // mutation — including the one updateDeliveryOrder writes after every
+    // OSRM success — would call setDeliveries with a new array reference,
+    // which the routing effect then treats as a fresh delivery set
+    // (because we reset lastRouteDeliveriesRef.current = '' below). That
+    // forced the gates to bypass and a new OSRM call to fire on every
+    // routing success — the loop that hid the polyline.
+    if (!chipChanged && filteredSig === prevFilteredSigRef.current) {
+      return;
+    }
+    prevFilteredSigRef.current = filteredSig;
+    setDeliveries(filtered);
+    // Force the routing effect to re-fetch OSRM — otherwise it may short
+    // circuit when the signature by customer IDs happens to match.
+    lastRouteDeliveriesRef.current = '';
   }, [storeDeliveries, deliveryListFilter]);
 
   // Callback passed to <DeliveryTable onReorder> so drag-reorder triggers map update
