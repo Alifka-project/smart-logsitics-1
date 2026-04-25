@@ -229,27 +229,54 @@ function resolveCurrentStep(
 ): number {
   const s = (status || '').toLowerCase();
 
-  // 1. Current delivery status is the source of truth — always wins.
-  //    This ensures that a rescheduled order (status='rescheduled') goes back
-  //    to "Order Scheduled" even if historical events like driver_arrived exist
-  //    from a previous delivery attempt.
+  // Compute three independent candidate step indices. -1 means "no signal".
+  let byStatus = -1;
   for (let i = TIMELINE_STEPS.length - 1; i >= 0; i--) {
-    if (TIMELINE_STEPS[i].matchStatuses.includes(s)) return i;
+    if (TIMELINE_STEPS[i].matchStatuses.includes(s)) { byStatus = i; break; }
   }
 
-  // 2. Fallback: arrival metadata flag (set by notify-arrival endpoint).
-  for (let i = TIMELINE_STEPS.length - 1; i >= 0; i--) {
-    if (TIMELINE_STEPS[i].id === 'items_arrived' && arrivalNotifiedAt) return i;
-  }
-
-  // 3. Last resort: infer from timeline events (only when status is missing/unknown).
-  if (timeline) {
-    for (let i = TIMELINE_STEPS.length - 1; i >= 0; i--) {
-      if (timeline.some(e => TIMELINE_STEPS[i].matchEvents.includes(e.type as string))) return i;
+  let byMetadata = -1;
+  if (arrivalNotifiedAt) {
+    // arrivalNotifiedAt always maps to the items_arrived step
+    for (let i = 0; i < TIMELINE_STEPS.length; i++) {
+      if (TIMELINE_STEPS[i].id === 'items_arrived') { byMetadata = i; break; }
     }
   }
 
-  return 0;
+  let byEvents = -1;
+  if (timeline) {
+    for (let i = TIMELINE_STEPS.length - 1; i >= 0; i--) {
+      if (timeline.some(e => TIMELINE_STEPS[i].matchEvents.includes(e.type as string))) {
+        byEvents = i; break;
+      }
+    }
+  }
+
+  // Regression statuses force the timeline back to wherever their status
+  // maps, ignoring any stale arrivalNotifiedAt or driver_arrived events
+  // from a previous attempt. Without this, a delivery that was
+  // rescheduled while out-for-delivery would still show "Items Arrived"
+  // because the old metadata + event row are still present.
+  //
+  // Only statuses that genuinely *retreat* the lifecycle belong here.
+  // 'cancelled', 'failed', 'returned' aren't in any matchStatuses (so
+  // byStatus is -1 for them) but we still treat them as regressions so
+  // a stale forward signal can't mark them as "Items Arrived".
+  const REGRESSION_STATUSES = new Set([
+    'rescheduled', 'cancelled', 'failed', 'returned',
+  ]);
+  if (REGRESSION_STATUSES.has(s)) {
+    return byStatus >= 0 ? byStatus : 0;
+  }
+
+  // Forward case: take the highest index across all three signals so an
+  // arrival flag (or a driver_arrived event) can advance the timeline
+  // past the raw status. This is the case the user sees when the driver
+  // taps "Arrived" while status is still 'out-for-delivery' — the SMS
+  // fires, metadata.arrivalNotifiedAt is set, and the customer page must
+  // reflect "Items Arrived" without waiting for POD completion.
+  const max = Math.max(byStatus, byMetadata, byEvents);
+  return max >= 0 ? max : 0;
 }
 
 function getStepTimestamp(
