@@ -287,7 +287,12 @@ export async function ingestFile(opts: IngestOptions): Promise<IngestOutcome> {
 
   // 6. Admin notification — triggers the bell in all portals within 15s.
   //    Shape matches the existing 'status_changed' / 'gmd_upload' notifications
-  //    so the frontend renders it the same way.
+  //    so the frontend renders it the same way. Include the first saved
+  //    delivery's id so clicking the notification deep-links into the
+  //    delivery table and highlights at least one of the new rows — without
+  //    this, the bell click previously landed on the table with nothing
+  //    selected. The full id list is also exposed for any future caller
+  //    that wants to highlight every new row.
   const savedTotal = outcomeCounts.new + outcomeCounts.dispatched + outcomeCounts.updated;
   try {
     await prisma!.adminNotification.create({
@@ -301,6 +306,8 @@ export async function ingestFile(opts: IngestOptions): Promise<IngestOutcome> {
           filename: opts.filename || null,
           summary: outcomeCounts,
           errorCount: errors.length,
+          deliveryId: savedIds[0] ?? null,
+          deliveryIds: savedIds,
         },
       },
     });
