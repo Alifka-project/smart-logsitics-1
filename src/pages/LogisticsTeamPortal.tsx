@@ -1770,14 +1770,11 @@ export default function LogisticsTeamPortal() {
             })();
 
             return (
-              /* Mobile: stacked rows — map fixed 280px, list fills the rest.
-                 sm+ (≥640px): map 1fr + fixed 290px sidebar. */
+              /* Mobile: stacked rows — map fixed 280px, list grows to its
+                 natural content height and the page scrolls. sm+ (≥640px):
+                 map 1fr + fixed 290px sidebar with internal scroll. */
               <div
-                className="grid gap-3 grid-rows-[280px_1fr] sm:grid-rows-none sm:grid-cols-[1fr_290px]"
-                style={{
-                  height: 'max(560px, calc(100dvh - 240px))',
-                  overflow: 'hidden',
-                }}
+                className="grid gap-3 grid-rows-[280px_auto] sm:grid-rows-none sm:grid-cols-[1fr_290px] sm:overflow-hidden sm:h-[max(560px,calc(100dvh-240px))]"
               >
                 {/* ── Map panel ── */}
                 <div className="flex flex-col min-w-0 min-h-0">

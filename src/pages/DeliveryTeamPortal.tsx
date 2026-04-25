@@ -2284,10 +2284,10 @@ export default function DeliveryTeamPortal() {
         // Live Maps content — pixel-for-pixel match with Logistics portal Live Maps tab
         const liveMapsContent = (
           <div
-            // Mobile: stacked rows — map fixed at 280px, list fills the rest.
-            // sm+ (≥640px): two-column desktop layout — map flex, list 290px.
-            className="grid gap-3 grid-rows-[280px_1fr] sm:grid-rows-none sm:grid-cols-[1fr_290px]"
-            style={{ height: 'max(560px, calc(100dvh - 240px))', overflow: 'hidden' }}
+            // Mobile: stacked rows — map fixed at 280px, list grows to its
+            // natural content height and the page scrolls. sm+ (≥640px):
+            // two-column layout with fixed height — list scrolls internally.
+            className="grid gap-3 grid-rows-[280px_auto] sm:grid-rows-none sm:grid-cols-[1fr_290px] sm:overflow-hidden sm:h-[max(560px,calc(100dvh-240px))]"
           >
             {/* Map panel */}
             <div className="flex flex-col min-w-0 min-h-0">
