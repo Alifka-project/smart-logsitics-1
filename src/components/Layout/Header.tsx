@@ -785,7 +785,44 @@ export default function Header({ isAdmin = false }: HeaderProps) {
                   <span style={{ fontSize:'11px', fontWeight:700, color:'var(--primary)', textTransform:'uppercase', letterSpacing:'0.06em' }}>AI Insight</span>
                 </div>
                 <p style={{ fontSize:'13px', color:'var(--text)', lineHeight:1.55 }}>{searchResults.answer}</p>
+                {searchResults.kpis?.leader != null && (
+                  <p style={{ fontSize:'12px', color:MUTED, marginTop:'6px' }}>
+                    <strong style={{ color:'var(--text)' }}>Leader:</strong> {searchResults.kpis.leader} ({searchResults.kpis.leaderCount} {searchResults.insight?.type === 'top_products' ? 'deliveries' : 'orders'})
+                  </p>
+                )}
               </div>
+              {(searchResults.insights?.length ?? 0) > 0 && (
+                <div style={{ padding:'10px 16px', borderBottom:'1px solid var(--border)', background:'var(--surface2)' }}>
+                  <ul style={{ margin:0, paddingLeft:'18px', fontSize:'12px', color:'var(--text2)', lineHeight:1.5 }}>
+                    {searchResults.insights!.map((line, i) => <li key={i} style={{ marginBottom:'4px' }}>{line}</li>)}
+                  </ul>
+                </div>
+              )}
+              {(() => {
+                const chartData = searchResults.insight?.chartData || searchResults.chart?.data || [];
+                if (!chartData.length) return null;
+                const isStatusChart = (chartData[0] as Record<string,unknown>)?.status != null;
+                const xKey = isStatusChart ? 'status' : 'name';
+                const chartLabel = searchResults.insight?.type === 'top_products' ? 'Products by deliveries' : searchResults.insight?.type === 'top_customers' ? 'Top customers' : 'Status breakdown';
+                return (
+                  <div style={{ padding:'12px 16px', borderBottom:'1px solid var(--border)', background:'var(--surface2)' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:'6px', marginBottom:'8px' }}>
+                      <BarChart2 size={14} style={{ color:'var(--primary)' }} />
+                      <span style={{ fontSize:'11px', fontWeight:700, color:MUTED, textTransform:'uppercase', letterSpacing:'0.05em' }}>{chartLabel}{(searchResults.insight?.period||searchResults.chart?.period) ? ` · ${searchResults.insight?.period||searchResults.chart?.period}` : ''}</span>
+                    </div>
+                    <div style={{ width:'100%', height:220 }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={chartData as object[]} layout="vertical" margin={{ top:4, right:8, left:4, bottom:4 }}>
+                          <XAxis type="number" hide />
+                          <YAxis type="category" dataKey={xKey} width={110} tick={{ fontSize:11, fill:'var(--text)' }} tickFormatter={(v: string) => v && v.length > 16 ? v.slice(0,14)+'…' : v} />
+                          <Tooltip contentStyle={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', fontSize:'12px' }} labelStyle={{ color:'var(--text)' }} formatter={(value: unknown) => [value as React.ReactNode, isStatusChart ? 'Count' : 'Deliveries'] as [React.ReactNode, string]} />
+                          <Bar dataKey="count" fill="var(--primary)" radius={[0,4,4,0]} minPointSize={6} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                );
+              })()}
               {(searchResults.results?.length ?? 0) > 0 && (
                 <div>
                   <div style={{ padding:'12px 16px 4px', fontSize:'11px', fontWeight:700, color:MUTED, textTransform:'uppercase', letterSpacing:'0.05em' }}>
