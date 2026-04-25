@@ -460,6 +460,21 @@ export default function Header({ isAdmin = false }: HeaderProps) {
     setNotifications(prev => prev.map(x => x.id===n.id ? {...x, read:true} : x));
   };
 
+  // Clear all notifications. For admin/delivery_team/logistics_team this also
+  // marks every unread AdminNotification as read on the server so the cleared
+  // alerts don't reappear on the next 15 s poll. Driver role doesn't have
+  // access to that endpoint and only sees message notifications, which are
+  // auto-cleared when the user opens the relevant chat — so we just clear
+  // the local panel for them.
+  const clearAllNotifications = async () => {
+    const cu = getCurrentUser() as unknown as Record<string, unknown>;
+    const role = ((cu?.account as Record<string, unknown>)?.role as string) || getCurrentUser()?.role || 'driver';
+    if (role === 'admin' || role === 'delivery_team' || role === 'logistics_team') {
+      await api.post('/admin/notifications/alerts/mark-all-read').catch(() => {});
+    }
+    setNotifications([]);
+  };
+
   const handleNotifClick = (n: Notification) => {
     if (!n) return;
     const cuForRole = getCurrentUser() as unknown as Record<string, unknown>;
@@ -639,9 +654,23 @@ export default function Header({ isAdmin = false }: HeaderProps) {
       : { position:'absolute', right:'8px', top:'calc(100% + 8px)', width:'min(360px, calc(100vw - 24px))', maxWidth:'calc(100vw - 16px)', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', boxShadow:'var(--shadow3)', overflow:'hidden', zIndex:9999 };
     return (
       <div style={{ ...baseStyle, opacity:showNotifications?1:0, transform:showNotifications?'translateY(0) scale(1)':'translateY(-10px) scale(0.95)', transformOrigin:'top right', pointerEvents:showNotifications?'auto':'none', transition:'opacity 0.2s ease, transform 0.22s cubic-bezier(0.34,1.56,0.64,1)' }}>
-        <div style={{ padding:'14px 16px', background:'var(--surface2)', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <div style={{ padding:'14px 16px', background:'var(--surface2)', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:'8px' }}>
           <span style={{ fontWeight:700, fontSize:'14px', color:'var(--text)' }}>Notifications</span>
-          {unreadCount>0 && <span style={{ fontSize:'11px', fontWeight:600, padding:'2px 8px', borderRadius:'20px', background:'var(--primary-glow)', color:'var(--primary)' }}>{unreadCount} unread</span>}
+          <div style={{ display:'flex', alignItems:'center', gap:'8px', flexShrink:0 }}>
+            {unreadCount>0 && <span style={{ fontSize:'11px', fontWeight:600, padding:'2px 8px', borderRadius:'20px', background:'var(--primary-glow)', color:'var(--primary)' }}>{unreadCount} unread</span>}
+            {notifications.length > 0 && (
+              <button
+                type="button"
+                onClick={() => void clearAllNotifications()}
+                style={{ fontSize:'11px', fontWeight:600, padding:'4px 10px', borderRadius:'999px', background:'transparent', border:'1px solid var(--border)', color:'var(--text2)', cursor:'pointer', whiteSpace:'nowrap' }}
+                onMouseEnter={e => { e.currentTarget.style.background='var(--surface)'; e.currentTarget.style.color='var(--text)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color='var(--text2)'; }}
+                title="Mark all as read and clear"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
         </div>
         <div style={{ maxHeight:isMobileViewport ? 'calc(100vh - 88px - 48px)' : 'min(380px, calc(100vh - 96px))', overflowY:'auto' }}>
           {notifications.length===0 ? (
