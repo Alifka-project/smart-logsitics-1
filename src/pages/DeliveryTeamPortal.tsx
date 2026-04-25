@@ -1115,34 +1115,36 @@ export default function DeliveryTeamPortal() {
             void assignedActive; void unassignedActive;
             return (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                <div className="pp-card p-4 text-center bg-yellow-50 dark:bg-yellow-900/20">
+                {/* Electrolux 4-tone tier palette: slate (waiting on customer)
+                    → amber (action on us) → navy (in motion) → green (done). */}
+                <div className="pp-card p-4 text-center bg-slate-50 dark:bg-slate-800/40">
                   <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Pending</div>
-                  <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{pendingCount}</div>
+                  <div className="text-2xl font-bold text-slate-700 dark:text-slate-200">{pendingCount}</div>
                   <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">awaiting customer</div>
                 </div>
-                <div className="pp-card p-4 text-center bg-green-50 dark:bg-green-900/20">
+                <div className="pp-card p-4 text-center bg-amber-50 dark:bg-amber-900/20">
                   <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Confirmed</div>
-                  <div className="text-2xl font-bold text-green-600 dark:text-green-400">{confirmedCount}</div>
+                  <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{confirmedCount}</div>
                   <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">ready for PGI</div>
                 </div>
                 <div className="pp-card p-4 text-center bg-amber-50 dark:bg-amber-900/20">
                   <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">PGI Done</div>
-                  <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{pgiDoneTeamCount}</div>
+                  <div className="text-2xl font-bold text-amber-700 dark:text-amber-300">{pgiDoneTeamCount}</div>
                   <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">awaiting driver pick</div>
                 </div>
-                <div className="pp-card p-4 text-center bg-teal-50 dark:bg-teal-900/20">
+                <div className="pp-card p-4 text-center bg-[#032145]/8 dark:bg-blue-900/20">
                   <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Pickup Confirmed</div>
-                  <div className="text-2xl font-bold text-teal-600 dark:text-teal-400">{readyToDepartTeamCount}</div>
+                  <div className="text-2xl font-bold text-[#032145] dark:text-blue-200">{readyToDepartTeamCount}</div>
                   <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">item collected</div>
                 </div>
-                <div className="pp-card p-4 text-center bg-blue-50 dark:bg-blue-900/20">
+                <div className="pp-card p-4 text-center bg-[#032145]/8 dark:bg-blue-900/20">
                   <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">On Route</div>
-                  <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{ofd.length}</div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">in transit</div>
+                  <div className="text-2xl font-bold text-[#032145] dark:text-blue-200">{ofd.length}</div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">out for delivery</div>
                 </div>
-                <div className="pp-card p-4 text-center bg-emerald-50 dark:bg-emerald-900/20">
+                <div className="pp-card p-4 text-center bg-green-50 dark:bg-green-900/20">
                   <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Delivered Today</div>
-                  <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{deliveredToday}</div>
+                  <div className="text-2xl font-bold text-green-600 dark:text-green-400">{deliveredToday}</div>
                   <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">completed today</div>
                 </div>
               </div>
