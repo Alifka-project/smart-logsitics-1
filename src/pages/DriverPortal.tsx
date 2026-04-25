@@ -346,6 +346,17 @@ export default function DriverPortal() {
    */
   const lastRouteAtRef = useRef<number>(0);
 
+  /**
+   * Speed-computation refs. Browser-provided `coords.speed` is unreliable —
+   * iOS Safari almost always returns null, Android Chrome returns null on
+   * stationary or freshly-acquired GPS samples. We compute speed from the
+   * delta between successive watchPosition samples as a fallback, then
+   * apply a noise floor + EMA smoothing so the displayed km/h doesn't
+   * flicker when the driver is parked or the GPS jitters.
+   */
+  const prevPosForSpeedRef = useRef<{ lat: number; lng: number; t: number } | null>(null);
+  const smoothedSpeedRef = useRef<number | null>(null);
+
   const scrollMessagesToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
     if (!messagesEndRef.current) return;
     requestAnimationFrame(() => {
@@ -1243,6 +1254,40 @@ export default function DriverPortal() {
     e.target.value = '';
   };
 
+  /**
+   * Returns the effective speed (m/s) for a fresh GPS sample. Trusts the
+   * browser's `coords.speed` whenever it is a finite, non-negative number;
+   * otherwise computes speed from the position delta against the previous
+   * sample, with a 5 m noise floor (decays toward zero so a parked driver
+   * eventually shows 0 km/h) and a 0.4 EMA so successive readings don't
+   * jump around. Returns null only on the very first call when no previous
+   * sample is available and the browser declined to provide a value.
+   */
+  const enrichSpeed = useCallback((lat: number, lng: number, tMs: number, browserSpeed: number | null): number | null => {
+    if (browserSpeed != null && Number.isFinite(browserSpeed) && browserSpeed >= 0) {
+      smoothedSpeedRef.current = browserSpeed;
+      prevPosForSpeedRef.current = { lat, lng, t: tMs };
+      return browserSpeed;
+    }
+    const prev = prevPosForSpeedRef.current;
+    prevPosForSpeedRef.current = { lat, lng, t: tMs };
+    if (!prev) return smoothedSpeedRef.current;
+    const dtSec = (tMs - prev.t) / 1000;
+    if (dtSec < 0.5) return smoothedSpeedRef.current;
+    if (dtSec > 30) return null; // gap too long — sample is stale
+    const distanceM = calculateDistance(prev.lat, prev.lng, lat, lng) * 1000;
+    if (distanceM < 5) {
+      // Within typical GPS jitter — decay toward zero so a parked driver returns to 0 km/h
+      smoothedSpeedRef.current = (smoothedSpeedRef.current ?? 0) * 0.5;
+      return smoothedSpeedRef.current;
+    }
+    const rawMps = Math.min(distanceM / dtSec, 70); // cap at ~250 km/h to swallow GPS jumps
+    const prevSmoothed = smoothedSpeedRef.current ?? rawMps;
+    const smoothed = 0.4 * rawMps + 0.6 * prevSmoothed;
+    smoothedSpeedRef.current = smoothed;
+    return smoothed;
+  }, []);
+
   const sendLocationToServer = useCallback(async (locationData: LocationData): Promise<void> => {
     try {
       await api.post('/driver/me/location', {
@@ -1281,13 +1326,14 @@ export default function DriverPortal() {
     watchIdRef.current = navigator.geolocation.watchPosition(
       (position) => {
         const { latitude, longitude, accuracy, heading, speed } = position.coords;
+        const tsMs = Date.now();
         const newLocation: LocationData = {
           latitude,
           longitude,
           accuracy: accuracy || null,
           heading: heading || null,
-          speed: speed || null,
-          timestamp: new Date().toISOString()
+          speed: enrichSpeed(latitude, longitude, tsMs, speed),
+          timestamp: new Date(tsMs).toISOString()
         };
 
         setLocation(newLocation);
@@ -1349,7 +1395,7 @@ export default function DriverPortal() {
         }
       );
     }, 30000);
-  }, [clearTrackingWatchers, sendLocationToServer]);
+  }, [clearTrackingWatchers, sendLocationToServer, enrichSpeed]);
 
   const stopTracking = useCallback(() => {
     clearTrackingWatchers();
