@@ -100,6 +100,32 @@ function ensureAuth(): void {
 
 const WAREHOUSE_LOCATION: LatLng = { lat: 25.0053, lng: 55.0760 };
 
+/**
+ * Distance from point P to the line segment connecting A and B, in meters.
+ * Uses a cartesian projection in lat/lng space, valid for short segments at
+ * moderate latitudes (Dubai is ~25°N — error stays well under 1% over the
+ * sub-kilometre segments OSRM emits). Used by the routing effect's
+ * deviation detector to decide whether the driver has actually wandered
+ * off the planned polyline.
+ */
+function pointToSegmentDistanceMeters(
+  pLat: number, pLng: number,
+  aLat: number, aLng: number,
+  bLat: number, bLng: number,
+): number {
+  const dLat = bLat - aLat;
+  const dLng = bLng - aLng;
+  if (dLat === 0 && dLng === 0) {
+    return calculateDistance(pLat, pLng, aLat, aLng) * 1000;
+  }
+  const t = Math.max(0, Math.min(1,
+    ((pLat - aLat) * dLat + (pLng - aLng) * dLng) / (dLat * dLat + dLng * dLng),
+  ));
+  const projLat = aLat + t * dLat;
+  const projLng = aLng + t * dLng;
+  return calculateDistance(pLat, pLng, projLat, projLng) * 1000;
+}
+
 // ── Driver route-state persistence (survives logout / app restart) ──────────
 // The planned/static ETA and the "Start Delivery" timestamp were held only in
 // React state, so a re-login reset them and the lock effectively disappeared.
@@ -840,22 +866,50 @@ export default function DriverPortal() {
     // When deliveries actually change, reset committed order so we re-optimise
     if (deliveriesChanged) committedOrderRef.current = [];
 
-    // Throttle: cap OSRM recomputes to at most once every 10 s so the
-    // polyline + stop markers don't jitter on every GPS tick. The driver's
-    // position dot is not part of this effect and continues to move in
-    // real time. Delivery-set changes (new order, chip switch, drag-reorder,
-    // POD completion) bypass the throttle so the map reacts immediately.
-    const MIN_RECALC_INTERVAL_MS = 10000;
+    // Deviation detector — measure how far the driver has drifted from the
+    // existing polyline. If they're more than 250 m off the planned route
+    // they've genuinely deviated (wrong turn, traffic detour, etc.) and we
+    // need a fresh OSRM call regardless of the time/movement throttles.
+    // While they stay within 250 m, periodic recomputes are wasted OSRM
+    // calls — the polyline shape doesn't change just because the driver
+    // moved 50 m along it.
+    const offRouteM = (() => {
+      const coords = route?.coordinates;
+      if (!coords || coords.length < 2) return 0;
+      let minDistM = Infinity;
+      for (let i = 0; i < coords.length - 1; i++) {
+        const [lat1, lng1] = coords[i];
+        const [lat2, lng2] = coords[i + 1];
+        const distM = pointToSegmentDistanceMeters(origin.lat, origin.lng, lat1, lng1, lat2, lng2);
+        if (distM < minDistM) minDistM = distM;
+        if (minDistM < 50) break; // close to the line — early exit
+      }
+      return minDistM === Infinity ? 0 : minDistM;
+    })();
+    const offRoute = offRouteM > 250;
+
+    // Time throttle: 30 s minimum between recomputes (was 10 s — too noisy
+    // for city driving where the driver hits the movement gate every few
+    // seconds). Bypassed on delivery-set changes or off-route.
+    const MIN_RECALC_INTERVAL_MS = 30000;
     const sinceLastRecalcMs = Date.now() - lastRouteAtRef.current;
-    if (!deliveriesChanged && route && sinceLastRecalcMs < MIN_RECALC_INTERVAL_MS) {
+    if (!deliveriesChanged && !offRoute && route && sinceLastRecalcMs < MIN_RECALC_INTERVAL_MS) {
       return;
     }
 
-    // Secondary gate — still require ≥ 20 m of movement so a stationary
-    // driver doesn't burn OSRM calls every 10 s while parked.
-    if (!deliveriesChanged && originMovedKm < 0.02 && route) {
+    // Movement gate: require ≥ 150 m of straight-line origin movement (was
+    // 20 m). Below that the driver is still on the same stretch of the
+    // existing polyline and a recompute returns essentially the same
+    // shape — wasted OSRM call + visible polyline jitter.
+    if (!deliveriesChanged && !offRoute && originMovedKm < 0.15 && route) {
       return;
     }
+
+    // Foreground vs background: show the "Routing…" badge only when the
+    // recompute is meaningful — first calc, delivery-set change, or
+    // genuine off-route. Routine periodic refreshes happen silently so
+    // the status badge doesn't flicker every 30 s while driving.
+    const isBackgroundRefresh = !!route && !deliveriesChanged && !offRoute;
 
     // Priority is owned by Delivery Team / Admin via metadata.isPriority.
     // Manual priority bubbles to the front; everything else keeps its distance-based order.
@@ -889,7 +943,7 @@ export default function DriverPortal() {
       return;
     }
 
-    setIsRouteLoading(true);
+    if (!isBackgroundRefresh) setIsRouteLoading(true);
     setRouteError(null);
 
     calculateRouteWithOSRM(routeLocations)
