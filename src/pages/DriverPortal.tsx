@@ -264,7 +264,7 @@ export default function DriverPortal() {
 
   // Orders tab: modal for POD
   const [showModal, setShowModal] = useState<boolean>(false);
-  const { toasts, removeToast, success, error: toastError } = useToast();
+  const { toasts, removeToast, success, error: toastError, warning: toastWarning } = useToast();
   const updateDeliveryOrder = useDeliveryStore((s) => s.updateDeliveryOrder);
   const setDeliveryListFilter = useDeliveryStore((s) => s.setDeliveryListFilter);
   const updateDeliveryStatus = useDeliveryStore((s) => s.updateDeliveryStatus);
@@ -325,6 +325,15 @@ export default function DriverPortal() {
   // permanently on and the polyline never settled.
   const prevFilteredSigRef = useRef<string>('');
 
+  /**
+   * Tracks which deliveries were already in the "delayed" ETA bucket on the
+   * previous render so we only fire a warning toast once per *transition*
+   * into delayed — not on every re-render and not for orders that were
+   * already delayed when the page first loaded. `null` = first observation
+   * not yet recorded (skip the toast on initial mount).
+   */
+  const prevDelayedIdsRef = useRef<Set<string> | null>(null);
+
   // Map <-> list sync. The driver portal's map should always render the same
   // set of deliveries as whichever chip is active on the list:
   //   · Today Delivery (default) → OFD + today pickup-confirmed + order-delay
@@ -384,6 +393,53 @@ export default function DriverPortal() {
     // Clear the last-origin ref so the effect does not short-circuit
     lastRouteDeliveriesRef.current = '';
   }, []);
+
+  // Notify the driver when an order *transitions* into the delayed bucket
+  // mid-route. getEtaStatus flags a delivery as 'delayed' when its live
+  // estimated ETA exceeds the locked plan ETA by >60 min, so this effect
+  // fires the moment GPS movement (or stop completion) pushes a stop's
+  // arrival window past the threshold. Uses a ref-keyed delta so it never
+  // re-fires for the same delivery, never fires on the initial mount for
+  // orders that were already delayed at page load, and silently no-ops
+  // when the ID set is unchanged.
+  useEffect(() => {
+    const currentDelayed = orderedDeliveries.filter(d => getEtaStatus(d) === 'delayed');
+    const currentIds = new Set(currentDelayed.map(d => String(d.id)));
+
+    // First observation — record baseline without notifying. Without this
+    // guard the page would toast for every pre-existing delay on every
+    // refresh / route-recalc / re-login.
+    if (prevDelayedIdsRef.current === null) {
+      prevDelayedIdsRef.current = currentIds;
+      return;
+    }
+
+    const newlyDelayed = currentDelayed.filter(d => !prevDelayedIdsRef.current!.has(String(d.id)));
+    prevDelayedIdsRef.current = currentIds;
+
+    if (newlyDelayed.length === 0) return;
+
+    if (newlyDelayed.length === 1) {
+      const d = newlyDelayed[0];
+      const customer = (d.customer && String(d.customer).trim()) || 'Order';
+      toastWarning(
+        '⚠ Order delayed',
+        `${customer} is now running over an hour late.`,
+        'Live ETA exceeds Plan ETA by more than 60 min.',
+        7000,
+      );
+    } else {
+      toastWarning(
+        '⚠ Multiple orders delayed',
+        `${newlyDelayed.length} orders are now running over an hour late.`,
+        'Live ETA exceeds Plan ETA by more than 60 min.',
+        7000,
+      );
+    }
+    // toastWarning is recreated on every render by useToast; intentionally
+    // omitted to avoid the effect firing on its identity change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderedDeliveries]);
   
   // Refs for auto-scroll and polling
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
