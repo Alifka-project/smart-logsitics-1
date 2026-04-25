@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { PackageCheck, Zap, X } from 'lucide-react';
 import type { Delivery } from '../../types';
 import api from '../../frontend/apiClient';
@@ -223,8 +224,12 @@ function PickingCard({
         </div>
       </div>
 
-      {/* Confirmation Dialog */}
-      {showConfirmDialog && (
+      {/* Confirmation Dialog. Rendered into document.body via a portal so
+          `position: fixed` actually attaches to the viewport. Without the
+          portal a transformed ancestor (page-enter animation, drag handles)
+          would steal `fixed` positioning and the dialog would center on the
+          document instead of the screen — leaving it scrolled out of view. */}
+      {showConfirmDialog && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-sm w-full overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
@@ -268,7 +273,8 @@ function PickingCard({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
