@@ -493,7 +493,11 @@ export default function Header({ isAdmin = false }: HeaderProps) {
 
   const handleSearch = useCallback(async (e?: React.FormEvent) => {
     if (e?.preventDefault) e.preventDefault();
-    const q = searchInputRef.current?.value?.trim() || '';
+    // Read the query from state, not from a DOM ref. The ref was attached to
+    // the desktop AISearchBar input only — on mobile that wrapper is
+    // `hidden md:flex`, so submissions from the mobile drawer / sheet must
+    // rely on the controlled `searchQuery` state to know what to search for.
+    const q = searchQuery.trim();
     if (!q) return;
     setSearchLoading(true); setShowSearch(true);
     try {
@@ -502,7 +506,8 @@ export default function Header({ isAdmin = false }: HeaderProps) {
     } catch {
       setSearchResults({ answer:'Search failed. Please try again.', results:[], drivers:[] });
     } finally { setSearchLoading(false); }
-  }, []);  
+  }, [searchQuery]);
+
 
   const triggerSuggestion = useCallback(async (text: string) => {
     setSearchQuery(text); setSearchLoading(true); setShowSearch(true);
@@ -723,6 +728,121 @@ export default function Header({ isAdmin = false }: HeaderProps) {
     );
   };
 
+  // Mobile-only search results sheet. The desktop AISearchBar's results
+  // dropdown lives inside `<div className="hidden md:flex …">`, so on phones
+  // `display:none` hides any results that come back from /ai/search. This
+  // sheet renders a parallel results UI at top level (`md:hidden`) so the
+  // mobile flow has somewhere to display the AI insight + matching rows.
+  // Defined as a render helper (not a component) so its <input> keeps a
+  // stable identity across parent re-renders — same pattern as
+  // renderMobileDrawer above.
+  const renderMobileSearchSheet = (): React.ReactNode => {
+    if (!showSearch) return null;
+    if (!searchLoading && !searchResults) return null;
+    return (
+      <div className="fixed inset-0 md:hidden flex flex-col" style={{ zIndex:9999, background:'var(--bg)' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:'8px', padding:'12px 14px', borderBottom:'1px solid var(--border)' }}>
+          <button
+            type="button"
+            onClick={clearSearch}
+            style={{ width:'34px', height:'34px', borderRadius:'8px', display:'flex', alignItems:'center', justifyContent:'center', background:'transparent', border:'none', cursor:'pointer', color:MUTED, flexShrink:0 }}
+            aria-label="Close search"
+          >
+            <X size={18} />
+          </button>
+          <form onSubmit={(ev) => { ev.preventDefault(); void handleSearch(ev); }} style={{ flex:1, minWidth:0 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:'8px', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:'10px', padding:'8px 12px' }}>
+              <Search size={14} style={{ color:MUTED, flexShrink:0 }} />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={ev => setSearchQuery(ev.target.value)}
+                placeholder="AI Search…"
+                style={{ flex:1, background:'transparent', border:'none', outline:'none', fontSize:'13px', color:'var(--text)', minWidth:0 }}
+              />
+              {searchQuery && (
+                <button type="button" onClick={() => setSearchQuery('')} style={{ background:'transparent', border:'none', cursor:'pointer', color:MUTED, padding:0, display:'flex', alignItems:'center', flexShrink:0 }} aria-label="Clear query">
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
+        <div style={{ flex:1, overflowY:'auto' }}>
+          {searchLoading && (
+            <div style={{ padding:'40px 20px', textAlign:'center', color:MUTED }}>
+              <div style={{ width:'24px', height:'24px', border:'2px solid var(--border)', borderTopColor:'var(--primary)', borderRadius:'50%', animation:'spin 0.7s linear infinite', margin:'0 auto 12px' }} />
+              <p style={{ fontSize:'13px' }}>Analysing with AI…</p>
+            </div>
+          )}
+          {!searchLoading && searchResults && (
+            <>
+              <div style={{ padding:'14px 16px', borderBottom:'1px solid var(--border)' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'7px' }}>
+                  <div style={{ width:'22px', height:'22px', borderRadius:'6px', background:'var(--primary)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    <Sparkles size={12} color="white" />
+                  </div>
+                  <span style={{ fontSize:'11px', fontWeight:700, color:'var(--primary)', textTransform:'uppercase', letterSpacing:'0.06em' }}>AI Insight</span>
+                </div>
+                <p style={{ fontSize:'13px', color:'var(--text)', lineHeight:1.55 }}>{searchResults.answer}</p>
+              </div>
+              {(searchResults.results?.length ?? 0) > 0 && (
+                <div>
+                  <div style={{ padding:'12px 16px 4px', fontSize:'11px', fontWeight:700, color:MUTED, textTransform:'uppercase', letterSpacing:'0.05em' }}>
+                    Deliveries ({searchResults.totalCount ?? searchResults.results!.length})
+                  </div>
+                  {searchResults.results!.map(d => (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => handleResultClick(d, 'delivery')}
+                      style={{ width:'100%', textAlign:'left', padding:'12px 16px', cursor:'pointer', borderBottom:'1px solid var(--border)', background:'transparent', border:'none' }}
+                    >
+                      <p style={{ fontSize:'14px', fontWeight:600, color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{d.customer || 'Unknown'}</p>
+                      <p style={{ fontSize:'12px', color:MUTED, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginTop:'2px' }}>
+                        {d.address || 'No address'}
+                        {d.status ? <> · <span style={{ textTransform:'capitalize' }}>{d.status}</span></> : null}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {(searchResults.drivers?.length ?? 0) > 0 && (
+                <div>
+                  <div style={{ padding:'12px 16px 4px', fontSize:'11px', fontWeight:700, color:MUTED, textTransform:'uppercase', letterSpacing:'0.05em' }}>
+                    Drivers ({searchResults.drivers!.length})
+                  </div>
+                  {searchResults.drivers!.map(d => (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => handleResultClick(d, 'driver')}
+                      style={{ width:'100%', textAlign:'left', padding:'12px 16px', cursor:'pointer', borderBottom:'1px solid var(--border)', background:'transparent', border:'none', display:'flex', alignItems:'center', gap:'12px' }}
+                    >
+                      <div style={{ width:'34px', height:'34px', borderRadius:'50%', background:'var(--primary)', display:'flex', alignItems:'center', justifyContent:'center', color:'white', fontSize:'13px', fontWeight:700, flexShrink:0 }}>
+                        {(d.fullName || d.username || 'D')[0].toUpperCase()}
+                      </div>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <p style={{ fontSize:'14px', fontWeight:600, color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{d.fullName || d.username}</p>
+                        <p style={{ fontSize:'12px', color:MUTED, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{d.email || d.phone || ''}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {(!searchResults.results?.length && !searchResults.drivers?.length) && !searchResults.insightOnly && (
+                <div style={{ padding:'40px 20px', textAlign:'center', color:MUTED }}>
+                  <Search size={32} style={{ margin:'0 auto 10px', opacity:0.3 }} />
+                  <p style={{ fontSize:'13px' }}>No records found for &quot;{searchQuery}&quot;</p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const pillStyle = (active: boolean): React.CSSProperties => ({
     display:'inline-flex', alignItems:'center', gap:'5px', padding:'7px 14px', borderRadius:'999px', fontSize:'13px',
     fontWeight: active ? 600 : 500, color: active ? PRIMARY : MUTED,
@@ -838,6 +958,7 @@ export default function Header({ isAdmin = false }: HeaderProps) {
             <NavLink key={item.path} to={item.path} end={item.exact} onClick={() => setMobileNavOpen(false)} style={({ isActive }) => ({ display:'flex', alignItems:'center', padding:'11px 14px', borderRadius:'10px', fontSize:'14px', fontWeight:isActive?600:400, color:isActive?'var(--primary)':'var(--text2)', background:isActive?'var(--primary-glow)':'transparent', textDecoration:'none', marginBottom:'2px' })}>{item.label}</NavLink>
           ))
         )}
+        {renderMobileSearchSheet()}
         <ToastContainer toasts={toasts} onRemove={removeToast} />
         <ProfileModal />
       </>
@@ -883,6 +1004,7 @@ export default function Header({ isAdmin = false }: HeaderProps) {
       {renderMobileDrawer(
         <div style={{ padding:'4px 14px 12px', fontSize:'12px', color:'var(--muted)' }}>Use the tabs inside your portal to navigate.</div>
       )}
+      {renderMobileSearchSheet()}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
       <ProfileModal />
     </>
