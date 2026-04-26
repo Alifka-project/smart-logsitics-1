@@ -28,6 +28,8 @@ export interface TransformedDelivery {
   _originalRoute?: string | null;
   _originalRow?: Record<string, unknown>;
   _goodsMovementDate?: string | null;
+  _requestedDeliveryDate?: string | null;
+  _isB2B?: boolean;
   _deliveryNumber?: string | null;
 }
 export interface DetectedFormat {
@@ -173,6 +175,40 @@ function parseGoodsMovementDate(row: RawERPRow | null): string | null {
   for (const [col, val] of Object.entries(row)) {
     const lc = col.toLowerCase();
     if ((lc.includes('movement') || lc.includes('dispatch') || lc.includes('goods issue') || lc.includes('gi date')) && val !== null && val !== undefined && val !== '') {
+      const result = convertToIsoDate(val);
+      if (result) return result;
+    }
+  }
+
+  return null;
+}
+
+// B2B orders skip SMS confirmation; the customer's preferred delivery date comes
+// straight from the uploaded file's "Requested Deliv. Date" column. Used to seed
+// confirmedDeliveryDate so Plan ETA anchors correctly without a customer reply.
+function parseRequestedDeliveryDate(row: RawERPRow | null): string | null {
+  if (!row) return null;
+
+  const candidates = [
+    'Requested Deliv. Date', 'Requested Delivery Date', 'RequestedDeliveryDate',
+    'Requested Deliv Date', 'Req. Delivery Date', 'Req Delivery Date',
+    'Customer Requested Date', 'CustomerRequestedDate',
+    'Delivery Date', 'DeliveryDate',
+    'Requested Date', 'Req Date',
+  ];
+
+  for (const col of candidates) {
+    const val = row[col];
+    if (val === null || val === undefined || val === '') continue;
+    const result = convertToIsoDate(val);
+    if (result) return result;
+  }
+
+  // Fuzzy match: any column header that contains 'request' AND 'date' (covers
+  // SAP variants like "Requested deliv.date" with no space, or "Req'd Date").
+  for (const [col, val] of Object.entries(row)) {
+    const lc = col.toLowerCase();
+    if (lc.includes('request') && lc.includes('date') && val !== null && val !== undefined && val !== '') {
       const result = convertToIsoDate(val);
       if (result) return result;
     }
@@ -343,6 +379,13 @@ export function transformERPData(data: RawERPRow[]): TransformedDelivery[] {
       console.log(`[dataTransformer] Phone normalized: "${rawPhone}" → "${normalizedPhone}"`);
     }
 
+    // B2B detection: any Ship-to Name variant present means this is a company order.
+    // B2B orders skip the SMS confirmation step entirely — their delivery date
+    // comes from the "Requested Deliv. Date" column in the uploaded file.
+    const shipToName =
+      row['Ship-to Name'] ?? row['Ship to Name'] ?? row['ShipToName'] ?? row['Ship-To Name'];
+    const isB2B = shipToName != null && String(shipToName).trim().length > 0;
+
     return {
       customer: String(customer).trim(),
       address: String(address).trim(),
@@ -361,6 +404,8 @@ export function transformERPData(data: RawERPRow[]): TransformedDelivery[] {
       _originalRoute: (row['Route'] || row['route']) as string | null,
       _originalRow: originalRow,
       _goodsMovementDate: parseGoodsMovementDate(row),
+      _requestedDeliveryDate: parseRequestedDeliveryDate(row),
+      _isB2B: isB2B,
       _deliveryNumber:
         ((row['Delivery number'] ||
           row['Delivery Number'] ||

@@ -139,6 +139,8 @@ export async function ingestFile(opts: IngestOptions): Promise<IngestOutcome> {
       _originalRow?: Record<string, unknown>;
       _goodsMovementDate?: string;
       goodsMovementDate?: string;
+      _requestedDeliveryDate?: string | null;
+      _isB2B?: boolean;
       id?: string;
     };
 
@@ -156,6 +158,17 @@ export async function ingestFile(opts: IngestOptions): Promise<IngestOutcome> {
           return isNaN(d.getTime()) ? null : d.toISOString();
         })()
       : null;
+    // For B2B orders: the customer's preferred delivery date is taken straight
+    // from the upload's "Requested Deliv. Date" column (no SMS reply needed).
+    // For B2C: only seed if present in the file — the customer's SMS reply
+    // remains the authoritative source and dedup will refuse to overwrite it.
+    const requestedDeliveryDateRaw = row._requestedDeliveryDate || null;
+    const confirmedDeliveryDateToSave = requestedDeliveryDateRaw
+      ? (() => {
+          const d = new Date(String(requestedDeliveryDateRaw));
+          return isNaN(d.getTime()) ? null : d.toISOString();
+        })()
+      : null;
 
     // Match the metadata shape the portal upload writes (see api/deliveries.ts
     // baseMeta + deliveryMetadata merge). Missing these fields made some data
@@ -167,6 +180,7 @@ export async function ingestFile(opts: IngestOptions): Promise<IngestOutcome> {
       originalCity: row._originalCity ?? null,
       originalRoute: row._originalRoute ?? null,
       originalRow: row._originalRow ?? null,
+      orderType: row._isB2B ? 'B2B' : 'B2C',
       ingestedFrom: opts.source,
       ingestionId,
       filename: opts.filename || null,
@@ -181,6 +195,7 @@ export async function ingestFile(opts: IngestOptions): Promise<IngestOutcome> {
           id: deliveryId,
           deliveryNumber: deliveryNumberToSave,
           goodsMovementDate: goodsMovementDateToSave,
+          confirmedDeliveryDate: confirmedDeliveryDateToSave,
           customer: (row.customer || row.name || null) as string | null,
           address: row.address,
           phone: row.phone || null,

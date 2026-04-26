@@ -17,6 +17,13 @@ interface IncomingDelivery {
   deliveryNumber?: string | null;
   /** Goods Movement Date — ISO string or null. Null means not yet dispatched. */
   goodsMovementDate?: string | null;
+  /**
+   * Customer's preferred delivery date — ISO string or null. For B2C this is
+   * filled by the customer's SMS confirmation reply; for B2B it is seeded at
+   * upload time from the file's "Requested Deliv. Date" column. Plan ETA
+   * anchors to this field.
+   */
+  confirmedDeliveryDate?: string | null;
   customer?: string | null;
   address?: string | null;
   phone?: string | null;
@@ -147,6 +154,12 @@ export async function upsertDeliveryByBusinessKey({
   const incomingGMDDate = hasIncomingGMD ? new Date(incoming.goodsMovementDate as string) : null;
   const validIncomingGMD = incomingGMDDate && !isNaN(incomingGMDDate.getTime()) ? incomingGMDDate : null;
 
+  // Customer's preferred delivery date (seeded from upload file for B2B,
+  // or carried over from a previous SMS confirmation for B2C re-uploads).
+  const hasIncomingCDD = !!(incoming.confirmedDeliveryDate && String(incoming.confirmedDeliveryDate).trim());
+  const incomingCDDDate = hasIncomingCDD ? new Date(incoming.confirmedDeliveryDate as string) : null;
+  const validIncomingCDD = incomingCDDDate && !isNaN(incomingCDDDate.getTime()) ? incomingCDDDate : null;
+
   // ─── Find existing record ─────────────────────────────────────────────────
   let existing: Record<string, unknown> | null = null;
 
@@ -245,6 +258,12 @@ export async function upsertDeliveryByBusinessKey({
       goodsMovementDate: validIncomingGMD,
       updatedAt: new Date(),
     };
+    // Seed confirmedDeliveryDate from the upload only when the existing record
+    // has none yet — never overwrite a customer's SMS-confirmed reply or an
+    // operator's manual reschedule with the file's requested date.
+    if (validIncomingCDD && !existing.confirmedDeliveryDate) {
+      updateData.confirmedDeliveryDate = validIncomingCDD;
+    }
     if (!isTerminal) updateData.status = newStatus;
 
     const updated = await prisma.delivery.update({
@@ -283,6 +302,7 @@ export async function upsertDeliveryByBusinessKey({
     businessKey: businessKey || null,
     deliveryNumber: normDeliveryNumber || null,
     goodsMovementDate: validIncomingGMD || null,
+    confirmedDeliveryDate: validIncomingCDD || null,
   };
   if (incoming.id) {
     createData.id = incoming.id;

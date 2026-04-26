@@ -4,6 +4,7 @@ import api from '../../frontend/apiClient';
 import type { Delivery } from '../../types';
 import type { DeliveryOrder } from '../../types/delivery';
 import { deliveryToManageOrder } from '../../utils/deliveryWorkflowMap';
+import { getOrderType } from '../../utils/deliveryDisplayFields';
 
 // ── Phase-aware dropdown options ─────────────────────────────────────────────
 // Phase 1: Before customer confirms (file uploaded, pending, scheduled)
@@ -31,6 +32,12 @@ const PHASE1_OPTIONS: StatusOption[] = [
   { value: 'scheduled-confirmed', label: 'Confirmed Future Date' },
   { value: 'cancelled', label: 'Cancelled' },
 ];
+// B2B orders skip SMS confirmation — admin can post Goods Issue (PGI Done)
+// directly from pending once GMD is entered, so expose that option in Phase 1.
+const PHASE1_OPTIONS_B2B: StatusOption[] = [
+  { value: 'pgi-done', label: 'PGI Done' },
+  { value: 'cancelled', label: 'Cancelled' },
+];
 const PHASE2_OPTIONS: StatusOption[] = [
   { value: 'rescheduled', label: 'Rescheduled' },
   { value: 'cancelled', label: 'Cancelled' },
@@ -42,7 +49,7 @@ const PHASE3_OPTIONS: StatusOption[] = [
   { value: 'delivered', label: 'Delivered' },
 ];
 
-function getAvailableOptions(phase: 1 | 2 | 3 | 0, currentStatus: string): StatusOption[] {
+function getAvailableOptions(phase: 1 | 2 | 3 | 0, currentStatus: string, isB2B: boolean): StatusOption[] {
   const currentLabel = currentStatus.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   const currentOpt: StatusOption = { value: currentStatus, label: `${currentLabel} (current)` };
   // Reschedule is always handled by the dedicated "Reschedule Delivery" box
@@ -52,7 +59,7 @@ function getAvailableOptions(phase: 1 | 2 | 3 | 0, currentStatus: string): Statu
   const filterRescheduled = (opts: StatusOption[]) =>
     opts.filter((o) => o.value !== 'rescheduled');
   switch (phase) {
-    case 1: return [currentOpt, ...PHASE1_OPTIONS];
+    case 1: return [currentOpt, ...(isB2B ? PHASE1_OPTIONS_B2B : PHASE1_OPTIONS)];
     case 2: return [currentOpt, ...filterRescheduled(PHASE2_OPTIONS)];
     case 3: return [currentOpt, ...filterRescheduled(PHASE3_OPTIONS)];
     default: return [currentOpt];
@@ -88,7 +95,11 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
 
   const initialStatus = (delivery.status || 'pending').toLowerCase();
   const phase = getStatusPhase(initialStatus);
-  const availableOptions = useMemo(() => getAvailableOptions(phase, initialStatus), [phase, initialStatus]);
+  const isB2B = useMemo(() => getOrderType(delivery) === 'B2B', [delivery]);
+  const availableOptions = useMemo(
+    () => getAvailableOptions(phase, initialStatus, isB2B),
+    [phase, initialStatus, isB2B],
+  );
 
   const [apiStatus, setApiStatus] = useState(initialStatus);
   const [notes, setNotes] = useState(
