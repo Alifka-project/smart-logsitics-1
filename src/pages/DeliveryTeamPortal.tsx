@@ -353,11 +353,18 @@ export default function DeliveryTeamPortal() {
     }
   }, [highlightDeliveryId, deliveries]);
 
-  // Load reports data when dashboard or reports tab is active (charts live on both)
+  // Load reports data when dashboard or reports tab is active (charts live on both).
+  // The 10-min interval keeps "Today" buckets and chip counts current across the
+  // 00:00 Dubai day boundary; without it, an admin who keeps the page open past
+  // midnight sees stale counts because allDashWithWorkflow is memoized on
+  // dashData. Pause when the tab is hidden to avoid background traffic.
   useEffect(() => {
-    if (activeTab === 'operations' || activeTab === 'reports') {
-      void loadReportsData();
-    }
+    if (activeTab !== 'operations' && activeTab !== 'reports') return;
+    void loadReportsData();
+    const interval = setInterval(() => {
+      if (!document.hidden) void loadReportsData();
+    }, 10 * 60 * 1000);
+    return (): void => clearInterval(interval);
   }, [activeTab, loadReportsData]);
 
   // Reset page to 1 whenever table filters change
@@ -3203,6 +3210,7 @@ export default function DeliveryTeamPortal() {
                         { label: 'Awaiting',         statusKey: 'sms_sent',         value: allDashWithWorkflow.filter(({ ws }) => ws === 'sms_sent').length,               color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300', activeColor: 'ring-2 ring-yellow-400' },
                         { label: 'No Response',      statusKey: 'unconfirmed',      value: allDashWithWorkflow.filter(({ ws }) => ws === 'unconfirmed').length,            color: 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300',       activeColor: 'ring-2 ring-rose-400' },
                         { label: 'Confirmed',        statusKey: 'confirmed',        value: allDashWithWorkflow.filter(({ ws }) => ws === 'confirmed').length,              color: 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300',       activeColor: 'ring-2 ring-teal-400' },
+                        { label: 'PGI Done',         statusKey: 'pgi_done',         value: allDashWithWorkflow.filter(({ ws }) => ws === 'pgi_done').length,               color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300',   activeColor: 'ring-2 ring-amber-400' },
                         { label: 'Delivered',        statusKey: 'delivered',        value: allDashWithWorkflow.filter(({ ws }) => ws === 'delivered').length,              color: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',   activeColor: 'ring-2 ring-green-400' },
                         { label: 'Cancelled',        statusKey: 'cancelled',        value: allDashWithWorkflow.filter(({ ws }) => ws === 'cancelled').length,              color: 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400',         activeColor: 'ring-2 ring-gray-400' },
                         { label: 'Failed / Returned',statusKey: 'failed',           value: allDashWithWorkflow.filter(({ ws }) => ws === 'failed').length,                color: 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300',       activeColor: 'ring-2 ring-rose-400' },
@@ -3247,6 +3255,7 @@ export default function DeliveryTeamPortal() {
                         <option value="unconfirmed">No Response</option>
                         <option value="uploaded">Pending Order</option>
                         <option value="confirmed">Customer Confirmed</option>
+                        <option value="pgi_done">PGI Done</option>
                         <option value="rescheduled">Rescheduled</option>
                         <option value="delivered">Delivered</option>
                         <option value="failed">Failed / Returned</option>

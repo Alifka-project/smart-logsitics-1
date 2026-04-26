@@ -119,8 +119,11 @@ if (allowedOriginsFromEnv.length) {
 // Hide implementation details
 app.disable('x-powered-by');
 
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+// 25 MB covers POD payloads (driver/customer signatures + multiple delivery photos
+// posted as base64 in JSON). Default Express limit (100 KB) silently 413s anything
+// beyond a single small photo.
+app.use(bodyParser.json({ limit: '25mb' }));
+app.use(bodyParser.urlencoded({ limit: '25mb', extended: true }));
 
 // Validate critical environment variables at startup
 try {

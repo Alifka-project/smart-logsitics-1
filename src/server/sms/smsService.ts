@@ -97,6 +97,28 @@ async function sendConfirmationSms(
       throw new Error(`Delivery not found: ${deliveryId}`);
     }
 
+    // Idempotency guard: if a confirmation SMS was sent for this delivery in the
+    // last 30 seconds and the token is still valid, return the cached send result
+    // without firing D7 again. Protects against double-clicks on Send/Resend SMS.
+    const recentSentAtRaw = (delivery as Record<string, unknown>).smsSentAt as Date | string | null | undefined;
+    const existingToken = (delivery as Record<string, unknown>).confirmationToken as string | null | undefined;
+    const existingExpiry = (delivery as Record<string, unknown>).tokenExpiresAt as Date | string | null | undefined;
+    if (recentSentAtRaw && existingToken && existingExpiry) {
+      const sentAtMs = new Date(recentSentAtRaw as string).getTime();
+      const expiryMs = new Date(existingExpiry as string).getTime();
+      const ageSec = (Date.now() - sentAtMs) / 1000;
+      if (Number.isFinite(ageSec) && ageSec >= 0 && ageSec < 30 && Date.now() < expiryMs) {
+        console.log(`[SMS] Idempotent resend within ${Math.round(ageSec)}s — skipping D7 send for ${deliveryId}`);
+        return {
+          ok: true,
+          token: existingToken,
+          messageId: 'idempotent-recent-send',
+          phoneNumber: finalPhone,
+          expiresAt: new Date(expiryMs).toISOString(),
+        };
+      }
+    }
+
     // Create confirmation link
     const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
     const confirmationLink = `${frontendUrl}/confirm-delivery/${confirmationToken}`;
@@ -189,6 +211,14 @@ async function validateConfirmationToken(token: string): Promise<ValidationResul
     // Check standard token expiry (30 days from send)
     if (delivery.tokenExpiresAt && new Date() > (delivery.tokenExpiresAt as unknown as Date)) {
       return { isValid: false, error: 'This confirmation link has expired.', delivery };
+    }
+
+    // Block confirmation on terminal cancelled-side statuses. Without this, a
+    // customer who clicks the SMS link minutes after admin cancelled the order
+    // would flip status back to scheduled-confirmed, undoing the cancellation.
+    const cancelledStatuses = ['cancelled', 'canceled', 'rejected', 'returned', 'failed'];
+    if (cancelledStatuses.includes((delivery.status as string) || '')) {
+      return { isValid: false, error: 'This delivery has been cancelled and can no longer be confirmed.', delivery };
     }
 
     // After delivery, link expires 3 days after the delivery date

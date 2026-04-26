@@ -105,6 +105,18 @@ async function updateDeliveryStatusHandler(
 
   if (!existingDelivery) return { ok: false, error: 'delivery_not_found' };
 
+  // Guard: cancellation / rejection requires a non-empty reason for ops audit.
+  // Driver/admin UIs already enforce this client-side; mirror it server-side so
+  // direct API calls or stale clients can't bypass it.
+  const lowerStatus = String(status).toLowerCase();
+  const requiresReason = ['cancelled', 'canceled', 'rejected'].includes(lowerStatus);
+  if (requiresReason) {
+    const trimmed = (notes ?? '').trim();
+    if (!trimmed) {
+      return { ok: false, error: 'cancellation_reason_required' };
+    }
+  }
+
   // Guard: post-PGI statuses require Goods Movement Date to be set on the delivery.
   // Normalise underscore ↔ hyphen variants so both UI formats are covered:
   //   types/delivery.ts uses out_for_delivery (underscore)
@@ -1990,21 +2002,57 @@ router.get('/', authenticate, async (req: Request, res: Response): Promise<void>
 
     const deliveries = await cache.getOrFetch(cacheKey, async () => {
       // Auto-promote pickup-confirmed → out-for-delivery for orders whose
-      // delivery date is today or earlier. Picking-confirm sets out-for-delivery
-      // only at that one transition; without this sweep, an order picked yesterday
-      // for today's dispatch would stay stuck on pickup-confirmed until a driver
-      // clicked Start Delivery again. Idempotent; fires per cache refresh (30s).
+      // delivery date is today or earlier AND that already have an active driver
+      // assignment. Picking-confirm sets out-for-delivery only at that one
+      // transition; without this sweep, an order picked yesterday for today's
+      // dispatch would stay stuck on pickup-confirmed until a driver clicked
+      // Start Delivery again. Idempotent; fires per cache refresh (30s).
+      // The driver-assignment guard prevents an unassigned order from silently
+      // landing in OFD with no driver to actually drive it.
       try {
-        await prisma.delivery.updateMany({
+        const promotable = await prisma.delivery.findMany({
           where: {
             status: { in: ['pickup-confirmed', 'pickup_confirmed'] },
             OR: [
               { confirmedDeliveryDate: { lte: todayEnd } },
               { AND: [{ confirmedDeliveryDate: null }, { goodsMovementDate: { lte: todayEnd } }] },
             ],
+            assignments: {
+              some: { status: { in: ['assigned', 'in_progress'] } },
+            },
           },
-          data: { status: 'out-for-delivery', updatedAt: new Date() },
+          select: { id: true, status: true, confirmedDeliveryDate: true, goodsMovementDate: true },
         });
+
+        if (promotable.length > 0) {
+          const ids = promotable.map((p: { id: string }) => p.id);
+          await prisma.delivery.updateMany({
+            where: { id: { in: ids } },
+            data: { status: 'out-for-delivery', updatedAt: new Date() },
+          });
+          // Audit trail — emit one event per promoted delivery so the status
+          // timeline shows who/why instead of an unexplained jump.
+          try {
+            await prisma.deliveryEvent.createMany({
+              data: promotable.map((p: { id: string; status: string; confirmedDeliveryDate: Date | null; goodsMovementDate: Date | null }) => ({
+                deliveryId: p.id,
+                eventType: 'auto_dispatch_sweep',
+                payload: {
+                  fromStatus: p.status,
+                  toStatus: 'out-for-delivery',
+                  reason: 'delivery_date_today_or_overdue',
+                  confirmedDeliveryDate: p.confirmedDeliveryDate?.toISOString() ?? null,
+                  goodsMovementDate: p.goodsMovementDate?.toISOString() ?? null,
+                },
+                actorType: 'system',
+                actorId: null,
+              })),
+            });
+          } catch (auditErr) {
+            // Non-critical: status flip already committed, audit best-effort.
+            console.warn('auto_dispatch_sweep audit log failed', auditErr);
+          }
+        }
       } catch (sweepErr) {
         // Non-fatal: list still works, just without auto-promote this cycle.
         console.warn('auto-promote pickup-confirmed sweep failed', sweepErr);
