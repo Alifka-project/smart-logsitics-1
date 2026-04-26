@@ -1,6 +1,6 @@
 import type { Delivery } from '../types';
 
-export type DeliveryListFilter = 'all' | 'pending' | 'confirmed' | 'pgi_done' | 'pickup_confirmed' | 'p1' | 'out_for_delivery' | 'delivered' | 'on_time' | 'delayed' | 'today_delivery' | 'not_confirmed' | 'completed_24h';
+export type DeliveryListFilter = 'all' | 'pending' | 'confirmed' | 'pgi_done' | 'pickup_confirmed' | 'p1' | 'out_for_delivery' | 'delivered' | 'on_time' | 'delayed' | 'today_delivery' | 'completed_24h';
 
 /** Delay threshold: if estimatedEta is more than this many ms after plannedEta → Delayed (D3: 1-hour rule) */
 const DELAY_THRESHOLD_MS = 60 * 60 * 1000; // 60 minutes (1 hour)
@@ -241,23 +241,6 @@ export function applyDeliveryListFilter(
           return dStr === todayStr;
         }
         return false;
-      });
-    }
-    case 'not_confirmed': {
-      // Pickup-confirmed orders whose delivery date is NOT today (future dates)
-      const now2 = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Dubai' }));
-      const todayStr2 = `${now2.getFullYear()}-${String(now2.getMonth() + 1).padStart(2, '0')}-${String(now2.getDate()).padStart(2, '0')}`;
-      return list.filter((d) => {
-        const s = (d.status || '').toLowerCase();
-        if (s !== 'pickup-confirmed' && s !== 'pickup_confirmed') return false;
-        const rec = d as unknown as Record<string, unknown>;
-        const dateRaw = d.confirmedDeliveryDate ?? (rec.goodsMovementDate as string | Date | undefined);
-        if (!dateRaw) return true; // no date → not confirmed for today
-        const dt = dateRaw instanceof Date ? dateRaw : new Date(String(dateRaw));
-        if (isNaN(dt.getTime())) return true;
-        const dubaiDate = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Dubai' }));
-        const dStr = `${dubaiDate.getFullYear()}-${String(dubaiDate.getMonth() + 1).padStart(2, '0')}-${String(dubaiDate.getDate()).padStart(2, '0')}`;
-        return dStr !== todayStr2;
       });
     }
     case 'completed_24h': {

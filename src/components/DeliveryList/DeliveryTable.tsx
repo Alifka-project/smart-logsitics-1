@@ -267,8 +267,7 @@ export default function DeliveryTable({
     }
     const bypassOnRoute = deliveryListFilter === 'delivered' || deliveryListFilter === 'p1'
       || deliveryListFilter === 'on_time' || deliveryListFilter === 'delayed'
-      || deliveryListFilter === 'completed_24h'
-      || deliveryListFilter === 'not_confirmed';
+      || deliveryListFilter === 'completed_24h';
     const filterSource =
       onRouteSequenceOnly && !isDriverPortal && !bypassOnRoute
         ? getOnRouteDeliveriesForList(deliveries)
@@ -315,7 +314,6 @@ export default function DeliveryTable({
     ? [
         { id: 'today_delivery',    label: '📦 Today Delivery',    activeClass: 'bg-blue-600 text-white' },
         { id: 'pickup_confirmed',  label: '🚛 Pickup Confirmed',  activeClass: 'bg-teal-600 text-white' },
-        { id: 'not_confirmed',     label: '⏳ Not Confirmed',     activeClass: 'bg-gray-600 text-white' },
         { id: 'p1',                label: '🚨 P1 Urgent',         activeClass: 'bg-red-600 text-white' },
         { id: 'on_time',           label: '✓ On Time',            activeClass: 'bg-green-600 text-white' },
         { id: 'delayed',           label: '⚠ Delayed',            activeClass: 'bg-amber-500 text-white' },

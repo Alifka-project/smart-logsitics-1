@@ -338,7 +338,6 @@ export default function DriverPortal() {
   // set of deliveries as whichever chip is active on the list:
   //   · Today Delivery (default) → OFD + today pickup-confirmed + order-delay
   //   · Pickup Confirmed         → all pickup-confirmed orders
-  //   · Not Confirmed            → pickup-confirmed NOT today
   //   · P1 Urgent                → priority-flagged active orders
   //   · On Time / Delayed        → active orders with ETA in that bucket
   //   · Completed                → recently delivered / cancelled
@@ -1047,15 +1046,32 @@ export default function DriverPortal() {
         // D3: 60-min service time per stop (30min install + 30min delivery)
         const SERVICE_TIME_SEC = 60 * 60; // 3600 s
 
-        // Planned ETA base: 8 AM Dubai time (today or next delivery date).
-        // This gives the driver a predictable schedule based on standard dispatch.
-        const dubaiNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Dubai' }));
-        const planned8am = new Date(dubaiNow);
-        planned8am.setHours(8, 0, 0, 0);
-        // If it's already past 8 AM, use the actual current time for today's plan
-        const plannedBaseTime = dubaiNow.getTime() > planned8am.getTime()
-          ? planned8am.getTime()
-          : planned8am.getTime();
+        // Planned ETA anchor: 08:00 Dubai on each delivery's *own* delivery date.
+        // Priority: confirmedDeliveryDate (customer reply / manual reschedule) >
+        // goodsMovementDate (warehouse PGI day) > today's date as last resort.
+        // Reading Y/M/D in Asia/Dubai TZ avoids the off-by-one when a date stored
+        // as 2026-04-29T20:00:00Z (= 30 Apr Dubai) gets read as 29 Apr UTC.
+        const DUBAI_OFFSET_H = 4;
+        const planned8amTodayMs = (() => {
+          const parts = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Dubai',
+            year: 'numeric', month: '2-digit', day: '2-digit',
+          }).format(new Date()).split('-');
+          return Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]), 8 - DUBAI_OFFSET_H, 0, 0, 0);
+        })();
+        const plannedBaseFor = (d: Record<string, unknown>): number => {
+          const cdd = d.confirmedDeliveryDate as string | Date | null | undefined;
+          const gmd = d.goodsMovementDate as string | Date | null | undefined;
+          const raw = cdd ?? gmd ?? null;
+          if (!raw) return planned8amTodayMs;
+          const dt = raw instanceof Date ? raw : new Date(String(raw));
+          if (isNaN(dt.getTime())) return planned8amTodayMs;
+          const parts = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Dubai',
+            year: 'numeric', month: '2-digit', day: '2-digit',
+          }).format(dt).split('-');
+          return Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]), 8 - DUBAI_OFFSET_H, 0, 0, 0);
+        };
 
         // D4: If "Start Delivery" was clicked, staticEta base is deliveryStartedAtRef.current;
         // otherwise fall back to the current baseTime (route first calculated = now).
@@ -1074,19 +1090,20 @@ export default function DriverPortal() {
           const staticComputedEta = new Date(
             staticBaseTime + cumulativeSeconds * 1000 + index * SERVICE_TIME_SEC * 1000
           ).toISOString();
-          // Planned ETA: 8 AM dispatch + cumulative drive time + service time per stop
+          // Planned ETA: 08:00 Dubai on THIS delivery's own date + cumulative
+          // drive time + service time per stop (queue position determines hour).
           const planned8amEta = new Date(
-            plannedBaseTime + cumulativeSeconds * 1000 + index * SERVICE_TIME_SEC * 1000
+            plannedBaseFor(delivery as unknown as Record<string, unknown>)
+              + cumulativeSeconds * 1000
+              + index * SERVICE_TIME_SEC * 1000
           ).toISOString();
 
           const inStore = storeById.get(String(delivery.id));
           const persisted = persistedEtasRef.current[String(delivery.id)];
-          // plannedEta: 8 AM-based schedule — recalculated each route update
-          // so it always reflects the current stop order and distances.
-          const existingPlannedEta =
-            (inStore?.['plannedEta'] as string | null | undefined)
-            ?? persisted?.plannedEta
-            ?? null;
+          // plannedEta: anchored to the delivery's own confirmedDeliveryDate at
+          // 08:00 Dubai. Recomputed each route update so a reschedule (which
+          // changes confirmedDeliveryDate) flows through immediately, instead
+          // of carrying forward a stale "today 08:00" from a prior compute.
           // staticEta is locked when "Start Delivery" is clicked; once set, never change.
           const existingStaticEta =
             (inStore?.['staticEta'] as string | null | undefined)
@@ -1100,7 +1117,7 @@ export default function DriverPortal() {
             ...delivery,
             routeIndex: index + 1,
             estimatedEta: computedEta,
-            plannedEta: existingPlannedEta ?? planned8amEta,
+            plannedEta: planned8amEta,
             staticEta: newStaticEta,
             distanceFromDriverKm: cumulativeMeters > 0 ? cumulativeMeters / 1000 : (fallbackDistanceKm ?? undefined)
           };

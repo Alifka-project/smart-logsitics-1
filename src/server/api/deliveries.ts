@@ -1989,6 +1989,27 @@ router.get('/', authenticate, async (req: Request, res: Response): Promise<void>
       : `deliveries:list:v2:active:${dateKey}`;
 
     const deliveries = await cache.getOrFetch(cacheKey, async () => {
+      // Auto-promote pickup-confirmed → out-for-delivery for orders whose
+      // delivery date is today or earlier. Picking-confirm sets out-for-delivery
+      // only at that one transition; without this sweep, an order picked yesterday
+      // for today's dispatch would stay stuck on pickup-confirmed until a driver
+      // clicked Start Delivery again. Idempotent; fires per cache refresh (30s).
+      try {
+        await prisma.delivery.updateMany({
+          where: {
+            status: { in: ['pickup-confirmed', 'pickup_confirmed'] },
+            OR: [
+              { confirmedDeliveryDate: { lte: todayEnd } },
+              { AND: [{ confirmedDeliveryDate: null }, { goodsMovementDate: { lte: todayEnd } }] },
+            ],
+          },
+          data: { status: 'out-for-delivery', updatedAt: new Date() },
+        });
+      } catch (sweepErr) {
+        // Non-fatal: list still works, just without auto-promote this cycle.
+        console.warn('auto-promote pickup-confirmed sweep failed', sweepErr);
+      }
+
       let whereClause: Record<string, unknown>;
       if (includeFinished) {
         whereClause = {};
