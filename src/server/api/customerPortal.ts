@@ -262,7 +262,12 @@ router.get('/tracking/:token', async (req: Request, res: Response): Promise<void
 
     let etaPayload: EtaPayload = { mode: 'pending' };
 
-    if (['scheduled', 'confirmed', 'scheduled-confirmed', 'pgi-done', 'pgi_done', 'pickup-confirmed', 'pickup_confirmed'].includes(statusLower)) {
+    if (['scheduled', 'confirmed', 'scheduled-confirmed', 'pgi-done', 'pgi_done', 'pickup-confirmed', 'pickup_confirmed', 'rescheduled'].includes(statusLower)) {
+      // 'rescheduled' is a pre-dispatch state — confirmedDeliveryDate has
+      // been updated to the new date, so the planned-window service should
+      // anchor on it just like the other pre-dispatch statuses. Without
+      // this, a rescheduled order falls through to mode='pending' and the
+      // customer sees no ETA window even though the new date is known.
       const window = await computePlannedSlotWindow({
         delivery: fullDelivery ?? deliveryRaw,
         driverId: assignedDriverId,

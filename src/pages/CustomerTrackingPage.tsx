@@ -222,12 +222,40 @@ const TIMELINE_STEPS: TimelineStep[] = [
     matchStatuses: ['delivered', 'delivered-with-installation', 'delivered-without-installation', 'finished', 'completed', 'pod-completed'], matchEvents: ['pod_completed', 'order_finished'] },
 ];
 
+/**
+ * Drop timeline events that pre-date the most recent reschedule. After a
+ * reschedule the prior attempt's `driver_arrived`, `delivery_started`, etc.
+ * are no longer valid for the current cycle — DeliveryEvent rows are
+ * append-only audit history, so we must filter them on read instead of
+ * deleting them. When `rescheduledAt` is null the filter is a no-op.
+ */
+function filterEventsAfterReschedule(
+  timeline: TrackingEvent[] | undefined,
+  rescheduledAt: string | null | undefined,
+): TrackingEvent[] {
+  if (!timeline) return [];
+  if (!rescheduledAt) return timeline;
+  const cutoff = new Date(rescheduledAt).getTime();
+  if (!Number.isFinite(cutoff)) return timeline;
+  return timeline.filter(ev => {
+    const t = ev.timestamp ? new Date(ev.timestamp as string).getTime() : NaN;
+    return Number.isFinite(t) && t >= cutoff;
+  });
+}
+
 function resolveCurrentStep(
   status: string | null | undefined,
   timeline: TrackingEvent[] | undefined,
   arrivalNotifiedAt?: string | null,
+  rescheduledAt?: string | null,
 ): number {
   const s = (status || '').toLowerCase();
+
+  // Filter out events that pre-date the most recent reschedule. Without
+  // this, a `driver_arrived` event from a previous attempt would advance
+  // the timeline to "Items Arrived" even after the order has been pushed
+  // back to a future date and the driver hasn't started the new attempt.
+  const validEvents = filterEventsAfterReschedule(timeline, rescheduledAt);
 
   // Compute three independent candidate step indices. -1 means "no signal".
   let byStatus = -1;
@@ -244,11 +272,9 @@ function resolveCurrentStep(
   }
 
   let byEvents = -1;
-  if (timeline) {
-    for (let i = TIMELINE_STEPS.length - 1; i >= 0; i--) {
-      if (timeline.some(e => TIMELINE_STEPS[i].matchEvents.includes(e.type as string))) {
-        byEvents = i; break;
-      }
+  for (let i = TIMELINE_STEPS.length - 1; i >= 0; i--) {
+    if (validEvents.some(e => TIMELINE_STEPS[i].matchEvents.includes(e.type as string))) {
+      byEvents = i; break;
     }
   }
 
@@ -283,11 +309,15 @@ function getStepTimestamp(
   step: TimelineStep,
   timeline: TrackingEvent[] | undefined,
   arrivalNotifiedAt?: string | null,
+  rescheduledAt?: string | null,
 ): string | Date | null {
-  if (timeline) {
-    for (const ev of timeline) {
-      if (step.matchEvents.includes(ev.type as string)) return ev.timestamp;
-    }
+  // Same reschedule-cutoff filter as resolveCurrentStep so step timestamps
+  // don't pull from a previous attempt's events. Otherwise the "Items
+  // Arrived" row would render with the prior cycle's arrival time even
+  // though the timeline step itself has correctly retreated.
+  const validEvents = filterEventsAfterReschedule(timeline, rescheduledAt);
+  for (const ev of validEvents) {
+    if (step.matchEvents.includes(ev.type as string)) return ev.timestamp;
   }
   // Fallback for items_arrived: use the metadata timestamp if no event row yet
   if (step.id === 'items_arrived' && arrivalNotifiedAt) return arrivalNotifiedAt;
@@ -470,7 +500,7 @@ export default function CustomerTrackingPage() {
   if (!tracking) return null;
 
   const { delivery, tracking: trackingInfo, timeline } = tracking;
-  const currentStep = resolveCurrentStep(delivery.status, timeline, delivery.arrivalNotifiedAt);
+  const currentStep = resolveCurrentStep(delivery.status, timeline, delivery.arrivalNotifiedAt, delivery.rescheduledAt);
   const hero = STATUS_HERO[currentStep] || STATUS_HERO[0];
   const customerDeliveryNo = displayDeliveryNumberForCustomer(delivery);
 
@@ -672,7 +702,7 @@ export default function CustomerTrackingPage() {
               const isActive  = idx === currentStep;
               const isPending = idx > currentStep;
               const Icon      = step.icon;
-              const ts        = getStepTimestamp(step, timeline, delivery.arrivalNotifiedAt);
+              const ts        = getStepTimestamp(step, timeline, delivery.arrivalNotifiedAt, delivery.rescheduledAt);
               const isLast    = idx === TIMELINE_STEPS.length - 1;
 
               return (

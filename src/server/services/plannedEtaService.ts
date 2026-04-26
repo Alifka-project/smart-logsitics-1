@@ -4,8 +4,11 @@
  *
  * Algorithm
  * ─────────
- * 1. Anchor: 08:00 Dubai on the delivery date (goodsMovementDate, falling back
- *    to confirmedDeliveryDate, then today).
+ * 1. Anchor: 08:00 Dubai on the delivery date (confirmedDeliveryDate, falling
+ *    back to goodsMovementDate, then today). confirmedDeliveryDate must win
+ *    over goodsMovementDate so a rescheduled order anchors to the *new*
+ *    delivery date — goodsMovementDate is the warehouse-PGI calendar day and
+ *    is intentionally not updated on reschedule.
  * 2. Derive the driver's stop sequence for that date from the assignments
  *    created-at order (the driver app orders in-memory; we approximate with
  *    assignment creation time + priority flag).
@@ -67,16 +70,28 @@ function setCachedMatrix(driverId: string, dateIso: string, matrix: RouteMatrix)
   });
 }
 
-/** Pick the best date to anchor the planned ETA to. */
+/**
+ * Pick the best date to anchor the planned ETA to.
+ *
+ * Priority:
+ *   1. confirmedDeliveryDate — the customer-facing delivery date. Updated on
+ *      reschedule (both /admin/:id/reschedule and /admin/:id/status), so this
+ *      is the single source of truth for "when is the customer getting it".
+ *   2. goodsMovementDate — the warehouse PGI calendar day. Used only when no
+ *      confirmed date exists; it survives reschedules unchanged so it must
+ *      not win over confirmedDeliveryDate when both are set.
+ *   3. today — last-resort fallback so the customer page still renders a
+ *      reasonable window instead of falling through to "pending".
+ */
 function pickAnchorDateIso(delivery: Record<string, unknown>): string {
-  const gmd = delivery.goodsMovementDate as Date | string | null | undefined;
-  if (gmd) {
-    const d = new Date(gmd as string);
-    if (!Number.isNaN(d.getTime())) return d.toISOString();
-  }
   const cdd = delivery.confirmedDeliveryDate as Date | string | null | undefined;
   if (cdd) {
     const d = new Date(cdd as string);
+    if (!Number.isNaN(d.getTime())) return d.toISOString();
+  }
+  const gmd = delivery.goodsMovementDate as Date | string | null | undefined;
+  if (gmd) {
+    const d = new Date(gmd as string);
     if (!Number.isNaN(d.getTime())) return d.toISOString();
   }
   return new Date().toISOString();
