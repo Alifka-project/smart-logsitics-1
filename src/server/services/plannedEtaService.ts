@@ -97,12 +97,25 @@ function pickAnchorDateIso(delivery: Record<string, unknown>): string {
   return new Date().toISOString();
 }
 
+/**
+ * Extract Y/M/D in Dubai timezone from any ISO timestamp. Critical: a
+ * confirmedDeliveryDate of "30 Apr Dubai" is stored as 2026-04-29T20:00:00Z,
+ * so reading getUTCDate() returns 29 — one day off. Always read the calendar
+ * day in the customer's timezone, not the server's UTC clock.
+ */
+function dubaiYMD(anchorDateIso: string): { year: number; month: number; day: number } {
+  const dt = new Date(anchorDateIso);
+  // en-CA formats as "YYYY-MM-DD" which parses unambiguously.
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Dubai',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(dt).split('-');
+  return { year: Number(parts[0]), month: Number(parts[1]) - 1, day: Number(parts[2]) };
+}
+
 /** 08:00 Dubai (UTC+4) on the given calendar day, returned as a UTC Date. */
 function dubaiDepartureUtc(anchorDateIso: string): Date {
-  const anchor = new Date(anchorDateIso);
-  const year = anchor.getUTCFullYear();
-  const month = anchor.getUTCMonth();
-  const day = anchor.getUTCDate();
+  const { year, month, day } = dubaiYMD(anchorDateIso);
   // 08:00 Dubai = 04:00 UTC
   return new Date(Date.UTC(year, month, day, DEPARTURE_HOUR_DUBAI - DUBAI_OFFSET_H, 0, 0, 0));
 }
@@ -112,10 +125,9 @@ async function buildRouteMatrix(driverId: string, anchorDateIso: string, targetD
   if (cached && cached.orderedIds.includes(targetDeliveryId)) return cached;
 
   // Day window (Dubai calendar day) in UTC: 00:00 – 23:59 Dubai = -4:00 – +19:59 UTC.
-  const anchor = new Date(anchorDateIso);
-  const y = anchor.getUTCFullYear();
-  const m = anchor.getUTCMonth();
-  const d = anchor.getUTCDate();
+  // Use Dubai-TZ extraction (not getUTC*) so a confirmedDeliveryDate stored
+  // as 2026-04-29T20:00:00Z (= 30 Apr Dubai) yields the 30 Apr window, not 29.
+  const { year: y, month: m, day: d } = dubaiYMD(anchorDateIso);
   const dayStart = new Date(Date.UTC(y, m, d, 0 - DUBAI_OFFSET_H, 0, 0, 0));
   const dayEnd = new Date(Date.UTC(y, m, d + 1, 0 - DUBAI_OFFSET_H, 0, 0, 0));
 

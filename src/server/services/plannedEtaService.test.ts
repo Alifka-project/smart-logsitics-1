@@ -50,11 +50,11 @@ describe('plannedEtaService pure helpers', () => {
     expect(dep.getUTCMinutes()).toBe(0);
   });
 
-  it('pickAnchorDateIso prefers goodsMovementDate, falls back to confirmedDeliveryDate, then today', () => {
+  it('pickAnchorDateIso prefers confirmedDeliveryDate, falls back to goodsMovementDate, then today', () => {
     const gmd = '2026-07-01T00:00:00.000Z';
     const cdd = '2026-08-01T00:00:00.000Z';
-    expect(pickAnchorDateIso({ goodsMovementDate: gmd, confirmedDeliveryDate: cdd })).toBe(new Date(gmd).toISOString());
-    expect(pickAnchorDateIso({ confirmedDeliveryDate: cdd })).toBe(new Date(cdd).toISOString());
+    expect(pickAnchorDateIso({ goodsMovementDate: gmd, confirmedDeliveryDate: cdd })).toBe(new Date(cdd).toISOString());
+    expect(pickAnchorDateIso({ goodsMovementDate: gmd })).toBe(new Date(gmd).toISOString());
     const anyToday = pickAnchorDateIso({});
     expect(Number.isNaN(new Date(anyToday).getTime())).toBe(false);
   });

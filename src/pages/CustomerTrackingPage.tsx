@@ -794,6 +794,11 @@ export default function CustomerTrackingPage() {
             // the underlying timestamp server-side (driver GPS drives it), so
             // the date and time refresh naturally without the customer-facing
             // UI having to advertise it.
+            // Once the driver has arrived (timeline step >= items_arrived),
+            // the ETA is no longer meaningful — suppress the card so the
+            // customer sees only "Your driver is here" / delivered state.
+            const ITEMS_ARRIVED_STEP = 3;
+            if (currentStep >= ITEMS_ARRIVED_STEP) return null;
             if (!etaRangeText) return null;
             const isDegraded = payload.mode === 'planned' && payload.degraded;
             return (
