@@ -9,6 +9,12 @@
       "includeFiles": "{dist-server/**,.env.production,node_modules/.prisma/client/**}"
     }
   },
+  "crons": [
+    {
+      "path": "/api/cron/dispatch-morning",
+      "schedule": "0 4 * * *"
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/:path*",

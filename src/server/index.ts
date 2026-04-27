@@ -140,6 +140,7 @@ import smsWebhookRouter from './api/smsWebhook.js';
 import customerPortalRouter from './api/customerPortal.js';
 import smsRouter from './api/sms.js';
 import ingestRouter from './api/ingest.js';
+import cronRouter from './api/cron.js';
 
 app.use('/api/auth', authRouter);
 app.use('/api/sms/webhook', smsWebhookRouter);
@@ -148,6 +149,9 @@ app.use('/api/customer', customerPortalRouter);
 // so Power Automate / OneDrive callers without a session cookie can reach it.
 // Disabled by default — set INGEST_ENABLED=true to activate.
 app.use('/api/ingest', ingestRouter);
+// Scheduled cron endpoints — auth via CRON_SECRET bearer token, not session.
+// Mounted before authenticate so Vercel Cron can reach it.
+app.use('/api/cron', cronRouter);
 
 // Public SMS confirmation endpoint (before auth middleware)
 app.post('/api/sms/confirm', async (req: Request, res: Response) => {

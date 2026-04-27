@@ -938,13 +938,14 @@ router.post('/driver/:id/picking/confirm', authenticate, requireRole('driver'), 
     };
 
     // Auto on-route: if the delivery date (confirmedDeliveryDate or goodsMovementDate)
-    // is today OR earlier (Dubai time), automatically dispatch to out-for-delivery
-    // and send SMS. A past delivery date means the order is being picked up late —
-    // driver is catching up an overdue order, so the DB must reflect that it is
-    // now on the road (not sitting at the warehouse). Future delivery dates stay
-    // as pickup-confirmed.
+    // is today OR earlier (Dubai time) AND the local Dubai hour is >= 08:00,
+    // automatically dispatch to out-for-delivery and send SMS. Picks before 08:00
+    // stay at pickup-confirmed; the 08:00 morning cron promotes them in one batch
+    // so the customer SMS lands at the right time (drivers begin routes at 08:00).
     const dubaiNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Dubai' }));
     const todayStr = `${dubaiNow.getFullYear()}-${String(dubaiNow.getMonth() + 1).padStart(2, '0')}-${String(dubaiNow.getDate()).padStart(2, '0')}`;
+    const dubaiHour = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Dubai', hour: '2-digit', hour12: false }).format(new Date()));
+    const isAfterDispatchHour = Number.isFinite(dubaiHour) && dubaiHour >= 8;
     const deliveryDateRaw = existing.confirmedDeliveryDate ?? existing.goodsMovementDate;
     let isDeliveryTodayOrOverdue = false;
     if (deliveryDateRaw) {
@@ -954,7 +955,7 @@ router.post('/driver/:id/picking/confirm', authenticate, requireRole('driver'), 
         const deliveryStr = `${dubaiDelivery.getFullYear()}-${String(dubaiDelivery.getMonth() + 1).padStart(2, '0')}-${String(dubaiDelivery.getDate()).padStart(2, '0')}`;
         // YYYY-MM-DD strings compare lexicographically, so <= is a valid
         // calendar-day comparison in Dubai TZ (no time-of-day involved).
-        isDeliveryTodayOrOverdue = deliveryStr <= todayStr;
+        isDeliveryTodayOrOverdue = deliveryStr <= todayStr && isAfterDispatchHour;
       }
     }
 
@@ -2003,14 +2004,13 @@ router.get('/', authenticate, async (req: Request, res: Response): Promise<void>
     const deliveries = await cache.getOrFetch(cacheKey, async () => {
       // Auto-promote pickup-confirmed → out-for-delivery for orders whose
       // delivery date is today or earlier AND that already have an active driver
-      // assignment. Picking-confirm sets out-for-delivery only at that one
-      // transition; without this sweep, an order picked yesterday for today's
-      // dispatch would stay stuck on pickup-confirmed until a driver clicked
-      // Start Delivery again. Idempotent; fires per cache refresh (30s).
-      // The driver-assignment guard prevents an unassigned order from silently
-      // landing in OFD with no driver to actually drive it.
+      // assignment. Gated on Dubai-hour >= 08:00 so we never silently dispatch
+      // before drivers actually leave the warehouse — the 08:00 cron is the
+      // primary trigger; this sweep is a reactive catch-up for late-day picks.
       try {
-        const promotable = await prisma.delivery.findMany({
+        const sweepDubaiHour = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Dubai', hour: '2-digit', hour12: false }).format(new Date()));
+        const sweepAfterDispatchHour = Number.isFinite(sweepDubaiHour) && sweepDubaiHour >= 8;
+        const promotable = sweepAfterDispatchHour ? await prisma.delivery.findMany({
           where: {
             status: { in: ['pickup-confirmed', 'pickup_confirmed'] },
             OR: [
@@ -2022,7 +2022,7 @@ router.get('/', authenticate, async (req: Request, res: Response): Promise<void>
             },
           },
           select: { id: true, status: true, confirmedDeliveryDate: true, goodsMovementDate: true },
-        });
+        }) : [];
 
         if (promotable.length > 0) {
           const ids = promotable.map((p: { id: string }) => p.id);
