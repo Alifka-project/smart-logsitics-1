@@ -2119,9 +2119,11 @@ export default function DeliveryTeamPortal() {
                                     {forceDispatching === delivery.id ? '…' : '🚀 Push OFD'}
                                   </button>
                                 )}
-                                {/* Status Update dropdown — out-for-delivery is NOT offered here:
-                                    it's reached only by the driver pressing Start Delivery after
-                                    confirming the picking list. */}
+                                {/* Status Update dropdown.
+                                    "🚀 On Route (Out for Delivery)" routes through the force-dispatch
+                                    endpoint instead of the normal status PUT, so it succeeds even
+                                    when the driver hasn't confirmed the picking list (operator
+                                    override path). Every other option uses the standard PUT. */}
                                 <select
                                   value=""
                                   disabled={statusUpdating === delivery.id}
@@ -2130,15 +2132,24 @@ export default function DeliveryTeamPortal() {
                                     if (!newStatus) return;
                                     setStatusUpdating(delivery.id);
                                     try {
-                                      await api.put(`/deliveries/admin/${delivery.id}/status`, { status: newStatus, customer: delivery.customer, address: delivery.address });
-                                      setAssignmentMessage({ type: 'success', text: `✓ Status updated to ${newStatus}` });
+                                      if (newStatus === 'out-for-delivery') {
+                                        await api.post(`/deliveries/admin/${delivery.id}/force-dispatch`);
+                                        setAssignmentMessage({ type: 'success', text: `🚀 ${delivery.customer || 'Delivery'} pushed to On Route` });
+                                      } else {
+                                        await api.put(`/deliveries/admin/${delivery.id}/status`, { status: newStatus, customer: delivery.customer, address: delivery.address });
+                                        setAssignmentMessage({ type: 'success', text: `✓ Status updated to ${newStatus}` });
+                                      }
                                       setTimeout(() => { void loadData(); setAssignmentMessage(null); }, 2000);
-                                    } catch { setAssignmentMessage({ type: 'error', text: 'Failed to update status' }); }
+                                    } catch (err: unknown) {
+                                      const e = err as { response?: { data?: { error?: string } }; message?: string };
+                                      setAssignmentMessage({ type: 'error', text: e?.response?.data?.error ?? e?.message ?? 'Failed to update status' });
+                                    }
                                     finally { setStatusUpdating(null); }
                                   }}
                                   className="w-full px-2 py-1 border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-[11px] text-gray-700 dark:text-gray-200 disabled:opacity-50"
                                 >
                                   <option value="">✏ Update status…</option>
+                                  <option value="out-for-delivery">🚀 On Route (Out for Delivery)</option>
                                   <option value="order-delay">⚠ Mark Delayed</option>
                                   <option value="pgi-done">📦 Mark PGI Done</option>
                                   <option value="rescheduled">📅 Rescheduled</option>
