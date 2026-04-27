@@ -163,6 +163,7 @@ export default function DeliveryTeamPortal() {
   // Control tab state
   const [assignmentMessage, setAssignmentMessage] = useState<AssignmentMessage | null>(null);
   const [markingOFD, setMarkingOFD] = useState<string | null>(null);
+  const [forceDispatching, setForceDispatching] = useState<string | null>(null);
   const [sendingSms, setSendingSms] = useState<string | null>(null);
   const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
   const [opsSearch, setOpsSearch] = useState<string>('');
@@ -2087,6 +2088,35 @@ export default function DeliveryTeamPortal() {
                                     title="Post goods issue — moves to driver's Picking List"
                                   >
                                     {markingOFD === delivery.id ? '…' : '📦 Mark PGI Done'}
+                                  </button>
+                                )}
+                                {/* Force-dispatch ("Push OFD") — operator override for client demos
+                                    and urgent testing. Bypasses picking-list confirmation and missing
+                                    GMD on the server side. Hidden once the order is on-route or in any
+                                    terminal state. */}
+                                {!['out-for-delivery','out_for_delivery','in-transit','in_transit','in-progress','in_progress','delivered','completed','pod-completed','finished','delivered-with-installation','delivered-without-installation','cancelled','rejected','returned','failed'].includes(rawStatus) && (
+                                  <button
+                                    type="button"
+                                    disabled={forceDispatching === delivery.id}
+                                    onClick={async () => {
+                                      const ok = window.confirm(
+                                        `Force-push this order to Out-For-Delivery now?\n\n${delivery.customer || 'Customer'} — PO ${displayPoNumber(delivery)}\n\nThis bypasses the picking-list confirmation and assigns today as the goods-movement date if not set. Use only for testing or operator overrides.`
+                                      );
+                                      if (!ok) return;
+                                      setForceDispatching(delivery.id);
+                                      try {
+                                        await api.post(`/deliveries/admin/${delivery.id}/force-dispatch`);
+                                        setAssignmentMessage({ type: 'success', text: `🚀 ${delivery.customer || 'Delivery'} pushed to Out-For-Delivery` });
+                                        setTimeout(() => { void loadData(); setAssignmentMessage(null); }, 2000);
+                                      } catch (err: unknown) {
+                                        const e = err as { response?: { data?: { error?: string } }; message?: string };
+                                        setAssignmentMessage({ type: 'error', text: e?.response?.data?.error ?? e?.message ?? 'Failed to force-dispatch' });
+                                      } finally { setForceDispatching(null); }
+                                    }}
+                                    className="inline-flex items-center justify-center gap-1 px-2 py-1 rounded text-[11px] font-semibold bg-red-600 hover:bg-red-700 text-white disabled:opacity-60 whitespace-nowrap"
+                                    title="Force-push this order to Out-For-Delivery (bypasses picking list and GMD checks)"
+                                  >
+                                    {forceDispatching === delivery.id ? '…' : '🚀 Push OFD'}
                                   </button>
                                 )}
                                 {/* Status Update dropdown — out-for-delivery is NOT offered here:

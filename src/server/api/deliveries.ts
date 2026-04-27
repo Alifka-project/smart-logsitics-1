@@ -1287,6 +1287,137 @@ router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_
   }
 });
 
+// POST /admin/:id/force-dispatch
+// Operator override for client demos / urgent testing: pushes a delivery directly
+// to out-for-delivery without requiring picking-list confirmation or a prior
+// goods-movement-date. Stamps metadata.picking.confirmedAt + forcedDispatched*
+// so downstream code (capacity, tracking, SMS) treats the row identically to a
+// normally-dispatched stop. Idempotent on already-OFD; refuses on terminal status.
+router.post('/admin/:id/force-dispatch', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
+  const { id: deliveryIdParam } = req.params as { id: string };
+  try {
+    const existing = await prisma.delivery.findUnique({
+      where: { id: deliveryIdParam },
+      select: {
+        id: true, status: true, metadata: true, phone: true, customer: true,
+        poNumber: true, confirmationToken: true, goodsMovementDate: true, address: true,
+      },
+    });
+    if (!existing) {
+      res.status(404).json({ error: 'delivery_not_found' });
+      return;
+    }
+
+    const prevStatus = String(existing.status || '').toLowerCase();
+    if (prevStatus === 'out-for-delivery' || prevStatus === 'out_for_delivery') {
+      res.json({ ok: true, status: existing.status, alreadyDispatched: true });
+      return;
+    }
+    const TERMINAL = new Set([
+      'delivered', 'completed', 'pod-completed', 'finished',
+      'delivered-with-installation', 'delivered-without-installation',
+      'cancelled', 'rejected', 'returned', 'failed',
+    ]);
+    if (TERMINAL.has(prevStatus)) {
+      res.status(400).json({ error: 'cannot_force_dispatch_terminal_status', status: prevStatus });
+      return;
+    }
+
+    const now = new Date();
+    const prevMeta = (existing.metadata && typeof existing.metadata === 'object') ? existing.metadata as Record<string, unknown> : {};
+    const prevPicking = (prevMeta.picking && typeof prevMeta.picking === 'object') ? prevMeta.picking as Record<string, unknown> : {};
+    const actor = req.user?.username || req.user?.email || req.user?.sub || 'delivery_team';
+    const nextMeta: Record<string, unknown> = {
+      ...prevMeta,
+      picking: {
+        ...prevPicking,
+        confirmedAt: prevPicking.confirmedAt || now.toISOString(),
+        forced: true,
+      },
+      forcedDispatchedAt: now.toISOString(),
+      forcedDispatchedBy: actor,
+      statusUpdatedAt: now.toISOString(),
+      statusUpdatedBy: actor,
+    };
+
+    await prisma.$transaction(async (tx: typeof prisma) => {
+      await tx.delivery.update({
+        where: { id: existing.id },
+        data: {
+          status: 'out-for-delivery',
+          metadata: nextMeta,
+          updatedAt: now,
+          ...(existing.goodsMovementDate ? {} : { goodsMovementDate: now }),
+        },
+      });
+      await tx.deliveryAssignment.updateMany({
+        where: { deliveryId: existing.id, status: 'assigned' },
+        data: { status: 'in_progress' },
+      });
+      await tx.deliveryEvent.create({
+        data: {
+          deliveryId: existing.id,
+          eventType: 'delivery_force_dispatched',
+          payload: {
+            previousStatus: prevStatus,
+            newStatus: 'out-for-delivery',
+            forcedAt: now.toISOString(),
+            actor,
+          },
+          actorType: req.user?.role || 'admin',
+          actorId: req.user?.sub || null,
+        },
+      });
+    });
+
+    cache.invalidatePrefix('tracking:');
+    cache.invalidatePrefix('deliveries:list:');
+    cache.invalidatePrefix('dashboard:');
+
+    // Reply immediately so the UI feels snappy; SMS fan-out runs async.
+    res.json({ ok: true, status: 'out-for-delivery', forced: true });
+
+    (async () => {
+      const phone = existing.phone as string | null;
+      if (!phone) return;
+      try {
+        const normalizedPhone = normalizeUAEPhone(phone) || phone;
+        const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
+        const trackingLink = existing.confirmationToken ? `${frontendUrl}/customer-tracking/${existing.confirmationToken}` : null;
+        const customerName = (existing.customer as string | null) || 'Valued Customer';
+        const poRef = existing.poNumber ? `#${existing.poNumber}` : '';
+        const smsBody = outForDeliveryMessage(customerName, poRef, trackingLink);
+        let sendStatus = 'failed';
+        if (smsAdapter) {
+          const result = await smsAdapter.sendSms({
+            to: normalizedPhone,
+            body: smsBody,
+            metadata: { deliveryId: existing.id as string, type: 'status_out_for_delivery', triggeredBy: 'force_dispatch' },
+          });
+          sendStatus = result?.messageId || result?.status === 'accepted' || result?.status === 'queued' ? 'sent' : 'failed';
+        }
+        await prisma.smsLog.create({
+          data: {
+            deliveryId: existing.id as string,
+            phoneNumber: normalizedPhone,
+            messageContent: smsBody,
+            smsProvider: 'd7',
+            status: sendStatus,
+            sentAt: new Date(),
+            metadata: { type: 'status_out_for_delivery', triggeredBy: 'force_dispatch' },
+          },
+        });
+      } catch (smsErr: unknown) {
+        console.warn(`[force-dispatch] OFD SMS failed for ${existing.id}:`, (smsErr as Error).message);
+      }
+    })();
+  } catch (err: unknown) {
+    const e = err as { message?: string };
+    console.error('[Deliveries] force-dispatch error:', e?.message);
+    res.status(500).json({ error: 'force_dispatch_failed', detail: e?.message });
+  }
+});
+
 // PUT /admin/:id/contact - Update delivery contact details (address, phone, lat, lng)
 router.put('/admin/:id/contact', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
   const { id: deliveryIdParam } = req.params as { id: string };
