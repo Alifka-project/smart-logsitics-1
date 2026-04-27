@@ -1309,8 +1309,8 @@ export default function LogisticsTeamPortal() {
             );
           })()}
 
-          {/* ── Needs Attention · Awaiting Customer · Truck capacity (hidden — preserved for future use) ── */}
-          {false && (<div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-stretch">
+          {/* ── Needs Attention · Awaiting Customer (hidden per ops request — Truck Capacity moved to Live Maps tab) ── */}
+          {false && (<div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch">
             {/* Needs Attention */}
             <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[340px]">
               <div className="mb-3 flex flex-shrink-0 items-center gap-2">
@@ -1394,112 +1394,6 @@ export default function LogisticsTeamPortal() {
               )}
             </div>
 
-            {(() => {
-              // Build: date → driver → order count (from live deliveries, not just capacity API)
-              const DUBAI_OFFSET_MS = 4 * 60 * 60 * 1000;
-              const todayIso = new Date(Date.now() + DUBAI_OFFSET_MS).toISOString().slice(0, 10);
-              const tomorrowIso = new Date(Date.now() + DUBAI_OFFSET_MS + 86400000).toISOString().slice(0, 10);
-              const ACTIVE_S = new Set(['pending','uploaded','scheduled','scheduled-confirmed','confirmed','out-for-delivery','in-transit','in-progress','order-delay','order_delay','rescheduled','sms-sent','sms_sent','unconfirmed']);
-
-              // Map: dateIso → driverId → { name, count, ofd, delay }
-              const dateDriverMap = new Map<string, Map<string, { name: string; count: number; ofd: number; delay: number }>>();
-              deliveries.forEach(d => {
-                const s = (d.status || '').toLowerCase();
-                if (!ACTIVE_S.has(s)) return;
-                const driverId = d.assignedDriverId || String((d as Record<string,unknown>).driverName || '');
-                if (!driverId) return;
-                // Delivery date in Dubai
-                let dateIso = todayIso;
-                if (!['out-for-delivery','in-transit','in-progress'].includes(s)) {
-                  const raw = (d as unknown as { confirmedDeliveryDate?: string }).confirmedDeliveryDate;
-                  if (raw) {
-                    const t = Date.parse(String(raw));
-                    if (Number.isFinite(t)) dateIso = new Date(t + DUBAI_OFFSET_MS).toISOString().slice(0, 10);
-                  }
-                }
-                if (dateIso < todayIso) return; // skip past dates
-                if (!dateDriverMap.has(dateIso)) dateDriverMap.set(dateIso, new Map());
-                const dMap = dateDriverMap.get(dateIso)!;
-                const driverName = String((d as Record<string,unknown>).driverName || driverId);
-                const entry = dMap.get(driverId) ?? { name: driverName, count: 0, ofd: 0, delay: 0 };
-                entry.count++;
-                if (['out-for-delivery','in-transit','in-progress'].includes(s)) entry.ofd++;
-                if (s === 'order-delay' || s === 'order_delay') entry.delay++;
-                dMap.set(driverId, entry);
-              });
-
-              // Only show dates that actually have orders
-              const activeDates = Array.from(dateDriverMap.keys()).sort();
-
-              return (
-                <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5 lg:h-[340px]">
-                  <div className="mb-2 flex flex-shrink-0 items-center gap-2">
-                    <Truck className="h-5 w-5 flex-shrink-0 text-teal-600 dark:text-teal-400" />
-                    <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Truck Capacity</h2>
-                    <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500">by delivery date</span>
-                  </div>
-                  <p className="mb-2 flex-shrink-0 text-[10px] leading-snug text-gray-400 dark:text-gray-500">
-                    Active orders grouped by confirmed delivery date (Dubai). On-route orders count to <span className="font-semibold">today</span>.
-                  </p>
-                  <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-0.5">
-                    {activeDates.length === 0 ? (
-                      <div className="py-6 text-center text-sm text-gray-400 dark:text-gray-500">No active assigned orders</div>
-                    ) : (
-                      activeDates.map((iso) => {
-                        const driverRows = Array.from(dateDriverMap.get(iso)!.entries())
-                          .map(([driverId, info]) => ({ driverId, ...info }))
-                          .sort((a, b) => b.count - a.count);
-                        const totalForDate = driverRows.reduce((s, r) => s + r.count, 0);
-                        const isToday = iso === todayIso;
-                        const isTomorrow = iso === tomorrowIso;
-                        const dateChipLabel = isToday ? 'Today' : isTomorrow ? 'Tomorrow'
-                          : new Date(`${iso}T00:00:00+04:00`).toLocaleDateString('en-AE', { timeZone: 'Asia/Dubai', weekday: 'short', day: 'numeric', month: 'short' });
-                        return (
-                          <div key={iso} className="rounded-lg border border-gray-100 dark:border-gray-700 bg-white/40 dark:bg-gray-800/40 p-2">
-                            <div className="flex items-center gap-2 mb-1.5">
-                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                                isToday ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
-                                : isTomorrow ? 'bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300'
-                                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                              }`}>{dateChipLabel}</span>
-                              <span className="font-mono text-[10px] text-gray-400 dark:text-gray-500">{iso}</span>
-                              <span className="ml-auto text-[10px] font-semibold text-gray-500 dark:text-gray-400">{totalForDate} orders</span>
-                            </div>
-                            <div className="space-y-1.5">
-                              {driverRows.map((row) => {
-                                const cap = driverCapacityByDate[iso]?.[row.driverId];
-                                // find the driver object for online status
-                                const driverObj = drivers.find(dr => dr.id === row.driverId);
-                                const online = driverObj ? isContactOnline(driverObj) : false;
-                                return (
-                                  <div key={`${iso}-${row.driverId}`}
-                                    className="flex items-center gap-2 rounded-md border border-gray-100 bg-gray-50 px-2 py-1.5 dark:border-gray-700 dark:bg-gray-800/60"
-                                  >
-                                    <span className={`h-2 w-2 shrink-0 rounded-full ${online ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
-                                    <div className="min-w-0 flex-1">
-                                      <p className="truncate text-[11px] font-semibold text-gray-900 dark:text-gray-100">{row.name}</p>
-                                      <div className="flex flex-wrap gap-1 mt-0.5">
-                                        {row.ofd > 0 && <span className="text-[9px] text-blue-600 dark:text-blue-400">🚛 {row.ofd} on route</span>}
-                                        {row.delay > 0 && <span className="text-[9px] text-red-600 dark:text-red-400">⚠ {row.delay} delayed</span>}
-                                        {cap && <span className="text-[9px] text-gray-500 dark:text-gray-400">{cap.used}/{cap.max} cap used</span>}
-                                      </div>
-                                    </div>
-                                    <div className="flex items-center gap-1 shrink-0">
-                                      <span className="rounded-full bg-teal-600 dark:bg-teal-500 px-2 py-0.5 text-[10px] font-bold text-white tabular-nums">{row.count}</span>
-                                      {cap?.full && <span className="text-[9px] font-bold text-red-600 dark:text-red-400">FULL</span>}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
           </div>)}
 
           {/* ── Driver Status + old Charts grid (hidden — preserved for future use) ── */}
@@ -1769,13 +1663,119 @@ export default function LogisticsTeamPortal() {
               return items;
             })();
 
+            // ── Truck Capacity panel (moved here from the top dashboard) ──
+            // Builds dateIso → driverId → { name, count, ofd, delay } from the
+            // currently loaded `deliveries` so it stays in sync with the map.
+            const truckCapacityPanel = (() => {
+              const DUBAI_OFFSET_MS = 4 * 60 * 60 * 1000;
+              const todayIso = new Date(Date.now() + DUBAI_OFFSET_MS).toISOString().slice(0, 10);
+              const tomorrowIso = new Date(Date.now() + DUBAI_OFFSET_MS + 86400000).toISOString().slice(0, 10);
+              const ACTIVE_S = new Set(['pending','uploaded','scheduled','scheduled-confirmed','confirmed','out-for-delivery','in-transit','in-progress','order-delay','order_delay','rescheduled','sms-sent','sms_sent','unconfirmed']);
+
+              const dateDriverMap = new Map<string, Map<string, { name: string; count: number; ofd: number; delay: number }>>();
+              deliveries.forEach(d => {
+                const s = (d.status || '').toLowerCase();
+                if (!ACTIVE_S.has(s)) return;
+                const driverId = d.assignedDriverId || String((d as Record<string,unknown>).driverName || '');
+                if (!driverId) return;
+                let dateIso = todayIso;
+                if (!['out-for-delivery','in-transit','in-progress'].includes(s)) {
+                  const raw = (d as unknown as { confirmedDeliveryDate?: string }).confirmedDeliveryDate;
+                  if (raw) {
+                    const t = Date.parse(String(raw));
+                    if (Number.isFinite(t)) dateIso = new Date(t + DUBAI_OFFSET_MS).toISOString().slice(0, 10);
+                  }
+                }
+                if (dateIso < todayIso) return;
+                if (!dateDriverMap.has(dateIso)) dateDriverMap.set(dateIso, new Map());
+                const dMap = dateDriverMap.get(dateIso)!;
+                const driverName = String((d as Record<string,unknown>).driverName || driverId);
+                const entry = dMap.get(driverId) ?? { name: driverName, count: 0, ofd: 0, delay: 0 };
+                entry.count++;
+                if (['out-for-delivery','in-transit','in-progress'].includes(s)) entry.ofd++;
+                if (s === 'order-delay' || s === 'order_delay') entry.delay++;
+                dMap.set(driverId, entry);
+              });
+
+              const activeDates = Array.from(dateDriverMap.keys()).sort();
+
+              return (
+                <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5">
+                  <div className="mb-2 flex flex-shrink-0 items-center gap-2">
+                    <Truck className="h-5 w-5 flex-shrink-0 text-teal-600 dark:text-teal-400" />
+                    <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Truck Capacity</h2>
+                    <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500">by delivery date</span>
+                  </div>
+                  <p className="mb-2 flex-shrink-0 text-[10px] leading-snug text-gray-400 dark:text-gray-500">
+                    Active orders grouped by confirmed delivery date (Dubai). On-route orders count to <span className="font-semibold">today</span>.
+                  </p>
+                  <div className="space-y-3 pr-0.5">
+                    {activeDates.length === 0 ? (
+                      <div className="py-6 text-center text-sm text-gray-400 dark:text-gray-500">No active assigned orders</div>
+                    ) : (
+                      activeDates.map((iso) => {
+                        const driverRows = Array.from(dateDriverMap.get(iso)!.entries())
+                          .map(([driverId, info]) => ({ driverId, ...info }))
+                          .sort((a, b) => b.count - a.count);
+                        const totalForDate = driverRows.reduce((s, r) => s + r.count, 0);
+                        const isToday = iso === todayIso;
+                        const isTomorrow = iso === tomorrowIso;
+                        const dateChipLabel = isToday ? 'Today' : isTomorrow ? 'Tomorrow'
+                          : new Date(`${iso}T00:00:00+04:00`).toLocaleDateString('en-AE', { timeZone: 'Asia/Dubai', weekday: 'short', day: 'numeric', month: 'short' });
+                        return (
+                          <div key={iso} className="rounded-lg border border-gray-100 dark:border-gray-700 bg-white/40 dark:bg-gray-800/40 p-2">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                                isToday ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                                : isTomorrow ? 'bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300'
+                                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                              }`}>{dateChipLabel}</span>
+                              <span className="font-mono text-[10px] text-gray-400 dark:text-gray-500">{iso}</span>
+                              <span className="ml-auto text-[10px] font-semibold text-gray-500 dark:text-gray-400">{totalForDate} orders</span>
+                            </div>
+                            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                              {driverRows.map((row) => {
+                                const cap = driverCapacityByDate[iso]?.[row.driverId];
+                                const driverObj = drivers.find(dr => dr.id === row.driverId);
+                                const online = driverObj ? isContactOnline(driverObj) : false;
+                                return (
+                                  <div key={`${iso}-${row.driverId}`}
+                                    className="flex items-center gap-2 rounded-md border border-gray-100 bg-gray-50 px-2 py-1.5 dark:border-gray-700 dark:bg-gray-800/60"
+                                  >
+                                    <span className={`h-2 w-2 shrink-0 rounded-full ${online ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                                    <div className="min-w-0 flex-1">
+                                      <p className="truncate text-[11px] font-semibold text-gray-900 dark:text-gray-100">{row.name}</p>
+                                      <div className="flex flex-wrap gap-1 mt-0.5">
+                                        {row.ofd > 0 && <span className="text-[9px] text-blue-600 dark:text-blue-400">🚛 {row.ofd} on route</span>}
+                                        {row.delay > 0 && <span className="text-[9px] text-red-600 dark:text-red-400">⚠ {row.delay} delayed</span>}
+                                        {cap && <span className="text-[9px] text-gray-500 dark:text-gray-400">{cap.used}/{cap.max} cap used</span>}
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <span className="rounded-full bg-teal-600 dark:bg-teal-500 px-2 py-0.5 text-[10px] font-bold text-white tabular-nums">{row.count}</span>
+                                      {cap?.full && <span className="text-[9px] font-bold text-red-600 dark:text-red-400">FULL</span>}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              );
+            })();
+
             return (
-              /* Mobile: stacked rows — map fixed 280px, list grows to its
-                 natural content height and the page scrolls. sm+ (≥640px):
-                 map 1fr + fixed 290px sidebar with internal scroll. */
-              <div
-                className="grid gap-3 grid-rows-[280px_auto] sm:grid-rows-none sm:grid-cols-[1fr_290px] sm:overflow-hidden sm:h-[max(560px,calc(100dvh-240px))]"
-              >
+              <div className="flex flex-col gap-3">
+                {/* Mobile: stacked rows — map fixed 280px, list grows to its
+                    natural content height and the page scrolls. sm+ (≥640px):
+                    map 1fr + fixed 290px sidebar with internal scroll. */}
+                <div
+                  className="grid gap-3 grid-rows-[280px_auto] sm:grid-rows-none sm:grid-cols-[1fr_290px] sm:overflow-hidden sm:h-[max(560px,calc(100dvh-240px))]"
+                >
                 {/* ── Map panel ── */}
                 <div className="flex flex-col min-w-0 min-h-0">
                   <div className="pp-card overflow-hidden flex-1 relative" style={{ minHeight: 0 }}>
@@ -2199,6 +2199,8 @@ export default function LogisticsTeamPortal() {
                     })}
                   </div>
                 </div>
+                </div>
+                {truckCapacityPanel}
               </div>
             );
           })(),
