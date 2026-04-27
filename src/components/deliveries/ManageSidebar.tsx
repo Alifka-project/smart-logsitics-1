@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useDropzone } from 'react-dropzone';
 import type { DeliveryOrder } from '../../types/delivery';
 
@@ -31,8 +31,6 @@ export const ManageSidebar: React.FC<ManageSidebarProps> = ({
   hideUpload = false,
   showActionCards = false,
 }) => {
-  const [showPolicy, setShowPolicy] = useState(false);
-
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
       if (acceptedFiles.length > 0) onFileUpload(acceptedFiles[0]);
@@ -155,71 +153,64 @@ export const ManageSidebar: React.FC<ManageSidebarProps> = ({
           ══════════════════════════════════════════════════════════════ */}
       {showActionCards && (
         <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
-          <button
-            type="button"
-            onClick={() => setShowPolicy(v => !v)}
-            className="w-full flex items-center justify-between mb-1"
-          >
-            <h3 className="font-semibold text-sm text-gray-900 dark:text-white">📋 Policy &amp; KPI Guide</h3>
-            <span className="text-xs text-gray-400">{showPolicy ? '▲ Hide' : '▼ Show'}</span>
-          </button>
+          <h3 className="font-semibold text-sm text-gray-900 dark:text-white mb-3">📋 Policy &amp; KPI Guide</h3>
 
-          {!showPolicy && (
-            <div className="mt-3 space-y-2">
-              {[
-                { num: 1, text: 'Upload Excel — system auto-sends SMS to customer', color: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300' },
-                { num: 2, text: 'Customer confirms delivery date via SMS link', color: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300' },
-                { num: 3, text: 'Assign driver immediately after confirmation', color: 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300' },
-                { num: 4, text: 'Set GMD date before dispatching (out-for-delivery)', color: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300' },
-                { num: 5, text: 'Target: deliver within 24h of confirmation', color: 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300' },
-              ].map((step) => (
-                <div key={step.num} className="flex items-start gap-2">
-                  <span className={`mt-0.5 w-5 h-5 shrink-0 rounded-full flex items-center justify-center text-xs font-semibold ${step.color}`}>
-                    {step.num}
-                  </span>
-                  <span className="text-xs text-gray-600 dark:text-gray-300 leading-snug">{step.text}</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {showPolicy && (
-            <div className="mt-3 space-y-3">
-              <div>
-                <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">KPI Rules</p>
-                <div className="space-y-2">
-                  {[
-                    { icon: '⏱', text: 'Delivery must be completed within 24 hours of customer confirmation.' },
-                    { icon: '📅', text: 'Orders uploaded after 3:00 PM cannot be dispatched for the next day\'s shipment.' },
-                    { icon: '🚚', text: 'Every confirmed order must have a driver assigned before dispatch.' },
-                    { icon: '📋', text: 'GMD (Goods Movement Date) must be set before marking Out-for-Delivery.' },
-                    { icon: '✅', text: 'POD (Proof of Delivery) must be submitted within 2 hours of delivery.' },
-                  ].map((rule, i) => (
-                    <div key={i} className="flex items-start gap-2 text-xs text-gray-700 dark:text-gray-300">
-                      <span className="shrink-0 mt-0.5">{rule.icon}</span>
-                      <span className="leading-snug">{rule.text}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="border-t border-gray-100 dark:border-gray-700 pt-3">
-                <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Watch Out For</p>
-                <div className="space-y-2">
-                  {[
-                    { icon: '🚨', text: 'Order Delay status — action required within the hour. Contact driver immediately.' },
-                    { icon: '📍', text: 'Always verify delivery address before dispatch. Wrong address = failed delivery.' },
-                    { icon: '🔄', text: 'Rescheduled orders must have a new confirmed date and driver re-assigned.' },
-                    { icon: '📦', text: 'B2B orders (Ship-to Party): confirm with the company contact, not individual name.' },
-                  ].map((rule, i) => (
-                    <div key={i} className="flex items-start gap-2 text-xs text-gray-700 dark:text-gray-300">
-                      <span className="shrink-0 mt-0.5">{rule.icon}</span>
-                      <span className="leading-snug">{rule.text}</span>
-                    </div>
-                  ))}
-                </div>
+          <div className="space-y-3">
+            <div>
+              <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Workflow</p>
+              <div className="space-y-2">
+                {[
+                  { num: 1, text: 'Upload Excel — system auto-sends SMS to customer', color: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300' },
+                  { num: 2, text: 'Customer confirms delivery date via SMS link', color: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300' },
+                  { num: 3, text: 'Assign driver immediately after confirmation', color: 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300' },
+                  { num: 4, text: 'Set GMD date before dispatching (out-for-delivery)', color: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300' },
+                  { num: 5, text: 'Target: deliver within 24h of confirmation', color: 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300' },
+                ].map((step) => (
+                  <div key={step.num} className="flex items-start gap-2">
+                    <span className={`mt-0.5 w-5 h-5 shrink-0 rounded-full flex items-center justify-center text-xs font-semibold ${step.color}`}>
+                      {step.num}
+                    </span>
+                    <span className="text-xs text-gray-600 dark:text-gray-300 leading-snug">{step.text}</span>
+                  </div>
+                ))}
               </div>
             </div>
-          )}
+
+            <div className="border-t border-gray-100 dark:border-gray-700 pt-3">
+              <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">KPI Rules</p>
+              <div className="space-y-2">
+                {[
+                  { icon: '⏱', text: 'Delivery must be completed within 24 hours of customer confirmation.' },
+                  { icon: '📅', text: 'Orders uploaded after 3:00 PM cannot be dispatched for the next day\'s shipment.' },
+                  { icon: '🚚', text: 'Every confirmed order must have a driver assigned before dispatch.' },
+                  { icon: '📋', text: 'GMD (Goods Movement Date) must be set before marking Out-for-Delivery.' },
+                  { icon: '✅', text: 'POD (Proof of Delivery) must be submitted within 2 hours of delivery.' },
+                ].map((rule, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs text-gray-700 dark:text-gray-300">
+                    <span className="shrink-0 mt-0.5">{rule.icon}</span>
+                    <span className="leading-snug">{rule.text}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="border-t border-gray-100 dark:border-gray-700 pt-3">
+              <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Watch Out For</p>
+              <div className="space-y-2">
+                {[
+                  { icon: '🚨', text: 'Order Delay status — action required within the hour. Contact driver immediately.' },
+                  { icon: '📍', text: 'Always verify delivery address before dispatch. Wrong address = failed delivery.' },
+                  { icon: '🔄', text: 'Rescheduled orders must have a new confirmed date and driver re-assigned.' },
+                  { icon: '📦', text: 'B2B orders (Ship-to Party): confirm with the company contact, not individual name.' },
+                ].map((rule, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs text-gray-700 dark:text-gray-300">
+                    <span className="shrink-0 mt-0.5">{rule.icon}</span>
+                    <span className="leading-snug">{rule.text}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

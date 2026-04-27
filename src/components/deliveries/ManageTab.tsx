@@ -424,7 +424,7 @@ export default function ManageTab({
         />
       </div>
 
-      <div className="manage-delivery-layout grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="manage-delivery-layout grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,85fr)_minmax(0,15fr)] lg:items-start">
         <div ref={ordersTableRef} className="min-w-0">
           <OrdersTable
             orders={manageOrders}

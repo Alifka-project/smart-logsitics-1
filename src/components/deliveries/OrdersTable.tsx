@@ -829,66 +829,32 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="manage-orders-table-mobile table-mobile-cards table-fixed min-w-[1300px] md:min-w-[1500px] border-collapse text-sm">
+        <table className="manage-orders-table-mobile table-mobile-cards table-fixed w-full min-w-[1180px] border-collapse text-sm">
           <colgroup>
+            <col style={{ width: '190px' }} />
             <col style={{ width: '140px' }} />
-            <col style={{ width: '160px' }} />
-            <col style={{ width: '70px' }} />
-            <col style={{ width: '110px' }} />
-            <col style={{ width: '110px' }} />
-            <col style={{ width: '100px' }} />
-            <col style={{ width: '100px' }} />
-            <col style={{ width: '85px' }} />
-            <col style={{ width: '110px' }} />
-            <col style={{ width: '1%' }} />
-            <col style={{ width: '100px' }} />
-            <col style={{ width: '200px' }} />
+            <col />
+            <col style={{ width: '115px' }} />
+            <col style={{ width: '95px' }} />
+            <col style={{ width: simpleDriverDisplay ? '130px' : '200px' }} />
             <col style={{ width: '140px' }} />
             <col style={{ width: '120px' }} />
           </colgroup>
           <thead className="border-b border-gray-200 bg-gray-50/95 dark:border-gray-600 dark:bg-gray-900/90">
             <tr>
-              <th className="min-w-[130px] w-[140px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="min-w-[180px] w-[190px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Customer
               </th>
-              <th className="min-w-[150px] w-[160px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                Phone
+              <th className="min-w-[130px] w-[140px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                Order
               </th>
-              <th className="min-w-[65px] w-[70px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                Type
+              <th className="min-w-[220px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                Product
               </th>
-              <th className="min-w-[100px] w-[110px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                PO Number
+              <th className="min-w-[110px] w-[115px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                Dates
               </th>
-              <th className="min-w-[100px] w-[110px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                Delivery No.
-              </th>
-              <th className="min-w-[95px] w-[100px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                Del. Date
-              </th>
-              <th className="min-w-[95px] w-[100px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                PGI Date
-              </th>
-              <th className="min-w-[80px] w-[85px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                Area
-              </th>
-              <th className="min-w-[100px] w-[110px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                Model
-              </th>
-              <th className="whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                Description
-              </th>
-              {showMaterialColumn && (
-                <th className="min-w-[100px] w-[110px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                  Material
-                </th>
-              )}
-              {showQtyColumn && (
-                <th className="min-w-[55px] w-[60px] whitespace-nowrap px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                  Qty
-                </th>
-              )}
-              <th className="min-w-[90px] w-[100px] whitespace-nowrap px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="min-w-[90px] w-[95px] whitespace-nowrap px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Priority
               </th>
               <th className={`whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 ${simpleDriverDisplay ? 'min-w-[120px] w-[130px]' : 'min-w-[180px] w-[200px]'}`}>
@@ -905,7 +871,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700/80">
             {paginatedOrders.length === 0 ? (
               <tr>
-                <td colSpan={14} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                   No orders match the current filters.
                 </td>
               </tr>
@@ -923,97 +889,110 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                         : 'hover:bg-gray-50/90 dark:hover:bg-gray-900/40'
                     }`}
                   >
-                    <td className="min-w-[130px] w-[140px] overflow-hidden px-3 py-2.5 align-middle" data-label="Customer">
-                      <span className="line-clamp-2 block font-medium leading-snug text-gray-900 dark:text-white" title={order.customerName}>
-                        {order.customerName}
-                      </span>
-                    </td>
-                    <td className="min-w-[150px] w-[160px] overflow-hidden px-3 py-2.5 align-middle" data-label="Phone">
-                      <div className="flex min-w-0 items-center gap-1.5">
-                        <span className="min-w-0 shrink text-[13px] tabular-nums text-gray-700 dark:text-gray-300 truncate">
-                          {order.customerPhone}
-                        </span>
-                        <div className="flex shrink-0 items-center gap-0.5">
+                    {/* Customer: name + Type badge + phone with call button */}
+                    <td className="min-w-[180px] w-[190px] overflow-hidden px-3 py-2.5 align-middle" data-label="Customer">
+                      <div className="flex min-w-0 flex-col gap-0.5">
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <span className="line-clamp-1 min-w-0 flex-1 font-medium leading-snug text-gray-900 dark:text-white" title={order.customerName}>
+                            {order.customerName}
+                          </span>
+                          <span
+                            className={`inline-flex shrink-0 items-center rounded px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
+                              order.orderType === 'B2C'
+                                ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300'
+                                : 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300'
+                            }`}
+                          >
+                            {order.orderType ?? 'B2B'}
+                          </span>
+                        </div>
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <span className="min-w-0 flex-1 truncate text-[12px] tabular-nums text-gray-600 dark:text-gray-400" title={order.customerPhone}>
+                            {order.customerPhone}
+                          </span>
                           <button
                             type="button"
                             onClick={() => onCallCustomer(order.customerPhone)}
-                            className="flex h-7 w-7 items-center justify-center rounded bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-200 dark:hover:bg-blue-900/70"
+                            className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-200 dark:hover:bg-blue-900/70"
                             title="Call customer"
                           >
-                            <span className="text-xs" aria-hidden>📞</span>
+                            <span className="text-[10px]" aria-hidden>📞</span>
                           </button>
                         </div>
                       </div>
                     </td>
-                    <td className="min-w-[65px] w-[70px] overflow-hidden px-3 py-2.5 align-middle" data-label="Type">
-                      <span
-                        className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                          order.orderType === 'B2C'
-                            ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300'
-                            : 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300'
-                        }`}
-                      >
-                        {order.orderType ?? 'B2B'}
-                      </span>
-                    </td>
-                    <td className="min-w-[100px] w-[110px] overflow-hidden px-3 py-2.5 align-middle" data-label="PO Number">
-                      <span className="block truncate font-mono text-[13px] text-gray-700 dark:text-gray-300" title={order.orderNumber}>
-                        {order.orderNumber}
-                      </span>
-                    </td>
-                    <td className="min-w-[100px] w-[110px] overflow-hidden px-3 py-2.5 align-middle" data-label="Delivery Number">
-                      <span className="block truncate font-mono text-[13px] text-gray-500 dark:text-gray-400" title={order.deliveryNumber ?? ''}>
-                        {order.deliveryNumber || '—'}
-                      </span>
-                    </td>
-                    <td className="min-w-[95px] w-[100px] overflow-hidden px-3 py-2.5 align-middle text-[13px]" data-label="Del. Date">
-                      {getDeliveryDateDisplay(order)}
-                    </td>
-                    <td className="min-w-[95px] w-[100px] overflow-hidden px-3 py-2.5 align-middle text-[13px]" data-label="PGI Date">
-                      {order.goodsMovementDate ? (
-                        <span className="font-medium text-teal-700 dark:text-teal-300">
-                          {fmtDate(order.goodsMovementDate)}
+
+                    {/* Order: PO# + Delivery No. + Area */}
+                    <td className="min-w-[130px] w-[140px] overflow-hidden px-3 py-2.5 align-middle" data-label="Order">
+                      <div className="flex min-w-0 flex-col gap-0.5">
+                        <span className="block truncate font-mono text-[13px] font-semibold text-gray-800 dark:text-gray-200" title={order.orderNumber}>
+                          {order.orderNumber}
                         </span>
-                      ) : (
-                        <span className="text-gray-400 dark:text-gray-500">—</span>
-                      )}
-                    </td>
-                    <td className="min-w-[80px] w-[85px] overflow-hidden px-3 py-2.5 align-middle" data-label="Area">
-                      <span className="line-clamp-2 text-[13px] leading-snug text-gray-700 dark:text-gray-300">
-                        {order.area}
-                      </span>
-                    </td>
-                    <td className="min-w-[100px] w-[110px] overflow-hidden px-3 py-2.5 align-middle" data-label="Model">
-                      <span
-                        className="block truncate text-[13px] leading-snug text-gray-800 dark:text-gray-200"
-                        title={order.model ?? '—'}
-                      >
-                        {order.model || '—'}
-                      </span>
-                    </td>
-                    <td className="min-w-0 overflow-hidden px-3 py-2.5 align-middle" data-label="Description">
-                      <span
-                        className="line-clamp-2 block break-words text-[13px] leading-snug text-gray-800 dark:text-gray-200"
-                        title={order.productDescription ?? order.product}
-                      >
-                        {order.productDescription || order.product}
-                      </span>
-                    </td>
-                    {showMaterialColumn && (
-                      <td className="min-w-[100px] w-[110px] overflow-hidden px-3 py-2.5 align-middle" data-label="Material">
-                        <span className="block truncate font-mono text-[12px] text-blue-700 dark:text-blue-400" title={order.material ?? '—'}>
-                          {order.material ?? '—'}
+                        <span className="block truncate font-mono text-[11px] text-gray-500 dark:text-gray-400" title={order.deliveryNumber ?? ''}>
+                          {order.deliveryNumber || '—'}
                         </span>
-                      </td>
-                    )}
-                    {showQtyColumn && (
-                      <td className="min-w-[55px] w-[60px] px-3 py-2.5 align-middle text-center" data-label="Qty">
-                        <span className="font-semibold tabular-nums text-[13px] text-gray-700 dark:text-gray-300">
-                          {order.qty ?? '—'}
+                        <span className="line-clamp-1 text-[11px] leading-snug text-gray-600 dark:text-gray-400" title={order.area}>
+                          📍 {order.area}
                         </span>
-                      </td>
-                    )}
-                    <td className="min-w-[90px] w-[100px] px-3 py-2.5 align-middle text-center" data-label="Priority">
+                      </div>
+                    </td>
+
+                    {/* Product: Model + Description (+ optional Material · Qty inline) */}
+                    <td className="min-w-[220px] overflow-hidden px-3 py-2.5 align-middle" data-label="Product">
+                      <div className="flex min-w-0 flex-col gap-0.5">
+                        <span
+                          className="block truncate text-[13px] font-semibold leading-snug text-gray-800 dark:text-gray-200"
+                          title={order.model ?? '—'}
+                        >
+                          {order.model || '—'}
+                        </span>
+                        <span
+                          className="line-clamp-2 block break-words text-[12px] leading-snug text-gray-600 dark:text-gray-400"
+                          title={order.productDescription ?? order.product}
+                        >
+                          {order.productDescription || order.product}
+                        </span>
+                        {(showMaterialColumn || showQtyColumn) && (
+                          <div className="flex min-w-0 items-center gap-2 text-[11px]">
+                            {showMaterialColumn && (
+                              <span className="min-w-0 truncate font-mono text-blue-700 dark:text-blue-400" title={order.material ?? '—'}>
+                                {order.material ?? '—'}
+                              </span>
+                            )}
+                            {showMaterialColumn && showQtyColumn && (
+                              <span className="text-gray-300 dark:text-gray-600">·</span>
+                            )}
+                            {showQtyColumn && (
+                              <span className="shrink-0 font-semibold tabular-nums text-gray-700 dark:text-gray-300">
+                                Qty {order.qty ?? '—'}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Dates: Del. Date + PGI Date stacked */}
+                    <td className="min-w-[110px] w-[115px] overflow-hidden px-3 py-2.5 align-middle" data-label="Dates">
+                      <div className="flex min-w-0 flex-col gap-0.5 text-[12px] leading-snug">
+                        <div className="flex min-w-0 items-baseline gap-1">
+                          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Del</span>
+                          <span className="min-w-0 truncate">{getDeliveryDateDisplay(order)}</span>
+                        </div>
+                        <div className="flex min-w-0 items-baseline gap-1">
+                          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">PGI</span>
+                          {order.goodsMovementDate ? (
+                            <span className="min-w-0 truncate font-medium text-teal-700 dark:text-teal-300">
+                              {fmtDate(order.goodsMovementDate)}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 dark:text-gray-500">—</span>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+
+                    <td className="min-w-[90px] w-[95px] px-3 py-2.5 align-middle text-center" data-label="Priority">
                       {onTogglePriority ? (
                         <button
                           type="button"
