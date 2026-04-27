@@ -77,8 +77,6 @@ export default function ManageTab({
   enableDispatchFilters = false,
   showActionCards,
   driverList,
-  driverCapacityByDate,
-  onlineDriverIds,
   showMaterialColumn = false,
   showQtyColumn = false,
   simpleDriverDisplay = false,
@@ -460,14 +458,10 @@ export default function ManageTab({
         <div className="min-w-0 w-full lg:sticky lg:top-4 lg:self-start">
           <ManageSidebar
             orders={manageOrders}
-            drivers={drivers}
             onFileUpload={(f) => void handleFileUpload(f)}
             isUploading={isUploading}
             hideUpload={hideUpload}
-            onTabClick={handleTableTabChange}
             showActionCards={showActionCards ?? enableDispatchFilters}
-            driverCapacityByDate={driverCapacityByDate}
-            onlineDriverIds={onlineDriverIds}
           />
         </div>
       </div>
