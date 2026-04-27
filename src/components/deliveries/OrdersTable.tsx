@@ -829,12 +829,12 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="manage-orders-table-mobile table-mobile-cards table-fixed w-full min-w-[1040px] border-collapse text-sm">
+        <table className="manage-orders-table-mobile table-mobile-cards table-fixed w-full min-w-[1060px] border-collapse text-sm">
           <colgroup>
             <col style={{ width: '170px' }} />
             <col style={{ width: '125px' }} />
             <col />
-            <col style={{ width: '100px' }} />
+            <col style={{ width: '120px' }} />
             <col style={{ width: '78px' }} />
             <col style={{ width: simpleDriverDisplay ? '120px' : '145px' }} />
             <col style={{ width: '125px' }} />
@@ -851,7 +851,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
               <th className="min-w-[200px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Product
               </th>
-              <th className="min-w-[95px] w-[100px] whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="min-w-[115px] w-[120px] whitespace-nowrap px-2 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Dates
               </th>
               <th className="min-w-[75px] w-[78px] whitespace-nowrap px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
@@ -973,16 +973,16 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                     </td>
 
                     {/* Dates: Del. Date + PGI Date stacked */}
-                    <td className="min-w-[95px] w-[100px] overflow-hidden px-3 py-2.5 align-middle" data-label="Dates">
+                    <td className="min-w-[115px] w-[120px] overflow-hidden px-2 py-2.5 align-middle" data-label="Dates">
                       <div className="flex min-w-0 flex-col gap-0.5 text-[12px] leading-snug">
-                        <div className="flex min-w-0 items-baseline gap-1">
+                        <div className="flex min-w-0 items-baseline gap-1 whitespace-nowrap">
                           <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Del</span>
-                          <span className="min-w-0 truncate">{getDeliveryDateDisplay(order)}</span>
+                          <span>{getDeliveryDateDisplay(order)}</span>
                         </div>
-                        <div className="flex min-w-0 items-baseline gap-1">
+                        <div className="flex min-w-0 items-baseline gap-1 whitespace-nowrap">
                           <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">PGI</span>
                           {order.goodsMovementDate ? (
-                            <span className="min-w-0 truncate font-medium text-teal-700 dark:text-teal-300">
+                            <span className="font-medium text-teal-700 dark:text-teal-300">
                               {fmtDate(order.goodsMovementDate)}
                             </span>
                           ) : (
