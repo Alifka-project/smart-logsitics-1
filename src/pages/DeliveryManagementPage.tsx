@@ -523,6 +523,7 @@ export default function DeliveryManagementPage({
           showMaterialColumn={showMaterialColumn}
           showQtyColumn={showQtyColumn}
           simpleDriverDisplay={simpleDriverDisplay}
+          enableForceDispatch={true}
         />
       )}
 

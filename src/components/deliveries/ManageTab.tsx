@@ -52,6 +52,12 @@ interface ManageTabProps {
   showQtyColumn?: boolean;
   /** Delivery Team Portal: show plain driver name only — no icon/dropdown */
   simpleDriverDisplay?: boolean;
+  /**
+   * When true, the Update Status modal exposes a red "Push to Out for Delivery"
+   * button that bypasses picking-list confirmation. For operator overrides /
+   * client demos. Forwarded as-is to <OrderEditModal>.
+   */
+  enableForceDispatch?: boolean;
 }
 
 
@@ -76,6 +82,7 @@ export default function ManageTab({
   showMaterialColumn = false,
   showQtyColumn = false,
   simpleDriverDisplay = false,
+  enableForceDispatch = false,
 }: ManageTabProps) {
   const fileUploadRef = useRef<FileUploadHandle>(null);
   const pendingHashes = useRef<Set<string>>(new Set());
@@ -474,6 +481,7 @@ export default function ManageTab({
           onResendSMS={async () => { await handleResendSMS(editDeliveryId!); }}
           onReschedule={async (newDate, reason) => { await handleAdminReschedule(editDeliveryId!, newDate, reason); }}
           onDispatch={async () => { await handleMarkOutForDelivery(editDeliveryId!); }}
+          enableForceDispatch={enableForceDispatch}
         />
       )}
 

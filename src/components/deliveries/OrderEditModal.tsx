@@ -80,6 +80,13 @@ interface OrderEditModalProps {
   onResendSMS?: () => Promise<void>;
   onReschedule?: (newDate: Date, reason: string) => Promise<void>;
   onDispatch?: () => Promise<void>;
+  /**
+   * Operator override: show a "Push to Out for Delivery" button that bypasses
+   * picking-list confirmation and missing-GMD guards. Used by the Delivery
+   * Management page for client demos / urgent testing. Off by default so other
+   * portals (Admin, Logistics) keep their normal flow.
+   */
+  enableForceDispatch?: boolean;
 }
 
 export const OrderEditModal: React.FC<OrderEditModalProps> = ({
@@ -90,6 +97,7 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
   onResendSMS,
   onReschedule,
   onDispatch,
+  enableForceDispatch = false,
 }) => {
   const order: DeliveryOrder = useMemo(() => deliveryToManageOrder(delivery), [delivery]);
 
@@ -115,6 +123,7 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
   const [address, setAddress] = useState(delivery.address?.trim() ?? '');
   const [sendingSms, setSendingSms] = useState(false);
   const [dispatching, setDispatching] = useState(false);
+  const [forceDispatching, setForceDispatching] = useState(false);
   const [rescheduleDate, setRescheduleDate] = useState('');
   const [rescheduleReason, setRescheduleReason] = useState('');
 
@@ -445,6 +454,55 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
               Confirm Reschedule
             </button>
           </div>
+
+          {/* Force-dispatch ("Push to Out for Delivery") — operator override for
+              demos / urgent testing. Bypasses picking-list confirmation and
+              missing-GMD guards on the server. Visible only when the parent
+              opts in via enableForceDispatch and the order is not already
+              on-route or terminal. */}
+          {enableForceDispatch && !['out-for-delivery','out_for_delivery','in-transit','in_transit','in-progress','in_progress','delivered','completed','pod-completed','finished','delivered-with-installation','delivered-without-installation','cancelled','rejected','returned','failed'].includes(initialStatus) && (
+            <div className="rounded-lg border border-red-200 dark:border-red-800/40 bg-red-50 dark:bg-red-900/10 p-3">
+              <p className="mb-1 text-xs font-semibold text-red-700 dark:text-red-300">Push to Out for Delivery</p>
+              <p className="mb-2 text-[11px] text-red-600 dark:text-red-400">
+                Bypasses picking-list confirmation. Use only for testing or operator overrides — the customer will receive the standard "Out for delivery" SMS.
+              </p>
+              <button
+                type="button"
+                disabled={forceDispatching}
+                onClick={async () => {
+                  const ok = window.confirm(
+                    `Force-push this order to Out-For-Delivery now?\n\n${delivery.customer || 'Customer'} — PO ${delivery.poNumber || '—'}\n\nThis bypasses the picking-list confirmation and assigns today as the goods-movement date if not set.`
+                  );
+                  if (!ok) return;
+                  setForceDispatching(true);
+                  try {
+                    const resp = await api.post(`/deliveries/admin/${delivery.id}/force-dispatch`);
+                    if (resp.data && (resp.data as { ok?: boolean }).ok) {
+                      onSaved({
+                        status: 'out-for-delivery',
+                        notes: notes.trim() || undefined,
+                        address: address.trim() || undefined,
+                        phone: phone.trim() || undefined,
+                      });
+                      onClose();
+                    } else {
+                      const err = (resp.data as { error?: string })?.error ?? 'force_dispatch_failed';
+                      onToastError(err);
+                    }
+                  } catch (e: unknown) {
+                    const err = e as { response?: { data?: { error?: string } }; message?: string };
+                    onToastError(err?.response?.data?.error ?? err?.message ?? 'Failed to force-dispatch');
+                  } finally {
+                    setForceDispatching(false);
+                  }
+                }}
+                className="w-full py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold disabled:opacity-50 transition-colors"
+                title="Force-push this order to Out-For-Delivery"
+              >
+                {forceDispatching ? 'Pushing…' : '🚀 Push to Out for Delivery'}
+              </button>
+            </div>
+          )}
 
           {/* HIDDEN — Dispatch button hidden per business request. Kept for future use.
           {onDispatch && (
