@@ -142,7 +142,17 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
     'pickup-confirmed', 'pickup_confirmed',
     'out-for-delivery', 'in-transit', 'in-progress',
   ]);
-  const canSave = !saving && !(DISPATCH_STATUSES.has(apiStatus) && !hasGMD);
+  // Cancellation must carry an explicit reason — UI requirement matches the
+  // server-side guard in /deliveries/admin/:id/status that returns
+  // cancellation_reason_required when notes is empty.
+  const isCancelling =
+    apiStatus === 'cancelled' || apiStatus === 'canceled' || apiStatus === 'rejected';
+  const notesEmpty = notes.trim().length === 0;
+  const cancellationReasonMissing = isCancelling && notesEmpty;
+  const canSave =
+    !saving &&
+    !(DISPATCH_STATUSES.has(apiStatus) && !hasGMD) &&
+    !cancellationReasonMissing;
 
   useEffect(() => {
     const html = document.documentElement;
@@ -532,16 +542,32 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
 
           <div>
             <label htmlFor="edit-notes" className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
-              Notes (internal / customer-visible context)
+              Notes{isCancelling && <span className="ml-0.5 text-red-500" aria-hidden="true">*</span>}
+              <span className="ml-1 font-normal text-gray-400">
+                {isCancelling ? '(reason for cancellation — required)' : '(internal / customer-visible context)'}
+              </span>
             </label>
             <textarea
               id="edit-notes"
               rows={3}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Reschedule reason, cancellation note, special instructions…"
-              className="w-full resize-y rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#032145] dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+              placeholder={isCancelling
+                ? 'Please type the reason for cancelling this order…'
+                : 'Reschedule reason, cancellation note, special instructions…'}
+              aria-required={isCancelling}
+              aria-invalid={cancellationReasonMissing}
+              className={`w-full resize-y rounded-lg border bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 dark:bg-gray-900 dark:text-white ${
+                cancellationReasonMissing
+                  ? 'border-red-400 focus:ring-red-400 dark:border-red-500'
+                  : 'border-gray-200 focus:ring-[#032145] dark:border-gray-600'
+              }`}
             />
+            {cancellationReasonMissing && (
+              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                A cancellation reason is required before you can save.
+              </p>
+            )}
           </div>
         </div>
 
@@ -557,7 +583,8 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
             type="button"
             disabled={!canSave}
             onClick={() => void handleSave()}
-            className="flex-1 rounded-lg bg-[#032145] py-2 text-sm font-medium text-white hover:bg-[#021432] disabled:opacity-50"
+            title={cancellationReasonMissing ? 'Type a cancellation reason to enable Save' : undefined}
+            className="flex-1 rounded-lg bg-[#032145] py-2 text-sm font-medium text-white hover:bg-[#021432] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#032145]"
           >
             {saving ? 'Saving…' : 'Save changes'}
           </button>
