@@ -37,28 +37,37 @@ function isUnrecognizableAddressServer(address: unknown): boolean {
 // Optimized: uses select instead of include, server-side cache (30s fresh, 2min max)
 router.get('/deliveries', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
   try {
-    const data = await cache.getOrFetch('tracking:deliveries:v2', async () => {
+    const data = await cache.getOrFetch('tracking:deliveries:v3', async () => {
       let dbDeliveries: unknown[] = [];
       try {
         // Statuses permanently excluded (never shown on portal/manage tab).
         // 'rescheduled' is intentionally NOT here — rescheduled orders must
         // remain visible until the customer confirms a new date.
-        const ALWAYS_EXCLUDED = ['cancelled', 'returned'];
+        // 'cancelled' is also NOT here — cancelled orders must remain visible
+        // for a recency window so the Delivery Team can reorder them; see the
+        // CANCELLED_STATUSES branch below.
+        const ALWAYS_EXCLUDED = ['returned'];
         // Delivered-type statuses: excluded beyond 24 h unless POD is still missing.
         const DELIVERED_STATUSES = [
           'delivered', 'delivered-with-installation', 'delivered-without-installation',
           'completed', 'pod-completed', 'finished',
         ];
+        // Cancelled-side statuses: excluded after the recency window. Reorder
+        // workflow needs the row visible so admin/delivery team can re-issue it.
+        const CANCELLED_STATUSES = ['cancelled', 'canceled', 'rejected'];
         const cutoff24h = new Date(Date.now() - 86_400_000); // 24 hours ago
         // Include delivered-no-POD orders up to 30 days back so logistics staff
         // can see and action them even after the 24 h window closes.
         const cutoff30d = new Date(Date.now() - 30 * 86_400_000);
+        // Reorder window: keep cancelled orders visible for 3 days after the
+        // cancellation. Matches the "Completed" tab recency on the frontend.
+        const cutoff3d = new Date(Date.now() - 3 * 86_400_000);
 
         dbDeliveries = await prisma.delivery.findMany({
           where: {
             OR: [
               // All active (non-terminal) deliveries
-              { status: { notIn: [...ALWAYS_EXCLUDED, ...DELIVERED_STATUSES] } },
+              { status: { notIn: [...ALWAYS_EXCLUDED, ...DELIVERED_STATUSES, ...CANCELLED_STATUSES] } },
               // Recently delivered (last 24 h) — powers the "Delivered Today" dashboard card
               { status: { in: DELIVERED_STATUSES }, updatedAt: { gte: cutoff24h } },
               // Delivered WITHOUT any signature within last 30 days → must stay visible
@@ -71,6 +80,9 @@ router.get('/deliveries', authenticate, requireAnyRole('admin', 'delivery_team',
                 customerSignature: null,
                 updatedAt: { gte: cutoff30d },
               },
+              // Recently cancelled (last 3 days) — keeps the row in the table so
+              // delivery team can use the Re-order action on it.
+              { status: { in: CANCELLED_STATUSES }, updatedAt: { gte: cutoff3d } },
             ],
           },
           select: {

@@ -196,12 +196,17 @@ export function applyDeliveryListFilter(
     case 'out_for_delivery':
       return active.filter((d) => isOnRouteDeliveryListStatus((d.status || '').toLowerCase()));
     case 'delivered': {
-      // "Completed" view: delivered + cancelled orders within the last 3 days.
-      // Excludes returned/failed (those stay in their own bucket).
+      // "Completed" view: delivered + cancelled/rejected orders within the last
+      // 3 days. Cancelled rows must appear here so the Delivery Team can use
+      // the Re-order action. Excludes returned/failed (those stay separate).
+      const COMPLETED_OR_CANCELLED = new Set<string>([
+        ...COMPLETED_STATUSES,
+        'cancelled', 'canceled', 'rejected',
+      ]);
       const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
       const cutoff = Date.now() - THREE_DAYS_MS;
       return list.filter((d) => {
-        if (!COMPLETED_STATUSES.has((d.status || '').toLowerCase())) return false;
+        if (!COMPLETED_OR_CANCELLED.has((d.status || '').toLowerCase())) return false;
         // Apply 3-day recency window — fall back to "always show" when no date available
         const rec = d as unknown as Record<string, unknown>;
         const dateStr =
