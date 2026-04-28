@@ -391,17 +391,38 @@ export default function DeliveryManagementPage({
     }
   };
 
-  const handleExport = (format: 'xlsx' | 'csv' = 'xlsx'): void => {
+  /**
+   * Export the orders that the user is currently looking at — i.e. the subset
+   * of `deliveries` whose IDs match the filter state inside OrdersTable.
+   * The IDs are passed up by the Export button so the page doesn't need to
+   * duplicate the table's filter logic; whatever the table renders, the
+   * spreadsheet contains. With no IDs supplied (legacy callers) we keep the
+   * old "export everything" behaviour as a safe default.
+   */
+  const handleExport = (
+    filteredIds: string[] = [],
+    format: 'xlsx' | 'csv' = 'xlsx',
+  ): void => {
     if (deliveries.length === 0) {
       error('No deliveries to export');
       return;
     }
+    const subset = filteredIds.length > 0
+      ? (() => {
+          const idSet = new Set(filteredIds.map(String));
+          return deliveries.filter(d => idSet.has(String(d.id)));
+        })()
+      : deliveries;
+    if (subset.length === 0) {
+      error('No deliveries match the current filters — adjust filters before exporting.');
+      return;
+    }
     if (format === 'csv') {
-      exportAsCsv(deliveries);
-      success(`Exported ${deliveries.length} deliveries as CSV`);
+      exportAsCsv(subset);
+      success(`Exported ${subset.length} deliveries as CSV`);
     } else {
-      exportAsXlsx(deliveries);
-      success(`Exported ${deliveries.length} deliveries as Excel`);
+      exportAsXlsx(subset);
+      success(`Exported ${subset.length} deliveries as Excel`);
     }
   };
 

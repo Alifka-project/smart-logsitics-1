@@ -55,7 +55,14 @@ interface OrdersTableProps {
   onTrackDelivery?: (orderId: string) => void;
   onEditOrder: (orderId: string) => void;
   onMarkOutForDelivery?: (orderId: string) => Promise<void>;
-  onExport?: () => void;
+  /**
+   * Called when the user clicks the Export button. Receives the IDs of the
+   * orders currently visible after applying every filter (search, status tab,
+   * status dropdown, date range, priority-only, driver, today-only). The
+   * parent uses these IDs to subset its full delivery list before writing
+   * the .xlsx — so the downloaded file always matches what the user sees.
+   */
+  onExport?: (filteredIds: string[]) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
   sortBy: string;
@@ -783,7 +790,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
               {onExport && (
                 <button
                   type="button"
-                  onClick={onExport}
+                  onClick={() => onExport(filteredOrders.map(o => o.id))}
                   className="shrink-0 inline-flex items-center gap-1.5 px-3 py-[7px] rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors whitespace-nowrap"
                   title="Export to Excel"
                 >
@@ -796,7 +803,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
           {!enableDispatchFilters && onExport && (
             <button
               type="button"
-              onClick={onExport}
+              onClick={() => onExport(filteredOrders.map(o => o.id))}
               className="shrink-0 inline-flex items-center gap-1.5 px-3 py-[7px] rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors whitespace-nowrap"
               title="Export to Excel"
             >

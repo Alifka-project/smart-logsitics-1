@@ -26,7 +26,13 @@ interface ManageTabProps {
   onDuplicateFile: () => void;
   onToastError: (message: string) => void;
   onNotifySuccess: (title: string, message?: string) => void;
-  onExportDeliveries: () => void;
+  /**
+   * Forwarded to OrdersTable's Export button. Receives the IDs of the orders
+   * currently visible after the table's internal filters (search, status,
+   * date range, priority, driver, today-only) so the parent page can subset
+   * its full delivery list before writing the .xlsx.
+   */
+  onExportDeliveries: (filteredIds: string[]) => void;
   /** Logistics-only: toggle the priority flag */
   onTogglePriority?: (orderId: string, newIsPriority: boolean) => void;
   /** Logistics-only: driver capacity hint provider */

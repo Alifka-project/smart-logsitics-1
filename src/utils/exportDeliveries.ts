@@ -52,16 +52,14 @@ const STATUS_LABEL: Record<string, string> = {
   cancelled: 'Cancelled',
 };
 
-function priorityLabel(
-  p: 'normal' | 'high' | 'urgent' | undefined,
-  isPriority: boolean,
-): string {
-  // Manual priority flag from Admin / Delivery Team trumps the auto tier.
-  if (isPriority) return 'Urgent';
-  if (p === 'urgent') return 'Urgent';
-  if (p === 'high') return 'High';
-  if (p === 'normal') return 'Normal';
-  return '';
+// Priority in the UI is a binary, manually-set flag (metadata.isPriority):
+// either the order is flagged "Priority" by Admin / Delivery Team, or it
+// shows as "Normal". The numeric `priority` (1/2/3) from priorityCalculator
+// is internal distance-based routing data and is intentionally NOT surfaced
+// — see the warning comment in DeliveryCard.tsx. Mirroring the UI here so
+// the spreadsheet uses the same vocabulary the user sees on screen.
+function priorityLabel(isPriority: boolean): string {
+  return isPriority ? 'Priority' : 'Normal';
 }
 
 // ── Row mapping ──────────────────────────────────────────────────────────────
@@ -94,7 +92,7 @@ function deliveryToRow(d: Delivery, index: number): Record<string, string | numb
     'Qty': clean(o.qty),
     'Items': clean(o.product),
     'Status': STATUS_LABEL[o.status] ?? o.status,
-    'Priority': priorityLabel(o.priority, o.isPriority === true),
+    'Priority': priorityLabel(o.isPriority === true),
     'Order Type': clean(o.orderType),
     'Driver': clean(o.driverName),
     'Uploaded At': fmtDateTime(o.uploadedAt),
