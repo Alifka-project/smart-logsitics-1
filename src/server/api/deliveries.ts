@@ -2884,8 +2884,23 @@ router.post('/admin/:id/urgent-confirm-today', authenticate, requireAnyRole('adm
     }
 
     const todayIso = getDubaiTodayIso();
-    const orderItemCount = parseDeliveryItemCount(existing.items, existing.metadata);
-    const driverUsed = await getDriverItemCountForDate(prisma, assignment.driverId, todayIso, deliveryId);
+    const safeMeta = existing.metadata && typeof existing.metadata === 'object' && !Array.isArray(existing.metadata)
+      ? (JSON.parse(JSON.stringify(existing.metadata)) as Record<string, unknown>)
+      : null;
+
+    const orderItemCount = parseDeliveryItemCount(existing.items, safeMeta);
+    let driverUsed = 0;
+    try {
+      driverUsed = await getDriverItemCountForDate(prisma, assignment.driverId, todayIso, deliveryId);
+    } catch (capErr: unknown) {
+      const ce = capErr as { message?: string };
+      res.status(500).json({
+        error: 'capacity_check_failed',
+        message: 'Unable to validate truck capacity for this driver right now.',
+        detail: ce.message,
+      });
+      return;
+    }
 
     if (driverUsed + orderItemCount > TRUCK_MAX_ITEMS_PER_DAY) {
       res.status(400).json({
@@ -2900,8 +2915,8 @@ router.post('/admin/:id/urgent-confirm-today', authenticate, requireAnyRole('adm
     }
 
     const { start: todayStart } = dubaiDayRangeUtc(todayIso);
-    const prevMeta = existing.metadata && typeof existing.metadata === 'object'
-      ? (existing.metadata as Record<string, unknown>)
+    const prevMeta = existing.metadata && typeof existing.metadata === 'object' && !Array.isArray(existing.metadata)
+      ? (JSON.parse(JSON.stringify(existing.metadata)) as Record<string, unknown>)
       : {};
 
     const updated = await prisma.delivery.update({
@@ -2962,7 +2977,11 @@ router.post('/admin/:id/urgent-confirm-today', authenticate, requireAnyRole('adm
   } catch (err: unknown) {
     const e = err as { message?: string };
     console.error('[Deliveries] Urgent confirm today error:', e.message);
-    res.status(500).json({ error: 'urgent_confirm_failed', detail: e.message });
+    res.status(500).json({
+      error: 'urgent_confirm_failed',
+      message: e.message || 'Failed to mark urgent for today.',
+      detail: e.message,
+    });
   }
 });
 
