@@ -225,6 +225,17 @@ const useDeliveryStore = create<DeliveryStore>((set, get) => ({
         console.log(`[Store] First delivery ID: ${firstId} (${isUUID ? 'UUID ✓' : 'NOT UUID ✗'})`);
       }
 
+      // Carry-forward map of OSRM-derived per-delivery fields that the API
+      // never returns (computed in DriverPortal's routing effect). Without
+      // this, every 30s loadDeliveries poll wholesale-replaced the store and
+      // wiped plannedEta / staticEta / estimatedEta / distanceFromDriverKm,
+      // which is why the ETA chip on the order card disappeared briefly
+      // every refresh tick. Other portals (Admin, Delivery Team) do not set
+      // these fields, so the merge below is a no-op for them.
+      const prevById = new Map(
+        get().deliveries.map(d => [String(d.id), d as Record<string, unknown>]),
+      );
+
       const seenIds = new Set<string>();
       const deliveriesWithDistance: Delivery[] = [];
 
@@ -258,8 +269,38 @@ const useDeliveryStore = create<DeliveryStore>((set, get) => ({
           console.warn('[Store] This should not happen if data came from database!');
         }
 
+        // Carry forward OSRM-derived fields the API doesn't return so the
+        // ETA chips on the driver portal's order cards don't blank out on
+        // every poll tick. For other portals these fields are simply absent
+        // on both sides and the spread is a no-op.
+        const prev = prevById.get(finalId);
+        const carryOver = prev
+          ? {
+              plannedEta: prev['plannedEta'] as string | null | undefined,
+              staticEta: prev['staticEta'] as string | null | undefined,
+              estimatedEta: prev['estimatedEta'] as string | null | undefined,
+              distanceFromDriverKm: prev['distanceFromDriverKm'] as number | undefined,
+              routeIndex: prev['routeIndex'] as number | undefined,
+            }
+          : {};
+
         deliveriesWithDistance.push({
+          ...carryOver,
           ...delivery,
+          // If the API row already carried these fields, prefer them; otherwise
+          // fall back to the previously enriched values from the store.
+          plannedEta:
+            (delivery as Record<string, unknown>)['plannedEta'] as string | null | undefined
+            ?? carryOver.plannedEta ?? null,
+          staticEta:
+            (delivery as Record<string, unknown>)['staticEta'] as string | null | undefined
+            ?? carryOver.staticEta ?? null,
+          estimatedEta:
+            (delivery as Record<string, unknown>)['estimatedEta'] as string | null | undefined
+            ?? carryOver.estimatedEta ?? null,
+          distanceFromDriverKm:
+            (delivery as Record<string, unknown>)['distanceFromDriverKm'] as number | undefined
+            ?? carryOver.distanceFromDriverKm,
           id: finalId,
           lat: safeLat,
           lng: safeLng,
