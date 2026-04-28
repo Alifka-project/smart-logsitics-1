@@ -2834,8 +2834,8 @@ router.get('/:id/pod', authenticate, async (req: Request, res: Response): Promis
 // - enforces assigned-driver truck capacity for today
 router.post('/admin/:id/urgent-confirm-today', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
   const { id: deliveryId } = req.params as { id: string };
-  const { notes } = req.body as { notes?: string };
-  const reason = String(notes || '').trim();
+  const { urgentReason } = req.body as { urgentReason?: string };
+  const reason = String(urgentReason || '').trim();
 
   if (!reason) {
     res.status(400).json({

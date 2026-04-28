@@ -125,6 +125,7 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
   const [dispatching, setDispatching] = useState(false);
   const [forceDispatching, setForceDispatching] = useState(false);
   const [urgentConfirming, setUrgentConfirming] = useState(false);
+  const [urgentReason, setUrgentReason] = useState('');
   const [rescheduleDate, setRescheduleDate] = useState('');
   const [rescheduleReason, setRescheduleReason] = useState('');
 
@@ -472,25 +473,33 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
           <div className="rounded-lg border border-red-200 dark:border-red-800/40 bg-red-50 dark:bg-red-900/10 p-3 space-y-2">
             <p className="text-xs font-semibold text-red-700 dark:text-red-300">Urgent Delivery (Today)</p>
             <p className="text-[11px] text-red-600 dark:text-red-400">
-              Requires notes and available truck capacity. Status will be set to confirmed for today.
+              Requires urgent reason and available truck capacity. Status will be set to confirmed for today.
             </p>
+            <input
+              type="text"
+              value={urgentReason}
+              onChange={(e) => setUrgentReason(e.target.value)}
+              placeholder="Urgent reason (required)…"
+              className="w-full rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-red-400 dark:border-red-700 dark:bg-gray-900 dark:text-white"
+            />
             <button
               type="button"
-              disabled={urgentConfirming || notes.trim().length === 0}
+              disabled={urgentConfirming || urgentReason.trim().length === 0}
               onClick={async () => {
-                if (!notes.trim()) {
-                  onToastError('Please add notes/reason before marking urgent.');
+                const reason = urgentReason.trim();
+                if (!reason) {
+                  onToastError('Please type urgent reason before marking urgent.');
                   return;
                 }
                 setUrgentConfirming(true);
                 try {
                   const resp = await api.post(`/deliveries/admin/${delivery.id}/urgent-confirm-today`, {
-                    notes: notes.trim(),
+                    urgentReason: reason,
                   });
                   if (resp.data && (resp.data as { ok?: boolean }).ok) {
                     onSaved({
                       status: 'scheduled-confirmed',
-                      notes: notes.trim(),
+                      notes: reason,
                       address: address.trim() || undefined,
                       phone: phone.trim() || undefined,
                     });
