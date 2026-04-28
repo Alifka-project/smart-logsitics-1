@@ -101,6 +101,26 @@ function ensureAuth(): void {
 const WAREHOUSE_LOCATION: LatLng = { lat: 25.0053, lng: 55.0760 };
 
 /**
+ * Fields owned by the server / Zustand poll that must not be replaced by a stale
+ * stop row captured when the OSRM request started (common when /driver/deliveries
+ * promotes pickup-confirmed → out-for-delivery while routing is in flight).
+ */
+function authoritativeFieldsFromStore(inStore: Record<string, unknown> | undefined): Partial<Delivery> {
+  if (!inStore) return {};
+  const o: Partial<Delivery> = {};
+  if (typeof inStore.status === 'string' && inStore.status.trim() !== '') {
+    o.status = inStore.status as Delivery['status'];
+  }
+  if (inStore.confirmedDeliveryDate !== undefined) {
+    o.confirmedDeliveryDate = inStore.confirmedDeliveryDate as Delivery['confirmedDeliveryDate'];
+  }
+  if (inStore.goodsMovementDate !== undefined) {
+    o.goodsMovementDate = inStore.goodsMovementDate as Delivery['goodsMovementDate'];
+  }
+  return o;
+}
+
+/**
  * Distance from point P to the line segment connecting A and B, in meters.
  * Uses a cartesian projection in lat/lng space, valid for short segments at
  * moderate latitudes (Dubai is ~25°N — error stays well under 1% over the
@@ -202,6 +222,8 @@ export default function DriverPortal() {
   const watchIdRef = useRef<number | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isTrackingRef = useRef<boolean>(false);
+  /** Ignore stale responses when multiple loadDeliveries calls overlap (poll + event). */
+  const loadDeliveriesSeqRef = useRef<number>(0);
 
   // Tab management: Orders (map+list) and Messages
   const [activeTab, setActiveTab] = useState<string>('orders');
@@ -940,7 +962,8 @@ export default function DriverPortal() {
 
     const deliverySignature = deliveries.map(d => {
       const m = (d as unknown as { metadata?: Record<string, unknown> }).metadata ?? {};
-      return `${d.id}:${m.isPriority ? '1' : '0'}`;
+      const st = (d.status || '').toLowerCase();
+      return `${d.id}:${st}:${m.isPriority ? '1' : '0'}`;
     }).join('|');
     const originMovedKm = lastRouteOriginRef.current
       ? calculateDistance(origin.lat, origin.lng, lastRouteOriginRef.current.lat, lastRouteOriginRef.current.lng)
@@ -1019,7 +1042,16 @@ export default function DriverPortal() {
 
     if (routeLocations.length < 2) {
       setRoute(null);
-      const fallback = [...orderedWithCoords, ...withoutCoords] as EnrichedDelivery[];
+      const snap = useDeliveryStore.getState().deliveries;
+      const snapById = new Map(snap.map(d => [String(d.id), d as Record<string, unknown>]));
+      const fallback = [...orderedWithCoords, ...withoutCoords].map((d) => {
+        const st = snapById.get(String(d.id));
+        return {
+          ...(st ?? {}),
+          ...d,
+          ...authoritativeFieldsFromStore(st),
+        } as EnrichedDelivery;
+      });
       setOrderedDeliveries(fallback);
       const fbIds = new Set(fallback.map(d => d.id));
       const pickingNoDupes = pickingStageDeliveriesRef.current.filter(d => !fbIds.has(d.id));
@@ -1090,15 +1122,22 @@ export default function DriverPortal() {
           const staticComputedEta = new Date(
             staticBaseTime + cumulativeSeconds * 1000 + index * SERVICE_TIME_SEC * 1000
           ).toISOString();
+
+          const inStore = storeById.get(String(delivery.id));
+          const auth = authoritativeFieldsFromStore(inStore);
+          const rowForPlanning: Record<string, unknown> = {
+            ...(inStore ?? {}),
+            ...delivery,
+            ...auth,
+          };
           // Planned ETA: 08:00 Dubai on THIS delivery's own date + cumulative
           // drive time + service time per stop (queue position determines hour).
           const planned8amEta = new Date(
-            plannedBaseFor(delivery as unknown as Record<string, unknown>)
+            plannedBaseFor(rowForPlanning)
               + cumulativeSeconds * 1000
               + index * SERVICE_TIME_SEC * 1000
           ).toISOString();
 
-          const inStore = storeById.get(String(delivery.id));
           const persisted = persistedEtasRef.current[String(delivery.id)];
           // plannedEta: anchored to the delivery's own confirmedDeliveryDate at
           // 08:00 Dubai. Recomputed each route update so a reschedule (which
@@ -1115,6 +1154,7 @@ export default function DriverPortal() {
           return {
             ...(inStore ?? {}),
             ...delivery,
+            ...auth,
             routeIndex: index + 1,
             estimatedEta: computedEta,
             plannedEta: planned8amEta,
@@ -1123,12 +1163,18 @@ export default function DriverPortal() {
           };
         });
 
-        const trailing: EnrichedDelivery[] = withoutCoords.map((delivery, index) => ({
-          ...delivery,
-          routeIndex: enriched.length + index + 1,
-          estimatedEta: (delivery as EnrichedDelivery).eta || null,
-          distanceFromDriverKm: undefined
-        }));
+        const trailing: EnrichedDelivery[] = withoutCoords.map((delivery, index) => {
+          const inStore = storeById.get(String(delivery.id));
+          const auth = authoritativeFieldsFromStore(inStore);
+          return {
+            ...(inStore ?? {}),
+            ...delivery,
+            ...auth,
+            routeIndex: enriched.length + index + 1,
+            estimatedEta: (delivery as EnrichedDelivery).eta || null,
+            distanceFromDriverKm: undefined
+          };
+        });
 
         const final = [...enriched, ...trailing];
         setOrderedDeliveries(final);
@@ -1195,7 +1241,16 @@ export default function DriverPortal() {
         console.error('Failed to calculate driver route:', routeErr);
         setRoute(null);
         setRouteError('Routing unavailable');
-        const fallback = [...orderedWithCoords, ...withoutCoords] as EnrichedDelivery[];
+        const snap = useDeliveryStore.getState().deliveries;
+        const snapById = new Map(snap.map(d => [String(d.id), d as Record<string, unknown>]));
+        const fallback = [...orderedWithCoords, ...withoutCoords].map((d) => {
+          const st = snapById.get(String(d.id));
+          return {
+            ...(st ?? {}),
+            ...d,
+            ...authoritativeFieldsFromStore(st),
+          } as EnrichedDelivery;
+        });
         setOrderedDeliveries(fallback);
         const fbIds2 = new Set(fallback.map(d => d.id));
         const pickingNoDupes2 = pickingStageDeliveriesRef.current.filter(d => !fbIds2.has(d.id));
@@ -1230,6 +1285,7 @@ export default function DriverPortal() {
   };
 
   const loadDeliveries = async (): Promise<void> => {
+    const seq = ++loadDeliveriesSeqRef.current;
     setLoadingDeliveries(true);
     // Reset so routing effect recalculates from scratch on every fresh load (prevents stale route on re-login)
     lastRouteDeliveriesRef.current = '';
@@ -1239,6 +1295,8 @@ export default function DriverPortal() {
         api.get('/driver/deliveries'),
         api.get('/driver/deliveries/finished').catch(() => ({ data: { deliveries: [] } })),
       ]);
+      if (seq !== loadDeliveriesSeqRef.current) return;
+
       const activeDeliveries = (activeRes.data?.deliveries as Delivery[]) || [];
       const fetchedFinished = (finishedRes.data?.deliveries as Delivery[]) || [];
 
@@ -1280,9 +1338,13 @@ export default function DriverPortal() {
       console.log(`✓ Loaded ${activeDeliveries.length} active (${onRoute.length} on-route, ${confirmed.length} confirmed, ${pickingStageCount} picking-stage) + ${fetchedFinished.length} finished`);
     } catch (deliveryErr: unknown) {
       console.error('Failed to load deliveries:', deliveryErr);
-      setDeliveries([]);
+      if (seq === loadDeliveriesSeqRef.current) {
+        setDeliveries([]);
+      }
     } finally {
-      setLoadingDeliveries(false);
+      if (seq === loadDeliveriesSeqRef.current) {
+        setLoadingDeliveries(false);
+      }
     }
   };
 
