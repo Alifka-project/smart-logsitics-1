@@ -2826,6 +2826,146 @@ router.get('/:id/pod', authenticate, async (req: Request, res: Response): Promis
   }
 });
 
+// POST /api/admin/deliveries/:id/urgent-confirm-today
+// Ops urgent path from Update Status modal:
+// - mandatory notes
+// - keeps role split: marks order customer-confirmed for TODAY only
+// - does NOT post PGI / dispatch; logistics team continues normal GMD->PGI flow
+// - enforces assigned-driver truck capacity for today
+router.post('/admin/:id/urgent-confirm-today', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
+  const { id: deliveryId } = req.params as { id: string };
+  const { notes } = req.body as { notes?: string };
+  const reason = String(notes || '').trim();
+
+  if (!reason) {
+    res.status(400).json({
+      error: 'urgent_reason_required',
+      message: 'Urgent delivery reason is required.',
+    });
+    return;
+  }
+
+  try {
+    const existing = await prisma.delivery.findUnique({
+      where: { id: deliveryId },
+      select: {
+        id: true,
+        items: true,
+        metadata: true,
+        status: true,
+      },
+    }) as {
+      id: string;
+      items: string | null;
+      metadata: Record<string, unknown> | null;
+      status: string;
+    } | null;
+
+    if (!existing) {
+      res.status(404).json({ error: 'delivery_not_found' });
+      return;
+    }
+
+    const assignment = await prisma.deliveryAssignment.findFirst({
+      where: {
+        deliveryId,
+        status: { in: ['assigned', 'in_progress'] },
+      },
+      orderBy: { assignedAt: 'desc' },
+      select: { driverId: true },
+    }) as { driverId: string | null } | null;
+
+    if (!assignment?.driverId) {
+      res.status(400).json({
+        error: 'driver_assignment_required',
+        message: 'Truck capacity cannot be checked because no driver is assigned. Please allocate another order/driver first.',
+      });
+      return;
+    }
+
+    const todayIso = getDubaiTodayIso();
+    const orderItemCount = parseDeliveryItemCount(existing.items, existing.metadata);
+    const driverUsed = await getDriverItemCountForDate(prisma, assignment.driverId, todayIso, deliveryId);
+
+    if (driverUsed + orderItemCount > TRUCK_MAX_ITEMS_PER_DAY) {
+      res.status(400).json({
+        error: 'driver_capacity_exceeded',
+        message: `Truck is full capacity for today (${todayIso}). Please allocate another order.`,
+        driverUsed,
+        orderItemCount,
+        maxItems: TRUCK_MAX_ITEMS_PER_DAY,
+        remaining: Math.max(0, TRUCK_MAX_ITEMS_PER_DAY - driverUsed),
+      });
+      return;
+    }
+
+    const { start: todayStart } = dubaiDayRangeUtc(todayIso);
+    const prevMeta = existing.metadata && typeof existing.metadata === 'object'
+      ? (existing.metadata as Record<string, unknown>)
+      : {};
+
+    const updated = await prisma.delivery.update({
+      where: { id: deliveryId },
+      data: {
+        status: 'scheduled-confirmed',
+        confirmationStatus: 'confirmed',
+        customerConfirmedAt: new Date(),
+        confirmedDeliveryDate: todayStart,
+        deliveryNotes: reason,
+        conditionNotes: reason,
+        metadata: {
+          ...prevMeta,
+          urgentDelivery: true,
+          urgentReason: reason,
+          urgentAt: new Date().toISOString(),
+          urgentBy: req.user?.username || req.user?.email || req.user?.sub || 'ops',
+          previousStatus: existing.status,
+        },
+      },
+      select: {
+        id: true,
+        status: true,
+        confirmedDeliveryDate: true,
+      },
+    }) as { id: string; status: string; confirmedDeliveryDate: Date | null };
+
+    await prisma.deliveryEvent.create({
+      data: {
+        deliveryId,
+        eventType: 'admin_marked_urgent_today',
+        payload: {
+          previousStatus: existing.status,
+          newStatus: updated.status,
+          confirmedDeliveryDate: updated.confirmedDeliveryDate?.toISOString() ?? null,
+          urgentReason: reason,
+          driverId: assignment.driverId,
+          dateDubai: todayIso,
+        },
+        actorType: 'admin',
+        actorId: req.user?.sub || null,
+      },
+    }).catch(() => {});
+
+    cache.invalidatePrefix('tracking:');
+    cache.invalidatePrefix('dashboard:');
+    cache.invalidatePrefix('deliveries:list:v2');
+
+    res.json({
+      ok: true,
+      delivery: {
+        id: updated.id,
+        status: updated.status,
+        confirmedDeliveryDate: updated.confirmedDeliveryDate,
+        confirmedDeliveryDateDubai: todayIso,
+      },
+    });
+  } catch (err: unknown) {
+    const e = err as { message?: string };
+    console.error('[Deliveries] Urgent confirm today error:', e.message);
+    res.status(500).json({ error: 'urgent_confirm_failed', detail: e.message });
+  }
+});
+
 // PUT /api/admin/deliveries/:id/reschedule
 // Admin-initiated reschedule: validates new date capacity, re-assigns driver, notifies customer.
 // Status is set to scheduled-confirmed (not terminal) so the order stays visible and dispatchable.

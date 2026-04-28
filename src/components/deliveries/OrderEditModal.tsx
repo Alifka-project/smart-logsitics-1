@@ -124,6 +124,7 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
   const [sendingSms, setSendingSms] = useState(false);
   const [dispatching, setDispatching] = useState(false);
   const [forceDispatching, setForceDispatching] = useState(false);
+  const [urgentConfirming, setUrgentConfirming] = useState(false);
   const [rescheduleDate, setRescheduleDate] = useState('');
   const [rescheduleReason, setRescheduleReason] = useState('');
 
@@ -462,6 +463,56 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
               className="w-full py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold disabled:opacity-50 transition-colors"
             >
               Confirm Reschedule
+            </button>
+          </div>
+
+          {/* Urgent delivery (today): keeps role split intact.
+              This path only marks the order as customer-confirmed for today;
+              logistics team still owns PGI/GMD and downstream dispatch flow. */}
+          <div className="rounded-lg border border-red-200 dark:border-red-800/40 bg-red-50 dark:bg-red-900/10 p-3 space-y-2">
+            <p className="text-xs font-semibold text-red-700 dark:text-red-300">Urgent Delivery (Today)</p>
+            <p className="text-[11px] text-red-600 dark:text-red-400">
+              Requires notes and available truck capacity. Status will be set to confirmed for today.
+            </p>
+            <button
+              type="button"
+              disabled={urgentConfirming || notes.trim().length === 0}
+              onClick={async () => {
+                if (!notes.trim()) {
+                  onToastError('Please add notes/reason before marking urgent.');
+                  return;
+                }
+                setUrgentConfirming(true);
+                try {
+                  const resp = await api.post(`/deliveries/admin/${delivery.id}/urgent-confirm-today`, {
+                    notes: notes.trim(),
+                  });
+                  if (resp.data && (resp.data as { ok?: boolean }).ok) {
+                    onSaved({
+                      status: 'scheduled-confirmed',
+                      notes: notes.trim(),
+                      address: address.trim() || undefined,
+                      phone: phone.trim() || undefined,
+                    });
+                    onClose();
+                  } else {
+                    onToastError((resp.data as { error?: string })?.error ?? 'Failed to mark urgent.');
+                  }
+                } catch (e: unknown) {
+                  const err = e as { response?: { data?: { message?: string; error?: string } }; message?: string };
+                  onToastError(
+                    err.response?.data?.message ||
+                    err.response?.data?.error ||
+                    err.message ||
+                    'Failed to mark urgent.',
+                  );
+                } finally {
+                  setUrgentConfirming(false);
+                }
+              }}
+              className="w-full py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold disabled:opacity-50 transition-colors"
+            >
+              {urgentConfirming ? 'Applying urgent…' : 'Mark Urgent For Today'}
             </button>
           </div>
 
