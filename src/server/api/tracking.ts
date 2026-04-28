@@ -37,7 +37,12 @@ function isUnrecognizableAddressServer(address: unknown): boolean {
 // Optimized: uses select instead of include, server-side cache (30s fresh, 2min max)
 router.get('/deliveries', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
   try {
-    const data = await cache.getOrFetch('tracking:deliveries:v3', async () => {
+    // Bumped v3 -> v4 because the Prisma select gained two new columns
+    // (deliveredAt, podCompletedAt). The old v3 cached response would be
+    // missing them, which the Logistics dashboard's KPI loop needs to
+    // classify delivered orders as on-time vs late. Bumping forces a one-
+    // shot recompute so the new fields appear in cached responses too.
+    const data = await cache.getOrFetch('tracking:deliveries:v4', async () => {
       let dbDeliveries: unknown[] = [];
       try {
         // Statuses permanently excluded (never shown on portal/manage tab).
@@ -104,6 +109,13 @@ router.get('/deliveries', authenticate, requireAnyRole('admin', 'delivery_team',
             confirmedDeliveryDate: true,
             smsSentAt: true,
             goodsMovementDate: true,
+            // Actual completion timestamps — required by the Logistics
+            // dashboard KPI loop to classify delivered orders as on-time
+            // (completed before end-of-day of the promised date) vs late.
+            // Without these, every bucketed delivered order silently falls
+            // through to the "late" branch because completedTs is null.
+            deliveredAt: true,
+            podCompletedAt: true,
             deliveryNumber: true,
             // Driver comments (e.g. mandatory rejection reason) — needed by the
             // View Reason button on cancelled/rejected rows.
@@ -141,7 +153,9 @@ router.get('/deliveries', authenticate, requireAnyRole('admin', 'delivery_team',
         metadata: unknown; poNumber: string | null; createdAt: Date; updatedAt: Date;
         confirmationStatus: string | null; confirmationToken: string | null;
         customerConfirmedAt: Date | null; confirmedDeliveryDate: Date | null;
-        smsSentAt: Date | null; goodsMovementDate: Date | null; deliveryNumber: string | null;
+        smsSentAt: Date | null; goodsMovementDate: Date | null;
+        deliveredAt: Date | null; podCompletedAt: Date | null;
+        deliveryNumber: string | null;
         deliveryNotes: string | null; conditionNotes: string | null;
         driverSignature: string | null; customerSignature: string | null; photos: unknown;
         assignments: { driverId: string | null; status: string; assignedAt: Date | null; driver?: { fullName?: string } | null }[];
@@ -177,6 +191,8 @@ router.get('/deliveries', authenticate, requireAnyRole('admin', 'delivery_team',
           confirmedDeliveryDate: d.confirmedDeliveryDate,
           smsSentAt: d.smsSentAt,
           goodsMovementDate: d.goodsMovementDate,
+          deliveredAt: d.deliveredAt,
+          podCompletedAt: d.podCompletedAt,
           deliveryNumber: d.deliveryNumber,
           deliveryNotes: d.deliveryNotes,
           conditionNotes: d.conditionNotes,
