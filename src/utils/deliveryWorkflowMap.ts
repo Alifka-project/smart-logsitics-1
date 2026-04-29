@@ -299,6 +299,16 @@ export function deliveryToManageOrder(delivery: Delivery): DeliveryOrder {
     parseOptDate(rec.updated_at as string | Date | undefined) ??
     uploadedAt;
 
+  // pickupConfirmedAt — driver picking-confirm timestamp. Drives the ETD chip.
+  // Server writes `metadata.picking.confirmedAt` as ISO when the driver taps
+  // Confirm Picking List ([deliveries.ts picking-confirm endpoint]).
+  const pickingMeta = (meta.picking && typeof meta.picking === 'object')
+    ? (meta.picking as Record<string, unknown>)
+    : null;
+  const pickupConfirmedAt = pickingMeta
+    ? parseOptDate(pickingMeta.confirmedAt as string | Date | undefined)
+    : undefined;
+
   // hasPod — prefer the server-computed boolean returned by the tracking API (most accurate).
   // Fall back to local field checks when the server field is absent (e.g. non-tracking fetch).
   // Note: podCompletedAt is intentionally excluded — it is stamped automatically on ANY
@@ -345,6 +355,7 @@ export function deliveryToManageOrder(delivery: Delivery): DeliveryOrder {
     orderType: getOrderType(delivery),
     hasPod,
     statusChangedAt,
+    pickupConfirmedAt,
   };
 }
 

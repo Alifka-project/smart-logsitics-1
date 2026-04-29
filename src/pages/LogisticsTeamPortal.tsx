@@ -36,6 +36,7 @@ import type { DriverRoute } from '../services/advancedRoutingService';
 import useDeliveryStore from '../store/useDeliveryStore';
 import { deliveryToManageOrder } from '../utils/deliveryWorkflowMap';
 import { excludeTeamPortalGarbageDeliveries } from '../utils/deliveryListFilter';
+import { computeETD, formatEtdLabel } from '../utils/etd';
 
 import { getTodayIsoDubai, addCalendarDaysDubai, formatInstantToDubaiIsoDate } from '../utils/dubaiCalendarIso';
 
@@ -2190,6 +2191,19 @@ export default function LogisticsTeamPortal() {
                                     P1
                                   </span>
                                 )}
+                                {(() => {
+                                  // ETD chip — sits next to P1 / On Route per ops request.
+                                  const etd = computeETD(delivery);
+                                  if (!etd) return null;
+                                  return (
+                                    <span
+                                      className="text-[9px] font-bold uppercase px-1 py-0.5 rounded bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 flex-shrink-0 tabular-nums"
+                                      title="Departure from warehouse (driver pickup-confirmed)"
+                                    >
+                                      {formatEtdLabel(etd)}
+                                    </span>
+                                  );
+                                })()}
                                 {isSelected && (
                                   <span className="text-[9px] font-semibold px-1 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 flex-shrink-0">
                                     ● map

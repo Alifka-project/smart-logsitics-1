@@ -38,6 +38,7 @@ import type { DriverRoute } from '../services/advancedRoutingService';
 import useDeliveryStore from '../store/useDeliveryStore';
 import { deliveryToManageOrder } from '../utils/deliveryWorkflowMap';
 import { excludeTeamPortalGarbageDeliveries } from '../utils/deliveryListFilter';
+import { computeETD, formatEtdLabel } from '../utils/etd';
 import { getTodayIsoDubai, addCalendarDaysDubai, formatInstantToDubaiIsoDate } from '../utils/dubaiCalendarIso';
 import {
   displayCityForOps,
@@ -2573,6 +2574,18 @@ export default function DeliveryTeamPortal() {
                               {delivery.customer || 'Unknown Customer'}
                             </span>
                             {isPrio && <span className="text-[9px] font-bold uppercase px-1 py-0.5 rounded bg-red-600 text-white flex-shrink-0">P1</span>}
+                            {(() => {
+                              const etd = computeETD(delivery);
+                              if (!etd) return null;
+                              return (
+                                <span
+                                  className="text-[9px] font-bold uppercase px-1 py-0.5 rounded bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 flex-shrink-0 tabular-nums"
+                                  title="Departure from warehouse (driver pickup-confirmed)"
+                                >
+                                  {formatEtdLabel(etd)}
+                                </span>
+                              );
+                            })()}
                             {isSelected && <span className="text-[9px] font-semibold px-1 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 flex-shrink-0">● map</span>}
                           </div>
                           {delivery.poNumber && <p className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">PO: {delivery.poNumber}</p>}

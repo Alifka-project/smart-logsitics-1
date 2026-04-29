@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { MapPin, Package, Phone, Navigation, GripVertical, MessageCircle, Truck, BellRing, CheckCircle2 } from 'lucide-react';
+import { MapPin, Package, Phone, Navigation, GripVertical, MessageCircle, Truck, BellRing, CheckCircle2, Clock } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import api from '../../frontend/apiClient';
 import useDeliveryStore from '../../store/useDeliveryStore';
 import { getEtaStatus } from '../../utils/deliveryListFilter';
+import { computeETD, formatEtdLabel } from '../../utils/etd';
 import type { Delivery } from '../../types';
 
 interface DeliveryCardProps {
@@ -288,6 +289,23 @@ export default function DeliveryCard({
                 🚨 Priority
               </span>
             )}
+            {(() => {
+              // ETD chip — visible only after the driver confirms picking.
+              // Anchors at max(deliveryDay@08:00, picking.confirmedAt) so urgent
+              // same-day pickups display the actual departure time, while
+              // non-urgent rows show the morning baseline.
+              const etd = computeETD(delivery);
+              if (!etd) return null;
+              return (
+                <span
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
+                  title="Departure from warehouse (driver pickup-confirmed). Standard orders dispatch at 08:00 Dubai; urgent same-day orders depart at the picking-confirm moment."
+                >
+                  <Clock className="w-3 h-3" />
+                  {formatEtdLabel(etd)}
+                </span>
+              );
+            })()}
           </div>
 
           {(delivery.poNumber || delivery.metadata?.originalDeliveryNumber || (delivery as unknown as { _originalDeliveryNumber?: string })._originalDeliveryNumber) && (

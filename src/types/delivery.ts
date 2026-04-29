@@ -64,6 +64,11 @@ export interface DeliveryOrder {
   hasPod?: boolean;
   /** Timestamp of the last status change — used for time-based retention (e.g. cancelled 3 days, delivered+POD 2 days). */
   statusChangedAt?: Date;
+  /**
+   * Driver picking-confirm timestamp from `metadata.picking.confirmedAt`.
+   * Drives the ETD chip on the order list. Absent until the driver confirms picking.
+   */
+  pickupConfirmedAt?: Date;
 }
 
 /** Optional UI / reporting shape; persisted uploads use `UploadRecord` in the store. */

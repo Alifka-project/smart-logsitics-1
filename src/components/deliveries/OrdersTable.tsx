@@ -6,6 +6,7 @@ import { STATUS_CONFIG } from '../../config/statusColors';
 import { RescheduleModal } from './RescheduleModal';
 import PaginationBar from '../common/PaginationBar';
 import { rescheduleDateToWorkflow, classifyConfirmedDate } from '../../utils/deliveryWorkflowMap';
+import { computeETD, formatEtdLabel } from '../../utils/etd';
 import useDeliveryStore from '../../store/useDeliveryStore';
 
 // ── DateRangePicker is imported from components/common/DateRangePicker ──────────
@@ -1092,6 +1093,31 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                           DISPLAY_AS_CONFIRMED.has(order.status) ? 'confirmed' :
                           order.isRescheduled ? 'rescheduled' : order.status
                         } />
+                        {(() => {
+                          // ETD chip — sits below the status pill in the same cell.
+                          // Uses workflow status (string union) re-mapped to the delivery
+                          // status set computeETD knows; pickupConfirmedAt comes from the
+                          // workflow converter which reads metadata.picking.confirmedAt.
+                          const etd = computeETD({
+                            status: order.status,
+                            confirmedDeliveryDate: order.confirmedDeliveryDate ?? null,
+                            goodsMovementDate: order.goodsMovementDate ?? null,
+                            metadata: {
+                              picking: order.pickupConfirmedAt
+                                ? { confirmedAt: order.pickupConfirmedAt.toISOString() }
+                                : null,
+                            },
+                          });
+                          if (!etd) return null;
+                          return (
+                            <span
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 whitespace-nowrap tabular-nums"
+                              title="Departure from warehouse (driver pickup-confirmed)"
+                            >
+                              {formatEtdLabel(etd)}
+                            </span>
+                          );
+                        })()}
                         {isNoPod && (
                           <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border text-[10px] font-semibold bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-700/60 whitespace-nowrap">
                             ⚠ No POD
