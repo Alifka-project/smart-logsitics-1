@@ -31,6 +31,9 @@ export const ManageSidebar: React.FC<ManageSidebarProps> = ({
   hideUpload = false,
   showActionCards = false,
 }) => {
+  // When upload is hidden AND no action cards (Delivery Team Portal with tab-rail upload),
+  // the sidebar has no content — return null so the parent grid can go full-width.
+  if (hideUpload && !showActionCards) return null;
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
       if (acceptedFiles.length > 0) onFileUpload(acceptedFiles[0]);

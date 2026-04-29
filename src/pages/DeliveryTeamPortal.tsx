@@ -1077,7 +1077,7 @@ export default function DeliveryTeamPortal() {
       {activeTab === 'operations' && (
         <div className="space-y-4 md:space-y-6">
 
-          {/* ── Unified Stats Row ── */}
+          {/* ── Stats Row (70%) + Today's Summary (30%) side-by-side ── */}
           {(() => {
             const activeAll = deliveries.filter(d => !TERMINAL_STATUSES.has((d.status || '').toLowerCase()));
             const assignedActive = activeAll.filter(d => {
@@ -1122,39 +1122,80 @@ export default function DeliveryTeamPortal() {
             }).length;
             // Silence lint for unused helpers now that the card set changed.
             void assignedActive; void unassignedActive;
+
+            // Today's Summary data
+            const summaryTodayIso = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dubai' }).format(new Date());
+            const isTodayDelivery = (d: Delivery) => {
+              const ext = d as unknown as { confirmedDeliveryDate?: string | Date | null; scheduledDate?: string | Date | null; estimatedTime?: string | Date | null };
+              const raw = ext.confirmedDeliveryDate ?? (d as unknown as { metadata?: { scheduledDate?: string | Date | null } }).metadata?.scheduledDate ?? ext.estimatedTime;
+              if (!raw) return false;
+              const dt = typeof raw === 'string' ? new Date(raw) : raw instanceof Date ? raw : null;
+              if (!dt || isNaN(dt.getTime())) return false;
+              return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dubai' }).format(dt) === summaryTodayIso;
+            };
+            const SUMMARY_TERMINAL = new Set(['delivered', 'cancelled', 'failed']);
+            const summaryActive = deliveries.filter(d => !SUMMARY_TERMINAL.has((d.status || '').toLowerCase())).length;
+            const summaryScheduledToday = deliveries.filter(isTodayDelivery).length;
+            const summaryOfd = deliveries.filter(d => (d.status || '').toLowerCase() === 'out-for-delivery').length;
+            const summaryCompleted = deliveries.filter(d => SUMMARY_TERMINAL.has((d.status || '').toLowerCase())).length;
+
             return (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                {/* Electrolux 4-tone tier palette: slate (waiting on customer)
-                    → amber (action on us) → navy (in motion) → green (done). */}
-                <div className="pp-card p-4 text-center bg-slate-50 dark:bg-slate-800/40">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Pending</div>
-                  <div className="text-2xl font-bold text-slate-700 dark:text-slate-200">{pendingCount}</div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">awaiting customer</div>
+              <div className="grid grid-cols-1 lg:grid-cols-[7fr_3fr] gap-4 items-stretch">
+                {/* LEFT 70% — 6 stat cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 auto-rows-fr">
+                  {/* Electrolux 4-tone tier palette: slate (waiting on customer)
+                      → amber (action on us) → navy (in motion) → green (done). */}
+                  <div className="pp-card p-4 text-center bg-slate-50 dark:bg-slate-800/40">
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Pending</div>
+                    <div className="text-2xl font-bold text-slate-700 dark:text-slate-200">{pendingCount}</div>
+                    <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">awaiting customer</div>
+                  </div>
+                  <div className="pp-card p-4 text-center bg-amber-50 dark:bg-amber-900/20">
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Confirmed</div>
+                    <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{confirmedCount}</div>
+                    <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">ready for PGI</div>
+                  </div>
+                  <div className="pp-card p-4 text-center bg-amber-50 dark:bg-amber-900/20">
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">PGI Done</div>
+                    <div className="text-2xl font-bold text-amber-700 dark:text-amber-300">{pgiDoneTeamCount}</div>
+                    <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">awaiting driver pick</div>
+                  </div>
+                  <div className="pp-card p-4 text-center bg-[#032145]/8 dark:bg-blue-900/20">
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Pickup Confirmed</div>
+                    <div className="text-2xl font-bold text-[#032145] dark:text-blue-200">{readyToDepartTeamCount}</div>
+                    <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">item collected</div>
+                  </div>
+                  <div className="pp-card p-4 text-center bg-[#032145]/8 dark:bg-blue-900/20">
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">On Route</div>
+                    <div className="text-2xl font-bold text-[#032145] dark:text-blue-200">{ofd.length}</div>
+                    <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">out for delivery</div>
+                  </div>
+                  <div className="pp-card p-4 text-center bg-green-50 dark:bg-green-900/20">
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Delivered Today</div>
+                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">{deliveredToday}</div>
+                    <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">completed today</div>
+                  </div>
                 </div>
-                <div className="pp-card p-4 text-center bg-amber-50 dark:bg-amber-900/20">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Confirmed</div>
-                  <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{confirmedCount}</div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">ready for PGI</div>
-                </div>
-                <div className="pp-card p-4 text-center bg-amber-50 dark:bg-amber-900/20">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">PGI Done</div>
-                  <div className="text-2xl font-bold text-amber-700 dark:text-amber-300">{pgiDoneTeamCount}</div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">awaiting driver pick</div>
-                </div>
-                <div className="pp-card p-4 text-center bg-[#032145]/8 dark:bg-blue-900/20">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Pickup Confirmed</div>
-                  <div className="text-2xl font-bold text-[#032145] dark:text-blue-200">{readyToDepartTeamCount}</div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">item collected</div>
-                </div>
-                <div className="pp-card p-4 text-center bg-[#032145]/8 dark:bg-blue-900/20">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">On Route</div>
-                  <div className="text-2xl font-bold text-[#032145] dark:text-blue-200">{ofd.length}</div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">out for delivery</div>
-                </div>
-                <div className="pp-card p-4 text-center bg-green-50 dark:bg-green-900/20">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Delivered Today</div>
-                  <div className="text-2xl font-bold text-green-600 dark:text-green-400">{deliveredToday}</div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">completed today</div>
+
+                {/* RIGHT 30% — Today's Summary */}
+                <div className="pp-card p-4 sm:p-5 flex flex-col">
+                  <div className="mb-3 flex items-center gap-2">
+                    <span className="text-base" aria-hidden>📅</span>
+                    <h2 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Today's Summary</h2>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 flex-1 auto-rows-fr">
+                    {([
+                      { count: summaryActive,          label: 'Active Orders',    color: 'text-blue-600 dark:text-blue-400',       bg: 'bg-blue-50 dark:bg-blue-900/20',       border: 'border-blue-100 dark:border-blue-800/30' },
+                      { count: summaryScheduledToday,  label: 'Due Today',        color: 'text-amber-600 dark:text-amber-400',     bg: 'bg-amber-50 dark:bg-amber-900/20',     border: 'border-amber-100 dark:border-amber-800/30' },
+                      { count: summaryOfd,             label: 'Out for Delivery', color: 'text-teal-600 dark:text-teal-400',       bg: 'bg-teal-50 dark:bg-teal-900/20',       border: 'border-teal-100 dark:border-teal-800/30' },
+                      { count: summaryCompleted,       label: 'Completed',        color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-100 dark:border-emerald-800/30' },
+                    ] as { count: number; label: string; color: string; bg: string; border: string }[]).map(({ count, label, color, bg, border }) => (
+                      <div key={label} className={`flex flex-col items-center justify-center rounded-xl border p-3 ${bg} ${border}`}>
+                        <span className={`text-xl font-bold ${color}`}>{count}</span>
+                        <span className={`mt-0.5 text-center text-xs font-semibold leading-tight ${color}`}>{label}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             );
@@ -2682,6 +2723,7 @@ export default function DeliveryTeamPortal() {
             showMaterialColumn
             showQtyColumn
             simpleDriverDisplay
+            showTabRailUpload
             onTogglePriority={async (orderId, newIsPriority) => {
               try {
                 await api.put(`/deliveries/admin/${orderId}/priority`, { isPriority: newIsPriority });

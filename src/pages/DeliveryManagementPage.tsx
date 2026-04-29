@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Database, MapPin, Zap, List, ClipboardList, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { Database, MapPin, Zap, List, ClipboardList, RefreshCw, Upload, HelpCircle, X } from 'lucide-react';
 import DeliveryTable from '../components/DeliveryList/DeliveryTable';
 import CustomerModal from '../components/CustomerDetails/CustomerModal';
 import ManageTab from '../components/deliveries/ManageTab';
@@ -107,6 +107,12 @@ interface DeliveryManagementPageProps {
   showQtyColumn?: boolean;
   /** Delivery Team Portal: show plain driver name only in Driver column (no icon/dropdown) */
   simpleDriverDisplay?: boolean;
+  /** When true, show Upload Excel + How to Use buttons on the right side of the tab rail */
+  showTabRailUpload?: boolean;
+  /** Called when a file is selected via the tab-rail Upload Excel button */
+  onTabRailFileSelected?: (file: File) => void;
+  /** Whether a file upload is currently in progress (disables the Upload button) */
+  tabRailUploading?: boolean;
 }
 
 export default function DeliveryManagementPage({
@@ -128,6 +134,9 @@ export default function DeliveryManagementPage({
   showMaterialColumn = false,
   showQtyColumn = false,
   simpleDriverDisplay = false,
+  showTabRailUpload = false,
+  onTabRailFileSelected,
+  tabRailUploading = false,
 }: DeliveryManagementPageProps) {
   const deliveries = useDeliveryStore((state) => state.deliveries ?? []);
   const deliveryListFilter = useDeliveryStore((state) => state.deliveryListFilter ?? 'all');
@@ -139,6 +148,17 @@ export default function DeliveryManagementPage({
   /** Embedded team portals: sequence + map only on-route — not new uploads awaiting customer. */
   const onRouteSequenceOnly = excludeGarbageUploadRows;
   const [activeTab, setActiveTab] = useState<string>(hideManageTab ? 'deliveries' : 'manage');
+
+  // Tab-rail upload button state
+  const tabRailFileInputRef = useRef<HTMLInputElement>(null);
+  const [showHowToUse, setShowHowToUse] = useState(false);
+  const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null);
+
+  // Bridge: when parent's onTabRailFileSelected fires, store the file so ManageTab can pick it up
+  const handleTabRailFile = useCallback((file: File) => {
+    setPendingUploadFile(file);
+    onTabRailFileSelected?.(file);
+  }, [onTabRailFileSelected]);
 
   // When a Needs Attention card sets a filter, switch to the manage sub-tab so the OrdersTable shows
   useEffect(() => {
@@ -491,30 +511,109 @@ export default function DeliveryManagementPage({
             : 'pp-sticky-tab-rail mb-4 mt-4 rounded-2xl border border-gray-200/60 bg-gray-100/80 p-1.5 dark:border-white/[0.07] dark:bg-white/[0.06] md:mb-6 md:mt-6'
         }
       >
-        <nav className="flex flex-nowrap gap-1 overflow-x-auto pb-1">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => {
-                  setActiveTab(tab.id);
-                  onTabChange?.(tab.id);
-                  if (tab.id === 'deliveries' && displayDeliveries.length > 0) {
-                    void loadRoute();
-                  }
+        <nav className="flex flex-nowrap items-center gap-1 overflow-x-auto pb-1">
+          <div className="flex flex-nowrap gap-1">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    onTabChange?.(tab.id);
+                    if (tab.id === 'deliveries' && displayDeliveries.length > 0) {
+                      void loadRoute();
+                    }
+                  }}
+                  className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap rounded-xl min-h-[44px] touch-manipulation transition-all ${
+                    activeTab === tab.id
+                      ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-white/60 dark:hover:bg-slate-700/50'
+                  }`}
+                >
+                  <Icon className="w-5 h-5" />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Upload Excel + How to Use — Delivery Team Portal only */}
+          {showTabRailUpload && (
+            <div className="ml-auto flex flex-nowrap items-center gap-1.5 pl-2">
+              <input
+                ref={tabRailFileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleTabRailFile(file);
+                  e.target.value = '';
                 }}
-                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap rounded-xl min-h-[44px] touch-manipulation transition-all ${
-                  activeTab === tab.id
-                    ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-white/60 dark:hover:bg-slate-700/50'
+              />
+              <button
+                type="button"
+                onClick={() => tabRailFileInputRef.current?.click()}
+                disabled={tabRailUploading}
+                className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-medium whitespace-nowrap min-h-[44px] touch-manipulation transition-all ${
+                  tabRailUploading
+                    ? 'opacity-50 pointer-events-none bg-gray-200 dark:bg-gray-700 text-gray-400'
+                    : 'bg-[#032145] text-white hover:bg-[#021432] shadow-sm'
                 }`}
               >
-                <Icon className="w-5 h-5" />
-                {tab.label}
+                <Upload className="w-4 h-4" />
+                {tabRailUploading ? 'Uploading...' : 'Upload Excel'}
               </button>
-            );
-          })}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowHowToUse((v) => !v)}
+                  className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium whitespace-nowrap min-h-[44px] touch-manipulation transition-all ${
+                    showHowToUse
+                      ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-white/60 dark:hover:bg-slate-700/50'
+                  }`}
+                >
+                  <HelpCircle className="w-4 h-4" />
+                  How to Use
+                </button>
+                {showHowToUse && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowHowToUse(false)} />
+                    <div className="absolute right-0 top-full mt-2 z-50 w-72 rounded-xl bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700 p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold text-sm text-gray-900 dark:text-white">How to Use</h3>
+                        <button
+                          type="button"
+                          onClick={() => setShowHowToUse(false)}
+                          className="p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <div className="space-y-3">
+                        {[
+                          { num: 1, text: 'Upload Excel with orders',        color: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300' },
+                          { num: 2, text: 'System sends SMS to customer',    color: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300' },
+                          { num: 3, text: 'Customer confirms delivery date', color: 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300' },
+                          { num: 4, text: 'Assign driver & set GMD date',   color: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300' },
+                          { num: 5, text: 'Driver delivers & submits POD',   color: 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300' },
+                        ].map((step) => (
+                          <div key={step.num} className="flex items-center gap-2">
+                            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${step.color}`}>
+                              {step.num}
+                            </span>
+                            <span className="text-xs text-gray-600 dark:text-gray-300">{step.text}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
         </nav>
       </div>
       )}
@@ -524,7 +623,7 @@ export default function DeliveryManagementPage({
         <ManageTab
           compactVerticalSpacing={hidePageTitle}
           excludeGarbageDeliveries={effectiveExcludeGarbage}
-          hideUpload={hideUpload}
+          hideUpload={hideUpload || showTabRailUpload}
           onSwitchToDeliveriesTab={() => setActiveTab('deliveries')}
           onUploadSuccess={handleFileSuccess}
           onUploadError={handleFileError}
@@ -545,6 +644,8 @@ export default function DeliveryManagementPage({
           showQtyColumn={showQtyColumn}
           simpleDriverDisplay={simpleDriverDisplay}
           enableForceDispatch={true}
+          pendingUploadFile={pendingUploadFile}
+          clearPendingUploadFile={() => setPendingUploadFile(null)}
         />
       )}
 

@@ -64,6 +64,10 @@ interface ManageTabProps {
    * client demos. Forwarded as-is to <OrderEditModal>.
    */
   enableForceDispatch?: boolean;
+  /** File from the tab-rail Upload Excel button (set by DeliveryManagementPage) */
+  pendingUploadFile?: File | null;
+  /** Called after processing the pending file so the parent can reset its state */
+  clearPendingUploadFile?: () => void;
 }
 
 
@@ -87,6 +91,8 @@ export default function ManageTab({
   showQtyColumn = false,
   simpleDriverDisplay = false,
   enableForceDispatch = false,
+  pendingUploadFile,
+  clearPendingUploadFile,
 }: ManageTabProps) {
   const fileUploadRef = useRef<FileUploadHandle>(null);
   const pendingHashes = useRef<Set<string>>(new Set());
@@ -215,6 +221,14 @@ export default function ManageTab({
     },
     [isFileAlreadyUploaded, onDuplicateFile, onToastError],
   );
+
+  // Process a file passed from the tab-rail Upload Excel button
+  useEffect(() => {
+    if (pendingUploadFile) {
+      void handleFileUpload(pendingUploadFile);
+      clearPendingUploadFile?.();
+    }
+  }, [pendingUploadFile]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleStatusChange = useCallback(
     (orderId: string, newStatus: DeliveryStatus, scheduledDate?: Date) => {
@@ -430,47 +444,55 @@ export default function ManageTab({
         />
       </div>
 
-      <div className="manage-delivery-layout grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,85fr)_minmax(0,15fr)] lg:items-start">
-        <div ref={ordersTableRef} className="min-w-0">
-          <OrdersTable
-            orders={manageOrders}
-            tableTab={tableTab}
-            onTableTabChange={handleTableTabChange}
-            onStatusChange={handleStatusChange}
-            onAdminReschedule={(id, d, r) => void handleAdminReschedule(id, d, r)}
-            onResendSMS={(id) => void handleResendSMS(id)}
-            onCallCustomer={handleCallCustomer}
-            onTrackDelivery={() => handleTrackDelivery()}
-            onEditOrder={(id) => setEditDeliveryId(id)}
-            onUploadPod={(id) => setPodDeliveryId(id)}
-            onMarkOutForDelivery={handleMarkOutForDelivery}
-            onExport={onExportDeliveries}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            sortBy={sortBy}
-            onSortChange={setSortBy}
-            drivers={drivers}
-            onAssignDriver={(id, dId) => void handleAssignDriver(id, dId)}
-            onTogglePriority={onTogglePriority}
-            getDriverCapacity={getDriverCapacity}
-            enableDispatchFilters={enableDispatchFilters}
-            onRefresh={handleRefresh}
-            showMaterialColumn={showMaterialColumn}
-            showQtyColumn={showQtyColumn}
-            simpleDriverDisplay={simpleDriverDisplay}
-            onReorder={(id) => void handleReorder(id)}
-          />
-        </div>
-        <div className="min-w-0 w-full lg:sticky lg:top-4 lg:self-start">
-          <ManageSidebar
-            orders={manageOrders}
-            onFileUpload={(f) => void handleFileUpload(f)}
-            isUploading={isUploading}
-            hideUpload={hideUpload}
-            showActionCards={showActionCards ?? enableDispatchFilters}
-          />
-        </div>
-      </div>
+      {(() => {
+        const effectiveShowActionCards = showActionCards ?? enableDispatchFilters;
+        const sidebarHasContent = !hideUpload || effectiveShowActionCards;
+        return (
+          <div className={`manage-delivery-layout grid grid-cols-1 gap-6 ${sidebarHasContent ? 'lg:grid-cols-[minmax(0,85fr)_minmax(0,15fr)]' : ''} lg:items-start`}>
+            <div ref={ordersTableRef} className="min-w-0">
+              <OrdersTable
+                orders={manageOrders}
+                tableTab={tableTab}
+                onTableTabChange={handleTableTabChange}
+                onStatusChange={handleStatusChange}
+                onAdminReschedule={(id, d, r) => void handleAdminReschedule(id, d, r)}
+                onResendSMS={(id) => void handleResendSMS(id)}
+                onCallCustomer={handleCallCustomer}
+                onTrackDelivery={() => handleTrackDelivery()}
+                onEditOrder={(id) => setEditDeliveryId(id)}
+                onUploadPod={(id) => setPodDeliveryId(id)}
+                onMarkOutForDelivery={handleMarkOutForDelivery}
+                onExport={onExportDeliveries}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                sortBy={sortBy}
+                onSortChange={setSortBy}
+                drivers={drivers}
+                onAssignDriver={(id, dId) => void handleAssignDriver(id, dId)}
+                onTogglePriority={onTogglePriority}
+                getDriverCapacity={getDriverCapacity}
+                enableDispatchFilters={enableDispatchFilters}
+                onRefresh={handleRefresh}
+                showMaterialColumn={showMaterialColumn}
+                showQtyColumn={showQtyColumn}
+                simpleDriverDisplay={simpleDriverDisplay}
+                onReorder={(id) => void handleReorder(id)}
+              />
+            </div>
+            {sidebarHasContent && (
+              <div className="min-w-0 w-full lg:sticky lg:top-4 lg:self-start">
+                <ManageSidebar
+                  orders={manageOrders}
+                  onFileUpload={(f) => void handleFileUpload(f)}
+                  isUploading={isUploading}
+                  hideUpload={hideUpload}
+                  showActionCards={effectiveShowActionCards}
+                />
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {editingDelivery && (
         <OrderEditModal
