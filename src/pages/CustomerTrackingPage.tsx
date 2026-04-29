@@ -531,9 +531,56 @@ export default function CustomerTrackingPage() {
       month: 'short',
     });
   };
+  /**
+   * Build the UTC instant for HH:00 Dubai on the calendar day represented by `raw`.
+   * Reads Y/M/D in Dubai timezone so a confirmedDeliveryDate stored as
+   * 2026-04-29T20:00:00Z (= 30 Apr Dubai) yields 30 Apr, not 29.
+   * UAE has no DST so 08:00 Dubai is always 04:00 UTC, etc.
+   */
+  const dubaiAtHour = (raw: Date | string, hour: number): Date | null => {
+    const d = raw instanceof Date ? raw : new Date(raw);
+    if (Number.isNaN(d.getTime())) return null;
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Dubai',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(d).split('-');
+    const y = Number(parts[0]);
+    const m = Number(parts[1]) - 1;
+    const day = Number(parts[2]);
+    return new Date(Date.UTC(y, m, day, hour - 4, 0, 0, 0));
+  };
+
+  // Customer-facing delivery window for the order_scheduled step. Ops policy
+  // is to show every confirmed-but-not-yet-dispatched customer a flat
+  // 12:00–21:00 window on their delivery date, regardless of where the order
+  // sits in the route queue. This replaces the per-stop cumulative window
+  // returned by plannedEtaService for this step ONLY — out_for_delivery and
+  // later steps still use the live / static ETA the server provides.
+  const SCHEDULED_WINDOW_START_H = 12;
+  const SCHEDULED_WINDOW_END_H = 21;
+  const ORDER_SCHEDULED_STEP = 1;
+
   const etaRangeText: string | null = (() => {
     const payload = trackingInfo.etaPayload;
     if (!payload || payload.mode === 'pending') return null;
+
+    // Order-scheduled override: hardcoded delivery window on the customer's
+    // confirmedDeliveryDate. Falls back to payload.center's date for the
+    // edge case where confirmedDeliveryDate is missing but the server still
+    // produced a planned payload (rare but possible).
+    if (currentStep === ORDER_SCHEDULED_STEP) {
+      const dateAnchor: Date | null = delivery.confirmedDeliveryDate
+        ? new Date(delivery.confirmedDeliveryDate)
+        : (payload.mode === 'planned' ? new Date(payload.center) : null);
+      if (dateAnchor && !Number.isNaN(dateAnchor.getTime())) {
+        const start = dubaiAtHour(dateAnchor, SCHEDULED_WINDOW_START_H);
+        const end = dubaiAtHour(dateAnchor, SCHEDULED_WINDOW_END_H);
+        if (start && end) {
+          return `${fmtEtaDateLabel(start)}, ${fmtEtaTime(start)} – ${fmtEtaTime(end)}`;
+        }
+      }
+    }
+
     if (payload.mode === 'planned') {
       const base = new Date(payload.center);
       const end = new Date(base.getTime() + 4 * 60 * 60 * 1000);
@@ -800,7 +847,12 @@ export default function CustomerTrackingPage() {
             const ITEMS_ARRIVED_STEP = 3;
             if (currentStep >= ITEMS_ARRIVED_STEP) return null;
             if (!etaRangeText) return null;
-            const isDegraded = payload.mode === 'planned' && payload.degraded;
+            // Hide the "Will narrow once your driver is assigned" hint when the
+            // window is the fixed 12:00–21:00 ops policy — the window doesn't
+            // narrow as the driver advances, so the hint is misleading.
+            const isDegraded = payload.mode === 'planned'
+              && payload.degraded
+              && currentStep !== ORDER_SCHEDULED_STEP;
             return (
               <div className="card anim-card anim-card-3" style={{ padding: '10px 12px', border: '1.5px solid #BBF7D0', background: 'linear-gradient(135deg,#F0FDF4,#DCFCE7)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
