@@ -56,13 +56,15 @@ export function nextDeliveryDayOffset(): number {
 
 /**
  * Classify a confirmedDeliveryDate relative to Dubai "today" into a shipment tier.
- * - 'next'   : Exactly tomorrow → Next Shipment
- * - 'future' : 2+ days out → Future Schedule
+ * - 'same_day' : Today → Urgent Delivery
+ * - 'next'     : Exactly tomorrow → Next Shipment
+ * - 'future'   : 2+ days out → Future Schedule
  */
-export function classifyConfirmedDate(date: Date): 'next' | 'future' {
+export function classifyConfirmedDate(date: Date): 'same_day' | 'next' | 'future' {
   const diffDays = calDiffFromTodayDubai(date);
-  if (diffDays === 1) return 'next'; // Tomorrow only → Next Shipment
-  return 'future';                   // 2+ days out → Future Schedule
+  if (diffDays === 0) return 'same_day'; // Today → Urgent Delivery
+  if (diffDays === 1) return 'next';     // Tomorrow → Next Shipment
+  return 'future';                       // 2+ days out → Future Schedule
 }
 
 function priorityFromDelivery(d: Delivery): 'normal' | 'high' | 'urgent' | undefined {
@@ -130,7 +132,7 @@ function deriveWorkflowStatus(d: Delivery, smsSentAt: Date | undefined): Deliver
       // column itself (pgi-done → pickup-confirmed → out-for-delivery).
       if (hasGMD(d)) return 'pgi_done';
       const tier = classifyConfirmedDate(confirmedDate);
-      if (tier === 'next') return 'next_shipment';
+      if (tier === 'same_day' || tier === 'next') return 'next_shipment';
       return 'future_schedule';
     }
     // No date set → still waiting for a new date to be picked.
@@ -190,7 +192,7 @@ function deriveWorkflowStatus(d: Delivery, smsSentAt: Date | undefined): Deliver
       // date=today — that was the old collapsed flow.
       if (hasGMD(d)) return 'pgi_done';
       const tier = classifyConfirmedDate(confirmedDate);
-      if (tier === 'next') return 'next_shipment';
+      if (tier === 'same_day' || tier === 'next') return 'next_shipment';
       return 'future_schedule';
     }
 
@@ -206,7 +208,7 @@ function deriveWorkflowStatus(d: Delivery, smsSentAt: Date | undefined): Deliver
       // picking list and click Start Delivery for the order to move on-route.
       if (hasGMD(d)) return 'pgi_done';
       const tier = classifyConfirmedDate(target);
-      if (tier === 'next') return 'next_shipment';
+      if (tier === 'same_day' || tier === 'next') return 'next_shipment';
       if (tier === 'future') return 'future_schedule';
     }
     return 'confirmed'; // no date info — generic confirmed

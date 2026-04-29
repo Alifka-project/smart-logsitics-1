@@ -47,7 +47,8 @@ export const StatusMetricCards: React.FC<StatusMetricCardsProps> = ({ orders, on
     next_shipment: orders.filter((o) => {
       if (SHIPMENT_CARD_EXCLUDED.has(o.status)) return false;
       if (!o.confirmedDeliveryDate) return false;
-      return classifyConfirmedDate(o.confirmedDeliveryDate) === 'next';
+      const tier = classifyConfirmedDate(o.confirmedDeliveryDate);
+      return tier === 'same_day' || tier === 'next';
     }).length,
     future_schedule: orders.filter((o) => {
       if (SHIPMENT_CARD_EXCLUDED.has(o.status)) return false;

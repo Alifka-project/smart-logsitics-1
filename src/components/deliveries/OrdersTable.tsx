@@ -6,7 +6,7 @@ import { STATUS_CONFIG } from '../../config/statusColors';
 import { RescheduleModal } from './RescheduleModal';
 import PaginationBar from '../common/PaginationBar';
 import { rescheduleDateToWorkflow, classifyConfirmedDate } from '../../utils/deliveryWorkflowMap';
-import { computeETD, formatEtdLabel } from '../../utils/etd';
+
 import useDeliveryStore from '../../store/useDeliveryStore';
 
 // ── DateRangePicker is imported from components/common/DateRangePicker ──────────
@@ -242,19 +242,33 @@ const NEXT_STEP_CONFIG: Partial<Record<DeliveryStatus | 'terminal_delivered' | '
 };
 
 /** Non-clickable indicator pill(s) showing the recommended next action for this order */
-function NextStepBadge({ status }: { status: DeliveryStatus }): React.ReactElement | null {
+function NextStepBadge({ status, confirmedDeliveryDate }: { status: DeliveryStatus; confirmedDeliveryDate?: Date | null }): React.ReactElement | null {
   const cfg = NEXT_STEP_CONFIG[status];
   if (!cfg) return null;
+
+  // Same-day next_shipment orders → show "Urgent Delivery" instead of "Next Shipment"
+  let label = cfg.label;
+  let icon = cfg.icon;
+  let cls = cfg.cls;
+  if (status === 'next_shipment' && confirmedDeliveryDate) {
+    const tier = classifyConfirmedDate(confirmedDeliveryDate);
+    if (tier === 'same_day') {
+      label = 'Urgent Delivery';
+      icon = '🚨';
+      cls = 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800/40';
+    }
+  }
+
   return (
     <div className="flex flex-col gap-1 w-full">
       {/* Primary next-step badge */}
       <span
-        className={`inline-flex w-full items-center justify-center gap-1 px-1.5 py-1 rounded border text-[10px] font-semibold leading-none select-none ${cfg.cls}`}
-        title={`Next step: ${cfg.label}`}
-        aria-label={`Next step: ${cfg.label}`}
+        className={`inline-flex w-full items-center justify-center gap-1 px-1.5 py-1 rounded border text-[10px] font-semibold leading-none select-none ${cls}`}
+        title={`Next step: ${label}`}
+        aria-label={`Next step: ${label}`}
       >
-        <span aria-hidden className="text-[10px]">{cfg.icon}</span>
-        {cfg.label}
+        <span aria-hidden className="text-[10px]">{icon}</span>
+        {label}
       </span>
       {/* Secondary GMD badge (shown for next_shipment, future_schedule, out_for_delivery) */}
       {cfg.gmd && (
@@ -383,7 +397,7 @@ function ActionDropdown({
         </span>
       )}
       {/* Next-step indicator — always visible, non-clickable */}
-      <NextStepBadge status={s} />
+      <NextStepBadge status={s} confirmedDeliveryDate={order.confirmedDeliveryDate} />
 
       {/* Reschedule button — only for order_delay rows */}
       {s === 'order_delay' && (
@@ -1093,31 +1107,6 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                           DISPLAY_AS_CONFIRMED.has(order.status) ? 'confirmed' :
                           order.isRescheduled ? 'rescheduled' : order.status
                         } />
-                        {(() => {
-                          // ETD chip — sits below the status pill in the same cell.
-                          // Uses workflow status (string union) re-mapped to the delivery
-                          // status set computeETD knows; pickupConfirmedAt comes from the
-                          // workflow converter which reads metadata.picking.confirmedAt.
-                          const etd = computeETD({
-                            status: order.status,
-                            confirmedDeliveryDate: order.confirmedDeliveryDate ?? null,
-                            goodsMovementDate: order.goodsMovementDate ?? null,
-                            metadata: {
-                              picking: order.pickupConfirmedAt
-                                ? { confirmedAt: order.pickupConfirmedAt.toISOString() }
-                                : null,
-                            },
-                          });
-                          if (!etd) return null;
-                          return (
-                            <span
-                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 whitespace-nowrap tabular-nums"
-                              title="Departure from warehouse (driver pickup-confirmed)"
-                            >
-                              {formatEtdLabel(etd)}
-                            </span>
-                          );
-                        })()}
                         {isNoPod && (
                           <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border text-[10px] font-semibold bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-700/60 whitespace-nowrap">
                             ⚠ No POD
