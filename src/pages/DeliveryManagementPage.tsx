@@ -151,6 +151,7 @@ export default function DeliveryManagementPage({
 
   // Tab-rail upload button state
   const tabRailFileInputRef = useRef<HTMLInputElement>(null);
+  const howToUseBtnRef = useRef<HTMLButtonElement>(null);
   const [showHowToUse, setShowHowToUse] = useState(false);
   const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null);
 
@@ -565,58 +566,67 @@ export default function DeliveryManagementPage({
                 <Upload className="w-4 h-4" />
                 {tabRailUploading ? 'Uploading...' : 'Upload Excel'}
               </button>
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowHowToUse((v) => !v)}
-                  className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium whitespace-nowrap min-h-[44px] touch-manipulation transition-all ${
-                    showHowToUse
-                      ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-white/60 dark:hover:bg-slate-700/50'
-                  }`}
-                >
-                  <HelpCircle className="w-4 h-4" />
-                  How to Use
-                </button>
-                {showHowToUse && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setShowHowToUse(false)} />
-                    <div className="absolute right-0 top-full mt-2 z-50 w-72 rounded-xl bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700 p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-semibold text-sm text-gray-900 dark:text-white">How to Use</h3>
-                        <button
-                          type="button"
-                          onClick={() => setShowHowToUse(false)}
-                          className="p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                      <div className="space-y-3">
-                        {[
-                          { num: 1, text: 'Upload Excel with orders',        color: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300' },
-                          { num: 2, text: 'System sends SMS to customer',    color: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300' },
-                          { num: 3, text: 'Customer confirms delivery date', color: 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300' },
-                          { num: 4, text: 'Assign driver & set GMD date',   color: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300' },
-                          { num: 5, text: 'Driver delivers & submits POD',   color: 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300' },
-                        ].map((step) => (
-                          <div key={step.num} className="flex items-center gap-2">
-                            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${step.color}`}>
-                              {step.num}
-                            </span>
-                            <span className="text-xs text-gray-600 dark:text-gray-300">{step.text}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
+              <button
+                ref={howToUseBtnRef}
+                type="button"
+                onClick={() => setShowHowToUse((v) => !v)}
+                className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium whitespace-nowrap min-h-[44px] touch-manipulation transition-all ${
+                  showHowToUse
+                    ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-white/60 dark:hover:bg-slate-700/50'
+                }`}
+              >
+                <HelpCircle className="w-4 h-4" />
+                How to Use
+              </button>
             </div>
           )}
         </nav>
       </div>
       )}
+
+      {/* ── How to Use popup (rendered outside nav to avoid overflow clipping) ── */}
+      {showHowToUse && showTabRailUpload && (() => {
+        const rect = howToUseBtnRef.current?.getBoundingClientRect();
+        const top = rect ? rect.bottom + 8 : 100;
+        const right = rect ? window.innerWidth - rect.right : 16;
+        return (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setShowHowToUse(false)} />
+            <div
+              className="fixed z-50 w-72 rounded-xl bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700 p-4"
+              style={{ top, right }}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-sm text-gray-900 dark:text-white">How to Use</h3>
+                <button
+                  type="button"
+                  onClick={() => setShowHowToUse(false)}
+                  className="p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="space-y-3">
+                {[
+                  { num: 1, text: 'Upload Excel with orders',        color: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300' },
+                  { num: 2, text: 'System sends SMS to customer',    color: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300' },
+                  { num: 3, text: 'Customer confirms delivery date', color: 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300' },
+                  { num: 4, text: 'Assign driver & set GMD date',   color: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300' },
+                  { num: 5, text: 'Driver delivers & submits POD',   color: 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300' },
+                ].map((step) => (
+                  <div key={step.num} className="flex items-center gap-2">
+                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${step.color}`}>
+                      {step.num}
+                    </span>
+                    <span className="text-xs text-gray-600 dark:text-gray-300">{step.text}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        );
+      })()}
 
       {/* ── MANAGE DELIVERY ORDER TAB ── */}
       {!hideManageTab && activeTab === 'manage' && (
