@@ -1116,12 +1116,6 @@ export default function DriverPortal() {
           const fallbackDistanceKm = stopCoords
             ? calculateDistance(origin.lat, origin.lng, stopCoords.lat, stopCoords.lng)
             : null;
-          // Dynamic ETA: pure driving time from current GPS position
-          const computedEta = new Date(baseTime + cumulativeSeconds * 1000).toISOString();
-          // Static ETA (D3): driving time + 60-min service × stops completed before this one
-          const staticComputedEta = new Date(
-            staticBaseTime + cumulativeSeconds * 1000 + index * SERVICE_TIME_SEC * 1000
-          ).toISOString();
 
           const inStore = storeById.get(String(delivery.id));
           const auth = authoritativeFieldsFromStore(inStore);
@@ -1130,10 +1124,30 @@ export default function DriverPortal() {
             ...delivery,
             ...auth,
           };
+          const plannedDayMs = plannedBaseFor(rowForPlanning);
+
+          // Dynamic ETA: pure driving time from current GPS position.
+          // For pickup-confirmed orders dated on a future Dubai day, anchor to
+          // that day's 08:00 instead of `now` — otherwise the orange chip
+          // shows "ETA Today, 07:39" on a tomorrow's order and confuses the
+          // driver. Today-flow statuses (out-for-delivery, in-transit, and
+          // today's pickup-confirmed) keep `now` as the anchor — that's what
+          // makes the GPS-based estimate "live".
+          const status = (delivery.status || '').toLowerCase();
+          const isPickupConfirmed = status === 'pickup-confirmed' || status === 'pickup_confirmed';
+          const liveBaseTime = isPickupConfirmed && plannedDayMs > planned8amTodayMs
+            ? plannedDayMs
+            : baseTime;
+          const computedEta = new Date(liveBaseTime + cumulativeSeconds * 1000).toISOString();
+          // Static ETA (D3): driving time + 60-min service × stops completed before this one
+          const staticComputedEta = new Date(
+            staticBaseTime + cumulativeSeconds * 1000 + index * SERVICE_TIME_SEC * 1000
+          ).toISOString();
+
           // Planned ETA: 08:00 Dubai on THIS delivery's own date + cumulative
           // drive time + service time per stop (queue position determines hour).
           const planned8amEta = new Date(
-            plannedBaseFor(rowForPlanning)
+            plannedDayMs
               + cumulativeSeconds * 1000
               + index * SERVICE_TIME_SEC * 1000
           ).toISOString();
