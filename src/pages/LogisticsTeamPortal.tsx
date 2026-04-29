@@ -102,6 +102,13 @@ export default function LogisticsTeamPortal() {
   // (overdue / on-route / awaiting / confirmed); 'flat' is the legacy
   // single-list view for backward-compatibility.
   const [liveMapsViewMode, setLiveMapsViewMode] = useState<'driver' | 'status' | 'flat'>('driver');
+  // Live Maps right-panel date scope. 'today' = Dubai today, 'tomorrow' = Dubai +1d,
+  // 'all' = whatever passes the existing status / driver / search filters across any date.
+  // Drives both which orders are listed AND which date's capacity bar shows in driver headers.
+  const [liveMapsDateMode, setLiveMapsDateMode] = useState<'today' | 'tomorrow' | 'all'>('today');
+  // Per-card "Reassign to driver…" menu state — only one open at a time.
+  const [reassignMenuFor, setReassignMenuFor] = useState<string | null>(null);
+  const [reassignBusyId, setReassignBusyId] = useState<string | null>(null);
   const [podModalDelivery, setPodModalDelivery] = useState<Delivery | null>(null);
   const [drivers, setDrivers] = useState<ContactUser[]>([]);
   const [contacts, setContacts] = useState<ContactUser[]>([]); // All contacts (drivers + team members)
@@ -481,6 +488,29 @@ export default function LogisticsTeamPortal() {
       console.error('Error loading data:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Reassign a delivery to a different driver from the Live Maps panel.
+  // Server enforces the per-driver 20-units/day cap (deliveryCapacityService.TRUCK_MAX_ITEMS_PER_DAY)
+  // and surfaces 'driver_capacity_exceeded' which we present inline so ops never silently overflow.
+  const reassignDelivery = async (deliveryId: string, driverId: string): Promise<void> => {
+    setReassignBusyId(deliveryId);
+    try {
+      await api.put(`/deliveries/admin/${deliveryId}/assign`, { driverId });
+      setReassignMenuFor(null);
+      // Refetch deliveries + capacity so headers reflect the new allocation.
+      await loadData();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string; error?: string } }; message?: string };
+      const msg =
+        e.response?.data?.message
+        || e.response?.data?.error
+        || e.message
+        || 'Failed to reassign delivery';
+      window.alert(msg);
+    } finally {
+      setReassignBusyId(null);
     }
   };
 
@@ -1541,7 +1571,15 @@ export default function LogisticsTeamPortal() {
                 }
                 return true; // 'all'
               })
-              // 5. Free-text search — matches customer / PO / delivery no / phone.
+              // 5. Date filter (Today / Tomorrow / All) — uses the same Dubai
+              // calendar resolver as the capacity API so the capacity bar in
+              // the driver header always lines up with the visible cards.
+              // 'all' is a no-op so existing status/driver filters still bound the list.
+              .filter((d) => {
+                if (liveMapsDateMode === 'all') return true;
+                return getCapacityDateIso(d) === (liveMapsDateMode === 'today' ? getTodayIsoDubai() : addCalendarDaysDubai(getTodayIsoDubai(), 1));
+              })
+              // 6. Free-text search — matches customer / PO / delivery no / phone.
               // Applied last so status + driver filters still bound the space.
               .filter((d) => {
                 const q = trackingSearchQuery.trim().toLowerCase();
@@ -1587,12 +1625,86 @@ export default function LogisticsTeamPortal() {
               ? trackingDeliveries.findIndex(d => d.id === trackingSelectedId)
               : null;
 
+            // ── Per-delivery unit count (mirrors server's parseDeliveryItemCount) ──
+            // Used to (a) sum a driver's load in the group header and (b) show a
+            // "× N units" chip on each card. Server still owns the truth at
+            // assignment time; this is for display only.
+            const unitsFor = (d: Delivery): number => {
+              const meta = (d.metadata ?? {}) as Record<string, unknown>;
+              const orig = (meta.originalRow ?? meta._originalRow ?? {}) as Record<string, unknown>;
+              const num = (v: unknown): number => {
+                const n = typeof v === 'number' ? v : Number.parseFloat(String(v ?? ''));
+                return Number.isFinite(n) && n > 0 ? n : 0;
+              };
+              let q = num(meta.originalQuantity);
+              if (q > 0) return Math.min(9999, Math.ceil(q));
+              q = num(
+                orig['Order Quantity']
+                ?? orig['Confirmed quantity']
+                ?? orig['Total Line Deliv. Qt']
+                ?? orig['Order Qty']
+                ?? orig['Quantity']
+                ?? orig['qty']
+                ?? orig['QTY']
+              );
+              if (q > 0) return Math.min(9999, Math.ceil(q));
+              if (d.items) {
+                try {
+                  const parsed = JSON.parse(String(d.items)) as unknown;
+                  if (Array.isArray(parsed) && parsed.length > 0) {
+                    let sum = 0;
+                    for (const row of parsed) {
+                      if (row && typeof row === 'object') {
+                        const o = row as Record<string, unknown>;
+                        const r = num(o['Order Quantity'])
+                          || num(o['Confirmed quantity'])
+                          || num(o.Quantity)
+                          || num(o.quantity)
+                          || num(o.qty)
+                          || num(o.Qty);
+                        sum += r > 0 ? r : 1;
+                      } else {
+                        sum += 1;
+                      }
+                    }
+                    return Math.max(1, Math.min(9999, Math.ceil(sum)));
+                  }
+                } catch { /* fall through */ }
+              }
+              return 1;
+            };
+
+            // ── Date scope for the right-hand panel ──
+            // 'today' / 'tomorrow' resolve to a Dubai ISO date and select which
+            // capacity bar shows in the driver header. 'all' shows everything
+            // already passed by the existing filters with no extra scoping.
+            const todayIsoForPanel = getTodayIsoDubai();
+            const tomorrowIsoForPanel = addCalendarDaysDubai(todayIsoForPanel, 1);
+            const targetCapacityIso = liveMapsDateMode === 'today'
+              ? todayIsoForPanel
+              : liveMapsDateMode === 'tomorrow'
+                ? tomorrowIsoForPanel
+                : null;
+
             // Build an interleaved list of "header" + "card" entries based on
             // the selected view mode. A single render pass iterates this and
             // branches on entry.type — the existing card JSX below is reused
             // verbatim for every card entry.
             type DisplayItem =
-              | { type: 'header'; key: string; label: string; color?: string }
+              | {
+                  type: 'header';
+                  key: string;
+                  label: string;
+                  color?: string;
+                  // Rich payload (driver mode only): drives the capacity bar + on-route/delayed badges
+                  driverId?: string;
+                  online?: boolean;
+                  stops?: number;
+                  units?: number;
+                  ofd?: number;
+                  delay?: number;
+                  isUnassigned?: boolean;
+                }
               | { type: 'card'; delivery: typeof trackingDeliveries[number]; idx: number };
             const displayItems: DisplayItem[] = (() => {
               const items: DisplayItem[] = [];
@@ -1616,20 +1728,43 @@ export default function LogisticsTeamPortal() {
                   const drv = drivers.find((x) => x.id === driverId);
                   const name = drv?.fullName || drv?.username || 'Driver';
                   const online = drv ? isContactOnline(drv) : false;
+                  // Aggregate stats for the capacity-aware header.
+                  let units = 0;
+                  let ofd = 0;
+                  let delay = 0;
+                  for (const d of group) {
+                    units += unitsFor(d);
+                    const s = (d.status || '').toLowerCase();
+                    if (['out-for-delivery', 'in-transit', 'in-progress'].includes(s)) ofd++;
+                    if (s === 'order-delay' || s === 'order_delay') delay++;
+                  }
                   items.push({
                     type: 'header',
                     key: `h-drv-${driverId}`,
-                    label: `${name} · ${group.length} stop${group.length === 1 ? '' : 's'}${online ? ' · online' : ' · offline'}`,
+                    label: name,
                     color: driverColorFromRoutes.get(driverId),
+                    driverId,
+                    online,
+                    stops: group.length,
+                    units,
+                    ofd,
+                    delay,
                   });
                   group.forEach((d) => items.push({ type: 'card', delivery: d, idx: runningIdx++ }));
                 }
                 if (unassigned.length > 0) {
+                  let units = 0;
+                  for (const d of unassigned) units += unitsFor(d);
                   items.push({
                     type: 'header',
                     key: 'h-unassigned',
-                    label: `Unassigned · ${unassigned.length}`,
+                    label: 'Unassigned',
                     color: '#9ca3af',
+                    isUnassigned: true,
+                    stops: unassigned.length,
+                    units,
+                    ofd: 0,
+                    delay: 0,
                   });
                   unassigned.forEach((d) => items.push({ type: 'card', delivery: d, idx: runningIdx++ }));
                 }
@@ -1663,118 +1798,15 @@ export default function LogisticsTeamPortal() {
               return items;
             })();
 
-            // ── Truck Capacity panel (moved here from the top dashboard) ──
-            // Builds dateIso → driverId → { name, count, ofd, delay } from the
-            // currently loaded `deliveries` so it stays in sync with the map.
-            const truckCapacityPanel = (() => {
-              const DUBAI_OFFSET_MS = 4 * 60 * 60 * 1000;
-              const todayIso = new Date(Date.now() + DUBAI_OFFSET_MS).toISOString().slice(0, 10);
-              const tomorrowIso = new Date(Date.now() + DUBAI_OFFSET_MS + 86400000).toISOString().slice(0, 10);
-              const ACTIVE_S = new Set(['pending','uploaded','scheduled','scheduled-confirmed','confirmed','out-for-delivery','in-transit','in-progress','order-delay','order_delay','rescheduled','sms-sent','sms_sent','unconfirmed']);
-
-              const dateDriverMap = new Map<string, Map<string, { name: string; count: number; ofd: number; delay: number }>>();
-              deliveries.forEach(d => {
-                const s = (d.status || '').toLowerCase();
-                if (!ACTIVE_S.has(s)) return;
-                const driverId = d.assignedDriverId || String((d as Record<string,unknown>).driverName || '');
-                if (!driverId) return;
-                let dateIso = todayIso;
-                if (!['out-for-delivery','in-transit','in-progress'].includes(s)) {
-                  const raw = (d as unknown as { confirmedDeliveryDate?: string }).confirmedDeliveryDate;
-                  if (raw) {
-                    const t = Date.parse(String(raw));
-                    if (Number.isFinite(t)) dateIso = new Date(t + DUBAI_OFFSET_MS).toISOString().slice(0, 10);
-                  }
-                }
-                if (dateIso < todayIso) return;
-                if (!dateDriverMap.has(dateIso)) dateDriverMap.set(dateIso, new Map());
-                const dMap = dateDriverMap.get(dateIso)!;
-                const driverName = String((d as Record<string,unknown>).driverName || driverId);
-                const entry = dMap.get(driverId) ?? { name: driverName, count: 0, ofd: 0, delay: 0 };
-                entry.count++;
-                if (['out-for-delivery','in-transit','in-progress'].includes(s)) entry.ofd++;
-                if (s === 'order-delay' || s === 'order_delay') entry.delay++;
-                dMap.set(driverId, entry);
-              });
-
-              const activeDates = Array.from(dateDriverMap.keys()).sort();
-
-              return (
-                <div className="pp-card flex min-h-0 flex-col p-4 sm:p-5">
-                  <div className="mb-2 flex flex-shrink-0 items-center gap-2">
-                    <Truck className="h-5 w-5 flex-shrink-0 text-teal-600 dark:text-teal-400" />
-                    <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Truck Capacity</h2>
-                    <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500">by delivery date</span>
-                  </div>
-                  <p className="mb-2 flex-shrink-0 text-[10px] leading-snug text-gray-400 dark:text-gray-500">
-                    Active orders grouped by confirmed delivery date (Dubai). On-route orders count to <span className="font-semibold">today</span>.
-                  </p>
-                  <div className="space-y-3 pr-0.5">
-                    {activeDates.length === 0 ? (
-                      <div className="py-6 text-center text-sm text-gray-400 dark:text-gray-500">No active assigned orders</div>
-                    ) : (
-                      activeDates.map((iso) => {
-                        const driverRows = Array.from(dateDriverMap.get(iso)!.entries())
-                          .map(([driverId, info]) => ({ driverId, ...info }))
-                          .sort((a, b) => b.count - a.count);
-                        const totalForDate = driverRows.reduce((s, r) => s + r.count, 0);
-                        const isToday = iso === todayIso;
-                        const isTomorrow = iso === tomorrowIso;
-                        const dateChipLabel = isToday ? 'Today' : isTomorrow ? 'Tomorrow'
-                          : new Date(`${iso}T00:00:00+04:00`).toLocaleDateString('en-AE', { timeZone: 'Asia/Dubai', weekday: 'short', day: 'numeric', month: 'short' });
-                        return (
-                          <div key={iso} className="rounded-lg border border-gray-100 dark:border-gray-700 bg-white/40 dark:bg-gray-800/40 p-2">
-                            <div className="flex items-center gap-2 mb-1.5">
-                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                                isToday ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
-                                : isTomorrow ? 'bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300'
-                                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                              }`}>{dateChipLabel}</span>
-                              <span className="font-mono text-[10px] text-gray-400 dark:text-gray-500">{iso}</span>
-                              <span className="ml-auto text-[10px] font-semibold text-gray-500 dark:text-gray-400">{totalForDate} orders</span>
-                            </div>
-                            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                              {driverRows.map((row) => {
-                                const cap = driverCapacityByDate[iso]?.[row.driverId];
-                                const driverObj = drivers.find(dr => dr.id === row.driverId);
-                                const online = driverObj ? isContactOnline(driverObj) : false;
-                                return (
-                                  <div key={`${iso}-${row.driverId}`}
-                                    className="flex items-center gap-2 rounded-md border border-gray-100 bg-gray-50 px-2 py-1.5 dark:border-gray-700 dark:bg-gray-800/60"
-                                  >
-                                    <span className={`h-2 w-2 shrink-0 rounded-full ${online ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
-                                    <div className="min-w-0 flex-1">
-                                      <p className="truncate text-[11px] font-semibold text-gray-900 dark:text-gray-100">{row.name}</p>
-                                      <div className="flex flex-wrap gap-1 mt-0.5">
-                                        {row.ofd > 0 && <span className="text-[9px] text-blue-600 dark:text-blue-400">🚛 {row.ofd} on route</span>}
-                                        {row.delay > 0 && <span className="text-[9px] text-red-600 dark:text-red-400">⚠ {row.delay} delayed</span>}
-                                        {cap && <span className="text-[9px] text-gray-500 dark:text-gray-400">{cap.used}/{cap.max} cap used</span>}
-                                      </div>
-                                    </div>
-                                    <div className="flex items-center gap-1 shrink-0">
-                                      <span className="rounded-full bg-teal-600 dark:bg-teal-500 px-2 py-0.5 text-[10px] font-bold text-white tabular-nums">{row.count}</span>
-                                      {cap?.full && <span className="text-[9px] font-bold text-red-600 dark:text-red-400">FULL</span>}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-              );
-            })();
-
             return (
               <div className="flex flex-col gap-3">
-                {/* Mobile: stacked rows — map fixed 280px, list grows to its
+                {/* Mobile: stacked rows — map fixed 280px, panel grows to its
                     natural content height and the page scrolls. sm+ (≥640px):
-                    map 1fr + fixed 290px sidebar with internal scroll. */}
+                    50/50 split — map on the left, Drivers & Loads on the right
+                    with internal scroll. The right panel folds the old separate
+                    Truck Capacity card into per-driver headers. */}
                 <div
-                  className="grid gap-3 grid-rows-[280px_auto] sm:grid-rows-none sm:grid-cols-[1fr_290px] sm:overflow-hidden sm:h-[max(560px,calc(100dvh-240px))]"
+                  className="grid gap-3 grid-rows-[280px_auto] sm:grid-rows-none sm:grid-cols-2 sm:overflow-hidden sm:h-[max(560px,calc(100dvh-240px))]"
                 >
                 {/* ── Map panel ── */}
                 <div className="flex flex-col min-w-0 min-h-0">
@@ -1806,14 +1838,14 @@ export default function LogisticsTeamPortal() {
                   </div>
                 </div>
 
-                {/* ── Order list panel (full-width on mobile, 290px on sm+) ── */}
-                <div className="flex flex-col gap-2 min-w-0 min-h-0 w-full sm:w-[290px]">
-                  {/* Header + search + driver filter + status pills */}
+                {/* ── Drivers & Loads panel (full width on mobile, 50% on sm+) ── */}
+                <div className="flex flex-col gap-2 min-w-0 min-h-0 w-full">
+                  {/* Header + date tabs + search + driver filter + status pills */}
                   <div className="pp-card p-3 flex-shrink-0 space-y-2">
                     {/* Title row */}
                     <div className="flex items-center gap-2">
-                      <NavigationIcon className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                      <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">Live Orders</h2>
+                      <Truck className="w-4 h-4 text-teal-600 dark:text-teal-400 flex-shrink-0" />
+                      <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">Drivers &amp; Loads</h2>
                       <span className="ml-auto text-[10px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full flex-shrink-0">
                         {trackingDeliveries.length}
                       </span>
@@ -1825,6 +1857,31 @@ export default function LogisticsTeamPortal() {
                       >
                         <RefreshCw className="w-3.5 h-3.5" />
                       </button>
+                    </div>
+
+                    {/* Date scope tabs — Today / Tomorrow / All. The selected
+                        date drives both the visible cards AND the capacity bar
+                        shown in driver headers, so on-screen counts always
+                        match what the assignment endpoint will enforce. */}
+                    <div className="flex gap-1 rounded-lg bg-gray-100 dark:bg-gray-800 p-0.5">
+                      {([
+                        { key: 'today', label: 'Today' },
+                        { key: 'tomorrow', label: 'Tomorrow' },
+                        { key: 'all', label: 'All' },
+                      ] as { key: typeof liveMapsDateMode; label: string }[]).map((m) => (
+                        <button
+                          key={m.key}
+                          type="button"
+                          onClick={() => { setLiveMapsDateMode(m.key); setReassignMenuFor(null); }}
+                          className={`flex-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-colors ${
+                            liveMapsDateMode === m.key
+                              ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm'
+                              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                          }`}
+                        >
+                          {m.label}
+                        </button>
+                      ))}
                     </div>
 
                     {/* Search box — matches customer / PO / delivery no / phone /
@@ -1951,6 +2008,69 @@ export default function LogisticsTeamPortal() {
                     ) : displayItems.map((item) => {
                       // Branch: a section header row in driver/status modes.
                       if (item.type === 'header') {
+                        // Rich driver header: capacity bar + on-route/delayed badges +
+                        // pickup label. Only renders when item.driverId is set
+                        // (driver-mode groupings); otherwise falls back to the
+                        // plain bucket/unassigned label used by 'status' mode.
+                        if (item.driverId || item.isUnassigned) {
+                          const cap = item.driverId ? (targetCapacityIso ? driverCapacityByDate[targetCapacityIso]?.[item.driverId] : undefined) : undefined;
+                          const used = cap?.used ?? item.units ?? 0;
+                          const max = cap?.max ?? 20;
+                          const pct = Math.max(0, Math.min(100, (used / Math.max(1, max)) * 100));
+                          // Bar color: green up to 70%, amber up to 90%, red beyond.
+                          const barColor = pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-amber-500' : 'bg-emerald-500';
+                          return (
+                            <div
+                              key={item.key}
+                              className="sticky top-0 z-[5] bg-gray-50 dark:bg-gray-900/95 backdrop-blur border border-gray-200 dark:border-gray-700 rounded-md px-2.5 py-2"
+                              style={item.color ? { borderLeft: `3px solid ${item.color}` } : undefined}
+                            >
+                              <div className="flex items-center gap-2">
+                                {!item.isUnassigned && (
+                                  <span className={`h-2 w-2 shrink-0 rounded-full ${item.online ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                                )}
+                                <span className="truncate text-[12px] font-semibold text-gray-900 dark:text-gray-100">
+                                  {item.label}
+                                </span>
+                                <span className="ml-auto text-[10px] font-semibold text-gray-500 dark:text-gray-400 tabular-nums">
+                                  {item.stops} stop{item.stops === 1 ? '' : 's'} · {item.units} unit{item.units === 1 ? '' : 's'}
+                                </span>
+                              </div>
+                              {!item.isUnassigned && (
+                                <div className="mt-1.5 flex items-center gap-2">
+                                  {/* Capacity bar — server is the source of truth; client total
+                                      shown only when capacity API hasn't loaded yet. */}
+                                  <div className="flex-1 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                                    <div className={`h-full ${barColor} transition-all`} style={{ width: `${pct}%` }} />
+                                  </div>
+                                  <span className="text-[10px] font-semibold text-gray-600 dark:text-gray-300 tabular-nums shrink-0">
+                                    {used}/{max}
+                                  </span>
+                                  {cap?.full && (
+                                    <span className="text-[9px] font-bold text-red-600 dark:text-red-400 shrink-0">FULL</span>
+                                  )}
+                                </div>
+                              )}
+                              <div className="mt-1 flex flex-wrap items-center gap-1">
+                                {item.ofd != null && item.ofd > 0 && (
+                                  <span className="text-[9px] font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full">
+                                    🚛 {item.ofd} on route
+                                  </span>
+                                )}
+                                {item.delay != null && item.delay > 0 && (
+                                  <span className="text-[9px] font-semibold text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/30 px-1.5 py-0.5 rounded-full">
+                                    ⚠ {item.delay} delayed
+                                  </span>
+                                )}
+                                {!item.isUnassigned && (
+                                  <span className="text-[9px] font-medium text-gray-500 dark:text-gray-400">
+                                    📍 Pickup: Jebel Ali WH
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        }
                         return (
                           <div
                             key={item.key}
@@ -2183,16 +2303,114 @@ export default function LogisticsTeamPortal() {
                             </div>
                           </div>
 
-                          {/* POD upload button — separated from card click area */}
-                          <div className="border-t border-gray-100 dark:border-gray-700 px-2.5 py-1.5">
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); setPodModalDelivery(delivery); }}
-                              className="w-full flex items-center justify-center gap-1 text-[11px] font-medium text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                            >
-                              <Camera className="w-3 h-3" />
-                              Upload / View POD
-                            </button>
+                          {/* Footer row: units chip · Reassign · POD.
+                              Stops the click bubble so the row's map-select
+                              behaviour above is preserved. The Reassign menu
+                              uses the same PUT endpoint that ManageTab uses,
+                              and the server enforces the per-driver day cap. */}
+                          <div className="relative border-t border-gray-100 dark:border-gray-700 px-2.5 py-1.5">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className="text-[10px] font-semibold text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full tabular-nums"
+                                title="Units on this order (server-enforced 20/driver/day cap)"
+                              >
+                                × {unitsFor(delivery)} unit{unitsFor(delivery) === 1 ? '' : 's'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setReassignMenuFor(reassignMenuFor === delivery.id ? null : delivery.id);
+                                }}
+                                className="ml-auto flex items-center gap-1 text-[11px] font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors disabled:opacity-50"
+                                disabled={reassignBusyId === delivery.id}
+                                title="Move this order to a different driver"
+                              >
+                                <Truck className="w-3 h-3" />
+                                {reassignBusyId === delivery.id ? 'Moving…' : 'Reassign'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setPodModalDelivery(delivery); }}
+                                className="flex items-center gap-1 text-[11px] font-medium text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                              >
+                                <Camera className="w-3 h-3" />
+                                POD
+                              </button>
+                            </div>
+
+                            {/* Reassign popover — anchored above the footer.
+                                Disabled drivers are full for the selected date.
+                                Server-side cap is the authority; this is just
+                                an optimistic preview. */}
+                            {reassignMenuFor === delivery.id && (
+                              <div
+                                className="absolute right-2 bottom-full mb-1 z-10 w-64 max-h-72 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <div className="sticky top-0 px-2.5 py-1.5 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center justify-between">
+                                  <span>Move to driver</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setReassignMenuFor(null)}
+                                    className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                                    aria-label="Close"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                                {(() => {
+                                  const orderUnits = unitsFor(delivery);
+                                  const targetIso = getCapacityDateIso(delivery);
+                                  const currentDriverId = (delivery as unknown as { tracking?: { driverId?: string } }).tracking?.driverId
+                                    || delivery.assignedDriverId
+                                    || null;
+                                  return drivers.map((dr) => {
+                                    const isCurrent = dr.id === currentDriverId;
+                                    const cap = driverCapacityByDate[targetIso]?.[dr.id];
+                                    const used = cap?.used ?? 0;
+                                    const max = cap?.max ?? 20;
+                                    const remaining = Math.max(0, max - used);
+                                    // Exclude current delivery's units when checking
+                                    // overflow against current driver — re-assigning to
+                                    // self is meaningless but should not appear "full".
+                                    const wouldOverflow = isCurrent
+                                      ? false
+                                      : (used + orderUnits > max);
+                                    const online = isContactOnline(dr);
+                                    return (
+                                      <button
+                                        key={dr.id}
+                                        type="button"
+                                        disabled={isCurrent || wouldOverflow || reassignBusyId === delivery.id}
+                                        onClick={() => { void reassignDelivery(delivery.id, dr.id); }}
+                                        className={`w-full flex items-center gap-2 px-2.5 py-1.5 text-left text-[11px] border-b border-gray-100 dark:border-gray-800 last:border-0 transition-colors ${
+                                          isCurrent
+                                            ? 'bg-gray-50 dark:bg-gray-800/60 text-gray-400 dark:text-gray-500 cursor-default'
+                                            : wouldOverflow
+                                              ? 'bg-red-50 dark:bg-red-900/10 text-red-700 dark:text-red-400 cursor-not-allowed'
+                                              : 'hover:bg-blue-50 dark:hover:bg-blue-900/20 text-gray-700 dark:text-gray-200'
+                                        }`}
+                                        title={
+                                          isCurrent ? 'Currently assigned'
+                                          : wouldOverflow ? `Would overflow truck (${used}+${orderUnits} > ${max})`
+                                          : `${remaining} unit${remaining === 1 ? '' : 's'} free of ${max}`
+                                        }
+                                      >
+                                        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${online ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                                        <span className="flex-1 min-w-0 truncate font-medium">
+                                          {dr.fullName || dr.username}
+                                          {isCurrent && <span className="ml-1 text-[9px] uppercase text-gray-400">current</span>}
+                                        </span>
+                                        <span className="text-[10px] tabular-nums shrink-0">
+                                          {used}/{max}
+                                        </span>
+                                      </button>
+                                    );
+                                  });
+                                })()}
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
@@ -2200,7 +2418,6 @@ export default function LogisticsTeamPortal() {
                   </div>
                 </div>
                 </div>
-                {truckCapacityPanel}
               </div>
             );
           })(),
