@@ -1126,6 +1126,21 @@ export default function DriverPortal() {
           };
           const plannedDayMs = plannedBaseFor(rowForPlanning);
 
+          // Plan-ETA anchor: max(deliveryDate @ 08:00, picking.confirmedAt).
+          // Mirrors the ETD rule in src/utils/etd.ts. For an urgent same-day order
+          // picked up after 08:00, the pickup time wins so Plan ETA reflects the
+          // actual departure (e.g., picked at 17:28 → Plan starts ~17:28, not 08:00).
+          // For a future-day delivery that's been picked early, pickup.confirmedAt
+          // < tomorrow @ 08:00, so the 08:00 anchor still wins — unchanged behavior.
+          const plannedAnchorMs = (() => {
+            const meta = rowForPlanning.metadata as Record<string, unknown> | null | undefined;
+            const picking = meta?.picking as { confirmedAt?: string } | null | undefined;
+            const raw = picking?.confirmedAt;
+            if (typeof raw !== 'string') return plannedDayMs;
+            const ms = new Date(raw).getTime();
+            return !isNaN(ms) && ms > plannedDayMs ? ms : plannedDayMs;
+          })();
+
           // Dynamic ETA: pure driving time from current GPS position.
           // For pickup-confirmed orders dated on a future Dubai day, anchor to
           // that day's 08:00 instead of `now` — otherwise the orange chip
@@ -1144,19 +1159,21 @@ export default function DriverPortal() {
             staticBaseTime + cumulativeSeconds * 1000 + index * SERVICE_TIME_SEC * 1000
           ).toISOString();
 
-          // Planned ETA: 08:00 Dubai on THIS delivery's own date + cumulative
-          // drive time + service time per stop (queue position determines hour).
+          // Planned ETA: anchored at max(deliveryDay @ 08:00, picking.confirmedAt)
+          // + cumulative drive time + service time per stop (queue position
+          // determines hour). Urgent same-day picks anchor to the pickup moment
+          // rather than 08:00; future-day picks still anchor to 08:00.
           const planned8amEta = new Date(
-            plannedDayMs
+            plannedAnchorMs
               + cumulativeSeconds * 1000
               + index * SERVICE_TIME_SEC * 1000
           ).toISOString();
 
           const persisted = persistedEtasRef.current[String(delivery.id)];
-          // plannedEta: anchored to the delivery's own confirmedDeliveryDate at
-          // 08:00 Dubai. Recomputed each route update so a reschedule (which
-          // changes confirmedDeliveryDate) flows through immediately, instead
-          // of carrying forward a stale "today 08:00" from a prior compute.
+          // plannedEta: anchored to max(deliveryDate @ 08:00 Dubai, picking.confirmedAt).
+          // Recomputed each route update so a reschedule (which changes
+          // confirmedDeliveryDate) or an urgent late-day pickup flows through
+          // immediately, instead of carrying forward a stale anchor from a prior compute.
           // staticEta is locked when "Start Delivery" is clicked; once set, never change.
           const existingStaticEta =
             (inStore?.['staticEta'] as string | null | undefined)
