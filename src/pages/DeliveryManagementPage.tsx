@@ -589,16 +589,26 @@ export default function DeliveryManagementPage({
       {/* ── How to Use popup (portalled to body to escape overflow clipping) ── */}
       {showHowToUse && showTabRailUpload && (() => {
         const rect = howToUseBtnRef.current?.getBoundingClientRect();
-        const top = rect ? rect.bottom + 8 : 100;
-        const right = rect ? window.innerWidth - rect.right : 16;
+        const popW = 320; // matches w-80
+        const popH = 260; // estimated height
+        const pad = 12;
+        // Horizontal: align right edge to button right edge, clamp to viewport
+        let left = rect ? rect.right - popW : window.innerWidth - popW - pad;
+        left = Math.max(pad, Math.min(left, window.innerWidth - popW - pad));
+        // Vertical: drop below, flip above if overflow
+        let top = rect ? rect.bottom + 8 : 100;
+        if (top + popH > window.innerHeight - pad) {
+          top = rect ? rect.top - popH - 8 : 100;
+        }
+        top = Math.max(pad, top);
         return createPortal(
           <>
             <div className="fixed inset-0 z-[9998]" onClick={() => setShowHowToUse(false)} />
             <div
-              className="fixed z-[9999] w-72 rounded-xl bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700 p-4"
-              style={{ top, right }}
+              className="fixed z-[9999] w-80 rounded-xl bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700 p-5"
+              style={{ top, left }}
             >
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-sm text-gray-900 dark:text-white">How to Use</h3>
                 <button
                   type="button"
@@ -608,7 +618,7 @@ export default function DeliveryManagementPage({
                   <X className="w-4 h-4" />
                 </button>
               </div>
-              <div className="space-y-3">
+              <div className="space-y-3.5">
                 {[
                   { num: 1, text: 'Upload Excel with orders',        color: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300' },
                   { num: 2, text: 'System sends SMS to customer',    color: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300' },
@@ -616,11 +626,11 @@ export default function DeliveryManagementPage({
                   { num: 4, text: 'Assign driver & set GMD date',   color: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300' },
                   { num: 5, text: 'Driver delivers & submits POD',   color: 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300' },
                 ].map((step) => (
-                  <div key={step.num} className="flex items-center gap-2">
-                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${step.color}`}>
+                  <div key={step.num} className="flex items-center gap-2.5">
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${step.color}`}>
                       {step.num}
                     </span>
-                    <span className="text-xs text-gray-600 dark:text-gray-300">{step.text}</span>
+                    <span className="text-[13px] text-gray-600 dark:text-gray-300">{step.text}</span>
                   </div>
                 ))}
               </div>
