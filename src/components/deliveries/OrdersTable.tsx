@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, Download, FileSpreadsheet, RefreshCw, Search, X, SlidersHorizontal } from 'lucide-react';
 import { DateRangePicker } from '../common/DateRangePicker';
 import type { DeliveryOrder, DeliveryStatus } from '../../types/delivery';
@@ -293,7 +294,7 @@ interface ActionDropdownProps {
   onEditOrder: (orderId: string) => void;
   onReschedule: (order: DeliveryOrder) => void;
   onUploadPod?: (orderId: string) => void;
-  onViewReason?: (order: DeliveryOrder) => void;
+  onViewReason?: (order: DeliveryOrder, e: React.MouseEvent) => void;
   onReorder?: (orderId: string) => void;
 }
 
@@ -345,7 +346,7 @@ function ActionDropdown({
       <div className="flex flex-col items-stretch gap-1.5">
         <button
           type="button"
-          onClick={hasReason ? () => onViewReason!(order) : undefined}
+          onClick={hasReason ? (e) => onViewReason!(order, e) : undefined}
           disabled={!hasReason}
           className={`inline-flex w-full items-center justify-center gap-1 px-1.5 py-1 rounded border text-[10px] font-semibold leading-none ${cfg.cls} ${
             hasReason
@@ -454,6 +455,14 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
 }) => {
   const [rescheduleOrder, setRescheduleOrder] = useState<DeliveryOrder | null>(null);
   const [reasonOrder, setReasonOrder] = useState<DeliveryOrder | null>(null);
+  const [reasonAnchor, setReasonAnchor] = useState<{ top: number; left: number } | null>(null);
+
+  const openReasonPopup = useCallback((order: DeliveryOrder, e: React.MouseEvent) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setReasonAnchor({ top: rect.bottom + 6, left: Math.max(8, rect.left - 120) });
+    setReasonOrder(order);
+  }, []);
+  const closeReasonPopup = useCallback(() => { setReasonOrder(null); setReasonAnchor(null); }, []);
   const [currentPage, setCurrentPage] = useState(1);
   const [assigningDriverId, setAssigningDriverId] = useState<string | null>(null);
   const [todayOnly, setTodayOnly] = useState(false);
@@ -1124,7 +1133,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                         onEditOrder={onEditOrder}
                         onReschedule={(o) => setRescheduleOrder(o)}
                         onUploadPod={onUploadPod}
-                        onViewReason={(o) => setReasonOrder(o)}
+                        onViewReason={openReasonPopup}
                         onReorder={onReorder}
                       />
                     </td>
@@ -1160,50 +1169,40 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
         />
       )}
 
-      {reasonOrder && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Rejection reason"
-          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 p-4"
-          onClick={() => setReasonOrder(null)}
-        >
+      {reasonOrder && reasonAnchor && createPortal(
+        <>
+          <div className="fixed inset-0 z-[9998]" onClick={closeReasonPopup} />
           <div
-            className="w-full max-w-md rounded-xl bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700"
-            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Rejection reason"
+            className="fixed z-[9999] w-72 rounded-xl bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700"
+            style={{ top: reasonAnchor.top, left: reasonAnchor.left }}
           >
-            <div className="flex items-start justify-between gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Rejection reason</h3>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+            <div className="flex items-start justify-between gap-2 px-3 py-2.5 border-b border-gray-200 dark:border-gray-700">
+              <div className="min-w-0">
+                <h3 className="text-xs font-semibold text-gray-900 dark:text-gray-100">Rejection Reason</h3>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 truncate">
                   {reasonOrder.customerName} · {reasonOrder.orderNumber ?? '—'}
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => setReasonOrder(null)}
-                className="shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                onClick={closeReasonPopup}
+                className="shrink-0 p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                 aria-label="Close"
               >
-                <X className="h-4 w-4" />
+                <X className="h-3.5 w-3.5" />
               </button>
             </div>
-            <div className="px-4 py-4">
-              <p className="whitespace-pre-wrap text-sm text-gray-800 dark:text-gray-100">
+            <div className="px-3 py-3">
+              <p className="whitespace-pre-wrap text-xs text-gray-800 dark:text-gray-100 leading-relaxed">
                 {(reasonOrder.notes?.trim() || reasonOrder.failureReason?.trim() || '—')}
               </p>
             </div>
-            <div className="flex justify-end px-4 py-3 border-t border-gray-200 dark:border-gray-700">
-              <button
-                type="button"
-                onClick={() => setReasonOrder(null)}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#032145] text-white hover:bg-[#021432] transition-colors"
-              >
-                Close
-              </button>
-            </div>
           </div>
-        </div>
+        </>,
+        document.body,
       )}
     </div>
   );

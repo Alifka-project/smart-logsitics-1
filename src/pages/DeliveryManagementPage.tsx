@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Database, MapPin, Zap, List, ClipboardList, RefreshCw, Upload, HelpCircle, X } from 'lucide-react';
 import DeliveryTable from '../components/DeliveryList/DeliveryTable';
 import CustomerModal from '../components/CustomerDetails/CustomerModal';
@@ -585,16 +586,16 @@ export default function DeliveryManagementPage({
       </div>
       )}
 
-      {/* ── How to Use popup (rendered outside nav to avoid overflow clipping) ── */}
+      {/* ── How to Use popup (portalled to body to escape overflow clipping) ── */}
       {showHowToUse && showTabRailUpload && (() => {
         const rect = howToUseBtnRef.current?.getBoundingClientRect();
         const top = rect ? rect.bottom + 8 : 100;
         const right = rect ? window.innerWidth - rect.right : 16;
-        return (
+        return createPortal(
           <>
-            <div className="fixed inset-0 z-40" onClick={() => setShowHowToUse(false)} />
+            <div className="fixed inset-0 z-[9998]" onClick={() => setShowHowToUse(false)} />
             <div
-              className="fixed z-50 w-72 rounded-xl bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700 p-4"
+              className="fixed z-[9999] w-72 rounded-xl bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700 p-4"
               style={{ top, right }}
             >
               <div className="flex items-center justify-between mb-3">
@@ -624,7 +625,8 @@ export default function DeliveryManagementPage({
                 ))}
               </div>
             </div>
-          </>
+          </>,
+          document.body,
         );
       })()}
 
