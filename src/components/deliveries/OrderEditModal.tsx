@@ -75,7 +75,7 @@ function toDateInputValue(d: Date): string {
 interface OrderEditModalProps {
   delivery: Delivery;
   onClose: () => void;
-  onSaved: (updated: { status: string; notes?: string; scheduledDateIso?: string; goodsMovementDate?: string; address?: string; phone?: string }) => void;
+  onSaved: (updated: { status: string; notes?: string; scheduledDateIso?: string; goodsMovementDate?: string; address?: string; phone?: string; confirmedDeliveryDate?: string }) => void;
   onToastError: (message: string) => void;
   onResendSMS?: () => Promise<void>;
   onReschedule?: (newDate: Date, reason: string) => Promise<void>;
@@ -496,16 +496,18 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
                   const resp = await api.post(`/deliveries/admin/${delivery.id}/urgent-confirm-today`, {
                     urgentReason: reason,
                   });
-                  if (resp.data && (resp.data as { ok?: boolean }).ok) {
+                  const respData = resp.data as { ok?: boolean; delivery?: { confirmedDeliveryDate?: string }; error?: string };
+                  if (respData.ok) {
                     onSaved({
                       status: 'scheduled-confirmed',
                       notes: reason,
                       address: address.trim() || undefined,
                       phone: phone.trim() || undefined,
+                      confirmedDeliveryDate: respData.delivery?.confirmedDeliveryDate ?? new Date().toISOString(),
                     });
                     onClose();
                   } else {
-                    onToastError((resp.data as { error?: string })?.error ?? 'Failed to mark urgent.');
+                    onToastError(respData.error ?? 'Failed to mark urgent.');
                   }
                 } catch (e: unknown) {
                   const err = e as { response?: { data?: { message?: string; error?: string; detail?: string } }; message?: string };

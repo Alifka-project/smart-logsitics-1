@@ -178,7 +178,7 @@ export default function ManageTab({
   );
 
   const handleOrderEditSaved = useCallback(
-    (updated: { status: string; notes?: string; scheduledDateIso?: string; goodsMovementDate?: string; address?: string; phone?: string }) => {
+    (updated: { status: string; notes?: string; scheduledDateIso?: string; goodsMovementDate?: string; address?: string; phone?: string; confirmedDeliveryDate?: string }) => {
       if (!editDeliveryId) return;
       const raw = deliveries.find((d) => d.id === editDeliveryId);
       if (!raw) return;
@@ -189,6 +189,7 @@ export default function ManageTab({
         deliveryNotes: updated.notes !== undefined ? updated.notes : raw.deliveryNotes ?? undefined,
         conditionNotes: updated.notes !== undefined ? updated.notes : raw.conditionNotes ?? undefined,
         ...(updated.goodsMovementDate ? { goodsMovementDate: updated.goodsMovementDate } : {}),
+        ...(updated.confirmedDeliveryDate ? { confirmedDeliveryDate: new Date(updated.confirmedDeliveryDate) } : {}),
       });
       setEditDeliveryId(null);
       onNotifySuccess('Order updated', 'Changes saved.');

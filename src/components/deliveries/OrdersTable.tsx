@@ -109,11 +109,15 @@ const DISPLAY_AS_CONFIRMED = new Set<DeliveryStatus>(['next_shipment', 'future_s
 // terminal rows don't belong on any scheduling tier.
 const SHIPMENT_TIER_EXCLUDED = new Set<DeliveryStatus>(['delivered', 'cancelled', 'failed', 'out_for_delivery', 'order_delay']);
 
-/** Does this order count under a Next Shipment (tier='next') or Future Schedule (tier='future') tier? */
+/** Does this order count under a Next Shipment or Future Schedule tier? */
 function matchesShipmentTier(order: DeliveryOrder, tier: 'next' | 'future'): boolean {
   if (SHIPMENT_TIER_EXCLUDED.has(order.status)) return false;
   if (!order.confirmedDeliveryDate) return false;
-  return classifyConfirmedDate(order.confirmedDeliveryDate) === tier;
+  const classified = classifyConfirmedDate(order.confirmedDeliveryDate);
+  // Next Shipment includes both same-day (urgent) and next-day orders,
+  // matching the StatusMetricCards count logic.
+  if (tier === 'next') return classified === 'same_day' || classified === 'next';
+  return classified === tier;
 }
 
 function matchesTableTab(order: DeliveryOrder, tab: OrdersTableTab): boolean {
