@@ -49,7 +49,7 @@ const STYLES = `
     cursor: pointer; transition: all 0.2s ease;
     gap: 10px;
   }
-  .date-pill:hover { border-color: #115a96; background: #f3f6fa; }
+  .date-pill:hover { border-color: var(--primary-h); background: #f3f6fa; }
   .date-pill.selected {
     border-color: #032145;
     background: linear-gradient(135deg, #f3f6fa 0%, #e1eaf3 100%);
@@ -58,7 +58,7 @@ const STYLES = `
   .btn-confirm {
     width: 100%; padding: 15px 24px; border-radius: 14px; border: none;
     font-size: 15px; font-weight: 700; color: #fff; cursor: pointer;
-    background: linear-gradient(135deg, #032145 0%, #115a96 100%);
+    background: var(--primary);
     display: flex; align-items: center; justify-content: center; gap: 8px;
     transition: all 0.25s ease;
     box-shadow: 0 4px 16px rgba(3,33,69,0.3);
@@ -66,7 +66,7 @@ const STYLES = `
   .btn-confirm:hover:not(:disabled) {
     transform: translateY(-2px);
     box-shadow: 0 8px 24px rgba(3,33,69,0.4);
-    background: linear-gradient(135deg, #021432 0%, #06325f 100%);
+    background: var(--primary-h);
     animation: ripplePulse 1.2s ease;
   }
   .btn-confirm:active:not(:disabled) { transform: translateY(0); }
@@ -210,7 +210,7 @@ export default function CustomerConfirmationPage() {
   if (loading) return (
     <div style={{ minHeight: '100vh', background: '#F8FAFC' }}>
       <style>{STYLES}</style>
-      <div style={{ background: 'linear-gradient(135deg,#032145,#115a96)', padding: '24px 16px 40px' }}>
+      <div style={{ background: 'var(--primary)', padding: '24px 16px 40px' }}>
         <div style={{ maxWidth: 'min(680px, 100%)', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <div className="shimmer-line" style={{ width: 120, height: 30, marginBottom: 12, opacity: 0.4 }} />
           <div className="shimmer-line" style={{ width: 200, height: 22, opacity: 0.3 }} />
@@ -275,7 +275,7 @@ export default function CustomerConfirmationPage() {
       <style>{STYLES}</style>
 
       {/* ── Header ──────────────────────────────────────────────── */}
-      <div style={{ background: 'linear-gradient(135deg, #032145 0%, #115a96 100%)', padding: '24px 16px 40px' }}>
+      <div style={{ background: 'var(--primary)', padding: '24px 16px 40px' }}>
         <div style={{ maxWidth: 'min(680px, 100%)', margin: '0 auto', textAlign: 'center' }}>
           <img src="/elect home.png" alt="Electrolux" style={{ height: 34, filter: 'brightness(0) invert(1)', marginBottom: 14 }} />
           <h1 style={{ color: '#fff', fontSize: 24, fontWeight: 800, marginBottom: 6 }}>Delivery Confirmation</h1>

@@ -37,7 +37,7 @@ function App() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              background: 'linear-gradient(135deg, #032145 0%, #115a96 100%)',
+              background: 'var(--primary)',
             }}
           >
             <div

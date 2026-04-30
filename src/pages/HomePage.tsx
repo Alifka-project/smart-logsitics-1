@@ -43,7 +43,7 @@ export default function HomePage() {
               className="relative overflow-hidden text-white rounded-2xl shadow-lg p-8 sm:p-12 mb-8"
               style={{
                 background:
-                  'linear-gradient(135deg, #032145 0%, #06325f 55%, #0a4478 100%)',
+                  'linear-gradient(135deg, var(--primary) 0%, var(--primary-h) 55%, #0a4478 100%)',
                 boxShadow: '0 10px 32px rgba(3,33,69,0.38)',
               }}
             >
@@ -178,7 +178,7 @@ export default function HomePage() {
                 <li key={step} className="flex gap-4">
                   <span
                     className="flex-shrink-0 w-8 h-8 text-white rounded-full flex items-center justify-center font-bold shadow-sm"
-                    style={{ background: 'linear-gradient(135deg, #032145 0%, #115a96 100%)' }}
+                    style={{ background: 'var(--primary)' }}
                   >
                     {step}
                   </span>

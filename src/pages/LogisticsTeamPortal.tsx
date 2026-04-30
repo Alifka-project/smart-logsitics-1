@@ -1308,7 +1308,7 @@ export default function LogisticsTeamPortal() {
                 {false && (<div className="grid grid-cols-2 gap-3">
                 <div
                   onClick={() => { setActiveTab('deliveries'); setDeliveriesSubTab('manage'); }}
-                  className="rounded-xl p-4 flex items-center gap-3 cursor-pointer bg-[#032145] hover:bg-[#06325f] transition-all group shadow-sm"
+                  className="rounded-xl p-4 flex items-center gap-3 cursor-pointer bg-primary-900 hover:bg-primary-800 transition-all group shadow-sm"
                   title="Open Delivery Orders & Dispatch"
                 >
                   <div className="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center flex-shrink-0">

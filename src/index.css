@@ -45,24 +45,20 @@
 
   /* ── Brand / status — Electrolux Arabia palette ── */
   --primary:    #032145;            /* Deep Navy — canonical */
-  --primary-h:  #06325f;            /* hover / pressed */
+  --primary-h:  #06325F;            /* hover / pressed */
   --primary-glow: rgba(3,33,69,0.10);
 
   /* Warm Gold accent — secondary brand */
   --accent-gold:       #D8B873;
-  --accent-gold-h:     #c9a352;
+  --accent-gold-h:     #C9A352;
   --accent-gold-soft:  rgba(216,184,115,0.14);
   --accent-gold-glow:  rgba(216,184,115,0.28);
 
-  /* Sage Green & Blue-Gray Slate — tertiary tones */
-  --sage:              #6F7B69;
-  --sage-soft:         rgba(111,123,105,0.14);
-  --slate-brand:       #8392A3;
-  --slate-brand-soft:  rgba(131,146,163,0.14);
-
   --success:    #22c55e;
   --warning:    #f59e0b;
-  --danger:     #ef4444;
+  --danger:     #B91C1C;
+  --danger-h:   #991B1B;
+  --danger-soft: rgba(185,28,28,0.10);
   --info:       #38bdf8;
 
   /* ── Elevation (NO border as separator) ── */
@@ -108,7 +104,7 @@
   /* App-wide PolicyPilot-style surfaces (cards, accent) */
   --dash-radius: 20px;
   --dash-accent: #032145;
-  --dash-accent-hover: #06325f;
+  --dash-accent-hover: var(--primary-h);
 }
 
 /* ── Dark mode tokens — Electrolux Arabia navy palette ── */
@@ -132,10 +128,12 @@
   --accent-gold-soft: rgba(216,184,115,0.18);
   --accent-gold-glow: rgba(216,184,115,0.35);
 
-  --sage:             #a1ac97;
-  --sage-soft:        rgba(161,172,151,0.16);
-  --slate-brand:      #adb8c6;
-  --slate-brand-soft: rgba(173,184,198,0.16);
+  --danger:     #F87171;
+  --danger-h:   #FCA5A5;
+  --danger-soft: rgba(248,113,113,0.18);
+  --success:    #4ADE80;
+  --warning:    #FBBF24;
+  --info:       #5796C9;
 
   --text:       #e6efff;
   --text2:      #c2d6e9;
@@ -459,7 +457,7 @@
   /* ── Gradient info card (Electrolux Arabia navy gradient block) ── */
   .pp-gradient-card {
     border-radius: var(--radius-lg);
-    background: linear-gradient(135deg, #032145 0%, #115a96 100%);
+    background: var(--primary);
     padding: 20px;
     color: white;
     box-shadow: 0 4px 20px rgba(3,33,69,0.35);
@@ -468,7 +466,7 @@
   /* ── Navy→Gold premium gradient (for hero / featured blocks) ── */
   .pp-gradient-navy-gold {
     border-radius: var(--radius-lg);
-    background: linear-gradient(135deg, #032145 0%, #06325f 55%, #a98838 100%);
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-h) 55%, #a98838 100%);
     padding: 20px;
     color: white;
     box-shadow: 0 4px 24px rgba(3,33,69,0.38);
@@ -617,10 +615,10 @@
     border-radius: var(--radius-sm);
     flex-shrink: 0;
   }
-  .pp-icon-badge-blue   { background: rgba(3,33,69,0.10);  color: #06325f; }
+  .pp-icon-badge-blue   { background: rgba(3,33,69,0.10);  color: var(--primary-h); }
   .pp-icon-badge-gold   { background: var(--accent-gold-soft); color: #856a2c; }
-  .pp-icon-badge-sage   { background: var(--sage-soft);    color: #464d42; }
-  .pp-icon-badge-slate  { background: var(--slate-brand-soft); color: #424b55; }
+  .pp-icon-badge-sage   { background: rgba(34,197,94,0.12);  color: #16a34a; }
+  .pp-icon-badge-slate  { background: rgba(100,116,139,0.12); color: #64748b; }
   .pp-icon-badge-green  { background: rgba(34,197,94,0.12);  color: #22c55e; }
   .pp-icon-badge-amber  { background: rgba(245,158,11,0.12); color: #f59e0b; }
   .pp-icon-badge-red    { background: rgba(239,68,68,0.12);  color: #ef4444; }
@@ -630,8 +628,8 @@
   /* Dark-mode overrides for icon badges — brighten text for AA contrast */
   .dark .pp-icon-badge-blue  { color: #8fb7db; }
   .dark .pp-icon-badge-gold  { color: #e0c588; }
-  .dark .pp-icon-badge-sage  { color: #c7cdbf; }
-  .dark .pp-icon-badge-slate { color: #ced5de; }
+  .dark .pp-icon-badge-sage  { color: #4ade80; }
+  .dark .pp-icon-badge-slate { color: #94a3b8; }
 
   /* ── Status chip / badge (soft fill, pill) ── */
   .pp-badge {
@@ -644,10 +642,10 @@
     font-weight: 600;
     letter-spacing: 0.02em;
   }
-  .pp-badge-blue   { background: rgba(3,33,69,0.10);  color: #06325f; }
+  .pp-badge-blue   { background: rgba(3,33,69,0.10);  color: var(--primary-h); }
   .pp-badge-gold   { background: var(--accent-gold-soft); color: #856a2c; }
-  .pp-badge-sage   { background: var(--sage-soft);    color: #464d42; }
-  .pp-badge-slate  { background: var(--slate-brand-soft); color: #424b55; }
+  .pp-badge-sage   { background: rgba(34,197,94,0.12);  color: #16a34a; }
+  .pp-badge-slate  { background: rgba(100,116,139,0.12); color: #64748b; }
   .pp-badge-green  { background: rgba(34,197,94,0.12);  color: #16a34a; }
   .pp-badge-amber  { background: rgba(245,158,11,0.12); color: #d97706; }
   .pp-badge-red    { background: rgba(239,68,68,0.12);  color: #dc2626; }
@@ -673,7 +671,7 @@
     font-size: 14px;
     font-weight: 600;
     color: #fff;
-    background: linear-gradient(135deg, #032145 0%, #115a96 100%);
+    background: var(--primary);
     box-shadow: 0 2px 8px rgba(3,33,69,0.35);
     border: none;
     cursor: pointer;

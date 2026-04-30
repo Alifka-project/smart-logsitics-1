@@ -46,34 +46,6 @@ export default {
           900: '#3d3015',
           DEFAULT: '#d8b873',
         },
-        /* Sage Green — tertiary, quiet positive tone (not the same as status green) */
-        sage: {
-          50:  '#f3f4f1',
-          100: '#e3e6df',
-          200: '#c7cdbf',
-          300: '#a1ac97',
-          400: '#828e78',
-          500: '#6f7b69',   /* Sage — canonical */
-          600: '#596154',
-          700: '#464d42',
-          800: '#353a32',
-          900: '#262a23',
-          DEFAULT: '#6f7b69',
-        },
-        /* Blue-Gray Slate — neutral text/border accent */
-        slateBrand: {
-          50:  '#f4f6f8',
-          100: '#e6eaef',
-          200: '#ced5de',
-          300: '#adb8c6',
-          400: '#8392a3',   /* Blue-Gray Slate — canonical */
-          500: '#677685',
-          600: '#525e6b',
-          700: '#424b55',
-          800: '#333a42',
-          900: '#24292f',
-          DEFAULT: '#8392a3',
-        },
         /* Surface palette — maps to CSS token vars */
         surface: {
           page:    'var(--bg)',
@@ -116,10 +88,6 @@ export default {
         'pill':    '0 1px 3px rgba(0,0,0,0.08), 0 1px 6px rgba(0,0,0,0.05)',
       },
       backgroundImage: {
-        'gradient-accent':  'linear-gradient(135deg, #032145, #115a96)',
-        'gradient-primary': 'linear-gradient(135deg, #032145 0%, #115a96 100%)',
-        'gradient-info':    'linear-gradient(135deg, #032145 0%, #06325f 100%)',
-        'gradient-gold':    'linear-gradient(135deg, #d8b873 0%, #c9a352 100%)',
         'gradient-navy-gold': 'linear-gradient(135deg, #032145 0%, #06325f 60%, #c9a352 100%)',
       },
       spacing: {
