@@ -27,7 +27,8 @@ import {
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  Cell, PieChart, Pie, CartesianGrid, Legend, LabelList
+  Cell, PieChart, Pie, CartesianGrid, Legend, LabelList,
+  LineChart, Line
 } from 'recharts';
 import DeliveryManagementPage from './DeliveryManagementPage';
 import { DateRangePicker } from '../components/common/DateRangePicker';
@@ -1177,22 +1178,22 @@ export default function DeliveryTeamPortal() {
                   </div>
                 </div>
 
-                {/* RIGHT 30% — Today's Summary */}
-                <div className="pp-card p-4 sm:p-5 flex flex-col">
+                {/* RIGHT 30% — Today's Summary (navy) */}
+                <div className="bg-[#032145] rounded-xl p-4 sm:p-5 text-white flex flex-col">
                   <div className="mb-3 flex items-center gap-2">
                     <span className="text-base" aria-hidden>📅</span>
-                    <h2 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Today's Summary</h2>
+                    <h2 className="font-semibold text-sm text-white">Today's Summary</h2>
                   </div>
                   <div className="grid grid-cols-2 gap-3 flex-1 auto-rows-fr">
                     {([
-                      { count: summaryActive,          label: 'Active Orders',    color: 'text-blue-600 dark:text-blue-400',       bg: 'bg-blue-50 dark:bg-blue-900/20',       border: 'border-blue-100 dark:border-blue-800/30' },
-                      { count: summaryScheduledToday,  label: 'Due Today',        color: 'text-amber-600 dark:text-amber-400',     bg: 'bg-amber-50 dark:bg-amber-900/20',     border: 'border-amber-100 dark:border-amber-800/30' },
-                      { count: summaryOfd,             label: 'Out for Delivery', color: 'text-teal-600 dark:text-teal-400',       bg: 'bg-teal-50 dark:bg-teal-900/20',       border: 'border-teal-100 dark:border-teal-800/30' },
-                      { count: summaryCompleted,       label: 'Completed',        color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-100 dark:border-emerald-800/30' },
-                    ] as { count: number; label: string; color: string; bg: string; border: string }[]).map(({ count, label, color, bg, border }) => (
-                      <div key={label} className={`flex flex-col items-center justify-center rounded-xl border p-3 ${bg} ${border}`}>
+                      { count: summaryActive,          label: 'Active Orders',    color: 'text-sky-300' },
+                      { count: summaryScheduledToday,  label: 'Due Today',        color: 'text-amber-300' },
+                      { count: summaryOfd,             label: 'Out for Delivery', color: 'text-teal-300' },
+                      { count: summaryCompleted,       label: 'Completed',        color: 'text-green-300' },
+                    ] as { count: number; label: string; color: string }[]).map(({ count, label, color }) => (
+                      <div key={label} className="flex flex-col items-center justify-center rounded-xl bg-white/10 hover:bg-white/15 transition-colors p-3">
                         <span className={`text-xl font-bold ${color}`}>{count}</span>
-                        <span className={`mt-0.5 text-center text-xs font-semibold leading-tight ${color}`}>{label}</span>
+                        <span className="mt-0.5 text-center text-xs font-semibold leading-tight text-white/70">{label}</span>
                       </div>
                     ))}
                   </div>
@@ -1567,7 +1568,7 @@ export default function DeliveryTeamPortal() {
               ) : (
                 <div className="flex-1 min-h-[200px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={trendData} margin={{ top: 4, right: 8, bottom: reportsPeriod === '90d' ? 36 : 4, left: -12 }}>
+                    <LineChart data={trendData} margin={{ top: 4, right: 8, bottom: reportsPeriod === '90d' ? 36 : 4, left: -12 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid, #e5e7eb)" />
                       <XAxis
                         dataKey="date"
@@ -1579,10 +1580,11 @@ export default function DeliveryTeamPortal() {
                       <YAxis tick={{ fontSize: 11, fill: 'var(--chart-tick, #6b7280)' }} allowDecimals={false} />
                       <Tooltip {...TOOLTIP_STYLE} />
                       <Legend wrapperStyle={{ fontSize: 12 }} />
-                      <Bar dataKey="delivered" name="Delivered" fill={CHART_COLORS.delivered} radius={[3,3,0,0]} stackId="a" maxBarSize={reportsPeriod === '90d' ? 10 : 28} />
-                      <Bar dataKey="cancelled" name="Cancelled" fill={CHART_COLORS.cancelled} radius={[0,0,0,0]} stackId="a" maxBarSize={reportsPeriod === '90d' ? 10 : 28} />
-                      <Bar dataKey="rescheduled" name="Rescheduled" fill={CHART_COLORS.rescheduled} radius={[3,3,0,0]} stackId="a" maxBarSize={reportsPeriod === '90d' ? 10 : 28} />
-                    </BarChart>
+                      <Line type="monotone" dataKey="total" name="Total Orders" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                      <Line type="monotone" dataKey="delivered" name="Delivered" stroke={CHART_COLORS.delivered} strokeWidth={2} dot={{ r: 3 }} />
+                      <Line type="monotone" dataKey="cancelled" name="Cancelled" stroke={CHART_COLORS.cancelled} strokeWidth={1.5} dot={{ r: 2 }} strokeDasharray="5 5" />
+                      <Line type="monotone" dataKey="rescheduled" name="Rescheduled" stroke={CHART_COLORS.rescheduled} strokeWidth={1.5} dot={{ r: 2 }} strokeDasharray="5 5" />
+                    </LineChart>
                   </ResponsiveContainer>
                 </div>
               )}
