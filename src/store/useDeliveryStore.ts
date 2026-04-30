@@ -261,8 +261,10 @@ const useDeliveryStore = create<DeliveryStore>((set, get) => ({
         const lat = parseFloat(String(latRaw));
         const lng = parseFloat(String(lngRaw));
 
-        const safeLat = isFinite(lat) && lat !== 0 ? lat : 25.1124;
-        const safeLng = isFinite(lng) && lng !== 0 ? lng : 55.198;
+        // Preserve actual geocoded coordinates; leave as 0 for ungeocodable
+        // so the map can skip them instead of pinning to a wrong default
+        const safeLat = isFinite(lat) && lat !== 0 ? lat : 0;
+        const safeLng = isFinite(lng) && lng !== 0 ? lng : 0;
 
         if (!delivery.id) {
           console.warn(`[Store] ⚠️ Delivery ${index + 1} missing ID! Generating fake ID: ${finalId}`);
@@ -392,8 +394,9 @@ const useDeliveryStore = create<DeliveryStore>((set, get) => ({
       const lat = parseFloat(String(latRaw));
       const lng = parseFloat(String(lngRaw));
 
-      const safeLat = isFinite(lat) && lat !== 0 ? lat : 25.1124;
-      const safeLng = isFinite(lng) && lng !== 0 ? lng : 55.198;
+      // Preserve actual geocoded coordinates; leave as 0 for ungeocodable
+      const safeLat = isFinite(lat) && lat !== 0 ? lat : 0;
+      const safeLng = isFinite(lng) && lng !== 0 ? lng : 0;
 
       return {
         ...delivery,

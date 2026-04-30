@@ -292,8 +292,9 @@ export function transformERPData(data: RawERPRow[]): TransformedDelivery[] {
       lngRaw = parseCoordinate(row['Ship to Longitude']);
     }
 
-    const lat = !isNaN(latRaw) ? latRaw : 25.1124;
-    const lng = !isNaN(lngRaw) ? lngRaw : 55.198;
+    // Leave as NaN when Excel has no coordinates — geocoding pipeline will resolve
+    const lat = !isNaN(latRaw) ? latRaw : NaN;
+    const lng = !isNaN(lngRaw) ? lngRaw : NaN;
 
     const poNumber = extractPONumber(row);
 
@@ -453,8 +454,9 @@ export function transformGenericData(data: RawERPRow[]): TransformedDelivery[] {
 
     const latRaw = parseCoordinate(latKey ? row[latKey] : undefined);
     const lngRaw = parseCoordinate(lngKey ? row[lngKey] : undefined);
-    const lat = !isNaN(latRaw) ? latRaw : 25.1124;
-    const lng = !isNaN(lngRaw) ? lngRaw : 55.198;
+    // Leave as NaN when Excel has no coordinates — geocoding pipeline will resolve
+    const lat = !isNaN(latRaw) ? latRaw : NaN;
+    const lng = !isNaN(lngRaw) ? lngRaw : NaN;
     const rawPhone = String(phoneKey ? (row[phoneKey] ?? '') : '').trim();
     const normalizedPhone = normalizeUAEPhone(rawPhone) || rawPhone;
     if (normalizedPhone !== rawPhone) {

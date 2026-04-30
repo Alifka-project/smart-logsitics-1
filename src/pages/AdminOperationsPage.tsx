@@ -1258,8 +1258,8 @@ export default function AdminOperationsPage(): React.ReactElement {
       {false && activeTab === 'delivery-tracking' && (() => {
         const deliveriesForMap = deliveries.map(d => ({
           ...d,
-          lat: d.lat || d.Lat || d.tracking?.lastLocation?.lat || 25.1124,
-          lng: d.lng || d.Lng || d.tracking?.lastLocation?.lng || 55.1980,
+          lat: d.lat || d.Lat || d.tracking?.lastLocation?.lat || 0,
+          lng: d.lng || d.Lng || d.tracking?.lastLocation?.lng || 0,
         }));
         const assignedDeliveries = deliveries.filter(d => d.tracking?.assigned);
         const inProgressDeliveries = deliveries.filter(d => d.tracking?.status === 'in_progress');

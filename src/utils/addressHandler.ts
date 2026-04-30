@@ -86,13 +86,16 @@ export function prepareAddressForGeocoding(delivery: Delivery): PreparedAddress 
 
 export function mergeGeocodedResult(delivery: Delivery, geocodeResult: GeocodeResult): Delivery {
   if (geocodeResult.lat === null || geocodeResult.lng === null) {
+    // Keep original coords if valid; otherwise leave as NaN — never hardcode defaults
+    const origLat = parseFloat(String(delivery.lat));
+    const origLng = parseFloat(String(delivery.lng));
     return {
       ...delivery,
       geocoded: false,
       geocodeAccuracy: 'FAILED',
       geocodeError: geocodeResult.error || 'Geocoding failed',
-      lat: parseFloat(String(delivery.lat)) || 25.1124,
-      lng: parseFloat(String(delivery.lng)) || 55.198,
+      lat: isFinite(origLat) && origLat !== 0 ? origLat : undefined as unknown as number,
+      lng: isFinite(origLng) && origLng !== 0 ? origLng : undefined as unknown as number,
     };
   }
 

@@ -155,8 +155,8 @@ export default function AdminDeliveryTrackingPage(): React.ReactElement {
 
   const deliveriesForMap = deliveries.map(d => ({
     ...d,
-    lat: d.lat || d.Lat || d.tracking?.lastLocation?.lat || 25.1124,
-    lng: d.lng || d.Lng || d.tracking?.lastLocation?.lng || 55.1980,
+    lat: d.lat || d.Lat || d.tracking?.lastLocation?.lat || 0,
+    lng: d.lng || d.Lng || d.tracking?.lastLocation?.lng || 0,
   }));
 
   return (
