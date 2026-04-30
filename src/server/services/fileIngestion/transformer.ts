@@ -279,8 +279,15 @@ export function transformERPData(data: RawERPRow[]): TransformedDelivery[] {
       row['SHIP TO PARTY']
     );
     const customer = nameVal || (shipToVal != null ? String(shipToVal).trim() : '') || `Customer ${index + 1}`;
+    // Build address from all available location columns for better geocoding accuracy
     const address =
-      [row['Ship to Street'], row['Ship-to Street'], row['Street'], row['Address'], row['City'], row['Postal code']]
+      [
+        row['Ship to Street'], row['Ship-to Street'], row['Street'], row['Address'],
+        row['Building'], row['Building Name'], row['Bldg'], row['Tower'],
+        row['Area'], row['Area Name'], row['District'], row['Zone'], row['Region'],
+        row['Neighborhood'], row['Community'], row['Sub-community'],
+        row['City'], row['Postal code'],
+      ]
         .filter(Boolean)
         .join(', ') ||
       'Address not available';
@@ -525,8 +532,17 @@ export function transformGenericData(data: RawERPRow[]): TransformedDelivery[] {
     });
 
     const customer = (customerKey ? row[customerKey] : null) || `Customer ${index + 1}`;
+    // Pull extra location columns (area, building, district) for better geocoding
+    const areaKey = keys.find((k) => {
+      const l = k.toLowerCase();
+      return l.includes('area') || l.includes('district') || l.includes('zone') || l.includes('region') || l.includes('neighborhood') || l.includes('community');
+    });
+    const buildingKey = keys.find((k) => {
+      const l = k.toLowerCase();
+      return l.includes('building') || l.includes('bldg') || l.includes('tower');
+    });
     const address =
-      [addressKey ? row[addressKey] : null, cityKey ? row[cityKey] : null]
+      [addressKey ? row[addressKey] : null, buildingKey ? row[buildingKey] : null, areaKey ? row[areaKey] : null, cityKey ? row[cityKey] : null]
         .filter(Boolean)
         .join(', ') || 'Address not available';
 

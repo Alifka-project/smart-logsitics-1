@@ -27,9 +27,10 @@ const MAPBOX_URL = 'https://api.mapbox.com/geocoding/v5/mapbox.places';
 const GOOGLE_URL = 'https://maps.googleapis.com/maps/api/geocode/json';
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
 
-const DUBAI_BOUNDS_GOOGLE = '24.7,54.8|25.5,55.7';
-const DUBAI_BBOX_MAPBOX = '54.8,24.7,55.7,25.5';     // minLng,minLat,maxLng,maxLat
-const DUBAI_BBOX_NOMINATIM = '54.8,25.5,55.7,24.7'; // left,top,right,bottom
+// UAE-wide bounding box — covers all 7 emirates + Al Ain
+const UAE_BOUNDS_GOOGLE = '22.6,51.5|26.1,56.4';
+const UAE_BBOX_MAPBOX = '51.5,22.6,56.4,26.1';     // minLng,minLat,maxLng,maxLat
+const UAE_BBOX_NOMINATIM = '51.5,26.1,56.4,22.6'; // left,top,right,bottom
 
 interface GeocodeHit {
   lat: number;
@@ -74,7 +75,7 @@ async function tryMapbox(address: string): Promise<GeocodeHit | null> {
   try {
     const url = `${MAPBOX_URL}/${encodeURIComponent(address)}.json`;
     const { data } = await axios.get(url, {
-      params: { access_token: token, bbox: DUBAI_BBOX_MAPBOX, country: 'ae', limit: 1 },
+      params: { access_token: token, bbox: UAE_BBOX_MAPBOX, country: 'ae', limit: 1 },
       timeout: 10000,
     });
     const feat = data?.features?.[0];
@@ -91,7 +92,7 @@ async function tryGoogle(address: string): Promise<GeocodeHit | null> {
   if (!key) return null;
   try {
     const { data } = await axios.get(GOOGLE_URL, {
-      params: { address, key, components: 'country:AE', bounds: DUBAI_BOUNDS_GOOGLE },
+      params: { address, key, components: 'country:AE', bounds: UAE_BOUNDS_GOOGLE },
       timeout: 10000,
     });
     if (data?.status !== 'OK') return null;
@@ -117,7 +118,7 @@ async function tryNominatim(address: string): Promise<GeocodeHit | null> {
         q: address,
         format: 'json',
         countrycodes: 'ae',
-        viewbox: DUBAI_BBOX_NOMINATIM,
+        viewbox: UAE_BBOX_NOMINATIM,
         bounded: 1,
         limit: 1,
       },

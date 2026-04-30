@@ -6,10 +6,11 @@ import type { Delivery, GeocodeAccuracy, GeocodeResult, PreparedAddress, Address
  */
 
 export function extractCity(address: string | null | undefined): string {
-  if (!address) return 'Dubai, UAE';
+  if (!address) return 'UAE';
 
   const address_str = String(address).toLowerCase();
 
+  // Dubai areas
   const dubaiAreas = [
     'downtown', 'marina', 'jumeirah', 'deira', 'bur dubai',
     'al baraha', 'al khawaneej', 'al quoz', 'business bay',
@@ -26,8 +27,33 @@ export function extractCity(address: string | null | undefined): string {
   }
 
   if (address_str.includes('dubai')) return 'Dubai, UAE';
-  if (address_str.includes('emirates')) return 'United Arab Emirates';
-  return 'Dubai, UAE';
+
+  // Abu Dhabi areas
+  const abuDhabiAreas = [
+    'yas island', 'saadiyat', 'al reem', 'khalifa city', 'musaffah',
+    'mussafah', 'al raha', 'corniche', 'al maryah', 'al bateen',
+    'mohammed bin zayed', 'mbz', 'khalidiyah', 'tourist club',
+    'hamdan street', 'electra', 'al nahyan', 'al shamkha',
+  ];
+  for (const area of abuDhabiAreas) {
+    if (address_str.includes(area)) return `${area}, Abu Dhabi, UAE`;
+  }
+  if (address_str.includes('abu dhabi')) return 'Abu Dhabi, UAE';
+
+  // Al Ain
+  if (address_str.includes('al ain')) return 'Al Ain, Abu Dhabi, UAE';
+
+  // Sharjah
+  if (address_str.includes('sharjah')) return 'Sharjah, UAE';
+
+  // Other emirates
+  if (address_str.includes('ajman')) return 'Ajman, UAE';
+  if (address_str.includes('ras al khaimah') || address_str.includes('rak')) return 'Ras Al Khaimah, UAE';
+  if (address_str.includes('fujairah')) return 'Fujairah, UAE';
+  if (address_str.includes('umm al quwain') || address_str.includes('uaq')) return 'Umm Al Quwain, UAE';
+
+  if (address_str.includes('emirates') || address_str.includes('uae')) return 'United Arab Emirates';
+  return 'UAE';
 }
 
 export function isValidAddress(address: string | null | undefined): boolean {
