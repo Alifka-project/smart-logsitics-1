@@ -878,14 +878,14 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
       <div className="overflow-x-auto">
         <table className="manage-orders-table-mobile table-mobile-cards table-fixed w-full min-w-[900px] border-collapse text-sm">
           <colgroup>
-            <col style={{ width: '17%' }} />   {/* Customer */}
-            <col style={{ width: '12%' }} />   {/* Order */}
-            <col style={{ width: '21%' }} />   {/* Product */}
+            <col style={{ width: '16%' }} />   {/* Customer */}
+            <col style={{ width: '11%' }} />   {/* Order */}
+            <col style={{ width: '18%' }} />   {/* Product */}
             <col style={{ width: '11%' }} />   {/* Dates */}
-            <col style={{ width: '8%' }} />    {/* Priority */}
-            <col style={{ width: simpleDriverDisplay ? '11%' : '12%' }} /> {/* Driver */}
+            <col style={{ width: '10%' }} />   {/* Priority */}
+            <col style={{ width: '13%' }} />   {/* Driver */}
             <col style={{ width: '12%' }} />   {/* Status */}
-            <col style={{ width: '8%' }} />    {/* Action */}
+            <col style={{ width: '9%' }} />    {/* Action */}
           </colgroup>
           <thead className="border-b border-gray-200 bg-gray-50/95 dark:border-gray-600 dark:bg-gray-900/90">
             <tr>
