@@ -1498,6 +1498,8 @@ export default function LogisticsTeamPortal() {
           hideUpload
           hideDeliveriesTab
           enableDispatchFilters
+          showActionCards={false}
+          showTabRailPolicyGuide
           showMaterialColumn
           getDriverCapacity={(orderId, driverId) => {
             const d = deliveries.find(x => x.id === orderId);

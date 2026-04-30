@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Database, MapPin, Zap, List, ClipboardList, RefreshCw, Upload, HelpCircle, X } from 'lucide-react';
+import { Database, MapPin, Zap, List, ClipboardList, RefreshCw, Upload, HelpCircle, BookOpen, X } from 'lucide-react';
 import DeliveryTable from '../components/DeliveryList/DeliveryTable';
 import CustomerModal from '../components/CustomerDetails/CustomerModal';
 import ManageTab from '../components/deliveries/ManageTab';
@@ -110,6 +110,8 @@ interface DeliveryManagementPageProps {
   simpleDriverDisplay?: boolean;
   /** When true, show Upload Excel + How to Use buttons on the right side of the tab rail */
   showTabRailUpload?: boolean;
+  /** When true, show Policy & KPI Guide button on the right side of the tab rail (Logistics Portal) */
+  showTabRailPolicyGuide?: boolean;
   /** Called when a file is selected via the tab-rail Upload Excel button */
   onTabRailFileSelected?: (file: File) => void;
   /** Whether a file upload is currently in progress (disables the Upload button) */
@@ -136,6 +138,7 @@ export default function DeliveryManagementPage({
   showQtyColumn = false,
   simpleDriverDisplay = false,
   showTabRailUpload = false,
+  showTabRailPolicyGuide = false,
   onTabRailFileSelected,
   tabRailUploading = false,
 }: DeliveryManagementPageProps) {
@@ -154,6 +157,7 @@ export default function DeliveryManagementPage({
   const tabRailFileInputRef = useRef<HTMLInputElement>(null);
   const howToUseBtnRef = useRef<HTMLButtonElement>(null);
   const [showHowToUse, setShowHowToUse] = useState(false);
+  const [showPolicyGuide, setShowPolicyGuide] = useState(false);
   const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null);
 
   // Bridge: when parent's onTabRailFileSelected fires, store the file so ManageTab can pick it up
@@ -540,46 +544,66 @@ export default function DeliveryManagementPage({
             })}
           </div>
 
-          {/* Upload Excel + How to Use — Delivery Team Portal only */}
-          {showTabRailUpload && (
+          {/* Tab-rail right-side buttons (Delivery Team: Upload + How to Use / Logistics: Policy Guide) */}
+          {(showTabRailUpload || showTabRailPolicyGuide) && (
             <div className="ml-auto flex flex-nowrap items-center gap-1.5 pl-2">
-              <input
-                ref={tabRailFileInputRef}
-                type="file"
-                accept=".xlsx,.xls,.csv"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleTabRailFile(file);
-                  e.target.value = '';
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => tabRailFileInputRef.current?.click()}
-                disabled={tabRailUploading}
-                className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-medium whitespace-nowrap min-h-[44px] touch-manipulation transition-all ${
-                  tabRailUploading
-                    ? 'opacity-50 pointer-events-none bg-gray-200 dark:bg-gray-700 text-gray-400'
-                    : 'bg-[#032145] text-white hover:bg-[#021432] shadow-sm'
-                }`}
-              >
-                <Upload className="w-4 h-4" />
-                {tabRailUploading ? 'Uploading...' : 'Upload Excel'}
-              </button>
-              <button
-                ref={howToUseBtnRef}
-                type="button"
-                onClick={() => setShowHowToUse((v) => !v)}
-                className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium whitespace-nowrap min-h-[44px] touch-manipulation transition-all ${
-                  showHowToUse
-                    ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-white/60 dark:hover:bg-slate-700/50'
-                }`}
-              >
-                <HelpCircle className="w-4 h-4" />
-                How to Use
-              </button>
+              {/* Upload Excel + How to Use — Delivery Team Portal only */}
+              {showTabRailUpload && (
+                <>
+                  <input
+                    ref={tabRailFileInputRef}
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleTabRailFile(file);
+                      e.target.value = '';
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => tabRailFileInputRef.current?.click()}
+                    disabled={tabRailUploading}
+                    className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-medium whitespace-nowrap min-h-[44px] touch-manipulation transition-all ${
+                      tabRailUploading
+                        ? 'opacity-50 pointer-events-none bg-gray-200 dark:bg-gray-700 text-gray-400'
+                        : 'bg-[#032145] text-white hover:bg-[#021432] shadow-sm'
+                    }`}
+                  >
+                    <Upload className="w-4 h-4" />
+                    {tabRailUploading ? 'Uploading...' : 'Upload Excel'}
+                  </button>
+                  <button
+                    ref={howToUseBtnRef}
+                    type="button"
+                    onClick={() => setShowHowToUse((v) => !v)}
+                    className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium whitespace-nowrap min-h-[44px] touch-manipulation transition-all ${
+                      showHowToUse
+                        ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-white/60 dark:hover:bg-slate-700/50'
+                    }`}
+                  >
+                    <HelpCircle className="w-4 h-4" />
+                    How to Use
+                  </button>
+                </>
+              )}
+              {/* Policy & KPI Guide — Logistics Portal only */}
+              {showTabRailPolicyGuide && (
+                <button
+                  type="button"
+                  onClick={() => setShowPolicyGuide((v) => !v)}
+                  className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium whitespace-nowrap min-h-[44px] touch-manipulation transition-all ${
+                    showPolicyGuide
+                      ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-white/60 dark:hover:bg-slate-700/50'
+                  }`}
+                >
+                  <BookOpen className="w-4 h-4" />
+                  Policy & KPI Guide
+                </button>
+              )}
             </div>
           )}
         </nav>
@@ -639,6 +663,97 @@ export default function DeliveryManagementPage({
           document.body,
         );
       })()}
+
+      {/* ── Policy & KPI Guide modal (Logistics Portal — full-screen centered) ── */}
+      {showPolicyGuide && showTabRailPolicyGuide && createPortal(
+        <>
+          <div className="fixed inset-0 z-[9998] bg-black/40" onClick={() => setShowPolicyGuide(false)} />
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pointer-events-none">
+            <div
+              className="pointer-events-auto w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl bg-white dark:bg-gray-800 shadow-2xl border border-gray-200 dark:border-gray-700"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-t-2xl">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="w-5 h-5 text-[#032145] dark:text-blue-400" />
+                  <h2 className="text-base font-semibold text-gray-900 dark:text-white">Policy & KPI Guide</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPolicyGuide(false)}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="px-5 py-5 space-y-5">
+                {/* Workflow */}
+                <div>
+                  <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Workflow</p>
+                  <div className="space-y-2.5">
+                    {[
+                      { num: 1, text: 'Upload Excel — system auto-sends SMS to customer', color: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300' },
+                      { num: 2, text: 'Customer confirms delivery date via SMS link', color: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300' },
+                      { num: 3, text: 'Assign driver immediately after confirmation', color: 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300' },
+                      { num: 4, text: 'Set GMD date before dispatching (out-for-delivery)', color: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300' },
+                      { num: 5, text: 'Target: deliver within 24h of confirmation', color: 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300' },
+                    ].map((step) => (
+                      <div key={step.num} className="flex items-start gap-2.5">
+                        <span className={`mt-0.5 w-6 h-6 shrink-0 rounded-full flex items-center justify-center text-xs font-semibold ${step.color}`}>
+                          {step.num}
+                        </span>
+                        <span className="text-[13px] text-gray-700 dark:text-gray-300 leading-snug">{step.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="border-t border-gray-100 dark:border-gray-700" />
+
+                {/* KPI Rules */}
+                <div>
+                  <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">KPI Rules</p>
+                  <div className="space-y-2.5">
+                    {[
+                      { icon: '⏱', text: 'Delivery must be completed within 24 hours of customer confirmation.' },
+                      { icon: '📅', text: "Orders uploaded after 3:00 PM cannot be dispatched for the next day's shipment." },
+                      { icon: '🚚', text: 'Every confirmed order must have a driver assigned before dispatch.' },
+                      { icon: '📋', text: 'GMD (Goods Movement Date) must be set before marking Out-for-Delivery.' },
+                      { icon: '✅', text: 'POD (Proof of Delivery) must be submitted within 2 hours of delivery.' },
+                    ].map((rule, i) => (
+                      <div key={i} className="flex items-start gap-2.5 text-[13px] text-gray-700 dark:text-gray-300">
+                        <span className="shrink-0 mt-0.5 text-base">{rule.icon}</span>
+                        <span className="leading-snug">{rule.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="border-t border-gray-100 dark:border-gray-700" />
+
+                {/* Watch Out For */}
+                <div>
+                  <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Watch Out For</p>
+                  <div className="space-y-2.5">
+                    {[
+                      { icon: '🚨', text: 'Order Delay status — action required within the hour. Contact driver immediately.' },
+                      { icon: '📍', text: 'Always verify delivery address before dispatch. Wrong address = failed delivery.' },
+                      { icon: '🔄', text: 'Rescheduled orders must have a new confirmed date and driver re-assigned.' },
+                      { icon: '📦', text: 'B2B orders (Ship-to Party): confirm with the company contact, not individual name.' },
+                    ].map((rule, i) => (
+                      <div key={i} className="flex items-start gap-2.5 text-[13px] text-gray-700 dark:text-gray-300">
+                        <span className="shrink-0 mt-0.5 text-base">{rule.icon}</span>
+                        <span className="leading-snug">{rule.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>,
+        document.body,
+      )}
 
       {/* ── MANAGE DELIVERY ORDER TAB ── */}
       {!hideManageTab && activeTab === 'manage' && (
