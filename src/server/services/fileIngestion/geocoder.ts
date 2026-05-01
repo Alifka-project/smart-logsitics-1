@@ -73,37 +73,53 @@ interface GeocodeHit {
  * Mirrors src/utils/addressHandler.ts EMIRATE_AREA_CENTROIDS — duplicated
  * here intentionally so the server build stays self-contained.
  */
-const EMIRATE_AREA_CENTROIDS: Array<{ keyword: string; lat: number; lng: number }> = [
-  { keyword: 'yas island',     lat: 24.4675, lng: 54.6038 },
-  { keyword: 'saadiyat',       lat: 24.5312, lng: 54.4288 },
-  { keyword: 'al reem',        lat: 24.4994, lng: 54.4036 },
-  { keyword: 'khalifa city',   lat: 24.4189, lng: 54.5786 },
-  { keyword: 'mussafah',       lat: 24.3585, lng: 54.5031 },
-  { keyword: 'musaffah',       lat: 24.3585, lng: 54.5031 },
-  { keyword: 'al ain',         lat: 24.2075, lng: 55.7447 },
-  { keyword: 'mohammed bin zayed', lat: 24.4047, lng: 54.5717 },
-  { keyword: 'palm jumeirah',  lat: 25.1124, lng: 55.1390 },
-  { keyword: 'jebel ali',      lat: 24.9858, lng: 55.0683 },
-  { keyword: 'business bay',   lat: 25.1863, lng: 55.2664 },
-  { keyword: 'downtown',       lat: 25.1972, lng: 55.2744 },
-  { keyword: 'marina',         lat: 25.0800, lng: 55.1350 },
-  { keyword: 'jumeirah',       lat: 25.2048, lng: 55.2381 },
-  { keyword: 'deira',          lat: 25.2695, lng: 55.3266 },
-  { keyword: 'ras al khaimah', lat: 25.7889, lng: 55.9758 },
-  { keyword: 'umm al quwain',  lat: 25.5644, lng: 55.5550 },
-  { keyword: 'abu dhabi',      lat: 24.4539, lng: 54.3773 },
-  { keyword: 'sharjah',        lat: 25.3463, lng: 55.4209 },
-  { keyword: 'ajman',          lat: 25.4111, lng: 55.4354 },
-  { keyword: 'fujairah',       lat: 25.1288, lng: 56.3265 },
-  { keyword: 'rak',            lat: 25.7889, lng: 55.9758 },
-  { keyword: 'uaq',            lat: 25.5644, lng: 55.5550 },
-  { keyword: 'dubai',          lat: 25.2048, lng: 55.2708 },
+const EMIRATE_AREA_CENTROIDS: Array<{ keyword: string; lat: number; lng: number; query: string }> = [
+  { keyword: 'yas island',     lat: 24.4675, lng: 54.6038, query: 'Yas Island, Abu Dhabi, UAE' },
+  { keyword: 'saadiyat',       lat: 24.5312, lng: 54.4288, query: 'Saadiyat Island, Abu Dhabi, UAE' },
+  { keyword: 'al reem',        lat: 24.4994, lng: 54.4036, query: 'Al Reem Island, Abu Dhabi, UAE' },
+  { keyword: 'khalifa city',   lat: 24.4189, lng: 54.5786, query: 'Khalifa City, Abu Dhabi, UAE' },
+  { keyword: 'mussafah',       lat: 24.3585, lng: 54.5031, query: 'Mussafah, Abu Dhabi, UAE' },
+  { keyword: 'musaffah',       lat: 24.3585, lng: 54.5031, query: 'Mussafah, Abu Dhabi, UAE' },
+  { keyword: 'al ain',         lat: 24.2075, lng: 55.7447, query: 'Al Ain, UAE' },
+  { keyword: 'mohammed bin zayed', lat: 24.4047, lng: 54.5717, query: 'Mohammed Bin Zayed City, Abu Dhabi, UAE' },
+  { keyword: 'palm jumeirah',  lat: 25.1124, lng: 55.1390, query: 'Palm Jumeirah, Dubai, UAE' },
+  { keyword: 'jebel ali',      lat: 24.9858, lng: 55.0683, query: 'Jebel Ali, Dubai, UAE' },
+  { keyword: 'business bay',   lat: 25.1863, lng: 55.2664, query: 'Business Bay, Dubai, UAE' },
+  { keyword: 'downtown',       lat: 25.1972, lng: 55.2744, query: 'Downtown Dubai, UAE' },
+  { keyword: 'marina',         lat: 25.0800, lng: 55.1350, query: 'Dubai Marina, UAE' },
+  { keyword: 'jumeirah',       lat: 25.2048, lng: 55.2381, query: 'Jumeirah, Dubai, UAE' },
+  { keyword: 'deira',          lat: 25.2695, lng: 55.3266, query: 'Deira, Dubai, UAE' },
+  { keyword: 'ras al khaimah', lat: 25.7889, lng: 55.9758, query: 'Ras Al Khaimah, UAE' },
+  { keyword: 'umm al quwain',  lat: 25.5644, lng: 55.5550, query: 'Umm Al Quwain, UAE' },
+  { keyword: 'abu dhabi',      lat: 24.4539, lng: 54.3773, query: 'Abu Dhabi, UAE' },
+  { keyword: 'sharjah',        lat: 25.3463, lng: 55.4209, query: 'Sharjah, UAE' },
+  { keyword: 'ajman',          lat: 25.4111, lng: 55.4354, query: 'Ajman, UAE' },
+  { keyword: 'fujairah',       lat: 25.1288, lng: 56.3265, query: 'Fujairah, UAE' },
+  { keyword: 'rak',            lat: 25.7889, lng: 55.9758, query: 'Ras Al Khaimah, UAE' },
+  { keyword: 'uaq',            lat: 25.5644, lng: 55.5550, query: 'Umm Al Quwain, UAE' },
+  { keyword: 'dubai',          lat: 25.2048, lng: 55.2708, query: 'Dubai, UAE' },
 ];
 
 function emirateCentroidFor(address: string): { lat: number; lng: number } | null {
   const text = address.toLowerCase();
   for (const entry of EMIRATE_AREA_CENTROIDS) {
     if (text.includes(entry.keyword)) return { lat: entry.lat, lng: entry.lng };
+  }
+  return null;
+}
+
+/**
+ * If the address text mentions a known UAE area, return a clean
+ * provider-friendly query for that area ("Yas Island, Abu Dhabi, UAE").
+ * Used as an additional variant in buildQueryVariants so noisy real-world
+ * addresses with building codes or mixed-language strings can still resolve
+ * to a specific street/POI/locality on the strict pass instead of falling
+ * straight through to the centroid fallback.
+ */
+function cleanAreaQueryFor(address: string): string | null {
+  const text = address.toLowerCase();
+  for (const entry of EMIRATE_AREA_CENTROIDS) {
+    if (text.includes(entry.keyword)) return entry.query;
   }
   return null;
 }
@@ -170,6 +186,15 @@ function buildQueryVariants(address: string): string[] {
       variants.push(stripped);
     }
   }
+
+  // Keyword-only clean variant — when the raw address contains a known UAE
+  // area name, also try just "Area, Emirate, UAE". This rescues noisy real
+  // inputs like "YS3 01\nياس جنوب 3 01\nYas Island - Abu Dhabi" by giving
+  // providers a clean query they can actually resolve to a specific island
+  // / suburb / POI rather than choking on building codes + Arabic mixed in.
+  // Goes last so the user's exact address is still tried first when it works.
+  const cleanArea = cleanAreaQueryFor(raw);
+  if (cleanArea) variants.push(cleanArea);
 
   return Array.from(new Set(variants));
 }

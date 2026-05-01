@@ -1,6 +1,6 @@
 import axios from 'axios';
 import type { GeocodeAccuracy, GeocodeResult } from '../types';
-import { extractCity, getEmirateCentroid } from '../utils/addressHandler';
+import { extractCity, getEmirateCentroid, getCleanAreaQuery } from '../utils/addressHandler';
 
 // In-memory cache for geocoding results
 const geocodeCache = new Map<string, GeocodeResult>();
@@ -320,6 +320,12 @@ export async function geocodeAddress(address: string, city?: string): Promise<Ge
     const detectedEmirate = detectEmirate(cleaned) || detectEmirate(resolvedCity);
     const areaToken = (cleaned.split('-')[0] || cleaned.split(',')[1] || '').trim();
     if (areaToken && areaToken.length > 4 && detectedEmirate) attempts.push({ q: areaToken, ctx: detectedEmirate });
+    // Clean keyword variant — synthesized from a known UAE area name in the
+    // address ("Yas Island, Abu Dhabi, UAE"). Goes last so the user's exact
+    // text is still tried first; rescues noisy inputs (building codes,
+    // mixed-language) that confuse providers but mention a known area.
+    const cleanArea = getCleanAreaQuery(cleaned);
+    if (cleanArea) attempts.push({ q: cleanArea, ctx: '' });
     // NOTE: We intentionally do NOT add { q: city, ctx: '' } as a last resort.
     // Geocoding just "Dubai" returns city-center coordinates which are wrong for deliveries.
 
