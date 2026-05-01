@@ -56,32 +56,36 @@ export function validateDeliveryData(data: unknown[]): ValidationResult {
 
     const lat = parseFloat(String(row.lat));
     const lng = parseFloat(String(row.lng));
+    const coordsMissing = isNaN(lat) || isNaN(lng);
 
-    if (isNaN(lat) || isNaN(lng)) {
-      rowErrors.push(`Row ${rowNum}: Latitude and Longitude must be valid numbers`);
-    } else {
-      if (lat < UAE_LAT_MIN || lat > UAE_LAT_MAX || lng < UAE_LNG_MIN || lng > UAE_LNG_MAX) {
-        warnings.push(
-          `Row ${rowNum}: Coordinates (${lat}, ${lng}) may be outside UAE. ` +
-            `Expected range: Lat ${UAE_LAT_MIN}-${UAE_LAT_MAX}, Lng ${UAE_LNG_MIN}-${UAE_LNG_MAX}`,
-        );
-      }
+    // Missing coords are NOT a hard error — SAP/ERP exports rarely include
+    // lat/lng columns and the upload pipeline geocodes from the address text
+    // after validation. Only warn here so the row still flows through; the
+    // address-required check above already blocks rows that have nothing for
+    // the geocoder to work with.
+    if (coordsMissing) {
+      warnings.push(`Row ${rowNum}: Coordinates missing — will be geocoded from address.`);
+    } else if (lat < UAE_LAT_MIN || lat > UAE_LAT_MAX || lng < UAE_LNG_MIN || lng > UAE_LNG_MAX) {
+      warnings.push(
+        `Row ${rowNum}: Coordinates (${lat}, ${lng}) may be outside UAE. ` +
+          `Expected range: Lat ${UAE_LAT_MIN}-${UAE_LAT_MAX}, Lng ${UAE_LNG_MIN}-${UAE_LNG_MAX}`,
+      );
+    }
 
-      if (rowErrors.length === 0) {
-        validData.push({
-          ...row,
-          customer: String(row.customer).trim(),
-          address: String(row.address).trim(),
-          lat,
-          lng,
-          phone:
-            row.phone != null && row.phone !== ''
-              ? String(row.phone).trim()
-              : (row.phone as string) || '',
-          items: String(row.items).trim(),
-          status: (row.status as string) || 'pending',
-        } as Delivery);
-      }
+    if (rowErrors.length === 0) {
+      validData.push({
+        ...row,
+        customer: String(row.customer).trim(),
+        address: String(row.address).trim(),
+        lat,
+        lng,
+        phone:
+          row.phone != null && row.phone !== ''
+            ? String(row.phone).trim()
+            : (row.phone as string) || '',
+        items: String(row.items).trim(),
+        status: (row.status as string) || 'pending',
+      } as Delivery);
     }
 
     if (rowErrors.length > 0) {
