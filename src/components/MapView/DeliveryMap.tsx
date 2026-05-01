@@ -205,16 +205,31 @@ export default function DeliveryMap({
 
     deliveryMarkers.current = newMarkers;
 
-    // Fit bounds only on first data load, and only if the user hasn't already
-    // panned or zoomed (userInteracted guards against late-arriving data
-    // resetting a zoom the user manually set).
-    if (!hasInitialFit.current && !userInteracted.current && validForFit.length > 0) {
-      hasInitialFit.current = true;
+    if (validForFit.length > 0) {
       try {
         const group = L.featureGroup(validForFit);
         const bounds = group.getBounds();
-        if (bounds.isValid()) {
+        if (!bounds.isValid()) return;
+
+        // First-ever data load: fit (and only suppress if the user is already
+        // mid-interaction with the default Dubai view).
+        if (!hasInitialFit.current && !userInteracted.current) {
+          hasInitialFit.current = true;
           map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14, animate: false });
+          return;
+        }
+
+        // After first load: re-fit only when at least one delivery marker lies
+        // outside the current viewport. This is what catches non-Dubai (Abu
+        // Dhabi, Sharjah, Al Ain, RAK, etc.) deliveries that were added after
+        // the initial Dubai fit — without this, the marker is silently placed
+        // off-screen and the user thinks the pin is missing. In-view updates
+        // (a delivery moving within current bounds, status changes) leave the
+        // user's pan/zoom alone.
+        const currentBounds = map.getBounds();
+        const anyOffScreen = validForFit.some((m) => !currentBounds.contains(m.getLatLng()));
+        if (anyOffScreen) {
+          map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14, animate: true });
         }
       } catch { /* ignore */ }
     }
@@ -315,16 +330,21 @@ export default function DeliveryMap({
 
     routeLayers.current = [outline, line, animated];
 
-    // Only fit to route on first load — skip if user has already panned/zoomed.
-    if (!hasInitialFit.current && !userInteracted.current) {
-      hasInitialFit.current = true;
-      try {
-        const bounds = line.getBounds();
-        if (bounds.isValid()) {
-          map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, animate: false });
-        }
-      } catch { /* ignore */ }
-    }
+    try {
+      const bounds = line.getBounds();
+      if (!bounds.isValid()) return;
+      if (!hasInitialFit.current && !userInteracted.current) {
+        hasInitialFit.current = true;
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, animate: false });
+        return;
+      }
+      // Re-fit when the route extends outside the current viewport — handles
+      // non-Dubai destinations added after the initial fit.
+      const currentBounds = map.getBounds();
+      if (!currentBounds.contains(bounds)) {
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, animate: true });
+      }
+    } catch { /* ignore */ }
   }, [route, driverRoutes]);
 
   // ── Effect 4b: per-driver colored route polylines ────────────────────────
@@ -370,18 +390,22 @@ export default function DeliveryMap({
       driverRouteLayers.current.push(outline, line);
     });
 
-    if (!hasInitialFit.current && !userInteracted.current) {
-      hasInitialFit.current = true;
-      try {
-        const allCoords = driverRoutes.flatMap((dr) => dr.coordinates) as [number, number][];
-        if (allCoords.length > 0) {
-          const bounds = L.latLngBounds(allCoords);
-          if (bounds.isValid()) {
-            map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, animate: false });
-          }
-        }
-      } catch { /* ignore */ }
-    }
+    try {
+      const allCoords = driverRoutes.flatMap((dr) => dr.coordinates) as [number, number][];
+      if (allCoords.length === 0) return;
+      const bounds = L.latLngBounds(allCoords);
+      if (!bounds.isValid()) return;
+      if (!hasInitialFit.current && !userInteracted.current) {
+        hasInitialFit.current = true;
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, animate: false });
+        return;
+      }
+      // Re-fit when any per-driver route reaches outside the current viewport.
+      const currentBounds = map.getBounds();
+      if (!currentBounds.contains(bounds)) {
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, animate: true });
+      }
+    } catch { /* ignore */ }
   }, [driverRoutes]);
 
   // ── Effect 5: pan to highlighted delivery marker ──────────────────────────
