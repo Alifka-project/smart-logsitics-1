@@ -1398,10 +1398,22 @@ export default function AdminDashboardPage(): React.ReactElement {
     return arr.slice(0, chartTopN);
   }, [data?.analytics?.deliveryByArea, chartTopN]);
 
-  type AreaRowEnhanced = AreaItem & { pending?: number; delivered?: number; successRate?: number };
+  type AreaRowEnhanced = AreaItem & {
+    pending?: number;
+    delivered?: number;
+    successRate?: number;
+    /** Average lat/lng of all deliveries in this bucket — drives the hotspot
+     *  map circle so non-Dubai emirates plot at their real centroid instead of
+     *  a hardcoded Dubai-area lookup. */
+    avgLat?: number;
+    avgLng?: number;
+  };
   const deliveryByAreaEnhanced = useMemo<AreaRowEnhanced[]>(() => {
     const list = dashboardDeliveries && Array.isArray(dashboardDeliveries) ? dashboardDeliveries : [];
-    const byArea: Record<string, { count: number; pending: number; delivered: number }> = {};
+    const byArea: Record<string, {
+      count: number; pending: number; delivered: number;
+      latSum: number; lngSum: number; coordCount: number;
+    }> = {};
     list.forEach(d => {
       const meta = (d.metadata || {}) as Record<string, unknown>;
       const orig = (meta.originalRow || meta._originalRow || {}) as Record<string, unknown>;
@@ -1410,11 +1422,18 @@ export default function AdminDashboardPage(): React.ReactElement {
       for (const kw of areaKeywords) {
         if (addr.includes(kw.toLowerCase())) { area = kw; break; }
       }
-      if (!byArea[area]) byArea[area] = { count: 0, pending: 0, delivered: 0 };
+      if (!byArea[area]) byArea[area] = { count: 0, pending: 0, delivered: 0, latSum: 0, lngSum: 0, coordCount: 0 };
       byArea[area].count++;
       const s = (d.status || '').toLowerCase();
       if (['delivered', 'delivered-with-installation', 'delivered-without-installation'].includes(s)) byArea[area].delivered++;
       else if (['pending', 'scheduled', 'scheduled-confirmed', 'out-for-delivery', 'in-progress', 'assigned'].includes(s)) byArea[area].pending++;
+      const lat = Number((d as unknown as { lat?: number }).lat);
+      const lng = Number((d as unknown as { lng?: number }).lng);
+      if (Number.isFinite(lat) && Number.isFinite(lng) && lat !== 0 && lng !== 0) {
+        byArea[area].latSum += lat;
+        byArea[area].lngSum += lng;
+        byArea[area].coordCount++;
+      }
     });
     return Object.entries(byArea)
       .map(([area, v]) => ({
@@ -1422,7 +1441,9 @@ export default function AdminDashboardPage(): React.ReactElement {
         count: v.count,
         pending: v.pending,
         delivered: v.delivered,
-        successRate: v.count > 0 ? sharePct(v.delivered, v.count) : 0
+        successRate: v.count > 0 ? sharePct(v.delivered, v.count) : 0,
+        avgLat: v.coordCount > 0 ? v.latSum / v.coordCount : undefined,
+        avgLng: v.coordCount > 0 ? v.lngSum / v.coordCount : undefined,
       }))
       .sort((a, b) => b.count - a.count)
       .slice(0, chartTopN);
@@ -3000,6 +3021,13 @@ export default function AdminDashboardPage(): React.ReactElement {
               const maxCount = Math.max(...deliveryByAreaEnhanced.map(r => r.count || 0), 1);
               const mapPoints = deliveryByAreaEnhanced
                 .map(r => {
+                  // Prefer the real centroid (avg of all delivery lat/lng in this
+                  // bucket) so a "Yas Island" or "Al Ain" bucket plots in the
+                  // correct emirate. Fall back to the legacy area-name lookup
+                  // only if no delivery in the bucket has valid coordinates.
+                  if (typeof r.avgLat === 'number' && typeof r.avgLng === 'number') {
+                    return { ...r, coords: [r.avgLat, r.avgLng] as [number, number] };
+                  }
                   const key = Object.keys(DUBAI_AREA_COORDS).find(k =>
                     r.area?.toLowerCase().includes(k.toLowerCase()) ||
                     k.toLowerCase().includes((r.area || '').toLowerCase())
@@ -3010,11 +3038,11 @@ export default function AdminDashboardPage(): React.ReactElement {
               return (
                 <div className="xl:col-span-7 pp-dash-card p-6 min-h-0">
                   <div className="mb-3">
-                    <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Delivery Hotspot Map — Dubai</h2>
+                    <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Delivery Hotspot Map — UAE</h2>
                     <p className="pp-page-subtitle">Circle size = delivery volume · Hover for share %, pending, success</p>
                   </div>
                   <div className="h-[min(70vh,560px)] min-h-[380px] sm:min-h-[440px] rounded-xl overflow-hidden">
-                    <MapContainer center={[25.2, 55.27]} zoom={11} style={{ height: '100%', width: '100%' }} scrollWheelZoom={false} attributionControl={false}>
+                    <MapContainer center={[24.5, 54.5]} zoom={7} style={{ height: '100%', width: '100%' }} scrollWheelZoom={false} attributionControl={false}>
                       <TileLayer
                         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                       />

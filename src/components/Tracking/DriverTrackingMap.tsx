@@ -26,9 +26,13 @@ export default function DriverTrackingMap({ drivers }: DriverTrackingMapProps) {
       mapInstance.current.remove();
     }
 
+    // Start with a UAE-wide overview so non-Dubai drivers (Abu Dhabi, Sharjah,
+    // Al Ain, RAK, etc.) aren't off-screen during the brief moment before the
+    // drivers effect fitBounds() takes over. fitBounds runs whenever the
+    // drivers prop is non-empty, so this initial center is purely a fallback.
     mapInstance.current = L.map(mapRef.current, {
       attributionControl: false,
-    }).setView([25.0053, 55.076], 12);
+    }).setView([24.5, 54.5], 7);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,

@@ -149,7 +149,7 @@ function validateLocationsForRouting(
     }
 
     if (!isValidDubaiCoordinates(lat, lng)) {
-      console.warn(`Location ${idx + 1}: Outside Dubai area (${lat}, ${lng})`);
+      console.warn(`Location ${idx + 1}: Outside UAE (${lat}, ${lng})`);
     }
 
     validLocations.push({ ...loc, lat, lng });

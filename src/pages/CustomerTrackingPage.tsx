@@ -603,11 +603,14 @@ export default function CustomerTrackingPage() {
     return null;
   })();
 
+  // Fallback only fires when both delivery and driver have no coords. Use a
+  // UAE-wide centroid (between Dubai and Abu Dhabi) so the empty-state map
+  // doesn't mislead the customer about which emirate the order is in.
   const mapCenter: [number, number] = delivery.lat && delivery.lng
     ? [delivery.lat, delivery.lng]
     : (trackingInfo.driverLocation
       ? [trackingInfo.driverLocation.latitude, trackingInfo.driverLocation.longitude]
-      : [25.2048, 55.2708]);
+      : [24.5, 54.5]);
 
   const straightFallback: [number, number][] = [];
   if (delivery.lat && delivery.lng) straightFallback.push([delivery.lat, delivery.lng]);
