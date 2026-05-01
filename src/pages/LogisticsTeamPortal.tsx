@@ -822,6 +822,14 @@ export default function LogisticsTeamPortal() {
             const tomorrowMs = todayMs + 86400000;
             const t0 = new Date(todayIso + 'T00:00:00+04:00');
 
+            // Workflow-mapped view of every delivery, computed ONCE per render.
+            // Cards that conceptually mirror a Manage-table filter MUST count
+            // against this array (not raw .status) so dashboard KPIs match the
+            // table's filter-tab counts. Without this, a "confirmed" order with
+            // GMD set shows under "PGI Done" in the table but disappeared from
+            // the dashboard's PGI Done card (table 12, dashboard 0).
+            const orders = deliveries.map(d => deliveryToManageOrder(d));
+
             // Today's Summary stats
             // Count actual deliveries created today (server-side truth).
             // The local `recentUploads` store is per-user and per-session, so it
@@ -880,14 +888,10 @@ export default function LogisticsTeamPortal() {
             }).length;
             // Advanced workflow counters — PGI Done (warehouse issued, awaiting driver pick)
             // and Ready to Depart (picking list confirmed, waiting on driver's Start Delivery).
-            const pgiDoneCount = deliveries.filter(d => {
-              const s = (d.status || '').toLowerCase();
-              return s === 'pgi-done' || s === 'pgi_done';
-            }).length;
-            const readyToDepartCount = deliveries.filter(d => {
-              const s = (d.status || '').toLowerCase();
-              return s === 'pickup-confirmed' || s === 'pickup_confirmed';
-            }).length;
+            // Both count against the workflow-mapped status so a 'confirmed'/'rescheduled'
+            // order with GMD set is correctly classified as PGI Done — same as the table.
+            const pgiDoneCount = orders.filter(o => o.status === 'pgi_done').length;
+            const readyToDepartCount = orders.filter(o => o.status === 'pickup_confirmed').length;
 
             // ── Delivery KPI (last 7 Dubai-days): on-time vs delayed ─────────────
             // Bucket each order by its confirmedDeliveryDate Dubai calendar day
@@ -1119,14 +1123,17 @@ export default function LogisticsTeamPortal() {
 
                 {/* ── ROW 2: 3 Charts (equal columns) ── */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                  {/* Chart 1 — Status Breakdown (donut) */}
+                  {/* Chart 1 — Status Breakdown (donut). Counts use the
+                      workflow-mapped order.status so chart segments match the
+                      Manage table's filter-tab counts (e.g. a 'confirmed +
+                      GMD' row shows under PGI Done in both, not split). */}
                   {(() => {
                     const statusGroups = [
-                      { name: 'Delivered',  value: deliveries.filter(d => TERMINAL_STATUSES.has((d.status||'').toLowerCase())).length,  color: '#22c55e' },
-                      { name: 'On Route',   value: deliveries.filter(d => (d.status||'').toLowerCase() === 'out-for-delivery').length,  color: '#3b82f6' },
-                      { name: 'Awaiting',   value: deliveries.filter(d => ['sms_sent','sms-sent','unconfirmed','awaiting_customer'].includes((d.status||'').toLowerCase())).length, color: '#a855f7' },
-                      { name: 'Pending',    value: deliveries.filter(d => ['pending','uploaded','scheduled','confirmed','scheduled-confirmed'].includes((d.status||'').toLowerCase())).length, color: '#f59e0b' },
-                      { name: 'Delayed',    value: deliveries.filter(d => DELAY_STATUSES.has((d.status||'').toLowerCase())).length, color: '#ef4444' },
+                      { name: 'Delivered',  value: orders.filter(o => o.status === 'delivered').length,         color: '#22c55e' },
+                      { name: 'On Route',   value: orders.filter(o => o.status === 'out_for_delivery').length,  color: '#3b82f6' },
+                      { name: 'Awaiting',   value: orders.filter(o => o.status === 'sms_sent' || o.status === 'unconfirmed').length, color: '#a855f7' },
+                      { name: 'Pending',    value: orders.filter(o => ['uploaded','next_shipment','future_schedule','rescheduled'].includes(o.status)).length, color: '#f59e0b' },
+                      { name: 'Delayed',    value: orders.filter(o => o.status === 'order_delay').length,       color: '#ef4444' },
                     ].filter(g => g.value > 0);
                     const total = statusGroups.reduce((s, g) => s + g.value, 0);
                     return (

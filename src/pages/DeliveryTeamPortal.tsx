@@ -1080,6 +1080,14 @@ export default function DeliveryTeamPortal() {
 
           {/* ── Stats Row (70%) + Today's Summary (30%) side-by-side ── */}
           {(() => {
+            // Workflow-mapped view, computed ONCE per render. Cards that
+            // mirror a Manage-table filter MUST count against this array, not
+            // raw .status, so dashboard KPIs match the table's filter-tab
+            // counts. Without this, a 'confirmed' order with GMD set shows
+            // under PGI Done in the table but disappears from the dashboard
+            // PGI Done card.
+            const orders = deliveries.map(d => deliveryToManageOrder(d));
+
             const activeAll = deliveries.filter(d => !TERMINAL_STATUSES.has((d.status || '').toLowerCase()));
             const assignedActive = activeAll.filter(d => {
               const dt = d as unknown as { tracking?: { driverId?: string } };
@@ -1089,23 +1097,24 @@ export default function DeliveryTeamPortal() {
               const dt = d as unknown as { tracking?: { driverId?: string } };
               return !dt.tracking?.driverId && !d.assignedDriverId;
             });
-            const ofd = activeAll.filter(d => (d.status || '').toLowerCase() === 'out-for-delivery');
-            const pendingCount = deliveries.filter(d => {
-              const s = (d.status || '').toLowerCase();
-              return ['pending', 'uploaded', 'sms_sent', 'unconfirmed'].includes(s);
-            }).length;
-            const confirmedCount = deliveries.filter(d => {
-              const s = (d.status || '').toLowerCase();
-              return s === 'confirmed' || s === 'scheduled' || s === 'scheduled-confirmed';
-            }).length;
-            const pgiDoneTeamCount = deliveries.filter(d => {
-              const s = (d.status || '').toLowerCase();
-              return s === 'pgi-done' || s === 'pgi_done';
-            }).length;
-            const readyToDepartTeamCount = deliveries.filter(d => {
-              const s = (d.status || '').toLowerCase();
-              return s === 'pickup-confirmed' || s === 'pickup_confirmed';
-            }).length;
+            // Workflow-mapped on-route — includes pickup_confirmed orders whose
+            // delivery date ≤ today (auto-promoted) so the dashboard agrees
+            // with the table's "On Route" filter.
+            const ofd = orders.filter(o => o.status === 'out_for_delivery');
+            // Status-based counters use the workflow-mapped status so the
+            // dashboard agrees with the Manage table's filter-tab counts.
+            // 'pending' = uploaded + sms_sent + unconfirmed (pre-confirmation tier).
+            const pendingCount = orders.filter(o =>
+              ['uploaded', 'sms_sent', 'unconfirmed'].includes(o.status)
+            ).length;
+            // 'confirmed' = next_shipment + future_schedule (customer confirmed,
+            // GMD not yet set). A confirmed-with-GMD row is correctly in
+            // pgi_done below, not here.
+            const confirmedCount = orders.filter(o =>
+              o.status === 'next_shipment' || o.status === 'future_schedule'
+            ).length;
+            const pgiDoneTeamCount = orders.filter(o => o.status === 'pgi_done').length;
+            const readyToDepartTeamCount = orders.filter(o => o.status === 'pickup_confirmed').length;
             const todayStartMs = (() => {
               const d = new Date();
               d.setHours(0, 0, 0, 0);
@@ -1137,7 +1146,10 @@ export default function DeliveryTeamPortal() {
             const SUMMARY_TERMINAL = new Set(['delivered', 'cancelled', 'failed']);
             const summaryActive = deliveries.filter(d => !SUMMARY_TERMINAL.has((d.status || '').toLowerCase())).length;
             const summaryScheduledToday = deliveries.filter(isTodayDelivery).length;
-            const summaryOfd = deliveries.filter(d => (d.status || '').toLowerCase() === 'out-for-delivery').length;
+            // Workflow-mapped — agrees with table's "On Route" filter and the
+            // ofd count above, so the Today's Summary doesn't drift from the
+            // KPI row sitting next to it.
+            const summaryOfd = orders.filter(o => o.status === 'out_for_delivery').length;
             const summaryCompleted = deliveries.filter(d => SUMMARY_TERMINAL.has((d.status || '').toLowerCase())).length;
 
             return (
