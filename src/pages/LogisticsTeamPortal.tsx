@@ -117,8 +117,10 @@ export default function LogisticsTeamPortal() {
   // 'all' = whatever passes the existing status / driver / search filters across any date.
   // Drives both which orders are listed AND which date's capacity bar shows in driver headers.
   const [liveMapsDateMode, setLiveMapsDateMode] = useState<'today' | 'tomorrow' | 'all'>('today');
-  // Per-card "Reassign to driver…" menu state — only one open at a time.
-  const [reassignMenuFor, setReassignMenuFor] = useState<string | null>(null);
+  // Inline "assigning driver…" loading state per row, used to disable the
+  // dropdown while the assign API is in flight. The previous reassignMenuFor
+  // popover state was removed when we switched to the inline <select> pattern
+  // (matches the Manage table); no menu state is needed any more.
   const [reassignBusyId, setReassignBusyId] = useState<string | null>(null);
   const [podModalDelivery, setPodModalDelivery] = useState<Delivery | null>(null);
   const [drivers, setDrivers] = useState<ContactUser[]>([]);
@@ -503,15 +505,35 @@ export default function LogisticsTeamPortal() {
   };
 
   // Reassign a delivery to a different driver from the Live Maps panel.
-  // Server enforces the per-driver 20-units/day cap (deliveryCapacityService.TRUCK_MAX_ITEMS_PER_DAY)
-  // and surfaces 'driver_capacity_exceeded' which we present inline so ops never silently overflow.
+  //
+  // Server enforces the per-driver 20-units/day cap; we surface its message
+  // inline so ops never silently overflow. Lightweight: optimistic local
+  // update + event dispatch only, NO blocking loadData() reload. The big
+  // capacity-bar refresh comes naturally via the 60s periodic loadData()
+  // tick (or the next driver-only 10s poll), so we don't fan out a dozen
+  // parallel /driver-capacity calls per click — that fan-out was saturating
+  // the serverless DB pool and causing /auth/login 504s for everyone else.
   const reassignDelivery = async (deliveryId: string, driverId: string): Promise<void> => {
     setReassignBusyId(deliveryId);
     try {
       await api.put(`/deliveries/admin/${deliveryId}/assign`, { driverId });
-      setReassignMenuFor(null);
-      // Refetch deliveries + capacity so headers reflect the new allocation.
-      await loadData();
+      // Optimistic local update — flip assignedDriverId on the row in
+      // state so the UI feels instant. The capacity bars catch up on the
+      // next periodic refresh.
+      setDeliveries((prev) =>
+        prev.map((d) => {
+          if (d.id !== deliveryId) return d;
+          const dExt = d as Delivery & { tracking?: { driverId?: string } | null };
+          return {
+            ...d,
+            assignedDriverId: driverId,
+            tracking: dExt.tracking ? { ...dExt.tracking, driverId } : { driverId },
+          } as Delivery;
+        }),
+      );
+      // Tell other tabs / components a delivery changed so they can refresh
+      // their own state without us forcing a heavy reload from here.
+      window.dispatchEvent(new CustomEvent('deliveriesUpdated', { detail: { deliveryId } }));
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string; error?: string } }; message?: string };
       const msg =
@@ -1949,7 +1971,7 @@ export default function LogisticsTeamPortal() {
                                   { key: 'all',      label: 'All' },
                                 ] as { key: typeof liveMapsDateMode; label: string }[]).map((m) => (
                                   <button key={m.key} type="button"
-                                    onClick={() => { setLiveMapsDateMode(m.key); setReassignMenuFor(null); }}
+                                    onClick={() => setLiveMapsDateMode(m.key)}
                                     className={`flex-1 px-2 py-1 rounded text-[11px] font-semibold transition-colors ${
                                       liveMapsDateMode === m.key
                                         ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm'
@@ -2405,25 +2427,54 @@ export default function LogisticsTeamPortal() {
                             </span>
                           </div>
 
-                          {/* Actions — compact icon-style buttons. Reassign
-                              opens a dropdown anchored below this row. */}
-                          <div className="shrink-0 flex items-center gap-0.5">
+                          {/* Actions — same pattern the Manage table uses:
+                              one tiny driver <select> per row + a POD icon.
+                              The select shows the current driver as the
+                              default option and lists every driver with a
+                              capacity hint inline; full drivers are disabled.
+                              Clicking it doesn't fan out a dozen capacity
+                              refetches — just the assign API + an optimistic
+                              local update + a deliveriesUpdated event. */}
+                          <div className="shrink-0 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                            {(() => {
+                              const orderUnits = unitsFor(delivery);
+                              const targetIso = getCapacityDateIso(delivery);
+                              const currentDriverId = (delivery as unknown as { tracking?: { driverId?: string } }).tracking?.driverId
+                                || delivery.assignedDriverId
+                                || '';
+                              return (
+                                <select
+                                  value={currentDriverId}
+                                  disabled={reassignBusyId === delivery.id}
+                                  onChange={(e) => {
+                                    const newDriverId = e.target.value;
+                                    if (!newDriverId || newDriverId === currentDriverId) return;
+                                    void reassignDelivery(delivery.id, newDriverId);
+                                  }}
+                                  className="max-w-[110px] px-1.5 py-1 text-[10px] rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 cursor-pointer"
+                                  title="Assign / reassign driver"
+                                  aria-label="Driver"
+                                >
+                                  <option value="">{currentDriverId ? '— Reassign —' : '— Assign —'}</option>
+                                  {drivers.map((dr) => {
+                                    const isCurrent = dr.id === currentDriverId;
+                                    const cap = driverCapacityByDate[targetIso]?.[dr.id];
+                                    const used = cap?.used ?? 0;
+                                    const max = cap?.max ?? 20;
+                                    const wouldOverflow = !isCurrent && (used + orderUnits > max);
+                                    const capHint = cap ? ` (${used}/${max})` : '';
+                                    return (
+                                      <option key={dr.id} value={dr.id} disabled={isCurrent || wouldOverflow}>
+                                        {(dr.fullName || dr.username) + capHint + (isCurrent ? ' • current' : wouldOverflow ? ' • full' : '')}
+                                      </option>
+                                    );
+                                  })}
+                                </select>
+                              );
+                            })()}
                             <button
                               type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setReassignMenuFor(reassignMenuFor === delivery.id ? null : delivery.id);
-                              }}
-                              className="inline-flex items-center justify-center w-7 h-7 rounded text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50 transition-colors"
-                              disabled={reassignBusyId === delivery.id}
-                              title="Reassign to a different driver"
-                              aria-label="Reassign"
-                            >
-                              <Truck className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); setPodModalDelivery(delivery); }}
+                              onClick={() => setPodModalDelivery(delivery)}
                               className="inline-flex items-center justify-center w-7 h-7 rounded text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
                               title="Upload Proof of Delivery"
                               aria-label="Upload POD"
@@ -2431,83 +2482,6 @@ export default function LogisticsTeamPortal() {
                               <Camera className="w-3.5 h-3.5" />
                             </button>
                           </div>
-
-                          {/* Reassign popover — anchored to the row (which is
-                              `relative`). Drops below since rows are short.
-                              Server-side cap is the authority; chips are a
-                              preview to prevent obvious overflow attempts. */}
-                          {reassignMenuFor === delivery.id && (
-                            <div
-                              className="absolute right-2 top-full mt-1 z-20 w-64 max-h-72 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl text-left"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <div className="sticky top-0 px-2.5 py-1.5 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center justify-between">
-                                <span>Move to driver</span>
-                                <button
-                                  type="button"
-                                  onClick={() => setReassignMenuFor(null)}
-                                  className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                                  aria-label="Close"
-                                >
-                                  ✕
-                                </button>
-                              </div>
-                              {(() => {
-                                const orderUnits = unitsFor(delivery);
-                                const targetIso = getCapacityDateIso(delivery);
-                                const currentDriverId = (delivery as unknown as { tracking?: { driverId?: string } }).tracking?.driverId
-                                  || delivery.assignedDriverId
-                                  || null;
-                                return drivers.map((dr) => {
-                                  const isCurrent = dr.id === currentDriverId;
-                                  const cap = driverCapacityByDate[targetIso]?.[dr.id];
-                                  const used = cap?.used ?? 0;
-                                  const max = cap?.max ?? 20;
-                                  const remaining = Math.max(0, max - used);
-                                  const wouldOverflow = isCurrent ? false : (used + orderUnits > max);
-                                  const online = isContactOnline(dr);
-                                  const reasonChip = isCurrent
-                                    ? { text: 'CURRENT', cls: 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400' }
-                                    : wouldOverflow
-                                    ? { text: `+${used + orderUnits - max} OVER`, cls: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' }
-                                    : null;
-                                  return (
-                                    <button
-                                      key={dr.id}
-                                      type="button"
-                                      disabled={isCurrent || wouldOverflow || reassignBusyId === delivery.id}
-                                      onClick={(e) => { e.stopPropagation(); void reassignDelivery(delivery.id, dr.id); }}
-                                      className={`w-full flex items-center gap-2 px-2.5 py-1.5 text-left text-[11px] border-b border-gray-100 dark:border-gray-800 last:border-0 transition-colors ${
-                                        isCurrent
-                                          ? 'bg-gray-50 dark:bg-gray-800/60 text-gray-400 dark:text-gray-500 cursor-default'
-                                          : wouldOverflow
-                                            ? 'bg-red-50 dark:bg-red-900/10 text-red-700 dark:text-red-400 cursor-not-allowed'
-                                            : 'hover:bg-blue-50 dark:hover:bg-blue-900/20 text-gray-700 dark:text-gray-200'
-                                      }`}
-                                      title={
-                                        isCurrent ? 'Currently assigned to this driver'
-                                        : wouldOverflow ? `Would overflow truck: ${used} used + ${orderUnits} new > ${max} cap`
-                                        : `${remaining} unit${remaining === 1 ? '' : 's'} free of ${max}`
-                                      }
-                                    >
-                                      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${online ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
-                                      <span className="flex-1 min-w-0 truncate font-medium">
-                                        {dr.fullName || dr.username}
-                                      </span>
-                                      {reasonChip && (
-                                        <span className={`text-[9px] font-bold uppercase px-1 py-0.5 rounded shrink-0 tracking-wider ${reasonChip.cls}`}>
-                                          {reasonChip.text}
-                                        </span>
-                                      )}
-                                      <span className="text-[10px] tabular-nums shrink-0 text-gray-500 dark:text-gray-400">
-                                        {used}/{max}
-                                      </span>
-                                    </button>
-                                  );
-                                });
-                              })()}
-                            </div>
-                          )}
                         </div>
                       );
                     })}
