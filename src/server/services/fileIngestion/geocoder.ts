@@ -1,10 +1,9 @@
 /**
- * Server-side geocoder for the auto-ingest path.
+ * Server-side geocoder.
  *
- * Used ONLY by /api/ingest/file when an incoming row has no usable
- * coordinates (transformer marked `_usedDefaultCoords: true`). Does not
- * affect manual upload — which continues to use the browser-side
- * src/services/geocodingService.ts with an interactive modal.
+ * Used by:
+ *   - /api/ingest/file (batch geocoding rows that lack coordinates)
+ *   - /api/deliveries/admin/:id/status (re-geocode when an admin edits address)
  *
  * Provider cascade (first available wins per row):
  *   1. Mapbox        — env MAPBOX_TOKEN     (best; matches portal primary)
@@ -14,11 +13,24 @@
  * If none of the keyed providers are configured, Nominatim is used
  * automatically. No configuration required for the free fallback.
  *
+ * UAE-wide coverage (mirrors src/services/geocodingService.ts on the client):
+ *   - Each provider asks for top 3 candidates, not 1.
+ *   - Broad-area matches (country/state/city/locality) are rejected — only
+ *     street/POI-level results are accepted, otherwise we keep cascading.
+ *   - Result lat/lng is validated against the UAE bounding box even when the
+ *     provider claimed it honored our bbox/region filter (defensive).
+ *   - When the address text mentions an emirate, the query is augmented with
+ *     that emirate as context (e.g. "Al Ain Mall" → "Al Ain Mall, Al Ain,
+ *     Abu Dhabi, UAE") so providers don't bias toward Dubai for ambiguous
+ *     names. We try the augmented query first, then the raw text as fallback.
+ *
  * Rate limits handled:
  *   - Mapbox / Google: parallel-safe (no throttling needed for batch < 50)
  *   - Nominatim: 1 req/sec per their usage policy (enforced via sleep)
  *
- * In-memory cache per-instance prevents duplicate lookups in a batch.
+ * In-memory cache per-process prevents duplicate lookups within a batch.
+ * The cache resets on each server restart, so a redeploy after a logic
+ * change naturally invalidates any prior poisoned entries.
  */
 
 import axios from 'axios';
@@ -27,10 +39,17 @@ const MAPBOX_URL = 'https://api.mapbox.com/geocoding/v5/mapbox.places';
 const GOOGLE_URL = 'https://maps.googleapis.com/maps/api/geocode/json';
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
 
-// UAE-wide bounding box — covers all 7 emirates + Al Ain
-const UAE_BOUNDS_GOOGLE = '22.6,51.5|26.1,56.4';
-const UAE_BBOX_MAPBOX = '51.5,22.6,56.4,26.1';     // minLng,minLat,maxLng,maxLat
-const UAE_BBOX_NOMINATIM = '51.5,26.1,56.4,22.6'; // left,top,right,bottom
+// UAE bounding box — covers all 7 emirates + Al Ain.
+const UAE_BBOX = { minLng: 51.5, maxLng: 56.4, minLat: 22.6, maxLat: 26.1 } as const;
+const UAE_BOUNDS_GOOGLE = `${UAE_BBOX.minLat},${UAE_BBOX.minLng}|${UAE_BBOX.maxLat},${UAE_BBOX.maxLng}`;
+const UAE_BBOX_MAPBOX = `${UAE_BBOX.minLng},${UAE_BBOX.minLat},${UAE_BBOX.maxLng},${UAE_BBOX.maxLat}`;
+const UAE_BBOX_NOMINATIM = `${UAE_BBOX.minLng},${UAE_BBOX.maxLat},${UAE_BBOX.maxLng},${UAE_BBOX.minLat}`;
+
+// Place types we never accept — these are too broad to pin a delivery.
+const TOO_BROAD_TYPES = new Set([
+  'country', 'state', 'county', 'region', 'province',
+  'administrative', 'city', 'town', 'village', 'municipality', 'locality',
+]);
 
 interface GeocodeHit {
   lat: number;
@@ -42,6 +61,66 @@ const cache = new Map<string, GeocodeHit | null>();
 
 function normalizeKey(address: string): string {
   return String(address).trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function inUAE(lat: number, lng: number): boolean {
+  if (!isFinite(lat) || !isFinite(lng)) return false;
+  return (
+    lat >= UAE_BBOX.minLat && lat <= UAE_BBOX.maxLat &&
+    lng >= UAE_BBOX.minLng && lng <= UAE_BBOX.maxLng
+  );
+}
+
+/**
+ * Detect a UAE emirate name in the address text and return a context suffix
+ * suitable for appending to the geocoder query. Order matters — multi-word
+ * names ("ras al khaimah", "umm al quwain", "al ain") must be checked before
+ * single-word substrings to avoid e.g. "ajman" matching inside "ras al khaimah".
+ */
+function detectEmirateContext(text: string): string {
+  const t = text.toLowerCase();
+  if (t.includes('ras al khaimah') || /\brak\b/.test(t)) return 'Ras Al Khaimah, UAE';
+  if (t.includes('umm al quwain') || /\buaq\b/.test(t)) return 'Umm Al Quwain, UAE';
+  if (t.includes('al ain')) return 'Al Ain, Abu Dhabi, UAE';
+  if (t.includes('abu dhabi')) return 'Abu Dhabi, UAE';
+  if (t.includes('sharjah')) return 'Sharjah, UAE';
+  if (t.includes('ajman')) return 'Ajman, UAE';
+  if (t.includes('fujairah')) return 'Fujairah, UAE';
+  if (t.includes('dubai')) return 'Dubai, UAE';
+  return '';
+}
+
+/**
+ * Build the ordered list of query variants to try. Each variant is a single
+ * string we send to the provider. Variants are deduplicated.
+ */
+function buildQueryVariants(address: string): string[] {
+  const raw = address.trim();
+  const ctx = detectEmirateContext(raw);
+  const variants: string[] = [];
+
+  // Already includes the emirate? Send as-is first; otherwise prepend the
+  // emirate context to bias the provider away from Dubai-default ambiguity.
+  if (ctx && !raw.toLowerCase().includes(ctx.split(',')[0].toLowerCase())) {
+    variants.push(`${raw}, ${ctx}`);
+  }
+  variants.push(raw);
+
+  // Drop unit/floor/parens noise as a last attempt.
+  const stripped = raw
+    .replace(/\b(flat|apt|apartment|unit|suite|ste|building|bldg|floor|fl)\b[^,]*/gi, '')
+    .replace(/#\d+/g, '')
+    .replace(/\([^)]*\)|\[[^\]]*\]/g, '')
+    .trim();
+  if (stripped && stripped !== raw) {
+    if (ctx && !stripped.toLowerCase().includes(ctx.split(',')[0].toLowerCase())) {
+      variants.push(`${stripped}, ${ctx}`);
+    } else {
+      variants.push(stripped);
+    }
+  }
+
+  return Array.from(new Set(variants));
 }
 
 function mapboxToken(): string {
@@ -66,48 +145,85 @@ export function availableProviders(): string[] {
   return p;
 }
 
-// Simple sleep helper — Nominatim requires 1 req/sec
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
-async function tryMapbox(address: string): Promise<GeocodeHit | null> {
+interface MapboxFeature { center?: number[]; place_type?: string[]; place_name?: string }
+
+async function tryMapbox(query: string): Promise<GeocodeHit | null> {
   const token = mapboxToken();
   if (!token) return null;
   try {
-    const url = `${MAPBOX_URL}/${encodeURIComponent(address)}.json`;
+    const url = `${MAPBOX_URL}/${encodeURIComponent(query)}.json`;
     const { data } = await axios.get(url, {
-      params: { access_token: token, bbox: UAE_BBOX_MAPBOX, country: 'ae', limit: 1 },
+      params: {
+        access_token: token,
+        bbox: UAE_BBOX_MAPBOX,
+        country: 'ae',
+        limit: 3,
+        types: 'address,poi,place,neighborhood,locality',
+      },
       timeout: 10000,
     });
-    const feat = data?.features?.[0];
-    if (!feat?.center || feat.center.length < 2) return null;
-    return { lng: feat.center[0], lat: feat.center[1], provider: 'mapbox' };
+    const features: MapboxFeature[] = data?.features || [];
+    for (const feat of features) {
+      const center = feat.center;
+      if (!center || center.length < 2) continue;
+      const lng = center[0];
+      const lat = center[1];
+      if (!inUAE(lat, lng)) continue;
+      const type = (feat.place_type?.[0] || '').toLowerCase();
+      if (TOO_BROAD_TYPES.has(type)) continue;
+      return { lat, lng, provider: 'mapbox' };
+    }
+    return null;
   } catch (e) {
-    console.warn(`[Geocoder/Mapbox] "${address}": ${(e as Error).message}`);
+    console.warn(`[Geocoder/Mapbox] "${query}": ${(e as Error).message}`);
     return null;
   }
 }
 
-async function tryGoogle(address: string): Promise<GeocodeHit | null> {
+interface GoogleResult {
+  geometry?: { location?: { lat: number; lng: number } };
+  types?: string[];
+  formatted_address?: string;
+}
+
+async function tryGoogle(query: string): Promise<GeocodeHit | null> {
   const key = googleKey();
   if (!key) return null;
   try {
     const { data } = await axios.get(GOOGLE_URL, {
-      params: { address, key, components: 'country:AE', bounds: UAE_BOUNDS_GOOGLE },
+      params: { address: query, key, components: 'country:AE', bounds: UAE_BOUNDS_GOOGLE },
       timeout: 10000,
     });
     if (data?.status !== 'OK') return null;
-    const loc = data.results?.[0]?.geometry?.location;
-    if (!loc) return null;
-    return { lat: loc.lat, lng: loc.lng, provider: 'google' };
+    const results: GoogleResult[] = data.results || [];
+    // Prefer street-level / premise; fall back to any non-broad UAE result.
+    const isSpecific = (types: string[]): boolean =>
+      types.includes('street_address') || types.includes('premise') ||
+      types.includes('subpremise') || types.includes('route');
+    const isBroad = (types: string[]): boolean => types.some((t) => TOO_BROAD_TYPES.has(t));
+
+    let pick: GoogleResult | null = null;
+    for (const r of results) {
+      const loc = r.geometry?.location;
+      if (!loc || !inUAE(loc.lat, loc.lng)) continue;
+      const types = r.types || [];
+      if (isSpecific(types)) { pick = r; break; }
+      if (!pick && !isBroad(types)) pick = r;
+    }
+    if (!pick?.geometry?.location) return null;
+    return { lat: pick.geometry.location.lat, lng: pick.geometry.location.lng, provider: 'google' };
   } catch (e) {
-    console.warn(`[Geocoder/Google] "${address}": ${(e as Error).message}`);
+    console.warn(`[Geocoder/Google] "${query}": ${(e as Error).message}`);
     return null;
   }
 }
 
-// Throttle Nominatim — they require 1 req/sec max. Module-scope timestamp.
+interface NominatimResult { lat: string; lon: string; addresstype?: string; type?: string }
+
 let lastNominatimAt = 0;
-async function tryNominatim(address: string): Promise<GeocodeHit | null> {
+async function tryNominatim(query: string): Promise<GeocodeHit | null> {
   const elapsed = Date.now() - lastNominatimAt;
   if (elapsed < 1100) await sleep(1100 - elapsed);
   lastNominatimAt = Date.now();
@@ -115,48 +231,58 @@ async function tryNominatim(address: string): Promise<GeocodeHit | null> {
   try {
     const { data } = await axios.get(NOMINATIM_URL, {
       params: {
-        q: address,
+        q: query,
         format: 'json',
         countrycodes: 'ae',
         viewbox: UAE_BBOX_NOMINATIM,
         bounded: 1,
-        limit: 1,
+        addressdetails: 1,
+        limit: 3,
       },
       headers: {
-        // Nominatim requires a valid User-Agent identifying the app
         'User-Agent': 'Electrolux-Smart-Logistics/1.0 (auto-ingest)',
       },
       timeout: 15000,
     });
     if (!Array.isArray(data) || data.length === 0) return null;
-    const r = data[0];
-    const lat = parseFloat(r.lat);
-    const lng = parseFloat(r.lon);
-    if (isNaN(lat) || isNaN(lng)) return null;
-    return { lat, lng, provider: 'nominatim' };
+    for (const r of data as NominatimResult[]) {
+      const lat = parseFloat(r.lat);
+      const lng = parseFloat(r.lon);
+      if (isNaN(lat) || isNaN(lng) || !inUAE(lat, lng)) continue;
+      const type = (r.addresstype || r.type || '').toLowerCase();
+      if (TOO_BROAD_TYPES.has(type)) continue;
+      return { lat, lng, provider: 'nominatim' };
+    }
+    return null;
   } catch (e) {
-    console.warn(`[Geocoder/Nominatim] "${address}": ${(e as Error).message}`);
+    console.warn(`[Geocoder/Nominatim] "${query}": ${(e as Error).message}`);
     return null;
   }
 }
 
-/** Geocode a single address using the provider cascade. */
+/**
+ * Geocode a single address using the provider cascade.
+ *
+ * For each query variant (emirate-augmented first, then raw, then unit-stripped),
+ * try Mapbox → Google → Nominatim. First specific UAE-bounded hit wins.
+ */
 export async function geocodeOne(addressRaw: string): Promise<GeocodeHit | null> {
   if (!addressRaw) return null;
   const key = normalizeKey(addressRaw);
   if (cache.has(key)) return cache.get(key) ?? null;
 
-  // Try in order of best → cheapest
-  const hit =
-    (await tryMapbox(addressRaw)) ||
-    (await tryGoogle(addressRaw)) ||
-    (await tryNominatim(addressRaw));
+  const variants = buildQueryVariants(addressRaw);
+  let hit: GeocodeHit | null = null;
+  for (const q of variants) {
+    hit = (await tryMapbox(q)) || (await tryGoogle(q)) || (await tryNominatim(q));
+    if (hit) break;
+  }
 
   cache.set(key, hit);
   if (hit) {
     console.log(`[Geocoder] "${addressRaw}" → ${hit.lat},${hit.lng} via ${hit.provider}`);
   } else {
-    console.warn(`[Geocoder] No match for "${addressRaw}" across any provider`);
+    console.warn(`[Geocoder] No specific UAE match for "${addressRaw}" across any provider`);
   }
   return hit;
 }

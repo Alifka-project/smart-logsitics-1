@@ -25,11 +25,12 @@ export interface ValidationResult {
 
 const REQUIRED_COLUMNS = ['customer', 'address', 'lat', 'lng', 'items'] as const;
 
-// Dubai bounding box — same values as frontend validator
-const DUBAI_LAT_MIN = 24.7;
-const DUBAI_LAT_MAX = 25.5;
-const DUBAI_LNG_MIN = 54.8;
-const DUBAI_LNG_MAX = 55.7;
+// UAE-wide bounding box — same values as frontend validator. Covers all 7
+// emirates + Al Ain so legitimate non-Dubai deliveries don't warn falsely.
+const UAE_LAT_MIN = 22.6;
+const UAE_LAT_MAX = 26.1;
+const UAE_LNG_MIN = 51.5;
+const UAE_LNG_MAX = 56.4;
 
 export function validateDeliveryData(data: unknown[]): ValidationResult {
   const errors: string[] = [];
@@ -73,9 +74,9 @@ export function validateDeliveryData(data: unknown[]): ValidationResult {
     if (isNaN(lat) || isNaN(lng)) {
       rowErrors.push(`Row ${rowNum}: Latitude and Longitude must be valid numbers`);
     } else {
-      if (lat < DUBAI_LAT_MIN || lat > DUBAI_LAT_MAX || lng < DUBAI_LNG_MIN || lng > DUBAI_LNG_MAX) {
+      if (lat < UAE_LAT_MIN || lat > UAE_LAT_MAX || lng < UAE_LNG_MIN || lng > UAE_LNG_MAX) {
         warnings.push(
-          `Row ${rowNum}: Coordinates (${lat}, ${lng}) may be outside Dubai area.`,
+          `Row ${rowNum}: Coordinates (${lat}, ${lng}) may be outside UAE.`,
         );
       }
       if (rowErrors.length === 0) {

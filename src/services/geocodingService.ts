@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type { GeocodeAccuracy, GeocodeResult } from '../types';
+import { extractCity } from '../utils/addressHandler';
 
 // In-memory cache for geocoding results
 const geocodeCache = new Map<string, GeocodeResult>();
@@ -252,9 +253,12 @@ function cacheToLocalStorage(key: string, result: GeocodeResult): void {
   }
 }
 
-export async function geocodeAddress(address: string, city = 'Dubai, UAE'): Promise<GeocodeResult> {
+export async function geocodeAddress(address: string, city?: string): Promise<GeocodeResult> {
   const cleaned = cleanAddress(address);
-  const cacheKey = `${normalizeAddress(cleaned)}|${normalizeAddress(city)}`;
+  // Derive emirate context from the address text when the caller didn't pass one,
+  // so non-Dubai addresses (Abu Dhabi, Al Ain, Sharjah, etc.) aren't mis-biased.
+  const resolvedCity = city && city.trim() ? city : extractCity(cleaned);
+  const cacheKey = `${normalizeAddress(cleaned)}|${normalizeAddress(resolvedCity)}`;
 
   try {
     const ls = (window as Window & { localStorage?: Storage })?.localStorage?.getItem('geocode_cache_v1');
@@ -278,7 +282,7 @@ export async function geocodeAddress(address: string, city = 'Dubai, UAE'): Prom
   try {
     if (MAPBOX_TOKEN) {
       try {
-        const mb = await tryMapbox(cleaned, city);
+        const mb = await tryMapbox(cleaned, resolvedCity);
         if (mb?.lat != null) {
           geocodeCache.set(cacheKey, mb);
           cacheToLocalStorage(cacheKey, mb);
@@ -290,7 +294,7 @@ export async function geocodeAddress(address: string, city = 'Dubai, UAE'): Prom
 
     if (!MAPBOX_TOKEN && GOOGLE_GEOCODING_KEY) {
       try {
-        const gg = await tryGoogle(cleaned, city);
+        const gg = await tryGoogle(cleaned, resolvedCity);
         if (gg?.lat != null) {
           geocodeCache.set(cacheKey, gg);
           cacheToLocalStorage(cacheKey, gg);
@@ -301,19 +305,19 @@ export async function geocodeAddress(address: string, city = 'Dubai, UAE'): Prom
     }
 
     const attempts: Array<{ q: string; ctx: string }> = [];
-    if (cleaned) attempts.push({ q: cleaned, ctx: city });
+    if (cleaned) attempts.push({ q: cleaned, ctx: resolvedCity });
     const stripUnit = cleaned
       .replace(/\b(flat|apt|apartment|unit|suite|ste|building|bldg|floor|fl)\b[^,]*/gi, '')
       .replace(/#\d+/g, '')
       .trim();
-    if (stripUnit && stripUnit !== cleaned) attempts.push({ q: stripUnit, ctx: city });
+    if (stripUnit && stripUnit !== cleaned) attempts.push({ q: stripUnit, ctx: resolvedCity });
     const noParens = cleaned.replace(/\([^)]*\)|\[[^\]]*\]/g, '').trim();
-    if (noParens && noParens !== cleaned && noParens !== stripUnit) attempts.push({ q: noParens, ctx: city });
+    if (noParens && noParens !== cleaned && noParens !== stripUnit) attempts.push({ q: noParens, ctx: resolvedCity });
     const firstPart = (cleaned.split(',')[0] || '').trim();
-    if (firstPart && firstPart !== cleaned) attempts.push({ q: firstPart, ctx: city });
+    if (firstPart && firstPart !== cleaned) attempts.push({ q: firstPart, ctx: resolvedCity });
     if (firstPart) attempts.push({ q: firstPart, ctx: '' });
     // Area token attempt — only if it looks like a real neighborhood name (2+ words or known area)
-    const detectedEmirate = detectEmirate(cleaned) || detectEmirate(city);
+    const detectedEmirate = detectEmirate(cleaned) || detectEmirate(resolvedCity);
     const areaToken = (cleaned.split('-')[0] || cleaned.split(',')[1] || '').trim();
     if (areaToken && areaToken.length > 4 && detectedEmirate) attempts.push({ q: areaToken, ctx: detectedEmirate });
     // NOTE: We intentionally do NOT add { q: city, ctx: '' } as a last resort.
@@ -350,8 +354,10 @@ export async function geocodeAddressesBatch(addresses: AddressInput[]): Promise<
   console.log(`[Batch Geocoding] Starting ${addresses.length} requests`);
 
   for (let i = 0; i < addresses.length; i++) {
-    const { address, city = 'Dubai, UAE' } = addresses[i];
+    const { address, city } = addresses[i];
     try {
+      // Pass undefined when no city was provided so geocodeAddress derives the
+      // emirate from the address text (handles all UAE emirates, not just Dubai).
       const result = await geocodeAddress(address, city);
       results.push({ index: i, address, ...result });
       console.log(`[Batch Progress] ${i + 1}/${addresses.length} completed`);

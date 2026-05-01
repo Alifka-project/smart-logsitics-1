@@ -7,6 +7,7 @@ import MultipleFileUpload, { PhotoItem } from './MultipleFileUpload';
 import SignaturePad from './SignaturePad';
 import StatusUpdateForm from './StatusUpdateForm';
 import { geocodeAddress } from '../../services/geocodingService';
+import { extractCity } from '../../utils/addressHandler';
 
 interface CustomerModalProps {
   isOpen: boolean;
@@ -68,7 +69,10 @@ export default function CustomerModal({
       let geo: { lat: number | null; lng: number | null } | null = null;
 
       if (editAddress && editAddress.trim() !== (selectedDelivery.address ?? '').trim()) {
-        geo = await geocodeAddress(editAddress, 'Dubai, UAE');
+        // Detect emirate from the address text instead of hard-biasing to Dubai —
+        // an Abu Dhabi or Sharjah address would otherwise snap to Dubai because
+        // Mapbox/Google rank the larger city's POIs higher for ambiguous queries.
+        geo = await geocodeAddress(editAddress, extractCity(editAddress));
       }
 
       const payload: Record<string, unknown> = {
