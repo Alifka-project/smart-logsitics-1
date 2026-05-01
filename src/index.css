@@ -261,19 +261,26 @@
   body { min-width: 0; overflow-x: hidden; }
 }
 
-/* Responsive page container */
+/* Responsive page container.
+ * Tightened (May 2026) to reduce wasted whitespace at the page edges and
+ * fill more of wide desktop screens. Each breakpoint pulls the gutter in:
+ *   mobile  : 12px   (was 16)
+ *   tablet  : 16px   (was 20)
+ *   desktop : 20px   (was 24/28 split)
+ * Max-width raised 1520 → 1720 so 1080p+ monitors don't show large empty
+ * gutters around centred content; below that there's no centering effect. */
 .app-main {
   width: 100%;
-  max-width: 1520px;
+  max-width: 1720px;
   margin: 0 auto;
-  padding: 16px 16px 32px;
+  padding: 12px 12px 24px;
   min-width: 0;
 }
 @media (min-width: 640px) {
-  .app-main { padding: 20px 20px 40px; }
+  .app-main { padding: 16px 16px 32px; }
 }
 @media (min-width: 1024px) {
-  .app-main { padding: 24px 28px 40px; }
+  .app-main { padding: 20px 20px 32px; }
 }
 
 /* Horizontal scroll for nav — hidden on mobile, flex on md+ */
@@ -1184,6 +1191,13 @@
   .pp-dash-card.p-5,
   .pp-dash-card.p-6 {
     padding: 14px !important;
+  }
+
+  /* KPI / pp-card with p-4 (16px) is too tight on phones — drop to 12px so
+     the inner number+label stack doesn't crowd the card edges. Matches the
+     proposed responsive scale: card padding mobile 12 → tablet 14 → desktop 16. */
+  .pp-card.p-4 {
+    padding: 12px !important;
   }
 
   /* Ensure stat numbers don't overflow */

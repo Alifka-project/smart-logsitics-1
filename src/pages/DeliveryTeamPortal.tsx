@@ -1035,7 +1035,7 @@ export default function DeliveryTeamPortal() {
   }
 
   return (
-    <div className="space-y-2 md:space-y-4 w-full min-w-0">
+    <div className="space-y-3 md:space-y-5 w-full min-w-0">
       {/* Header - responsive and touch-friendly */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="min-w-0">
@@ -1048,7 +1048,7 @@ export default function DeliveryTeamPortal() {
       </div>
 
       {/* Tab Navigation - bigger gap, scroll on mobile */}
-      <div className="pp-sticky-tab-rail pp-card mt-0 mb-2 overflow-x-auto px-2 py-2 md:mb-3">
+      <div className="pp-sticky-tab-rail pp-card mt-0 mb-3 overflow-x-auto px-2 py-2 md:mb-4">
         <nav className="flex flex-wrap gap-2 min-w-max md:min-w-0">
           {[
             { id: 'operations', label: 'Dashboard', icon: Activity },
@@ -1484,7 +1484,7 @@ export default function DeliveryTeamPortal() {
             {reportTomorrowDeliveries.rows.length === 0 ? (
               <p className="text-sm text-gray-400 dark:text-gray-500 py-6 text-center">No deliveries scheduled for this date.</p>
             ) : (
-              <div className="overflow-x-auto rounded-lg border border-gray-100 dark:border-gray-800">
+              <div className="pp-card p-3 sm:p-4 overflow-x-auto">
                 <table className="w-full text-sm min-w-[960px]">
                   <thead className="bg-gray-50 dark:bg-gray-800/95 border-b border-gray-200 dark:border-gray-700">
                     <tr>

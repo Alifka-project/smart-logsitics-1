@@ -1779,7 +1779,7 @@ export default function DriverPortal() {
   const speedKmh = location?.speed != null ? (location.speed * 3.6).toFixed(1) : 'N/A';
 
   return (
-    <div className="space-y-4 md:space-y-6 w-full min-w-0">
+    <div className="space-y-3 md:space-y-5 w-full min-w-0">
       {/* Header Section - responsive and touch-friendly */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="min-w-0">
@@ -1797,7 +1797,7 @@ export default function DriverPortal() {
       </div>
 
       {/* Tab Navigation - Orders (map+list) and Messages */}
-      <div className="pp-sticky-tab-rail pp-card px-2 py-2 mt-3 md:mt-6 mb-3 md:mb-6 overflow-x-auto">
+      <div className="pp-sticky-tab-rail pp-card px-2 py-2 mt-0 mb-3 md:mb-4 overflow-x-auto">
         <nav className="flex flex-nowrap gap-2 min-w-max md:min-w-0">
           {[
             { id: 'orders', label: 'My Orders', icon: ClipboardList },

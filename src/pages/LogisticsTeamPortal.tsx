@@ -773,7 +773,7 @@ export default function LogisticsTeamPortal() {
   }
 
   return (
-    <div className="space-y-2 md:space-y-4 w-full min-w-0">
+    <div className="space-y-3 md:space-y-5 w-full min-w-0">
       {/* Header - responsive and touch-friendly */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="min-w-0">
@@ -786,7 +786,7 @@ export default function LogisticsTeamPortal() {
       </div>
 
       {/* Tab Navigation - bigger gap, scroll on mobile */}
-      <div className="pp-sticky-tab-rail pp-card mt-0 mb-2 overflow-x-auto px-2 py-2 md:mb-3">
+      <div className="pp-sticky-tab-rail pp-card mt-0 mb-3 overflow-x-auto px-2 py-2 md:mb-4">
         <nav className="flex flex-wrap gap-2 min-w-max md:min-w-0">
           {[
             { id: 'dashboard',     label: 'Dashboard',   icon: Activity },
@@ -1015,8 +1015,10 @@ export default function LogisticsTeamPortal() {
                     )}
                   </div>
 
-                  {/* KPI Stat Cards — 70% · 5-col grid */}
-                  <div className="flex-1 grid grid-cols-2 sm:grid-cols-5 gap-3">
+                  {/* KPI Stat Cards — 70% · responsive grid (2 → 3 → 5).
+                      Intermediate `md:` step keeps portrait tablets readable
+                      instead of cramming 5 columns into ~768px. */}
+                  <div className="flex-1 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                     <div
                       onClick={() => {
                         useDeliveryStore.getState().setManageTabFilter('pending_gmd');
