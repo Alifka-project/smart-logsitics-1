@@ -262,13 +262,11 @@
 }
 
 /* Responsive page container.
- * Tightened (May 2026) to reduce wasted whitespace at the page edges and
- * fill more of wide desktop screens. Each breakpoint pulls the gutter in:
- *   mobile  : 12px   (was 16)
- *   tablet  : 16px   (was 20)
- *   desktop : 20px   (was 24/28 split)
- * Max-width raised 1520 → 1720 so 1080p+ monitors don't show large empty
- * gutters around centred content; below that there's no centering effect. */
+ * Horizontal padding + max-width MUST match .header-inner above so the
+ * Electrolux logo aligns with the page-content edge. Uniform 12px gutter
+ * at every breakpoint reclaims maximum width for laptops/desktops where
+ * even small reductions feel noticeable (a 1366px laptop now uses 1342px
+ * of width vs 1310px before). Vertical scales with breakpoint as before. */
 .app-main {
   width: 100%;
   max-width: 1720px;
@@ -277,10 +275,10 @@
   min-width: 0;
 }
 @media (min-width: 640px) {
-  .app-main { padding: 16px 16px 32px; }
+  .app-main { padding: 16px 12px 32px; }
 }
 @media (min-width: 1024px) {
-  .app-main { padding: 20px 20px 32px; }
+  .app-main { padding: 20px 12px 32px; }
 }
 
 /* Horizontal scroll for nav — hidden on mobile, flex on md+ */
@@ -305,21 +303,25 @@
   }
 }
 
-/* Header inner: responsive horizontal padding */
+/* Header inner: horizontal padding + max-width MUST match .app-main below
+ * so the Electrolux logo aligns vertically with the page content edge. If
+ * you change one, change the other or the header will look offset from the
+ * cards. Tightened to 12px gutter at every breakpoint so laptops/desktops
+ * reclaim more usable width (was 16/20/28). */
 .header-inner {
   display: flex;
   align-items: center;
   height: 100%;
-  padding: 10px 16px;
+  padding: 10px 12px;
   gap: 0;
-  max-width: 1600px;
+  max-width: 1720px;
   margin: 0 auto;
 }
 @media (min-width: 640px) {
-  .header-inner { padding: 10px 20px; }
+  .header-inner { padding: 10px 12px; }
 }
 @media (min-width: 1024px) {
-  .header-inner { padding: 12px 28px; }
+  .header-inner { padding: 12px 12px; }
 }
 
 /* Horizontal scroll: touch-friendly on mobile/tablet */
