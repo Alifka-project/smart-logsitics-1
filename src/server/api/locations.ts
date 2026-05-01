@@ -480,10 +480,27 @@ router.get('/deliveries/finished', authenticate, async (req: Request, res: Respo
     // Only show deliveries that this driver actually completed (assignment status
     // 'completed'). Deliveries reassigned away keep a 'reassigned' assignment
     // for this driver but should not appear in their history.
+    //
+    // Hard 48-hour recency window applied AT THE SERVER so the Driver Portal's
+    // "Completed" chip can never inflate beyond what's actually recent. Without
+    // this guard, every prior bulk update (geocoding fix, status mass-edit,
+    // re-import) would touch updatedAt on hundreds of old delivered rows and
+    // make them all look "recent" in the client-side filter.
+    const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000;
+    const cutoff = new Date(Date.now() - FORTY_EIGHT_HOURS_MS);
     const deliveries = await prisma.delivery.findMany({
       where: {
         assignments: { some: { driverId, status: 'completed' } },
-        status: { in: DRIVER_FINISHED_STATUSES }
+        status: { in: DRIVER_FINISHED_STATUSES },
+        // Recency gate — order must have been *completed* (not just touched) in
+        // the last 48h. deliveredAt is the canonical completion timestamp;
+        // podCompletedAt covers driver-side POD finalisation when delivered
+        // happens out-of-order. updatedAt is intentionally NOT used here since
+        // unrelated bulk writes would falsify recency.
+        OR: [
+          { deliveredAt: { gte: cutoff } },
+          { podCompletedAt: { gte: cutoff } },
+        ],
       },
       include: {
         assignments: {
@@ -492,8 +509,8 @@ router.get('/deliveries/finished', authenticate, async (req: Request, res: Respo
           take: 1,
         }
       },
-      orderBy: { updatedAt: 'desc' },
-      take: 100, // Limit to most recent 100
+      orderBy: { deliveredAt: 'desc' },
+      take: 50, // Even with the 48h gate, hard-cap at 50 to keep the response light
     });
 
     const mapped = deliveries.map(d => ({
