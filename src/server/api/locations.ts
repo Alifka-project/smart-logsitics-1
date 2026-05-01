@@ -510,7 +510,10 @@ router.get('/deliveries/finished', authenticate, async (req: Request, res: Respo
         }
       },
       orderBy: { deliveredAt: 'desc' },
-      take: 50, // Even with the 48h gate, hard-cap at 50 to keep the response light
+      take: 20, // Hard cap — driver only needs a glance at recent history; previously
+                // 100, then 50, kept showing 200+ on test data because old client
+                // bundles cached prior responses. 20 is a small enough payload that
+                // the panel can never crash the page even with a stale store.
     });
 
     const mapped = deliveries.map(d => ({
