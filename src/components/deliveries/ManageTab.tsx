@@ -178,7 +178,7 @@ export default function ManageTab({
   );
 
   const handleOrderEditSaved = useCallback(
-    (updated: { status: string; notes?: string; scheduledDateIso?: string; goodsMovementDate?: string; address?: string; phone?: string; confirmedDeliveryDate?: string }) => {
+    (updated: { status: string; notes?: string; scheduledDateIso?: string; goodsMovementDate?: string; address?: string; lat?: number; lng?: number; phone?: string; confirmedDeliveryDate?: string }) => {
       if (!editDeliveryId) return;
       const raw = deliveries.find((d) => d.id === editDeliveryId);
       if (!raw) return;
@@ -190,6 +190,12 @@ export default function ManageTab({
         conditionNotes: updated.notes !== undefined ? updated.notes : raw.conditionNotes ?? undefined,
         ...(updated.goodsMovementDate ? { goodsMovementDate: updated.goodsMovementDate } : {}),
         ...(updated.confirmedDeliveryDate ? { confirmedDeliveryDate: new Date(updated.confirmedDeliveryDate) } : {}),
+        // Mirror the server-persisted address + re-geocoded lat/lng into the store
+        // so the table row, map pin, and route recalc all see the new location
+        // immediately — no full refresh needed.
+        ...(updated.address ? { address: updated.address } : {}),
+        ...(typeof updated.lat === 'number' ? { lat: updated.lat } : {}),
+        ...(typeof updated.lng === 'number' ? { lng: updated.lng } : {}),
       });
       setEditDeliveryId(null);
       onNotifySuccess('Order updated', 'Changes saved.');

@@ -20,6 +20,7 @@ import {
   parseDeliveryItemCount,
   TRUCK_MAX_ITEMS_PER_DAY
 } from '../services/deliveryCapacityService';
+import { geocodeOne } from '../services/fileIngestion/geocoder';
 const router = Router();
 const { authenticate, requireRole, requireAnyRole } = require('../auth');
 const sapService = require('../services/sapService.js');
@@ -210,6 +211,27 @@ async function updateDeliveryStatusHandler(
   if (notes) {
     updateData.deliveryNotes = notes;
     updateData.conditionNotes = notes;
+  }
+  // Persist edited delivery address — and re-geocode to refresh map pin coordinates.
+  // Only re-geocodes when the address text actually changed (case-insensitive trim
+  // compare) so unchanged updates don't burn provider quota. If geocoding fails, the
+  // address text still persists and lat/lng stay as-is rather than getting stale defaults.
+  const trimmedAddress = typeof address === 'string' ? address.trim() : '';
+  const existingAddress = String((existingDelivery as Record<string, unknown>).address ?? '').trim();
+  if (trimmedAddress && trimmedAddress.toLowerCase() !== existingAddress.toLowerCase()) {
+    updateData.address = trimmedAddress;
+    try {
+      const hit = await geocodeOne(trimmedAddress);
+      if (hit) {
+        updateData.lat = hit.lat;
+        updateData.lng = hit.lng;
+        console.log(`[Deliveries] Re-geocoded "${trimmedAddress}" → ${hit.lat},${hit.lng} (${hit.provider})`);
+      } else {
+        console.warn(`[Deliveries] Address updated but geocoding failed — pin unchanged: "${trimmedAddress}"`);
+      }
+    } catch (geoErr: unknown) {
+      console.warn(`[Deliveries] Geocoding error for "${trimmedAddress}":`, (geoErr as Error).message);
+    }
   }
   // When driver/admin sets status to rescheduled via general update, persist
   // the notes as rescheduleReason in metadata so customer tracking can show it.
@@ -1276,6 +1298,8 @@ router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_
         id: updatedDelivery.id,
         customer: updatedDelivery.customer,
         address: updatedDelivery.address,
+        lat: updatedDelivery.lat,
+        lng: updatedDelivery.lng,
         status: updatedDelivery.status,
         updatedAt: updatedDelivery.updatedAt
       }

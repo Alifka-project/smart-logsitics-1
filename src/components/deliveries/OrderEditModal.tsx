@@ -75,7 +75,7 @@ function toDateInputValue(d: Date): string {
 interface OrderEditModalProps {
   delivery: Delivery;
   onClose: () => void;
-  onSaved: (updated: { status: string; notes?: string; scheduledDateIso?: string; goodsMovementDate?: string; address?: string; phone?: string; confirmedDeliveryDate?: string }) => void;
+  onSaved: (updated: { status: string; notes?: string; scheduledDateIso?: string; goodsMovementDate?: string; address?: string; lat?: number; lng?: number; phone?: string; confirmedDeliveryDate?: string }) => void;
   onToastError: (message: string) => void;
   onResendSMS?: () => Promise<void>;
   onReschedule?: (newDate: Date, reason: string) => Promise<void>;
@@ -198,13 +198,22 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
         const goodsMovementDate =
           gmdStr.trim() ? new Date(gmdStr + 'T12:00:00').toISOString() : undefined;
 
+        // Server may have re-geocoded the address — pull canonical lat/lng from
+        // the response so the local store/map pin updates without a refresh.
+        const respDelivery = (response.data as { delivery?: { address?: string; lat?: number; lng?: number } }).delivery;
+        const persistedAddress = respDelivery?.address ?? (address.trim() || undefined);
+        const persistedLat = typeof respDelivery?.lat === 'number' ? respDelivery.lat : undefined;
+        const persistedLng = typeof respDelivery?.lng === 'number' ? respDelivery.lng : undefined;
+
         // WhatsApp notification sent silently by backend (no popup needed)
         onSaved({
           status: apiStatus,
           notes: notes.trim() || undefined,
           scheduledDateIso,
           goodsMovementDate,
-          address: address.trim() || undefined,
+          address: persistedAddress,
+          lat: persistedLat,
+          lng: persistedLng,
           phone: phone.trim() || undefined,
         });
         onClose();
