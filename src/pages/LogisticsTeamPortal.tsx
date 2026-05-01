@@ -2126,15 +2126,31 @@ export default function LogisticsTeamPortal() {
                     </div>
                   </div>
 
-                  {/* Scrollable order cards */}
-                  <div className="flex-1 overflow-y-auto space-y-1.5" style={{ minHeight: 0 }}>
+                  {/* Scrollable order TABLE — semantic <table> for tabular
+                      delivery data. Sticky thead keeps column labels visible
+                      while scrolling; group rows span all columns so driver
+                      capacity bars / status buckets sit naturally between
+                      data rows. Per-row click still toggles map highlight,
+                      action buttons stop-propagate so they don't double-fire. */}
+                  <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
                     {trackingDeliveries.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-500 text-sm gap-2">
                         <NavigationIcon className="w-8 h-8 opacity-30" />
                         <p className="font-medium">No active deliveries</p>
                         <p className="text-xs text-center">Orders out for delivery will appear here</p>
                       </div>
-                    ) : displayItems.map((item) => {
+                    ) : (
+                    <table className="w-full text-[11px] border-collapse">
+                      <thead className="sticky top-0 z-[6] bg-gray-50 dark:bg-gray-900/95 backdrop-blur">
+                        <tr className="text-[9px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                          <th className="w-7 px-1 py-1.5 text-left border-b border-gray-200 dark:border-gray-700">#</th>
+                          <th className="px-2 py-1.5 text-left border-b border-gray-200 dark:border-gray-700">Order</th>
+                          <th className="w-[110px] px-2 py-1.5 text-left border-b border-gray-200 dark:border-gray-700">Status</th>
+                          <th className="w-[120px] px-2 py-1.5 text-right border-b border-gray-200 dark:border-gray-700">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                    {displayItems.map((item) => {
                       // Branch: a section header row in driver/status modes.
                       if (item.type === 'header') {
                         // Rich driver header: capacity bar + on-route/delayed badges +
@@ -2149,65 +2165,62 @@ export default function LogisticsTeamPortal() {
                           // Bar color: green up to 70%, amber up to 90%, red beyond.
                           const barColor = pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-amber-500' : 'bg-emerald-500';
                           return (
-                            <div
-                              key={item.key}
-                              className="sticky top-0 z-[5] bg-gray-50 dark:bg-gray-900/95 backdrop-blur border border-gray-200 dark:border-gray-700 rounded-md px-2.5 py-2"
-                              style={item.color ? { borderLeft: `3px solid ${item.color}` } : undefined}
-                            >
-                              <div className="flex items-center gap-2">
-                                {!item.isUnassigned && (
-                                  <span className={`h-2 w-2 shrink-0 rounded-full ${item.online ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
-                                )}
-                                <span className="truncate text-[12px] font-semibold text-gray-900 dark:text-gray-100">
-                                  {item.label}
-                                </span>
-                                <span className="ml-auto text-[10px] font-semibold text-gray-500 dark:text-gray-400 tabular-nums">
-                                  {item.stops} stop{item.stops === 1 ? '' : 's'} · {item.units} unit{item.units === 1 ? '' : 's'}
-                                </span>
-                              </div>
-                              {!item.isUnassigned && (
-                                <div className="mt-1.5 flex items-center gap-2">
-                                  {/* Capacity bar — server is the source of truth; client total
-                                      shown only when capacity API hasn't loaded yet. */}
-                                  <div className="flex-1 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-                                    <div className={`h-full ${barColor} transition-all`} style={{ width: `${pct}%` }} />
-                                  </div>
-                                  <span className="text-[10px] font-semibold text-gray-600 dark:text-gray-300 tabular-nums shrink-0">
-                                    {used}/{max}
-                                  </span>
-                                  {cap?.full && (
-                                    <span className="text-[9px] font-bold text-red-600 dark:text-red-400 shrink-0">FULL</span>
+                            <tr key={item.key}>
+                              <td
+                                colSpan={4}
+                                className="px-2.5 py-2 bg-gray-100 dark:bg-gray-800/60 border-y border-gray-200 dark:border-gray-700"
+                                style={item.color ? { borderLeft: `3px solid ${item.color}` } : undefined}
+                              >
+                                <div className="flex items-center gap-2">
+                                  {!item.isUnassigned && (
+                                    <span className={`h-2 w-2 shrink-0 rounded-full ${item.online ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
                                   )}
+                                  <span className="truncate text-[12px] font-semibold text-gray-900 dark:text-gray-100">
+                                    {item.label}
+                                  </span>
+                                  <span className="ml-auto text-[10px] font-semibold text-gray-500 dark:text-gray-400 tabular-nums shrink-0">
+                                    {item.stops} stop{item.stops === 1 ? '' : 's'} · {item.units} unit{item.units === 1 ? '' : 's'}
+                                  </span>
                                 </div>
-                              )}
-                              <div className="mt-1 flex flex-wrap items-center gap-1">
-                                {item.ofd != null && item.ofd > 0 && (
-                                  <span className="text-[9px] font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full">
-                                    🚛 {item.ofd} on route
-                                  </span>
-                                )}
-                                {item.delay != null && item.delay > 0 && (
-                                  <span className="text-[9px] font-semibold text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/30 px-1.5 py-0.5 rounded-full">
-                                    ⚠ {item.delay} delayed
-                                  </span>
-                                )}
                                 {!item.isUnassigned && (
-                                  <span className="text-[9px] font-medium text-gray-500 dark:text-gray-400">
-                                    📍 Pickup: Jebel Ali WH
-                                  </span>
+                                  <div className="mt-1 flex items-center gap-2">
+                                    {/* Capacity bar — server is the source of truth; client total
+                                        shown only when capacity API hasn't loaded yet. */}
+                                    <div className="flex-1 h-1 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                                      <div className={`h-full ${barColor} transition-all`} style={{ width: `${pct}%` }} />
+                                    </div>
+                                    <span className="text-[10px] font-semibold text-gray-600 dark:text-gray-300 tabular-nums shrink-0">
+                                      {used}/{max}
+                                    </span>
+                                    {cap?.full && (
+                                      <span className="text-[9px] font-bold text-red-600 dark:text-red-400 shrink-0">FULL</span>
+                                    )}
+                                    {item.ofd != null && item.ofd > 0 && (
+                                      <span className="text-[9px] font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full shrink-0">
+                                        🚛 {item.ofd}
+                                      </span>
+                                    )}
+                                    {item.delay != null && item.delay > 0 && (
+                                      <span className="text-[9px] font-semibold text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/30 px-1.5 py-0.5 rounded-full shrink-0">
+                                        ⚠ {item.delay}
+                                      </span>
+                                    )}
+                                  </div>
                                 )}
-                              </div>
-                            </div>
+                              </td>
+                            </tr>
                           );
                         }
                         return (
-                          <div
-                            key={item.key}
-                            className="sticky top-0 z-[5] flex items-center gap-2 px-2 py-1.5 bg-gray-50 dark:bg-gray-900/90 backdrop-blur border border-gray-200 dark:border-gray-700 rounded-md text-[11px] font-semibold text-gray-700 dark:text-gray-200"
-                            style={item.color ? { borderLeft: `3px solid ${item.color}` } : undefined}
-                          >
-                            <span className="truncate">{item.label}</span>
-                          </div>
+                          <tr key={item.key}>
+                            <td
+                              colSpan={4}
+                              className="px-2.5 py-1.5 bg-gray-100 dark:bg-gray-800/60 border-y border-gray-200 dark:border-gray-700 text-[11px] font-semibold text-gray-700 dark:text-gray-200"
+                              style={item.color ? { borderLeft: `3px solid ${item.color}` } : undefined}
+                            >
+                              <span className="truncate">{item.label}</span>
+                            </td>
+                          </tr>
                         );
                       }
                       const { delivery, idx } = item;
@@ -2300,194 +2313,160 @@ export default function LogisticsTeamPortal() {
                         }
                       })();
 
-                      // Selection highlight wins over priority colour so the
-                      // blue ring is always visible regardless of order type.
-                      const cardBg = isSelected
-                        ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-400 dark:border-blue-500'
+                      // Row tints — selection wins, then priority subtle tint,
+                      // then default hover. Border colour stripe handled on the
+                      // first cell via borderAccent (border-l-{color}).
+                      const rowBg = isSelected
+                        ? 'bg-blue-50 dark:bg-blue-900/20'
                         : isPriority
-                        ? 'bg-red-50/40 dark:bg-red-900/10 border-gray-200 dark:border-gray-700'
-                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700';
+                        ? 'bg-red-50/40 dark:bg-red-900/10'
+                        : 'hover:bg-gray-50 dark:hover:bg-gray-800/50';
 
                       return (
-                        <div
+                        <tr
                           key={delivery.id}
-                          className={`rounded-lg border border-l-4 ${borderAccent} transition-all overflow-hidden ${cardBg} ${
-                            isSelected ? 'ring-2 ring-blue-400 dark:ring-blue-500 shadow-md' : 'hover:shadow-sm'
-                          }`}
+                          onClick={() => setTrackingSelectedId(isSelected ? null : delivery.id)}
+                          onKeyDown={e => e.key === 'Enter' && setTrackingSelectedId(isSelected ? null : delivery.id)}
+                          tabIndex={0}
+                          role="button"
+                          title={isSelected ? 'Click to deselect on map' : 'Click to highlight on map'}
+                          className={`cursor-pointer transition-colors ${rowBg}`}
                         >
-                          {/* Click area — selects/deselects on map */}
-                          <div
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => setTrackingSelectedId(isSelected ? null : delivery.id)}
-                            onKeyDown={e => e.key === 'Enter' && setTrackingSelectedId(isSelected ? null : delivery.id)}
-                            className="flex items-start gap-2 px-2.5 py-2 cursor-pointer"
-                            title={isSelected ? 'Click to deselect' : 'Click to highlight on map'}
-                          >
-                            {/* Stop number */}
-                            <span className="text-sm font-bold text-blue-600 dark:text-blue-400 w-6 flex-shrink-0 leading-5">
-                              {idx + 1}.
-                            </span>
+                          {/* # — stop number with left-border colour stripe.
+                              The stripe lives on the first cell so it visually
+                              "leads" the row; rows can't carry borders directly. */}
+                          <td className={`px-1 py-1.5 align-top text-[12px] font-bold text-blue-600 dark:text-blue-400 border-b border-gray-100 dark:border-gray-800 border-l-4 ${borderAccent}`}>
+                            {idx + 1}
+                          </td>
 
-                            <div className="flex-1 min-w-0 space-y-1">
-                              {/* Row 1: Customer + P1 + ETD (no more "● map" pill —
-                                  selection is shown via the blue ring + bg) */}
-                              <div className="flex items-center gap-1 min-w-0">
-                                <span className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate flex-1 min-w-0">
-                                  {delivery.customer || 'Unknown Customer'}
-                                </span>
-                                {isPriority && (
-                                  <span className="text-[9px] font-bold uppercase px-1 py-0.5 rounded bg-red-600 text-white flex-shrink-0">
-                                    P1
-                                  </span>
-                                )}
-                                {(() => {
-                                  const etd = computeETD(delivery);
-                                  if (!etd) return null;
-                                  return (
-                                    <span
-                                      className="text-[9px] font-bold uppercase px-1 py-0.5 rounded bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 flex-shrink-0 tabular-nums"
-                                      title="Departure from warehouse (driver pickup-confirmed)"
-                                    >
-                                      {formatEtdLabel(etd)}
-                                    </span>
-                                  );
-                                })()}
-                              </div>
-
-                              {/* Row 2: Address with PO appended (one line, truncated).
-                                  Inline warning icons replace the standalone pills
-                                  for "Not yet dispatched" / "Coord missing" — same
-                                  info via title tooltip but no extra height cost. */}
-                              {(delivery.address || delivery.poNumber) && (
-                                <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate flex items-center gap-1">
-                                  {hasMissingCoords && (
-                                    <span title="Coordinates missing or default — fix the address to draw the route to this stop." aria-label="Coordinates missing">⚠</span>
-                                  )}
-                                  {isPreDispatch && (
-                                    <span title="Driver hasn't started the route yet — no live polyline connects to this pin yet." aria-label="Not yet dispatched">⏳</span>
-                                  )}
-                                  <span className="truncate">
-                                    {delivery.address ? <>📍 {delivery.address}</> : null}
-                                    {delivery.poNumber && (
-                                      <span className="ml-1 text-gray-400 dark:text-gray-500 font-mono">
-                                        · PO {delivery.poNumber}
-                                      </span>
-                                    )}
-                                  </span>
-                                </p>
-                              )}
-
-                              {/* Row 3: Driver (suppressed in By Driver mode since
-                                  the section header above already names the driver). */}
-                              {assignedDriver && liveMapsViewMode !== 'driver' && (
-                                <div className="flex items-center gap-1">
-                                  <Truck className="w-3 h-3 text-indigo-500 dark:text-indigo-400 flex-shrink-0" />
-                                  <span className="text-[11px] font-medium text-indigo-600 dark:text-indigo-400 truncate">
-                                    {assignedDriver.fullName || assignedDriver.username}
-                                  </span>
-                                </div>
-                              )}
-
-                              {/* Row 4: One primary badge + inline ETA pair.
-                                  Single badge — tier (date-bucket) wins over
-                                  status when both are present, since the date is
-                                  what dispatchers actually act on. Live ETA colour
-                                  doubles as the on-time/delayed signal. */}
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                {(() => {
-                                  const b = getDeliveryStatusBadge(delivery);
-                                  if (b.tierLabel) {
-                                    return (
-                                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${b.tierColor}`}>
-                                        {b.tierLabel}
-                                      </span>
-                                    );
-                                  }
-                                  if (b.label) {
-                                    return (
-                                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${b.color}`}>
-                                        {b.label}
-                                      </span>
-                                    );
-                                  }
-                                  return null;
-                                })()}
-                                {/* Inline ETA: Plan dd MMM · Live ETA Xm. Live ETA
-                                    colour conveys on-time / delayed / overdue —
-                                    no separate pill needed. */}
-                                <span className="text-[10px] text-gray-500 dark:text-gray-400 ml-auto tabular-nums">
-                                  Plan <span className="font-semibold text-gray-700 dark:text-gray-200">{delDateShort}</span>
-                                  <span className="mx-1 text-gray-300 dark:text-gray-600">·</span>
-                                  <span className={`font-semibold ${
-                                    realtimeEtaText === '—'
-                                      ? 'text-gray-400 dark:text-gray-500'
-                                      : liveStatus === 'overdue'
-                                      ? 'text-red-600 dark:text-red-400'
-                                      : liveStatus === 'delayed'
-                                      ? 'text-amber-600 dark:text-amber-400'
-                                      : 'text-blue-700 dark:text-blue-300'
-                                  }`}
-                                    title={liveStatus === 'overdue' ? 'Overdue — planned date already passed.'
-                                      : liveStatus === 'delayed' ? 'Delayed — live ETA after end of planned day.'
-                                      : liveStatus === 'on_time' ? 'On time — live ETA before end of planned day.'
-                                      : ''}>
-                                    {realtimeEtaText === '—' ? 'no GPS' : realtimeEtaText}
-                                  </span>
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Footer row: units chip · Reassign · POD.
-                              Stops the click bubble so the row's map-select
-                              behaviour above is preserved. The Reassign menu
-                              uses the same PUT endpoint that ManageTab uses,
-                              and the server enforces the per-driver day cap. */}
-                          <div className="relative border-t border-gray-100 dark:border-gray-700 px-2.5 py-1.5">
-                            <div className="flex items-center gap-2">
-                              <span
-                                className="text-[10px] font-semibold text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full tabular-nums"
-                                title="Units on this order (server-enforced 20/driver/day cap)"
-                              >
-                                × {unitsFor(delivery)} unit{unitsFor(delivery) === 1 ? '' : 's'}
+                          {/* Order — customer / address+PO / (driver in non-By-Driver modes) */}
+                          <td className="px-2 py-1.5 align-top border-b border-gray-100 dark:border-gray-800 min-w-0">
+                            <div className="flex items-center gap-1 min-w-0">
+                              <span className="text-[12px] font-semibold text-gray-900 dark:text-gray-100 truncate flex-1 min-w-0">
+                                {delivery.customer || 'Unknown Customer'}
                               </span>
-                              {/* Reassign — primary action. Solid navy so it
-                                  stands out from the icon-only POD secondary,
-                                  matching the action hierarchy on this card. */}
+                              {isPriority && (
+                                <span className="text-[9px] font-bold uppercase px-1 py-0.5 rounded bg-red-600 text-white flex-shrink-0">P1</span>
+                              )}
+                              {(() => {
+                                const etd = computeETD(delivery);
+                                if (!etd) return null;
+                                return (
+                                  <span
+                                    className="text-[9px] font-bold uppercase px-1 py-0.5 rounded bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 flex-shrink-0 tabular-nums"
+                                    title="Departure from warehouse (driver pickup-confirmed)"
+                                  >
+                                    {formatEtdLabel(etd)}
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                            {(delivery.address || delivery.poNumber) && (
+                              <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate flex items-center gap-1 mt-0.5">
+                                {hasMissingCoords && (
+                                  <span title="Coordinates missing or default — fix the address." aria-label="Missing coordinates">⚠</span>
+                                )}
+                                {isPreDispatch && (
+                                  <span title="Driver hasn't started the route yet." aria-label="Not yet dispatched">⏳</span>
+                                )}
+                                <span className="truncate">
+                                  {delivery.address ? <>📍 {delivery.address}</> : null}
+                                  {delivery.poNumber && (
+                                    <span className="ml-1 text-gray-400 dark:text-gray-500 font-mono">· PO {delivery.poNumber}</span>
+                                  )}
+                                </span>
+                              </p>
+                            )}
+                            {assignedDriver && liveMapsViewMode !== 'driver' && (
+                              <div className="flex items-center gap-1 mt-0.5">
+                                <Truck className="w-2.5 h-2.5 text-indigo-500 dark:text-indigo-400 flex-shrink-0" />
+                                <span className="text-[10px] font-medium text-indigo-600 dark:text-indigo-400 truncate">
+                                  {assignedDriver.fullName || assignedDriver.username}
+                                </span>
+                              </div>
+                            )}
+                            <div className="mt-0.5 text-[9px] text-gray-400 dark:text-gray-500 tabular-nums">
+                              × {unitsFor(delivery)} unit{unitsFor(delivery) === 1 ? '' : 's'}
+                            </div>
+                          </td>
+
+                          {/* Status / Plan / Live ETA stacked. Live-ETA colour
+                              encodes on-time / delayed / overdue so no separate
+                              pill row is needed. */}
+                          <td className="px-2 py-1.5 align-top border-b border-gray-100 dark:border-gray-800">
+                            <div className="flex flex-col gap-0.5">
+                              {(() => {
+                                const b = getDeliveryStatusBadge(delivery);
+                                const label = b.tierLabel || b.label;
+                                const cls = b.tierLabel ? b.tierColor : b.color;
+                                if (!label) return null;
+                                return (
+                                  <span className={`inline-flex items-center self-start px-1.5 py-0.5 rounded text-[10px] font-semibold ${cls}`}>
+                                    {label}
+                                  </span>
+                                );
+                              })()}
+                              <span className="text-[10px] text-gray-500 dark:text-gray-400 tabular-nums">
+                                Plan <span className="font-semibold text-gray-700 dark:text-gray-200">{plannedEtaText}</span>
+                              </span>
+                              <span
+                                className={`text-[10px] tabular-nums font-semibold ${
+                                  realtimeEtaText === '—'
+                                    ? 'text-gray-400 dark:text-gray-500'
+                                    : liveStatus === 'overdue'
+                                    ? 'text-red-600 dark:text-red-400'
+                                    : liveStatus === 'delayed'
+                                    ? 'text-amber-600 dark:text-amber-400'
+                                    : 'text-blue-700 dark:text-blue-300'
+                                }`}
+                                title={liveStatus === 'overdue' ? 'Overdue — planned date already passed.'
+                                  : liveStatus === 'delayed' ? 'Delayed — live ETA after end of planned day.'
+                                  : liveStatus === 'on_time' ? 'On time — live ETA before end of planned day.'
+                                  : ''}
+                              >
+                                ETA {realtimeEtaText === '—' ? 'no GPS' : realtimeEtaText}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* Action — Reassign primary + POD secondary + popover.
+                              The cell is `relative` so the popover anchors here.
+                              Both buttons stop-propagate so they don't fire the
+                              row's map-select handler. */}
+                          <td className="relative px-2 py-1.5 align-top border-b border-gray-100 dark:border-gray-800 text-right">
+                            <div className="inline-flex items-center gap-1">
                               <button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setReassignMenuFor(reassignMenuFor === delivery.id ? null : delivery.id);
                                 }}
-                                className="ml-auto inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold text-white bg-[#032145] hover:bg-[#053060] disabled:opacity-50 transition-colors"
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold text-white bg-[#032145] hover:bg-[#053060] disabled:opacity-50 transition-colors"
                                 disabled={reassignBusyId === delivery.id}
                                 title="Move this order to a different driver"
                               >
                                 <Truck className="w-3 h-3" />
-                                {reassignBusyId === delivery.id ? 'Moving…' : 'Reassign'}
+                                {reassignBusyId === delivery.id ? '…' : 'Reassign'}
                               </button>
-                              {/* POD — secondary, icon-only. Same touch target
-                                  via min-h on the inner padding. */}
                               <button
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); setPodModalDelivery(delivery); }}
-                                className="inline-flex items-center justify-center w-7 h-7 rounded-md text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                className="inline-flex items-center justify-center w-6 h-6 rounded-md text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                                 title="Upload Proof of Delivery"
                                 aria-label="Upload POD"
                               >
-                                <Camera className="w-3.5 h-3.5" />
+                                <Camera className="w-3 h-3" />
                               </button>
                             </div>
 
-                            {/* Reassign popover — anchored above the footer.
-                                Disabled drivers are full for the selected date.
-                                Server-side cap is the authority; this is just
-                                an optimistic preview. */}
+                            {/* Reassign popover — anchored to the action cell.
+                                Drops below the cell since rows are short and
+                                top-anchoring avoids being clipped by the
+                                scroll container's bottom edge. Server-side cap
+                                is the authority; chips are a preview. */}
                             {reassignMenuFor === delivery.id && (
                               <div
-                                className="absolute right-2 bottom-full mb-1 z-10 w-64 max-h-72 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl"
+                                className="absolute right-2 top-full mt-1 z-20 w-64 max-h-72 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl text-left"
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <div className="sticky top-0 px-2.5 py-1.5 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center justify-between">
@@ -2565,10 +2544,13 @@ export default function LogisticsTeamPortal() {
                                 })()}
                               </div>
                             )}
-                          </div>
-                        </div>
+                          </td>
+                        </tr>
                       );
                     })}
+                      </tbody>
+                    </table>
+                    )}
                   </div>
                 </div>
                 </div>
