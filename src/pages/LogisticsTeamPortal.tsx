@@ -93,7 +93,14 @@ export default function LogisticsTeamPortal() {
   const [deliveriesSubTab, setDeliveriesSubTab] = useState<string>('manage');
   const [trackingDriverFilter, setTrackingDriverFilter] = useState<string>('all');
   const [trackingSelectedId, setTrackingSelectedId] = useState<string | null>(null);
-  const [liveStatusFilter, setLiveStatusFilter] = useState<'all' | 'out_for_delivery' | 'confirmed' | 'priority' | 'delayed'>('all');
+  // Status quick-filter is mutually exclusive (an order is on-route OR confirmed
+  // OR not — can't be both). Priority and Delayed are independent attributes
+  // that COMPOSE with the status filter — a row can be both On Route AND
+  // Priority. Splitting them prevents the old "click Priority → lose On Route"
+  // confusion users hit with the previous all-in-one mutex.
+  const [liveStatusFilter, setLiveStatusFilter] = useState<'all' | 'out_for_delivery' | 'confirmed'>('all');
+  const [filterPriority, setFilterPriority] = useState(false);
+  const [filterDelayed, setFilterDelayed] = useState(false);
   // Free-text search across customer / PO / delivery no / phone — drives
   // what the list and the map show simultaneously so finding an order for
   // a phone-call enquiry is one keystroke away.
@@ -1559,7 +1566,7 @@ export default function LogisticsTeamPortal() {
                   if (!(liveDriverId === trackingDriverFilter || d.assignedDriverId === trackingDriverFilter)) return false;
                 }
 
-                // 4. Status quick filter
+                // 4. Status quick filter (mutex: All / On Route / Confirmed)
                 const status = (d.status || '').toLowerCase();
                 if (liveStatusFilter === 'out_for_delivery') {
                   // Match every actively-in-motion status — out-for-delivery plus
@@ -1570,18 +1577,25 @@ export default function LogisticsTeamPortal() {
                 if (liveStatusFilter === 'confirmed') {
                   return ['confirmed', 'scheduled-confirmed', 'rescheduled'].includes(status);
                 }
-                if (liveStatusFilter === 'priority') {
-                  const meta = ext.metadata ?? {};
-                  return meta.isPriority === true;
-                }
-                if (liveStatusFilter === 'delayed') {
-                  const confirmedDate = ext.confirmedDeliveryDate;
-                  if (!confirmedDate) return false;
-                  const endOfDay = new Date(confirmedDate);
-                  endOfDay.setHours(23, 59, 59, 999);
-                  return nowForFilter > endOfDay;
-                }
                 return true; // 'all'
+              })
+              // 4b. Composable Priority toggle — independent of status mutex so
+              //     users can ask "On Route AND Priority" instead of being
+              //     forced to pick one.
+              .filter((d) => {
+                if (!filterPriority) return true;
+                const meta = (d as unknown as { metadata?: Record<string, unknown> }).metadata ?? {};
+                return meta.isPriority === true;
+              })
+              // 4c. Composable Delayed toggle — overdue orders (delivery date
+              //     end-of-day already passed). Independent of status mutex.
+              .filter((d) => {
+                if (!filterDelayed) return true;
+                const confirmedDate = (d as unknown as { confirmedDeliveryDate?: string }).confirmedDeliveryDate;
+                if (!confirmedDate) return false;
+                const endOfDay = new Date(confirmedDate);
+                endOfDay.setHours(23, 59, 59, 999);
+                return nowForFilter > endOfDay;
               })
               // 5. Date filter (Today / Tomorrow / All) — uses the same Dubai
               // calendar resolver as the capacity API so the capacity bar in
@@ -1944,35 +1958,138 @@ export default function LogisticsTeamPortal() {
                       })}
                     </select>
 
-                    {/* Status quick-filter pills */}
-                    <div className="flex flex-wrap gap-1">
-                      {(
-                        [
-                          { key: 'all',              label: 'All' },
-                          { key: 'out_for_delivery', label: 'On Route' },
-                          { key: 'confirmed',        label: 'Confirmed' },
-                          { key: 'priority',         label: 'Priority' },
-                          { key: 'delayed',          label: 'Delayed' },
-                        ] as { key: typeof liveStatusFilter; label: string }[]
-                      ).map(f => (
+                    {/* Status segmented control — mutex (All / On Route /
+                        Confirmed). Priority + Delayed live below as
+                        composable toggles so they stack with this status. */}
+                    <div className="flex gap-1 rounded-lg bg-gray-100 dark:bg-gray-800 p-0.5">
+                      {([
+                        { key: 'all',              label: 'All' },
+                        { key: 'out_for_delivery', label: 'On Route' },
+                        { key: 'confirmed',        label: 'Confirmed' },
+                      ] as { key: typeof liveStatusFilter; label: string }[]).map((f) => (
                         <button
                           key={f.key}
                           type="button"
                           onClick={() => setLiveStatusFilter(f.key)}
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold transition-colors ${
+                          className={`flex-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-colors ${
                             liveStatusFilter === f.key
-                              ? f.key === 'delayed'   ? 'bg-red-600 text-white'
-                              : f.key === 'priority'  ? 'bg-orange-500 text-white'
-                              : f.key === 'confirmed' ? 'bg-green-600 text-white'
-                              : f.key === 'out_for_delivery' ? 'bg-blue-600 text-white'
-                              : 'bg-gray-700 text-white dark:bg-gray-200 dark:text-gray-900'
-                              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                              ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm'
+                              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                           }`}
                         >
                           {f.label}
                         </button>
                       ))}
                     </div>
+
+                    {/* Composable attribute toggles — Priority and Delayed
+                        compose with the status segmented control above
+                        (independent ANDs). Click again to remove. */}
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setFilterPriority((v) => !v)}
+                        aria-pressed={filterPriority}
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-colors ${
+                          filterPriority
+                            ? 'bg-orange-500 text-white border-orange-500'
+                            : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-orange-50 dark:hover:bg-orange-900/20'
+                        }`}
+                        title="Show only priority orders"
+                      >
+                        <span aria-hidden>★</span> Priority
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFilterDelayed((v) => !v)}
+                        aria-pressed={filterDelayed}
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-colors ${
+                          filterDelayed
+                            ? 'bg-red-600 text-white border-red-600'
+                            : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-red-50 dark:hover:bg-red-900/20'
+                        }`}
+                        title="Show only delayed (overdue) orders"
+                      >
+                        <span aria-hidden>⚠</span> Delayed
+                      </button>
+                    </div>
+
+                    {/* Active-filter breadcrumb — visible when any non-default
+                        filter is set. Shows what's currently narrowing the
+                        list and lets the user remove individual filters or
+                        clear them all. Hidden when nothing is active so the
+                        header stays compact in the default view. */}
+                    {(() => {
+                      const activeFilters: Array<{ label: string; clear: () => void; tone: string }> = [];
+                      if (liveStatusFilter !== 'all') {
+                        activeFilters.push({
+                          label: liveStatusFilter === 'out_for_delivery' ? 'On Route' : 'Confirmed',
+                          clear: () => setLiveStatusFilter('all'),
+                          tone: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800',
+                        });
+                      }
+                      if (filterPriority) {
+                        activeFilters.push({
+                          label: 'Priority',
+                          clear: () => setFilterPriority(false),
+                          tone: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800',
+                        });
+                      }
+                      if (filterDelayed) {
+                        activeFilters.push({
+                          label: 'Delayed',
+                          clear: () => setFilterDelayed(false),
+                          tone: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800',
+                        });
+                      }
+                      if (trackingDriverFilter !== 'all') {
+                        const dr = drivers.find((x) => x.id === trackingDriverFilter);
+                        activeFilters.push({
+                          label: `Driver: ${dr?.fullName || dr?.username || 'selected'}`,
+                          clear: () => setTrackingDriverFilter('all'),
+                          tone: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-800',
+                        });
+                      }
+                      if (trackingSearchQuery.trim()) {
+                        activeFilters.push({
+                          label: `“${trackingSearchQuery.trim()}”`,
+                          clear: () => setTrackingSearchQuery(''),
+                          tone: 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700',
+                        });
+                      }
+                      if (activeFilters.length === 0) return null;
+                      return (
+                        <div className="flex flex-wrap items-center gap-1 pt-1 border-t border-gray-100 dark:border-gray-700">
+                          <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Filters</span>
+                          {activeFilters.map((f, i) => (
+                            <span key={i} className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border ${f.tone}`}>
+                              {f.label}
+                              <button
+                                type="button"
+                                onClick={f.clear}
+                                className="hover:opacity-70"
+                                aria-label={`Remove ${f.label} filter`}
+                              >
+                                ✕
+                              </button>
+                            </span>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setLiveStatusFilter('all');
+                              setFilterPriority(false);
+                              setFilterDelayed(false);
+                              setTrackingDriverFilter('all');
+                              setTrackingSearchQuery('');
+                            }}
+                            className="ml-auto text-[10px] text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 underline"
+                          >
+                            Clear all
+                          </button>
+                        </div>
+                      );
+                    })()}
 
                     {trackingSelectedId && (
                       <button
@@ -2162,18 +2279,39 @@ export default function LogisticsTeamPortal() {
 
                       const delDateShort = plannedEtaText; // alias for existing references below
 
-                      // Selection highlight takes priority over priority colour so
-                      // the blue ring is always visible regardless of order type.
+                      // Workflow-mapped status drives both the left-border colour
+                      // (visual scan-ability) and the single primary badge below.
+                      // Using deliveryToManageOrder keeps the card in sync with
+                      // the table's filter tabs — no drift.
+                      const workflowStatus = deliveryToManageOrder(delivery).status;
+                      const borderAccent = (() => {
+                        switch (workflowStatus) {
+                          case 'delivered':         return 'border-l-green-500';
+                          case 'order_delay':       return 'border-l-red-500';
+                          case 'out_for_delivery':  return 'border-l-blue-500';
+                          case 'pgi_done':          return 'border-l-amber-500';
+                          case 'pickup_confirmed':  return 'border-l-teal-500';
+                          case 'next_shipment':     return 'border-l-amber-400';
+                          case 'future_schedule':   return 'border-l-slate-400';
+                          case 'rescheduled':       return 'border-l-purple-400';
+                          case 'cancelled':
+                          case 'failed':            return 'border-l-gray-400';
+                          default:                  return 'border-l-gray-300';
+                        }
+                      })();
+
+                      // Selection highlight wins over priority colour so the
+                      // blue ring is always visible regardless of order type.
                       const cardBg = isSelected
                         ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-400 dark:border-blue-500'
                         : isPriority
-                        ? 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700'
-                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600';
+                        ? 'bg-red-50/40 dark:bg-red-900/10 border-gray-200 dark:border-gray-700'
+                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700';
 
                       return (
                         <div
                           key={delivery.id}
-                          className={`rounded-lg border transition-all overflow-hidden ${cardBg} ${
+                          className={`rounded-lg border border-l-4 ${borderAccent} transition-all overflow-hidden ${cardBg} ${
                             isSelected ? 'ring-2 ring-blue-400 dark:ring-blue-500 shadow-md' : 'hover:shadow-sm'
                           }`}
                         >
@@ -2183,7 +2321,7 @@ export default function LogisticsTeamPortal() {
                             tabIndex={0}
                             onClick={() => setTrackingSelectedId(isSelected ? null : delivery.id)}
                             onKeyDown={e => e.key === 'Enter' && setTrackingSelectedId(isSelected ? null : delivery.id)}
-                            className="flex items-start gap-2 p-2.5 cursor-pointer"
+                            className="flex items-start gap-2 px-2.5 py-2 cursor-pointer"
                             title={isSelected ? 'Click to deselect' : 'Click to highlight on map'}
                           >
                             {/* Stop number */}
@@ -2192,7 +2330,8 @@ export default function LogisticsTeamPortal() {
                             </span>
 
                             <div className="flex-1 min-w-0 space-y-1">
-                              {/* Customer name + badges row */}
+                              {/* Row 1: Customer + P1 + ETD (no more "● map" pill —
+                                  selection is shown via the blue ring + bg) */}
                               <div className="flex items-center gap-1 min-w-0">
                                 <span className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate flex-1 min-w-0">
                                   {delivery.customer || 'Unknown Customer'}
@@ -2203,7 +2342,6 @@ export default function LogisticsTeamPortal() {
                                   </span>
                                 )}
                                 {(() => {
-                                  // ETD chip — sits next to P1 / On Route per ops request.
                                   const etd = computeETD(delivery);
                                   if (!etd) return null;
                                   return (
@@ -2215,29 +2353,34 @@ export default function LogisticsTeamPortal() {
                                     </span>
                                   );
                                 })()}
-                                {isSelected && (
-                                  <span className="text-[9px] font-semibold px-1 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 flex-shrink-0">
-                                    ● map
-                                  </span>
-                                )}
                               </div>
 
-                              {/* PO number */}
-                              {delivery.poNumber && (
-                                <p className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">
-                                  PO: {delivery.poNumber}
+                              {/* Row 2: Address with PO appended (one line, truncated).
+                                  Inline warning icons replace the standalone pills
+                                  for "Not yet dispatched" / "Coord missing" — same
+                                  info via title tooltip but no extra height cost. */}
+                              {(delivery.address || delivery.poNumber) && (
+                                <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate flex items-center gap-1">
+                                  {hasMissingCoords && (
+                                    <span title="Coordinates missing or default — fix the address to draw the route to this stop." aria-label="Coordinates missing">⚠</span>
+                                  )}
+                                  {isPreDispatch && (
+                                    <span title="Driver hasn't started the route yet — no live polyline connects to this pin yet." aria-label="Not yet dispatched">⏳</span>
+                                  )}
+                                  <span className="truncate">
+                                    {delivery.address ? <>📍 {delivery.address}</> : null}
+                                    {delivery.poNumber && (
+                                      <span className="ml-1 text-gray-400 dark:text-gray-500 font-mono">
+                                        · PO {delivery.poNumber}
+                                      </span>
+                                    )}
+                                  </span>
                                 </p>
                               )}
 
-                              {/* Address — 1 line truncate */}
-                              {delivery.address && (
-                                <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
-                                  📍 {delivery.address}
-                                </p>
-                              )}
-
-                              {/* Driver row */}
-                              {assignedDriver && (
+                              {/* Row 3: Driver (suppressed in By Driver mode since
+                                  the section header above already names the driver). */}
+                              {assignedDriver && liveMapsViewMode !== 'driver' && (
                                 <div className="flex items-center gap-1">
                                   <Truck className="w-3 h-3 text-indigo-500 dark:text-indigo-400 flex-shrink-0" />
                                   <span className="text-[11px] font-medium text-indigo-600 dark:text-indigo-400 truncate">
@@ -2246,85 +2389,53 @@ export default function LogisticsTeamPortal() {
                                 </div>
                               )}
 
-                              {/* Status + tier pills — workflow status (PGI Done /
-                                  Pickup Confirmed / Rescheduled / etc.) plus a
-                                  date-tier chip (Next Shipment · 27 Apr /
-                                  Future Schedule · 29 Apr / Order Delay · 25 Apr)
-                                  so ops immediately see when the order is due. */}
-                              {(() => {
-                                const b = getDeliveryStatusBadge(delivery);
-                                if (!b.label && !b.tierLabel) return null;
-                                return (
-                                  <div className="flex flex-wrap items-center gap-1">
-                                    {b.label && (
-                                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${b.color}`}>
-                                        {b.label}
-                                      </span>
-                                    )}
-                                    {b.tierLabel && (
+                              {/* Row 4: One primary badge + inline ETA pair.
+                                  Single badge — tier (date-bucket) wins over
+                                  status when both are present, since the date is
+                                  what dispatchers actually act on. Live ETA colour
+                                  doubles as the on-time/delayed signal. */}
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {(() => {
+                                  const b = getDeliveryStatusBadge(delivery);
+                                  if (b.tierLabel) {
+                                    return (
                                       <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${b.tierColor}`}>
                                         {b.tierLabel}
                                       </span>
-                                    )}
-                                  </div>
-                                );
-                              })()}
-
-                              {/* ── ETA section: Planned + Realtime ── */}
-                              <div className="grid grid-cols-2 gap-1 pt-0.5">
-                                <div className="flex flex-col">
-                                  <span className="text-[9px] text-gray-400 dark:text-gray-500 uppercase tracking-wide leading-none mb-0.5">Planned</span>
-                                  <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-200">{delDateShort}</span>
-                                </div>
-                                <div className="flex flex-col">
-                                  <span className="text-[9px] text-gray-400 dark:text-gray-500 uppercase tracking-wide leading-none mb-0.5">Live ETA</span>
-                                  <span className={`text-[11px] font-semibold ${realtimeEtaText === '—' ? 'text-gray-400 dark:text-gray-500' : 'text-blue-700 dark:text-blue-300'}`}>
-                                    {realtimeEtaText === '—' ? '— no GPS' : realtimeEtaText}
-                                  </span>
-                                </div>
-                              </div>
-
-                              {/* On-time / Delayed / Overdue badge */}
-                              {liveStatus && (
-                                <div>
-                                  <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
-                                    liveStatus === 'on_time'
-                                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                                    );
+                                  }
+                                  if (b.label) {
+                                    return (
+                                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${b.color}`}>
+                                        {b.label}
+                                      </span>
+                                    );
+                                  }
+                                  return null;
+                                })()}
+                                {/* Inline ETA: Plan dd MMM · Live ETA Xm. Live ETA
+                                    colour conveys on-time / delayed / overdue —
+                                    no separate pill needed. */}
+                                <span className="text-[10px] text-gray-500 dark:text-gray-400 ml-auto tabular-nums">
+                                  Plan <span className="font-semibold text-gray-700 dark:text-gray-200">{delDateShort}</span>
+                                  <span className="mx-1 text-gray-300 dark:text-gray-600">·</span>
+                                  <span className={`font-semibold ${
+                                    realtimeEtaText === '—'
+                                      ? 'text-gray-400 dark:text-gray-500'
                                       : liveStatus === 'overdue'
-                                      ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-                                      : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
-                                  }`}>
-                                    {liveStatus === 'on_time' ? '✓ On Time' : liveStatus === 'overdue' ? '⚠ Overdue' : '⚠ Delayed'}
+                                      ? 'text-red-600 dark:text-red-400'
+                                      : liveStatus === 'delayed'
+                                      ? 'text-amber-600 dark:text-amber-400'
+                                      : 'text-blue-700 dark:text-blue-300'
+                                  }`}
+                                    title={liveStatus === 'overdue' ? 'Overdue — planned date already passed.'
+                                      : liveStatus === 'delayed' ? 'Delayed — live ETA after end of planned day.'
+                                      : liveStatus === 'on_time' ? 'On time — live ETA before end of planned day.'
+                                      : ''}>
+                                    {realtimeEtaText === '—' ? 'no GPS' : realtimeEtaText}
                                   </span>
-                                </div>
-                              )}
-
-                              {/* Pre-dispatch explanation — tells the user why the map
-                                  pin has no route line connected to it. */}
-                              {isPreDispatch && (
-                                <div>
-                                  <span
-                                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300"
-                                    title="Driver hasn't started the route yet — no live polyline connects to this pin"
-                                  >
-                                    ⏳ Not yet dispatched
-                                  </span>
-                                </div>
-                              )}
-
-                              {/* Coord-missing explanation — pin may be at the Dubai
-                                  default fallback and the route intentionally skips
-                                  it to keep geometry clean. */}
-                              {hasMissingCoords && (
-                                <div>
-                                  <span
-                                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400"
-                                    title="Coordinates are missing or fell back to a default — the route skips this stop. Fix the address to draw it."
-                                  >
-                                    📍 Location needs geocoding
-                                  </span>
-                                </div>
-                              )}
+                                </span>
+                              </div>
                             </div>
                           </div>
 
@@ -2341,26 +2452,32 @@ export default function LogisticsTeamPortal() {
                               >
                                 × {unitsFor(delivery)} unit{unitsFor(delivery) === 1 ? '' : 's'}
                               </span>
+                              {/* Reassign — primary action. Solid navy so it
+                                  stands out from the icon-only POD secondary,
+                                  matching the action hierarchy on this card. */}
                               <button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setReassignMenuFor(reassignMenuFor === delivery.id ? null : delivery.id);
                                 }}
-                                className="ml-auto flex items-center gap-1 text-[11px] font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors disabled:opacity-50"
+                                className="ml-auto inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold text-white bg-[#032145] hover:bg-[#053060] disabled:opacity-50 transition-colors"
                                 disabled={reassignBusyId === delivery.id}
                                 title="Move this order to a different driver"
                               >
                                 <Truck className="w-3 h-3" />
                                 {reassignBusyId === delivery.id ? 'Moving…' : 'Reassign'}
                               </button>
+                              {/* POD — secondary, icon-only. Same touch target
+                                  via min-h on the inner padding. */}
                               <button
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); setPodModalDelivery(delivery); }}
-                                className="flex items-center gap-1 text-[11px] font-medium text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                                className="inline-flex items-center justify-center w-7 h-7 rounded-md text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                title="Upload Proof of Delivery"
+                                aria-label="Upload POD"
                               >
-                                <Camera className="w-3 h-3" />
-                                POD
+                                <Camera className="w-3.5 h-3.5" />
                               </button>
                             </div>
 
@@ -2403,6 +2520,14 @@ export default function LogisticsTeamPortal() {
                                       ? false
                                       : (used + orderUnits > max);
                                     const online = isContactOnline(dr);
+                                    // Inline reason chip so disabled state is
+                                    // legible on touch devices (no hover) and
+                                    // colour-blind users (not just red bg).
+                                    const reasonChip = isCurrent
+                                      ? { text: 'CURRENT', cls: 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400' }
+                                      : wouldOverflow
+                                      ? { text: `+${used + orderUnits - max} OVER`, cls: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' }
+                                      : null;
                                     return (
                                       <button
                                         key={dr.id}
@@ -2417,17 +2542,21 @@ export default function LogisticsTeamPortal() {
                                               : 'hover:bg-blue-50 dark:hover:bg-blue-900/20 text-gray-700 dark:text-gray-200'
                                         }`}
                                         title={
-                                          isCurrent ? 'Currently assigned'
-                                          : wouldOverflow ? `Would overflow truck (${used}+${orderUnits} > ${max})`
+                                          isCurrent ? 'Currently assigned to this driver'
+                                          : wouldOverflow ? `Would overflow truck: ${used} used + ${orderUnits} new > ${max} cap`
                                           : `${remaining} unit${remaining === 1 ? '' : 's'} free of ${max}`
                                         }
                                       >
                                         <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${online ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
                                         <span className="flex-1 min-w-0 truncate font-medium">
                                           {dr.fullName || dr.username}
-                                          {isCurrent && <span className="ml-1 text-[9px] uppercase text-gray-400">current</span>}
                                         </span>
-                                        <span className="text-[10px] tabular-nums shrink-0">
+                                        {reasonChip && (
+                                          <span className={`text-[9px] font-bold uppercase px-1 py-0.5 rounded shrink-0 tracking-wider ${reasonChip.cls}`}>
+                                            {reasonChip.text}
+                                          </span>
+                                        )}
+                                        <span className="text-[10px] tabular-nums shrink-0 text-gray-500 dark:text-gray-400">
                                           {used}/{max}
                                         </span>
                                       </button>
