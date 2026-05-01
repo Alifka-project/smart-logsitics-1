@@ -249,43 +249,18 @@ export function applyDeliveryListFilter(
       });
     }
     case 'completed_24h': {
-      // "Completed" view in the Driver Portal — orders the driver actually
-      // finished or that ops cancelled, within the last 48 hours. Driver wants
-      // a SHORT recent-history window, not "everything ever delivered or
-      // touched by a recent batch update".
-      //
-      // Rules:
-      //   - status MUST be a real terminal state (delivered* / cancelled /
-      //     rejected). 'rescheduled' is excluded — those moved to a future
-      //     date and are still active work.
-      //   - timestamp MUST be a real completion timestamp:
-      //       delivered → deliveredAt or podCompletedAt
-      //       cancelled → updatedAt (only when status is cancelled/rejected,
-      //                              since that's when the cancel happened)
-      //     We DON'T fall back to updatedAt for delivered orders, because a
-      //     recent bulk fix (e.g. address re-geocoding) bumps updatedAt on
-      //     every row and would resurface ancient deliveries as "recent".
-      //   - 48-hour rolling window from now.
-      const TERMINAL_DELIVERED = new Set<string>([...COMPLETED_STATUSES]);
-      const TERMINAL_CANCELLED = new Set<string>(['cancelled', 'canceled', 'rejected']);
-      const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000;
-      const cutoff = Date.now() - FORTY_EIGHT_HOURS_MS;
-      return list.filter((d) => {
-        const s = (d.status || '').toLowerCase();
-        const isDelivered = TERMINAL_DELIVERED.has(s);
-        const isCancelled = TERMINAL_CANCELLED.has(s);
-        if (!isDelivered && !isCancelled) return false;
-        const rec = d as unknown as Record<string, unknown>;
-        // Prefer the completion-specific timestamp; for cancelled orders the
-        // cancel write lands on updatedAt so we accept that, but only when
-        // the status actually says cancelled.
-        const dateStr = isDelivered
-          ? ((d.deliveredAt as string | null | undefined) ?? (d.podCompletedAt as string | null | undefined))
-          : ((d.updatedAt as string | null | undefined) ?? (rec.updated_at as string | null | undefined));
-        if (!dateStr) return false;
-        const ts = new Date(String(dateStr)).getTime();
-        return !isNaN(ts) && ts >= cutoff;
-      });
+      // "Completed" view in the Driver Portal — dead-simple rule: any order
+      // whose status is delivered, cancelled, or rejected. The server caps
+      // /driver/deliveries/finished to the 20 most recent completions, so
+      // this filter naturally surfaces the recent ones without per-row date
+      // math. Date filtering removed at the user's request — the previous
+      // 48h window plus updatedAt-fallback combination kept producing
+      // confusing counts on test data.
+      const COMPLETED_STATUS_SET = new Set<string>([
+        ...COMPLETED_STATUSES,
+        'cancelled', 'canceled', 'rejected',
+      ]);
+      return list.filter((d) => COMPLETED_STATUS_SET.has((d.status || '').toLowerCase()));
     }
     default:
       return active;

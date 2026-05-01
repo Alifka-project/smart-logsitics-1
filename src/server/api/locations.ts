@@ -477,30 +477,19 @@ router.get('/deliveries/finished', authenticate, async (req: Request, res: Respo
       res.status(401).json({ error: 'Unauthorized' }); return;
     }
 
-    // Only show deliveries that this driver actually completed (assignment status
-    // 'completed'). Deliveries reassigned away keep a 'reassigned' assignment
-    // for this driver but should not appear in their history.
+    // Driver's recent finished deliveries — orders this driver actually
+    // completed (assignment status 'completed'). Deliveries reassigned away
+    // keep a 'reassigned' assignment for this driver but are excluded.
     //
-    // Hard 48-hour recency window applied AT THE SERVER so the Driver Portal's
-    // "Completed" chip can never inflate beyond what's actually recent. Without
-    // this guard, every prior bulk update (geocoding fix, status mass-edit,
-    // re-import) would touch updatedAt on hundreds of old delivered rows and
-    // make them all look "recent" in the client-side filter.
-    const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000;
-    const cutoff = new Date(Date.now() - FORTY_EIGHT_HOURS_MS);
+    // Simple rule: any order with a terminal status (delivered / cancelled /
+    // rejected / returned) where this driver was the completing assignee.
+    // Sorted most-recent first by deliveredAt and capped at 20 — that's all
+    // a driver needs to glance at their recent history. No per-row date
+    // predicate; the take cap is the recency control.
     const deliveries = await prisma.delivery.findMany({
       where: {
         assignments: { some: { driverId, status: 'completed' } },
         status: { in: DRIVER_FINISHED_STATUSES },
-        // Recency gate — order must have been *completed* (not just touched) in
-        // the last 48h. deliveredAt is the canonical completion timestamp;
-        // podCompletedAt covers driver-side POD finalisation when delivered
-        // happens out-of-order. updatedAt is intentionally NOT used here since
-        // unrelated bulk writes would falsify recency.
-        OR: [
-          { deliveredAt: { gte: cutoff } },
-          { podCompletedAt: { gte: cutoff } },
-        ],
       },
       include: {
         assignments: {
@@ -510,10 +499,7 @@ router.get('/deliveries/finished', authenticate, async (req: Request, res: Respo
         }
       },
       orderBy: { deliveredAt: 'desc' },
-      take: 20, // Hard cap — driver only needs a glance at recent history; previously
-                // 100, then 50, kept showing 200+ on test data because old client
-                // bundles cached prior responses. 20 is a small enough payload that
-                // the panel can never crash the page even with a stale store.
+      take: 20,
     });
 
     const mapped = deliveries.map(d => ({
