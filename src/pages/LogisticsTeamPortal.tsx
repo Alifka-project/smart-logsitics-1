@@ -101,6 +101,9 @@ export default function LogisticsTeamPortal() {
   const [liveStatusFilter, setLiveStatusFilter] = useState<'all' | 'out_for_delivery' | 'confirmed'>('all');
   const [filterPriority, setFilterPriority] = useState(false);
   const [filterDelayed, setFilterDelayed] = useState(false);
+  // Toolbar popover state — only one open at a time. Keeps the panel chrome
+  // tight by hiding all secondary controls behind two dropdowns.
+  const [openToolbarMenu, setOpenToolbarMenu] = useState<null | 'filter' | 'view'>(null);
   // Free-text search across customer / PO / delivery no / phone — drives
   // what the list and the map show simultaneously so finding an order for
   // a phone-call enquiry is one keystroke away.
@@ -1866,361 +1869,341 @@ export default function LogisticsTeamPortal() {
 
                 {/* ── Drivers & Loads panel (full width on mobile, 50% on sm+) ── */}
                 <div className="flex flex-col gap-2 min-w-0 min-h-0 w-full">
-                  {/* Header + date tabs + search + driver filter + status pills */}
-                  <div className="pp-card p-3 flex-shrink-0 space-y-2">
-                    {/* Title row */}
-                    <div className="flex items-center gap-2">
-                      <Truck className="w-4 h-4 text-teal-600 dark:text-teal-400 flex-shrink-0" />
-                      <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">Drivers &amp; Loads</h2>
-                      <span className="ml-auto text-[10px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                  {/* ── COMPACT TOOLBAR ──
+                      Two rows max. Title + count + refresh on top.
+                      Search + Filter / View dropdown buttons below. Active
+                      filters surface as a chip strip ONLY when any are set.
+                      All status / driver / date / view controls live behind
+                      the two dropdown buttons so the chrome stays minimal. */}
+                  <div className="flex-shrink-0 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-visible">
+                    {/* Row 1: title · count · refresh */}
+                    <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100 dark:border-gray-800">
+                      <Truck className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                      <h2 className="text-[13px] font-semibold text-gray-900 dark:text-gray-100 truncate">Drivers &amp; Loads</h2>
+                      <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400 tabular-nums">
                         {trackingDeliveries.length}
                       </span>
                       <button
                         type="button"
                         onClick={() => void loadData()}
-                        className="text-xs text-gray-400 hover:text-blue-600 transition-colors flex-shrink-0"
+                        className="ml-auto p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
                         title="Refresh"
+                        aria-label="Refresh"
                       >
                         <RefreshCw className="w-3.5 h-3.5" />
                       </button>
                     </div>
 
-                    {/* Date scope tabs — Today / Tomorrow / All. The selected
-                        date drives both the visible cards AND the capacity bar
-                        shown in driver headers, so on-screen counts always
-                        match what the assignment endpoint will enforce. */}
-                    <div className="flex gap-1 rounded-lg bg-gray-100 dark:bg-gray-800 p-0.5">
-                      {([
-                        { key: 'today', label: 'Today' },
-                        { key: 'tomorrow', label: 'Tomorrow' },
-                        { key: 'all', label: 'All' },
-                      ] as { key: typeof liveMapsDateMode; label: string }[]).map((m) => (
+                    {/* Row 2: search (wide) · Filter button · View button */}
+                    <div className="flex items-center gap-1.5 px-2 py-1.5">
+                      <div className="relative flex-1 min-w-0">
+                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                        <input
+                          type="text"
+                          value={trackingSearchQuery}
+                          onChange={(e) => setTrackingSearchQuery(e.target.value)}
+                          placeholder="Search…"
+                          className="w-full pl-7 pr-6 py-1.5 text-xs rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        {trackingSearchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => setTrackingSearchQuery('')}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-[10px]"
+                            aria-label="Clear search"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Filter dropdown button */}
+                      <div className="relative">
                         <button
-                          key={m.key}
                           type="button"
-                          onClick={() => { setLiveMapsDateMode(m.key); setReassignMenuFor(null); }}
-                          className={`flex-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-colors ${
-                            liveMapsDateMode === m.key
-                              ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm'
-                              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                          onClick={() => setOpenToolbarMenu(openToolbarMenu === 'filter' ? null : 'filter')}
+                          className={`inline-flex items-center gap-1 px-2 py-1.5 text-xs rounded-md border transition-colors ${
+                            (liveStatusFilter !== 'all' || filterPriority || filterDelayed || trackingDriverFilter !== 'all' || liveMapsDateMode !== 'today')
+                              ? 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                              : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
                           }`}
+                          aria-expanded={openToolbarMenu === 'filter'}
+                          title="Filter deliveries"
                         >
-                          {m.label}
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <path d="M2 4h12M4 8h8M6 12h4" strokeLinecap="round" />
+                          </svg>
+                          <span className="font-semibold">Filter</span>
                         </button>
-                      ))}
-                    </div>
+                        {openToolbarMenu === 'filter' && (
+                          <div
+                            className="absolute right-0 top-full mt-1 z-30 w-64 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl p-3 space-y-3"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div>
+                              <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">Date scope</p>
+                              <div className="flex gap-1 rounded-md bg-gray-100 dark:bg-gray-800 p-0.5">
+                                {([
+                                  { key: 'today',    label: 'Today' },
+                                  { key: 'tomorrow', label: 'Tomorrow' },
+                                  { key: 'all',      label: 'All' },
+                                ] as { key: typeof liveMapsDateMode; label: string }[]).map((m) => (
+                                  <button key={m.key} type="button"
+                                    onClick={() => { setLiveMapsDateMode(m.key); setReassignMenuFor(null); }}
+                                    className={`flex-1 px-2 py-1 rounded text-[11px] font-semibold transition-colors ${
+                                      liveMapsDateMode === m.key
+                                        ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm'
+                                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                                    }`}>{m.label}</button>
+                                ))}
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">Status</p>
+                              <div className="flex gap-1 rounded-md bg-gray-100 dark:bg-gray-800 p-0.5">
+                                {([
+                                  { key: 'all',              label: 'All' },
+                                  { key: 'out_for_delivery', label: 'On Route' },
+                                  { key: 'confirmed',        label: 'Confirmed' },
+                                ] as { key: typeof liveStatusFilter; label: string }[]).map((f) => (
+                                  <button key={f.key} type="button"
+                                    onClick={() => setLiveStatusFilter(f.key)}
+                                    className={`flex-1 px-2 py-1 rounded text-[11px] font-semibold transition-colors ${
+                                      liveStatusFilter === f.key
+                                        ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm'
+                                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                                    }`}>{f.label}</button>
+                                ))}
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">Attributes</p>
+                              <div className="flex gap-1.5">
+                                <button type="button"
+                                  onClick={() => setFilterPriority(v => !v)}
+                                  aria-pressed={filterPriority}
+                                  className={`flex-1 inline-flex items-center justify-center gap-1 px-2 py-1 rounded text-[11px] font-semibold border transition-colors ${
+                                    filterPriority
+                                      ? 'bg-orange-500 text-white border-orange-500'
+                                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-orange-300'
+                                  }`}>
+                                  <span aria-hidden>★</span> Priority
+                                </button>
+                                <button type="button"
+                                  onClick={() => setFilterDelayed(v => !v)}
+                                  aria-pressed={filterDelayed}
+                                  className={`flex-1 inline-flex items-center justify-center gap-1 px-2 py-1 rounded text-[11px] font-semibold border transition-colors ${
+                                    filterDelayed
+                                      ? 'bg-red-600 text-white border-red-600'
+                                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-red-300'
+                                  }`}>
+                                  <span aria-hidden>⚠</span> Delayed
+                                </button>
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">Driver</p>
+                              <select
+                                value={trackingDriverFilter}
+                                onChange={e => { setTrackingDriverFilter(e.target.value); setTrackingSelectedId(null); }}
+                                className="w-full px-2 py-1 text-[11px] rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              >
+                                <option value="all">All drivers</option>
+                                {drivers.map(dr => {
+                                  const driverOrders = deliveries.filter(d => {
+                                    const ext = d as unknown as { tracking?: { driverId?: string } };
+                                    return (ext.tracking?.driverId === dr.id || d.assignedDriverId === dr.id)
+                                      && LIVE_MAP_VISIBLE.has((d.status || '').toLowerCase());
+                                  });
+                                  const onRoute = driverOrders.filter(d => (d.status || '').toLowerCase() === 'out-for-delivery').length;
+                                  return (
+                                    <option key={dr.id} value={dr.id}>
+                                      {dr.fullName || dr.username} — {onRoute > 0 ? `${onRoute} on route` : `${driverOrders.length} assigned`}
+                                    </option>
+                                  );
+                                })}
+                              </select>
+                            </div>
+                            <div className="flex items-center justify-between pt-1 border-t border-gray-100 dark:border-gray-800">
+                              <button type="button"
+                                onClick={() => {
+                                  setLiveStatusFilter('all');
+                                  setFilterPriority(false);
+                                  setFilterDelayed(false);
+                                  setTrackingDriverFilter('all');
+                                  setLiveMapsDateMode('today');
+                                  setTrackingSearchQuery('');
+                                }}
+                                className="text-[11px] text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400">
+                                Reset
+                              </button>
+                              <button type="button"
+                                onClick={() => setOpenToolbarMenu(null)}
+                                className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700">
+                                Done
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
 
-                    {/* Search box — matches customer / PO / delivery no / phone /
-                        address. Lets the user answer a customer phone-call query
-                        ("where's my PO 12345?") in one keystroke instead of
-                        scanning dozens of cards. */}
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={trackingSearchQuery}
-                        onChange={(e) => setTrackingSearchQuery(e.target.value)}
-                        placeholder="Search customer, PO, phone…"
-                        className="w-full pl-7 pr-7 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-                      {trackingSearchQuery && (
+                      {/* View dropdown button */}
+                      <div className="relative">
                         <button
                           type="button"
-                          onClick={() => setTrackingSearchQuery('')}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
-                          title="Clear search"
-                          aria-label="Clear search"
+                          onClick={() => setOpenToolbarMenu(openToolbarMenu === 'view' ? null : 'view')}
+                          className="inline-flex items-center gap-1 px-2 py-1.5 text-xs rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600 transition-colors"
+                          aria-expanded={openToolbarMenu === 'view'}
+                          title="Group deliveries by"
                         >
-                          ✕
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <rect x="2" y="3" width="12" height="2.5" rx="0.5" />
+                            <rect x="2" y="6.75" width="12" height="2.5" rx="0.5" />
+                            <rect x="2" y="10.5" width="12" height="2.5" rx="0.5" />
+                          </svg>
+                          <span className="font-semibold capitalize">{liveMapsViewMode === 'driver' ? 'By driver' : liveMapsViewMode === 'status' ? 'By status' : 'Flat'}</span>
                         </button>
-                      )}
+                        {openToolbarMenu === 'view' && (
+                          <div
+                            className="absolute right-0 top-full mt-1 z-30 w-40 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl py-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {([
+                              { key: 'driver', label: 'By Driver' },
+                              { key: 'status', label: 'By Status' },
+                              { key: 'flat',   label: 'Flat (no groups)' },
+                            ] as { key: typeof liveMapsViewMode; label: string }[]).map(m => (
+                              <button key={m.key} type="button"
+                                onClick={() => { setLiveMapsViewMode(m.key); setOpenToolbarMenu(null); }}
+                                className={`w-full text-left px-3 py-1.5 text-[12px] transition-colors ${
+                                  liveMapsViewMode === m.key
+                                    ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-semibold'
+                                    : 'text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
+                                }`}>
+                                {m.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Driver dropdown */}
-                    <select
-                      value={trackingDriverFilter}
-                      onChange={e => { setTrackingDriverFilter(e.target.value); setTrackingSelectedId(null); }}
-                      className="w-full px-2 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="all">All Drivers</option>
-                      {drivers.map(dr => {
-                        const driverOrders = deliveries.filter(d => {
-                          const ext = d as unknown as { tracking?: { driverId?: string } };
-                          return (ext.tracking?.driverId === dr.id || d.assignedDriverId === dr.id)
-                            && LIVE_MAP_VISIBLE.has((d.status || '').toLowerCase());
-                        });
-                        const onRoute = driverOrders.filter(d => (d.status || '').toLowerCase() === 'out-for-delivery').length;
-                        return (
-                          <option key={dr.id} value={dr.id}>
-                            {dr.fullName || dr.username} — {onRoute > 0 ? `${onRoute} on route` : `${driverOrders.length} assigned`}
-                          </option>
-                        );
-                      })}
-                    </select>
-
-                    {/* Status segmented control — mutex (All / On Route /
-                        Confirmed). Priority + Delayed live below as
-                        composable toggles so they stack with this status. */}
-                    <div className="flex gap-1 rounded-lg bg-gray-100 dark:bg-gray-800 p-0.5">
-                      {([
-                        { key: 'all',              label: 'All' },
-                        { key: 'out_for_delivery', label: 'On Route' },
-                        { key: 'confirmed',        label: 'Confirmed' },
-                      ] as { key: typeof liveStatusFilter; label: string }[]).map((f) => (
-                        <button
-                          key={f.key}
-                          type="button"
-                          onClick={() => setLiveStatusFilter(f.key)}
-                          className={`flex-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-colors ${
-                            liveStatusFilter === f.key
-                              ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm'
-                              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                          }`}
-                        >
-                          {f.label}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Composable attribute toggles — Priority and Delayed
-                        compose with the status segmented control above
-                        (independent ANDs). Click again to remove. */}
-                    <div className="flex flex-wrap gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setFilterPriority((v) => !v)}
-                        aria-pressed={filterPriority}
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-colors ${
-                          filterPriority
-                            ? 'bg-orange-500 text-white border-orange-500'
-                            : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-orange-50 dark:hover:bg-orange-900/20'
-                        }`}
-                        title="Show only priority orders"
-                      >
-                        <span aria-hidden>★</span> Priority
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setFilterDelayed((v) => !v)}
-                        aria-pressed={filterDelayed}
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-colors ${
-                          filterDelayed
-                            ? 'bg-red-600 text-white border-red-600'
-                            : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-red-50 dark:hover:bg-red-900/20'
-                        }`}
-                        title="Show only delayed (overdue) orders"
-                      >
-                        <span aria-hidden>⚠</span> Delayed
-                      </button>
-                    </div>
-
-                    {/* Active-filter breadcrumb — visible when any non-default
-                        filter is set. Shows what's currently narrowing the
-                        list and lets the user remove individual filters or
-                        clear them all. Hidden when nothing is active so the
-                        header stays compact in the default view. */}
+                    {/* Row 3 (conditional): active filter chips. Only renders
+                        when a non-default filter is set; otherwise the toolbar
+                        stays at 2 rows. */}
                     {(() => {
-                      const activeFilters: Array<{ label: string; clear: () => void; tone: string }> = [];
+                      const activeFilters: Array<{ label: string; clear: () => void }> = [];
+                      if (liveMapsDateMode !== 'today') {
+                        activeFilters.push({ label: liveMapsDateMode === 'tomorrow' ? 'Tomorrow' : 'All dates', clear: () => setLiveMapsDateMode('today') });
+                      }
                       if (liveStatusFilter !== 'all') {
-                        activeFilters.push({
-                          label: liveStatusFilter === 'out_for_delivery' ? 'On Route' : 'Confirmed',
-                          clear: () => setLiveStatusFilter('all'),
-                          tone: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800',
-                        });
+                        activeFilters.push({ label: liveStatusFilter === 'out_for_delivery' ? 'On Route' : 'Confirmed', clear: () => setLiveStatusFilter('all') });
                       }
-                      if (filterPriority) {
-                        activeFilters.push({
-                          label: 'Priority',
-                          clear: () => setFilterPriority(false),
-                          tone: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800',
-                        });
-                      }
-                      if (filterDelayed) {
-                        activeFilters.push({
-                          label: 'Delayed',
-                          clear: () => setFilterDelayed(false),
-                          tone: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800',
-                        });
-                      }
+                      if (filterPriority)  activeFilters.push({ label: '★ Priority', clear: () => setFilterPriority(false) });
+                      if (filterDelayed)   activeFilters.push({ label: '⚠ Delayed', clear: () => setFilterDelayed(false) });
                       if (trackingDriverFilter !== 'all') {
-                        const dr = drivers.find((x) => x.id === trackingDriverFilter);
-                        activeFilters.push({
-                          label: `Driver: ${dr?.fullName || dr?.username || 'selected'}`,
-                          clear: () => setTrackingDriverFilter('all'),
-                          tone: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-800',
-                        });
+                        const dr = drivers.find(x => x.id === trackingDriverFilter);
+                        activeFilters.push({ label: dr?.fullName || dr?.username || 'Driver', clear: () => setTrackingDriverFilter('all') });
                       }
                       if (trackingSearchQuery.trim()) {
-                        activeFilters.push({
-                          label: `“${trackingSearchQuery.trim()}”`,
-                          clear: () => setTrackingSearchQuery(''),
-                          tone: 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700',
-                        });
+                        activeFilters.push({ label: `“${trackingSearchQuery.trim()}”`, clear: () => setTrackingSearchQuery('') });
                       }
                       if (activeFilters.length === 0) return null;
                       return (
-                        <div className="flex flex-wrap items-center gap-1 pt-1 border-t border-gray-100 dark:border-gray-700">
-                          <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Filters</span>
+                        <div className="flex flex-wrap items-center gap-1 px-2 py-1.5 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
                           {activeFilters.map((f, i) => (
-                            <span key={i} className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border ${f.tone}`}>
+                            <span key={i} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200">
                               {f.label}
-                              <button
-                                type="button"
-                                onClick={f.clear}
-                                className="hover:opacity-70"
-                                aria-label={`Remove ${f.label} filter`}
-                              >
-                                ✕
-                              </button>
+                              <button type="button" onClick={f.clear} className="text-gray-400 hover:text-red-500" aria-label={`Remove ${f.label}`}>✕</button>
                             </span>
                           ))}
-                          <button
-                            type="button"
+                          <button type="button"
                             onClick={() => {
                               setLiveStatusFilter('all');
                               setFilterPriority(false);
                               setFilterDelayed(false);
                               setTrackingDriverFilter('all');
+                              setLiveMapsDateMode('today');
                               setTrackingSearchQuery('');
                             }}
-                            className="ml-auto text-[10px] text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 underline"
-                          >
+                            className="ml-auto text-[10px] text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400">
                             Clear all
                           </button>
                         </div>
                       );
                     })()}
-
-                    {trackingSelectedId && (
-                      <button
-                        type="button"
-                        onClick={() => setTrackingSelectedId(null)}
-                        className="w-full text-[11px] text-blue-600 dark:text-blue-400 hover:underline"
-                      >
-                        ✕ Clear map selection
-                      </button>
-                    )}
-
-                    {/* View-mode toggle — Driver / Status / Flat.
-                        Groups the list so ops can answer "whose order is
-                        this?" and "which are overdue?" at a glance. */}
-                    <div className="flex gap-1 rounded-lg bg-gray-100 dark:bg-gray-800 p-0.5">
-                      {([
-                        { key: 'driver', label: 'By Driver' },
-                        { key: 'status', label: 'By Status' },
-                        { key: 'flat', label: 'Flat' },
-                      ] as { key: typeof liveMapsViewMode; label: string }[]).map((m) => (
-                        <button
-                          key={m.key}
-                          type="button"
-                          onClick={() => setLiveMapsViewMode(m.key)}
-                          className={`flex-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-colors ${
-                            liveMapsViewMode === m.key
-                              ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm'
-                              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                          }`}
-                        >
-                          {m.label}
-                        </button>
-                      ))}
-                    </div>
                   </div>
 
-                  {/* Scrollable order TABLE — semantic <table> for tabular
-                      delivery data. Sticky thead keeps column labels visible
-                      while scrolling; group rows span all columns so driver
-                      capacity bars / status buckets sit naturally between
-                      data rows. Per-row click still toggles map highlight,
-                      action buttons stop-propagate so they don't double-fire. */}
-                  <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
+                  {/* ── DELIVERY LIST ──
+                      Flat, divider-separated rows — no nested card boxes,
+                      no <table> chrome. Each row: status dot · # · customer
+                      (bold) + address (muted) · status/ETA (right) · actions.
+                      Group rows are flat section dividers (driver name + capacity
+                      bar) that sit naturally between deliveries. */}
+                  <div className="flex-1 overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg" style={{ minHeight: 0 }}>
                     {trackingDeliveries.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-500 text-sm gap-2">
                         <NavigationIcon className="w-8 h-8 opacity-30" />
                         <p className="font-medium">No active deliveries</p>
-                        <p className="text-xs text-center">Orders out for delivery will appear here</p>
+                        <p className="text-xs text-center">Adjust filters or wait for the next refresh.</p>
                       </div>
                     ) : (
-                    <table className="w-full text-[11px] border-collapse">
-                      <thead className="sticky top-0 z-[6] bg-gray-50 dark:bg-gray-900/95 backdrop-blur">
-                        <tr className="text-[9px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                          <th className="w-7 px-1 py-1.5 text-left border-b border-gray-200 dark:border-gray-700">#</th>
-                          <th className="px-2 py-1.5 text-left border-b border-gray-200 dark:border-gray-700">Order</th>
-                          <th className="w-[110px] px-2 py-1.5 text-left border-b border-gray-200 dark:border-gray-700">Status</th>
-                          <th className="w-[120px] px-2 py-1.5 text-right border-b border-gray-200 dark:border-gray-700">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
+                    <div className="divide-y divide-gray-100 dark:divide-gray-800">
                     {displayItems.map((item) => {
-                      // Branch: a section header row in driver/status modes.
+                      // Branch: section header (driver group or status bucket).
                       if (item.type === 'header') {
-                        // Rich driver header: capacity bar + on-route/delayed badges +
-                        // pickup label. Only renders when item.driverId is set
-                        // (driver-mode groupings); otherwise falls back to the
-                        // plain bucket/unassigned label used by 'status' mode.
                         if (item.driverId || item.isUnassigned) {
                           const cap = item.driverId ? (targetCapacityIso ? driverCapacityByDate[targetCapacityIso]?.[item.driverId] : undefined) : undefined;
                           const used = cap?.used ?? item.units ?? 0;
                           const max = cap?.max ?? 20;
                           const pct = Math.max(0, Math.min(100, (used / Math.max(1, max)) * 100));
-                          // Bar color: green up to 70%, amber up to 90%, red beyond.
                           const barColor = pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-amber-500' : 'bg-emerald-500';
                           return (
-                            <tr key={item.key}>
-                              <td
-                                colSpan={4}
-                                className="px-2.5 py-2 bg-gray-100 dark:bg-gray-800/60 border-y border-gray-200 dark:border-gray-700"
-                                style={item.color ? { borderLeft: `3px solid ${item.color}` } : undefined}
-                              >
-                                <div className="flex items-center gap-2">
-                                  {!item.isUnassigned && (
-                                    <span className={`h-2 w-2 shrink-0 rounded-full ${item.online ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
-                                  )}
-                                  <span className="truncate text-[12px] font-semibold text-gray-900 dark:text-gray-100">
-                                    {item.label}
-                                  </span>
-                                  <span className="ml-auto text-[10px] font-semibold text-gray-500 dark:text-gray-400 tabular-nums shrink-0">
-                                    {item.stops} stop{item.stops === 1 ? '' : 's'} · {item.units} unit{item.units === 1 ? '' : 's'}
-                                  </span>
-                                </div>
-                                {!item.isUnassigned && (
-                                  <div className="mt-1 flex items-center gap-2">
-                                    {/* Capacity bar — server is the source of truth; client total
-                                        shown only when capacity API hasn't loaded yet. */}
-                                    <div className="flex-1 h-1 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-                                      <div className={`h-full ${barColor} transition-all`} style={{ width: `${pct}%` }} />
-                                    </div>
-                                    <span className="text-[10px] font-semibold text-gray-600 dark:text-gray-300 tabular-nums shrink-0">
-                                      {used}/{max}
-                                    </span>
-                                    {cap?.full && (
-                                      <span className="text-[9px] font-bold text-red-600 dark:text-red-400 shrink-0">FULL</span>
-                                    )}
-                                    {item.ofd != null && item.ofd > 0 && (
-                                      <span className="text-[9px] font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full shrink-0">
-                                        🚛 {item.ofd}
-                                      </span>
-                                    )}
+                            <div key={item.key} className="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800/40">
+                              {!item.isUnassigned && (
+                                <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${item.online ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                              )}
+                              <span className="truncate text-[11px] font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-200">
+                                {item.label}
+                              </span>
+                              <span className="text-[10px] text-gray-400 dark:text-gray-500 tabular-nums shrink-0">
+                                · {item.stops} {item.stops === 1 ? 'stop' : 'stops'}
+                              </span>
+                              {!item.isUnassigned && (
+                                <>
+                                  <div className="ml-auto flex items-center gap-2 shrink-0">
                                     {item.delay != null && item.delay > 0 && (
-                                      <span className="text-[9px] font-semibold text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/30 px-1.5 py-0.5 rounded-full shrink-0">
+                                      <span className="text-[10px] font-semibold text-red-600 dark:text-red-400">
                                         ⚠ {item.delay}
                                       </span>
                                     )}
+                                    {item.ofd != null && item.ofd > 0 && (
+                                      <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400">
+                                        🚛 {item.ofd}
+                                      </span>
+                                    )}
+                                    <div className="w-16 h-1 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                                      <div className={`h-full ${barColor} transition-all`} style={{ width: `${pct}%` }} />
+                                    </div>
+                                    <span className={`text-[10px] font-semibold tabular-nums ${pct >= 90 ? 'text-red-600 dark:text-red-400' : pct >= 70 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-600 dark:text-gray-300'}`}>
+                                      {used}/{max}
+                                    </span>
                                   </div>
-                                )}
-                              </td>
-                            </tr>
+                                </>
+                              )}
+                              {item.isUnassigned && (
+                                <span className="ml-auto text-[10px] text-gray-500 dark:text-gray-400 tabular-nums shrink-0">
+                                  · {item.units} {item.units === 1 ? 'unit' : 'units'}
+                                </span>
+                              )}
+                            </div>
                           );
                         }
                         return (
-                          <tr key={item.key}>
-                            <td
-                              colSpan={4}
-                              className="px-2.5 py-1.5 bg-gray-100 dark:bg-gray-800/60 border-y border-gray-200 dark:border-gray-700 text-[11px] font-semibold text-gray-700 dark:text-gray-200"
-                              style={item.color ? { borderLeft: `3px solid ${item.color}` } : undefined}
-                            >
-                              <span className="truncate">{item.label}</span>
-                            </td>
-                          </tr>
+                          <div key={item.key} className="px-3 py-1.5 bg-gray-50 dark:bg-gray-800/40 text-[11px] font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300"
+                               style={item.color ? { borderLeft: `3px solid ${item.color}` } : undefined}>
+                            {item.label}
+                          </div>
                         );
                       }
                       const { delivery, idx } = item;
@@ -2292,264 +2275,243 @@ export default function LogisticsTeamPortal() {
 
                       const delDateShort = plannedEtaText; // alias for existing references below
 
-                      // Workflow-mapped status drives both the left-border colour
-                      // (visual scan-ability) and the single primary badge below.
-                      // Using deliveryToManageOrder keeps the card in sync with
-                      // the table's filter tabs — no drift.
+                      // Workflow-mapped status drives the status dot colour and
+                      // the small status label on the right. Using
+                      // deliveryToManageOrder keeps the row in sync with the
+                      // Manage table's filter-tab counts — no drift.
                       const workflowStatus = deliveryToManageOrder(delivery).status;
-                      const borderAccent = (() => {
+                      const dotColor = (() => {
                         switch (workflowStatus) {
-                          case 'delivered':         return 'border-l-green-500';
-                          case 'order_delay':       return 'border-l-red-500';
-                          case 'out_for_delivery':  return 'border-l-blue-500';
-                          case 'pgi_done':          return 'border-l-amber-500';
-                          case 'pickup_confirmed':  return 'border-l-teal-500';
-                          case 'next_shipment':     return 'border-l-amber-400';
-                          case 'future_schedule':   return 'border-l-slate-400';
-                          case 'rescheduled':       return 'border-l-purple-400';
+                          case 'delivered':         return 'bg-green-500';
+                          case 'order_delay':       return 'bg-red-500';
+                          case 'out_for_delivery':  return 'bg-blue-500';
+                          case 'pgi_done':          return 'bg-amber-500';
+                          case 'pickup_confirmed':  return 'bg-teal-500';
+                          case 'next_shipment':     return 'bg-amber-400';
+                          case 'future_schedule':   return 'bg-slate-400';
+                          case 'rescheduled':       return 'bg-purple-400';
                           case 'cancelled':
-                          case 'failed':            return 'border-l-gray-400';
-                          default:                  return 'border-l-gray-300';
+                          case 'failed':            return 'bg-gray-400';
+                          default:                  return 'bg-gray-300';
                         }
+                      })();
+                      const statusShortLabel = (() => {
+                        const b = getDeliveryStatusBadge(delivery);
+                        return b.tierLabel || b.label || '';
                       })();
 
                       // Row tints — selection wins, then priority subtle tint,
-                      // then default hover. Border colour stripe handled on the
-                      // first cell via borderAccent (border-l-{color}).
+                      // then default hover. Selected row also gets a left
+                      // border accent in the dot colour so the highlight is
+                      // visible even from the map side.
                       const rowBg = isSelected
                         ? 'bg-blue-50 dark:bg-blue-900/20'
                         : isPriority
-                        ? 'bg-red-50/40 dark:bg-red-900/10'
-                        : 'hover:bg-gray-50 dark:hover:bg-gray-800/50';
+                        ? 'bg-red-50/30 dark:bg-red-900/10'
+                        : 'hover:bg-gray-50/70 dark:hover:bg-gray-800/40';
 
                       return (
-                        <tr
+                        <div
                           key={delivery.id}
                           onClick={() => setTrackingSelectedId(isSelected ? null : delivery.id)}
                           onKeyDown={e => e.key === 'Enter' && setTrackingSelectedId(isSelected ? null : delivery.id)}
                           tabIndex={0}
                           role="button"
                           title={isSelected ? 'Click to deselect on map' : 'Click to highlight on map'}
-                          className={`cursor-pointer transition-colors ${rowBg}`}
+                          className={`relative flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors ${rowBg} ${isSelected ? 'border-l-2 border-blue-500' : 'border-l-2 border-transparent'}`}
                         >
-                          {/* # — stop number with left-border colour stripe.
-                              The stripe lives on the first cell so it visually
-                              "leads" the row; rows can't carry borders directly. */}
-                          <td className={`px-1 py-1.5 align-top text-[12px] font-bold text-blue-600 dark:text-blue-400 border-b border-gray-100 dark:border-gray-800 border-l-4 ${borderAccent}`}>
-                            {idx + 1}
-                          </td>
+                          {/* Status dot — single coloured pip conveys the
+                              workflow state at a glance. Tooltip explains. */}
+                          <span
+                            className={`h-2 w-2 shrink-0 rounded-full ${dotColor}`}
+                            title={statusShortLabel}
+                            aria-label={statusShortLabel}
+                          />
 
-                          {/* Order — customer / address+PO / (driver in non-By-Driver modes) */}
-                          <td className="px-2 py-1.5 align-top border-b border-gray-100 dark:border-gray-800 min-w-0">
-                            <div className="flex items-center gap-1 min-w-0">
-                              <span className="text-[12px] font-semibold text-gray-900 dark:text-gray-100 truncate flex-1 min-w-0">
+                          {/* Stop number — quiet, monospace, fixed width so
+                              the customer column always starts at the same x. */}
+                          <span className="shrink-0 w-5 text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 tabular-nums">
+                            {idx + 1}
+                          </span>
+
+                          {/* Customer (bold) + address (muted subtitle).
+                              Inline ⚠ / ⏳ flags before the address keep
+                              warnings visible without a separate row. */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="text-[12.5px] font-semibold text-gray-900 dark:text-gray-100 truncate">
                                 {delivery.customer || 'Unknown Customer'}
                               </span>
                               {isPriority && (
-                                <span className="text-[9px] font-bold uppercase px-1 py-0.5 rounded bg-red-600 text-white flex-shrink-0">P1</span>
+                                <span className="text-[9px] font-bold uppercase px-1 py-px rounded bg-red-600 text-white shrink-0 tracking-wider">P1</span>
                               )}
                               {(() => {
                                 const etd = computeETD(delivery);
                                 if (!etd) return null;
                                 return (
                                   <span
-                                    className="text-[9px] font-bold uppercase px-1 py-0.5 rounded bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 flex-shrink-0 tabular-nums"
-                                    title="Departure from warehouse (driver pickup-confirmed)"
+                                    className="text-[9px] font-bold uppercase px-1 py-px rounded bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 shrink-0 tabular-nums"
+                                    title="Departure from warehouse"
                                   >
                                     {formatEtdLabel(etd)}
                                   </span>
                                 );
                               })()}
                             </div>
-                            {(delivery.address || delivery.poNumber) && (
-                              <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate flex items-center gap-1 mt-0.5">
+                            {(delivery.address || delivery.poNumber || (assignedDriver && liveMapsViewMode !== 'driver')) && (
+                              <div className="text-[10.5px] text-gray-500 dark:text-gray-400 truncate flex items-center gap-1 mt-0.5">
                                 {hasMissingCoords && (
-                                  <span title="Coordinates missing or default — fix the address." aria-label="Missing coordinates">⚠</span>
+                                  <span title="Coordinates missing — fix the address." aria-label="Missing coordinates" className="text-amber-600 dark:text-amber-400">⚠</span>
                                 )}
                                 {isPreDispatch && (
-                                  <span title="Driver hasn't started the route yet." aria-label="Not yet dispatched">⏳</span>
+                                  <span title="Driver hasn't started the route yet." aria-label="Not yet dispatched" className="text-slate-500">⏳</span>
                                 )}
                                 <span className="truncate">
-                                  {delivery.address ? <>📍 {delivery.address}</> : null}
+                                  {delivery.address}
+                                  {delivery.poNumber && delivery.address && (
+                                    <span className="text-gray-400 dark:text-gray-500"> · </span>
+                                  )}
                                   {delivery.poNumber && (
-                                    <span className="ml-1 text-gray-400 dark:text-gray-500 font-mono">· PO {delivery.poNumber}</span>
+                                    <span className="text-gray-400 dark:text-gray-500 font-mono">{delivery.poNumber}</span>
+                                  )}
+                                  {assignedDriver && liveMapsViewMode !== 'driver' && (
+                                    <>
+                                      {(delivery.address || delivery.poNumber) && <span className="text-gray-300 dark:text-gray-600"> · </span>}
+                                      <span className="text-indigo-600 dark:text-indigo-400">{assignedDriver.fullName || assignedDriver.username}</span>
+                                    </>
                                   )}
                                 </span>
-                              </p>
-                            )}
-                            {assignedDriver && liveMapsViewMode !== 'driver' && (
-                              <div className="flex items-center gap-1 mt-0.5">
-                                <Truck className="w-2.5 h-2.5 text-indigo-500 dark:text-indigo-400 flex-shrink-0" />
-                                <span className="text-[10px] font-medium text-indigo-600 dark:text-indigo-400 truncate">
-                                  {assignedDriver.fullName || assignedDriver.username}
-                                </span>
                               </div>
                             )}
-                            <div className="mt-0.5 text-[9px] text-gray-400 dark:text-gray-500 tabular-nums">
-                              × {unitsFor(delivery)} unit{unitsFor(delivery) === 1 ? '' : 's'}
-                            </div>
-                          </td>
+                          </div>
 
-                          {/* Status / Plan / Live ETA stacked. Live-ETA colour
-                              encodes on-time / delayed / overdue so no separate
-                              pill row is needed. */}
-                          <td className="px-2 py-1.5 align-top border-b border-gray-100 dark:border-gray-800">
-                            <div className="flex flex-col gap-0.5">
+                          {/* Right metadata — status + ETA stacked tight. ETA
+                              colour encodes on-time / delayed / overdue. */}
+                          <div className="shrink-0 flex flex-col items-end text-right leading-tight w-[78px]">
+                            <span className="text-[10px] font-semibold text-gray-700 dark:text-gray-200 truncate max-w-full">
+                              {statusShortLabel || '—'}
+                            </span>
+                            <span className={`text-[10px] tabular-nums ${
+                              realtimeEtaText === '—'
+                                ? 'text-gray-400 dark:text-gray-500'
+                                : liveStatus === 'overdue'
+                                ? 'text-red-600 dark:text-red-400 font-semibold'
+                                : liveStatus === 'delayed'
+                                ? 'text-amber-600 dark:text-amber-400 font-semibold'
+                                : 'text-blue-600 dark:text-blue-400 font-semibold'
+                            }`}
+                              title={liveStatus === 'overdue' ? 'Overdue' : liveStatus === 'delayed' ? 'Delayed' : liveStatus === 'on_time' ? 'On time' : ''}>
+                              {realtimeEtaText === '—' ? plannedEtaText : realtimeEtaText}
+                            </span>
+                          </div>
+
+                          {/* Actions — compact icon-style buttons. Reassign
+                              opens a dropdown anchored below this row. */}
+                          <div className="shrink-0 flex items-center gap-0.5">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setReassignMenuFor(reassignMenuFor === delivery.id ? null : delivery.id);
+                              }}
+                              className="inline-flex items-center justify-center w-7 h-7 rounded text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50 transition-colors"
+                              disabled={reassignBusyId === delivery.id}
+                              title="Reassign to a different driver"
+                              aria-label="Reassign"
+                            >
+                              <Truck className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setPodModalDelivery(delivery); }}
+                              className="inline-flex items-center justify-center w-7 h-7 rounded text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                              title="Upload Proof of Delivery"
+                              aria-label="Upload POD"
+                            >
+                              <Camera className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          {/* Reassign popover — anchored to the row (which is
+                              `relative`). Drops below since rows are short.
+                              Server-side cap is the authority; chips are a
+                              preview to prevent obvious overflow attempts. */}
+                          {reassignMenuFor === delivery.id && (
+                            <div
+                              className="absolute right-2 top-full mt-1 z-20 w-64 max-h-72 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl text-left"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="sticky top-0 px-2.5 py-1.5 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center justify-between">
+                                <span>Move to driver</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setReassignMenuFor(null)}
+                                  className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                                  aria-label="Close"
+                                >
+                                  ✕
+                                </button>
+                              </div>
                               {(() => {
-                                const b = getDeliveryStatusBadge(delivery);
-                                const label = b.tierLabel || b.label;
-                                const cls = b.tierLabel ? b.tierColor : b.color;
-                                if (!label) return null;
-                                return (
-                                  <span className={`inline-flex items-center self-start px-1.5 py-0.5 rounded text-[10px] font-semibold ${cls}`}>
-                                    {label}
-                                  </span>
-                                );
+                                const orderUnits = unitsFor(delivery);
+                                const targetIso = getCapacityDateIso(delivery);
+                                const currentDriverId = (delivery as unknown as { tracking?: { driverId?: string } }).tracking?.driverId
+                                  || delivery.assignedDriverId
+                                  || null;
+                                return drivers.map((dr) => {
+                                  const isCurrent = dr.id === currentDriverId;
+                                  const cap = driverCapacityByDate[targetIso]?.[dr.id];
+                                  const used = cap?.used ?? 0;
+                                  const max = cap?.max ?? 20;
+                                  const remaining = Math.max(0, max - used);
+                                  const wouldOverflow = isCurrent ? false : (used + orderUnits > max);
+                                  const online = isContactOnline(dr);
+                                  const reasonChip = isCurrent
+                                    ? { text: 'CURRENT', cls: 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400' }
+                                    : wouldOverflow
+                                    ? { text: `+${used + orderUnits - max} OVER`, cls: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' }
+                                    : null;
+                                  return (
+                                    <button
+                                      key={dr.id}
+                                      type="button"
+                                      disabled={isCurrent || wouldOverflow || reassignBusyId === delivery.id}
+                                      onClick={(e) => { e.stopPropagation(); void reassignDelivery(delivery.id, dr.id); }}
+                                      className={`w-full flex items-center gap-2 px-2.5 py-1.5 text-left text-[11px] border-b border-gray-100 dark:border-gray-800 last:border-0 transition-colors ${
+                                        isCurrent
+                                          ? 'bg-gray-50 dark:bg-gray-800/60 text-gray-400 dark:text-gray-500 cursor-default'
+                                          : wouldOverflow
+                                            ? 'bg-red-50 dark:bg-red-900/10 text-red-700 dark:text-red-400 cursor-not-allowed'
+                                            : 'hover:bg-blue-50 dark:hover:bg-blue-900/20 text-gray-700 dark:text-gray-200'
+                                      }`}
+                                      title={
+                                        isCurrent ? 'Currently assigned to this driver'
+                                        : wouldOverflow ? `Would overflow truck: ${used} used + ${orderUnits} new > ${max} cap`
+                                        : `${remaining} unit${remaining === 1 ? '' : 's'} free of ${max}`
+                                      }
+                                    >
+                                      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${online ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                                      <span className="flex-1 min-w-0 truncate font-medium">
+                                        {dr.fullName || dr.username}
+                                      </span>
+                                      {reasonChip && (
+                                        <span className={`text-[9px] font-bold uppercase px-1 py-0.5 rounded shrink-0 tracking-wider ${reasonChip.cls}`}>
+                                          {reasonChip.text}
+                                        </span>
+                                      )}
+                                      <span className="text-[10px] tabular-nums shrink-0 text-gray-500 dark:text-gray-400">
+                                        {used}/{max}
+                                      </span>
+                                    </button>
+                                  );
+                                });
                               })()}
-                              <span className="text-[10px] text-gray-500 dark:text-gray-400 tabular-nums">
-                                Plan <span className="font-semibold text-gray-700 dark:text-gray-200">{plannedEtaText}</span>
-                              </span>
-                              <span
-                                className={`text-[10px] tabular-nums font-semibold ${
-                                  realtimeEtaText === '—'
-                                    ? 'text-gray-400 dark:text-gray-500'
-                                    : liveStatus === 'overdue'
-                                    ? 'text-red-600 dark:text-red-400'
-                                    : liveStatus === 'delayed'
-                                    ? 'text-amber-600 dark:text-amber-400'
-                                    : 'text-blue-700 dark:text-blue-300'
-                                }`}
-                                title={liveStatus === 'overdue' ? 'Overdue — planned date already passed.'
-                                  : liveStatus === 'delayed' ? 'Delayed — live ETA after end of planned day.'
-                                  : liveStatus === 'on_time' ? 'On time — live ETA before end of planned day.'
-                                  : ''}
-                              >
-                                ETA {realtimeEtaText === '—' ? 'no GPS' : realtimeEtaText}
-                              </span>
                             </div>
-                          </td>
-
-                          {/* Action — Reassign primary + POD secondary + popover.
-                              The cell is `relative` so the popover anchors here.
-                              Both buttons stop-propagate so they don't fire the
-                              row's map-select handler. */}
-                          <td className="relative px-2 py-1.5 align-top border-b border-gray-100 dark:border-gray-800 text-right">
-                            <div className="inline-flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setReassignMenuFor(reassignMenuFor === delivery.id ? null : delivery.id);
-                                }}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold text-white bg-[#032145] hover:bg-[#053060] disabled:opacity-50 transition-colors"
-                                disabled={reassignBusyId === delivery.id}
-                                title="Move this order to a different driver"
-                              >
-                                <Truck className="w-3 h-3" />
-                                {reassignBusyId === delivery.id ? '…' : 'Reassign'}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); setPodModalDelivery(delivery); }}
-                                className="inline-flex items-center justify-center w-6 h-6 rounded-md text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                                title="Upload Proof of Delivery"
-                                aria-label="Upload POD"
-                              >
-                                <Camera className="w-3 h-3" />
-                              </button>
-                            </div>
-
-                            {/* Reassign popover — anchored to the action cell.
-                                Drops below the cell since rows are short and
-                                top-anchoring avoids being clipped by the
-                                scroll container's bottom edge. Server-side cap
-                                is the authority; chips are a preview. */}
-                            {reassignMenuFor === delivery.id && (
-                              <div
-                                className="absolute right-2 top-full mt-1 z-20 w-64 max-h-72 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl text-left"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <div className="sticky top-0 px-2.5 py-1.5 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center justify-between">
-                                  <span>Move to driver</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => setReassignMenuFor(null)}
-                                    className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                                    aria-label="Close"
-                                  >
-                                    ✕
-                                  </button>
-                                </div>
-                                {(() => {
-                                  const orderUnits = unitsFor(delivery);
-                                  const targetIso = getCapacityDateIso(delivery);
-                                  const currentDriverId = (delivery as unknown as { tracking?: { driverId?: string } }).tracking?.driverId
-                                    || delivery.assignedDriverId
-                                    || null;
-                                  return drivers.map((dr) => {
-                                    const isCurrent = dr.id === currentDriverId;
-                                    const cap = driverCapacityByDate[targetIso]?.[dr.id];
-                                    const used = cap?.used ?? 0;
-                                    const max = cap?.max ?? 20;
-                                    const remaining = Math.max(0, max - used);
-                                    // Exclude current delivery's units when checking
-                                    // overflow against current driver — re-assigning to
-                                    // self is meaningless but should not appear "full".
-                                    const wouldOverflow = isCurrent
-                                      ? false
-                                      : (used + orderUnits > max);
-                                    const online = isContactOnline(dr);
-                                    // Inline reason chip so disabled state is
-                                    // legible on touch devices (no hover) and
-                                    // colour-blind users (not just red bg).
-                                    const reasonChip = isCurrent
-                                      ? { text: 'CURRENT', cls: 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400' }
-                                      : wouldOverflow
-                                      ? { text: `+${used + orderUnits - max} OVER`, cls: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' }
-                                      : null;
-                                    return (
-                                      <button
-                                        key={dr.id}
-                                        type="button"
-                                        disabled={isCurrent || wouldOverflow || reassignBusyId === delivery.id}
-                                        onClick={() => { void reassignDelivery(delivery.id, dr.id); }}
-                                        className={`w-full flex items-center gap-2 px-2.5 py-1.5 text-left text-[11px] border-b border-gray-100 dark:border-gray-800 last:border-0 transition-colors ${
-                                          isCurrent
-                                            ? 'bg-gray-50 dark:bg-gray-800/60 text-gray-400 dark:text-gray-500 cursor-default'
-                                            : wouldOverflow
-                                              ? 'bg-red-50 dark:bg-red-900/10 text-red-700 dark:text-red-400 cursor-not-allowed'
-                                              : 'hover:bg-blue-50 dark:hover:bg-blue-900/20 text-gray-700 dark:text-gray-200'
-                                        }`}
-                                        title={
-                                          isCurrent ? 'Currently assigned to this driver'
-                                          : wouldOverflow ? `Would overflow truck: ${used} used + ${orderUnits} new > ${max} cap`
-                                          : `${remaining} unit${remaining === 1 ? '' : 's'} free of ${max}`
-                                        }
-                                      >
-                                        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${online ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
-                                        <span className="flex-1 min-w-0 truncate font-medium">
-                                          {dr.fullName || dr.username}
-                                        </span>
-                                        {reasonChip && (
-                                          <span className={`text-[9px] font-bold uppercase px-1 py-0.5 rounded shrink-0 tracking-wider ${reasonChip.cls}`}>
-                                            {reasonChip.text}
-                                          </span>
-                                        )}
-                                        <span className="text-[10px] tabular-nums shrink-0 text-gray-500 dark:text-gray-400">
-                                          {used}/{max}
-                                        </span>
-                                      </button>
-                                    );
-                                  });
-                                })()}
-                              </div>
-                            )}
-                          </td>
-                        </tr>
+                          )}
+                        </div>
                       );
                     })}
-                      </tbody>
-                    </table>
+                    </div>
                     )}
                   </div>
                 </div>
