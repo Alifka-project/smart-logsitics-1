@@ -45,16 +45,67 @@ const UAE_BOUNDS_GOOGLE = `${UAE_BBOX.minLat},${UAE_BBOX.minLng}|${UAE_BBOX.maxL
 const UAE_BBOX_MAPBOX = `${UAE_BBOX.minLng},${UAE_BBOX.minLat},${UAE_BBOX.maxLng},${UAE_BBOX.maxLat}`;
 const UAE_BBOX_NOMINATIM = `${UAE_BBOX.minLng},${UAE_BBOX.maxLat},${UAE_BBOX.maxLng},${UAE_BBOX.minLat}`;
 
-// Place types we never accept — these are too broad to pin a delivery.
+// Place types that are too broad to be a real street-level pin. Used to
+// rank results: street/POI is preferred, but a neighborhood/locality is
+// accepted as a partial fallback (better than nothing). Country/state/region
+// are always rejected — those are not useful pins.
 const TOO_BROAD_TYPES = new Set([
   'country', 'state', 'county', 'region', 'province',
   'administrative', 'city', 'town', 'village', 'municipality', 'locality',
+]);
+const ALWAYS_REJECT_TYPES = new Set([
+  'country', 'state', 'county', 'region', 'province', 'administrative',
 ]);
 
 interface GeocodeHit {
   lat: number;
   lng: number;
-  provider: 'mapbox' | 'google' | 'nominatim';
+  provider: 'mapbox' | 'google' | 'nominatim' | 'emirate-fallback';
+}
+
+/**
+ * UAE emirate / major-area centroid lookup — graceful-degradation fallback
+ * when no provider returns a usable result. "Yas Island, Abu Dhabi" lands at
+ * the Yas Island centroid; bare "Abu Dhabi" lands at Abu Dhabi city centre.
+ * Specific neighborhoods come first so they win over the parent emirate.
+ * Multi-word names come before single-word substrings to avoid false matches.
+ *
+ * Mirrors src/utils/addressHandler.ts EMIRATE_AREA_CENTROIDS — duplicated
+ * here intentionally so the server build stays self-contained.
+ */
+const EMIRATE_AREA_CENTROIDS: Array<{ keyword: string; lat: number; lng: number }> = [
+  { keyword: 'yas island',     lat: 24.4675, lng: 54.6038 },
+  { keyword: 'saadiyat',       lat: 24.5312, lng: 54.4288 },
+  { keyword: 'al reem',        lat: 24.4994, lng: 54.4036 },
+  { keyword: 'khalifa city',   lat: 24.4189, lng: 54.5786 },
+  { keyword: 'mussafah',       lat: 24.3585, lng: 54.5031 },
+  { keyword: 'musaffah',       lat: 24.3585, lng: 54.5031 },
+  { keyword: 'al ain',         lat: 24.2075, lng: 55.7447 },
+  { keyword: 'mohammed bin zayed', lat: 24.4047, lng: 54.5717 },
+  { keyword: 'palm jumeirah',  lat: 25.1124, lng: 55.1390 },
+  { keyword: 'jebel ali',      lat: 24.9858, lng: 55.0683 },
+  { keyword: 'business bay',   lat: 25.1863, lng: 55.2664 },
+  { keyword: 'downtown',       lat: 25.1972, lng: 55.2744 },
+  { keyword: 'marina',         lat: 25.0800, lng: 55.1350 },
+  { keyword: 'jumeirah',       lat: 25.2048, lng: 55.2381 },
+  { keyword: 'deira',          lat: 25.2695, lng: 55.3266 },
+  { keyword: 'ras al khaimah', lat: 25.7889, lng: 55.9758 },
+  { keyword: 'umm al quwain',  lat: 25.5644, lng: 55.5550 },
+  { keyword: 'abu dhabi',      lat: 24.4539, lng: 54.3773 },
+  { keyword: 'sharjah',        lat: 25.3463, lng: 55.4209 },
+  { keyword: 'ajman',          lat: 25.4111, lng: 55.4354 },
+  { keyword: 'fujairah',       lat: 25.1288, lng: 56.3265 },
+  { keyword: 'rak',            lat: 25.7889, lng: 55.9758 },
+  { keyword: 'uaq',            lat: 25.5644, lng: 55.5550 },
+  { keyword: 'dubai',          lat: 25.2048, lng: 55.2708 },
+];
+
+function emirateCentroidFor(address: string): { lat: number; lng: number } | null {
+  const text = address.toLowerCase();
+  for (const entry of EMIRATE_AREA_CENTROIDS) {
+    if (text.includes(entry.keyword)) return { lat: entry.lat, lng: entry.lng };
+  }
+  return null;
 }
 
 const cache = new Map<string, GeocodeHit | null>();
@@ -149,7 +200,7 @@ const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms
 
 interface MapboxFeature { center?: number[]; place_type?: string[]; place_name?: string }
 
-async function tryMapbox(query: string): Promise<GeocodeHit | null> {
+async function tryMapbox(query: string, strict = true): Promise<GeocodeHit | null> {
   const token = mapboxToken();
   if (!token) return null;
   try {
@@ -159,12 +210,13 @@ async function tryMapbox(query: string): Promise<GeocodeHit | null> {
         access_token: token,
         bbox: UAE_BBOX_MAPBOX,
         country: 'ae',
-        limit: 3,
+        limit: 5,
         types: 'address,poi,place,neighborhood,locality',
       },
       timeout: 10000,
     });
     const features: MapboxFeature[] = data?.features || [];
+    const reject = strict ? TOO_BROAD_TYPES : ALWAYS_REJECT_TYPES;
     for (const feat of features) {
       const center = feat.center;
       if (!center || center.length < 2) continue;
@@ -172,7 +224,7 @@ async function tryMapbox(query: string): Promise<GeocodeHit | null> {
       const lat = center[1];
       if (!inUAE(lat, lng)) continue;
       const type = (feat.place_type?.[0] || '').toLowerCase();
-      if (TOO_BROAD_TYPES.has(type)) continue;
+      if (reject.has(type)) continue;
       return { lat, lng, provider: 'mapbox' };
     }
     return null;
@@ -188,7 +240,7 @@ interface GoogleResult {
   formatted_address?: string;
 }
 
-async function tryGoogle(query: string): Promise<GeocodeHit | null> {
+async function tryGoogle(query: string, strict = true): Promise<GeocodeHit | null> {
   const key = googleKey();
   if (!key) return null;
   try {
@@ -198,11 +250,11 @@ async function tryGoogle(query: string): Promise<GeocodeHit | null> {
     });
     if (data?.status !== 'OK') return null;
     const results: GoogleResult[] = data.results || [];
-    // Prefer street-level / premise; fall back to any non-broad UAE result.
     const isSpecific = (types: string[]): boolean =>
       types.includes('street_address') || types.includes('premise') ||
       types.includes('subpremise') || types.includes('route');
-    const isBroad = (types: string[]): boolean => types.some((t) => TOO_BROAD_TYPES.has(t));
+    const reject = strict ? TOO_BROAD_TYPES : ALWAYS_REJECT_TYPES;
+    const isRejected = (types: string[]): boolean => types.some((t) => reject.has(t));
 
     let pick: GoogleResult | null = null;
     for (const r of results) {
@@ -210,7 +262,7 @@ async function tryGoogle(query: string): Promise<GeocodeHit | null> {
       if (!loc || !inUAE(loc.lat, loc.lng)) continue;
       const types = r.types || [];
       if (isSpecific(types)) { pick = r; break; }
-      if (!pick && !isBroad(types)) pick = r;
+      if (!pick && !isRejected(types)) pick = r;
     }
     if (!pick?.geometry?.location) return null;
     return { lat: pick.geometry.location.lat, lng: pick.geometry.location.lng, provider: 'google' };
@@ -223,7 +275,7 @@ async function tryGoogle(query: string): Promise<GeocodeHit | null> {
 interface NominatimResult { lat: string; lon: string; addresstype?: string; type?: string }
 
 let lastNominatimAt = 0;
-async function tryNominatim(query: string): Promise<GeocodeHit | null> {
+async function tryNominatim(query: string, strict = true): Promise<GeocodeHit | null> {
   const elapsed = Date.now() - lastNominatimAt;
   if (elapsed < 1100) await sleep(1100 - elapsed);
   lastNominatimAt = Date.now();
@@ -237,7 +289,7 @@ async function tryNominatim(query: string): Promise<GeocodeHit | null> {
         viewbox: UAE_BBOX_NOMINATIM,
         bounded: 1,
         addressdetails: 1,
-        limit: 3,
+        limit: 5,
       },
       headers: {
         'User-Agent': 'Electrolux-Smart-Logistics/1.0 (auto-ingest)',
@@ -245,12 +297,13 @@ async function tryNominatim(query: string): Promise<GeocodeHit | null> {
       timeout: 15000,
     });
     if (!Array.isArray(data) || data.length === 0) return null;
+    const reject = strict ? TOO_BROAD_TYPES : ALWAYS_REJECT_TYPES;
     for (const r of data as NominatimResult[]) {
       const lat = parseFloat(r.lat);
       const lng = parseFloat(r.lon);
       if (isNaN(lat) || isNaN(lng) || !inUAE(lat, lng)) continue;
       const type = (r.addresstype || r.type || '').toLowerCase();
-      if (TOO_BROAD_TYPES.has(type)) continue;
+      if (reject.has(type)) continue;
       return { lat, lng, provider: 'nominatim' };
     }
     return null;
@@ -261,10 +314,20 @@ async function tryNominatim(query: string): Promise<GeocodeHit | null> {
 }
 
 /**
- * Geocode a single address using the provider cascade.
+ * Geocode a single address using a graceful-degradation cascade:
  *
- * For each query variant (emirate-augmented first, then raw, then unit-stripped),
- * try Mapbox → Google → Nominatim. First specific UAE-bounded hit wins.
+ *   1. STRICT pass — for each query variant (emirate-augmented first, then
+ *      raw, then unit-stripped), try Mapbox → Google → Nominatim, accepting
+ *      only street/POI-level results. This is the ideal: an exact pin.
+ *   2. RELAXED pass — same variants/providers but neighborhood/locality
+ *      matches are also accepted. Catches "Yas Island, Abu Dhabi" when no
+ *      specific street matched (lands on the Yas Island locality centroid).
+ *   3. EMIRATE FALLBACK — if every provider attempt failed, derive a centroid
+ *      from the address text itself ("abu dhabi" in the string → Abu Dhabi
+ *      city centre, "yas island" → Yas Island centre, etc.). This way bare
+ *      "Abu Dhabi" with no street info still pins in Abu Dhabi rather than
+ *      disappearing from the map. Returns null only when no UAE keyword at
+ *      all is detectable.
  */
 export async function geocodeOne(addressRaw: string): Promise<GeocodeHit | null> {
   if (!addressRaw) return null;
@@ -273,16 +336,33 @@ export async function geocodeOne(addressRaw: string): Promise<GeocodeHit | null>
 
   const variants = buildQueryVariants(addressRaw);
   let hit: GeocodeHit | null = null;
+
+  // Pass 1: strict — street/POI only.
   for (const q of variants) {
-    hit = (await tryMapbox(q)) || (await tryGoogle(q)) || (await tryNominatim(q));
+    hit = (await tryMapbox(q, true)) || (await tryGoogle(q, true)) || (await tryNominatim(q, true));
     if (hit) break;
+  }
+  // Pass 2: relaxed — accept neighborhood/locality.
+  if (!hit) {
+    for (const q of variants) {
+      hit = (await tryMapbox(q, false)) || (await tryGoogle(q, false)) || (await tryNominatim(q, false));
+      if (hit) break;
+    }
+  }
+  // Pass 3: emirate centroid fallback — only when every provider gave up.
+  if (!hit) {
+    const centroid = emirateCentroidFor(addressRaw);
+    if (centroid) {
+      hit = { lat: centroid.lat, lng: centroid.lng, provider: 'emirate-fallback' };
+    }
   }
 
   cache.set(key, hit);
   if (hit) {
-    console.log(`[Geocoder] "${addressRaw}" → ${hit.lat},${hit.lng} via ${hit.provider}`);
+    const tag = hit.provider === 'emirate-fallback' ? 'emirate-centroid fallback' : `via ${hit.provider}`;
+    console.log(`[Geocoder] "${addressRaw}" → ${hit.lat},${hit.lng} (${tag})`);
   } else {
-    console.warn(`[Geocoder] No specific UAE match for "${addressRaw}" across any provider`);
+    console.warn(`[Geocoder] No UAE match (not even emirate-level) for "${addressRaw}"`);
   }
   return hit;
 }

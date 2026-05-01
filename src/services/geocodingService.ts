@@ -1,6 +1,6 @@
 import axios from 'axios';
 import type { GeocodeAccuracy, GeocodeResult } from '../types';
-import { extractCity } from '../utils/addressHandler';
+import { extractCity, getEmirateCentroid } from '../utils/addressHandler';
 
 // In-memory cache for geocoding results
 const geocodeCache = new Map<string, GeocodeResult>();
@@ -335,6 +335,24 @@ export async function geocodeAddress(address: string, city?: string): Promise<Ge
       } catch { /* continue */ }
     }
 
+    // Final fallback: derive a centroid from the emirate / area keyword in
+    // the address text so the row still gets pinned at the right city
+    // (e.g. "Yas Island, Abu Dhabi" → Yas Island centre, "Abu Dhabi" alone →
+    // Abu Dhabi city centre). Only returns null when no UAE keyword at all
+    // is present, in which case the row truly has nothing to geocode.
+    const centroid = getEmirateCentroid(address);
+    if (centroid) {
+      console.warn(`[Geocoding] No specific match for "${address}" — using ${centroid.label} centroid fallback`);
+      const fallback: GeocodeResult = {
+        lat: centroid.lat,
+        lng: centroid.lng,
+        accuracy: 'LOW',
+        displayName: `${centroid.label} (approx)`,
+      };
+      geocodeCache.set(cacheKey, fallback);
+      cacheToLocalStorage(cacheKey, fallback);
+      return fallback;
+    }
     console.warn(`[Geocoding] No results for: ${address}`);
     const failed: GeocodeResult = { lat: null, lng: null, accuracy: 'FAILED', displayName: address, error: 'Address not found' };
     geocodeCache.set(cacheKey, failed);

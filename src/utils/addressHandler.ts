@@ -56,6 +56,63 @@ export function extractCity(address: string | null | undefined): string {
   return 'UAE';
 }
 
+/**
+ * UAE emirate / major-area centroid lookup. Used as a graceful-degradation
+ * fallback when the geocoder cannot resolve a specific street/POI for an
+ * address — e.g. "Yas Island, Abu Dhabi" returns the Yas Island centroid
+ * (real area-level pin) and bare "Abu Dhabi" returns the Abu Dhabi city
+ * centroid. The order in which these substrings are tested matters: longer
+ * / multi-word names must come before single-word substrings to avoid
+ * "ras al khaimah" matching as "ajman" inside another string.
+ */
+const EMIRATE_AREA_CENTROIDS: Array<{ keyword: string; lat: number; lng: number; label: string }> = [
+  // Specific neighborhoods / islands first — these win over their parent emirate
+  { keyword: 'yas island',    lat: 24.4675, lng: 54.6038, label: 'Yas Island, Abu Dhabi' },
+  { keyword: 'saadiyat',      lat: 24.5312, lng: 54.4288, label: 'Saadiyat Island, Abu Dhabi' },
+  { keyword: 'al reem',       lat: 24.4994, lng: 54.4036, label: 'Al Reem Island, Abu Dhabi' },
+  { keyword: 'khalifa city',  lat: 24.4189, lng: 54.5786, label: 'Khalifa City, Abu Dhabi' },
+  { keyword: 'mussafah',      lat: 24.3585, lng: 54.5031, label: 'Mussafah, Abu Dhabi' },
+  { keyword: 'musaffah',      lat: 24.3585, lng: 54.5031, label: 'Musaffah, Abu Dhabi' },
+  { keyword: 'al ain',        lat: 24.2075, lng: 55.7447, label: 'Al Ain' },
+  { keyword: 'mohammed bin zayed', lat: 24.4047, lng: 54.5717, label: 'MBZ City, Abu Dhabi' },
+  { keyword: 'palm jumeirah', lat: 25.1124, lng: 55.1390, label: 'Palm Jumeirah, Dubai' },
+  { keyword: 'jebel ali',     lat: 24.9858, lng: 55.0683, label: 'Jebel Ali, Dubai' },
+  { keyword: 'business bay',  lat: 25.1863, lng: 55.2664, label: 'Business Bay, Dubai' },
+  { keyword: 'downtown',      lat: 25.1972, lng: 55.2744, label: 'Downtown Dubai' },
+  { keyword: 'marina',        lat: 25.0800, lng: 55.1350, label: 'Dubai Marina' },
+  { keyword: 'jumeirah',      lat: 25.2048, lng: 55.2381, label: 'Jumeirah, Dubai' },
+  { keyword: 'deira',         lat: 25.2695, lng: 55.3266, label: 'Deira, Dubai' },
+  // Multi-word emirate names before single-word fallbacks
+  { keyword: 'ras al khaimah', lat: 25.7889, lng: 55.9758, label: 'Ras Al Khaimah' },
+  { keyword: 'umm al quwain',  lat: 25.5644, lng: 55.5550, label: 'Umm Al Quwain' },
+  { keyword: 'abu dhabi',     lat: 24.4539, lng: 54.3773, label: 'Abu Dhabi' },
+  { keyword: 'sharjah',       lat: 25.3463, lng: 55.4209, label: 'Sharjah' },
+  { keyword: 'ajman',         lat: 25.4111, lng: 55.4354, label: 'Ajman' },
+  { keyword: 'fujairah',      lat: 25.1288, lng: 56.3265, label: 'Fujairah' },
+  { keyword: 'rak',           lat: 25.7889, lng: 55.9758, label: 'Ras Al Khaimah' },
+  { keyword: 'uaq',           lat: 25.5644, lng: 55.5550, label: 'Umm Al Quwain' },
+  { keyword: 'dubai',         lat: 25.2048, lng: 55.2708, label: 'Dubai' },
+];
+
+/**
+ * Returns the best-effort centroid for an address text. Specific neighborhoods
+ * win over the parent emirate ("yas island" → Yas Island, not Abu Dhabi city).
+ * Returns null when no UAE keyword is detected — caller should treat as truly
+ * unresolvable rather than substituting a Dubai default.
+ */
+export function getEmirateCentroid(
+  address: string | null | undefined,
+): { lat: number; lng: number; label: string } | null {
+  if (!address) return null;
+  const text = String(address).toLowerCase();
+  for (const entry of EMIRATE_AREA_CENTROIDS) {
+    if (text.includes(entry.keyword)) {
+      return { lat: entry.lat, lng: entry.lng, label: entry.label };
+    }
+  }
+  return null;
+}
+
 export function isValidAddress(address: string | null | undefined): boolean {
   if (!address) return false;
   const addr = String(address).trim();
