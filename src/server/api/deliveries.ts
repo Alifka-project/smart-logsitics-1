@@ -624,6 +624,93 @@ router.get('/admin/debug/metadata/:id', authenticate, requireAnyRole('admin', 'd
   }
 });
 
+// POST /api/deliveries/driver/route/sync-eta — write the driver portal's
+// computed plannedEta / staticEta into each stop's metadata without
+// touching status, assignment, or firing any SMS.
+//
+// Why this endpoint exists separately from /route/start:
+//   /route/start is what the (now-removed) Start Delivery button posted to.
+//   It does THREE things: writes ETAs, flips status pickup-confirmed →
+//   out-for-delivery, fans out the customer OFD SMS. Useful when the
+//   driver explicitly says "I'm on the road now". Useless — and harmful —
+//   for routine ETA updates: every recompute would re-flip status and
+//   spam SMS.
+//
+// This endpoint is the safe routine sync. The driver portal recomputes
+// plannedEta on every GPS movement (OSRM-based driving time + service
+// time per preceding stop) and posts the latest values here. The
+// customer tracking endpoint reads metadata.plannedEta via its existing
+// fallback chain, so the customer always sees the driver's real arrival
+// estimate instead of a generic noon-Dubai window.
+//
+// Body: { stops: [{ deliveryId, plannedEta?, staticEta? }] }
+router.post('/driver/route/sync-eta', authenticate, requireRole('driver'), async (req: Request, res: Response): Promise<void> => {
+  const driverId = (req.user as { sub?: string })?.sub;
+  if (!driverId) {
+    res.status(401).json({ error: 'unauthorized' });
+    return;
+  }
+  const body = req.body as {
+    stops?: Array<{ deliveryId?: string; plannedEta?: string | null; staticEta?: string | null }>;
+  };
+  const stops = Array.isArray(body.stops) ? body.stops : [];
+  if (stops.length === 0) {
+    res.status(400).json({ error: 'no_stops' });
+    return;
+  }
+
+  const results: Array<{ deliveryId: string; ok: boolean; error?: string }> = [];
+  for (const stop of stops) {
+    if (!stop.deliveryId || typeof stop.deliveryId !== 'string') continue;
+    try {
+      const assignment = await prisma.deliveryAssignment.findFirst({
+        where: { deliveryId: stop.deliveryId, driverId },
+      });
+      if (!assignment) {
+        results.push({ deliveryId: stop.deliveryId, ok: false, error: 'not_assigned' });
+        continue;
+      }
+      const existing = await prisma.delivery.findUnique({
+        where: { id: stop.deliveryId },
+        select: { metadata: true },
+      });
+      if (!existing) {
+        results.push({ deliveryId: stop.deliveryId, ok: false, error: 'not_found' });
+        continue;
+      }
+      const currentMeta = (existing.metadata as Record<string, unknown> | null) ?? {};
+      const newPlanned = typeof stop.plannedEta === 'string' && stop.plannedEta.trim() ? stop.plannedEta : null;
+      const newStatic  = typeof stop.staticEta  === 'string' && stop.staticEta.trim()  ? stop.staticEta  : null;
+      // Only write fields the driver actually supplied; never null out a
+      // previously-good value because this poll happened to recompute null.
+      const nextMeta: Record<string, unknown> = { ...currentMeta };
+      if (newPlanned) nextMeta.plannedEta = newPlanned;
+      if (newStatic)  nextMeta.staticEta  = newStatic;
+      // No-op if nothing to write.
+      if (newPlanned === null && newStatic === null) {
+        results.push({ deliveryId: stop.deliveryId, ok: true });
+        continue;
+      }
+      await prisma.delivery.update({
+        where: { id: stop.deliveryId },
+        data: { metadata: nextMeta },
+      });
+      results.push({ deliveryId: stop.deliveryId, ok: true });
+    } catch (stopErr: unknown) {
+      const e = stopErr as { message?: string };
+      console.warn(`[Deliveries] route/sync-eta failed for ${stop.deliveryId}:`, e.message);
+      results.push({ deliveryId: stop.deliveryId, ok: false, error: 'db_error' });
+    }
+  }
+
+  // Bust tracking cache so the new plannedEta surfaces on the customer
+  // tracking page on the next poll. No status changed, so dashboard /
+  // deliveries-list caches don't need invalidation.
+  cache.invalidatePrefix('tracking:');
+
+  res.json({ ok: true, results });
+});
+
 router.post('/driver/route/start', authenticate, requireRole('driver'), async (req: Request, res: Response): Promise<void> => {
   const driverId = (req.user as { sub?: string })?.sub;
   if (!driverId) {

@@ -1271,13 +1271,23 @@ export default function DriverPortal() {
           etas: nextPersisted,
         });
 
-        // Catch-up sync to the backend so the customer tracking portal sees
-        // the locked plannedEta. Fires whenever the driver has tapped Start
-        // AND the plan ETAs have changed since the last sync. Covers drivers
-        // who started BEFORE this feature was deployed — those drivers never
-        // click Start again (button is hidden after restore), so without this
-        // block metadata.plannedEta would never get written.
-        if (deliveryStartedAtRef.current && Object.keys(nextPersisted).length > 0) {
+        // Push the freshly-computed Plan ETA to the server so the customer
+        // tracking page can show the driver's REAL arrival estimate
+        // (e.g. "16:06 today") instead of the generic noon-Dubai fallback.
+        //
+        // Used to be gated on `deliveryStartedAtRef.current` — i.e. only
+        // synced after the driver tapped "Start Delivery". That button was
+        // removed in favour of auto-dispatch, so the gate stopped the
+        // sync from ever firing and metadata.plannedEta stayed null →
+        // customer tracking fell through to the noon fallback. Removing
+        // the gate makes the sync run on every routing recompute (GPS
+        // movement, store change, drag-reorder), de-duped via syncKey so
+        // we don't hammer the backend when nothing actually changed.
+        //
+        // Targets the new /route/sync-eta endpoint (NOT /route/start) so
+        // status / assignment / SMS are untouched — this is a routine
+        // metadata write, not a dispatch action.
+        if (Object.keys(nextPersisted).length > 0) {
           const syncKey = JSON.stringify(
             Object.entries(nextPersisted).sort().map(([id, e]) => `${id}:${e.plannedEta || ''}:${e.staticEta || ''}`),
           );
@@ -1288,11 +1298,10 @@ export default function DriverPortal() {
               plannedEta: e.plannedEta,
               staticEta: e.staticEta,
             }));
-            api.post('/deliveries/driver/route/start', {
-              startedAt: new Date(deliveryStartedAtRef.current).toISOString(),
+            api.post('/deliveries/driver/route/sync-eta', {
               stops: stopsForServer,
             }).catch((err: unknown) => {
-              console.warn('[DriverPortal] route/start sync (catch-up) failed:', (err as Error).message);
+              console.warn('[DriverPortal] route/sync-eta failed:', (err as Error).message);
             });
           }
         }
