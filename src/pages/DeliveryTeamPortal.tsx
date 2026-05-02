@@ -1718,10 +1718,20 @@ export default function DeliveryTeamPortal() {
                         }}
                       />
                       <Legend wrapperStyle={{ fontSize: 12 }} />
-                      {/* 90% goal reference line on the right axis. */}
-                      <ReferenceLine yAxisId="right" y={90} stroke="#ef4444" strokeDasharray="4 4" label={{ value: 'Goal 90%', position: 'insideTopRight', fontSize: 10, fill: '#ef4444' }} />
-                      <Bar yAxisId="left" dataKey="orders" name="Orders" fill="#14b8a6" radius={[4, 4, 0, 0]} maxBarSize={28} />
-                      <Line yAxisId="right" type="monotone" dataKey="onTimeRate" name="On-Time Rate" stroke="#ef4444" strokeWidth={2} dot={{ r: 3, fill: '#ef4444' }} activeDot={{ r: 5 }} />
+                      {/* 90% goal reference line — neutral gray so it reads as
+                          a target marker, not a danger signal (per Electrolux
+                          palette: status colours stay in status). */}
+                      <ReferenceLine yAxisId="right" y={90} stroke="#9399B8" strokeDasharray="4 4" label={{ value: 'Goal 90%', position: 'insideTopRight', fontSize: 10, fill: '#4B5280' }} />
+                      {/* Orders bars: Electrolux primary blue (primary-500
+                          mid-tone fill, the canonical chart-bar colour on
+                          light surfaces per the brand palette). */}
+                      <Bar yAxisId="left" dataKey="orders" name="Orders" fill="#1F72B3" radius={[4, 4, 0, 0]} maxBarSize={28} />
+                      {/* On-Time line: success green — same semantic colour
+                          used for "Delivered / paid / on-time" status badges
+                          across the system, so the line reads as "good" at
+                          a glance instead of competing with the red goal/
+                          warning palette. */}
+                      <Line yAxisId="right" type="monotone" dataKey="onTimeRate" name="On-Time Rate" stroke="#15803D" strokeWidth={2.5} dot={{ r: 3, fill: '#15803D' }} activeDot={{ r: 5 }} />
                     </ComposedChart>
                   </ResponsiveContainer>
                 </div>
@@ -1760,8 +1770,14 @@ export default function DeliveryTeamPortal() {
                         formatter={(value: number, name: string) => [`${value} min`, name]}
                       />
                       <Legend wrapperStyle={{ fontSize: 12 }} />
-                      <Bar dataKey="avgDeliveryTime" name="Avg Delivery Time" fill="#14b8a6" radius={[3, 3, 0, 0]} maxBarSize={28} />
-                      <Bar dataKey="avgLateTime" name="Avg Late Time" fill="#f87171" radius={[3, 3, 0, 0]} maxBarSize={28} />
+                      {/* Avg Delivery Time: Electrolux primary blue (matches
+                          the Orders bars in the daily-orders chart for
+                          visual continuity across the dashboard). */}
+                      <Bar dataKey="avgDeliveryTime" name="Avg Delivery Time" fill="#1F72B3" radius={[3, 3, 0, 0]} maxBarSize={28} />
+                      {/* Avg Late Time: Electrolux danger red (red-600 button
+                          fill) — semantic colour for the "lateness" KPI so
+                          it pops against the on-time green elsewhere. */}
+                      <Bar dataKey="avgLateTime" name="Avg Late Time" fill="#DC2626" radius={[3, 3, 0, 0]} maxBarSize={28} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
