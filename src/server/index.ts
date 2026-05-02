@@ -237,6 +237,13 @@ app.use('/api/routing', routingRouter);
 
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
+  // Loud warning if CRON_SECRET isn't configured. Without it the morning
+  // 08:00 Dubai dispatch cron returns 401 every day and no OFD SMS fan-out
+  // happens — a silent failure that's easy to miss in production. Print
+  // once at boot so it shows up in deploy logs and uptime checks.
+  if (!process.env.CRON_SECRET) {
+    console.warn('[startup] ⚠ CRON_SECRET is not set — scheduled cron endpoints (08:00 Dubai morning dispatch) will reject all calls. No OFD SMS fan-out will run until this is configured.');
+  }
   cleanupOldMessages();
   setInterval(cleanupOldMessages, MESSAGE_CLEANUP_INTERVAL_MS);
 });

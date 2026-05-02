@@ -27,7 +27,13 @@ function scopedKey(base: string): string {
   return `${base}:${getCurrentUserId()}`;
 }
 
-const STORAGE_KEY_BASE = 'deliveries_data';
+// Bumped from 'deliveries_data' → 'deliveries_data_v2' to flush polluted
+// localStorage state from the brief window where updateDeliveryOrder
+// duplicated rows in the store (fixed in commit e7f8782). Browsers that
+// visited before that fix had inflated chip counts even after the code fix
+// because their persisted state still held duplicates. Bumping the key
+// forces a one-time fresh hydrate from the API on first load post-deploy.
+const STORAGE_KEY_BASE = 'deliveries_data_v2';
 const RECENT_UPLOADS_KEY_BASE = 'delivery_recent_uploads';
 const HASHES_KEY_BASE = 'delivery_uploaded_file_hashes';
 

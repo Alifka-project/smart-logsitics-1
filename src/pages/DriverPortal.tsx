@@ -280,6 +280,11 @@ export default function DriverPortal() {
   const [orderedDeliveries, setOrderedDeliveries] = useState<EnrichedDelivery[]>([]);
   const [isRouteLoading, setIsRouteLoading] = useState<boolean>(false);
   const [routeError, setRouteError] = useState<string | null>(null);
+  // Tracks whether the driver has been shown a toast for the current routing
+  // outage. The route status pill ("⚠ Offline") is small and easy to miss; a
+  // one-shot toast on first failure makes the issue obvious. Cleared the
+  // moment OSRM recovers so the next outage gets a fresh warning.
+  const routeErrorToastShownRef = useRef<boolean>(false);
 
   // Notification state
   const [notifications, setNotifications] = useState<number>(0);
@@ -461,7 +466,31 @@ export default function DriverPortal() {
     // omitted to avoid the effect firing on its identity change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderedDeliveries]);
-  
+
+  // Surface a one-shot toast when OSRM routing first fails — the small "⚠
+  // Offline" status pill in the route summary is easy to miss when the
+  // driver is mid-delivery. The pill stays as the persistent indicator;
+  // the toast is just a kick to make the failure obvious. Reset on
+  // recovery so the next outage gets its own warning instead of being
+  // silently masked.
+  useEffect(() => {
+    if (routeError) {
+      if (!routeErrorToastShownRef.current) {
+        routeErrorToastShownRef.current = true;
+        toastWarning(
+          'Routing offline',
+          'Live route preview unavailable — your delivery list is still up to date.',
+          'OSRM service unreachable. The map will recover automatically when service returns.',
+          7000,
+        );
+      }
+    } else {
+      routeErrorToastShownRef.current = false;
+    }
+    // toastWarning identity changes every render; intentionally omitted.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeError]);
+
   // Refs for auto-scroll and polling
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagePollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);

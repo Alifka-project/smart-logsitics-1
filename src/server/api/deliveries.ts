@@ -515,6 +515,42 @@ router.put('/driver/:id/status', authenticate, requireRole('driver'), async (req
             await trySend(deliveryCompletedMessage(customerName, poRef), 'status_order_finished');
           }
 
+          // Rescheduled — driver arrived at the customer, customer asked to defer
+          // to another day, driver picked a new date in the POD modal. Mirrors
+          // the admin /admin/:id/status path so the customer gets the same
+          // reschedule SMS regardless of who initiated. Skips when the new date
+          // matches the previous date (no-op save) so the customer doesn't
+          // receive a redundant SMS for an unchanged reschedule.
+          if (lowerStatus === 'rescheduled') {
+            const newDateRaw = (updatedDelivery.confirmedDeliveryDate as Date | string | null);
+            const prevDateRaw = (previousDelivery?.confirmedDeliveryDate as Date | string | null) ?? null;
+            const dubaiIso = (raw: Date | string | null): string | null => {
+              if (!raw) return null;
+              const dt = raw instanceof Date ? raw : new Date(raw);
+              if (isNaN(dt.getTime())) return null;
+              const z = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Dubai' }));
+              return `${z.getFullYear()}-${String(z.getMonth() + 1).padStart(2, '0')}-${String(z.getDate()).padStart(2, '0')}`;
+            };
+            const newIso = dubaiIso(newDateRaw);
+            const prevIso = dubaiIso(prevDateRaw);
+            if (!newDateRaw) {
+              console.warn(`[Driver SMS] Rescheduled status without confirmedDeliveryDate for ${deliveryIdParam} — SMS skipped`);
+            } else if (newIso && prevIso && newIso === prevIso) {
+              console.log(`[Driver SMS] Reschedule SMS skipped for ${deliveryIdParam} — date unchanged (${newIso})`);
+            } else {
+              try {
+                const smsService = require('../sms/smsService');
+                await smsService.sendRescheduleSms(
+                  deliveryIdParam,
+                  new Date(newDateRaw as string | Date),
+                  (body.notes || 'Operational requirements'),
+                );
+              } catch (rescheduleErr: unknown) {
+                console.warn('[Driver SMS] Reschedule SMS failed:', (rescheduleErr as Error).message);
+              }
+            }
+          }
+
           // Rejected or cancelled — treat as a terminal / "finished" order from the
           // customer's perspective and send the same thank-you message we use for
           // a successful delivery. (Business decision: thank the customer either way.)
@@ -1287,7 +1323,24 @@ router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_
         // read it from the freshly-updated row.
         if (lowerStatus === 'rescheduled') {
           const newDateRaw = (updatedDelivery.confirmedDeliveryDate as Date | string | null);
-          if (newDateRaw) {
+          const prevDateRaw = (existingDelivery.confirmedDeliveryDate as Date | string | null) ?? null;
+          // Compare Dubai-day strings so a same-day no-op save (operator opens
+          // OrderEditModal, picks reschedule with the same date, hits save) does
+          // not fire a redundant SMS to the customer.
+          const dubaiIso = (raw: Date | string | null): string | null => {
+            if (!raw) return null;
+            const dt = raw instanceof Date ? raw : new Date(raw);
+            if (isNaN(dt.getTime())) return null;
+            const z = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Dubai' }));
+            return `${z.getFullYear()}-${String(z.getMonth() + 1).padStart(2, '0')}-${String(z.getDate()).padStart(2, '0')}`;
+          };
+          const newIso = dubaiIso(newDateRaw);
+          const prevIso = dubaiIso(prevDateRaw);
+          if (!newDateRaw) {
+            console.warn(`[Deliveries] Rescheduled status without confirmedDeliveryDate for ${updatedDelivery.id} — SMS skipped`);
+          } else if (newIso && prevIso && newIso === prevIso) {
+            console.log(`[Deliveries] Reschedule SMS skipped for ${updatedDelivery.id} — date unchanged (${newIso})`);
+          } else {
             try {
               const smsService = require('../sms/smsService');
               await smsService.sendRescheduleSms(
@@ -1298,8 +1351,6 @@ router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_
             } catch (rescheduleErr: unknown) {
               console.warn('[Deliveries] Reschedule SMS via status endpoint failed:', (rescheduleErr as Error).message);
             }
-          } else {
-            console.warn(`[Deliveries] Rescheduled status without confirmedDeliveryDate for ${updatedDelivery.id} — SMS skipped`);
           }
         }
 
@@ -3162,13 +3213,29 @@ router.put('/admin/:id/reschedule', authenticate, requireAnyRole('admin', 'deliv
       console.warn('[Deliveries] Failed to create reschedule event:', (err as Error).message);
     });
 
-    // Notify customer via SMS (WhatsApp has been deprecated)
+    // Notify customer via SMS (WhatsApp has been deprecated). Skip when the
+    // new Dubai-day matches the previous Dubai-day so an operator who clicks
+    // "Reschedule" without actually changing the date doesn't fan out a
+    // redundant SMS to the customer.
     if (existingDelivery.phone) {
-      try {
-        const smsService = require('../sms/smsService');
-        await smsService.sendRescheduleSms(deliveryId, newDateStart, reasonText);
-      } catch (err: unknown) {
-        console.warn('[Deliveries] Reschedule SMS failed:', (err as Error).message);
+      const prevDateRaw = (existingDelivery.confirmedDeliveryDate as Date | string | null) ?? null;
+      const dubaiIso = (raw: Date | string | null): string | null => {
+        if (!raw) return null;
+        const dt = raw instanceof Date ? raw : new Date(raw);
+        if (isNaN(dt.getTime())) return null;
+        const z = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Dubai' }));
+        return `${z.getFullYear()}-${String(z.getMonth() + 1).padStart(2, '0')}-${String(z.getDate()).padStart(2, '0')}`;
+      };
+      const prevIso = dubaiIso(prevDateRaw);
+      if (prevIso && prevIso === iso) {
+        console.log(`[Deliveries] Reschedule SMS skipped for ${deliveryId} — date unchanged (${iso})`);
+      } else {
+        try {
+          const smsService = require('../sms/smsService');
+          await smsService.sendRescheduleSms(deliveryId, newDateStart, reasonText);
+        } catch (err: unknown) {
+          console.warn('[Deliveries] Reschedule SMS failed:', (err as Error).message);
+        }
       }
     }
 

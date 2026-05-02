@@ -3,7 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    
+    <!-- Strip the Referer when navigating to a different origin so the
+         per-customer confirmation/tracking token in the URL (e.g. /customer-tracking/<token>)
+         is not leaked to third parties via the Referer header. Same-origin
+         navigations still send full Referer (needed for analytics + auth). -->
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+
     <!-- Favicon Configuration - Electrolux Branding (Square) -->
     <link rel="icon" type="image/png" sizes="16x16" href="/elect-favicon-16x16.png" />
     <link rel="icon" type="image/png" sizes="32x32" href="/elect-favicon-32x32.png" />

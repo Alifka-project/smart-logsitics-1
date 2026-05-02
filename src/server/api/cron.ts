@@ -122,9 +122,17 @@ async function dispatchMorning(): Promise<{ promoted: number; smsQueued: number;
 
   // Fan-out SMS — fire-and-forget so we return 200 quickly.
   // SMS failures are logged per-row and never block the status flip.
+  //
+  // Collect send jobs first (after suppression filter), then process in
+  // bounded batches so a 200-order morning fan-out can't slam D7 with 200
+  // simultaneous requests and trip the provider's rate limit. Same per-row
+  // semantics as before: each job sends one SMS and writes one smsLog row;
+  // failures are caught per-job and never block the rest.
   let smsQueued = 0;
   const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
   const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+  const sendJobs: Array<() => Promise<void>> = [];
+
   for (const row of promotable) {
     if (!row.phone || !smsAdapter) continue;
     const normalizedPhone = normalizeUAEPhone(row.phone) || row.phone;
@@ -172,7 +180,7 @@ async function dispatchMorning(): Promise<{ promoted: number; smsQueued: number;
     const customerName = row.customer || 'Valued Customer';
     const poRef = row.poNumber ? `#${row.poNumber}` : '';
     const smsBody = outForDeliveryMessage(customerName, poRef, trackingLink);
-    void (async () => {
+    sendJobs.push(async () => {
       let sendStatus = 'failed';
       try {
         const result = await smsAdapter!.sendSms({
@@ -198,6 +206,25 @@ async function dispatchMorning(): Promise<{ promoted: number; smsQueued: number;
         });
       } catch (logErr: unknown) {
         console.warn(`[cron/dispatch-morning] smsLog write failed for ${row.id}:`, (logErr as Error).message);
+      }
+    });
+  }
+
+  // Bounded fan-out: BATCH_SIZE concurrent sends, BATCH_DELAY_MS between
+  // batches. With 10 / 250ms that's ~40 SMS/sec sustained — well under
+  // typical D7 rate limits but quick enough that a 200-row morning fan-out
+  // completes in ~5 s. Wrapped in a single fire-and-forget IIFE so the cron
+  // HTTP response still returns immediately.
+  if (sendJobs.length > 0) {
+    void (async () => {
+      const BATCH_SIZE = 10;
+      const BATCH_DELAY_MS = 250;
+      for (let i = 0; i < sendJobs.length; i += BATCH_SIZE) {
+        const batch = sendJobs.slice(i, i + BATCH_SIZE);
+        await Promise.all(batch.map(j => j()));
+        if (i + BATCH_SIZE < sendJobs.length) {
+          await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
+        }
       }
     })();
   }
