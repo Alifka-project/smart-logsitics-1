@@ -642,20 +642,20 @@ export default function DeliveryManagementPage({
                   <X className="w-4 h-4" />
                 </button>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 {[
-                  { num: 1, text: 'Order processed',                 color: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300' },
-                  { num: 2, text: 'Customer confirms delivery date', color: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300' },
-                  { num: 3, text: 'Assign driver',                   color: 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300' },
-                  { num: 4, text: 'PGI',                             color: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300' },
-                  { num: 5, text: 'Pickup confirmed',                color: 'bg-teal-100 text-teal-600 dark:bg-teal-900/40 dark:text-teal-300' },
-                  { num: 6, text: 'Dispatch',                        color: 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300' },
+                  { num: 1, text: 'Order processed and synced into the portal', color: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300' },
+                  { num: 2, text: 'Customer confirms delivery date via SMS link', color: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300' },
+                  { num: 3, text: 'Assign driver to the confirmed order', color: 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300' },
+                  { num: 4, text: 'Warehouse sets PGI for the order', color: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300' },
+                  { num: 5, text: 'Driver confirms pickup of the items', color: 'bg-teal-100 text-teal-600 dark:bg-teal-900/40 dark:text-teal-300' },
+                  { num: 6, text: 'Dispatch — driver out for delivery', color: 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300' },
                 ].map((step) => (
-                  <div key={step.num} className="flex items-center gap-2">
-                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0 ${step.color}`}>
+                  <div key={step.num} className="flex items-start gap-2.5">
+                    <span className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0 ${step.color}`}>
                       {step.num}
                     </span>
-                    <span className="text-[12px] text-gray-600 dark:text-gray-300">{step.text}</span>
+                    <span className="text-[12px] text-gray-600 dark:text-gray-300 leading-snug">{step.text}</span>
                   </div>
                 ))}
               </div>
@@ -671,43 +671,46 @@ export default function DeliveryManagementPage({
           <div className="fixed inset-0 z-[9998] bg-black/40" onClick={() => setShowPolicyGuide(false)} />
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pointer-events-none">
             <div
-              className="pointer-events-auto w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl bg-white dark:bg-gray-800 shadow-2xl border border-gray-200 dark:border-gray-700"
+              className="pointer-events-auto w-full max-w-xl max-h-[88vh] overflow-y-auto rounded-2xl bg-white dark:bg-gray-800 shadow-2xl border border-gray-200 dark:border-gray-700"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-2.5 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-t-2xl">
-                <div className="flex items-center gap-2">
-                  <BookOpen className="w-4 h-4 text-[#032145] dark:text-blue-400" />
-                  <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Policy & KPI Guide</h2>
+              <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-t-2xl">
+                <div className="flex items-center gap-2.5">
+                  <BookOpen className="w-5 h-5 text-[#032145] dark:text-blue-400" />
+                  <h2 className="text-base font-semibold text-gray-900 dark:text-white">Policy & KPI Guide</h2>
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowPolicyGuide(false)}
-                  className="p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-5 h-5" />
                 </button>
               </div>
-              {/* Compact spacing: smaller padding, tighter rows, no full-width
-                  dividers between sections — section titles alone separate the
-                  blocks visually. Same content, ~40 % less vertical height. */}
-              <div className="px-4 py-3 space-y-3">
-                {/* Workflow — 6 steps from order intake to dispatch */}
+              {/* Comfortable spacing: roomier padding and row gaps so the guide
+                  reads cleanly without scrolling on a typical viewport. Acronyms
+                  (PGI, POD, B2B) appear without parenthetical glosses — every
+                  reader of this guide already knows what they mean. */}
+              <div className="px-6 py-5 space-y-5">
+                {/* Workflow — 6 steps from order intake to dispatch.
+                    Each step is a short sentence (not just a label) so a new
+                    operator can follow the chain without external context. */}
                 <div>
-                  <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Workflow</p>
-                  <div className="space-y-1">
+                  <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2.5">Workflow</p>
+                  <div className="space-y-2">
                     {[
-                      { num: 1, text: 'Order processed', color: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300' },
-                      { num: 2, text: 'Customer confirms delivery date', color: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300' },
-                      { num: 3, text: 'Assign driver', color: 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300' },
-                      { num: 4, text: 'PGI', color: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300' },
-                      { num: 5, text: 'Pickup confirmed', color: 'bg-teal-100 text-teal-600 dark:bg-teal-900/40 dark:text-teal-300' },
-                      { num: 6, text: 'Dispatch', color: 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300' },
+                      { num: 1, text: 'Order processed and synced into the portal', color: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300' },
+                      { num: 2, text: 'Customer confirms delivery date via SMS link', color: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300' },
+                      { num: 3, text: 'Assign driver to the confirmed order', color: 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300' },
+                      { num: 4, text: 'Warehouse sets PGI for the order', color: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300' },
+                      { num: 5, text: 'Driver confirms pickup of the items', color: 'bg-teal-100 text-teal-600 dark:bg-teal-900/40 dark:text-teal-300' },
+                      { num: 6, text: 'Dispatch — driver out for delivery', color: 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300' },
                     ].map((step) => (
-                      <div key={step.num} className="flex items-center gap-2">
-                        <span className={`w-5 h-5 shrink-0 rounded-full flex items-center justify-center text-[11px] font-semibold ${step.color}`}>
+                      <div key={step.num} className="flex items-center gap-3">
+                        <span className={`w-6 h-6 shrink-0 rounded-full flex items-center justify-center text-xs font-semibold ${step.color}`}>
                           {step.num}
                         </span>
-                        <span className="text-[12px] text-gray-700 dark:text-gray-300 leading-snug">{step.text}</span>
+                        <span className="text-[13px] text-gray-700 dark:text-gray-300 leading-snug">{step.text}</span>
                       </div>
                     ))}
                   </div>
@@ -715,17 +718,17 @@ export default function DeliveryManagementPage({
 
                 {/* KPI Rules */}
                 <div>
-                  <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">KPI Rules</p>
-                  <div className="space-y-1">
+                  <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2.5">KPI Rules</p>
+                  <div className="space-y-2">
                     {[
                       { icon: '⏱', text: 'Delivery must be completed within 24 hours of customer confirmation.' },
                       { icon: '📅', text: "Orders uploaded after 3:00 PM cannot be dispatched for the next day's shipment." },
                       { icon: '🚚', text: 'Every confirmed order must have a driver assigned before dispatch.' },
-                      { icon: '📋', text: 'PGI (Post Goods Issue) must be set before marking Out-for-Delivery.' },
-                      { icon: '✅', text: 'POD (Proof of Delivery) must be submitted within 2 hours of delivery.' },
+                      { icon: '📋', text: 'PGI must be set before marking Out-for-Delivery.' },
+                      { icon: '✅', text: 'POD must be submitted within 2 hours of delivery.' },
                     ].map((rule, i) => (
-                      <div key={i} className="flex items-start gap-2 text-[12px] text-gray-700 dark:text-gray-300">
-                        <span className="shrink-0 leading-snug">{rule.icon}</span>
+                      <div key={i} className="flex items-start gap-3 text-[13px] text-gray-700 dark:text-gray-300">
+                        <span className="shrink-0 leading-snug text-base">{rule.icon}</span>
                         <span className="leading-snug">{rule.text}</span>
                       </div>
                     ))}
@@ -734,16 +737,16 @@ export default function DeliveryManagementPage({
 
                 {/* Watch Out For */}
                 <div>
-                  <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Watch Out For</p>
-                  <div className="space-y-1">
+                  <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2.5">Watch Out For</p>
+                  <div className="space-y-2">
                     {[
                       { icon: '🚨', text: 'Order Delay status — action required within the hour. Contact driver immediately.' },
                       { icon: '📍', text: 'Always verify delivery address before dispatch. Wrong address = failed delivery.' },
                       { icon: '🔄', text: 'Rescheduled orders must have a new confirmed date and driver re-assigned.' },
-                      { icon: '📦', text: 'B2B orders (Ship-to Party): confirm with the company contact, not individual name.' },
+                      { icon: '📦', text: 'B2B orders: confirm with the company contact, not the individual name.' },
                     ].map((rule, i) => (
-                      <div key={i} className="flex items-start gap-2 text-[12px] text-gray-700 dark:text-gray-300">
-                        <span className="shrink-0 leading-snug">{rule.icon}</span>
+                      <div key={i} className="flex items-start gap-3 text-[13px] text-gray-700 dark:text-gray-300">
+                        <span className="shrink-0 leading-snug text-base">{rule.icon}</span>
                         <span className="leading-snug">{rule.text}</span>
                       </div>
                     ))}
