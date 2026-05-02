@@ -1089,6 +1089,32 @@ export default function DeliveryTeamPortal() {
     return Array.from(names).sort();
   }, [allDashDeliveries]);
 
+  // Reference date for each row — single source of truth shared by the
+  // filter, the sort, AND the rendered "Date" column so the operator
+  // filters on exactly the date they SEE on the row. Picked per status:
+  //   - delivered (has a deliveredAt timestamp) → deliveredAt
+  //     (this is what the table column shows for delivered rows; filtering
+  //      by upload date would silently hide every row whose customer
+  //      confirmed weeks earlier and was just delivered today — the bug
+  //      that triggered this fix)
+  //   - any active row with a confirmed delivery date → confirmedDeliveryDate
+  //     (the planned/promised date — what ops cares about for "show me
+  //      everything scheduled this week")
+  //   - everything else → createdAt as last resort.
+  const rowReferenceDateMs = useCallback((d: DashDelivery): number | null => {
+    const candidates: Array<string | null | undefined> = [
+      (d.deliveredAt ?? d.delivered_at) as string | null | undefined,
+      d.confirmedDeliveryDate as string | null | undefined,
+      (d.created_at ?? d.createdAt) as string | null | undefined,
+    ];
+    for (const c of candidates) {
+      if (!c) continue;
+      const ts = new Date(c).getTime();
+      if (Number.isFinite(ts)) return ts;
+    }
+    return null;
+  }, []);
+
   // Table deliveries — independent filters + sort, never affected by top period
   // Returns { d, ws } pairs so row renderer can use workflow status for labels/colors
   const podDeliveries = useMemo((): { d: DashDelivery; ws: string }[] => {
@@ -1100,9 +1126,13 @@ export default function DeliveryTeamPortal() {
       // Filter by workflow status (covers all derived statuses including next_shipment, order_delay, etc.)
       if (podStatusFilter !== 'all' && ws !== podStatusFilter) return false;
       if (podDriverFilter !== 'all' && (d.driverName as string | undefined) !== podDriverFilter) return false;
-      // Date range (uses created_at as the reference date)
+      // Date range — uses the same reference date as the rendered Date column
+      // so what the operator sees in the column is exactly what the filter
+      // matches on. (Previously used created_at, which silently excluded
+      // every delivered row whose upload date was outside the chosen window.)
       if (fromTs !== null || toTs !== null) {
-        const t = new Date((d.created_at ?? d.createdAt ?? 0) as string).getTime();
+        const t = rowReferenceDateMs(d);
+        if (t === null) return false;
         if (fromTs !== null && t < fromTs) return false;
         if (toTs   !== null && t > toTs)   return false;
       }
@@ -1120,8 +1150,10 @@ export default function DeliveryTeamPortal() {
     filtered.sort((a, b) => {
       const ad = a.d; const bd = b.d;
       if (podSortKey === 'date') {
-        const ta = new Date((ad.created_at ?? ad.createdAt ?? 0) as string).getTime();
-        const tb = new Date((bd.created_at ?? bd.createdAt ?? 0) as string).getTime();
+        // Same reference date as the filter and the rendered column so the
+        // sort order matches what the operator is reading on screen.
+        const ta = rowReferenceDateMs(ad) ?? 0;
+        const tb = rowReferenceDateMs(bd) ?? 0;
         return podSortDir === 'asc' ? ta - tb : tb - ta;
       }
       let va = '', vb = '';
@@ -3433,8 +3465,10 @@ export default function DeliveryTeamPortal() {
                             const header = 'No,PO Number,Delivery Number,Customer,Material,Model ID,Description,Qty,Address,Driver,Date,Status\n';
                             const rows = podDeliveries.map(({ d, ws }, i) => {
                               const { pnc, modelId, description, qty } = extractItemMeta(d);
-                              const dateRaw = d.delivered_at ?? d.deliveredAt ?? d.created_at ?? d.createdAt ?? '';
-                              const dateStr = dateRaw ? new Date(dateRaw as string).toLocaleDateString('en-GB') : '';
+                              // Same reference date as the table column / filter so the CSV
+                              // matches exactly what the operator was looking at on screen.
+                              const dateMs = rowReferenceDateMs(d);
+                              const dateStr = dateMs !== null ? new Date(dateMs).toLocaleDateString('en-GB') : '';
                               const delivNum = displayDeliveryNumber(d as unknown as Delivery);
                               return [i + 1, d.poNumber ?? '', delivNum, d.customer ?? '', pnc, modelId, description, qty, d.address ?? '', d.driverName ?? 'Unassigned', dateStr, ws].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
                             }).join('\n');
@@ -3626,8 +3660,10 @@ export default function DeliveryTeamPortal() {
                               {pageRows.map(({ d, ws }, idx) => {
                                 const globalIdx = (safePage - 1) * POD_PAGE_SIZE + idx;
                                 const { pnc, modelId, description, qty } = extractItemMeta(d);
-                                const dateRaw = d.delivered_at ?? d.deliveredAt ?? d.created_at ?? d.createdAt;
-                                const formattedDate = dateRaw ? new Date(dateRaw as string).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
+                                // Use the same reference date as the filter / sort so what shows
+                                // in this column is exactly what the date filter matches against.
+                                const dateMs = rowReferenceDateMs(d);
+                                const formattedDate = dateMs !== null ? new Date(dateMs).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
                                 const statusLabel =
                                   ws === 'out_for_delivery' ? 'On Route' :
                                   ws === 'next_shipment'    ? 'Next Shipment' :
