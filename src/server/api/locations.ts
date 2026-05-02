@@ -5,6 +5,9 @@ import * as db from '../db/index.js';
 import prisma from '../db/prisma.js';
 import cache from '../cache.js';
 import { authenticate } from '../auth.js';
+import { smsAdapter } from '../sms/smsService';
+import { outForDeliveryMessage } from '../sms/customerMessageTemplates';
+import { normalizeUAEPhone } from '../utils/phoneUtils';
 
 const router = Router();
 
@@ -350,6 +353,18 @@ router.get('/deliveries', authenticate, async (req: Request, res: Response): Pro
     if (toPromote.length > 0) {
       const promotedAt = new Date();
       const promotedAtIso = promotedAt.toISOString();
+      // Collect rows that successfully promoted on THIS request so we can
+      // fan out the customer "out for delivery" SMS for them after the
+      // response is sent. Without this, a driver who confirms picking
+      // before 08:00 (status stays 'pickup-confirmed') and then opens the
+      // app at, say, 09:00 would silently flip to out-for-delivery here
+      // — but the customer would never get the dispatch SMS, because this
+      // path used to only handle the status flip + audit event and assumed
+      // the morning cron had already sent the SMS. The cron only runs once
+      // a day at 08:00 Dubai, so any pickup-confirmed row that crosses the
+      // 08:00 boundary AFTER cron already ran has nothing to notify the
+      // customer until this fix.
+      const promotedRows: Array<typeof toPromote[number]> = [];
       for (const d of toPromote) {
         const prevStatus = (d.status || '').toLowerCase();
         const currentMeta = (d.metadata as Record<string, unknown> | null) ?? {};
@@ -405,10 +420,92 @@ router.get('/deliveries', authenticate, async (req: Request, res: Response): Pro
         d.status = 'out-for-delivery';
         d.metadata = nextMeta as typeof d.metadata;
         d.updatedAt = promotedAt;
+        promotedRows.push(d);
       }
       cache.invalidatePrefix('tracking:');
       cache.invalidatePrefix('deliveries:list:');
       cache.invalidatePrefix('dashboard:');
+
+      // Fan out the OFD SMS for the rows we just promoted. Mirrors the
+      // suppression logic in deliveries.ts (picking-confirm) and cron.ts
+      // (morning batch) so a row rescheduled within the last 24 h still
+      // skips the duplicate SMS — only the genuinely new dispatches send.
+      // Fire-and-forget so we don't block the driver's /deliveries response;
+      // each iteration writes its own smsLog row (sent / failed / skipped).
+      if (promotedRows.length > 0) {
+        const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+        const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
+        void (async () => {
+          for (const d of promotedRows) {
+            const phone = (d as { phone?: string | null }).phone;
+            if (!phone || !smsAdapter) continue;
+            const normalizedPhone = normalizeUAEPhone(phone) || phone;
+            const meta = (d.metadata as Record<string, unknown> | null) ?? null;
+            const rescheduledAtRaw = meta && typeof meta === 'object'
+              ? (meta as Record<string, unknown>).rescheduledAt
+              : null;
+            // 24 h reschedule-suppression — same window as the other two
+            // OFD paths so a freshly-rescheduled order doesn't get a
+            // duplicate dispatch SMS on top of its reschedule SMS.
+            if (typeof rescheduledAtRaw === 'string') {
+              const rescheduledTs = new Date(rescheduledAtRaw).getTime();
+              if (!isNaN(rescheduledTs) && Date.now() - rescheduledTs < TWENTY_FOUR_HOURS_MS) {
+                console.log(`[driver/deliveries] OFD SMS suppressed for ${d.id} — rescheduled within last 24h`);
+                await prisma.smsLog.create({
+                  data: {
+                    deliveryId: d.id,
+                    phoneNumber: normalizedPhone,
+                    messageContent: '(OFD SMS suppressed — order rescheduled within last 24h)',
+                    smsProvider: process.env.SMS_PROVIDER || 'd7',
+                    status: 'skipped',
+                    sentAt: new Date(),
+                    metadata: {
+                      type: 'status_out_for_delivery',
+                      triggeredBy: 'driver_deliveries_fetch',
+                      suppressedReason: 'recent_reschedule',
+                      rescheduledAt: rescheduledAtRaw,
+                    },
+                  },
+                }).catch(() => {});
+                continue;
+              }
+            }
+            const trackingLink = (d as { confirmationToken?: string | null }).confirmationToken
+              ? `${frontendUrl}/customer-tracking/${(d as { confirmationToken: string }).confirmationToken}`
+              : null;
+            const customerName = ((d as { customer?: string | null }).customer) || 'Valued Customer';
+            const poRef = (d as { poNumber?: string | null }).poNumber ? `#${(d as { poNumber: string }).poNumber}` : '';
+            const smsBody = outForDeliveryMessage(customerName, poRef, trackingLink);
+            let sendStatus = 'failed';
+            try {
+              const smsResult = await smsAdapter.sendSms({
+                to: normalizedPhone,
+                body: smsBody,
+                metadata: { deliveryId: d.id, type: 'status_out_for_delivery', triggeredBy: 'driver_deliveries_fetch' },
+              });
+              sendStatus = (smsResult?.messageId || smsResult?.status === 'accepted' || smsResult?.status === 'queued') ? 'sent' : 'failed';
+              if (sendStatus === 'sent') {
+                console.log(`[driver/deliveries] OFD SMS sent for ${d.id} to ${normalizedPhone}`);
+              }
+            } catch (err: unknown) {
+              console.warn(`[driver/deliveries] OFD SMS failed for ${d.id}:`, (err as Error).message);
+            }
+            await prisma.smsLog.create({
+              data: {
+                deliveryId: d.id,
+                phoneNumber: normalizedPhone,
+                messageContent: smsBody,
+                smsProvider: process.env.SMS_PROVIDER || 'd7',
+                status: sendStatus,
+                sentAt: new Date(),
+                metadata: { type: 'status_out_for_delivery', triggeredBy: 'driver_deliveries_fetch' },
+              },
+            }).catch((logErr: unknown) => {
+              console.warn(`[driver/deliveries] smsLog write failed for ${d.id}:`, (logErr as Error).message);
+            });
+          }
+        })();
+      }
     }
 
     const mapped = deliveries.map(d => ({
