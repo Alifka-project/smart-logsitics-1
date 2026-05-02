@@ -264,12 +264,19 @@ export default function DeliveryTeamPortal() {
     return date.toLocaleDateString();
   };
 
-  // Must be declared before any useEffect that references it
+  // Must be declared before any useEffect that references it.
+  // force=true bypasses both the local `dashData` short-circuit AND the
+  // server-side admin-dashboard cache (?nocache=1) — required because Vercel
+  // runs each request on a (potentially different) serverless instance and
+  // cache.invalidatePrefix only clears the writer's local cache. Without
+  // ?nocache=1, the post-edit refresh can land on a stale instance and the
+  // Order Report would still show the pre-edit numbers.
   const loadReportsData = useCallback(async (force = false): Promise<void> => {
     if (dashData && !force) return;
     setReportsLoading(true);
     try {
-      const res = await api.get('/admin/dashboard');
+      const url = force ? '/admin/dashboard?nocache=1' : '/admin/dashboard';
+      const res = await api.get(url);
       const raw = res.data as DashData;
       const dashList = raw.deliveries ?? [];
       setDashData({
@@ -357,17 +364,32 @@ export default function DeliveryTeamPortal() {
   }, [highlightDeliveryId, deliveries]);
 
   // Load reports data when dashboard or reports tab is active (charts live on both).
-  // The 10-min interval keeps "Today" buckets and chip counts current across the
-  // 00:00 Dubai day boundary; without it, an admin who keeps the page open past
-  // midnight sees stale counts because allDashWithWorkflow is memoized on
-  // dashData. Pause when the tab is hidden to avoid background traffic.
+  // Refresh policy:
+  //   - Tab activation passes force=true so the report shows fresh DB state
+  //     instead of whatever was cached the first time the user visited (the
+  //     loadReportsData() guard otherwise short-circuits on subsequent visits
+  //     and the report never reconciles with reality).
+  //   - 60-second polling so chip counts, summary KPIs, and the order table
+  //     stay current as new uploads land and statuses change. force=true on
+  //     every tick because the dashData cache flag would block silent refreshes.
+  //   - Cross-portal edit events (deliveryStatusUpdated / deliveriesUpdated)
+  //     trigger an immediate force-refresh so an admin who just changed a
+  //     status sees the report update without waiting for the next tick.
+  //   - Polling pauses when the tab is hidden to avoid wasted background traffic.
   useEffect(() => {
     if (activeTab !== 'operations' && activeTab !== 'reports') return;
-    void loadReportsData();
+    void loadReportsData(true);
     const interval = setInterval(() => {
-      if (!document.hidden) void loadReportsData();
-    }, 10 * 60 * 1000);
-    return (): void => clearInterval(interval);
+      if (!document.hidden) void loadReportsData(true);
+    }, 60 * 1000);
+    const editHandler = () => void loadReportsData(true);
+    window.addEventListener('deliveryStatusUpdated', editHandler);
+    window.addEventListener('deliveriesUpdated', editHandler);
+    return (): void => {
+      clearInterval(interval);
+      window.removeEventListener('deliveryStatusUpdated', editHandler);
+      window.removeEventListener('deliveriesUpdated', editHandler);
+    };
   }, [activeTab, loadReportsData]);
 
   // Reset page to 1 whenever table filters change
@@ -3485,6 +3507,7 @@ export default function DeliveryTeamPortal() {
                         { label: 'No Response',      statusKey: 'unconfirmed',      value: allDashWithWorkflow.filter(({ ws }) => ws === 'unconfirmed').length,            color: 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300',       activeColor: 'ring-2 ring-rose-400' },
                         { label: 'Confirmed',        statusKey: 'confirmed',        value: allDashWithWorkflow.filter(({ ws }) => ws === 'confirmed').length,              color: 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300',       activeColor: 'ring-2 ring-teal-400' },
                         { label: 'PGI Done',         statusKey: 'pgi_done',         value: allDashWithWorkflow.filter(({ ws }) => ws === 'pgi_done').length,               color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300',   activeColor: 'ring-2 ring-amber-400' },
+                        { label: 'Pickup Confirmed', statusKey: 'pickup_confirmed', value: allDashWithWorkflow.filter(({ ws }) => ws === 'pickup_confirmed').length,        color: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300',       activeColor: 'ring-2 ring-cyan-400' },
                         { label: 'Delivered',        statusKey: 'delivered',        value: allDashWithWorkflow.filter(({ ws }) => ws === 'delivered').length,              color: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',   activeColor: 'ring-2 ring-green-400' },
                         { label: 'Cancelled',        statusKey: 'cancelled',        value: allDashWithWorkflow.filter(({ ws }) => ws === 'cancelled').length,              color: 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400',         activeColor: 'ring-2 ring-gray-400' },
                         { label: 'Failed / Returned',statusKey: 'failed',           value: allDashWithWorkflow.filter(({ ws }) => ws === 'failed').length,                color: 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300',       activeColor: 'ring-2 ring-rose-400' },
@@ -3530,6 +3553,7 @@ export default function DeliveryTeamPortal() {
                         <option value="uploaded">Pending Order</option>
                         <option value="confirmed">Customer Confirmed</option>
                         <option value="pgi_done">PGI Done</option>
+                        <option value="pickup_confirmed">Pickup Confirmed</option>
                         <option value="rescheduled">Rescheduled</option>
                         <option value="delivered">Delivered</option>
                         <option value="failed">Failed / Returned</option>
