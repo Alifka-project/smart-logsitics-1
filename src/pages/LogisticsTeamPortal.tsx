@@ -1567,31 +1567,38 @@ export default function LogisticsTeamPortal() {
             //   2. Only include orders that have a driver assigned (live tracking OR assignedDriverId)
             //   3. When a specific driver is selected, show only that driver's orders
             //   4. Apply the status-based quick filter (liveStatusFilter)
+            // Logistics needs a single sweep across every order that's still
+            // active in the pipeline so they can arrange & assign drivers
+            // before dispatch. Includes pre-dispatch states (confirmed,
+            // pgi-done, pickup-confirmed, rescheduled) alongside on-route /
+            // delayed states. Terminal rows (delivered/cancelled/rejected/
+            // returned/failed) are intentionally excluded.
             const LIVE_MAP_VISIBLE = new Set([
-              'out-for-delivery', 'in-transit', 'in-progress',    // On Route
-              'order-delay',                                       // Order Delay
-              'confirmed', 'scheduled-confirmed', 'rescheduled',   // Confirmed / Rescheduled
+              'out-for-delivery', 'in-transit', 'in-progress',                  // On Route
+              'order-delay', 'order_delay',                                     // Order Delay
+              'confirmed', 'scheduled-confirmed', 'rescheduled',                // Customer-confirmed / Rescheduled
+              'pgi-done', 'pgi_done',                                           // Warehouse picked, awaiting driver pickup-confirm
+              'pickup-confirmed', 'pickup_confirmed',                           // Driver picked, ready to depart
             ]);
             const nowForFilter = new Date();
             const trackingDeliveries = deliveries
               .filter(d => {
-                // 1. Include only on-route / delayed / confirmed rows
+                // 1. Include only active (non-terminal) rows in the visible set
                 if (!LIVE_MAP_VISIBLE.has((d.status || '').toLowerCase())) return false;
 
                 const ext = d as unknown as { tracking?: { driverId?: string }; confirmedDeliveryDate?: string; metadata?: Record<string, unknown> };
                 const liveDriverId = ext.tracking?.driverId;
 
-                // 2. Only show orders that have a driver (assigned or live tracking)
-                const hasDriver = liveDriverId || d.assignedDriverId;
-                if (!hasDriver) return false;
-
-                // 3. Driver filter
+                // 2. Driver filter — when a specific driver is selected, hide
+                //    rows that don't belong to them. When 'all' is selected,
+                //    keep every row including unassigned (those flow into the
+                //    "Unassigned" group below so logistics can pick a driver).
                 if (trackingDriverFilter !== 'all') {
                   if (liveDriverId && liveDriverId !== trackingDriverFilter) return false;
                   if (!(liveDriverId === trackingDriverFilter || d.assignedDriverId === trackingDriverFilter)) return false;
                 }
 
-                // 4. Status quick filter (mutex: All / On Route / Confirmed)
+                // 3. Status quick filter (mutex: All / On Route / Confirmed)
                 const status = (d.status || '').toLowerCase();
                 if (liveStatusFilter === 'out_for_delivery') {
                   // Match every actively-in-motion status — out-for-delivery plus
@@ -1600,7 +1607,16 @@ export default function LogisticsTeamPortal() {
                   return ['out-for-delivery', 'in-transit', 'in-progress'].includes(status);
                 }
                 if (liveStatusFilter === 'confirmed') {
-                  return ['confirmed', 'scheduled-confirmed', 'rescheduled'].includes(status);
+                  // "Confirmed / awaiting dispatch" covers everything between
+                  // customer-confirm and driver-pickup-confirm — i.e. orders
+                  // that need logistics to verify the assignment is right
+                  // before they go out. Includes pgi-done (warehouse picked)
+                  // and pickup-confirmed (driver picked, ready to depart).
+                  return [
+                    'confirmed', 'scheduled-confirmed', 'rescheduled',
+                    'pgi-done', 'pgi_done',
+                    'pickup-confirmed', 'pickup_confirmed',
+                  ].includes(status);
                 }
                 return true; // 'all'
               })

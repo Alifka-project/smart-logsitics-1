@@ -34,15 +34,25 @@ function isUnrecognizableAddressServer(address: unknown): boolean {
 }
 
 // GET /api/admin/tracking/deliveries - real-time delivery tracking
-// Optimized: uses select instead of include, server-side cache (30s fresh, 2min max)
+// Optimized: uses select instead of include, server-side cache (5s fresh, 15s max)
+//
+// Query params:
+//   bypass=1 — skip the in-memory cache entirely and fetch fresh from the
+//     DB. Use this immediately after an explicit edit (address change,
+//     status update) so the UI doesn't read a stale cached response from a
+//     different serverless instance whose cache hasn't been invalidated yet.
+//     Vercel's multi-instance model means cache.invalidatePrefix on instance
+//     A doesn't reach instance B; this bypass guarantees the post-edit reload
+//     sees the writer's new state.
 router.get('/deliveries', authenticate, requireAnyRole('admin', 'delivery_team', 'logistics_team'), async (req: Request, res: Response): Promise<void> => {
   try {
+    const bypassCache = String(req.query.bypass ?? '').trim() === '1';
     // Bumped v3 -> v4 because the Prisma select gained two new columns
     // (deliveredAt, podCompletedAt). The old v3 cached response would be
     // missing them, which the Logistics dashboard's KPI loop needs to
     // classify delivered orders as on-time vs late. Bumping forces a one-
     // shot recompute so the new fields appear in cached responses too.
-    const data = await cache.getOrFetch('tracking:deliveries:v4', async () => {
+    const fetchDeliveries = async () => {
       let dbDeliveries: unknown[] = [];
       try {
         // Statuses permanently excluded (never shown on portal/manage tab).
@@ -251,7 +261,15 @@ router.get('/deliveries', authenticate, requireAnyRole('admin', 'delivery_team',
       });
 
       return excludeTeamPortalGarbageDeliveries(deliveries);
-    }, 5000, 15000);
+    };
+
+    // Bypass path: fetch fresh and DON'T overwrite the existing cache entry.
+    // Other instances may still serve their (stale) cache for this request
+    // cycle, but the next polling tick will pick up the writer's update via
+    // the normal getOrFetch path (which re-fetches when staleAt elapses).
+    const data = bypassCache
+      ? await fetchDeliveries()
+      : await cache.getOrFetch('tracking:deliveries:v4', fetchDeliveries, 5000, 15000);
 
     res.json({
       deliveries: data,

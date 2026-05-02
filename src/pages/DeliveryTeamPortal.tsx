@@ -438,30 +438,41 @@ export default function DeliveryTeamPortal() {
 
   // Listen for cross-portal data updates (e.g. Logistics portal assigns driver/priority)
   useEffect(() => {
-    const handler = () => void loadData();
-    // Both event names are used by different parts of the logistics portal
-    window.addEventListener('deliveriesUpdated', handler);
-    window.addEventListener('deliveryStatusUpdated', handler);
+    // After an explicit edit (status change, address re-geocode) we MUST
+    // bypass the server-side tracking cache. Vercel runs each request on a
+    // potentially different serverless instance, and `cache.invalidatePrefix`
+    // only clears the writer's local in-memory cache. Without bypass, the
+    // post-edit reload could land on an instance whose cache still holds the
+    // pre-edit lat/lng and clobber the optimistic update with stale data.
+    const editHandler = () => void loadData({ bypassCache: true });
+    window.addEventListener('deliveriesUpdated', editHandler);
+    window.addEventListener('deliveryStatusUpdated', editHandler);
     // Cross-tab sync: when Logistics portal writes to localStorage, reload fresh from API
     const storageHandler = (e: StorageEvent) => {
-      if (e.key && e.key.includes('deliveries_data')) void loadData();
+      if (e.key && e.key.includes('deliveries_data')) void loadData({ bypassCache: true });
     };
     window.addEventListener('storage', storageHandler);
     return () => {
-      window.removeEventListener('deliveriesUpdated', handler);
-      window.removeEventListener('deliveryStatusUpdated', handler);
+      window.removeEventListener('deliveriesUpdated', editHandler);
+      window.removeEventListener('deliveryStatusUpdated', editHandler);
       window.removeEventListener('storage', storageHandler);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const loadData = async (): Promise<void> => {
+  const loadData = async (opts: { bypassCache?: boolean } = {}): Promise<void> => {
     try {
       console.log('[DeliveryTeam] Loading data (tracking APIs for consistency with Operations)...');
-      // Use tracking APIs so monitoring matches Admin Operations (live GPS, same delivery list)
+      // Use tracking APIs so monitoring matches Admin Operations (live GPS, same delivery list).
+      // bypassCache=true forces a fresh DB read on the deliveries endpoint —
+      // used after edits so the server-side cache (which doesn't sync across
+      // Vercel serverless instances) can't return stale lat/lng or status.
+      const deliveriesUrl = opts.bypassCache
+        ? '/admin/tracking/deliveries?bypass=1'
+        : '/admin/tracking/deliveries';
       const [driversRes, deliveriesRes, contactsRes] = await Promise.all([
         api.get('/admin/tracking/drivers').catch(() => ({ data: { drivers: [] } })),
-        api.get('/admin/tracking/deliveries').catch(() => ({ data: { deliveries: [] } })),
+        api.get(deliveriesUrl).catch(() => ({ data: { deliveries: [] } })),
         api.get('/messages/contacts') // Load contacts for messaging
       ]);
 
