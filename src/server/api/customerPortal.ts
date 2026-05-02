@@ -356,13 +356,36 @@ router.get('/tracking/:token', async (req: Request, res: Response): Promise<void
     } else if (isOfd && !isActiveStop) {
       // Queued OFD customer — driver is currently heading to a different
       // stop. Live ETA would be misleading (it pretends the driver is
-      // coming straight here). Use the planned-window ETA instead so the
-      // customer sees their delivery's day window without false urgency.
-      const window = await computePlannedSlotWindow({
-        delivery: fullDelivery ?? deliveryRaw,
-        driverId: assignedDriverId,
-      });
-      etaPayload = window;
+      // coming straight here). Use the same per-stop ETA the active
+      // customer sees, MINUS the live GPS branch:
+      //   1. metadata.plannedEta — driver portal's actual computed
+      //      arrival for THIS stop, synced via /route/sync-eta. This
+      //      matches what the driver sees in their portal (e.g. "16:09")
+      //      so the customer's window is accurate to the driver's plan.
+      //   2. metadata.staticEta — same shape, set on Start Delivery
+      //      historically; kept as a secondary fallback.
+      //   3. tracking.eta — assignment-level legacy.
+      //   4. computePlannedSlotWindow — server-side recompute. Has its
+      //      own degraded fallback when routing data is unavailable.
+      // Without honouring metadata.plannedEta first, queued customers
+      // were silently falling through to step 4 → degraded "noon centre"
+      // → client added +4h → "12:00 – 04:00 PM" generic window even
+      // though the driver portal had already computed and synced the
+      // real per-stop value.
+      const stopEta = typeof metaObj.plannedEta === 'string' && metaObj.plannedEta.trim()
+        ? (metaObj.plannedEta as string)
+        : (typeof metaObj.staticEta === 'string' && metaObj.staticEta.trim() ? (metaObj.staticEta as string) : null);
+      if (stopEta) {
+        etaPayload = { mode: 'static', eta: stopEta };
+      } else if (typeof tracking.tracking.eta === 'string' && (tracking.tracking.eta as string).trim()) {
+        etaPayload = { mode: 'static', eta: tracking.tracking.eta as string };
+      } else {
+        const window = await computePlannedSlotWindow({
+          delivery: fullDelivery ?? deliveryRaw,
+          driverId: assignedDriverId,
+        });
+        etaPayload = window;
+      }
     } else if (statusLower === 'out-for-delivery' || statusLower === 'out_for_delivery' || statusLower === 'in-transit') {
       // Real-time ETA: compute from driver's latest GPS + destination so the
       // customer's arrival window always carries today's date (not the date
