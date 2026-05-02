@@ -1642,8 +1642,19 @@ export default function LogisticsTeamPortal() {
               // calendar resolver as the capacity API so the capacity bar in
               // the driver header always lines up with the visible cards.
               // 'all' is a no-op so existing status/driver filters still bound the list.
+              //
+              // Override: when a specific driver is selected from the toolbar,
+              // bypass the date filter and show EVERY order assigned to that
+              // driver regardless of date. The date scope is meant for the
+              // all-drivers overview ("what's happening today across the
+              // fleet"); when an operator drills into one driver they need to
+              // see the full load to manage and reassign — anything less makes
+              // the dropdown count ("Driver One — 5 assigned") disagree with
+              // the visible cards in the panel ("1 stop") and prevents
+              // reassigning the orders that the date filter just hid.
               .filter((d) => {
                 if (liveMapsDateMode === 'all') return true;
+                if (trackingDriverFilter !== 'all') return true;
                 return getCapacityDateIso(d) === (liveMapsDateMode === 'today' ? getTodayIsoDubai() : addCalendarDaysDubai(getTodayIsoDubai(), 1));
               })
               // 6. Free-text search — matches customer / PO / delivery no / phone.
