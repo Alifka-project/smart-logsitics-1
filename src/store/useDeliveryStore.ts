@@ -461,10 +461,26 @@ const useDeliveryStore = create<DeliveryStore>((set, get) => ({
     //      after the merged input items, preserving their relative order.
     //      This is what fixes the flicker — they stop falling out of the
     //      store on every partial update.
+    //   4. The input is deduplicated by ID, keeping the first occurrence —
+    //      callers concatenate several arrays (final + picking + confirmed +
+    //      finished) and the same delivery can legitimately appear in more
+    //      than one (a rescheduled row visible in both picking-stage and
+    //      finished, a delivered row visible in both routing-final and
+    //      finished). Without this dedup, duplicates feed back into the
+    //      filtered signature check, the routing effect re-runs, and the
+    //      duplicates compound on each tick — chip counts climbed unboundedly
+    //      (160 → 390 → 540) on the driver portal Completed chip.
     const existing = get().deliveries;
-    const inputIds = new Set(reorderedDeliveries.map(d => String(d.id)));
+    const seenInputIds = new Set<string>();
+    const dedupedInput: Delivery[] = [];
+    for (const d of reorderedDeliveries) {
+      const idStr = String(d.id);
+      if (seenInputIds.has(idStr)) continue;
+      seenInputIds.add(idStr);
+      dedupedInput.push(d);
+    }
     const existingMap = new Map(existing.map(d => [String(d.id), d as Record<string, unknown>]));
-    const mergedInputItems = reorderedDeliveries.map(d => {
+    const mergedInputItems = dedupedInput.map(d => {
       const ex = existingMap.get(String(d.id));
       if (!ex) return d;
       const nd = d as Record<string, unknown>;
@@ -476,7 +492,7 @@ const useDeliveryStore = create<DeliveryStore>((set, get) => ({
         priorityLabel: nd['priorityLabel'] ?? ex['priorityLabel'],
       };
     }) as Delivery[];
-    const preservedTail = existing.filter(d => !inputIds.has(String(d.id)));
+    const preservedTail = existing.filter(d => !seenInputIds.has(String(d.id)));
     const merged = [...mergedInputItems, ...preservedTail];
     set({ deliveries: merged });
     get().saveToStorage(merged);

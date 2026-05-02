@@ -463,17 +463,19 @@ router.get('/deliveries', authenticate, async (req: Request, res: Response): Pro
 
 /**
  * GET /api/driver/deliveries/finished - Get driver's recently-finished deliveries.
- * Returns delivered, cancelled, rejected, returned, and rescheduled orders this
- * driver handled in the last 48 hours. After 48h, an order drops out of this
- * list — the driver only needs a glance at what they just touched, not history.
+ * Returns delivered, cancelled, rejected, and returned orders this driver
+ * handled in the last 48 hours. After 48h, an order drops out — the driver
+ * only needs a glance at what they just touched, not lifetime history.
+ *
+ * Note: 'rescheduled' is intentionally NOT here. Rescheduled rows are still
+ * active (assignment stays open) and are returned by /driver/deliveries; the
+ * client filter surfaces them on the Completed chip via metadata.rescheduledAt.
+ * Adding them to this endpoint duplicated them across pickingStage + finished
+ * refs and inflated the chip count on each routing tick.
  */
 const DRIVER_FINISHED_STATUSES = [
   'delivered', 'delivered-with-installation', 'delivered-without-installation',
   'completed', 'pod-completed', 'finished', 'cancelled', 'rejected', 'returned',
-  // 'rescheduled' is here because the driver who attempted the visit and
-  // pushed the order to a future date should still see it in their recent
-  // history for 48h — the order itself stays active under the new date.
-  'rescheduled',
 ];
 
 router.get('/deliveries/finished', authenticate, async (req: Request, res: Response): Promise<void> => {
@@ -491,39 +493,20 @@ router.get('/deliveries/finished', authenticate, async (req: Request, res: Respo
     const cutoff = new Date(Date.now() - FORTY_EIGHT_HOURS_MS);
     const deliveries = await prisma.delivery.findMany({
       where: {
-        AND: [
-          // Driver was the actual handler:
-          //   - terminals (delivered/cancelled/etc) close the assignment to
-          //     'completed' — match on that.
-          //   - rescheduled does NOT close the assignment, so match on any
-          //     active assignment for this driver.
-          {
-            OR: [
-              { assignments: { some: { driverId, status: 'completed' } } },
-              {
-                AND: [
-                  { status: 'rescheduled' },
-                  { assignments: { some: { driverId, status: { in: ['assigned', 'in_progress'] } } } },
-                ],
-              },
-            ],
-          },
-          { status: { in: DRIVER_FINISHED_STATUSES } },
-          // Recency window: deliveredAt is canonical for delivered orders;
-          // updatedAt covers cancellations and reschedules where the cancel/
-          // reschedule write is the only timestamp we have at the column level.
-          {
-            OR: [
-              { deliveredAt: { gte: cutoff } },
-              { podCompletedAt: { gte: cutoff } },
-              { updatedAt: { gte: cutoff } },
-            ],
-          },
+        assignments: { some: { driverId, status: 'completed' } },
+        status: { in: DRIVER_FINISHED_STATUSES },
+        // Recency window: deliveredAt is canonical for delivered orders;
+        // updatedAt covers cancellations where the cancel write is the only
+        // timestamp we have at the column level.
+        OR: [
+          { deliveredAt: { gte: cutoff } },
+          { podCompletedAt: { gte: cutoff } },
+          { updatedAt: { gte: cutoff } },
         ],
       },
       include: {
         assignments: {
-          where: { driverId },
+          where: { driverId, status: 'completed' },
           orderBy: { assignedAt: 'desc' },
           take: 1,
         }
