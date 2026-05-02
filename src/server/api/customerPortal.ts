@@ -400,45 +400,35 @@ router.get('/tracking/:token', async (req: Request, res: Response): Promise<void
         console.warn('[customer/tracking] liveEta failed:', (liveErr as Error).message);
       }
       if (!liveEtaAssigned) {
+        // Fallback chain when live ETA isn't computable (no fresh GPS, OSRM
+        // glitch, etc.). Driver portal continuously syncs the REAL Plan ETA
+        // into metadata.plannedEta via /route/sync-eta on every routing
+        // recompute, so that's almost always available for OFD orders. If
+        // it isn't (very brief race window before the driver opens the
+        // app for the day), fall through to computePlannedSlotWindow —
+        // the SAME function queued customers use, anchored on 08:00 Dubai
+        // + cumulative OSRM driving + 20 min service per preceding stop.
+        // No hardcoded noon constant: the planned-window service already
+        // owns the "always show something reasonable" guarantee via its
+        // own degraded 08:00–18:00 window when routing data is missing.
         const staticEta = typeof metaObj.staticEta === 'string' && metaObj.staticEta.trim()
           ? (metaObj.staticEta as string)
           : (typeof metaObj.plannedEta === 'string' && metaObj.plannedEta.trim() ? (metaObj.plannedEta as string) : null);
         if (staticEta) {
           etaPayload = { mode: 'static', eta: staticEta };
         } else if (typeof tracking.tracking.eta === 'string' && (tracking.tracking.eta as string).trim()) {
-          // Fallback to the assignment's own eta only if the driver never hit Start Delivery.
+          // Fallback to the assignment's own eta only if metadata is empty.
           etaPayload = { mode: 'static', eta: tracking.tracking.eta as string };
         } else {
-          // Final fallback: anchor a static ETA on the confirmed delivery date
-          // at noon Dubai (centre of the hardcoded 12:00–21:00 customer
-          // delivery window).
-          //
-          // Why this matters: metadata.staticEta is ONLY ever written by the
-          // /route/start endpoint, which fires when the driver taps the
-          // "Start Delivery" button. That button was removed in favour of
-          // auto-dispatch (commit d665c6e), so for any order that auto-
-          // dispatches via picking-confirm / morning cron / write-on-read
-          // promotion, staticEta never gets written. Without this fallback,
-          // such orders fell through to mode='pending' and the customer
-          // tracking page hid the ETA card entirely — exactly the regression
-          // the user reported on urgent same-day deliveries.
-          const cddRaw = (fullDelivery as Record<string, unknown> | null)?.confirmedDeliveryDate
-            ?? (deliveryRaw as Record<string, unknown> | null)?.confirmedDeliveryDate;
-          const cdd = cddRaw instanceof Date
-            ? cddRaw
-            : (typeof cddRaw === 'string' || typeof cddRaw === 'number' ? new Date(cddRaw as string | number) : null);
-          if (cdd && !isNaN(cdd.getTime())) {
-            const parts = new Intl.DateTimeFormat('en-CA', {
-              timeZone: 'Asia/Dubai', year: 'numeric', month: '2-digit', day: '2-digit',
-            }).format(cdd).split('-');
-            // Noon Dubai = 08:00 UTC for the same calendar day (UAE is UTC+4
-            // with no DST, so a fixed offset is safe). 12:00 sits in the
-            // middle of the customer-tracking page's hardcoded 12:00–21:00
-            // window, so a 4-hour range starting from noon ends at 16:00
-            // — well within what the customer expects for the day.
-            const noonMs = Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]), 8, 0, 0);
-            etaPayload = { mode: 'static', eta: new Date(noonMs).toISOString() };
-          }
+          // No metadata-level ETA persisted yet — recompute on the fly using
+          // the same planner queued customers use. This produces a real
+          // arrival window based on the driver's stop sequence, not a
+          // generic noon constant.
+          const window = await computePlannedSlotWindow({
+            delivery: fullDelivery ?? deliveryRaw,
+            driverId: assignedDriverId,
+          });
+          etaPayload = window;
         }
       }
     } else if (['delivered', 'delivered-with-installation', 'delivered-without-installation', 'pod-completed', 'finished', 'completed'].includes(statusLower)) {
