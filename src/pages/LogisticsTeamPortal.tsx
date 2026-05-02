@@ -36,6 +36,12 @@ import type { DriverRoute } from '../services/advancedRoutingService';
 import useDeliveryStore from '../store/useDeliveryStore';
 import { deliveryToManageOrder } from '../utils/deliveryWorkflowMap';
 import { excludeTeamPortalGarbageDeliveries } from '../utils/deliveryListFilter';
+import {
+  displayCustomerName,
+  displayDeliveryNumber,
+  displayPhone,
+  displayPoNumber,
+} from '../utils/deliveryDisplayFields';
 import { computeETD, formatEtdLabel } from '../utils/etd';
 
 import { getTodayIsoDubai, addCalendarDaysDubai, formatInstantToDubaiIsoDate } from '../utils/dubaiCalendarIso';
@@ -1657,26 +1663,27 @@ export default function LogisticsTeamPortal() {
                 if (trackingDriverFilter !== 'all') return true;
                 return getCapacityDateIso(d) === (liveMapsDateMode === 'today' ? getTodayIsoDubai() : addCalendarDaysDubai(getTodayIsoDubai(), 1));
               })
-              // 6. Free-text search — matches customer / PO / delivery no / phone.
-              // Applied last so status + driver filters still bound the space.
+              // 6. Free-text search — matches customer name / PO / delivery no /
+              // phone / address. Uses the shared display* helpers so the
+              // search picks up values from metadata aliases (originalRow,
+              // sapDeliveryNumber, Ship-to Name for B2B) — i.e. it matches
+              // exactly what the operator SEES on the card. Without the
+              // helpers, an order whose PO/DN comes from metadata.originalRow
+              // (typical for SAP imports) is invisible to the search even
+              // though the card shows the value clearly.
               .filter((d) => {
                 const q = trackingSearchQuery.trim().toLowerCase();
                 if (!q) return true;
-                const rec = d as unknown as {
-                  customer?: string | null;
-                  poNumber?: string | null;
-                  deliveryNumber?: string | null;
-                  phone?: string | null;
-                  address?: string | null;
-                };
+                const rec = d as unknown as { address?: string | null };
+                const dl = d as unknown as Delivery;
                 const haystack = [
-                  rec.customer,
-                  rec.poNumber,
-                  rec.deliveryNumber,
-                  rec.phone,
+                  displayCustomerName(dl),
+                  displayPoNumber(dl),
+                  displayDeliveryNumber(dl),
+                  displayPhone(dl),
                   rec.address,
                 ]
-                  .filter((v): v is string => typeof v === 'string' && v.length > 0)
+                  .filter((v): v is string => typeof v === 'string' && v.length > 0 && v !== '—')
                   .join(' ')
                   .toLowerCase();
                 return haystack.includes(q);

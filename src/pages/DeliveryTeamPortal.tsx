@@ -2291,26 +2291,27 @@ export default function DeliveryTeamPortal() {
           return true;
         });
 
-        // Free-text search — matches customer / PO / delivery no / phone /
-        // address so a call-taking user can locate an order in one keystroke.
+        // Free-text search — matches customer name / PO / delivery no /
+        // phone / address so a call-taking user can locate an order in one
+        // keystroke. Uses the shared display* helpers so the search picks up
+        // values from metadata aliases (originalRow, sapDeliveryNumber,
+        // Ship-to Name for B2B) — i.e. it matches exactly what the operator
+        // SEES on the card. Without the helpers, an order whose PO/DN comes
+        // from metadata.originalRow (typical for SAP imports) is invisible
+        // to the search even though the card shows the value clearly.
         const searchQ = trackingSearchQuery.trim().toLowerCase();
         const tdFilteredDeliveries = searchQ
           ? tdAfterStatusFilter.filter((d) => {
-              const rec = d as unknown as {
-                customer?: string | null;
-                poNumber?: string | null;
-                deliveryNumber?: string | null;
-                phone?: string | null;
-                address?: string | null;
-              };
+              const rec = d as unknown as { address?: string | null };
+              const dl = d as unknown as Delivery;
               const haystack = [
-                rec.customer,
-                rec.poNumber,
-                rec.deliveryNumber,
-                rec.phone,
+                displayCustomerName(dl),
+                displayPoNumber(dl),
+                displayDeliveryNumber(dl),
+                displayPhone(dl),
                 rec.address,
               ]
-                .filter((v): v is string => typeof v === 'string' && v.length > 0)
+                .filter((v): v is string => typeof v === 'string' && v.length > 0 && v !== '—')
                 .join(' ')
                 .toLowerCase();
               return haystack.includes(searchQ);
