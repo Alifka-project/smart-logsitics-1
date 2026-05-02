@@ -1566,8 +1566,39 @@ router.put('/admin/:id/contact', authenticate, requireAnyRole('admin', 'delivery
     const updateData: Record<string, unknown> = { updatedAt: new Date() };
     if (address) updateData.address = address;
     if (phone)   updateData.phone = phone;
-    if (lat != null && !Number.isNaN(Number(lat)))  updateData.lat = Number(lat);
-    if (lng != null && !Number.isNaN(Number(lng)))  updateData.lng = Number(lng);
+
+    // Trust client-supplied lat/lng first (CustomerModal geocodes client-side
+    // via Nominatim before posting). Only re-geocode on the server when the
+    // address actually changed AND the client didn't ship coords — covers the
+    // case where the client geocoder was rate-limited / offline / blocked, so
+    // the saved address would otherwise be paired with a stale pin.
+    let latNum = (lat != null && !Number.isNaN(Number(lat))) ? Number(lat) : undefined;
+    let lngNum = (lng != null && !Number.isNaN(Number(lng))) ? Number(lng) : undefined;
+
+    const trimmedAddress = typeof address === 'string' ? address.trim() : '';
+    const existingAddress = String((existingDelivery as Record<string, unknown>).address ?? '').trim();
+    const addressChanged =
+      trimmedAddress.length > 0 &&
+      trimmedAddress.toLowerCase() !== existingAddress.toLowerCase();
+    const clientSuppliedCoords = latNum !== undefined && lngNum !== undefined;
+
+    if (addressChanged && !clientSuppliedCoords) {
+      try {
+        const hit = await geocodeOne(trimmedAddress);
+        if (hit) {
+          latNum = hit.lat;
+          lngNum = hit.lng;
+          console.log(`[Deliveries/contact] Server re-geocoded "${trimmedAddress}" → ${hit.lat},${hit.lng} (${hit.provider})`);
+        } else {
+          console.warn(`[Deliveries/contact] Address updated but server geocoding failed — pin unchanged: "${trimmedAddress}"`);
+        }
+      } catch (geoErr: unknown) {
+        console.warn(`[Deliveries/contact] Server geocoding error for "${trimmedAddress}":`, (geoErr as Error).message);
+      }
+    }
+
+    if (latNum !== undefined) updateData.lat = latNum;
+    if (lngNum !== undefined) updateData.lng = lngNum;
 
     const updatedDelivery = await prisma.delivery.update({
       where: { id: existingDelivery.id },
