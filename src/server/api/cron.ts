@@ -47,6 +47,7 @@ interface PromotableRow {
   customer: string | null;
   poNumber: string | null;
   confirmationToken: string | null;
+  metadata: unknown;
 }
 
 /**
@@ -78,6 +79,7 @@ async function dispatchMorning(): Promise<{ promoted: number; smsQueued: number;
       customer: true,
       poNumber: true,
       confirmationToken: true,
+      metadata: true,
     },
   }) as PromotableRow[];
 
@@ -122,10 +124,48 @@ async function dispatchMorning(): Promise<{ promoted: number; smsQueued: number;
   // SMS failures are logged per-row and never block the status flip.
   let smsQueued = 0;
   const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
+  const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
   for (const row of promotable) {
     if (!row.phone || !smsAdapter) continue;
-    smsQueued += 1;
     const normalizedPhone = normalizeUAEPhone(row.phone) || row.phone;
+
+    // Suppress the OFD SMS when this order was rescheduled within the last
+    // 24h — the customer already received the reschedule SMS naming today as
+    // the new delivery date. The status flip in the transaction above still
+    // happens; only the customer notification is skipped here. An audit row
+    // is written to smsLog with status='skipped' so the suppression is
+    // traceable in production.
+    const meta = (row.metadata as Record<string, unknown> | null) ?? null;
+    const rescheduledAtRaw = meta && typeof meta === 'object'
+      ? (meta as Record<string, unknown>).rescheduledAt
+      : null;
+    if (typeof rescheduledAtRaw === 'string') {
+      const rescheduledTs = new Date(rescheduledAtRaw).getTime();
+      if (!isNaN(rescheduledTs) && Date.now() - rescheduledTs < TWENTY_FOUR_HOURS_MS) {
+        console.log(`[cron/dispatch-morning] OFD SMS suppressed for ${row.id} — rescheduled within last 24h`);
+        await (prisma as any).smsLog.create({
+          data: {
+            deliveryId: row.id,
+            phoneNumber: normalizedPhone,
+            messageContent: '(OFD SMS suppressed — order rescheduled within last 24h)',
+            smsProvider: process.env.SMS_PROVIDER || 'd7',
+            status: 'skipped',
+            sentAt: new Date(),
+            metadata: {
+              type: 'status_out_for_delivery',
+              triggeredBy: 'morning_cron',
+              suppressedReason: 'recent_reschedule',
+              rescheduledAt: rescheduledAtRaw,
+            },
+          },
+        }).catch((logErr: unknown) => {
+          console.warn(`[cron/dispatch-morning] suppression log write failed for ${row.id}:`, (logErr as Error).message);
+        });
+        continue;
+      }
+    }
+
+    smsQueued += 1;
     const trackingLink = row.confirmationToken
       ? `${frontendUrl}/customer-tracking/${row.confirmationToken}`
       : null;

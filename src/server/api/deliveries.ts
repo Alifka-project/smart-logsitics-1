@@ -1048,8 +1048,45 @@ router.post('/driver/:id/picking/confirm', authenticate, requireRole('driver'), 
     if (isDeliveryTodayOrOverdue && existing.phone) {
       (async () => {
         try {
-          const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
           const normalizedPhone = normalizeUAEPhone(existing.phone as string) || (existing.phone as string);
+
+          // Suppress the OFD SMS when this order was rescheduled within the
+          // last 24h — the customer already received the reschedule SMS naming
+          // today as the new delivery date, and a second "out for delivery"
+          // SMS minutes later is redundant and confusing. The status flip
+          // above still happens so the driver dispatches normally; only the
+          // customer notification is skipped. An audit row is written to
+          // smsLog with status='skipped' so the suppression is traceable.
+          const meta = (existing.metadata as Record<string, unknown> | null) ?? null;
+          const rescheduledAtRaw = meta && typeof meta === 'object'
+            ? (meta as Record<string, unknown>).rescheduledAt
+            : null;
+          if (typeof rescheduledAtRaw === 'string') {
+            const rescheduledTs = new Date(rescheduledAtRaw).getTime();
+            const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+            if (!isNaN(rescheduledTs) && Date.now() - rescheduledTs < TWENTY_FOUR_HOURS_MS) {
+              console.log(`[picking/confirm] OFD SMS suppressed for ${deliveryId} — rescheduled within last 24h`);
+              await prisma.smsLog.create({
+                data: {
+                  deliveryId,
+                  phoneNumber: normalizedPhone,
+                  messageContent: '(OFD SMS suppressed — order rescheduled within last 24h)',
+                  smsProvider: process.env.SMS_PROVIDER || 'd7',
+                  status: 'skipped',
+                  sentAt: new Date(),
+                  metadata: {
+                    type: 'status_out_for_delivery',
+                    triggeredBy: 'auto_dispatch_on_confirm',
+                    suppressedReason: 'recent_reschedule',
+                    rescheduledAt: rescheduledAtRaw,
+                  },
+                },
+              }).catch(() => {});
+              return;
+            }
+          }
+
+          const frontendUrl = process.env.FRONTEND_URL || 'https://electrolux-smart-portal.vercel.app';
           const trackingLink = existing.confirmationToken
             ? `${frontendUrl}/customer-tracking/${existing.confirmationToken}`
             : null;
