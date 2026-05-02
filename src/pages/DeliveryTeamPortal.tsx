@@ -28,7 +28,7 @@ import {
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   Cell, PieChart, Pie, CartesianGrid, Legend, LabelList,
-  LineChart, Line
+  LineChart, Line, ComposedChart, ReferenceLine
 } from 'recharts';
 import DeliveryManagementPage from './DeliveryManagementPage';
 import { DateRangePicker } from '../components/common/DateRangePicker';
@@ -820,57 +820,158 @@ export default function DeliveryTeamPortal() {
     });
   }, [dashData, reportsPeriod]);
 
-  const trendData = useMemo(() => {
+  // ── Outbound performance helpers ───────────────────────────────────
+  // Map a delivery's address text to its UAE emirate. Reuses the same
+  // keyword set as the geocoder fallback so the dashboard groupings line
+  // up with where pins actually drop on the map. Order matters: longer
+  // multi-word names ("ras al khaimah", "al ain") MUST be tested before
+  // shorter ones so they don't match the wrong emirate.
+  const extractEmirateShort = useCallback((address: string | null | undefined): string => {
+    if (!address) return 'Unknown';
+    const a = String(address).toLowerCase();
+    if (a.includes('al ain')) return 'Al Ain';
+    if (a.includes('ras al khaimah') || /\brak\b/.test(a)) return 'Ras Al Khaimah';
+    if (a.includes('umm al quwain') || /\buaq\b/.test(a)) return 'Umm Al Quwain';
+    if (
+      a.includes('abu dhabi') || a.includes('yas island') || a.includes('saadiyat') ||
+      a.includes('khalifa city') || a.includes('mussafah') || a.includes('musaffah') ||
+      a.includes('al raha') || /\bmbz\b/.test(a) || a.includes('mohammed bin zayed')
+    ) return 'Abu Dhabi';
+    if (a.includes('sharjah')) return 'Sharjah';
+    if (a.includes('ajman')) return 'Ajman';
+    if (a.includes('fujairah')) return 'Fujairah';
+    if (
+      a.includes('dubai') || a.includes('marina') || a.includes('jumeirah') ||
+      a.includes('deira') || /\bjbr\b/.test(a) || /\bjlt\b/.test(a) ||
+      a.includes('downtown') || a.includes('business bay') || a.includes('palm jumeirah') ||
+      a.includes('jebel ali') || a.includes('al quoz')
+    ) return 'Dubai';
+    return 'Other';
+  }, []);
+
+  // Convert a Date / ISO string to the UTC ms of the START of that Dubai
+  // calendar day (00:00 Asia/Dubai = previous day 20:00 UTC). Returns null
+  // if the input can't be parsed. Used as the on-time cutoff and the
+  // dispatch anchor when metadata.routeStartedAt isn't recorded.
+  const dubaiDayStartMs = useCallback((iso: string | Date | null | undefined): number | null => {
+    if (!iso) return null;
+    const d = iso instanceof Date ? iso : new Date(iso);
+    if (isNaN(d.getTime())) return null;
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Dubai', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(d).split('-');
+    // Dubai is UTC+4 with no DST; 00:00 Dubai of (Y,M,D) = previous day 20:00 UTC.
+    return Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]), -4, 0, 0);
+  }, []);
+
+  // Late time in minutes vs the end of the promised Dubai day. 0 = on time
+  // or early. Positive = late by N minutes. Returns null if either side
+  // is missing.
+  const lateTimeMin = useCallback((d: DashDelivery): number | null => {
+    const deliveredAt = d.deliveredAt ?? d.delivered_at;
+    if (!deliveredAt || !d.confirmedDeliveryDate) return null;
+    const deliveredMs = new Date(deliveredAt as string).getTime();
+    const startMs = dubaiDayStartMs(d.confirmedDeliveryDate);
+    if (startMs === null || isNaN(deliveredMs)) return null;
+    const endOfPromisedDayMs = startMs + 24 * 3600_000 - 1;
+    const lateMs = deliveredMs - endOfPromisedDayMs;
+    return lateMs <= 0 ? 0 : Math.round(lateMs / 60_000);
+  }, [dubaiDayStartMs]);
+
+  // Delivery time in minutes from dispatch (driver started route) to
+  // delivered. Falls back to 08:00 Dubai of the promised date when the
+  // routeStartedAt metadata isn't present (legacy rows). Sanity-bounded
+  // to 0..24h so a stray timestamp from years ago doesn't blow the average.
+  const deliveryTimeMin = useCallback((d: DashDelivery): number | null => {
+    const deliveredAt = d.deliveredAt ?? d.delivered_at;
+    if (!deliveredAt) return null;
+    const deliveredMs = new Date(deliveredAt as string).getTime();
+    if (isNaN(deliveredMs)) return null;
+    const meta = (d.metadata as Record<string, unknown> | undefined) ?? {};
+    const routeStartedAt = typeof meta.routeStartedAt === 'string' ? meta.routeStartedAt : null;
+    let dispatchMs: number | null = routeStartedAt ? new Date(routeStartedAt).getTime() : null;
+    if (dispatchMs === null && d.confirmedDeliveryDate) {
+      // Fall back to 08:00 Dubai of the promised day.
+      const startMs = dubaiDayStartMs(d.confirmedDeliveryDate);
+      if (startMs !== null) dispatchMs = startMs + 8 * 3600_000;
+    }
+    if (dispatchMs === null || isNaN(dispatchMs)) return null;
+    const min = Math.round((deliveredMs - dispatchMs) / 60_000);
+    if (min < 0 || min > 24 * 60) return null;
+    return min;
+  }, [dubaiDayStartMs]);
+
+  // ── Daily orders + on-time rate combo (replaces old multi-line trend) ──
+  // Bars: total deliveries that landed on a given Dubai calendar day.
+  // Line: % of those deliveries that landed before end-of-promised-day.
+  // Operator answer: "How many orders went out today, and how many were
+  // on time?" — directly comparable to the outbound-standard "Orders
+  // Number and On-Time Delivery Rate" chart.
+  const dailyOrdersOnTime = useMemo(() => {
     const days = reportsPeriod === '7d' ? 7 : reportsPeriod === '30d' ? 30 : 90;
-    const buckets: Record<string, { date: string; delivered: number; cancelled: number; rescheduled: number; total: number }> = {};
+    const buckets: Record<string, { date: string; orders: number; delivered: number; onTime: number }> = {};
     const now = new Date();
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(d.getDate() - i);
-      const key = `${String(d.getMonth() + 1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
-      buckets[key] = { date: key, delivered: 0, cancelled: 0, rescheduled: 0, total: 0 };
+      const key = `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+      buckets[key] = { date: key, orders: 0, delivered: 0, onTime: 0 };
     }
     for (const d of reportsDeliveries) {
       const raw = d.delivered_at ?? d.deliveredAt ?? d.created_at ?? d.createdAt;
       if (!raw) continue;
       const dt = new Date(raw as string);
-      const key = `${String(dt.getMonth() + 1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')}`;
+      const key = `${String(dt.getMonth() + 1).padStart(2, '0')}/${String(dt.getDate()).padStart(2, '0')}`;
       if (!buckets[key]) continue;
-      buckets[key].total++;
+      buckets[key].orders++;
       const s = (d.status ?? '').toLowerCase();
-      if (DELIVERED_STATUSES.has(s)) buckets[key].delivered++;
-      else if (CANCELLED_STATUSES.has(s)) buckets[key].cancelled++;
-      else if (s === 'rescheduled') buckets[key].rescheduled++;
+      if (DELIVERED_STATUSES.has(s)) {
+        buckets[key].delivered++;
+        const lt = lateTimeMin(d);
+        if (lt === 0) buckets[key].onTime++;
+      }
     }
-    // For shorter ranges show every label; for 90d thin out labels
     return Object.values(buckets).map((b, i, arr) => ({
       ...b,
+      onTimeRate: b.delivered > 0 ? Math.round((b.onTime / b.delivered) * 1000) / 10 : 0,
+      // Thin out X labels on long ranges so they don't overlap.
       date: days <= 30 || i % 5 === 0 || i === arr.length - 1 ? b.date : '',
     }));
-  }, [reportsDeliveries, reportsPeriod]);
+  }, [reportsDeliveries, reportsPeriod, lateTimeMin]);
 
-  const statusDistribution = useMemo(() => {
-    const map: Record<string, number> = {};
+  // ── Per-emirate performance (replaces old status pie) ─────────────
+  // Two bars per emirate: average delivery time (dispatch → delivered) and
+  // average late time (only over deliveries that were actually late, so
+  // 0 doesn't drag down the on-time emirates). Operator answer: "Which
+  // emirate is taking the longest, and which is consistently late?"
+  const emiratePerformance = useMemo(() => {
+    const map: Record<string, { emirate: string; deliveries: number; sumDelivery: number; deliveryCount: number; sumLate: number; lateCount: number; onTime: number }> = {};
     for (const d of reportsDeliveries) {
-      const ws = deliveryToManageOrder(d as unknown as Delivery).status;
-      const label =
-        ws === 'delivered'        ? 'Delivered' :
-        ws === 'out_for_delivery' ? 'On Route' :
-        ws === 'next_shipment'    ? 'Next Shipment' :
-        ws === 'future_schedule'  ? 'Future Schedule' :
-        ws === 'order_delay'      ? 'Order Delay' :
-        ws === 'sms_sent'         ? 'Awaiting Customer' :
-        ws === 'unconfirmed'      ? 'No Response' :
-        ws === 'confirmed'        ? 'Confirmed' :
-        ws === 'rescheduled'      ? 'Rescheduled' :
-        ws === 'failed'           ? 'Failed / Returned' :
-        ws === 'cancelled'        ? 'Cancelled' :
-        ws === 'uploaded'         ? 'Pending' :
-        'Other';
-      map[label] = (map[label] ?? 0) + 1;
+      const s = (d.status ?? '').toLowerCase();
+      if (!DELIVERED_STATUSES.has(s)) continue;
+      const emirate = extractEmirateShort(d.address);
+      if (!map[emirate]) map[emirate] = { emirate, deliveries: 0, sumDelivery: 0, deliveryCount: 0, sumLate: 0, lateCount: 0, onTime: 0 };
+      const row = map[emirate];
+      row.deliveries++;
+      const dt = deliveryTimeMin(d);
+      if (dt !== null) { row.sumDelivery += dt; row.deliveryCount++; }
+      const lt = lateTimeMin(d);
+      if (lt !== null) {
+        if (lt > 0) { row.sumLate += lt; row.lateCount++; }
+        else row.onTime++;
+      }
     }
-    return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-  }, [reportsDeliveries]);
+    return Object.values(map)
+      .filter(r => r.deliveries > 0)
+      .map(r => ({
+        emirate: r.emirate,
+        deliveries: r.deliveries,
+        avgDeliveryTime: r.deliveryCount > 0 ? Math.round(r.sumDelivery / r.deliveryCount) : 0,
+        avgLateTime: r.lateCount > 0 ? Math.round(r.sumLate / r.lateCount) : 0,
+        onTimeRate: r.deliveries > 0 ? Math.round((r.onTime / r.deliveries) * 1000) / 10 : 0,
+      }))
+      .sort((a, b) => b.deliveries - a.deliveries);
+  }, [reportsDeliveries, extractEmirateShort, deliveryTimeMin, lateTimeMin]);
 
   const driverPerformance = useMemo(() => {
     const map: Record<string, { name: string; assigned: number; delivered: number; cancelled: number; podCompleted: number }> = {};
@@ -1571,13 +1672,18 @@ export default function DeliveryTeamPortal() {
             )}
           </div>
 
-          {/* ── Analytics: Delivery Trend + Status Breakdown ────────────── */}
+          {/* ── Outbound Performance: Daily Orders & On-Time Rate + By Emirate ── */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            {/* Delivery Trend */}
+            {/* Daily Orders & On-Time Rate (combo) — outbound-standard:
+                 bars = total deliveries that landed on each Dubai day,
+                 line = % of those that were on time vs the promised date. */}
             <div className="pp-card p-5 lg:col-span-2 flex flex-col">
-              <div className="flex items-center justify-between mb-4 shrink-0">
-                <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Delivery Trend</h3>
-                <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-0.5 gap-0.5">
+              <div className="flex items-start justify-between mb-4 shrink-0 gap-3">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Daily Orders & On-Time Rate</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Deliveries per day vs % delivered on or before the promised date</p>
+                </div>
+                <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-0.5 gap-0.5 shrink-0">
                   {(['7d','30d','90d'] as const).map(p => (
                     <button key={p} onClick={() => setReportsPeriod(p)}
                       className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${reportsPeriod === p ? 'bg-white dark:bg-gray-700 text-blue-700 dark:text-blue-300 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
@@ -1586,12 +1692,12 @@ export default function DeliveryTeamPortal() {
                   ))}
                 </div>
               </div>
-              {trendData.length === 0 ? (
+              {dailyOrdersOnTime.every(b => b.orders === 0) ? (
                 <div className="flex items-center justify-center flex-1 min-h-[200px] text-gray-400 dark:text-gray-500 text-sm">No data for this period</div>
               ) : (
-                <div className="flex-1 min-h-[200px]">
+                <div className="flex-1 min-h-[240px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={trendData} margin={{ top: 4, right: 8, bottom: reportsPeriod === '90d' ? 36 : 4, left: -12 }}>
+                    <ComposedChart data={dailyOrdersOnTime} margin={{ top: 4, right: 8, bottom: reportsPeriod === '90d' ? 36 : 4, left: -12 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid, #e5e7eb)" />
                       <XAxis
                         dataKey="date"
@@ -1600,53 +1706,83 @@ export default function DeliveryTeamPortal() {
                         textAnchor={reportsPeriod === '90d' ? 'end' : 'middle'}
                         height={reportsPeriod === '90d' ? 52 : 24}
                       />
-                      <YAxis tick={{ fontSize: 11, fill: 'var(--chart-tick, #6b7280)' }} allowDecimals={false} />
-                      <Tooltip {...TOOLTIP_STYLE} />
+                      {/* Left axis = order count (bars) */}
+                      <YAxis yAxisId="left" tick={{ fontSize: 11, fill: 'var(--chart-tick, #6b7280)' }} allowDecimals={false} label={{ value: 'Orders', angle: -90, position: 'insideLeft', offset: 18, style: { fontSize: 10, fill: 'var(--chart-tick, #6b7280)' } }} />
+                      {/* Right axis = on-time % (line). Domain 0–100 so the line never scales weirdly on a low-volume day. */}
+                      <YAxis yAxisId="right" orientation="right" domain={[0, 100]} tickFormatter={(v) => `${v}%`} tick={{ fontSize: 11, fill: 'var(--chart-tick, #6b7280)' }} />
+                      <Tooltip
+                        {...TOOLTIP_STYLE}
+                        formatter={(value: number, name: string) => {
+                          if (name === 'On-Time Rate') return [`${value}%`, name];
+                          return [value, name];
+                        }}
+                      />
                       <Legend wrapperStyle={{ fontSize: 12 }} />
-                      <Line type="monotone" dataKey="total" name="Total Orders" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
-                      <Line type="monotone" dataKey="delivered" name="Delivered" stroke={CHART_COLORS.delivered} strokeWidth={2} dot={{ r: 3 }} />
-                      <Line type="monotone" dataKey="cancelled" name="Cancelled" stroke={CHART_COLORS.cancelled} strokeWidth={1.5} dot={{ r: 2 }} strokeDasharray="5 5" />
-                      <Line type="monotone" dataKey="rescheduled" name="Rescheduled" stroke={CHART_COLORS.rescheduled} strokeWidth={1.5} dot={{ r: 2 }} strokeDasharray="5 5" />
-                    </LineChart>
+                      {/* 90% goal reference line on the right axis. */}
+                      <ReferenceLine yAxisId="right" y={90} stroke="#ef4444" strokeDasharray="4 4" label={{ value: 'Goal 90%', position: 'insideTopRight', fontSize: 10, fill: '#ef4444' }} />
+                      <Bar yAxisId="left" dataKey="orders" name="Orders" fill="#14b8a6" radius={[4, 4, 0, 0]} maxBarSize={28} />
+                      <Line yAxisId="right" type="monotone" dataKey="onTimeRate" name="On-Time Rate" stroke="#ef4444" strokeWidth={2} dot={{ r: 3, fill: '#ef4444' }} activeDot={{ r: 5 }} />
+                    </ComposedChart>
                   </ResponsiveContainer>
                 </div>
               )}
             </div>
 
-            {/* Status Distribution */}
-            <div className="pp-card p-5">
-              <h3 className="text-base font-semibold mb-4" style={{ color: 'var(--text)' }}>
-                Status Breakdown
-                <span className="ml-2 text-xs font-normal" style={{ color: 'var(--text2)' }}>({reportsPeriod === '7d' ? 'last 7 days' : reportsPeriod === '30d' ? 'last 30 days' : 'last 90 days'})</span>
-              </h3>
-              {statusDistribution.length === 0 ? (
-                <div className="flex items-center justify-center h-44 text-gray-400 dark:text-gray-500 text-sm">No data</div>
-              ) : (
-                <ResponsiveContainer width="100%" height={220}>
-                  <PieChart>
-                    <Pie data={statusDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} innerRadius={36}
-                      label={false}
-                      labelLine={false}>
-                      {statusDistribution.map((_, i) => (
-                        <Cell key={i} fill={PIE_PALETTE[i % PIE_PALETTE.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip {...TOOLTIP_STYLE} />
-                  </PieChart>
-                </ResponsiveContainer>
-              )}
-              {/* Legend — use CSS token vars so text is always visible in both modes */}
-              <div className="mt-2 space-y-1.5">
-                {statusDistribution.map((item, i) => (
-                  <div key={item.name} className="flex items-center justify-between text-xs" style={{ color: 'var(--text2)' }}>
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: PIE_PALETTE[i % PIE_PALETTE.length] }} />
-                      <span className="font-medium">{item.name}</span>
-                    </span>
-                    <span className="font-bold tabular-nums ml-3" style={{ color: 'var(--text)' }}>{item.value}</span>
-                  </div>
-                ))}
+            {/* Performance by Emirate — avg delivery time + avg late time per
+                 emirate. Operator answer: "Where am I bleeding minutes?" */}
+            <div className="pp-card p-5 flex flex-col">
+              <div className="mb-4 shrink-0">
+                <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Delivery Time & Late Time by Emirate</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Average minutes per stop · {reportsPeriod === '7d' ? 'last 7 days' : reportsPeriod === '30d' ? 'last 30 days' : 'last 90 days'}</p>
               </div>
+              {emiratePerformance.length === 0 ? (
+                <div className="flex items-center justify-center flex-1 min-h-[200px] text-gray-400 dark:text-gray-500 text-sm">No delivered orders for this period</div>
+              ) : (
+                <div className="flex-1 min-h-[220px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={emiratePerformance} margin={{ top: 4, right: 8, bottom: 24, left: -12 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid, #e5e7eb)" />
+                      <XAxis
+                        dataKey="emirate"
+                        tick={{ fontSize: 10, fill: 'var(--chart-tick, #6b7280)' }}
+                        interval={0}
+                        angle={emiratePerformance.length > 4 ? -20 : 0}
+                        textAnchor={emiratePerformance.length > 4 ? 'end' : 'middle'}
+                        height={emiratePerformance.length > 4 ? 44 : 24}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 11, fill: 'var(--chart-tick, #6b7280)' }}
+                        allowDecimals={false}
+                        tickFormatter={(v) => `${v}m`}
+                      />
+                      <Tooltip
+                        {...TOOLTIP_STYLE}
+                        formatter={(value: number, name: string) => [`${value} min`, name]}
+                      />
+                      <Legend wrapperStyle={{ fontSize: 12 }} />
+                      <Bar dataKey="avgDeliveryTime" name="Avg Delivery Time" fill="#14b8a6" radius={[3, 3, 0, 0]} maxBarSize={28} />
+                      <Bar dataKey="avgLateTime" name="Avg Late Time" fill="#f87171" radius={[3, 3, 0, 0]} maxBarSize={28} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+              {/* Compact per-emirate summary so the chart tells the full story
+                  without forcing the user to hover each bar. */}
+              {emiratePerformance.length > 0 && (
+                <div className="mt-3 space-y-1">
+                  {emiratePerformance.slice(0, 5).map((row) => (
+                    <div key={row.emirate} className="flex items-center justify-between text-xs" style={{ color: 'var(--text2)' }}>
+                      <span className="font-medium" style={{ color: 'var(--text)' }}>{row.emirate}</span>
+                      <span className="tabular-nums">
+                        <span className="text-gray-500 dark:text-gray-400">{row.deliveries} stops · </span>
+                        <span className={row.onTimeRate >= 90 ? 'text-green-600 dark:text-green-400 font-semibold' : row.onTimeRate >= 80 ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-red-600 dark:text-red-400 font-semibold'}>
+                          {row.onTimeRate}% on time
+                        </span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
