@@ -262,12 +262,102 @@ router.get('/tracking/:token', async (req: Request, res: Response): Promise<void
 
     let etaPayload: EtaPayload = { mode: 'pending' };
 
+    // ── Active-stop detection (drivers serve one customer at a time) ────
+    // A driver typically has multiple OFD orders in their queue. Only the
+    // ONE the driver is currently heading toward should see the live route
+    // polyline + driver pin + live ETA on their tracking page; every other
+    // customer in the queue should see a planned-window ETA and an empty
+    // map (no driver pin). Otherwise every queued customer thinks the
+    // driver is on the way to them.
+    //
+    // Heuristic: compute distance from driver's latest GPS to each of the
+    // driver's OFD orders that have lat/lng. The closest one is the
+    // "active stop". Drivers tend to pick the geographically nearest stop
+    // next, so this is a reasonable approximation that doesn't depend on
+    // the (since-removed) Start Delivery button writing a routeIndex.
+    //
+    // Fetched ONCE here and reused below by both the ETA branch and the
+    // driverLocation field in the response so we don't double-query
+    // liveLocation for the same request.
+    const isOfd = statusLower === 'out-for-delivery'
+      || statusLower === 'out_for_delivery'
+      || statusLower === 'in-transit';
+    let driverGpsRow: { latitude: number; longitude: number; heading: number | null; speed: number | null; recordedAt: Date } | null = null;
+    let isActiveStop = true;
+    if (isOfd && assignedDriverId) {
+      try {
+        const row = await prisma.liveLocation.findFirst({
+          where: { driverId: assignedDriverId },
+          orderBy: { recordedAt: 'desc' },
+          select: { latitude: true, longitude: true, heading: true, speed: true, recordedAt: true },
+        });
+        if (row) {
+          const ageMs = Date.now() - new Date(row.recordedAt).getTime();
+          if (ageMs <= 20 * 60 * 1000) {
+            driverGpsRow = row;
+          }
+        }
+      } catch (gpsErr: unknown) {
+        console.warn('[customer/tracking] driverGps fetch failed:', (gpsErr as Error).message);
+      }
+      if (driverGpsRow) {
+        try {
+          // Compute closest OFD delivery for this driver. Haversine distance
+          // is fine — we only need a relative ordering, not metres of accuracy.
+          const ofdRows = await prisma.delivery.findMany({
+            where: {
+              assignments: { some: { driverId: assignedDriverId, status: { in: ['assigned', 'in_progress'] } } },
+              status: { in: ['out-for-delivery', 'out_for_delivery', 'in-transit', 'in_progress'] },
+              lat: { not: null },
+              lng: { not: null },
+            },
+            select: { id: true, lat: true, lng: true },
+          });
+          if (ofdRows.length > 0) {
+            const toRad = (deg: number) => deg * Math.PI / 180;
+            const haversine = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+              const R = 6371; // km
+              const dLat = toRad(lat2 - lat1);
+              const dLng = toRad(lng2 - lng1);
+              const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+              return 2 * R * Math.asin(Math.sqrt(a));
+            };
+            let closestId: string | null = null;
+            let closestDist = Number.POSITIVE_INFINITY;
+            for (const o of ofdRows) {
+              if (o.lat == null || o.lng == null) continue;
+              const d = haversine(driverGpsRow.latitude, driverGpsRow.longitude, o.lat, o.lng);
+              if (d < closestDist) { closestDist = d; closestId = o.id; }
+            }
+            isActiveStop = closestId === deliveryIdForEta;
+          }
+        } catch (queueErr: unknown) {
+          console.warn('[customer/tracking] active-stop computation failed:', (queueErr as Error).message);
+          // On failure, fall back to "this is the active stop" so behaviour
+          // matches the previous (always-show-everything) state — never make
+          // a queued customer SEE the route incorrectly because of an error,
+          // but never hide it from the genuinely-active customer either.
+          isActiveStop = true;
+        }
+      }
+    }
+
     if (['scheduled', 'confirmed', 'scheduled-confirmed', 'pgi-done', 'pgi_done', 'pickup-confirmed', 'pickup_confirmed', 'rescheduled'].includes(statusLower)) {
       // 'rescheduled' is a pre-dispatch state — confirmedDeliveryDate has
       // been updated to the new date, so the planned-window service should
       // anchor on it just like the other pre-dispatch statuses. Without
       // this, a rescheduled order falls through to mode='pending' and the
       // customer sees no ETA window even though the new date is known.
+      const window = await computePlannedSlotWindow({
+        delivery: fullDelivery ?? deliveryRaw,
+        driverId: assignedDriverId,
+      });
+      etaPayload = window;
+    } else if (isOfd && !isActiveStop) {
+      // Queued OFD customer — driver is currently heading to a different
+      // stop. Live ETA would be misleading (it pretends the driver is
+      // coming straight here). Use the planned-window ETA instead so the
+      // customer sees their delivery's day window without false urgency.
       const window = await computePlannedSlotWindow({
         delivery: fullDelivery ?? deliveryRaw,
         driverId: assignedDriverId,
@@ -390,45 +480,32 @@ router.get('/tracking/:token', async (req: Request, res: Response): Promise<void
           name: (tracking.tracking.assignment.driver as { fullName?: string }).fullName,
           phone: (tracking.tracking.assignment.driver as { phone?: string }).phone
         } : null,
-        // Driver GPS for the customer's live map. Surfaced ONLY while the
-        // delivery is actively out-for-delivery and the driver's most recent
-        // ping is within 20 minutes — the same freshness rule liveEtaService
-        // uses, so the map pin and the ETA window stay consistent. When any
-        // of those conditions fails we return null and the client gracefully
-        // hides the driver pin and polyline.
-        driverLocation: await (async (): Promise<null | {
-          latitude: number;
-          longitude: number;
-          heading: number;
-          speed: number;
-          recordedAt: string;
-        }> => {
-          const isOutForDelivery =
-            statusLower === 'out-for-delivery' ||
-            statusLower === 'out_for_delivery' ||
-            statusLower === 'in-transit';
-          if (!isOutForDelivery || !assignedDriverId) return null;
-          try {
-            const row = await prisma.liveLocation.findFirst({
-              where: { driverId: assignedDriverId },
-              orderBy: { recordedAt: 'desc' },
-              select: { latitude: true, longitude: true, heading: true, speed: true, recordedAt: true },
-            });
-            if (!row) return null;
-            const ageMs = Date.now() - new Date(row.recordedAt).getTime();
-            if (ageMs > 20 * 60 * 1000) return null;
-            return {
-              latitude: row.latitude,
-              longitude: row.longitude,
-              heading: row.heading ?? 0,
-              speed: row.speed ?? 0,
-              recordedAt: new Date(row.recordedAt).toISOString(),
-            };
-          } catch (gpsErr: unknown) {
-            console.warn('[customer/tracking] driverLocation lookup failed:', (gpsErr as Error).message);
-            return null;
-          }
-        })()
+        // Whether THIS delivery is the driver's current target stop. Drives
+        // the customer-side popup ("your order is on the way") on transition
+        // from false → true, and lets the client choose between the queued
+        // copy ("driver dispatched, you're in the queue") and the active
+        // copy ("driver is heading to you now").
+        isActiveStop,
+        // Driver GPS for the customer's live map. Surfaced ONLY when:
+        //   1. Status is out-for-delivery (or alias)
+        //   2. Driver's most recent ping is within 20 minutes
+        //   3. AND this delivery is the driver's current target stop
+        //      (closest OFD order in the driver's queue)
+        // Otherwise return null so the client hides the driver pin and the
+        // route polyline — queued customers were previously seeing both
+        // even though the driver was on the way to a different customer,
+        // making them think they were next.
+        // Reuses the driverGpsRow fetched above for active-stop computation
+        // so we don't double-query liveLocation.
+        driverLocation: (isOfd && isActiveStop && driverGpsRow)
+          ? {
+              latitude: driverGpsRow.latitude,
+              longitude: driverGpsRow.longitude,
+              heading: driverGpsRow.heading ?? 0,
+              speed: driverGpsRow.speed ?? 0,
+              recordedAt: new Date(driverGpsRow.recordedAt).toISOString(),
+            }
+          : null,
       },
       timeline
     });

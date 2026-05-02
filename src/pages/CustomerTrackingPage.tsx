@@ -1,9 +1,9 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   AlertCircle, Loader, MapPin, Truck, Clock, Package,
   Phone, CheckCircle, Navigation, Star, RefreshCw, ChevronRight, ArrowLeft,
-  Calendar, MessageCircle
+  Calendar, MessageCircle, X
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
@@ -190,6 +190,13 @@ interface TrackingInfoResponse {
   /** Status-driven ETA: planned slot window, locked static ETA, or final deliveredAt. */
   etaPayload?: EtaPayload;
   status?: string | null;
+  /**
+   * True ONLY when the driver is currently heading toward THIS customer
+   * (closest OFD order in the driver's queue). Drives the on-the-way
+   * popup on transition false → true and lets the page show the route
+   * polyline + driver pin only for the genuinely-active customer.
+   */
+  isActiveStop?: boolean;
 }
 
 interface TrackingDelivery extends Delivery {
@@ -410,6 +417,14 @@ export default function CustomerTrackingPage() {
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [routePolyline, setRoutePolyline] = useState<[number, number][] | null>(null);
+  // "Your driver is on the way" popup — shown ONCE when the server flips
+  // isActiveStop from false → true (i.e. the driver finishes the previous
+  // stop in the queue and is now genuinely heading toward this customer).
+  // Auto-hides after 6 s; manual close via the X button. The flag is reset
+  // once the popup has been shown so the customer doesn't see it again on
+  // every poll tick while they're still the active stop.
+  const [showActivePopup, setShowActivePopup] = useState<boolean>(false);
+  const prevIsActiveStopRef = useRef<boolean | null>(null);
 
   const fetchTracking = useCallback(async (manual = false): Promise<void> => {
     try {
@@ -439,6 +454,28 @@ export default function CustomerTrackingPage() {
       return () => clearInterval(iv);
     }
   }, [token, autoRefresh, fetchTracking]);
+
+  // Detect the moment the server flips this customer to "active stop" — the
+  // driver just finished the previous stop and is now heading here. Show
+  // the popup once per session (per transition) and auto-hide after 6 s.
+  // We seed the ref with the FIRST value we see so a customer who lands on
+  // the page already-active doesn't get a confusing "your order is on the
+  // way" popup as if it just changed; the popup only fires on a genuine
+  // transition AFTER the page is open.
+  useEffect(() => {
+    const isActive = tracking?.tracking?.isActiveStop ?? null;
+    if (isActive == null) return;
+    if (prevIsActiveStopRef.current === null) {
+      // First observation — record baseline without popping.
+      prevIsActiveStopRef.current = isActive;
+      return;
+    }
+    if (!prevIsActiveStopRef.current && isActive) {
+      setShowActivePopup(true);
+      window.setTimeout(() => setShowActivePopup(false), 6000);
+    }
+    prevIsActiveStopRef.current = isActive;
+  }, [tracking?.tracking?.isActiveStop]);
 
   useEffect(() => {
     if (!token || !tracking?.delivery || !tracking.tracking) {
@@ -635,6 +672,64 @@ export default function CustomerTrackingPage() {
   return (
     <div style={{ minHeight: '100vh', background: '#F8FAFC' }}>
       <style>{STYLES}</style>
+
+      {/* ── "Your order is on the way" popup — fires once when the server
+            flips this delivery to the driver's active stop. Slides in from
+            the top, auto-hides after 6 s, dismissable via the X. */}
+      {showActivePopup && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'fixed',
+            top: 16,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 9999,
+            background: 'linear-gradient(135deg, #15803D 0%, #16a34a 100%)',
+            color: '#fff',
+            padding: '12px 18px',
+            borderRadius: 14,
+            boxShadow: '0 10px 30px rgba(21,128,61,0.35)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            fontSize: 14,
+            fontWeight: 600,
+            maxWidth: 'min(420px, calc(100vw - 32px))',
+            animation: 'slideDownFadeIn 0.4s ease-out',
+          }}
+        >
+          <Truck style={{ width: 20, height: 20, flexShrink: 0 }} />
+          <span style={{ flex: 1 }}>Your driver is on the way to your address.</span>
+          <button
+            onClick={() => setShowActivePopup(false)}
+            aria-label="Dismiss notification"
+            style={{
+              border: 'none',
+              background: 'rgba(255,255,255,0.18)',
+              color: '#fff',
+              width: 24,
+              height: 24,
+              borderRadius: '50%',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              padding: 0,
+              flexShrink: 0,
+            }}
+          >
+            <X style={{ width: 14, height: 14 }} />
+          </button>
+        </div>
+      )}
+      <style>{`
+        @keyframes slideDownFadeIn {
+          from { opacity: 0; transform: translate(-50%, -20px); }
+          to   { opacity: 1; transform: translate(-50%, 0); }
+        }
+      `}</style>
 
       {/* ── Header ──────────────────────────────────────────────────── */}
       <div style={{ background: 'linear-gradient(135deg, #032145 0%, #115a96 100%)', padding: '14px 16px 24px' }}>
