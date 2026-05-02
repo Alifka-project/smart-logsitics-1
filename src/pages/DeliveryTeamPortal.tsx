@@ -1089,6 +1089,20 @@ export default function DeliveryTeamPortal() {
     return Array.from(names).sort();
   }, [allDashDeliveries]);
 
+  // True when a delivered row has at least one piece of POD evidence
+  // attached (either signature OR a photo). Used by the "No POD" filter
+  // chip / dropdown so ops can quickly find delivered orders that still
+  // need a Proof of Delivery uploaded — these are the rows that block
+  // closing the daily reconciliation.
+  const hasPodEvidence = useCallback((d: DashDelivery): boolean => {
+    const r = d as Record<string, unknown>;
+    if (r.driverSignature) return true;
+    if (r.customerSignature) return true;
+    const photos = r.photos;
+    if (Array.isArray(photos) && photos.length > 0) return true;
+    return false;
+  }, []);
+
   // Reference date for each row — single source of truth shared by the
   // filter, the sort, AND the rendered "Date" column so the operator
   // filters on exactly the date they SEE on the row. Picked per status:
@@ -1123,8 +1137,16 @@ export default function DeliveryTeamPortal() {
     const toTs   = podDateTo   ? new Date(podDateTo   + 'T23:59:59').getTime() : null;
 
     const filtered = allDashWithWorkflow.filter(({ d, ws }) => {
-      // Filter by workflow status (covers all derived statuses including next_shipment, order_delay, etc.)
-      if (podStatusFilter !== 'all' && ws !== podStatusFilter) return false;
+      // Filter by workflow status (covers all derived statuses including next_shipment, order_delay, etc.).
+      // Special-case 'no_pod' = delivered rows with no signature and no photos —
+      // not a real workflow status, just an evidence-completeness filter ops use
+      // to track down the rows that still need a POD uploaded.
+      if (podStatusFilter === 'no_pod') {
+        if (ws !== 'delivered') return false;
+        if (hasPodEvidence(d)) return false;
+      } else if (podStatusFilter !== 'all' && ws !== podStatusFilter) {
+        return false;
+      }
       if (podDriverFilter !== 'all' && (d.driverName as string | undefined) !== podDriverFilter) return false;
       // Date range — uses the same reference date as the rendered Date column
       // so what the operator sees in the column is exactly what the filter
@@ -1172,7 +1194,7 @@ export default function DeliveryTeamPortal() {
     });
 
     return filtered;
-  }, [allDashWithWorkflow, podSearch, podStatusFilter, podDriverFilter, podDateFrom, podDateTo, podSortKey, podSortDir, extractItemMeta]);
+  }, [allDashWithWorkflow, podSearch, podStatusFilter, podDriverFilter, podDateFrom, podDateTo, podSortKey, podSortDir, extractItemMeta, hasPodEvidence, rowReferenceDateMs]);
 
   const CHART_COLORS = { delivered: '#22c55e', cancelled: '#ef4444', rescheduled: '#f59e0b', returned: '#8b5cf6', pending: '#94a3b8' };
   const PIE_PALETTE = ['#22c55e','#ef4444','#f59e0b','#3b82f6','#8b5cf6','#94a3b8','#06b6d4','#f97316','#ec4899','#14b8a6','#a855f7','#64748b'];
@@ -1778,14 +1800,21 @@ export default function DeliveryTeamPortal() {
                       <ReferenceLine yAxisId="right" y={90} stroke="#9399B8" strokeDasharray="4 4" label={{ value: 'Goal 90%', position: 'insideTopRight', fontSize: 10, fill: '#4B5280' }} />
                       {/* Orders bars: Electrolux primary blue (primary-500
                           mid-tone fill, the canonical chart-bar colour on
-                          light surfaces per the brand palette). */}
-                      <Bar yAxisId="left" dataKey="orders" name="Orders" fill="#1F72B3" radius={[4, 4, 0, 0]} maxBarSize={28} />
+                          light surfaces per the brand palette).
+                          isAnimationActive=false: the dashboard polls every
+                          60 s and re-creates dashData (and therefore the
+                          chart's data array) on every tick. Recharts replays
+                          the entry animation each time, which the operator
+                          sees as the chart "blinking". Disabling the animation
+                          eliminates the flash; the chart still re-renders
+                          when the underlying data actually changes. */}
+                      <Bar yAxisId="left" dataKey="orders" name="Orders" fill="#1F72B3" radius={[4, 4, 0, 0]} maxBarSize={28} isAnimationActive={false} />
                       {/* On-Time line: success green — same semantic colour
                           used for "Delivered / paid / on-time" status badges
                           across the system, so the line reads as "good" at
                           a glance instead of competing with the red goal/
                           warning palette. */}
-                      <Line yAxisId="right" type="monotone" dataKey="onTimeRate" name="On-Time Rate" stroke="#15803D" strokeWidth={2.5} dot={{ r: 3, fill: '#15803D' }} activeDot={{ r: 5 }} />
+                      <Line yAxisId="right" type="monotone" dataKey="onTimeRate" name="On-Time Rate" stroke="#15803D" strokeWidth={2.5} dot={{ r: 3, fill: '#15803D' }} activeDot={{ r: 5 }} isAnimationActive={false} />
                     </ComposedChart>
                   </ResponsiveContainer>
                 </div>
@@ -1826,12 +1855,16 @@ export default function DeliveryTeamPortal() {
                       <Legend wrapperStyle={{ fontSize: 12 }} />
                       {/* Avg Delivery Time: Electrolux primary blue (matches
                           the Orders bars in the daily-orders chart for
-                          visual continuity across the dashboard). */}
-                      <Bar dataKey="avgDeliveryTime" name="Avg Delivery Time" fill="#1F72B3" radius={[3, 3, 0, 0]} maxBarSize={28} />
+                          visual continuity across the dashboard).
+                          isAnimationActive=false: same reason as the combo
+                          chart above — 60 s polling re-creates the data
+                          array and the entry animation replays as a flicker
+                          even when nothing actually changed. */}
+                      <Bar dataKey="avgDeliveryTime" name="Avg Delivery Time" fill="#1F72B3" radius={[3, 3, 0, 0]} maxBarSize={28} isAnimationActive={false} />
                       {/* Avg Late Time: Electrolux danger red (red-600 button
                           fill) — semantic colour for the "lateness" KPI so
                           it pops against the on-time green elsewhere. */}
-                      <Bar dataKey="avgLateTime" name="Avg Late Time" fill="#DC2626" radius={[3, 3, 0, 0]} maxBarSize={28} />
+                      <Bar dataKey="avgLateTime" name="Avg Late Time" fill="#DC2626" radius={[3, 3, 0, 0]} maxBarSize={28} isAnimationActive={false} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -3543,6 +3576,9 @@ export default function DeliveryTeamPortal() {
                         { label: 'PGI Done',         statusKey: 'pgi_done',         value: allDashWithWorkflow.filter(({ ws }) => ws === 'pgi_done').length,               color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300',   activeColor: 'ring-2 ring-amber-400' },
                         { label: 'Pickup Confirmed', statusKey: 'pickup_confirmed', value: allDashWithWorkflow.filter(({ ws }) => ws === 'pickup_confirmed').length,        color: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300',       activeColor: 'ring-2 ring-cyan-400' },
                         { label: 'Delivered',        statusKey: 'delivered',        value: allDashWithWorkflow.filter(({ ws }) => ws === 'delivered').length,              color: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',   activeColor: 'ring-2 ring-green-400' },
+                        // "No POD" = delivered rows missing both signatures and any photo evidence.
+                        // Surfaces here so ops can spot rows that block daily reconciliation.
+                        { label: 'No POD',           statusKey: 'no_pod',           value: allDashWithWorkflow.filter(({ d, ws }) => ws === 'delivered' && !hasPodEvidence(d)).length, color: 'bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300',     activeColor: 'ring-2 ring-pink-400' },
                         { label: 'Cancelled',        statusKey: 'cancelled',        value: allDashWithWorkflow.filter(({ ws }) => ws === 'cancelled').length,              color: 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400',         activeColor: 'ring-2 ring-gray-400' },
                         { label: 'Failed / Returned',statusKey: 'failed',           value: allDashWithWorkflow.filter(({ ws }) => ws === 'failed').length,                color: 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300',       activeColor: 'ring-2 ring-rose-400' },
                       ] as { label: string; statusKey: string; value: number; color: string; activeColor: string }[]).map(({ label, statusKey, value, color, activeColor }) => (
@@ -3590,6 +3626,7 @@ export default function DeliveryTeamPortal() {
                         <option value="pickup_confirmed">Pickup Confirmed</option>
                         <option value="rescheduled">Rescheduled</option>
                         <option value="delivered">Delivered</option>
+                        <option value="no_pod">Delivered — Missing POD</option>
                         <option value="failed">Failed / Returned</option>
                         <option value="cancelled">Cancelled</option>
                       </select>
