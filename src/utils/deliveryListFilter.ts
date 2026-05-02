@@ -249,18 +249,47 @@ export function applyDeliveryListFilter(
       });
     }
     case 'completed_24h': {
-      // "Completed" view in the Driver Portal — dead-simple rule: any order
-      // whose status is delivered, cancelled, or rejected. The server caps
-      // /driver/deliveries/finished to the 20 most recent completions, so
-      // this filter naturally surfaces the recent ones without per-row date
-      // math. Date filtering removed at the user's request — the previous
-      // 48h window plus updatedAt-fallback combination kept producing
-      // confusing counts on test data.
-      const COMPLETED_STATUS_SET = new Set<string>([
-        ...COMPLETED_STATUSES,
-        'cancelled', 'canceled', 'rejected',
-      ]);
-      return list.filter((d) => COMPLETED_STATUS_SET.has((d.status || '').toLowerCase()));
+      // Driver Portal "Completed" tab — orders this driver finished, cancelled,
+      // or rescheduled in the last 48 hours. After 48h they drop out so the
+      // list stays focused on what just happened today/yesterday.
+      //
+      // Timestamp source per status (avoid relying on updatedAt where we have
+      // a more specific signal, since unrelated bulk writes touch updatedAt):
+      //   delivered    → deliveredAt (canonical) or podCompletedAt
+      //   rescheduled  → metadata.rescheduledAt (preferred) or updatedAt
+      //   cancelled/   → updatedAt (no dedicated cancel timestamp column)
+      //   rejected
+      const DELIVERED_SET = new Set<string>([...COMPLETED_STATUSES]);
+      const CANCELLED_SET = new Set<string>(['cancelled', 'canceled', 'rejected']);
+      const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000;
+      const cutoff = Date.now() - FORTY_EIGHT_HOURS_MS;
+      return list.filter((d) => {
+        const s = (d.status || '').toLowerCase();
+        const isDelivered = DELIVERED_SET.has(s);
+        const isCancelled = CANCELLED_SET.has(s);
+        const isRescheduled = s === 'rescheduled';
+        if (!isDelivered && !isCancelled && !isRescheduled) return false;
+        const rec = d as unknown as Record<string, unknown>;
+        let dateStr: string | null | undefined;
+        if (isDelivered) {
+          dateStr = (d.deliveredAt as string | null | undefined)
+            ?? (d.podCompletedAt as string | null | undefined);
+        } else if (isRescheduled) {
+          const meta = (d as { metadata?: Record<string, unknown> | null }).metadata;
+          const metaRescheduledAt = meta && typeof meta === 'object'
+            ? (meta.rescheduledAt as string | null | undefined)
+            : null;
+          dateStr = metaRescheduledAt
+            ?? (d.updatedAt as string | null | undefined)
+            ?? (rec.updated_at as string | null | undefined);
+        } else {
+          dateStr = (d.updatedAt as string | null | undefined)
+            ?? (rec.updated_at as string | null | undefined);
+        }
+        if (!dateStr) return false;
+        const ts = new Date(String(dateStr)).getTime();
+        return !isNaN(ts) && ts >= cutoff;
+      });
     }
     default:
       return active;

@@ -462,12 +462,18 @@ router.get('/deliveries', authenticate, async (req: Request, res: Response): Pro
 });
 
 /**
- * GET /api/driver/deliveries/finished - Get driver's finished (terminal) deliveries
- * Returns delivered, cancelled, and returned orders so drivers can review history.
+ * GET /api/driver/deliveries/finished - Get driver's recently-finished deliveries.
+ * Returns delivered, cancelled, rejected, returned, and rescheduled orders this
+ * driver handled in the last 48 hours. After 48h, an order drops out of this
+ * list — the driver only needs a glance at what they just touched, not history.
  */
 const DRIVER_FINISHED_STATUSES = [
   'delivered', 'delivered-with-installation', 'delivered-without-installation',
   'completed', 'pod-completed', 'finished', 'cancelled', 'rejected', 'returned',
+  // 'rescheduled' is here because the driver who attempted the visit and
+  // pushed the order to a future date should still see it in their recent
+  // history for 48h — the order itself stays active under the new date.
+  'rescheduled',
 ];
 
 router.get('/deliveries/finished', authenticate, async (req: Request, res: Response): Promise<void> => {
@@ -477,28 +483,55 @@ router.get('/deliveries/finished', authenticate, async (req: Request, res: Respo
       res.status(401).json({ error: 'Unauthorized' }); return;
     }
 
-    // Driver's recent finished deliveries — orders this driver actually
-    // completed (assignment status 'completed'). Deliveries reassigned away
-    // keep a 'reassigned' assignment for this driver but are excluded.
-    //
-    // Simple rule: any order with a terminal status (delivered / cancelled /
-    // rejected / returned) where this driver was the completing assignee.
-    // Sorted most-recent first by deliveredAt and capped at 20 — that's all
-    // a driver needs to glance at their recent history. No per-row date
-    // predicate; the take cap is the recency control.
+    // 48-hour rolling window — driver wants "what I just did", not lifetime
+    // history. Without this guard, every prior bulk update (geocoding fix,
+    // status mass-edit, re-import) that touches updatedAt on old delivered
+    // rows would resurface them as "recent" and inflate the count.
+    const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000;
+    const cutoff = new Date(Date.now() - FORTY_EIGHT_HOURS_MS);
     const deliveries = await prisma.delivery.findMany({
       where: {
-        assignments: { some: { driverId, status: 'completed' } },
-        status: { in: DRIVER_FINISHED_STATUSES },
+        AND: [
+          // Driver was the actual handler:
+          //   - terminals (delivered/cancelled/etc) close the assignment to
+          //     'completed' — match on that.
+          //   - rescheduled does NOT close the assignment, so match on any
+          //     active assignment for this driver.
+          {
+            OR: [
+              { assignments: { some: { driverId, status: 'completed' } } },
+              {
+                AND: [
+                  { status: 'rescheduled' },
+                  { assignments: { some: { driverId, status: { in: ['assigned', 'in_progress'] } } } },
+                ],
+              },
+            ],
+          },
+          { status: { in: DRIVER_FINISHED_STATUSES } },
+          // Recency window: deliveredAt is canonical for delivered orders;
+          // updatedAt covers cancellations and reschedules where the cancel/
+          // reschedule write is the only timestamp we have at the column level.
+          {
+            OR: [
+              { deliveredAt: { gte: cutoff } },
+              { podCompletedAt: { gte: cutoff } },
+              { updatedAt: { gte: cutoff } },
+            ],
+          },
+        ],
       },
       include: {
         assignments: {
-          where: { driverId, status: 'completed' },
+          where: { driverId },
           orderBy: { assignedAt: 'desc' },
           take: 1,
         }
       },
-      orderBy: { deliveredAt: 'desc' },
+      orderBy: [
+        { deliveredAt: 'desc' },
+        { updatedAt: 'desc' },
+      ],
       take: 20,
     });
 

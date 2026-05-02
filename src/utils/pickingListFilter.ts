@@ -58,7 +58,10 @@ export function isPickingUnready(d: MinimalDeliveryForPicking): boolean {
  * either live on the Picking List tab or are invisible to the driver entirely.
  *
  * Terminal rows (delivered, cancelled, returned, rejected) stay visible so the
- * driver can review recent history.
+ * driver can review recent history. Rescheduled rows are also kept so the
+ * driver can see "I just rescheduled this" in the Completed tab for 48h —
+ * the picking-list exclusion in DeliveryTable still hides any rescheduled row
+ * that's currently re-eligible for picking, so the chip set behaves correctly.
  */
 const DRIVER_MY_ORDERS_STATUSES = new Set([
   // Ready to depart (picking signed off)
@@ -82,6 +85,8 @@ const DRIVER_MY_ORDERS_STATUSES = new Set([
   'cancelled',
   'rejected',
   'returned',
+  // Recently rescheduled (visible in Completed tab for 48h)
+  'rescheduled',
 ]);
 
 export function isDriverMyOrdersStatus(status: string | null | undefined): boolean {

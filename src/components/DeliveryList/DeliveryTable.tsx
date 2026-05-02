@@ -164,10 +164,17 @@ export default function DeliveryTable({
   // scheduled, confirmed, pgi-done, pickup-awaiting-pick — is filtered out.
   // Picking-stage rows (pgi-done / rescheduled-with-GMD) live on the Picking
   // List tab instead.
+  //
+  // Exception: rescheduled orders are kept here even when they're back on the
+  // Picking List, so the driver who pushed the visit to a future date still
+  // sees it in the Completed tab for 48h as a record of their recent action.
+  // The Picking List tab also shows the same row — duplicate visibility is
+  // intentional.
   const deliveries = useMemo(() => {
     if (!isDriverPortal) return allDeliveries;
     return allDeliveries.filter((d) => {
-      if (isPickingListEligible(d)) return false;
+      const isRescheduled = (d.status || '').toLowerCase() === 'rescheduled';
+      if (isPickingListEligible(d) && !isRescheduled) return false;
       return isDriverMyOrdersStatus(d.status);
     });
   }, [allDeliveries, isDriverPortal]);
@@ -504,7 +511,7 @@ export default function DeliveryTable({
         <div className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm">
           {isDeliveredFilter
             ? (deliveryListFilter === 'completed_24h'
-              ? 'No completed orders in the last 24 hours.'
+              ? 'No completed orders in the last 48 hours. Delivered, cancelled, and rescheduled orders disappear from this list after 48h.'
               : 'No completed deliveries in the last 3 days. Delivered and cancelled orders from the past 3 days appear here.')
             : isDriverPortal && deliveryListFilter === 'today_delivery'
               ? (pendingPickingCount > 0
