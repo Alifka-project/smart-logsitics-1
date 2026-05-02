@@ -128,13 +128,14 @@ export const ManageSidebar: React.FC<ManageSidebarProps> = ({
           {/* ── How to Use ── */}
           <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
             <h3 className="font-semibold text-sm text-gray-900 dark:text-white mb-3">📋 How to use</h3>
-            <div className="space-y-3">
+            <div className="space-y-2">
               {[
-                { num: 1, text: 'Upload Excel with orders',         color: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300'     },
-                { num: 2, text: 'System sends SMS to customer',     color: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300' },
-                { num: 3, text: 'Customer confirms delivery date',  color: 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300'   },
-                { num: 4, text: 'Assign driver & set GMD date',    color: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300' },
-                { num: 5, text: 'Driver delivers & submits POD',    color: 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300' },
+                { num: 1, text: 'Order processed',                 color: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300'     },
+                { num: 2, text: 'Customer confirms delivery date', color: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300' },
+                { num: 3, text: 'Assign driver',                   color: 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300'   },
+                { num: 4, text: 'PGI',                             color: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300' },
+                { num: 5, text: 'Pickup confirmed',                color: 'bg-teal-100 text-teal-600 dark:bg-teal-900/40 dark:text-teal-300' },
+                { num: 6, text: 'Dispatch',                        color: 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300' },
               ].map((step) => (
                 <div key={step.num} className="flex items-center gap-2">
                   <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${step.color}`}>
@@ -161,16 +162,17 @@ export const ManageSidebar: React.FC<ManageSidebarProps> = ({
           <div className="space-y-3">
             <div>
               <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Workflow</p>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {[
-                  { num: 1, text: 'Order processed — system auto-sends SMS to customer', color: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300' },
-                  { num: 2, text: 'Customer confirms delivery date via SMS link', color: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300' },
-                  { num: 3, text: 'Assign driver immediately after confirmation', color: 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300' },
-                  { num: 4, text: 'Set PGI date before dispatching', color: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300' },
-                  { num: 5, text: 'Driver delivers & update status', color: 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300' },
+                  { num: 1, text: 'Order processed',                 color: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300' },
+                  { num: 2, text: 'Customer confirms delivery date', color: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300' },
+                  { num: 3, text: 'Assign driver',                   color: 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300' },
+                  { num: 4, text: 'PGI',                             color: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300' },
+                  { num: 5, text: 'Pickup confirmed',                color: 'bg-teal-100 text-teal-600 dark:bg-teal-900/40 dark:text-teal-300' },
+                  { num: 6, text: 'Dispatch',                        color: 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300' },
                 ].map((step) => (
-                  <div key={step.num} className="flex items-start gap-2">
-                    <span className={`mt-0.5 w-5 h-5 shrink-0 rounded-full flex items-center justify-center text-xs font-semibold ${step.color}`}>
+                  <div key={step.num} className="flex items-center gap-2">
+                    <span className={`w-5 h-5 shrink-0 rounded-full flex items-center justify-center text-xs font-semibold ${step.color}`}>
                       {step.num}
                     </span>
                     <span className="text-xs text-gray-600 dark:text-gray-300 leading-snug">{step.text}</span>
