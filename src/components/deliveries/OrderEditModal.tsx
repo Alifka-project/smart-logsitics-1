@@ -235,6 +235,8 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
     <div
       className="pp-modal-backdrop fixed inset-0 z-[10050] flex items-center justify-center bg-black/50 p-4 sm:p-6"
       role="presentation"
+      onClick={onClose}
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
         className="pp-modal-card flex max-h-[min(92vh,780px)] w-full max-w-md flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800"
@@ -242,6 +244,7 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
         aria-modal="true"
         aria-labelledby="order-edit-title"
         onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="shrink-0 border-b border-gray-100 px-4 py-3 dark:border-gray-700">
           <div className="flex items-center justify-between gap-2">

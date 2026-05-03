@@ -3704,10 +3704,10 @@ export default function DeliveryTeamPortal() {
                               <col style={{ width: '12%' }} />   {/* Customer */}
                               <col style={{ width: '9%' }} />    {/* Material */}
                               <col style={{ width: '8%' }} />    {/* Model ID */}
-                              <col style={{ width: '12%' }} />   {/* Description */}
+                              <col style={{ width: '11%' }} />   {/* Description */}
                               <col style={{ width: '4%' }} />    {/* Qty */}
-                              <col style={{ width: '13%' }} />   {/* Address */}
-                              <col style={{ width: '9%' }} />    {/* Driver */}
+                              <col style={{ width: '11%' }} />   {/* Address */}
+                              <col style={{ width: '7%' }} />    {/* Driver */}
                               <col style={{ width: '7%' }} />    {/* Date */}
                               <col style={{ width: '9%' }} />    {/* Status */}
                             </colgroup>
