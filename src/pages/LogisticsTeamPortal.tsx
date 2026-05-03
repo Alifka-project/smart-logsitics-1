@@ -104,7 +104,7 @@ export default function LogisticsTeamPortal() {
   // that COMPOSE with the status filter — a row can be both On Route AND
   // Priority. Splitting them prevents the old "click Priority → lose On Route"
   // confusion users hit with the previous all-in-one mutex.
-  const [liveStatusFilter, setLiveStatusFilter] = useState<'all' | 'out_for_delivery' | 'confirmed'>('all');
+  const [liveStatusFilter, setLiveStatusFilter] = useState<'all' | 'pre_dispatch' | 'warehouse' | 'on_route' | 'delayed'>('all');
   const [filterPriority, setFilterPriority] = useState(false);
   const [filterDelayed, setFilterDelayed] = useState(false);
   // Toolbar popover state — only one open at a time. Keeps the panel chrome
@@ -1583,55 +1583,36 @@ export default function LogisticsTeamPortal() {
               'pickup-confirmed', 'pickup_confirmed',                           // Driver picked, ready to depart
             ]);
             const nowForFilter = new Date();
-            const trackingDeliveries = deliveries
+            // Phase classification helper — used for pill counts AND phase-aware cards
+            const PRE_DISPATCH_STATUSES = new Set(['confirmed', 'scheduled-confirmed', 'rescheduled']);
+            const WAREHOUSE_STATUSES = new Set(['pgi-done', 'pgi_done', 'pickup-confirmed', 'pickup_confirmed']);
+            const ON_ROUTE_STATUSES = new Set(['out-for-delivery', 'in-transit', 'in-progress']);
+            const DELAYED_STATUSES = new Set(['order-delay', 'order_delay']);
+            const getPhase = (status: string): 'pre_dispatch' | 'warehouse' | 'on_route' | 'delayed' => {
+              const s = status.toLowerCase();
+              if (PRE_DISPATCH_STATUSES.has(s)) return 'pre_dispatch';
+              if (WAREHOUSE_STATUSES.has(s)) return 'warehouse';
+              if (ON_ROUTE_STATUSES.has(s)) return 'on_route';
+              return 'delayed';
+            };
+
+            // Base set: all filters EXCEPT the phase pill — so we can count per-phase
+            const baseDeliveries = deliveries
               .filter(d => {
-                // 1. Include only active (non-terminal) rows in the visible set
                 if (!LIVE_MAP_VISIBLE.has((d.status || '').toLowerCase())) return false;
-
-                const ext = d as unknown as { tracking?: { driverId?: string }; confirmedDeliveryDate?: string; metadata?: Record<string, unknown> };
+                const ext = d as unknown as { tracking?: { driverId?: string } };
                 const liveDriverId = ext.tracking?.driverId;
-
-                // 2. Driver filter — when a specific driver is selected, hide
-                //    rows that don't belong to them. When 'all' is selected,
-                //    keep every row including unassigned (those flow into the
-                //    "Unassigned" group below so logistics can pick a driver).
                 if (trackingDriverFilter !== 'all') {
                   if (liveDriverId && liveDriverId !== trackingDriverFilter) return false;
                   if (!(liveDriverId === trackingDriverFilter || d.assignedDriverId === trackingDriverFilter)) return false;
                 }
-
-                // 3. Status quick filter (mutex: All / On Route / Confirmed)
-                const status = (d.status || '').toLowerCase();
-                if (liveStatusFilter === 'out_for_delivery') {
-                  // Match every actively-in-motion status — out-for-delivery plus
-                  // the legacy in-transit / in-progress aliases — so the pill
-                  // count matches the pins drawn by the route polyline.
-                  return ['out-for-delivery', 'in-transit', 'in-progress'].includes(status);
-                }
-                if (liveStatusFilter === 'confirmed') {
-                  // "Confirmed / awaiting dispatch" covers everything between
-                  // customer-confirm and driver-pickup-confirm — i.e. orders
-                  // that need logistics to verify the assignment is right
-                  // before they go out. Includes pgi-done (warehouse picked)
-                  // and pickup-confirmed (driver picked, ready to depart).
-                  return [
-                    'confirmed', 'scheduled-confirmed', 'rescheduled',
-                    'pgi-done', 'pgi_done',
-                    'pickup-confirmed', 'pickup_confirmed',
-                  ].includes(status);
-                }
-                return true; // 'all'
+                return true;
               })
-              // 4b. Composable Priority toggle — independent of status mutex so
-              //     users can ask "On Route AND Priority" instead of being
-              //     forced to pick one.
               .filter((d) => {
                 if (!filterPriority) return true;
                 const meta = (d as unknown as { metadata?: Record<string, unknown> }).metadata ?? {};
                 return meta.isPriority === true;
               })
-              // 4c. Composable Delayed toggle — overdue orders (delivery date
-              //     end-of-day already passed). Independent of status mutex.
               .filter((d) => {
                 if (!filterDelayed) return true;
                 const confirmedDate = (d as unknown as { confirmedDeliveryDate?: string }).confirmedDeliveryDate;
@@ -1640,33 +1621,11 @@ export default function LogisticsTeamPortal() {
                 endOfDay.setHours(23, 59, 59, 999);
                 return nowForFilter > endOfDay;
               })
-              // 5. Date filter (Today / Tomorrow / All) — uses the same Dubai
-              // calendar resolver as the capacity API so the capacity bar in
-              // the driver header always lines up with the visible cards.
-              // 'all' is a no-op so existing status/driver filters still bound the list.
-              //
-              // Override: when a specific driver is selected from the toolbar,
-              // bypass the date filter and show EVERY order assigned to that
-              // driver regardless of date. The date scope is meant for the
-              // all-drivers overview ("what's happening today across the
-              // fleet"); when an operator drills into one driver they need to
-              // see the full load to manage and reassign — anything less makes
-              // the dropdown count ("Driver One — 5 assigned") disagree with
-              // the visible cards in the panel ("1 stop") and prevents
-              // reassigning the orders that the date filter just hid.
               .filter((d) => {
                 if (liveMapsDateMode === 'all') return true;
                 if (trackingDriverFilter !== 'all') return true;
                 return getCapacityDateIso(d) === (liveMapsDateMode === 'today' ? getTodayIsoDubai() : addCalendarDaysDubai(getTodayIsoDubai(), 1));
               })
-              // 6. Free-text search — matches customer name / PO / delivery no /
-              // phone / address. Uses the shared display* helpers so the
-              // search picks up values from metadata aliases (originalRow,
-              // sapDeliveryNumber, Ship-to Name for B2B) — i.e. it matches
-              // exactly what the operator SEES on the card. Without the
-              // helpers, an order whose PO/DN comes from metadata.originalRow
-              // (typical for SAP imports) is invisible to the search even
-              // though the card shows the value clearly.
               .filter((d) => {
                 const q = trackingSearchQuery.trim().toLowerCase();
                 if (!q) return true;
@@ -1683,15 +1642,27 @@ export default function LogisticsTeamPortal() {
                   .join(' ')
                   .toLowerCase();
                 return haystack.includes(q);
+              });
+
+            // Phase counts for the pill strip (computed from base set before phase filter)
+            const phaseCounts = { all: baseDeliveries.length, pre_dispatch: 0, warehouse: 0, on_route: 0, delayed: 0 };
+            for (const d of baseDeliveries) {
+              const phase = getPhase((d.status || '').toLowerCase());
+              phaseCounts[phase]++;
+            }
+
+            // Apply phase filter + sort → final visible list
+            const trackingDeliveries = baseDeliveries
+              .filter((d) => {
+                if (liveStatusFilter === 'all') return true;
+                return getPhase((d.status || '').toLowerCase()) === liveStatusFilter;
               })
-              // Sort: priority first → out-for-delivery before confirmed → by confirmed date → by name
               .sort((a, b) => {
                 const am = (a as unknown as { metadata?: Record<string, unknown> }).metadata ?? {};
                 const bm = (b as unknown as { metadata?: Record<string, unknown> }).metadata ?? {};
                 const ap = am.isPriority === true ? 0 : 1;
                 const bp = bm.isPriority === true ? 0 : 1;
                 if (ap !== bp) return ap - bp;
-                // out-for-delivery before other statuses
                 const aOfd = (a.status || '').toLowerCase() === 'out-for-delivery' ? 0 : 1;
                 const bOfd = (b.status || '').toLowerCase() === 'out-for-delivery' ? 0 : 1;
                 if (aOfd !== bOfd) return aOfd - bOfd;
@@ -1777,13 +1748,15 @@ export default function LogisticsTeamPortal() {
                   key: string;
                   label: string;
                   color?: string;
-                  // Rich payload (driver mode only): drives the capacity bar + on-route/delayed badges
+                  // Rich payload (driver mode only): drives the capacity bar + phase badges
                   driverId?: string;
                   online?: boolean;
                   stops?: number;
                   units?: number;
                   ofd?: number;
                   delay?: number;
+                  preDispatch?: number;
+                  warehouse?: number;
                   isUnassigned?: boolean;
                 }
               | { type: 'card'; delivery: typeof trackingDeliveries[number]; idx: number };
@@ -1805,19 +1778,39 @@ export default function LogisticsTeamPortal() {
                 }
                 const driverColorFromRoutes = new Map(driverRoutes.map((r) => [r.driverId, r.color] as const));
                 let runningIdx = 0;
+                // Unassigned first — most actionable, needs driver assignment
+                if (unassigned.length > 0) {
+                  let units = 0;
+                  for (const d of unassigned) units += unitsFor(d);
+                  items.push({
+                    type: 'header',
+                    key: 'h-unassigned',
+                    label: 'Unassigned',
+                    color: '#f59e0b',
+                    isUnassigned: true,
+                    stops: unassigned.length,
+                    units,
+                    ofd: 0,
+                    delay: 0,
+                  });
+                  unassigned.forEach((d) => items.push({ type: 'card', delivery: d, idx: runningIdx++ }));
+                }
                 for (const [driverId, group] of byId.entries()) {
                   const drv = drivers.find((x) => x.id === driverId);
                   const name = drv?.fullName || drv?.username || 'Driver';
                   const online = drv ? isContactOnline(drv) : false;
-                  // Aggregate stats for the capacity-aware header.
                   let units = 0;
                   let ofd = 0;
                   let delay = 0;
+                  let preDispatch = 0;
+                  let warehouse = 0;
                   for (const d of group) {
                     units += unitsFor(d);
                     const s = (d.status || '').toLowerCase();
-                    if (['out-for-delivery', 'in-transit', 'in-progress'].includes(s)) ofd++;
-                    if (s === 'order-delay' || s === 'order_delay') delay++;
+                    if (ON_ROUTE_STATUSES.has(s)) ofd++;
+                    else if (DELAYED_STATUSES.has(s)) delay++;
+                    else if (PRE_DISPATCH_STATUSES.has(s)) preDispatch++;
+                    else if (WAREHOUSE_STATUSES.has(s)) warehouse++;
                   }
                   items.push({
                     type: 'header',
@@ -1830,24 +1823,10 @@ export default function LogisticsTeamPortal() {
                     units,
                     ofd,
                     delay,
+                    preDispatch,
+                    warehouse,
                   });
                   group.forEach((d) => items.push({ type: 'card', delivery: d, idx: runningIdx++ }));
-                }
-                if (unassigned.length > 0) {
-                  let units = 0;
-                  for (const d of unassigned) units += unitsFor(d);
-                  items.push({
-                    type: 'header',
-                    key: 'h-unassigned',
-                    label: 'Unassigned',
-                    color: '#9ca3af',
-                    isUnassigned: true,
-                    stops: unassigned.length,
-                    units,
-                    ofd: 0,
-                    delay: 0,
-                  });
-                  unassigned.forEach((d) => items.push({ type: 'card', delivery: d, idx: runningIdx++ }));
                 }
                 return items;
               }
@@ -1975,7 +1954,7 @@ export default function LogisticsTeamPortal() {
                           type="button"
                           onClick={() => setOpenToolbarMenu(openToolbarMenu === 'filter' ? null : 'filter')}
                           className={`inline-flex items-center gap-1 px-2 py-1.5 text-xs rounded-md border transition-colors ${
-                            (liveStatusFilter !== 'all' || filterPriority || filterDelayed || trackingDriverFilter !== 'all' || liveMapsDateMode !== 'today')
+                            (filterPriority || filterDelayed || trackingDriverFilter !== 'all' || liveMapsDateMode !== 'today')
                               ? 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
                               : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
                           }`}
@@ -2007,24 +1986,6 @@ export default function LogisticsTeamPortal() {
                                         ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm'
                                         : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                                     }`}>{m.label}</button>
-                                ))}
-                              </div>
-                            </div>
-                            <div>
-                              <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">Status</p>
-                              <div className="flex gap-1 rounded-md bg-gray-100 dark:bg-gray-800 p-0.5">
-                                {([
-                                  { key: 'all',              label: 'All' },
-                                  { key: 'out_for_delivery', label: 'On Route' },
-                                  { key: 'confirmed',        label: 'Confirmed' },
-                                ] as { key: typeof liveStatusFilter; label: string }[]).map((f) => (
-                                  <button key={f.key} type="button"
-                                    onClick={() => setLiveStatusFilter(f.key)}
-                                    className={`flex-1 px-2 py-1 rounded text-[11px] font-semibold transition-colors ${
-                                      liveStatusFilter === f.key
-                                        ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm'
-                                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                                    }`}>{f.label}</button>
                                 ))}
                               </div>
                             </div>
@@ -2148,9 +2109,6 @@ export default function LogisticsTeamPortal() {
                       if (liveMapsDateMode !== 'today') {
                         activeFilters.push({ label: liveMapsDateMode === 'tomorrow' ? 'Tomorrow' : 'All dates', clear: () => setLiveMapsDateMode('today') });
                       }
-                      if (liveStatusFilter !== 'all') {
-                        activeFilters.push({ label: liveStatusFilter === 'out_for_delivery' ? 'On Route' : 'Confirmed', clear: () => setLiveStatusFilter('all') });
-                      }
                       if (filterPriority)  activeFilters.push({ label: '★ Priority', clear: () => setFilterPriority(false) });
                       if (filterDelayed)   activeFilters.push({ label: '⚠ Delayed', clear: () => setFilterDelayed(false) });
                       if (trackingDriverFilter !== 'all') {
@@ -2186,12 +2144,39 @@ export default function LogisticsTeamPortal() {
                     })()}
                   </div>
 
-                  {/* ── DELIVERY LIST ──
-                      Flat, divider-separated rows — no nested card boxes,
-                      no <table> chrome. Each row: status dot · # · customer
-                      (bold) + address (muted) · status/ETA (right) · actions.
-                      Group rows are flat section dividers (driver name + capacity
-                      bar) that sit naturally between deliveries. */}
+                  {/* ── PIPELINE PHASE PILLS ── */}
+                  <div className="flex-shrink-0 flex items-center gap-1 px-1 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-x-auto">
+                    {([
+                      { key: 'all',          label: 'All',          color: 'bg-gray-500' },
+                      { key: 'pre_dispatch', label: 'Pre-Dispatch', color: 'bg-purple-500' },
+                      { key: 'warehouse',    label: 'Warehouse',    color: 'bg-amber-500' },
+                      { key: 'on_route',     label: 'On Route',     color: 'bg-blue-500' },
+                      { key: 'delayed',      label: 'Delayed',      color: 'bg-red-500' },
+                    ] as { key: typeof liveStatusFilter; label: string; color: string }[]).map((p) => {
+                      const count = phaseCounts[p.key];
+                      const isActive = liveStatusFilter === p.key;
+                      return (
+                        <button
+                          key={p.key}
+                          type="button"
+                          onClick={() => setLiveStatusFilter(p.key)}
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-semibold whitespace-nowrap transition-colors ${
+                            isActive
+                              ? 'bg-[#032145] text-white shadow-sm'
+                              : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                          }`}
+                        >
+                          <span className={`inline-block w-1.5 h-1.5 rounded-full ${isActive ? 'bg-white' : p.color}`} />
+                          {p.label}
+                          <span className={`text-[10px] tabular-nums ${isActive ? 'text-white/70' : 'text-gray-400 dark:text-gray-500'}`}>
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* ── DELIVERY LIST ── */}
                   <div className="flex-1 overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg" style={{ minHeight: 0 }}>
                     {trackingDeliveries.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-500 text-sm gap-2">
@@ -2211,41 +2196,57 @@ export default function LogisticsTeamPortal() {
                           const pct = Math.max(0, Math.min(100, (used / Math.max(1, max)) * 100));
                           const barColor = pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-amber-500' : 'bg-emerald-500';
                           return (
-                            <div key={item.key} className="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800/40">
+                            <div
+                              key={item.key}
+                              className={`flex items-center gap-2 px-3 py-2 ${
+                                item.isUnassigned
+                                  ? 'bg-amber-50 dark:bg-amber-900/20 border-l-3 border-amber-400'
+                                  : 'bg-gray-50 dark:bg-gray-800/40'
+                              }`}
+                              style={item.isUnassigned ? { borderLeft: '3px solid #f59e0b' } : undefined}
+                            >
                               {!item.isUnassigned && (
                                 <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${item.online ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
                               )}
-                              <span className="truncate text-[11px] font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-200">
+                              <span className={`truncate text-[11px] font-semibold uppercase tracking-wider ${item.isUnassigned ? 'text-amber-700 dark:text-amber-300' : 'text-gray-700 dark:text-gray-200'}`}>
                                 {item.label}
                               </span>
                               <span className="text-[10px] text-gray-400 dark:text-gray-500 tabular-nums shrink-0">
                                 · {item.stops} {item.stops === 1 ? 'stop' : 'stops'}
                               </span>
                               {!item.isUnassigned && (
-                                <>
-                                  <div className="ml-auto flex items-center gap-2 shrink-0">
-                                    {item.delay != null && item.delay > 0 && (
-                                      <span className="text-[10px] font-semibold text-red-600 dark:text-red-400">
-                                        ⚠ {item.delay}
-                                      </span>
-                                    )}
-                                    {item.ofd != null && item.ofd > 0 && (
-                                      <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400">
-                                        🚛 {item.ofd}
-                                      </span>
-                                    )}
-                                    <div className="w-16 h-1 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-                                      <div className={`h-full ${barColor} transition-all`} style={{ width: `${pct}%` }} />
-                                    </div>
-                                    <span className={`text-[10px] font-semibold tabular-nums ${pct >= 90 ? 'text-red-600 dark:text-red-400' : pct >= 70 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-600 dark:text-gray-300'}`}>
-                                      {used}/{max}
+                                <div className="ml-auto flex items-center gap-1.5 shrink-0">
+                                  {item.preDispatch != null && item.preDispatch > 0 && (
+                                    <span className="text-[9px] font-semibold px-1 py-px rounded bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 tabular-nums">
+                                      {item.preDispatch} pre
                                     </span>
+                                  )}
+                                  {item.warehouse != null && item.warehouse > 0 && (
+                                    <span className="text-[9px] font-semibold px-1 py-px rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 tabular-nums">
+                                      {item.warehouse} wh
+                                    </span>
+                                  )}
+                                  {item.ofd != null && item.ofd > 0 && (
+                                    <span className="text-[9px] font-semibold px-1 py-px rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 tabular-nums">
+                                      {item.ofd} route
+                                    </span>
+                                  )}
+                                  {item.delay != null && item.delay > 0 && (
+                                    <span className="text-[9px] font-semibold px-1 py-px rounded bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 tabular-nums">
+                                      {item.delay} delay
+                                    </span>
+                                  )}
+                                  <div className="w-14 h-1 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                                    <div className={`h-full ${barColor} transition-all`} style={{ width: `${pct}%` }} />
                                   </div>
-                                </>
+                                  <span className={`text-[10px] font-semibold tabular-nums ${pct >= 90 ? 'text-red-600 dark:text-red-400' : pct >= 70 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-600 dark:text-gray-300'}`}>
+                                    {used}/{max}
+                                  </span>
+                                </div>
                               )}
                               {item.isUnassigned && (
-                                <span className="ml-auto text-[10px] text-gray-500 dark:text-gray-400 tabular-nums shrink-0">
-                                  · {item.units} {item.units === 1 ? 'unit' : 'units'}
+                                <span className="ml-auto text-[10px] font-medium text-amber-600 dark:text-amber-400 shrink-0">
+                                  need a driver
                                 </span>
                               )}
                             </div>
@@ -2457,14 +2458,7 @@ export default function LogisticsTeamPortal() {
                             </span>
                           </div>
 
-                          {/* Actions — same pattern the Manage table uses:
-                              one tiny driver <select> per row + a POD icon.
-                              The select shows the current driver as the
-                              default option and lists every driver with a
-                              capacity hint inline; full drivers are disabled.
-                              Clicking it doesn't fan out a dozen capacity
-                              refetches — just the assign API + an optimistic
-                              local update + a deliveriesUpdated event. */}
+                          {/* Phase-aware actions */}
                           <div className="shrink-0 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                             {(() => {
                               const orderUnits = unitsFor(delivery);
@@ -2472,7 +2466,8 @@ export default function LogisticsTeamPortal() {
                               const currentDriverId = (delivery as unknown as { tracking?: { driverId?: string } }).tracking?.driverId
                                 || delivery.assignedDriverId
                                 || '';
-                              return (
+                              const phase = getPhase(statusLcForBadge);
+                              const driverSelect = (
                                 <select
                                   value={currentDriverId}
                                   disabled={reassignBusyId === delivery.id}
@@ -2481,11 +2476,11 @@ export default function LogisticsTeamPortal() {
                                     if (!newDriverId || newDriverId === currentDriverId) return;
                                     void reassignDelivery(delivery.id, newDriverId);
                                   }}
-                                  className="max-w-[110px] px-1.5 py-1 text-[10px] rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 cursor-pointer"
+                                  className="max-w-[100px] px-1 py-1 text-[10px] rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 cursor-pointer"
                                   title="Assign / reassign driver"
                                   aria-label="Driver"
                                 >
-                                  <option value="">{currentDriverId ? '— Reassign —' : '— Assign —'}</option>
+                                  <option value="">{currentDriverId ? 'Reassign' : 'Assign'}</option>
                                   {drivers.map((dr) => {
                                     const isCurrent = dr.id === currentDriverId;
                                     const cap = driverCapacityByDate[targetIso]?.[dr.id];
@@ -2495,22 +2490,69 @@ export default function LogisticsTeamPortal() {
                                     const capHint = cap ? ` (${used}/${max})` : '';
                                     return (
                                       <option key={dr.id} value={dr.id} disabled={isCurrent || wouldOverflow}>
-                                        {(dr.fullName || dr.username) + capHint + (isCurrent ? ' • current' : wouldOverflow ? ' • full' : '')}
+                                        {(dr.fullName || dr.username) + capHint + (isCurrent ? ' •' : wouldOverflow ? ' full' : '')}
                                       </option>
                                     );
                                   })}
                                 </select>
                               );
+
+                              // Phase-specific quick-action button
+                              const quickAction = (() => {
+                                if (phase === 'on_route') {
+                                  return (
+                                    <button
+                                      type="button"
+                                      onClick={() => setPodModalDelivery(delivery)}
+                                      className="inline-flex items-center justify-center w-7 h-7 rounded text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                                      title="Upload POD"
+                                      aria-label="Upload POD"
+                                    >
+                                      <Camera className="w-3.5 h-3.5" />
+                                    </button>
+                                  );
+                                }
+                                if (phase === 'warehouse') {
+                                  return (
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        try {
+                                          await api.put(`/deliveries/admin/${delivery.id}/status`, { status: 'out-for-delivery' });
+                                          setDeliveries((prev) => prev.map((d) => d.id === delivery.id ? { ...d, status: 'out-for-delivery' } as Delivery : d));
+                                          window.dispatchEvent(new CustomEvent('deliveriesUpdated', { detail: { deliveryId: delivery.id } }));
+                                        } catch { /* ignore */ }
+                                      }}
+                                      className="inline-flex items-center gap-0.5 px-1.5 py-1 rounded border text-[9px] font-semibold border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 transition-colors whitespace-nowrap"
+                                      title="Dispatch — mark as Out for Delivery"
+                                    >
+                                      <Truck className="w-3 h-3" /> Go
+                                    </button>
+                                  );
+                                }
+                                if (phase === 'delayed') {
+                                  return (
+                                    <button
+                                      type="button"
+                                      onClick={() => setPodModalDelivery(delivery)}
+                                      className="inline-flex items-center gap-0.5 px-1.5 py-1 rounded border text-[9px] font-semibold border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300 hover:bg-amber-600 hover:text-white dark:hover:bg-amber-600 transition-colors whitespace-nowrap"
+                                      title="View / manage delayed order"
+                                    >
+                                      <Clock className="w-3 h-3" /> Manage
+                                    </button>
+                                  );
+                                }
+                                // pre_dispatch — no extra button, assign is the action
+                                return null;
+                              })();
+
+                              return (
+                                <>
+                                  {driverSelect}
+                                  {quickAction}
+                                </>
+                              );
                             })()}
-                            <button
-                              type="button"
-                              onClick={() => setPodModalDelivery(delivery)}
-                              className="inline-flex items-center justify-center w-7 h-7 rounded text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
-                              title="Upload Proof of Delivery"
-                              aria-label="Upload POD"
-                            >
-                              <Camera className="w-3.5 h-3.5" />
-                            </button>
                           </div>
                         </div>
                       );
