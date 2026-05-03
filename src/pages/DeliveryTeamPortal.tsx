@@ -3695,10 +3695,25 @@ export default function DeliveryTeamPortal() {
                     ) : (
                       <>
                         <div className="overflow-x-auto rounded-lg border border-gray-100 dark:border-gray-800">
-                          <table className="w-full text-sm min-w-[1050px]">
+                          <table className="w-full text-sm table-fixed min-w-[1100px]">
+                            <colgroup>
+                              <col style={{ width: '34px' }} />  {/* Checkbox */}
+                              <col style={{ width: '30px' }} />  {/* # */}
+                              <col style={{ width: '9%' }} />    {/* PO Number */}
+                              <col style={{ width: '9%' }} />    {/* Delivery No. */}
+                              <col style={{ width: '12%' }} />   {/* Customer */}
+                              <col style={{ width: '9%' }} />    {/* Material */}
+                              <col style={{ width: '8%' }} />    {/* Model ID */}
+                              <col style={{ width: '12%' }} />   {/* Description */}
+                              <col style={{ width: '4%' }} />    {/* Qty */}
+                              <col style={{ width: '13%' }} />   {/* Address */}
+                              <col style={{ width: '9%' }} />    {/* Driver */}
+                              <col style={{ width: '7%' }} />    {/* Date */}
+                              <col style={{ width: '9%' }} />    {/* Status */}
+                            </colgroup>
                             <thead className="bg-gray-50 dark:bg-gray-800/95">
                               <tr className="border-b border-gray-200 dark:border-gray-700">
-                                <th className="py-2 px-2 w-8 text-center">
+                                <th className="py-2 px-1.5 text-center">
                                   <input
                                     type="checkbox"
                                     checked={pageRows.length > 0 && pageRows.every(({ d }) => podSelectedIds.has(String(d.id)))}
@@ -3715,7 +3730,7 @@ export default function DeliveryTeamPortal() {
                                     title="Select all on this page"
                                   />
                                 </th>
-                                <th className="text-left py-2 px-2.5 text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-8">#</th>
+                                <th className="text-left py-2 px-1.5 text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">#</th>
                                 {([
                                   { key: 'poNumber',     label: 'PO Number',   cls: 'whitespace-nowrap' },
                                   { key: 'deliveryNo',   label: 'Delivery No.', cls: 'whitespace-nowrap' },
@@ -3739,7 +3754,7 @@ export default function DeliveryTeamPortal() {
                                         setPodSortDir('asc');
                                       }
                                     }}
-                                    className={`text-left py-2.5 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors ${col.cls}`}
+                                    className={`text-left py-2 px-2 text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors ${col.cls}`}
                                   >
                                     <span className="inline-flex items-center gap-1">
                                       {col.label}
@@ -3789,7 +3804,7 @@ export default function DeliveryTeamPortal() {
                                 const isRowSelected = podSelectedIds.has(String(d.id));
                                 return (
                                   <tr key={String(d.id ?? idx)} className={`transition-colors ${isRowSelected ? 'bg-blue-50 dark:bg-blue-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'}`}>
-                                    <td className="py-2 px-2 text-center">
+                                    <td className="py-1.5 px-1.5 text-center">
                                       <input
                                         type="checkbox"
                                         checked={isRowSelected}
@@ -3801,27 +3816,23 @@ export default function DeliveryTeamPortal() {
                                         className="w-3.5 h-3.5 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
                                       />
                                     </td>
-                                    <td className="py-2 px-2.5 text-xs text-gray-400 dark:text-gray-500 tabular-nums">{globalIdx + 1}</td>
-                                    <td className="py-2 px-2.5 font-mono text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                                      {displayPoNumber(d as unknown as Delivery) || '—'}
-                                    </td>
-                                    <td className="py-2 px-2.5 font-mono text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                                      {displayDeliveryNumber(d as unknown as Delivery) || '—'}
-                                    </td>
-                                    <td className="py-2 px-2.5 font-medium text-xs text-gray-900 dark:text-gray-100 max-w-[130px]"><span className="block truncate">{d.customer ?? '—'}</span></td>
-                                    <td className="py-2 px-2.5 font-mono text-xs text-blue-700 dark:text-blue-400 whitespace-nowrap">{pnc}</td>
-                                    <td className="py-2 px-2.5 font-mono text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">{modelId}</td>
-                                    <td className="py-2 px-2.5 text-gray-500 dark:text-gray-400 hidden lg:table-cell max-w-[140px]"><span className="block truncate text-xs">{description}</span></td>
-                                    <td className="py-2 px-2.5 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap tabular-nums">{qty}</td>
-                                    <td className="py-2 px-2.5 text-gray-500 dark:text-gray-400 hidden md:table-cell max-w-[130px]"><span className="block truncate text-xs">{d.address ?? '—'}</span></td>
-                                    <td className="py-2 px-2.5 whitespace-nowrap text-xs">
+                                    <td className="py-1.5 px-1.5 text-xs text-gray-400 dark:text-gray-500 tabular-nums">{globalIdx + 1}</td>
+                                    <td className="py-1.5 px-2 font-mono text-xs text-gray-700 dark:text-gray-300 truncate">{displayPoNumber(d as unknown as Delivery) || '—'}</td>
+                                    <td className="py-1.5 px-2 font-mono text-xs text-gray-600 dark:text-gray-400 truncate">{displayDeliveryNumber(d as unknown as Delivery) || '—'}</td>
+                                    <td className="py-1.5 px-2 font-medium text-xs text-gray-900 dark:text-gray-100 truncate">{d.customer ?? '—'}</td>
+                                    <td className="py-1.5 px-2 font-mono text-xs text-blue-700 dark:text-blue-400 truncate">{pnc}</td>
+                                    <td className="py-1.5 px-2 font-mono text-xs text-gray-600 dark:text-gray-400 truncate">{modelId}</td>
+                                    <td className="py-1.5 px-2 text-xs text-gray-500 dark:text-gray-400 hidden lg:table-cell truncate">{description}</td>
+                                    <td className="py-1.5 px-2 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 tabular-nums">{qty}</td>
+                                    <td className="py-1.5 px-2 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell truncate">{d.address ?? '—'}</td>
+                                    <td className="py-1.5 px-2 text-xs truncate">
                                       {d.driverName
-                                        ? <span className="text-gray-800 dark:text-gray-200 font-medium">{d.driverName}</span>
+                                        ? <span className="text-gray-800 dark:text-gray-200 font-medium">{String(d.driverName)}</span>
                                         : <span className="text-gray-400 dark:text-gray-500 italic">Unassigned</span>}
                                     </td>
-                                    <td className="py-2 px-2.5 text-gray-500 dark:text-gray-400 whitespace-nowrap text-xs">{formattedDate}</td>
-                                    <td className="py-2 px-2.5">
-                                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${statusColor}`}>{statusLabel}</span>
+                                    <td className="py-1.5 px-2 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{formattedDate}</td>
+                                    <td className="py-1.5 px-2">
+                                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${statusColor}`}>{statusLabel}</span>
                                     </td>
                                   </tr>
                                 );

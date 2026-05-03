@@ -907,15 +907,15 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
       <div className="overflow-x-auto">
         <table className="manage-orders-table-mobile table-mobile-cards table-fixed w-full min-w-[900px] border-collapse text-sm">
           <colgroup>
-            <col style={{ width: '36px' }} />  {/* Checkbox */}
-            <col style={{ width: '15%' }} />   {/* Customer */}
+            <col style={{ width: '34px' }} />  {/* Checkbox */}
+            <col style={{ width: '16%' }} />   {/* Customer */}
             <col style={{ width: '11%' }} />   {/* Order */}
             <col style={{ width: '17%' }} />   {/* Product */}
             <col style={{ width: '11%' }} />   {/* Dates */}
-            <col style={{ width: '9%' }} />    {/* Priority */}
-            <col style={{ width: '13%' }} />   {/* Driver */}
-            <col style={{ width: '11%' }} />   {/* Status */}
-            <col style={{ width: '9%' }} />    {/* Action */}
+            <col style={{ width: '8%' }} />    {/* Priority */}
+            <col style={{ width: '12%' }} />   {/* Driver */}
+            <col style={{ width: '12%' }} />   {/* Status */}
+            <col style={{ width: '8%' }} />    {/* Action */}
           </colgroup>
           <thead className="border-b border-gray-200 bg-gray-50/95 dark:border-gray-600 dark:bg-gray-900/90">
             <tr>
@@ -936,28 +936,28 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                   title="Select all on this page"
                 />
               </th>
-              <th className="whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="whitespace-nowrap px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Customer
               </th>
-              <th className="whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="whitespace-nowrap px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Order
               </th>
-              <th className="whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="whitespace-nowrap px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Product
               </th>
-              <th className="whitespace-nowrap px-2 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="whitespace-nowrap px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Dates
               </th>
-              <th className="whitespace-nowrap px-2 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="whitespace-nowrap px-2 py-2 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Priority
               </th>
-              <th className="whitespace-nowrap px-2 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="whitespace-nowrap px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Driver
               </th>
-              <th className="whitespace-nowrap px-2 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="whitespace-nowrap px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Status
               </th>
-              <th className="whitespace-nowrap px-2 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="whitespace-nowrap px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Action
               </th>
             </tr>
@@ -999,7 +999,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                       />
                     </td>
                     {/* Customer: name + Type badge + phone with call button */}
-                    <td className="overflow-hidden px-3 py-2.5 align-middle" data-label="Customer">
+                    <td className="overflow-hidden px-2 py-2 align-middle" data-label="Customer">
                       <div className="flex min-w-0 flex-col gap-0.5">
                         <div className="flex min-w-0 items-center gap-1.5">
                           <span className="line-clamp-1 min-w-0 flex-1 font-medium leading-snug text-gray-900 dark:text-white" title={order.customerName}>
@@ -1032,7 +1032,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                     </td>
 
                     {/* Order: PO# + Delivery No. + Area */}
-                    <td className="overflow-hidden px-3 py-2.5 align-middle" data-label="Order">
+                    <td className="overflow-hidden px-2 py-2 align-middle" data-label="Order">
                       <div className="flex min-w-0 flex-col gap-0.5">
                         <span className="block truncate font-mono text-[13px] font-semibold text-gray-800 dark:text-gray-200" title={order.orderNumber}>
                           {order.orderNumber}
@@ -1047,7 +1047,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                     </td>
 
                     {/* Product: Model + Description (+ optional Material · Qty inline) */}
-                    <td className="overflow-hidden px-3 py-2.5 align-middle" data-label="Product">
+                    <td className="overflow-hidden px-2 py-2 align-middle" data-label="Product">
                       <div className="flex min-w-0 flex-col gap-0.5">
                         <span
                           className="block truncate text-[13px] font-semibold leading-snug text-gray-800 dark:text-gray-200"
@@ -1082,7 +1082,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                     </td>
 
                     {/* Dates: Del. Date + PGI Date stacked */}
-                    <td className="overflow-hidden px-2 py-2.5 align-middle" data-label="Dates">
+                    <td className="overflow-hidden px-2 py-2 align-middle" data-label="Dates">
                       <div className="flex min-w-0 flex-col gap-0.5 text-[12px] leading-snug">
                         <div className="flex min-w-0 items-baseline gap-1 whitespace-nowrap">
                           <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Del</span>
@@ -1101,7 +1101,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                       </div>
                     </td>
 
-                    <td className="px-2 py-2.5 align-middle text-center" data-label="Priority">
+                    <td className="px-2 py-2 align-middle text-center" data-label="Priority">
                       {onTogglePriority ? (
                         <button
                           type="button"
@@ -1126,7 +1126,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                         </span>
                       )}
                     </td>
-                    <td className="overflow-hidden px-2 py-2.5 align-middle" data-label="Driver">
+                    <td className="overflow-hidden px-2 py-2 align-middle" data-label="Driver">
                       {simpleDriverDisplay ? (
                         /* Delivery Team Portal: read-only plain text — no icon, no dropdown */
                         order.driverName ? (
@@ -1188,7 +1188,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                         )
                       )}
                     </td>
-                    <td className="overflow-hidden px-2 py-2.5 align-middle" data-label="Status">
+                    <td className="overflow-hidden px-2 py-2 align-middle" data-label="Status">
                       <div className="inline-flex flex-col gap-1 max-w-full">
                         <OrderStatusPill status={
                           DISPLAY_AS_CONFIRMED.has(order.status) ? 'confirmed' :
@@ -1201,7 +1201,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                         )}
                       </div>
                     </td>
-                    <td className="px-2 py-2.5 align-middle" data-label="Action">
+                    <td className="px-2 py-2 align-middle" data-label="Action">
                       <ActionDropdown
                         order={order}
                         onStatusChange={onStatusChange}
