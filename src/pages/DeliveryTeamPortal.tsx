@@ -1239,10 +1239,10 @@ export default function DeliveryTeamPortal() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading operations center...</p>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--primary)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
+          <img src="/elect home.png" alt="Electrolux" style={{ height: '40px', objectFit: 'contain', filter: 'brightness(0) invert(1)', opacity: 0.95 }} />
+          <div style={{ width: '24px', height: '24px', border: '2.5px solid rgba(255,255,255,0.3)', borderTopColor: '#ffffff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
         </div>
       </div>
     );
