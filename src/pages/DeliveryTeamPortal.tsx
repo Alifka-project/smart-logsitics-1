@@ -1239,7 +1239,7 @@ export default function DeliveryTeamPortal() {
 
   if (loading) {
     return (
-      <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--primary)' }}>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#032145' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
           <img src="/elect home.png" alt="Electrolux" style={{ height: '40px', objectFit: 'contain', filter: 'brightness(0) invert(1)', opacity: 0.95 }} />
           <div style={{ width: '24px', height: '24px', border: '2.5px solid rgba(255,255,255,0.3)', borderTopColor: '#ffffff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
@@ -1820,23 +1820,10 @@ export default function DeliveryTeamPortal() {
                           a target marker, not a danger signal (per Electrolux
                           palette: status colours stay in status). */}
                       <ReferenceLine yAxisId="right" y={90} stroke="#9399B8" strokeDasharray="4 4" label={{ value: 'Goal 90%', position: 'insideTopRight', fontSize: 10, fill: '#4B5280' }} />
-                      {/* Orders bars: Electrolux primary blue (primary-500
-                          mid-tone fill, the canonical chart-bar colour on
-                          light surfaces per the brand palette).
-                          isAnimationActive=false: the dashboard polls every
-                          60 s and re-creates dashData (and therefore the
-                          chart's data array) on every tick. Recharts replays
-                          the entry animation each time, which the operator
-                          sees as the chart "blinking". Disabling the animation
-                          eliminates the flash; the chart still re-renders
-                          when the underlying data actually changes. */}
-                      <Bar yAxisId="left" dataKey="orders" name="Orders" fill="#1F72B3" radius={[4, 4, 0, 0]} maxBarSize={28} isAnimationActive={false} />
-                      {/* On-Time line: success green — same semantic colour
-                          used for "Delivered / paid / on-time" status badges
-                          across the system, so the line reads as "good" at
-                          a glance instead of competing with the red goal/
-                          warning palette. */}
-                      <Line yAxisId="right" type="monotone" dataKey="onTimeRate" name="On-Time Rate" stroke="#15803D" strokeWidth={2.5} dot={{ r: 3, fill: '#15803D' }} activeDot={{ r: 5 }} isAnimationActive={false} />
+                      {/* Orders bars: Electrolux primary blue */}
+                      <Bar yAxisId="left" dataKey="orders" name="Orders" fill="#1F72B3" radius={[4, 4, 0, 0]} maxBarSize={28} animationDuration={800} animationEasing="ease-out" />
+                      {/* On-Time line: success green */}
+                      <Line yAxisId="right" type="monotone" dataKey="onTimeRate" name="On-Time Rate" stroke="#15803D" strokeWidth={2.5} dot={{ r: 3, fill: '#15803D' }} activeDot={{ r: 5 }} animationDuration={1000} animationEasing="ease-out" />
                     </ComposedChart>
                   </ResponsiveContainer>
                 </div>
@@ -1875,18 +1862,10 @@ export default function DeliveryTeamPortal() {
                         formatter={(value: number, name: string) => [`${value} min`, name]}
                       />
                       <Legend wrapperStyle={{ fontSize: 12 }} />
-                      {/* Avg Delivery Time: Electrolux primary blue (matches
-                          the Orders bars in the daily-orders chart for
-                          visual continuity across the dashboard).
-                          isAnimationActive=false: same reason as the combo
-                          chart above — 60 s polling re-creates the data
-                          array and the entry animation replays as a flicker
-                          even when nothing actually changed. */}
-                      <Bar dataKey="avgDeliveryTime" name="Avg Delivery Time" fill="#1F72B3" radius={[3, 3, 0, 0]} maxBarSize={28} isAnimationActive={false} />
-                      {/* Avg Late Time: Electrolux danger red (red-600 button
-                          fill) — semantic colour for the "lateness" KPI so
-                          it pops against the on-time green elsewhere. */}
-                      <Bar dataKey="avgLateTime" name="Avg Late Time" fill="#DC2626" radius={[3, 3, 0, 0]} maxBarSize={28} isAnimationActive={false} />
+                      {/* Avg Delivery Time: Electrolux primary blue */}
+                      <Bar dataKey="avgDeliveryTime" name="Avg Delivery Time" fill="#1F72B3" radius={[3, 3, 0, 0]} maxBarSize={28} animationDuration={800} animationEasing="ease-out" />
+                      {/* Avg Late Time: danger red */}
+                      <Bar dataKey="avgLateTime" name="Avg Late Time" fill="#DC2626" radius={[3, 3, 0, 0]} maxBarSize={28} animationDuration={800} animationBegin={200} animationEasing="ease-out" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>

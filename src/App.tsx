@@ -33,11 +33,13 @@ function App() {
         fallback={
           <div
             style={{
-              minHeight: '100vh',
+              position: 'fixed' as const,
+              inset: 0,
+              zIndex: 9999,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              background: 'var(--primary)',
+              background: '#032145',
             }}
           >
             <div
