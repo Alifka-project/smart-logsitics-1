@@ -244,6 +244,17 @@ export default function DeliveryTeamPortal() {
   const [podSortDir, setPodSortDir] = useState<'asc' | 'desc'>('desc');
   const [podPage, setPodPage] = useState(1);
   const podTableRef = useRef<HTMLDivElement | null>(null);
+  // Track whether charts have played their entrance animation. After the
+  // first render, disable animation so the 60-second polling refresh
+  // doesn't replay the bars/lines and cause blinking.
+  const chartsAnimatedRef = useRef(false);
+  useEffect(() => {
+    if (dashData && !chartsAnimatedRef.current) {
+      // Let the first animation complete (longest is 1000ms line), then lock.
+      const t = setTimeout(() => { chartsAnimatedRef.current = true; }, 1200);
+      return () => clearTimeout(t);
+    }
+  }, [dashData]);
   const POD_PAGE_SIZE = 20;
   // Row selection for targeted export — when non-empty, CSV/POD exports
   // only include the ticked rows. Empty set = export all filtered rows.
@@ -1818,9 +1829,9 @@ export default function DeliveryTeamPortal() {
                           palette: status colours stay in status). */}
                       <ReferenceLine yAxisId="right" y={90} stroke="#9399B8" strokeDasharray="4 4" label={{ value: 'Goal 90%', position: 'insideTopRight', fontSize: 10, fill: '#4B5280' }} />
                       {/* Orders bars: Electrolux primary blue */}
-                      <Bar yAxisId="left" dataKey="orders" name="Orders" fill="#1F72B3" radius={[4, 4, 0, 0]} maxBarSize={28} animationDuration={800} animationEasing="ease-out" />
+                      <Bar yAxisId="left" dataKey="orders" name="Orders" fill="#1F72B3" radius={[4, 4, 0, 0]} maxBarSize={28} isAnimationActive={!chartsAnimatedRef.current} animationDuration={800} animationEasing="ease-out" />
                       {/* On-Time line: success green */}
-                      <Line yAxisId="right" type="monotone" dataKey="onTimeRate" name="On-Time Rate" stroke="#15803D" strokeWidth={2.5} dot={{ r: 3, fill: '#15803D' }} activeDot={{ r: 5 }} animationDuration={1000} animationEasing="ease-out" />
+                      <Line yAxisId="right" type="monotone" dataKey="onTimeRate" name="On-Time Rate" stroke="#15803D" strokeWidth={2.5} dot={{ r: 3, fill: '#15803D' }} activeDot={{ r: 5 }} isAnimationActive={!chartsAnimatedRef.current} animationDuration={1000} animationEasing="ease-out" />
                     </ComposedChart>
                   </ResponsiveContainer>
                 </div>
@@ -1860,9 +1871,9 @@ export default function DeliveryTeamPortal() {
                       />
                       <Legend wrapperStyle={{ fontSize: 12 }} />
                       {/* Avg Delivery Time: Electrolux primary blue */}
-                      <Bar dataKey="avgDeliveryTime" name="Avg Delivery Time" fill="#1F72B3" radius={[3, 3, 0, 0]} maxBarSize={28} animationDuration={800} animationEasing="ease-out" />
+                      <Bar dataKey="avgDeliveryTime" name="Avg Delivery Time" fill="#1F72B3" radius={[3, 3, 0, 0]} maxBarSize={28} isAnimationActive={!chartsAnimatedRef.current} animationDuration={800} animationEasing="ease-out" />
                       {/* Avg Late Time: danger red */}
-                      <Bar dataKey="avgLateTime" name="Avg Late Time" fill="#DC2626" radius={[3, 3, 0, 0]} maxBarSize={28} animationDuration={800} animationBegin={200} animationEasing="ease-out" />
+                      <Bar dataKey="avgLateTime" name="Avg Late Time" fill="#DC2626" radius={[3, 3, 0, 0]} maxBarSize={28} isAnimationActive={!chartsAnimatedRef.current} animationDuration={800} animationBegin={200} animationEasing="ease-out" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
