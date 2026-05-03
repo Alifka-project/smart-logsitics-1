@@ -440,9 +440,9 @@
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow1);
     border: 1px solid var(--border);   /* ultra-subtle outline only */
-    transition: box-shadow 0.2s ease, background-color 0.2s ease;
+    transition: box-shadow 0.25s ease, background-color 0.2s ease, transform 0.25s ease;
   }
-  .pp-card:hover { box-shadow: var(--shadow2); }
+  .pp-card:hover { box-shadow: var(--shadow2); transform: translateY(-1px); }
 
   /* ── KPI / Stat card ── */
   .pp-stat-card {
@@ -488,13 +488,14 @@
       0 4px 24px rgba(15, 23, 42, 0.06),
       0 1px 3px rgba(15, 23, 42, 0.04);
     border: 1px solid rgba(0, 0, 0, 0.045);
-    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    transition: box-shadow 0.25s ease, border-color 0.2s ease, transform 0.25s ease;
   }
 
   .pp-dash-card:hover {
     box-shadow:
       0 10px 36px rgba(15, 23, 42, 0.08),
       0 2px 8px rgba(15, 23, 42, 0.05);
+    transform: translateY(-2px);
   }
 
   .dark .pp-dash-card {
@@ -1253,4 +1254,169 @@
 
 .pp-modal-card {
   animation: pp-card-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DYNAMIC ENTRANCE ANIMATIONS
+   Applied globally to cards, dropdowns, panels, pills, etc.
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Keyframes ──────────────────────────────────────────── */
+@keyframes pp-fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes pp-fade-scale {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes pp-pop-in {
+  0%   { opacity: 0; transform: scale(0.92) translateY(6px); }
+  70%  { opacity: 1; transform: scale(1.02) translateY(-1px); }
+  100% { opacity: 1; transform: none; }
+}
+
+@keyframes pp-slide-down {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes pp-counter-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.9); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes pp-progress-fill {
+  from { width: 0; }
+}
+
+@keyframes pp-shimmer {
+  from { background-position: -200% 0; }
+  to   { background-position: 200% 0; }
+}
+
+/* ── Dashboard cards: staggered fade-up on mount ────────── */
+.pp-card,
+.pp-stat-card,
+.pp-panel,
+.pp-dash-card,
+.pp-gradient-card,
+.pp-gradient-navy-gold,
+.pp-dash-soft-gradient {
+  animation: pp-fade-up 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Stagger children: stat cards, needs-attention cards, etc. */
+.pp-stat-card:nth-child(1) { animation-delay: 0s; }
+.pp-stat-card:nth-child(2) { animation-delay: 0.04s; }
+.pp-stat-card:nth-child(3) { animation-delay: 0.08s; }
+.pp-stat-card:nth-child(4) { animation-delay: 0.12s; }
+.pp-stat-card:nth-child(5) { animation-delay: 0.16s; }
+.pp-stat-card:nth-child(6) { animation-delay: 0.20s; }
+
+.pp-dash-card:nth-child(1) { animation-delay: 0s; }
+.pp-dash-card:nth-child(2) { animation-delay: 0.05s; }
+.pp-dash-card:nth-child(3) { animation-delay: 0.10s; }
+.pp-dash-card:nth-child(4) { animation-delay: 0.15s; }
+.pp-dash-card:nth-child(5) { animation-delay: 0.20s; }
+.pp-dash-card:nth-child(6) { animation-delay: 0.25s; }
+
+/* ── Tab content entrance ───────────────────────────────── */
+.tab-enter {
+  animation: pp-fade-up 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── Dropdown / popover menus ───────────────────────────── */
+.pp-dropdown-enter,
+[class*="absolute"][class*="z-30"],
+[class*="absolute"][class*="z-[10"] {
+  animation: pp-pop-in 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* ── Nav pills (tab rail) ───────────────────────────────── */
+.pp-nav-pill {
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
+}
+.pp-nav-pill:active {
+  transform: scale(0.97);
+}
+.pp-nav-pill.active {
+  transition: background 0.25s ease, color 0.15s ease, box-shadow 0.25s ease;
+}
+
+/* ── Sticky tab rail entrance ───────────────────────────── */
+.pp-sticky-tab-rail {
+  animation: pp-fade-up 0.3s cubic-bezier(0.22, 1, 0.36, 1) 0.05s both;
+}
+
+/* ── Table rows: subtle fade on mount ───────────────────── */
+.manage-orders-table-mobile tbody tr {
+  animation: pp-fade-up 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.manage-orders-table-mobile tbody tr:nth-child(1)  { animation-delay: 0s; }
+.manage-orders-table-mobile tbody tr:nth-child(2)  { animation-delay: 0.02s; }
+.manage-orders-table-mobile tbody tr:nth-child(3)  { animation-delay: 0.04s; }
+.manage-orders-table-mobile tbody tr:nth-child(4)  { animation-delay: 0.06s; }
+.manage-orders-table-mobile tbody tr:nth-child(5)  { animation-delay: 0.08s; }
+.manage-orders-table-mobile tbody tr:nth-child(6)  { animation-delay: 0.10s; }
+.manage-orders-table-mobile tbody tr:nth-child(7)  { animation-delay: 0.12s; }
+.manage-orders-table-mobile tbody tr:nth-child(8)  { animation-delay: 0.14s; }
+.manage-orders-table-mobile tbody tr:nth-child(9)  { animation-delay: 0.16s; }
+.manage-orders-table-mobile tbody tr:nth-child(10) { animation-delay: 0.18s; }
+
+/* ── Capacity / progress bars: animate fill ─────────────── */
+[class*="bg-emerald-500"][class*="h-full"],
+[class*="bg-amber-500"][class*="h-full"],
+[class*="bg-red-500"][class*="h-full"] {
+  animation: pp-progress-fill 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ── Buttons: micro-interactions ────────────────────────── */
+button, [role="button"] {
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease,
+              box-shadow 0.15s ease, opacity 0.15s ease, transform 0.1s ease;
+}
+button:active:not(:disabled), [role="button"]:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* ── Badges / pills: pop entrance ───────────────────────── */
+[class*="rounded"][class*="font-semibold"][class*="text-\\[9px\\]"],
+[class*="rounded"][class*="font-semibold"][class*="text-\\[10px\\]"] {
+  animation: pp-counter-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* ── Select / input focus: smooth ring ──────────────────── */
+select, input, textarea {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.15s ease;
+}
+
+/* ── Checkboxes: scale bounce ───────────────────────────── */
+input[type="checkbox"] {
+  transition: transform 0.1s ease, box-shadow 0.15s ease;
+}
+input[type="checkbox"]:active {
+  transform: scale(0.88);
+}
+
+/* ── Tooltip / title: smooth opacity ────────────────────── */
+[title] {
+  transition: opacity 0.15s ease;
+}
+
+/* ── Chat messages: stagger ─────────────────────────────── */
+.chat-message-enter {
+  animation: chat-message-enter 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── Reduce motion: respect user preference ─────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    transition-duration: 0.01ms !important;
+  }
 }
