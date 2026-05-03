@@ -1575,31 +1575,38 @@ export default function LogisticsTeamPortal() {
             // pgi-done, pickup-confirmed, rescheduled) alongside on-route /
             // delayed states. Terminal rows (delivered/cancelled/rejected/
             // returned/failed) are intentionally excluded.
-            const LIVE_MAP_VISIBLE = new Set([
-              'out-for-delivery', 'in-transit', 'in-progress',                  // On Route
-              'order-delay', 'order_delay',                                     // Order Delay
-              'confirmed', 'scheduled-confirmed', 'rescheduled',                // Customer-confirmed / Rescheduled
-              'pgi-done', 'pgi_done',                                           // Warehouse picked, awaiting driver pickup-confirm
-              'pickup-confirmed', 'pickup_confirmed',                           // Driver picked, ready to depart
+            // Terminal statuses to EXCLUDE from live maps
+            const TERMINAL_STATUSES = new Set([
+              'delivered', 'delivered-with-installation', 'delivered-without-installation',
+              'completed', 'pod-completed', 'finished',
+              'cancelled', 'canceled', 'rejected',
+              'returned', 'failed',
             ]);
             const nowForFilter = new Date();
-            // Phase classification helper — used for pill counts AND phase-aware cards
-            const PRE_DISPATCH_STATUSES = new Set(['confirmed', 'scheduled-confirmed', 'rescheduled']);
-            const WAREHOUSE_STATUSES = new Set(['pgi-done', 'pgi_done', 'pickup-confirmed', 'pickup_confirmed']);
-            const ON_ROUTE_STATUSES = new Set(['out-for-delivery', 'in-transit', 'in-progress']);
-            const DELAYED_STATUSES = new Set(['order-delay', 'order_delay']);
-            const getPhase = (status: string): 'pre_dispatch' | 'warehouse' | 'on_route' | 'delayed' => {
-              const s = status.toLowerCase();
-              if (PRE_DISPATCH_STATUSES.has(s)) return 'pre_dispatch';
-              if (WAREHOUSE_STATUSES.has(s)) return 'warehouse';
-              if (ON_ROUTE_STATUSES.has(s)) return 'on_route';
-              return 'delayed';
+
+            // Phase classification uses WORKFLOW status (via deliveryToManageOrder)
+            // so next_shipment, future_schedule, confirmed, rescheduled, sms_sent,
+            // uploaded, etc. all map correctly to the right pipeline phase.
+            const PRE_DISPATCH_WF = new Set([
+              'confirmed', 'next_shipment', 'future_schedule', 'rescheduled',
+              'sms_sent', 'unconfirmed', 'uploaded',
+            ]);
+            const WAREHOUSE_WF = new Set(['pgi_done', 'pickup_confirmed']);
+            const ON_ROUTE_WF = new Set(['out_for_delivery']);
+            const DELAYED_WF = new Set(['order_delay']);
+            const getPhase = (d: Delivery): 'pre_dispatch' | 'warehouse' | 'on_route' | 'delayed' => {
+              const wf = deliveryToManageOrder(d).status;
+              if (PRE_DISPATCH_WF.has(wf)) return 'pre_dispatch';
+              if (WAREHOUSE_WF.has(wf)) return 'warehouse';
+              if (ON_ROUTE_WF.has(wf)) return 'on_route';
+              if (DELAYED_WF.has(wf)) return 'delayed';
+              return 'pre_dispatch'; // fallback for unknown non-terminal
             };
 
             // Base set: all filters EXCEPT the phase pill — so we can count per-phase
             const baseDeliveries = deliveries
               .filter(d => {
-                if (!LIVE_MAP_VISIBLE.has((d.status || '').toLowerCase())) return false;
+                if (TERMINAL_STATUSES.has((d.status || '').toLowerCase())) return false;
                 const ext = d as unknown as { tracking?: { driverId?: string } };
                 const liveDriverId = ext.tracking?.driverId;
                 if (trackingDriverFilter !== 'all') {
@@ -1647,7 +1654,7 @@ export default function LogisticsTeamPortal() {
             // Phase counts for the pill strip (computed from base set before phase filter)
             const phaseCounts = { all: baseDeliveries.length, pre_dispatch: 0, warehouse: 0, on_route: 0, delayed: 0 };
             for (const d of baseDeliveries) {
-              const phase = getPhase((d.status || '').toLowerCase());
+              const phase = getPhase(d);
               phaseCounts[phase]++;
             }
 
@@ -1655,7 +1662,7 @@ export default function LogisticsTeamPortal() {
             const trackingDeliveries = baseDeliveries
               .filter((d) => {
                 if (liveStatusFilter === 'all') return true;
-                return getPhase((d.status || '').toLowerCase()) === liveStatusFilter;
+                return getPhase(d) === liveStatusFilter;
               })
               .sort((a, b) => {
                 const am = (a as unknown as { metadata?: Record<string, unknown> }).metadata ?? {};
@@ -1806,11 +1813,11 @@ export default function LogisticsTeamPortal() {
                   let warehouse = 0;
                   for (const d of group) {
                     units += unitsFor(d);
-                    const s = (d.status || '').toLowerCase();
-                    if (ON_ROUTE_STATUSES.has(s)) ofd++;
-                    else if (DELAYED_STATUSES.has(s)) delay++;
-                    else if (PRE_DISPATCH_STATUSES.has(s)) preDispatch++;
-                    else if (WAREHOUSE_STATUSES.has(s)) warehouse++;
+                    const p = getPhase(d);
+                    if (p === 'on_route') ofd++;
+                    else if (p === 'delayed') delay++;
+                    else if (p === 'pre_dispatch') preDispatch++;
+                    else if (p === 'warehouse') warehouse++;
                   }
                   items.push({
                     type: 'header',
@@ -2026,7 +2033,7 @@ export default function LogisticsTeamPortal() {
                                   const driverOrders = deliveries.filter(d => {
                                     const ext = d as unknown as { tracking?: { driverId?: string } };
                                     return (ext.tracking?.driverId === dr.id || d.assignedDriverId === dr.id)
-                                      && LIVE_MAP_VISIBLE.has((d.status || '').toLowerCase());
+                                      && !TERMINAL_STATUSES.has((d.status || '').toLowerCase());
                                   });
                                   const onRoute = driverOrders.filter(d => (d.status || '').toLowerCase() === 'out-for-delivery').length;
                                   return (
@@ -2466,7 +2473,7 @@ export default function LogisticsTeamPortal() {
                               const currentDriverId = (delivery as unknown as { tracking?: { driverId?: string } }).tracking?.driverId
                                 || delivery.assignedDriverId
                                 || '';
-                              const phase = getPhase(statusLcForBadge);
+                              const phase = getPhase(delivery);
                               const driverSelect = (
                                 <select
                                   value={currentDriverId}
