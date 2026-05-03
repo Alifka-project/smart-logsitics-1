@@ -489,6 +489,8 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const tableTopRef = useRef<HTMLDivElement | null>(null);
   const itemsPerPage = 20;
+  // Row selection for targeted export
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Apply driver+date preset set by Dashboard → Driver Assignments click
   const manageTabPreset = useDeliveryStore((s) => s.manageTabPreset);
@@ -828,32 +830,58 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                 onChange={(f, t) => { setFilterDateFrom(f); setFilterDateTo(t); setCurrentPage(1); }}
               />
               {onExport && (
-                <button
-                  type="button"
-                  onClick={() => onExport(filteredOrders.map(o => o.id))}
-                  className="shrink-0 inline-flex items-center gap-1.5 px-3 py-[7px] rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors whitespace-nowrap"
-                  title="Export to Excel"
-                >
-                  <FileSpreadsheet className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                  Export
-                </button>
+                <>
+                  {selectedIds.size > 0 && (
+                    <span className="text-xs font-medium text-blue-600 dark:text-blue-400">{selectedIds.size} selected</span>
+                  )}
+                  {selectedIds.size > 0 && (
+                    <button type="button" onClick={() => setSelectedIds(new Set())} className="text-xs text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors">Clear</button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const ids = selectedIds.size > 0
+                        ? filteredOrders.filter(o => selectedIds.has(o.id)).map(o => o.id)
+                        : filteredOrders.map(o => o.id);
+                      onExport(ids);
+                    }}
+                    className="shrink-0 inline-flex items-center gap-1.5 px-3 py-[7px] rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors whitespace-nowrap"
+                    title="Export to Excel"
+                  >
+                    <FileSpreadsheet className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    Export{selectedIds.size > 0 ? ` (${selectedIds.size})` : ''}
+                  </button>
+                </>
               )}
             </>
           )}
           {!enableDispatchFilters && onExport && (
-            <button
-              type="button"
-              onClick={() => onExport(filteredOrders.map(o => o.id))}
-              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-[7px] rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors whitespace-nowrap"
-              title="Export to Excel"
-            >
-              <FileSpreadsheet className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              Export
-            </button>
+            <>
+              {selectedIds.size > 0 && (
+                <span className="text-xs font-medium text-blue-600 dark:text-blue-400">{selectedIds.size} selected</span>
+              )}
+              {selectedIds.size > 0 && (
+                <button type="button" onClick={() => setSelectedIds(new Set())} className="text-xs text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors">Clear</button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  const ids = selectedIds.size > 0
+                    ? filteredOrders.filter(o => selectedIds.has(o.id)).map(o => o.id)
+                    : filteredOrders.map(o => o.id);
+                  onExport(ids);
+                }}
+                className="shrink-0 inline-flex items-center gap-1.5 px-3 py-[7px] rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors whitespace-nowrap"
+                title="Export to Excel"
+              >
+                <FileSpreadsheet className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                Export{selectedIds.size > 0 ? ` (${selectedIds.size})` : ''}
+              </button>
+            </>
           )}
 
           {/* ── Clear all ── */}
-          {(tableTab !== 'all' || searchQuery || driverFilter !== 'all' || statusFilter !== 'all' || filterDateFrom || filterDateTo || todayOnly || priorityOnly) && (
+          {(tableTab !== 'all' || searchQuery || driverFilter !== 'all' || statusFilter !== 'all' || filterDateFrom || filterDateTo || todayOnly || priorityOnly || selectedIds.size > 0) && (
             <button
               type="button"
               onClick={() => {
@@ -865,6 +893,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                 setFilterDateTo('');
                 setTodayOnly(false);
                 setPriorityOnly(false);
+                setSelectedIds(new Set());
               }}
               className="shrink-0 flex items-center gap-1 px-2 py-[7px] rounded-lg text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-colors"
               title="Clear all filters"
@@ -878,17 +907,35 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
       <div className="overflow-x-auto">
         <table className="manage-orders-table-mobile table-mobile-cards table-fixed w-full min-w-[900px] border-collapse text-sm">
           <colgroup>
-            <col style={{ width: '16%' }} />   {/* Customer */}
+            <col style={{ width: '36px' }} />  {/* Checkbox */}
+            <col style={{ width: '15%' }} />   {/* Customer */}
             <col style={{ width: '11%' }} />   {/* Order */}
-            <col style={{ width: '18%' }} />   {/* Product */}
+            <col style={{ width: '17%' }} />   {/* Product */}
             <col style={{ width: '11%' }} />   {/* Dates */}
-            <col style={{ width: '10%' }} />   {/* Priority */}
+            <col style={{ width: '9%' }} />    {/* Priority */}
             <col style={{ width: '13%' }} />   {/* Driver */}
-            <col style={{ width: '12%' }} />   {/* Status */}
+            <col style={{ width: '11%' }} />   {/* Status */}
             <col style={{ width: '9%' }} />    {/* Action */}
           </colgroup>
           <thead className="border-b border-gray-200 bg-gray-50/95 dark:border-gray-600 dark:bg-gray-900/90">
             <tr>
+              <th className="px-2 py-2.5 text-center w-9">
+                <input
+                  type="checkbox"
+                  checked={paginatedOrders.length > 0 && paginatedOrders.every(o => selectedIds.has(o.id))}
+                  onChange={(e) => {
+                    const next = new Set(selectedIds);
+                    if (e.target.checked) {
+                      paginatedOrders.forEach(o => next.add(o.id));
+                    } else {
+                      paginatedOrders.forEach(o => next.delete(o.id));
+                    }
+                    setSelectedIds(next);
+                  }}
+                  className="w-3.5 h-3.5 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  title="Select all on this page"
+                />
+              </th>
               <th className="whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Customer
               </th>
@@ -918,7 +965,7 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700/80">
             {paginatedOrders.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                <td colSpan={9} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                   No orders match the current filters.
                 </td>
               </tr>
@@ -927,15 +974,30 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
                 const fmtDate = (d: Date) =>
                   d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' });
                 const isNoPod = order.status === 'delivered' && !order.hasPod;
+                const isRowSelected = selectedIds.has(order.id);
                 return (
                   <tr
                     key={order.id}
                     className={`transition-colors ${
-                      isNoPod
-                        ? 'bg-amber-50/60 dark:bg-amber-900/10 hover:bg-amber-50 dark:hover:bg-amber-900/20'
-                        : 'hover:bg-gray-50/90 dark:hover:bg-gray-900/40'
+                      isRowSelected
+                        ? 'bg-blue-50 dark:bg-blue-900/20'
+                        : isNoPod
+                          ? 'bg-amber-50/60 dark:bg-amber-900/10 hover:bg-amber-50 dark:hover:bg-amber-900/20'
+                          : 'hover:bg-gray-50/90 dark:hover:bg-gray-900/40'
                     }`}
                   >
+                    <td className="px-2 py-2.5 text-center align-middle">
+                      <input
+                        type="checkbox"
+                        checked={isRowSelected}
+                        onChange={() => {
+                          const next = new Set(selectedIds);
+                          if (isRowSelected) next.delete(order.id); else next.add(order.id);
+                          setSelectedIds(next);
+                        }}
+                        className="w-3.5 h-3.5 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                    </td>
                     {/* Customer: name + Type badge + phone with call button */}
                     <td className="overflow-hidden px-3 py-2.5 align-middle" data-label="Customer">
                       <div className="flex min-w-0 flex-col gap-0.5">

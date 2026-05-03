@@ -245,6 +245,9 @@ export default function DeliveryTeamPortal() {
   const [podPage, setPodPage] = useState(1);
   const podTableRef = useRef<HTMLDivElement | null>(null);
   const POD_PAGE_SIZE = 20;
+  // Row selection for targeted export — when non-empty, CSV/POD exports
+  // only include the ticked rows. Empty set = export all filtered rows.
+  const [podSelectedIds, setPodSelectedIds] = useState<Set<string>>(new Set());
 
 
   const formatMessageTimestamp = (value: string | Date | null | undefined): string => {
@@ -3516,13 +3519,28 @@ export default function DeliveryTeamPortal() {
                         </span>
                       </h3>
                       <div className="flex items-center gap-2 flex-wrap">
+                        {podSelectedIds.size > 0 && (
+                          <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+                            {podSelectedIds.size} selected
+                          </span>
+                        )}
+                        {podSelectedIds.size > 0 && (
+                          <button
+                            onClick={() => setPodSelectedIds(new Set())}
+                            className="text-xs text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                          >
+                            Clear
+                          </button>
+                        )}
                         <button
                           onClick={() => {
+                            // Export selected rows if any are ticked, otherwise all filtered
+                            const exportRows = podSelectedIds.size > 0
+                              ? podDeliveries.filter(({ d }) => podSelectedIds.has(String(d.id)))
+                              : podDeliveries;
                             const header = 'No,PO Number,Delivery Number,Customer,Material,Model ID,Description,Qty,Address,Driver,Date,Status\n';
-                            const rows = podDeliveries.map(({ d, ws }, i) => {
+                            const rows = exportRows.map(({ d, ws }, i) => {
                               const { pnc, modelId, description, qty } = extractItemMeta(d);
-                              // Same reference date as the table column / filter so the CSV
-                              // matches exactly what the operator was looking at on screen.
                               const dateMs = rowReferenceDateMs(d, ws);
                               const dateStr = dateMs !== null ? new Date(dateMs).toLocaleDateString('en-GB') : '';
                               const delivNum = displayDeliveryNumber(d as unknown as Delivery);
@@ -3537,18 +3555,18 @@ export default function DeliveryTeamPortal() {
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                         >
                           <Download className="w-4 h-4" />
-                          Export CSV
+                          Export CSV{podSelectedIds.size > 0 ? ` (${podSelectedIds.size})` : ''}
                         </button>
                         <button
                           onClick={() => {
                             const token = localStorage.getItem('auth_token') ?? '';
                             const clientKey = localStorage.getItem('client_key') ?? '';
                             const base = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
-                            // POD report honours the currently applied filters
-                            // (search / PO / status / driver / date range) by
-                            // sending the visible delivery IDs. Backend still
-                            // restricts to delivered-status orders.
-                            const ids = podDeliveries.map(({ d }) => String(d.id)).filter(Boolean);
+                            // Export selected rows if any are ticked, otherwise all filtered
+                            const exportRows = podSelectedIds.size > 0
+                              ? podDeliveries.filter(({ d }) => podSelectedIds.has(String(d.id)))
+                              : podDeliveries;
+                            const ids = exportRows.map(({ d }) => String(d.id)).filter(Boolean);
                             if (ids.length === 0) {
                               alert('No orders match the current filters — adjust filters before downloading.');
                               return;
@@ -3579,7 +3597,7 @@ export default function DeliveryTeamPortal() {
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium transition-colors"
                         >
                           <FileText className="w-4 h-4" />
-                          Download POD Report
+                          POD Report{podSelectedIds.size > 0 ? ` (${podSelectedIds.size})` : ''}
                         </button>
                       </div>
                     </div>
@@ -3661,7 +3679,7 @@ export default function DeliveryTeamPortal() {
                       </select>
                       {/* Reset all — always visible */}
                       <button
-                        onClick={() => { setPodSearch(''); setPodStatusFilter('all'); setPodDriverFilter('all'); setPodDateFrom(''); setPodDateTo(''); setPodPage(1); }}
+                        onClick={() => { setPodSearch(''); setPodStatusFilter('all'); setPodDriverFilter('all'); setPodDateFrom(''); setPodDateTo(''); setPodPage(1); setPodSelectedIds(new Set()); }}
                         className={`px-2.5 py-1.5 rounded-lg border text-xs whitespace-nowrap transition-colors ${
                           (podSearch || podStatusFilter !== 'all' || podDriverFilter !== 'all' || podDateFrom || podDateTo)
                             ? 'border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
@@ -3680,6 +3698,23 @@ export default function DeliveryTeamPortal() {
                           <table className="w-full text-sm min-w-[1050px]">
                             <thead className="bg-gray-50 dark:bg-gray-800/95">
                               <tr className="border-b border-gray-200 dark:border-gray-700">
+                                <th className="py-2 px-2 w-8 text-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={pageRows.length > 0 && pageRows.every(({ d }) => podSelectedIds.has(String(d.id)))}
+                                    onChange={(e) => {
+                                      const next = new Set(podSelectedIds);
+                                      if (e.target.checked) {
+                                        pageRows.forEach(({ d }) => next.add(String(d.id)));
+                                      } else {
+                                        pageRows.forEach(({ d }) => next.delete(String(d.id)));
+                                      }
+                                      setPodSelectedIds(next);
+                                    }}
+                                    className="w-3.5 h-3.5 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                    title="Select all on this page"
+                                  />
+                                </th>
                                 <th className="text-left py-2 px-2.5 text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-8">#</th>
                                 {([
                                   { key: 'poNumber',     label: 'PO Number',   cls: 'whitespace-nowrap' },
@@ -3751,8 +3786,21 @@ export default function DeliveryTeamPortal() {
                                   ws === 'failed'           ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' :
                                   ws === 'cancelled'        ? 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400' :
                                   'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400';
+                                const isRowSelected = podSelectedIds.has(String(d.id));
                                 return (
-                                  <tr key={String(d.id ?? idx)} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                                  <tr key={String(d.id ?? idx)} className={`transition-colors ${isRowSelected ? 'bg-blue-50 dark:bg-blue-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'}`}>
+                                    <td className="py-2 px-2 text-center">
+                                      <input
+                                        type="checkbox"
+                                        checked={isRowSelected}
+                                        onChange={() => {
+                                          const next = new Set(podSelectedIds);
+                                          if (isRowSelected) next.delete(String(d.id)); else next.add(String(d.id));
+                                          setPodSelectedIds(next);
+                                        }}
+                                        className="w-3.5 h-3.5 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                      />
+                                    </td>
                                     <td className="py-2 px-2.5 text-xs text-gray-400 dark:text-gray-500 tabular-nums">{globalIdx + 1}</td>
                                     <td className="py-2 px-2.5 font-mono text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">
                                       {displayPoNumber(d as unknown as Delivery) || '—'}
