@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MapPin, Package, Phone, Navigation, GripVertical, MessageCircle, Truck, BellRing, CheckCircle2, Clock } from 'lucide-react';
+import { MapPin, Package, Phone, Navigation, GripVertical, MessageCircle, Truck, BellRing, CheckCircle2, Clock, Camera, FileSignature, CalendarClock, XCircle, ImageOff } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import api from '../../frontend/apiClient';
 import useDeliveryStore from '../../store/useDeliveryStore';
@@ -217,6 +217,33 @@ export default function DeliveryCard({
   );
   const canNotifyArrival = isOnRoad && !!delivery.phone && !arrivalNotifiedAt;
 
+  // ── Completed card detection ──────────────────────────────────────────────
+  const statusLower = (delivery.status || '').toLowerCase();
+  const DELIVERED_STATUSES = new Set([
+    'delivered', 'delivered-with-installation', 'delivered-without-installation',
+    'completed', 'pod-completed', 'finished',
+  ]);
+  const isDelivered = DELIVERED_STATUSES.has(statusLower);
+  const isCancelled = statusLower === 'cancelled' || statusLower === 'canceled' || statusLower === 'rejected';
+  const isRescheduled = statusLower === 'rescheduled';
+  const isCompletedCard = isDelivered || isCancelled || isRescheduled;
+
+  // Metadata helpers for completed report
+  const meta = (delivery.metadata || {}) as Record<string, unknown>;
+  const deliveredAtRaw = delivery.deliveredAt ?? delivery.podCompletedAt ?? null;
+  const deliveredAtStr = deliveredAtRaw ? fmtDateTime(typeof deliveredAtRaw === 'string' ? deliveredAtRaw : (deliveredAtRaw as Date).toISOString()) : null;
+  const hasPhotos = Array.isArray(delivery.photos) && delivery.photos.length > 0;
+  const hasSignature = !!delivery.driverSignature || !!delivery.customerSignature;
+  const hasPod = delivery.hasPod || hasPhotos || hasSignature;
+  const podNotes = delivery.deliveryNotes || delivery.conditionNotes || null;
+  const cancelNotes = isCancelled ? (delivery.deliveryNotes || delivery.conditionNotes || (meta.cancelReason as string | null) || null) : null;
+  const rescheduleReason = isRescheduled ? ((meta.rescheduleReason as string | null) || null) : null;
+  const rescheduledAtRaw = isRescheduled ? ((meta.rescheduledAt as string | null) || null) : null;
+  const confirmedDateRaw = delivery.confirmedDeliveryDate ?? null;
+  const rescheduledDateStr = confirmedDateRaw
+    ? new Date(typeof confirmedDateRaw === 'string' ? confirmedDateRaw : (confirmedDateRaw as Date).toISOString()).toLocaleDateString('en-GB', { timeZone: 'Asia/Dubai', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+    : null;
+
   return (
     <div
       draggable={canDrag}
@@ -332,6 +359,99 @@ export default function DeliveryCard({
             <span className="break-words">{delivery.items}</span>
           </div>
 
+          {/* ── Completed card: delivery report ── */}
+          {isCompletedCard && (
+            <div className="pt-1.5 space-y-2">
+              {/* Delivered report */}
+              {isDelivered && (
+                <div className="flex flex-col gap-1.5 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-3 py-2">
+                  <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
+                    <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                    <span className="text-xs sm:text-sm font-semibold">
+                      Delivered{deliveredAtStr ? ` — ${deliveredAtStr}` : ''}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {hasPod && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700">
+                        <FileSignature className="w-3 h-3" />
+                        POD Captured
+                      </span>
+                    )}
+                    {hasPhotos && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700">
+                        <Camera className="w-3 h-3" />
+                        {delivery.photos!.length} Photo{delivery.photos!.length > 1 ? 's' : ''}
+                      </span>
+                    )}
+                    {hasSignature && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700">
+                        <FileSignature className="w-3 h-3" />
+                        Signature
+                      </span>
+                    )}
+                    {!hasPod && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-700">
+                        <ImageOff className="w-3 h-3" />
+                        No POD
+                      </span>
+                    )}
+                  </div>
+                  {podNotes && (
+                    <p className="text-[11px] text-green-600 dark:text-green-400 italic leading-tight">
+                      {podNotes}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Cancelled report */}
+              {isCancelled && (
+                <div className="flex flex-col gap-1.5 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-3 py-2">
+                  <div className="flex items-center gap-2 text-red-700 dark:text-red-300">
+                    <XCircle className="w-4 h-4 flex-shrink-0" />
+                    <span className="text-xs sm:text-sm font-semibold">
+                      {statusLower === 'rejected' ? 'Rejected' : 'Cancelled'}
+                    </span>
+                  </div>
+                  {cancelNotes ? (
+                    <p className="text-[11px] text-red-600 dark:text-red-400 leading-tight">
+                      <span className="font-semibold">Reason:</span> {cancelNotes}
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-red-400 dark:text-red-500 italic leading-tight">
+                      No reason provided
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Rescheduled report */}
+              {isRescheduled && (
+                <div className="flex flex-col gap-1.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-3 py-2">
+                  <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
+                    <CalendarClock className="w-4 h-4 flex-shrink-0" />
+                    <span className="text-xs sm:text-sm font-semibold">
+                      Rescheduled{rescheduledDateStr ? ` — ${rescheduledDateStr}` : ''}
+                    </span>
+                  </div>
+                  {rescheduleReason && (
+                    <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-tight">
+                      <span className="font-semibold">Reason:</span> {rescheduleReason}
+                    </p>
+                  )}
+                  {rescheduledAtRaw && (
+                    <p className="text-[10px] text-amber-500 dark:text-amber-500 leading-tight">
+                      Rescheduled on {fmtDateTime(rescheduledAtRaw)}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Active card: ETA, distance, actions ── */}
+          {!isCompletedCard && (
           <div className="flex flex-wrap items-center gap-3 pt-1">
             <div className="flex items-center gap-1.5 text-xs sm:text-sm">
               <Navigation className="w-3.5 h-3.5 flex-shrink-0 text-blue-500" />
@@ -415,6 +535,7 @@ export default function DeliveryCard({
               </div>
             )}
           </div>
+          )}
         </div>
       </div>
 
