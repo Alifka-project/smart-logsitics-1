@@ -1239,7 +1239,7 @@ export default function DeliveryTeamPortal() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--primary)' }}>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--primary)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
           <img src="/elect home.png" alt="Electrolux" style={{ height: '40px', objectFit: 'contain', filter: 'brightness(0) invert(1)', opacity: 0.95 }} />
           <div style={{ width: '24px', height: '24px', border: '2.5px solid rgba(255,255,255,0.3)', borderTopColor: '#ffffff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
