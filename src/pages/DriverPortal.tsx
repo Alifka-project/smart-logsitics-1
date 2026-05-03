@@ -1817,12 +1817,11 @@ export default function DriverPortal() {
   const speedKmh = location?.speed != null ? (location.speed * 3.6).toFixed(1) : 'N/A';
 
   return (
-    <div className="space-y-3 md:space-y-5 w-full min-w-0">
+    <div className="space-y-3 md:space-y-4 w-full min-w-0">
       {/* Header Section - responsive and touch-friendly */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div className="min-w-0">
             <h1 className="text-xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Driver Portal</h1>
-            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5">Your orders, route, and POD — GPS on when logged in</p>
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             {notifications > 0 && (
