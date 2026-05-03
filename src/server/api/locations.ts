@@ -337,6 +337,11 @@ router.get('/deliveries', authenticate, async (req: Request, res: Response): Pro
     // fetches cannot double-promote or double-log the event.
     const dubaiNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Dubai' }));
     const dubaiTodayStr = `${dubaiNow.getFullYear()}-${String(dubaiNow.getMonth() + 1).padStart(2, '0')}-${String(dubaiNow.getDate()).padStart(2, '0')}`;
+    // Guard: only auto-promote after 08:00 Dubai time. Before 08:00 the
+    // morning cron (04:00 UTC = 08:00 Dubai) handles the batch dispatch so
+    // customers don't receive "on the way" SMS in the middle of the night.
+    const dubaiHour = dubaiNow.getHours();
+    const isAfterDispatchHour = dubaiHour >= 8;
     const dubaiDayString = (d: Date | string | null | undefined): string | null => {
       if (!d) return null;
       const dt = d instanceof Date ? d : new Date(d);
@@ -344,12 +349,12 @@ router.get('/deliveries', authenticate, async (req: Request, res: Response): Pro
       const z = new Date(dt.toLocaleString('en-US', { timeZone: 'Asia/Dubai' }));
       return `${z.getFullYear()}-${String(z.getMonth() + 1).padStart(2, '0')}-${String(z.getDate()).padStart(2, '0')}`;
     };
-    const toPromote = deliveries.filter((d) => {
+    const toPromote = isAfterDispatchHour ? deliveries.filter((d) => {
       const s = (d.status || '').toLowerCase();
       if (s !== 'pickup-confirmed' && s !== 'pickup_confirmed') return false;
       const deliveryDateStr = dubaiDayString(d.confirmedDeliveryDate ?? d.goodsMovementDate);
       return deliveryDateStr != null && deliveryDateStr <= dubaiTodayStr;
-    });
+    }) : [];
     if (toPromote.length > 0) {
       const promotedAt = new Date();
       const promotedAtIso = promotedAt.toISOString();
