@@ -281,7 +281,7 @@ export default function DeliveryCard({
           ? 'bg-red-100 dark:bg-red-900/40 border-red-400 dark:border-red-600'
           : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800/90'
       } ${
-        canDrag ? 'cursor-move' : 'cursor-pointer'
+        isCompletedCard ? 'cursor-default' : canDrag ? 'cursor-move' : 'cursor-pointer'
       } ${
         isDragging
           ? 'opacity-50 border-blue-400 dark:border-blue-500 shadow-md'

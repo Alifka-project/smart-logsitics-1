@@ -312,7 +312,15 @@ export default function DeliveryTable({
     });
   };
 
+  const COMPLETED_CARD_STATUSES = new Set([
+    'delivered', 'delivered-with-installation', 'delivered-without-installation',
+    'completed', 'pod-completed', 'finished',
+    'cancelled', 'canceled', 'rejected', 'rescheduled',
+  ]);
+
   const handleClick = (delivery: Delivery): void => {
+    // Completed cards are read-only reports — don't open the confirmation modal
+    if (COMPLETED_CARD_STATUSES.has((delivery.status || '').toLowerCase())) return;
     selectDelivery(delivery.id as string);
     onSelectDelivery();
   };
