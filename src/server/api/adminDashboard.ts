@@ -245,9 +245,25 @@ async function buildAdminDashboardPayload(): Promise<AdminDashboardPayload> {
     const [dbDeliveries, driversResp, locationsResp, sapDeliveriesResp, smsResp] = await Promise.allSettled([
       prisma.delivery.findMany({
         where: {
-          createdAt: {
-            gte: ninetyDaysAgo
-          }
+          // Include ALL non-terminal orders (active + next shipment + future)
+          // plus recently created/delivered orders for historical reporting.
+          // This ensures tomorrow's deliveries always appear regardless of
+          // when they were originally uploaded.
+          OR: [
+            {
+              status: {
+                in: [
+                  'pending', 'uploaded', 'scheduled', 'confirmed',
+                  'scheduled-confirmed', 'pgi-done', 'pickup-confirmed',
+                  'out-for-delivery', 'in-transit', 'in-progress',
+                  'order-delay', 'rescheduled',
+                ],
+              },
+            },
+            { createdAt: { gte: ninetyDaysAgo } },
+            { deliveredAt: { gte: ninetyDaysAgo } },
+            { updatedAt: { gte: ninetyDaysAgo } },
+          ],
         },
         select: {
           id: true,
@@ -295,7 +311,7 @@ async function buildAdminDashboardPayload(): Promise<AdminDashboardPayload> {
           }
         },
         orderBy: { createdAt: 'desc' },
-        take: 1000
+        take: 5000
       }).catch((err: unknown) => {
         const e = err as { message?: string; code?: string; stack?: string };
         console.error('[Dashboard] Prisma query error:', e.message);
