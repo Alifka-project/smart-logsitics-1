@@ -2573,6 +2573,207 @@ export default function LogisticsTeamPortal() {
             );
           })(),
             },
+            {
+              id: 'drivers-loads',
+              label: 'Drivers & Loads',
+              icon: Users,
+              content: (() => {
+                // ── DRIVERS & LOADS TABLE ──
+                // Shows all non-terminal orders grouped by driver so logistics
+                // can see who is assigned what and reassign before dispatch.
+                const TERMINAL = new Set([
+                  'delivered', 'delivered-with-installation', 'delivered-without-installation',
+                  'completed', 'pod-completed', 'finished',
+                  'cancelled', 'canceled', 'rejected', 'returned', 'failed',
+                ]);
+                const dlDeliveries = deliveries.filter(d => !TERMINAL.has((d.status || '').toLowerCase()));
+
+                // Group by driver
+                const byDriver = new Map<string, Delivery[]>();
+                const unassignedDl: Delivery[] = [];
+                for (const d of dlDeliveries) {
+                  const did = (d as unknown as { tracking?: { driverId?: string } }).tracking?.driverId || d.assignedDriverId || '';
+                  if (!did) { unassignedDl.push(d); continue; }
+                  if (!byDriver.has(did)) byDriver.set(did, []);
+                  byDriver.get(did)!.push(d);
+                }
+
+                // Helper: workflow status label
+                const wfLabel = (d: Delivery): string => {
+                  const b = getDeliveryStatusBadge(d);
+                  return b.tierLabel || b.label || (d.status || '').replace(/-/g, ' ');
+                };
+                const wfColor = (d: Delivery): string => {
+                  const wf = deliveryToManageOrder(d).status;
+                  switch (wf) {
+                    case 'out_for_delivery': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300';
+                    case 'order_delay': return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300';
+                    case 'pgi_done': case 'pickup_confirmed': return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300';
+                    case 'next_shipment': case 'future_schedule': return 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300';
+                    case 'delivered': return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300';
+                    default: return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
+                  }
+                };
+
+                // Sort groups: unassigned first, then by driver name
+                const driverGroups: Array<{ driverId: string | null; name: string; orders: Delivery[]; online: boolean }> = [];
+                if (unassignedDl.length > 0) {
+                  driverGroups.push({ driverId: null, name: 'Unassigned', orders: unassignedDl, online: false });
+                }
+                for (const [did, orders] of byDriver.entries()) {
+                  const drv = drivers.find(x => x.id === did);
+                  driverGroups.push({
+                    driverId: did,
+                    name: drv?.fullName || drv?.username || 'Unknown Driver',
+                    orders,
+                    online: drv ? isContactOnline(drv) : false,
+                  });
+                }
+
+                return (
+                  <div className="space-y-3">
+                    {/* Summary bar */}
+                    <div className="flex items-center gap-3 px-1">
+                      <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                        {dlDeliveries.length} orders across {byDriver.size} driver{byDriver.size !== 1 ? 's' : ''}
+                      </span>
+                      {unassignedDl.length > 0 && (
+                        <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">
+                          {unassignedDl.length} unassigned
+                        </span>
+                      )}
+                    </div>
+
+                    {driverGroups.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-16 text-gray-400 dark:text-gray-500 text-sm gap-2">
+                        <Users className="w-8 h-8 opacity-30" />
+                        <p className="font-medium">No active orders</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {driverGroups.map((group) => {
+                          const isUnassigned = !group.driverId;
+                          const cap = group.driverId
+                            ? driverCapacityByDate[getTodayIsoDubai()]?.[group.driverId]
+                            : undefined;
+                          const used = cap?.used ?? group.orders.length;
+                          const max = cap?.max ?? 20;
+                          const pct = Math.max(0, Math.min(100, (used / Math.max(1, max)) * 100));
+                          const barColor = pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-amber-500' : 'bg-emerald-500';
+
+                          return (
+                            <div key={group.driverId || 'unassigned'} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                              {/* Driver header */}
+                              <div className={`flex items-center gap-2 px-3 py-2.5 ${isUnassigned ? 'bg-amber-50 dark:bg-amber-900/20' : 'bg-gray-50 dark:bg-gray-800/50'}`}
+                                style={isUnassigned ? { borderLeft: '3px solid #f59e0b' } : undefined}
+                              >
+                                {!isUnassigned && (
+                                  <span className={`h-2 w-2 shrink-0 rounded-full ${group.online ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                                )}
+                                <span className={`text-[13px] font-semibold ${isUnassigned ? 'text-amber-700 dark:text-amber-300' : 'text-gray-900 dark:text-gray-100'}`}>
+                                  {group.name}
+                                </span>
+                                <span className="text-[11px] text-gray-500 dark:text-gray-400 tabular-nums">
+                                  {group.orders.length} order{group.orders.length !== 1 ? 's' : ''}
+                                </span>
+                                {!isUnassigned && (
+                                  <div className="ml-auto flex items-center gap-2 shrink-0">
+                                    <div className="w-16 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                                      <div className={`h-full ${barColor} transition-all`} style={{ width: `${pct}%` }} />
+                                    </div>
+                                    <span className={`text-[11px] font-semibold tabular-nums ${pct >= 90 ? 'text-red-600 dark:text-red-400' : pct >= 70 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-600 dark:text-gray-300'}`}>
+                                      {used}/{max}
+                                    </span>
+                                  </div>
+                                )}
+                                {isUnassigned && (
+                                  <span className="ml-auto text-[11px] font-medium text-amber-600 dark:text-amber-400">need a driver</span>
+                                )}
+                              </div>
+
+                              {/* Orders table */}
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-sm min-w-[700px]">
+                                  <thead className="bg-gray-50/80 dark:bg-gray-800/40 text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    <tr>
+                                      <th className="px-3 py-1.5 text-left w-[18%]">Customer</th>
+                                      <th className="px-3 py-1.5 text-left w-[12%]">PO / DN</th>
+                                      <th className="px-3 py-1.5 text-left w-[18%]">Address</th>
+                                      <th className="px-3 py-1.5 text-left w-[10%]">Date</th>
+                                      <th className="px-3 py-1.5 text-left w-[12%]">Status</th>
+                                      <th className="px-3 py-1.5 text-left w-[16%]">Assign Driver</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                    {group.orders.map((d) => {
+                                      const dl = d as unknown as Delivery;
+                                      const currentDriverId = (d as unknown as { tracking?: { driverId?: string } }).tracking?.driverId || d.assignedDriverId || '';
+                                      const confirmedDate = (d as unknown as { confirmedDeliveryDate?: string }).confirmedDeliveryDate;
+                                      const dateLabel = confirmedDate
+                                        ? new Date(confirmedDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', timeZone: 'Asia/Dubai' })
+                                        : '—';
+                                      return (
+                                        <tr key={d.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
+                                          <td className="px-3 py-2 text-[12px] font-medium text-gray-900 dark:text-gray-100 truncate max-w-[180px]">
+                                            {displayCustomerName(dl) || d.customer || '—'}
+                                          </td>
+                                          <td className="px-3 py-2 text-[11px] text-gray-600 dark:text-gray-300 font-mono truncate max-w-[120px]">
+                                            {displayPoNumber(dl) || d.poNumber || '—'}
+                                          </td>
+                                          <td className="px-3 py-2 text-[11px] text-gray-500 dark:text-gray-400 truncate max-w-[180px]">
+                                            {d.address || '—'}
+                                          </td>
+                                          <td className="px-3 py-2 text-[11px] text-gray-600 dark:text-gray-300 tabular-nums whitespace-nowrap">
+                                            {dateLabel}
+                                          </td>
+                                          <td className="px-3 py-2">
+                                            <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold ${wfColor(d)}`}>
+                                              {wfLabel(d)}
+                                            </span>
+                                          </td>
+                                          <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                                            <select
+                                              value={currentDriverId}
+                                              disabled={reassignBusyId === d.id}
+                                              onChange={(e) => {
+                                                const newDriverId = e.target.value;
+                                                if (!newDriverId || newDriverId === currentDriverId) return;
+                                                void reassignDelivery(d.id, newDriverId);
+                                              }}
+                                              className="w-full max-w-[160px] px-1.5 py-1 text-[11px] rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 cursor-pointer"
+                                            >
+                                              <option value="">{currentDriverId ? 'Reassign' : '— Assign —'}</option>
+                                              {drivers.map((dr) => {
+                                                const isCurrent = dr.id === currentDriverId;
+                                                const orderUnits = 1;
+                                                const dCap = driverCapacityByDate[getCapacityDateIso(d)]?.[dr.id];
+                                                const dUsed = dCap?.used ?? 0;
+                                                const dMax = dCap?.max ?? 20;
+                                                const wouldOverflow = !isCurrent && (dUsed + orderUnits > dMax);
+                                                const capHint = dCap ? ` (${dUsed}/${dMax})` : '';
+                                                return (
+                                                  <option key={dr.id} value={dr.id} disabled={isCurrent || wouldOverflow}>
+                                                    {(dr.fullName || dr.username) + capHint + (isCurrent ? ' •' : wouldOverflow ? ' full' : '')}
+                                                  </option>
+                                                );
+                                              })}
+                                            </select>
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })(),
+            },
           ]}
         />
       )}
