@@ -239,32 +239,8 @@ type AdminDashboardPayload = {
 };
 
 async function buildAdminDashboardPayload(): Promise<AdminDashboardPayload> {
-    const ninetyDaysAgo = new Date();
-    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-
     const [dbDeliveries, driversResp, locationsResp, sapDeliveriesResp, smsResp] = await Promise.allSettled([
       prisma.delivery.findMany({
-        where: {
-          // Include ALL non-terminal orders (active + next shipment + future)
-          // plus recently created/delivered orders for historical reporting.
-          // This ensures tomorrow's deliveries always appear regardless of
-          // when they were originally uploaded.
-          OR: [
-            {
-              status: {
-                in: [
-                  'pending', 'uploaded', 'scheduled', 'confirmed',
-                  'scheduled-confirmed', 'pgi-done', 'pickup-confirmed',
-                  'out-for-delivery', 'in-transit', 'in-progress',
-                  'order-delay', 'rescheduled',
-                ],
-              },
-            },
-            { createdAt: { gte: ninetyDaysAgo } },
-            { deliveredAt: { gte: ninetyDaysAgo } },
-            { updatedAt: { gte: ninetyDaysAgo } },
-          ],
-        },
         select: {
           id: true,
           customer: true,
@@ -282,12 +258,15 @@ async function buildAdminDashboardPayload(): Promise<AdminDashboardPayload> {
           createdAt: true,
           updatedAt: true,
           deliveredAt: true,
+          podCompletedAt: true,
           smsSentAt: true,
           goodsMovementDate: true,
           deliveryNumber: true,
           driverSignature: true,
           customerSignature: true,
           photos: true,
+          conditionNotes: true,
+          deliveryNotes: true,
           assignments: {
             take: 1,
             orderBy: { assignedAt: 'desc' },
@@ -311,7 +290,6 @@ async function buildAdminDashboardPayload(): Promise<AdminDashboardPayload> {
           }
         },
         orderBy: { createdAt: 'desc' },
-        take: 5000
       }).catch((err: unknown) => {
         const e = err as { message?: string; code?: string; stack?: string };
         console.error('[Dashboard] Prisma query error:', e.message);
@@ -350,11 +328,14 @@ async function buildAdminDashboardPayload(): Promise<AdminDashboardPayload> {
           created: d.createdAt,
           delivered_at: d.deliveredAt,
           deliveredAt: d.deliveredAt,
+          podCompletedAt: d.podCompletedAt,
           updated_at: d.updatedAt,
           updatedAt: d.updatedAt,
           smsSentAt: d.smsSentAt,
           goodsMovementDate: d.goodsMovementDate,
           deliveryNumber: d.deliveryNumber,
+          conditionNotes: d.conditionNotes,
+          deliveryNotes: d.deliveryNotes,
           events: d.events,
           assignedDriverId: assignments?.[0]?.driverId || null,
           driverName: assignments?.[0]?.driver?.fullName || null,
@@ -415,9 +396,11 @@ async function buildAdminDashboardPayload(): Promise<AdminDashboardPayload> {
     };
     for (const d of deliveries) {
       const s = (String(d.status || '')).toLowerCase();
-      if (s === 'delivered' || s === 'done' || s === 'completed' || s === 'delivered-with-installation' || s === 'delivered-without-installation') {
+      if (s === 'delivered' || s === 'done' || s === 'completed' || s === 'pod-completed' || s === 'finished' || s === 'delivered-with-installation' || s === 'delivered-without-installation') {
         totals.delivered++;
+        const meta = (d.metadata ?? {}) as Record<string, unknown>;
         const hasPOD = (d.driverSignature || d.customerSignature || (d.photos && d.photos.length > 0) ||
+                       meta.driverSignature || meta.customerSignature || (Array.isArray(meta.photos) && (meta.photos as unknown[]).length > 0) ||
                        d.pod || d.proof_of_delivery || d.hasPOD);
         if (hasPOD) {
           totals.withPOD++;
