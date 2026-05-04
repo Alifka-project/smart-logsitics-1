@@ -5,7 +5,8 @@ import {
   outForDeliveryMessage,
   orderDelayMessage,
   deliveryCompletedMessage,
-  driverArrivingMessage
+  driverArrivingMessage,
+  cancellationMessage
 } from '../sms/customerMessageTemplates';
 import { smsAdapter } from '../sms/smsService';
 import { normalizeUAEPhone } from '../utils/phoneUtils';
@@ -551,13 +552,12 @@ router.put('/driver/:id/status', authenticate, requireRole('driver'), async (req
             }
           }
 
-          // Rejected or cancelled — treat as a terminal / "finished" order from the
-          // customer's perspective and send the same thank-you message we use for
-          // a successful delivery. (Business decision: thank the customer either way.)
+          // Rejected or cancelled — dedicated cancellation SMS so the customer
+          // is informed the order is closed (distinct from the delivered copy).
           const cancelStatuses = ['cancelled', 'rejected'];
           if (cancelStatuses.includes(lowerStatus) && !cancelStatuses.includes(prevStatus)) {
             console.log(`[Driver SMS] Firing rejection/cancel SMS for delivery ${deliveryIdParam}, prev=${prevStatus}, new=${lowerStatus}, phone=${normalizedPhone}`);
-            await trySend(deliveryCompletedMessage(customerName, poRef), 'status_order_finished');
+            await trySend(cancellationMessage(customerName, poRef, trackingLink), 'status_order_cancelled');
           }
         } catch (notifyErr: unknown) {
           console.warn('[Deliveries] Driver status SMS notify failed:', (notifyErr as Error).message);
@@ -1441,11 +1441,11 @@ router.put('/admin/:id/status', authenticate, requireAnyRole('admin', 'delivery_
           }
         }
 
-        // Cancelled or rejected — send the same thank-you message used for delivered
-        // orders (business decision: the order is "closed" from the customer's POV).
+        // Cancelled or rejected — dedicated cancellation SMS so the customer
+        // is informed the order is closed (distinct from the delivered copy).
         if (lowerStatus === 'cancelled' || lowerStatus === 'rejected') {
-          const body = deliveryCompletedMessage(customerName, poRef);
-          await silentSend(body, 'status_order_finished');
+          const body = cancellationMessage(customerName, poRef, trackingLink);
+          await silentSend(body, 'status_order_cancelled');
         }
 
         // Completed / delivered variants — all trigger the delivery-completed message
